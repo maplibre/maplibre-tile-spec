@@ -139,6 +139,8 @@ pub enum MltError {
     #[cfg(feature = "unstable-v2")]
     #[error("m-values are a v2 feature, so layer {0} cannot be written as v1")]
     MValuesNeedV2(String),
+    #[error("a vertex stream of {0} words does not hold whole vertices of {1} words")]
+    PartialVertex(u32, u32),
     #[cfg(feature = "unstable-v2")]
     #[error("nested properties are a v2 feature, so layer {0} cannot be written as v1")]
     NestedNeedsV2(String),
@@ -313,6 +315,8 @@ pub enum MltError {
     NoAlpParameters,
     #[error("invalid ALP parameters: e={0}, f={1}")]
     InvalidAlpParams(u8, u8),
+    #[error("invalid ALP scale byte {0}")]
+    InvalidAlpScale(u8),
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("need to encode before being able to write")]
@@ -383,6 +387,8 @@ pub enum MltError {
     UnexpectedOffsetCombination(usize, GeometryType),
     #[error("geometry: ring lengths without part lengths")]
     RingLengthsWithoutPartLengths,
+    #[error("geometry[{0}]: {1} requires outlines, which a triangles-only layer does not store")]
+    NonPolygonWithoutOutlines(usize, GeometryType),
 
     #[error("FastPFor error: {0}")]
     FastPfor(#[from] fastpfor::FastPForError),

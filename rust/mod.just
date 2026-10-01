@@ -547,25 +547,44 @@ generate-synthetic-dumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find
 wasm-bench: wasm-build
     npm run bench
 
+# Install the wasm-bindgen CLI the lockfile pins, so wasm-pack never builds it under the wasm-only RUSTFLAGS
+_wasm-bindgen-cli:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
+    if [ "$(wasm-bindgen --version 2>/dev/null)" != "wasm-bindgen $version" ]; then
+        if command -v cargo-binstall > /dev/null; then
+            cargo binstall wasm-bindgen-cli@$version --no-confirm --force --locked
+        else
+            cargo install wasm-bindgen-cli --version $version --force --locked
+        fi
+    fi
+
 # Build the mlt-wasm package (compiles Rust to WASM and TypeScript)
 [working-directory: 'mlt-wasm']
-wasm-build: (just 'cargo-install' 'wasm-pack')
+wasm-build: (just 'cargo-install' 'wasm-pack') _wasm-bindgen-cli
     npm ci --no-fund --no-audit
     npm run build
 
+# Build the mlt-wasm package as its tests need it, decoding v2 layers
+[working-directory: 'mlt-wasm']
+_wasm-build-test: (just 'cargo-install' 'wasm-pack') _wasm-bindgen-cli
+    npm ci --no-fund --no-audit
+    npm run build:test
+
 # Run mlt-wasm tests
 [working-directory: 'mlt-wasm']
-wasm-test: wasm-build
+wasm-test: _wasm-build-test
     npm run test
 
 # Update the committed mlt-wasm vitest snapshots, which `wasm-test` only verifies
 [working-directory: 'mlt-wasm']
-wasm-bless: wasm-build
+wasm-bless: _wasm-build-test
     npm run test:bless
 
 # Run the mlt-wasm tests against an instrumented build and export LCOV to target/lcov-wasm.info
 [working-directory: 'mlt-wasm']
-wasm-coverage: (just 'cargo-install' 'wasm-pack')
+wasm-coverage: (just 'cargo-install' 'wasm-pack') _wasm-bindgen-cli
     #!/usr/bin/env bash
     set -euo pipefail
     rustup component add llvm-tools-preview --toolchain nightly

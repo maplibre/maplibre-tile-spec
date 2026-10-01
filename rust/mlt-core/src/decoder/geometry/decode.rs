@@ -3,8 +3,8 @@ use usize_cast::IntoUsize as _;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
-    DictionaryType, GeoTypes, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType,
-    RawGeometry, RawStream, StreamMeta, StreamType, ValueKind,
+    DictionaryType, GeoTypes, GeometryType, GeometryValues, IndexBase, IntEncoding, LengthType,
+    OffsetType, RawGeometry, RawStream, StreamMeta, StreamType, ValueKind,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::SetOptionOnce as _;
@@ -229,6 +229,102 @@ pub fn decode_level2_length_stream(
     Ok(level2_buffer_offsets)
 }
 
+/// The geometry, part and ring levels of a section's topology, each present or not.
+#[derive(Default)]
+pub(crate) struct Levels {
+    pub(crate) geometries: Option<Vec<u32>>,
+    pub(crate) parts: Option<Vec<u32>>,
+    pub(crate) rings: Option<Vec<u32>>,
+}
+
+/// Rebuild the dense offset levels from the length streams a section stores.
+pub(crate) fn decode_topology(
+    vector_types: &[GeometryType],
+    lengths: Levels,
+    dec: &mut Decoder,
+) -> MltResult<Levels> {
+    let Levels {
+        geometries: mut geometry_offsets,
+        parts: mut part_offsets,
+        rings: mut ring_offsets,
+    } = lengths;
+    if let Some(offsets) = geometry_offsets.take() {
+        geometry_offsets = Some(decode_root_length_stream(
+            vector_types,
+            &offsets,
+            GeometryType::Polygon,
+            dec,
+        )?);
+        if let Some(part_offsets_copy) = part_offsets.take() {
+            if let Some(ring_offsets_copy) = ring_offsets.take() {
+                part_offsets = Some(decode_level1_length_stream(
+                    vector_types,
+                    geometry_offsets.as_ref().unwrap(),
+                    &part_offsets_copy,
+                    false, // isLineStringPresent
+                    dec,
+                )?);
+                ring_offsets = Some(decode_level2_length_stream(
+                    vector_types,
+                    geometry_offsets.as_ref().unwrap(),
+                    part_offsets.as_ref().unwrap(),
+                    &ring_offsets_copy,
+                    dec,
+                )?);
+            } else {
+                part_offsets = Some(decode_level1_without_ring_buffer_length_stream(
+                    vector_types,
+                    geometry_offsets.as_ref().unwrap(),
+                    &part_offsets_copy,
+                    dec,
+                )?);
+            }
+        }
+    } else if let Some(offsets) = part_offsets.take() {
+        if let Some(ring_offsets_copy) = ring_offsets.take() {
+            let is_line_string_present = vector_types.iter().any(|t| t.is_linestring());
+            part_offsets = Some(decode_root_length_stream(
+                vector_types,
+                &offsets,
+                GeometryType::LineString,
+                dec,
+            )?);
+            ring_offsets = Some(decode_level1_length_stream(
+                vector_types,
+                part_offsets.as_ref().unwrap(),
+                &ring_offsets_copy,
+                is_line_string_present,
+                dec,
+            )?);
+        } else {
+            part_offsets = Some(decode_root_length_stream(
+                vector_types,
+                &offsets,
+                GeometryType::Point,
+                dec,
+            )?);
+        }
+    }
+    Ok(Levels {
+        geometries: geometry_offsets,
+        parts: part_offsets,
+        rings: ring_offsets,
+    })
+}
+
+/// Turn one triangle count per polygon feature into offsets, starting at `0`.
+fn decode_triangle_offsets(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<u32>> {
+    let alloc_size = lengths.len().checked_add(1).or_overflow()?;
+    let mut offsets = dec.alloc(alloc_size)?;
+    offsets.push(0);
+    let mut total = 0_u32;
+    for &len in lengths {
+        total = total.checked_add(len).or_overflow()?;
+        offsets.push(total);
+    }
+    Ok(offsets)
+}
+
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams).
     /// Reserves decoded memory against the parser's budget.
@@ -247,6 +343,7 @@ impl<'a> RawGeometry<'a> {
                         ),
                         &[],
                     )),
+                    index_base: IndexBase::Feature,
                     items: Vec::new(),
                 },
             ));
@@ -261,6 +358,7 @@ impl<'a> RawGeometry<'a> {
             input,
             Self {
                 types: GeoTypes::Stream(meta),
+                index_base: IndexBase::Feature,
                 items,
             },
         ))
@@ -272,7 +370,11 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
     /// allocation.  All streams carry `num_values` in their metadata so every
     /// charge is pre-hoc.
     fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
-        let RawGeometry { types, items } = self;
+        let RawGeometry {
+            types,
+            index_base,
+            items,
+        } = self;
         let vector_types = decode_geometry_types(types, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
@@ -325,77 +427,38 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             }
         }
 
-        if index_buffer.is_some() && part_offsets.is_none() {
-            // Case when the indices of a Polygon outline are not encoded in the data so no
-            // topology data are present in the tile
-            //
-            // return FlatGpuVector::new(vector_types, triangles, index_buffer, vertices);
-            return Err(MltError::NotImplemented(
-                "index_buffer.is_some() && part_offsets.is_none() case",
-            ));
-        }
-
-        // Use decode_root_length_stream if geometry_offsets is present
-        if let Some(offsets) = geometry_offsets.take() {
-            geometry_offsets = Some(decode_root_length_stream(
-                &vector_types,
-                &offsets,
-                GeometryType::Polygon,
-                dec,
-            )?);
-            if let Some(part_offsets_copy) = part_offsets.take() {
-                if let Some(ring_offsets_copy) = ring_offsets.take() {
-                    part_offsets = Some(decode_level1_length_stream(
-                        &vector_types,
-                        geometry_offsets.as_ref().unwrap(),
-                        &part_offsets_copy,
-                        false, // isLineStringPresent
-                        dec,
-                    )?);
-                    ring_offsets = Some(decode_level2_length_stream(
-                        &vector_types,
-                        geometry_offsets.as_ref().unwrap(),
-                        part_offsets.as_ref().unwrap(),
-                        &ring_offsets_copy,
-                        dec,
-                    )?);
-                } else {
-                    part_offsets = Some(decode_level1_without_ring_buffer_length_stream(
-                        &vector_types,
-                        geometry_offsets.as_ref().unwrap(),
-                        &part_offsets_copy,
-                        dec,
-                    )?);
-                }
+        let triangles_only = index_buffer.is_some() && part_offsets.is_none();
+        if triangles_only {
+            if index_base == IndexBase::Feature {
+                return Err(MltError::NotImplemented(
+                    "v1 triangles without outline topology",
+                ));
             }
-        } else if let Some(offsets) = part_offsets.take() {
-            if let Some(ring_offsets_copy) = ring_offsets.take() {
-                let is_line_string_present = vector_types.iter().any(|t| t.is_linestring());
-                part_offsets = Some(decode_root_length_stream(
-                    &vector_types,
-                    &offsets,
-                    GeometryType::LineString,
-                    dec,
-                )?);
-                ring_offsets = Some(decode_level1_length_stream(
-                    &vector_types,
-                    part_offsets.as_ref().unwrap(),
-                    &ring_offsets_copy,
-                    is_line_string_present,
-                    dec,
-                )?);
-            } else {
-                part_offsets = Some(decode_root_length_stream(
-                    &vector_types,
-                    &offsets,
-                    GeometryType::Point,
-                    dec,
-                )?);
+            if let Some((index, &geom_type)) = vector_types
+                .iter()
+                .enumerate()
+                .find(|(_, t)| !t.is_polygon())
+            {
+                return Err(MltError::NonPolygonWithoutOutlines(index, geom_type));
             }
         }
 
-        // Case when the indices of a Polygon outline are encoded in the tile
-        // This is handled by including index_buffer in the GeometryValues
+        let Levels {
+            geometries: geometry_offsets,
+            parts: part_offsets,
+            rings: ring_offsets,
+        } = decode_topology(
+            &vector_types,
+            Levels {
+                geometries: geometry_offsets,
+                parts: part_offsets,
+                rings: ring_offsets,
+            },
+            dec,
+        )?;
+        let triangle_offsets = triangles
+            .map(|lengths| decode_triangle_offsets(&lengths, dec))
+            .transpose()?;
 
         // Expand vertex dictionary:
         // If a vertex offset stream was present,
@@ -429,14 +492,18 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             )?);
         }
 
-        Ok(GeometryValues {
+        let mut values = GeometryValues {
             vector_types,
             geometry_offsets,
             part_offsets,
             ring_offsets,
             index_buffer,
-            triangles,
+            triangle_offsets,
             vertices,
-        })
+        };
+        if index_base == IndexBase::Feature {
+            values.rebase_indices_to_layer()?;
+        }
+        Ok(values)
     }
 }

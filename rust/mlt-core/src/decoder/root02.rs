@@ -56,7 +56,7 @@ use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02};
 use crate::decoder::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
-    DictionaryType, FloatLogical, GeoLayout, GeoTypes, Id, IdWidth02, Layer01, Layer02,
+    DictionaryType, FloatLogical, GeoLayout, GeoTypes, Id, IdWidth02, IndexBase, Layer01, Layer02,
     LayerHeader02, LayerLayout, LengthType, LogicalEncoding, MValues, Nested, Presence02,
     RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue, RawMValue,
     RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding,
@@ -744,5 +744,12 @@ fn parse_geometry<'a>(
         input = stream(input, StreamCtx02::GeomVertexOffsets, &mut items)?;
     }
 
-    Ok((input, RawGeometry { types, items }))
+    Ok((
+        input,
+        RawGeometry {
+            types,
+            index_base: IndexBase::Layer,
+            items,
+        },
+    ))
 }

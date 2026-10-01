@@ -19,7 +19,7 @@ MLT is mainly inspired by MVT, but has been redesigned from the ground up to imp
 - **Improved processing performance**: Based on an in-memory format that can be processed efficiently on the CPU and GPU and loaded directly into GPU buffers partially (like polygons in WebGL) or completely (in case of WebGPU compute shader usage) without additional processing
 
 The last three are not yet implemented.
-They are planned for [MLT v2](specification/v2.md), see [Planned features](specification/v2.md#planned-features).
+They are planned for [MLT v2](specification/v2.md).
 
 ## Documentation
 

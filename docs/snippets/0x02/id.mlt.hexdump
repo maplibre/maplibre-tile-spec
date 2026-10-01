@@ -1,5 +1,5 @@
-00000000                                                                     | layer[0] "layer1" (22 B)
-00000000  15                                                .                |   size: 21 (varint) - tag + body
+00000000                                                                     | layer[0] "layer1" (21 B)
+00000000  14                                                .                |   size: 20 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 00000009  10                                                .                |   header: extent = 64, every feature is a Point
@@ -11,28 +11,27 @@
                                                                              |     └ bit 7 = 0 -> shared bitfields are bitmaps
                                                                              |     └ bits 6-4 = 000 -> shared presence bitfields = 0
                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
-0000000c                                                                     |   geometry (5 B)
-0000000c                                                                     |     vertices (5 B)
-0000000c  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
-                                                                             |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+0000000c                                                                     |   geometry (4 B)
+0000000c                                                                     |     vertices (4 B)
+0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+                                                                             |         └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
                                                                              |         └ bits 1-0 = 00 -> extension = 0
-0000000d  02                                                .                |       num_values: 2
-0000000e  02                                                .                |       byte_length: 2
-0000000f  1a 54                                             .T               |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 2 values, 2 B]
+0000000d  02                                                .                |       byte_length: 2
+0000000e  1a 54                                             .T               |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 1 values, 2 B]
                                                                              |         decoded: [13, 42]
-00000011  01                                                .                |   column_count: 1
-00000012                                                                     |   column[0] Id (4 B)
-00000012  00                                                .                |     type: 0x00 AllPresent Id
+00000010  01                                                .                |   column_count: 1
+00000011                                                                     |   column[0] Id (4 B)
+00000011  00                                                .                |     type: 0x00 AllPresent Id
                                                                              |       └ bits 7-4 = 0000 -> presence = AllPresent
                                                                              |       └ bits 3-0 = 0000 -> data type = Id
-00000013                                                                     |     data (3 B)
-00000013  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
+00000012                                                                     |     data (3 B)
+00000012  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
                                                                              |         └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
                                                                              |         └ bits 1-0 = 00 -> extension = 0
-00000014  01                                                .                |       byte_length: 1
-00000015  64                                                d                |       data [Data(None) Int(None)/VarInt, 1 values, 1 B]
+00000013  01                                                .                |       byte_length: 1
+00000014  64                                                d                |       data [Data(None) Int(None)/VarInt, 1 values, 1 B]
                                                                              |         decoded: [100]

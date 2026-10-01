@@ -1,0 +1,50 @@
+<svg class="mlt-diagram" viewBox="0 0 710 446" role="img" aria-label="The triangles of mix_2_poly_mpoly_tes with their vertex positions" xmlns="http://www.w3.org/2000/svg">
+<text class="t0 bold" x="40" y="14">feature 0<tspan class="muted"> · Polygon</tspan></text>
+<path class="bracket t0" d="M40 34V28H280V34"/>
+<text class="t1 bold" x="350" y="14">feature 1<tspan class="muted"> · MultiPolygon</tspan></text>
+<path class="bracket t1" d="M350 34V28H690V34"/>
+<text class="muted small" x="350" y="50">1st polygon, with a hole</text>
+<text class="muted small" x="630" y="50">2nd polygon</text>
+<polygon class="f0" points="76,356 40,80 280,284"/>
+<polygon class="f1" points="350,212 446,212 482,272"/>
+<polygon class="f1" points="506,152 446,212 350,212"/>
+<polygon class="f1" points="518,344 350,212 482,272"/>
+<polygon class="f1" points="506,152 350,212 578,80"/>
+<polygon class="f1" points="578,80 518,344 482,272"/>
+<polygon class="f1" points="482,272 506,152 578,80"/>
+<polygon class="f1" points="654,188 630,80 678,164"/>
+<text class="tri t0 halo" x="132" y="240">0</text>
+<text class="tri t1 halo" x="426" y="232">1</text>
+<text class="tri t1 halo" x="434" y="192">2</text>
+<text class="tri t1 halo" x="450" y="276">3</text>
+<text class="tri t1 halo" x="478" y="148">4</text>
+<text class="tri t1 halo" x="526" y="232">5</text>
+<text class="tri t1 halo" x="522" y="168">6</text>
+<text class="tri t1 halo" x="654" y="144">7</text>
+<circle class="dot" cx="40" cy="80" r="3.5"/>
+<text class="vert halo" x="28" y="80">0</text>
+<circle class="dot" cx="76" cy="356" r="3.5"/>
+<text class="vert halo" x="76" y="374">1</text>
+<circle class="dot" cx="280" cy="284" r="3.5"/>
+<text class="vert halo" x="294" y="284">2</text>
+<circle class="dot" cx="350" cy="212" r="3.5"/>
+<text class="vert halo" x="336" y="212">3</text>
+<circle class="dot" cx="518" cy="344" r="3.5"/>
+<text class="vert halo" x="518" y="362">4</text>
+<circle class="dot" cx="578" cy="80" r="3.5"/>
+<text class="vert halo" x="590" y="74">5</text>
+<circle class="dot" cx="446" cy="212" r="3.5"/>
+<text class="vert halo" x="461" y="212">6</text>
+<circle class="dot" cx="506" cy="152" r="3.5"/>
+<text class="vert halo" x="499" y="168">7</text>
+<circle class="dot" cx="482" cy="272" r="3.5"/>
+<text class="vert halo" x="481" y="256">8</text>
+<circle class="dot" cx="630" cy="80" r="3.5"/>
+<text class="vert halo" x="618" y="80">9</text>
+<circle class="dot" cx="654" cy="188" r="3.5"/>
+<text class="vert halo" x="654" y="206">10</text>
+<circle class="dot" cx="678" cy="164" r="3.5"/>
+<text class="vert halo" x="692" y="164">11</text>
+<text class="muted" x="40" y="410"><tspan class="fg">0-11</tspan> vertex position in the layer</text>
+<text class="muted" x="40" y="432"><tspan class="t0 bold">0</tspan><tspan class="t1 bold">-7</tspan> triangle in index buffer order</text>
+</svg>

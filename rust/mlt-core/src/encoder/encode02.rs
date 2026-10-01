@@ -27,7 +27,7 @@ use crate::decoder::{
     LayerLayout, LengthType, LogicalEncoding, NodeKind02, NodePresence, NodeType02,
     PhysicalEncoding, Presence02, StreamMeta, StreamType, ValueType02,
 };
-use crate::encoder::geometry::encode02::encode_geometry02;
+use crate::encoder::geometry::encode02::{Outlines, encode_geometry02};
 use crate::encoder::model::{StagedLayer, StrAt, StreamCtx};
 use crate::encoder::nested::RowShapes;
 use crate::encoder::{
@@ -254,7 +254,13 @@ pub(crate) fn encode_into02(
 
     // ── Layer layout byte + shared presence bitfields ─────────────────────
     let shared = SharedPresence::plan(&id, &properties, &nested, &m_values);
-    let geometry = encode_geometry02(geometry)?;
+    // An m-value column reads its vertex counts from the outlines.
+    let outlines = if enc.config().allow_triangles_only() && m_values.is_empty() {
+        Outlines::DropForPolygons
+    } else {
+        Outlines::Keep
+    };
+    let geometry = encode_geometry02(geometry, outlines)?;
     // The geometry layout is only settled once its vertex streams are written, so
     // the byte is reserved here and patched below.
     let layout_pos = enc.data().len();

@@ -4,7 +4,7 @@
     {
       "name": "inspector",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "docs/inspector/.app"],
+      "runtimeArgs": ["run", "dev", "--prefix", "inspector"],
       "port": 5173
     }
   ]

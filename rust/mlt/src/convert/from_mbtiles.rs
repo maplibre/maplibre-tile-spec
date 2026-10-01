@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::Instant;
 
@@ -67,6 +67,9 @@ pub async fn convert(
 struct EncodeSizes {
     bytes_in: AtomicU64,
     bytes_out: AtomicU64,
+    /// Tiles the transcoder dropped because they failed to encode, which it only logs.
+    failed: AtomicU64,
+    first_error: OnceLock<String>,
 }
 
 async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata, u64)> {
@@ -127,11 +130,17 @@ async fn convert_mbtiles_to_mbtiles(
             .fetch_add(u64::from_usize(data.len()), Ordering::Relaxed);
         let result = encode_one(data, encoding, cfg)
             .map(|(data, _raw_mvt_size)| data)
-            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() });
-        if let Ok(ref encoded) = result {
-            sizes_ref
-                .bytes_out
-                .fetch_add(u64::from_usize(encoded.len()), Ordering::Relaxed);
+            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { format!("{e:#}").into() });
+        match &result {
+            Ok(encoded) => {
+                sizes_ref
+                    .bytes_out
+                    .fetch_add(u64::from_usize(encoded.len()), Ordering::Relaxed);
+            }
+            Err(e) => {
+                sizes_ref.failed.fetch_add(1, Ordering::Relaxed);
+                let _ = sizes_ref.first_error.set(e.to_string());
+            }
         }
         bar_ref.inc(1);
         result
@@ -148,12 +157,22 @@ async fn convert_mbtiles_to_mbtiles(
     let stats = transcoder.run().await?;
 
     bar.finish_and_clear();
+    let failed = sizes.failed.load(Ordering::Relaxed);
+    if failed > 0 {
+        bail!(
+            "{failed} tiles failed to convert and are missing from {}, the first with: {}",
+            output.display(),
+            sizes.first_error.get().map_or("", String::as_str)
+        );
+    }
 
     // The transcoder copies source metadata; override `format` to MLT.
     let dst = Mbtiles::new(output)?;
     let mut dst_conn = dst.open_or_new().await?;
     dst.set_metadata_value(&mut dst_conn, "format", Format::Mlt.metadata_format_value())
         .await?;
+    // The copied hash describes the source's tiles, so it would fail every validation of these.
+    dst.update_agg_tiles_hash(&mut dst_conn).await?;
     // The copied geography still describes the whole source archive.
     if let Some(clip) = clip {
         clip_tilejson(&mut metadata.tilejson, clip);
@@ -556,6 +575,71 @@ mod tests {
             err.to_string(),
             "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: tiles"
         );
+    }
+
+    #[tokio::test]
+    async fn an_mbtiles_tile_that_is_not_mvt_fails_the_conversion() {
+        let source = TempArchive::new("mbtiles");
+        let output = TempArchive::new("mbtiles");
+        write_source(
+            &source.0,
+            MbtType::Flat,
+            &[(0, 0, 0, POINT_MVT), (1, 1, 1, b"not an mvt tile")],
+            &[("format", "pbf")],
+        )
+        .await;
+
+        let err = convert(
+            &source.0,
+            (&output.0, ContainerFormat::Mbtiles),
+            EncoderConfig::default(),
+            None,
+            Compression::None,
+            None,
+        )
+        .await
+        .expect_err("a broken tile fails the conversion");
+
+        assert_eq!(
+            format!("{err:#}"),
+            format!(
+                "1 tiles failed to convert and are missing from {}, the first with: \
+                 MVT error: protobuf decode error: invalid wire type: 6: \
+                 protobuf decode error: invalid wire type: 6: invalid wire type: 6",
+                output.0.display()
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn a_converted_mbtiles_hashes_its_own_tiles() {
+        let source = TempArchive::new("mbtiles");
+        let output = TempArchive::new("mbtiles");
+        write_two_tile_source(
+            &source.0,
+            &[
+                ("format", "pbf"),
+                ("agg_tiles_hash", "0123456789ABCDEF0123456789ABCDEF"),
+            ],
+        )
+        .await;
+
+        convert(
+            &source.0,
+            (&output.0, ContainerFormat::Mbtiles),
+            EncoderConfig::default(),
+            None,
+            Compression::None,
+            None,
+        )
+        .await
+        .expect("conversion succeeds");
+
+        let mbt = Mbtiles::new(&output.0).expect("output opens");
+        let mut conn = mbt.open_readonly().await.expect("output connects");
+        mbt.check_agg_tiles_hashes(&mut conn)
+            .await
+            .expect("the stored hash matches the MLT tiles");
     }
 
     #[tokio::test]

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.15.1...rust-mlt-core-v0.16.0) - 2026-09-27
+
+### Added
+
+- *(rust,v2)* store only the triangles of an all-polygon tessellated layer ([#1780](https://github.com/maplibre/maplibre-tile-spec/pull/1780))
+- *(rust,v2)* count triangle indices from the layer's first vertex ([#1784](https://github.com/maplibre/maplibre-tile-spec/pull/1784))
+- *(docs)* inspector filter and layout improvements ([#1781](https://github.com/maplibre/maplibre-tile-spec/pull/1781))
+
+### Other
+
+- *(rust)* pull geometry topology decoding into decode_topology ([#1783](https://github.com/maplibre/maplibre-tile-spec/pull/1783))
+
+## [0.15.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.15.0...rust-mlt-core-v0.15.1) - 2026-09-27
+
+### Added
+
+- *(rust,v2)* pack ALP e and f into one byte instead of two varints ([#1779](https://github.com/maplibre/maplibre-tile-spec/pull/1779))
+- *(docs)* show all possible filters with dynamic counts ([#1773](https://github.com/maplibre/maplibre-tile-spec/pull/1773))
+
 ## [0.15.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.5...rust-mlt-core-v0.15.0) - 2026-09-25
 
 ### Added

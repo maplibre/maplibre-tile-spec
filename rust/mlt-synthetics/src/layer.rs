@@ -175,6 +175,8 @@ pub struct Layer {
     geo_stream_overrides: HashMap<&'static str, IntEncoder>,
     vertex_buffer_type: VertexBufferType,
     tessellate: bool,
+    /// Whether the tessellated polygons drop their outlines, which only v2 can do.
+    triangles_only: bool,
     /// Geometry stream names that must be written even when their data is empty.
     /// See [`ExplicitEncoder::force_stream`] for details.
     force_empty_streams: HashSet<&'static str>,
@@ -201,6 +203,7 @@ impl Layer {
             geo_stream_overrides: HashMap::new(),
             vertex_buffer_type: VertexBufferType::Vec2,
             tessellate: false,
+            triangles_only: false,
             force_empty_streams: HashSet::new(),
             geometry_items: vec![],
             props: vec![],
@@ -281,6 +284,16 @@ impl Layer {
     pub fn tessellate(mut self) -> Self {
         self.tessellate = true;
         self
+    }
+
+    /// Tessellate, and store only the triangles, without the polygon outlines.
+    /// v1 has no layout for that, so the layer is v2-only.
+    #[must_use]
+    #[track_caller]
+    pub fn triangles_only(mut self) -> Self {
+        self.tessellate = true;
+        self.triangles_only = true;
+        self.no_v1()
     }
 
     /// Force a geometry stream to be written even when its data is empty.
@@ -661,6 +674,7 @@ impl Layer {
             geo_stream_overrides,
             vertex_buffer_type,
             tessellate,
+            triangles_only,
             force_empty_streams,
             geometry_items,
             props,
@@ -675,6 +689,7 @@ impl Layer {
 
         let enc_cfg = EncoderConfig::default()
             .with_tessellation(tessellate)
+            .with_triangles_only(triangles_only)
             .with_row_shapes(row_shapes)
             .with_wire_version(wire_version);
 

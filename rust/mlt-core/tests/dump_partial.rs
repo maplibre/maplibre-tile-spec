@@ -22,15 +22,15 @@ fn a_tile_cut_inside_a_stream_payload_seals_every_container_it_left_open() {
     assert!(err.is_some(), "the walk must still report why it bailed");
     insta::assert_snapshot!(container_spans(&tree), @r#"
     layer[0] 0..40
-      column_schema[0] 11..12
-      column_schema[1] 12..18
-        column_schema[0] 16..18
+      column_schema[0] Geometry 11..12
+      column_schema[1] SharedDict "a" 12..18
+        column_schema[0] OptStr "" 16..18
       column[0] Geometry 18..30
         meta 19..24
-        stream[0] 24..30
+        stream[0] Data(Vertex) 24..30
       column[1] SharedDict "a" 30..40
-        dict_stream[0] 31..36
-        dict_stream[1] 36..40
+        dict_stream[0] Length(Dictionary) 31..36
+        dict_stream[1] Data(Shared) 36..40
     "#);
 }
 

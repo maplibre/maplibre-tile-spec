@@ -38,7 +38,7 @@ use usize_cast::IntoUsize as _;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    Alp, BoolLogical, DataType02, DictLayout, DictionaryType, FastPForKind, FloatLogical,
+    Alp, AlpScale, BoolLogical, DataType02, DictLayout, DictionaryType, FastPForKind, FloatLogical,
     IntEncoding, IntLogical, LengthType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
     RawStream, RleMeta, StreamMeta, StreamType, VertexLogical,
 };
@@ -81,6 +81,8 @@ pub(crate) enum Logical {
     Dict,
     FrontCoded,
     BitPacked,
+    Delta2,
+    CwDelta2,
 }
 
 /// How a string column lays its streams out, named by the extension bits of its leading stream.
@@ -163,10 +165,17 @@ impl Family {
     const fn members(self) -> &'static [Logical] {
         use Logical as L;
         match self {
-            Self::Int(_) | Self::Str(_) => &[L::None, L::Delta, L::Rle, L::DeltaRle, L::BitPacked],
+            Self::Int(_) | Self::Str(_) => &[
+                L::None,
+                L::Delta,
+                L::Rle,
+                L::DeltaRle,
+                L::BitPacked,
+                L::Delta2,
+            ],
             Self::Bool => &[L::None, L::Rle],
             Self::Float(_) => &[L::None, L::Rle, L::Alp, L::Dict],
-            Self::Vertex => &[L::None, L::Delta, L::CwDelta, L::Morton],
+            Self::Vertex => &[L::None, L::Delta, L::CwDelta, L::Morton, L::CwDelta2],
             Self::Bytes => &[L::None, L::FrontCoded],
         }
     }
@@ -386,6 +395,7 @@ pub(crate) enum LogicalInt {
     /// Every value in the same number of bits, so the physical field is reserved.
     /// The width leads the payload, since it is a property of the values rather than of the format.
     BitPacked,
+    Delta2(PhysicalInt),
 }
 
 /// Logical encoding of a bool column's data stream.
@@ -431,6 +441,7 @@ pub(crate) enum LogicalVertex {
     None(RawInt),
     Delta(PhysicalInt),
     CwDelta(PhysicalInt),
+    CwDelta2(PhysicalInt),
     /// Deltas between the Morton codes of a sorted vertex dictionary.
     /// The grid the codes are laid on follows the byte length as two varints.
     Morton(PhysicalInt),
@@ -509,9 +520,13 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
             no_physical(enc_byte)?;
             LogicalInt::BitPacked
         }
-        Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::Dict | Logical::FrontCoded => {
-            unreachable_member(family, logical)
-        }
+        Logical::Delta2 => LogicalInt::Delta2(physical_int(enc_byte)?),
+        Logical::CwDelta
+        | Logical::Morton
+        | Logical::Alp
+        | Logical::Dict
+        | Logical::FrontCoded
+        | Logical::CwDelta2 => unreachable_member(family, logical),
     })
 }
 
@@ -548,7 +563,9 @@ impl Encoding02 {
                     | Logical::Morton
                     | Logical::Alp
                     | Logical::Dict
-                    | Logical::BitPacked => unreachable_member(family, logical),
+                    | Logical::BitPacked
+                    | Logical::Delta2
+                    | Logical::CwDelta2 => unreachable_member(family, logical),
                 })
             }
             Family::Bool => Self::Bool(match logical {
@@ -564,7 +581,9 @@ impl Encoding02 {
                 | Logical::Alp
                 | Logical::Dict
                 | Logical::FrontCoded
-                | Logical::BitPacked => unreachable_member(family, logical),
+                | Logical::BitPacked
+                | Logical::Delta2
+                | Logical::CwDelta2 => unreachable_member(family, logical),
             }),
             Family::Float(_) => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
@@ -579,19 +598,23 @@ impl Encoding02 {
                 | Logical::DeltaRle
                 | Logical::Morton
                 | Logical::FrontCoded
-                | Logical::BitPacked => unreachable_member(family, logical),
+                | Logical::BitPacked
+                | Logical::Delta2
+                | Logical::CwDelta2 => unreachable_member(family, logical),
             }),
             Family::Vertex => Self::Vertex(match logical {
                 Logical::None => LogicalVertex::None(raw_int(enc_byte)?),
                 Logical::Delta => LogicalVertex::Delta(physical_int(enc_byte)?),
                 Logical::CwDelta => LogicalVertex::CwDelta(physical_int(enc_byte)?),
+                Logical::CwDelta2 => LogicalVertex::CwDelta2(physical_int(enc_byte)?),
                 Logical::Morton => LogicalVertex::Morton(physical_int(enc_byte)?),
                 Logical::Rle
                 | Logical::DeltaRle
                 | Logical::Alp
                 | Logical::Dict
                 | Logical::FrontCoded
-                | Logical::BitPacked => unreachable_member(family, logical),
+                | Logical::BitPacked
+                | Logical::Delta2 => unreachable_member(family, logical),
             }),
         })
     }
@@ -609,6 +632,8 @@ impl Encoding02 {
                 Logical::Delta
             }
             Self::Vertex(LogicalVertex::CwDelta(_)) => Logical::CwDelta,
+            Self::Int(LogicalInt::Delta2(_)) => Logical::Delta2,
+            Self::Vertex(LogicalVertex::CwDelta2(_)) => Logical::CwDelta2,
             Self::Int(LogicalInt::Rle)
             | Self::Bool(LogicalBool::Rle)
             | Self::Float(LogicalFloat::Rle) => Logical::Rle,
@@ -628,10 +653,13 @@ impl Encoding02 {
             Self::Int(LogicalInt::None(raw)) | Self::Vertex(LogicalVertex::None(raw)) => {
                 raw.label()
             }
-            Self::Int(LogicalInt::Delta(p))
+            Self::Int(LogicalInt::Delta(p) | LogicalInt::Delta2(p))
             | Self::Float(LogicalFloat::Dict(p) | LogicalFloat::Alp(p))
             | Self::Vertex(
-                LogicalVertex::Delta(p) | LogicalVertex::CwDelta(p) | LogicalVertex::Morton(p),
+                LogicalVertex::Delta(p)
+                | LogicalVertex::CwDelta(p)
+                | LogicalVertex::CwDelta2(p)
+                | LogicalVertex::Morton(p),
             ) => p.into(),
             Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => p.into(),
             Self::Bytes(LogicalBytes::None | LogicalBytes::FrontCoded) => {
@@ -641,6 +669,24 @@ impl Encoding02 {
             Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
             | Self::Bool(LogicalBool::Rle)
             | Self::Float(LogicalFloat::Rle) => "implied",
+        }
+    }
+
+    /// The words one counted value spans, which only a vertex stream makes more than one.
+    fn words_per_value(self) -> u32 {
+        match self {
+            Self::Vertex(
+                LogicalVertex::None(_)
+                | LogicalVertex::Delta(_)
+                | LogicalVertex::CwDelta(_)
+                | LogicalVertex::CwDelta2(_),
+            ) => 2,
+            Self::Int(_)
+            | Self::Bool(_)
+            | Self::Float(_)
+            | Self::Vertex(LogicalVertex::Morton(_))
+            | Self::Str(..)
+            | Self::Bytes(_) => 1,
         }
     }
 
@@ -696,6 +742,13 @@ impl Encoding02 {
                 LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta),
                 flat_int(p),
             ),
+            Self::Int(LogicalInt::Delta2(p)) => {
+                IntEncoding::new(LogicalEncoding::Int(IntLogical::Delta2), flat_int(p))
+            }
+            Self::Vertex(LogicalVertex::CwDelta2(p)) => IntEncoding::new(
+                LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2),
+                flat_int(p),
+            ),
             Self::Int(LogicalInt::Rle) => IntEncoding::new(
                 LogicalEncoding::Int(IntLogical::Rle(rle())),
                 PhysicalEncoding::VarInt,
@@ -725,12 +778,12 @@ impl Encoding02 {
                 return Err(MltError::NotImplemented("v2 RLE over a float column"));
             }
             Self::Float(LogicalFloat::Alp(p)) => {
-                let (after, e) = parse_varint::<u8>(input)?;
-                let (after, f) = parse_varint::<u8>(after)?;
+                let (after, scale) = parse_u8(input)?;
                 let (after, base) = parse_varint::<i64>(after)?;
                 rest = after;
+                let scale = AlpScale::from_byte(scale)?;
                 IntEncoding::new(
-                    LogicalEncoding::Float(FloatLogical::Alp(Alp::new(e, f, base)?)),
+                    LogicalEncoding::Float(FloatLogical::Alp(Alp { scale, base })),
                     flat_int(p),
                 )
             }
@@ -806,11 +859,11 @@ struct WireFields {
 
 /// The logical encoding and physical field bits `encoding` is written as, in `family`'s numbering.
 /// The caller checks the logical against the family, which is where an illegal pairing is caught.
-/// A raw stream of `num_values` elements whose width `family` fixes gets physical `00` and no `byte_length`.
+/// A raw stream of `num_words` elements whose width `family` fixes gets physical `00` and no `byte_length`.
 fn wire_fields(
     encoding: IntEncoding,
     family: Family,
-    num_values: u32,
+    num_words: u32,
     byte_length: u32,
 ) -> MltResult<WireFields> {
     use BoolLogical as BL;
@@ -852,7 +905,7 @@ fn wire_fields(
 
     Ok(match encoding.logical {
         LE::Int(IL::None) | LE::Bool(BL::None) | LE::Float(FL::None) | LE::Vertex(VL::None) => {
-            match (encoding.physical, family.raw_byte_length(num_values)?) {
+            match (encoding.physical, family.raw_byte_length(num_words)?) {
                 (PhysicalEncoding::None, Some(expected)) => {
                     fail_if_invalid_stream_size(byte_length.into_usize(), expected.into_usize())?;
                     WireFields {
@@ -868,6 +921,8 @@ fn wire_fields(
             with_length(Logical::Delta, physical(encoding)?)
         }
         LE::Vertex(VL::ComponentwiseDelta) => with_length(Logical::CwDelta, physical(encoding)?),
+        LE::Int(IL::Delta2) => with_length(Logical::Delta2, physical(encoding)?),
+        LE::Vertex(VL::ComponentwiseDelta2) => with_length(Logical::CwDelta2, physical(encoding)?),
         LE::Int(IL::Rle(rle) | IL::DeltaRle(rle)) => {
             if !matches!(rle, RleMeta::Interleaved { .. }) {
                 return Err(MltError::UnsupportedLogicalEncoding(
@@ -912,7 +967,7 @@ fn wire_fields(
 /// - `count` is what the stream is read against where its header carries no count
 ///   of its own, which only a [`Count02::Implied`] one can supply.
 ///
-/// Reserves an upper-bound estimate of decoded bytes (`num_values * 8`) on the
+/// Reserves an upper-bound estimate of decoded bytes (eight per word) on the
 /// parser, mirroring the v1 codec.
 pub(crate) fn parse_stream<'a>(
     input: &'a [u8],
@@ -924,14 +979,20 @@ pub(crate) fn parse_stream<'a>(
     let family = ctx.family();
     let encoding = Encoding02::parse(family, enc_byte)?;
 
+    let num_words = |num_values: u32| {
+        num_values
+            .checked_mul(encoding.words_per_value())
+            .or_overflow()
+    };
+
     let explicit = enc_byte & HAS_EXPLICIT_COUNT != 0;
     // A blob's count is its byte length, so it has nothing for a count varint to say.
     if explicit && family == Family::Bytes {
         return Err(MltError::ParsingEncodingByte(enc_byte));
     }
-    let (input, wire_count) = if explicit {
-        let (input, wire_count) = parse_varint::<u32>(input)?;
-        (input, Some(wire_count))
+    let (input, explicit_count) = if explicit {
+        let (input, explicit_count) = parse_varint::<u32>(input)?;
+        (input, Some(explicit_count))
     } else {
         (input, None)
     };
@@ -941,8 +1002,8 @@ pub(crate) fn parse_stream<'a>(
         let (input, byte_length) = parse_varint::<u32>(input)?;
         (input, byte_length, byte_length)
     } else {
-        let num_values = match wire_count {
-            Some(wire_count) => wire_count,
+        let num_values = match explicit_count {
+            Some(explicit_count) => explicit_count,
             None => match count {
                 Count02::Implied(count) => count,
                 Count02::Explicit => {
@@ -952,7 +1013,7 @@ pub(crate) fn parse_stream<'a>(
         };
         if encoding.omits_byte_length() {
             let byte_length = family
-                .raw_byte_length(num_values)?
+                .raw_byte_length(num_words(num_values)?)?
                 .ok_or(MltError::ParsingEncodingByte(enc_byte))?;
             (input, num_values, byte_length)
         } else {
@@ -964,7 +1025,7 @@ pub(crate) fn parse_stream<'a>(
     parser.reserve(if family == Family::Bytes {
         byte_length
     } else {
-        num_values.saturating_mul(8)
+        num_words(num_values)?.saturating_mul(8)
     })?;
     let (input, encoding) = encoding.to_model(input, num_values)?;
     let (input, data) = take(input, byte_length)?;
@@ -989,12 +1050,15 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     // derives by scanning the pairs to `byte_length`).
     let num_values = match meta.encoding.logical {
         LE::Int(IntLogical::Rle(rle) | IntLogical::DeltaRle(rle)) => rle.num_rle_values(),
-        LE::Int(IntLogical::None | IntLogical::Delta)
+        LE::Int(IntLogical::None | IntLogical::Delta | IntLogical::Delta2)
         | LE::Bool(_)
         | LE::Float(_)
         | LE::Vertex(_) => meta.num_values,
     };
-    let fields = wire_fields(meta.encoding, family, num_values, byte_length)?;
+    let num_words = num_values
+        .checked_mul(meta.encoding.logical.words_per_value())
+        .or_overflow()?;
+    let fields = wire_fields(meta.encoding, family, num_words, byte_length)?;
     let code = family.code(fields.logical).ok_or_else(|| {
         MltError::UnsupportedLogicalEncoding(meta.encoding.logical, family.into())
     })?;
@@ -1016,8 +1080,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         writer.write_varint(byte_length)?;
     }
     if let LE::Float(FloatLogical::Alp(alp)) = meta.encoding.logical {
-        writer.write_varint(alp.scale.e)?;
-        writer.write_varint(alp.scale.f)?;
+        writer.write_u8(alp.scale.to_byte())?;
         writer.write_varint(alp.base)?;
     }
     if let LE::Vertex(VertexLogical::MortonDelta(morton)) = meta.encoding.logical {
@@ -1350,7 +1413,7 @@ mod tests {
         #[case] expected: u8,
     ) {
         let byte_length = family
-            .raw_byte_length(meta.num_values)
+            .raw_byte_length(meta.num_words().unwrap())
             .unwrap()
             .unwrap_or(0);
         let mut buf = Vec::new();
@@ -1407,7 +1470,7 @@ mod tests {
         buf.extend_from_slice(&payload);
 
         let (rest, parsed) = parse_stream(&buf, ctx, count, &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(parsed.meta.encoding, meta.encoding);
         assert_eq!(parsed.meta.num_values, meta.num_values);
         assert_eq!(parsed.meta.stream_type, ctx.stream_type());
@@ -1447,10 +1510,10 @@ mod tests {
     )]
     #[case::bitmap(boolean(BoolLogical::None, PE::None, 9), BOOL, &[0b1010_1010, 1], &[0b1000_0000, 9])]
     #[case::bitmap_of_no_bits(boolean(BoolLogical::None, PE::None, 0), BOOL, &[], &[0b1000_0000, 0])]
-    #[case::vertex_words(
+    #[case::vertex_pairs(
         vertex(VertexLogical::None, PE::None, 2),
         VERTEX,
-        &[1, 0, 0, 0, 2, 0, 0, 0],
+        &[1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0],
         &[0b0000_0000]
     )]
     #[case::str_dict_codes(
@@ -1474,10 +1537,31 @@ mod tests {
         buf.extend_from_slice(payload);
 
         let (rest, parsed) = parse_stream(&buf, ctx, count, &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(parsed.meta.encoding, meta.encoding);
         assert_eq!(parsed.meta.num_values, meta.num_values);
         assert_eq!(parsed.data, payload);
+    }
+
+    #[rstest]
+    #[case::pairs(vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 3), 3)]
+    #[case::morton_codes(vertex(VertexLogical::MortonDelta(Morton::new(0, 0).unwrap()), PE::VarInt, 5), 5)]
+    fn a_vertex_stream_count_on_the_wire(#[case] meta: StreamMeta, #[case] count: u8) {
+        let mut buf = Vec::new();
+        write_stream_meta(&meta, &mut buf, 0, Count02::Explicit, Family::Vertex).unwrap();
+        assert_eq!(buf[1], count);
+
+        let (_, parsed) = parse_stream(&buf, VERTEX, Count02::Explicit, &mut parser()).unwrap();
+        assert_eq!(parsed.meta.num_values, meta.num_values);
+    }
+
+    #[test]
+    fn a_vertex_count_whose_word_count_overflows_is_rejected() {
+        let mut buf = vec![0b1010_1000];
+        buf.write_varint(u32::MAX / 2 + 1).unwrap();
+        buf.push(0);
+        let err = parse_stream(&buf, VERTEX, Count02::Explicit, &mut parser()).unwrap_err();
+        assert!(matches!(err, MltError::IntegerOverflow), "{err:?}");
     }
 
     #[test]
@@ -1526,7 +1610,7 @@ mod tests {
         12
     )]
     #[case::bitmap(boolean(BoolLogical::None, PE::None, 9), Family::Bool, 9, 2)]
-    #[case::vertex_words(vertex(VertexLogical::None, PE::None, 3), Family::Vertex, 6, 12)]
+    #[case::vertex_pairs(vertex(VertexLogical::None, PE::None, 3), Family::Vertex, 12, 24)]
     fn write_rejects_a_raw_payload_that_is_not_its_count_of_elements(
         #[case] meta: StreamMeta,
         #[case] family: Family,
@@ -1549,16 +1633,16 @@ mod tests {
     #[case::extension_on_rle(INT, 0b0010_0001)]
     #[case::rle_with_physical(INT, 0b0010_0100)]
     #[case::delta_rle_with_physical(INT, 0b0011_1000)]
-    #[case::int_logical_past_table(INT, 0b0100_1000)]
+    #[case::int_logical_past_table(INT, 0b0110_1000)]
     #[case::bool_logical_past_table(BOOL, 0b0010_0100)]
     #[case::float_dict_with_extension(FLOAT, 0b0011_0101)]
     #[case::float_alp_with_extension(FLOAT, 0b0010_1001)]
-    #[case::vertex_logical_past_table(VERTEX, 0b0100_1000)]
+    #[case::vertex_logical_past_table(VERTEX, 0b0101_1000)]
     #[case::float_physical_varint(FLOAT, 0b0000_1000)]
     #[case::float_physical_fastpfor(FLOAT, 0b0000_1100)]
     #[case::bool_physical_varint(BOOL, 0b0000_1000)]
     #[case::str_layout_disagrees_with_the_context(STR_PLAIN, 0b0000_1001)]
-    #[case::str_logical_past_table(STR_PLAIN, 0b0100_1000)]
+    #[case::str_logical_past_table(STR_PLAIN, 0b0110_1000)]
     #[case::blob_with_an_explicit_count(BLOB, 0b1000_0100)]
     #[case::blob_with_an_extension(BLOB, 0b0000_0101)]
     #[case::blob_logical_past_table(BLOB, 0b0010_0100)]
@@ -1641,6 +1725,12 @@ mod tests {
     }
 
     #[test]
+    fn a_raw_vertex_byte_names_both_fields() {
+        let (logical, physical) = describe_encoding(Family::Vertex, 0);
+        assert_eq!(format!("{logical} {physical}"), "None NoneNoLen");
+    }
+
+    #[test]
     fn a_stream_with_neither_count_is_rejected() {
         // VarInt ints with the explicit-count bit clear, so only context could count them.
         let buf = [0b0000_1000, 0];
@@ -1661,7 +1751,7 @@ mod tests {
         assert_eq!(buf, [0b1000_1000, 5, 3, 1, 2, 3]);
 
         let (rest, parsed) = parse_stream(&buf, INT, Count02::Explicit, &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(parsed.meta.num_values, 5);
         assert_eq!(parsed.data, payload);
     }
@@ -1680,7 +1770,7 @@ mod tests {
         assert_eq!(buf, [0b0000_0100, 3, 1, 2, 3]);
 
         let (rest, parsed) = parse_stream(&buf, BLOB, Count02::Implied(99), &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(parsed.meta.num_values, 3);
         assert_eq!(parsed.data, payload);
     }

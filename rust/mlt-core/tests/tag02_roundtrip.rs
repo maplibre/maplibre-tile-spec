@@ -814,6 +814,136 @@ mod geometry_layouts {
         assert!(dump.contains("geometry layout = Lines"), "{dump}");
         assert_differential_with(&l, cfg_tessellated());
     }
+
+    fn cfg_triangles_only() -> EncoderConfig {
+        cfg_tessellated()
+            .with_wire_version(WireVersion::V02)
+            .with_triangles_only(true)
+    }
+
+    fn exteriors(tile: &TileLayer) -> Vec<Vec<Vec<(i32, i32)>>> {
+        tile.features()
+            .iter()
+            .map(|f| {
+                let Geometry::MultiPolygon(mp) = f.geometry() else {
+                    panic!("expected a MultiPolygon, got {:?}", f.geometry());
+                };
+                mp.iter()
+                    .map(|p| p.exterior().coords().map(|c| (c.x, c.y)).collect())
+                    .collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_polygon_layer_stores_only_its_triangles() {
+        let l = layer(
+            vec![
+                Geometry::Polygon(square(0, 0)),
+                Geometry::MultiPolygon(MultiPolygon(vec![square(20, 20), square(40, 40)])),
+            ],
+            None,
+            &[],
+        );
+        let bytes = l.encode(cfg_triangles_only()).unwrap();
+        assert_snapshot!(header_bits(&bytes).join("\n"), @"
+        no m-value section
+        a types stream leads the geometry section
+        extent 2^(n+6) = 4096
+        shared bitfields are bitmaps
+        shared presence bitfields = 0
+        geometry layout = TessPolygons
+        ");
+        assert_snapshot!(geometry_streams(&bytes).join("\n"), @"
+        types
+        tri_lengths
+        tri_indexes
+        vertices
+        ");
+        let (_, tile) = decode(&bytes);
+        assert_snapshot!(format!("{:?}", exteriors(&tile)), @"[[[(10, 10), (0, 10), (0, 0), (10, 10)], [(0, 0), (10, 0), (10, 10), (0, 0)]], [[(30, 30), (20, 30), (20, 20), (30, 30)], [(20, 20), (30, 20), (30, 30), (20, 20)], [(50, 50), (40, 50), (40, 40), (50, 50)], [(40, 40), (50, 40), (50, 50), (40, 40)]]]");
+    }
+
+    #[test]
+    fn a_polygon_with_no_triangles_decodes_as_an_empty_multipolygon() {
+        let collinear = Polygon::new(ring(&[(0, 0), (10, 0), (20, 0)]), vec![]);
+        let l = layer(
+            vec![
+                Geometry::Polygon(collinear),
+                Geometry::Polygon(square(40, 40)),
+            ],
+            None,
+            &[],
+        );
+        let (_, tile) = decode(&l.encode(cfg_triangles_only()).unwrap());
+        assert_snapshot!(format!("{:?}", exteriors(&tile)), @"[[], [[(50, 50), (40, 50), (40, 40), (50, 50)], [(40, 40), (50, 40), (50, 50), (40, 40)]]]");
+    }
+
+    #[test]
+    fn dropping_the_outlines_is_smaller() {
+        let l = layer(
+            vec![
+                Geometry::Polygon(square(0, 0)),
+                Geometry::MultiPolygon(MultiPolygon(vec![square(20, 20), square(40, 40)])),
+            ],
+            None,
+            &[],
+        );
+        let with_outlines = l
+            .clone()
+            .encode(cfg_tessellated().with_wire_version(WireVersion::V02))
+            .unwrap();
+        let triangles_only = l.encode(cfg_triangles_only()).unwrap();
+        assert_eq!((with_outlines.len(), triangles_only.len()), (87, 73));
+    }
+
+    #[rstest]
+    #[case::lines_and_polygons(vec![
+        line(&[(0, 0), (10, 10), (20, 0)]),
+        Geometry::Polygon(square(40, 40)),
+    ])]
+    #[case::points_and_polygons(vec![pt(5, 5), Geometry::Polygon(square(20, 20))])]
+    fn a_layer_with_more_than_polygons_keeps_its_outlines(#[case] geoms: Vec<Geometry<i32>>) {
+        let l = layer(geoms, None, &[]);
+        let bytes = l.clone().encode(cfg_triangles_only()).unwrap();
+        assert_eq!(
+            header_bits(&bytes).last().map(String::as_str),
+            Some("geometry layout = TessPolygonsWithOutlines"),
+        );
+        assert_differential_with(&l, cfg_tessellated().with_triangles_only(true));
+    }
+
+    #[test]
+    fn v1_ignores_triangles_only() {
+        let l = layer(vec![Geometry::Polygon(square(0, 0))], None, &[]);
+        let v1 = cfg_tessellated();
+        assert_eq!(
+            l.clone().encode(v1.with_triangles_only(true)).unwrap(),
+            l.encode(v1).unwrap(),
+        );
+    }
+
+    #[test]
+    fn a_point_among_bare_triangles_is_rejected() {
+        let l = layer(vec![Geometry::Polygon(square(0, 0))], None, &[]);
+        let mut bytes = l.encode(cfg_triangles_only()).unwrap();
+        let header = annotate(&bytes)
+            .regions
+            .iter()
+            .find(|r| r.label == "header")
+            .expect("a header region")
+            .offset;
+        let uniform_point = 1 << 4;
+        bytes[header] = (bytes[header] & 0b1000_1111) | uniform_point;
+        let layers = Parser::default().parse_layers(&bytes).expect("parse");
+        let err = layers
+            .into_iter()
+            .next()
+            .unwrap()
+            .into_tile(&mut Decoder::default())
+            .expect_err("a point has no triangles");
+        assert_snapshot!(err, @"geometry[0]: Point requires outlines, which a triangles-only layer does not store");
+    }
 }
 
 mod strings {
@@ -1757,4 +1887,113 @@ fn a_run_coded_presence_is_charged_to_the_parse_budget() {
         matches!(err, mlt_core::MltError::MemoryLimitExceeded { .. }),
         "the bits should be refused by the budget, not by something else: {err}"
     );
+}
+
+mod delta2 {
+    use mlt_core::test_helpers::stream_logicals;
+    use mlt_core::wire::{DictionaryType, IntLogical, LogicalEncoding, StreamType, VertexLogical};
+    use mlt_core::{MValue, PropKind};
+
+    use super::*;
+
+    fn cfg_delta2() -> EncoderConfig {
+        cfg_v2().with_delta2(true)
+    }
+
+    fn vertex_logicals(bytes: &[u8]) -> Vec<LogicalEncoding> {
+        stream_logicals(bytes, StreamType::Data(DictionaryType::Vertex))
+    }
+
+    fn data_logicals(bytes: &[u8]) -> Vec<LogicalEncoding> {
+        stream_logicals(bytes, StreamType::Data(DictionaryType::None))
+    }
+
+    /// A gently curving line sampled every ~70 units, as resampled lane geometry is.
+    fn arc(x: i32, y: i32, n: i32) -> Vec<(i32, i32)> {
+        (0..n).map(|i| (x + 70 * i, y + i * i / 40)).collect()
+    }
+
+    fn smooth_lines() -> Vec<Geometry<i32>> {
+        (0..6).map(|i| line(&arc(i * 900, i * 400, 400))).collect()
+    }
+
+    fn elevated_lines() -> TileLayer {
+        let mut builder = TileLayer::builder("test_layer", 131_072).unwrap();
+        let elev = builder.add_m_value("elev", PropKind::I32).unwrap();
+        for i in 0..6 {
+            let pts = arc(i * 900, i * 400, 400);
+            let heights = (0..400)
+                .map(|v| 372_000 + v * 9 + v * v / 50 - i * 300)
+                .collect();
+            let mut feature = builder.feature(line(&pts));
+            feature.m_value(elev, MValue::I32(Some(heights))).unwrap();
+            feature.finish().unwrap();
+        }
+        builder.finish()
+    }
+
+    #[test]
+    fn smooth_vertices_take_second_order_deltas_and_decode_unchanged() {
+        let l = layer(smooth_lines(), None, &[]);
+        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let delta2 = l.encode(cfg_delta2()).unwrap();
+        assert_eq!(
+            vertex_logicals(&plain),
+            [LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta)]
+        );
+        assert_eq!(
+            vertex_logicals(&delta2),
+            [LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2)]
+        );
+        assert!(
+            delta2.len() < plain.len(),
+            "{} vs {}",
+            delta2.len(),
+            plain.len()
+        );
+        assert_eq!(decode(&delta2).1, decode(&plain).1);
+        assert_dump_covers(&delta2);
+    }
+
+    #[test]
+    fn a_smooth_m_value_column_takes_second_order_deltas_and_decodes_unchanged() {
+        let l = elevated_lines();
+        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let delta2 = l.clone().encode(cfg_delta2()).unwrap();
+        assert_eq!(
+            data_logicals(&delta2),
+            [LogicalEncoding::Int(IntLogical::Delta2)]
+        );
+        assert!(
+            delta2.len() < plain.len(),
+            "{} vs {}",
+            delta2.len(),
+            plain.len()
+        );
+        assert_eq!(decode(&delta2).1, l);
+        assert_dump_covers(&delta2);
+    }
+
+    #[rstest]
+    #[case::i8(|i: i32| PropValue::I8(Some(i8::try_from(i % 100 - 50).unwrap())))]
+    #[case::u8(|i: i32| PropValue::U8(Some(u8::try_from(i % 200).unwrap())))]
+    #[case::i32(|i: i32| PropValue::I32(Some(i * i - 900)))]
+    #[case::u32(|i: i32| PropValue::U32(Some(i.unsigned_abs() * 1_000_003)))]
+    #[case::i64(|i: i32| PropValue::I64(Some(i64::from(i).pow(3) - 9_000_000_000)))]
+    #[case::u64(|i: i32| PropValue::U64(Some(u64::from(i.unsigned_abs()).pow(3) << 20)))]
+    fn an_integer_column_round_trips_through_delta2(#[case] value: fn(i32) -> PropValue) {
+        let values: Vec<PropValue> = (0..300).map(value).collect();
+        let l = layer((0..300).map(|i| pt(i, i)).collect(), None, &[("v", values)]);
+        let coded = l.clone().encode(cfg_delta2()).unwrap();
+        assert_eq!(decode(&coded).1, l);
+        assert_dump_covers(&coded);
+    }
+
+    #[test]
+    fn v1_ignores_delta2() {
+        let values = (0..6).map(|i| PropValue::I32(Some(i * i))).collect();
+        let l = layer(smooth_lines(), None, &[("v", values)]);
+        let v1 = cfg_v1().with_delta2(true);
+        assert_eq!(l.clone().encode(v1).unwrap(), l.encode(cfg_v1()).unwrap());
+    }
 }

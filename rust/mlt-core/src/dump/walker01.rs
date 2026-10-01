@@ -105,6 +105,11 @@ impl<'a> Walker<'a> {
             None
         };
 
+        // Worded as `column[N]` words it, since the two name the same column: the index
+        // alone says nothing about what it holds.
+        let name_suffix = name.map(|n| format!(" {n:?}")).unwrap_or_default();
+        self.out[ci].label = format!("column_schema[{i}] {typ:?}{name_suffix}");
+
         let mut children = Vec::new();
         if typ == ColumnType::SharedDict {
             let (rest, child_count) = self.field(
@@ -148,70 +153,33 @@ impl<'a> Walker<'a> {
         let gi = self.open(input, format!("column[{ci}] {typ:?}{name_suffix}"));
 
         let mut input = input;
-        match typ {
-            C::Id | C::OptId => {
-                input = self.walk_optional(input, typ)?;
-                input = self
-                    .walk_stream(input, ValueKind::Int, "id", |_| DecodeHint::U32)?
-                    .0;
-            }
-            C::LongId | C::OptLongId => {
-                input = self.walk_optional(input, typ)?;
-                input = self
-                    .walk_stream(input, ValueKind::Int, "id", |_| DecodeHint::U64)?
-                    .0;
-            }
+        let stream = match typ {
+            C::Id | C::OptId => Some(("id", ValueKind::Int, DecodeHint::U32)),
+            C::LongId | C::OptLongId => Some(("id", ValueKind::Int, DecodeHint::U64)),
+            C::Bool | C::OptBool => Some(("data", ValueKind::Bool, DecodeHint::Bool)),
+            C::I32 | C::OptI32 => Some(("data", ValueKind::Int, DecodeHint::I32)),
+            C::U32 | C::OptU32 => Some(("data", ValueKind::Int, DecodeHint::U32)),
+            C::I64 | C::OptI64 => Some(("data", ValueKind::Int, DecodeHint::I64)),
+            C::U64 | C::OptU64 => Some(("data", ValueKind::Int, DecodeHint::U64)),
+            C::F32 | C::OptF32 => Some(("data", ValueKind::Float, DecodeHint::F32)),
+            C::F64 | C::OptF64 => Some(("data", ValueKind::Float, DecodeHint::F64)),
             C::Geometry => {
                 input = self.walk_geometry(input)?;
-            }
-            C::Bool | C::OptBool => {
-                input = self.walk_optional(input, typ)?;
-                input = self
-                    .walk_stream(input, ValueKind::Bool, "data", |_| DecodeHint::Bool)?
-                    .0;
-            }
-            C::I32 | C::OptI32 => {
-                input = self.walk_optional(input, typ)?;
-                input = self
-                    .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::I32)?
-                    .0;
-            }
-            C::U32 | C::OptU32 => {
-                input = self.walk_optional(input, typ)?;
-                input = self
-                    .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::U32)?
-                    .0;
-            }
-            C::I64 | C::OptI64 => {
-                input = self.walk_optional(input, typ)?;
-                input = self
-                    .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::I64)?
-                    .0;
-            }
-            C::U64 | C::OptU64 => {
-                input = self.walk_optional(input, typ)?;
-                input = self
-                    .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::U64)?
-                    .0;
-            }
-            C::F32 | C::OptF32 => {
-                input = self.walk_optional(input, typ)?;
-                input = self
-                    .walk_stream(input, ValueKind::Float, "data", |_| DecodeHint::F32)?
-                    .0;
-            }
-            C::F64 | C::OptF64 => {
-                input = self.walk_optional(input, typ)?;
-                input = self
-                    .walk_stream(input, ValueKind::Float, "data", |_| DecodeHint::F64)?
-                    .0;
+                None
             }
             C::Str | C::OptStr => {
                 input = self.walk_str(input, typ)?;
+                None
             }
             C::SharedDict => {
                 input = self.walk_shared_dict(input, col)?;
+                None
             }
+        };
+        if let Some((label, kind, hint)) = stream {
+            input = self.walk_optional(input, typ)?;
+            let label = StreamLabel::Named(label);
+            input = self.walk_stream(input, kind, label, move |_| hint)?.0;
         }
 
         self.close(gi, input);
@@ -222,7 +190,12 @@ impl<'a> Walker<'a> {
     fn walk_optional(&mut self, input: &'a [u8], typ: ColumnType) -> MltResult<&'a [u8]> {
         if typ.is_optional() {
             Ok(self
-                .walk_stream(input, ValueKind::Bool, "present", |_| DecodeHint::Presence)?
+                .walk_stream(
+                    input,
+                    ValueKind::Bool,
+                    StreamLabel::Named("present"),
+                    |_| DecodeHint::Presence,
+                )?
                 .0)
         } else {
             Ok(input)
@@ -241,11 +214,16 @@ impl<'a> Walker<'a> {
             return Err(MltError::GeometryWithoutStreams);
         }
         input = self
-            .walk_stream(input, ValueKind::Int, "meta", geom_hint)?
+            .walk_stream(input, ValueKind::Int, StreamLabel::Named("meta"), geom_hint)?
             .0;
         for j in 0..stream_count - 1 {
             input = self
-                .walk_stream(input, ValueKind::Int, &format!("stream[{j}]"), geom_hint)?
+                .walk_stream(
+                    input,
+                    ValueKind::Int,
+                    StreamLabel::At("stream", j.into_usize()),
+                    geom_hint,
+                )?
                 .0;
         }
         Ok(input)
@@ -266,13 +244,23 @@ impl<'a> Walker<'a> {
                 return Err(MltError::UnsupportedStringStreamCount(remaining));
             }
             input = self
-                .walk_stream(input, ValueKind::Bool, "present", |_| DecodeHint::Presence)?
+                .walk_stream(
+                    input,
+                    ValueKind::Bool,
+                    StreamLabel::Named("present"),
+                    |_| DecodeHint::Presence,
+                )?
                 .0;
             remaining -= 1;
         }
         for j in 0..remaining {
             input = self
-                .walk_stream(input, ValueKind::Int, &format!("stream[{j}]"), auto_hint)?
+                .walk_stream(
+                    input,
+                    ValueKind::Int,
+                    StreamLabel::At("stream", j),
+                    auto_hint,
+                )?
                 .0;
         }
         Ok(input)
@@ -293,7 +281,7 @@ impl<'a> Walker<'a> {
             let (rest, meta) = self.walk_stream(
                 input,
                 ValueKind::Int,
-                &format!("dict_stream[{taken}]"),
+                StreamLabel::At("dict_stream", taken),
                 auto_hint,
             )?;
             input = rest;
@@ -321,11 +309,16 @@ impl<'a> Walker<'a> {
             input = rest;
             if child.typ.is_optional() {
                 input = self
-                    .walk_stream(input, ValueKind::Bool, "present", |_| DecodeHint::Presence)?
+                    .walk_stream(
+                        input,
+                        ValueKind::Bool,
+                        StreamLabel::Named("present"),
+                        |_| DecodeHint::Presence,
+                    )?
                     .0;
             }
             input = self
-                .walk_stream(input, ValueKind::Int, "data", auto_hint)?
+                .walk_stream(input, ValueKind::Int, StreamLabel::Named("data"), auto_hint)?
                 .0;
             self.close(cci, input);
         }
@@ -338,15 +331,18 @@ impl<'a> Walker<'a> {
         &mut self,
         input: &'a [u8],
         kind: ValueKind,
-        label: &str,
+        label: StreamLabel,
         hint: impl FnOnce(StreamType) -> DecodeHint,
     ) -> MltResult<(&'a [u8], StreamMeta)> {
-        let si = self.open(input, label);
+        let si = self.open(input, label.base());
         let is_bool = kind == ValueKind::Bool;
 
         // Authoritative parse - drives advancement and gives us `meta`/`byte_length`.
         let (after_hdr, (meta, byte_length)) =
             parse_stream_meta(input, kind, is_bool, &mut self.parser)?;
+        if let StreamLabel::At(name, i) = label {
+            self.out[si].label = format!("{name}[{i}] {:?}", meta.stream_type);
+        }
 
         // Re-walk the consumed header bytes to annotate each field.
         let mut c = input;
@@ -418,7 +414,10 @@ impl<'a> Walker<'a> {
             | LogicalEncoding::Bool(_)
             | LogicalEncoding::Float(_)
             | LogicalEncoding::Vertex(
-                VertexLogical::None | VertexLogical::Delta | VertexLogical::ComponentwiseDelta,
+                VertexLogical::None
+                | VertexLogical::Delta
+                | VertexLogical::ComponentwiseDelta
+                | VertexLogical::ComponentwiseDelta2,
             ) => {}
         }
 
@@ -440,6 +439,22 @@ impl<'a> Walker<'a> {
 
         self.close(si, rest);
         Ok((rest, meta))
+    }
+}
+
+#[derive(Clone, Copy)]
+enum StreamLabel {
+    Named(&'static str),
+    At(&'static str, usize),
+}
+
+impl StreamLabel {
+    /// The label before the header is read, which is all a bailed-out walk will show.
+    fn base(self) -> String {
+        match self {
+            Self::Named(name) => name.to_string(),
+            Self::At(name, i) => format!("{name}[{i}]"),
+        }
     }
 }
 

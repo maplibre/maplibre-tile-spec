@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.2.1...rust-mlt-v0.2.2) - 2026-09-27
+
+### Added
+
+- *(rust,v2)* store only the triangles of an all-polygon tessellated layer ([#1780](https://github.com/maplibre/maplibre-tile-spec/pull/1780))
+- *(rust,v2)* count triangle indices from the layer's first vertex ([#1784](https://github.com/maplibre/maplibre-tile-spec/pull/1784))
+- *(docs)* inspector filter and layout improvements ([#1781](https://github.com/maplibre/maplibre-tile-spec/pull/1781))
+
+## [0.2.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.2.0...rust-mlt-v0.2.1) - 2026-09-27
+
+### Added
+
+- *(docs)* show all possible filters with dynamic counts ([#1773](https://github.com/maplibre/maplibre-tile-spec/pull/1773))
+
 ## [0.2.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.38...rust-mlt-v0.2.0) - 2026-09-25
 
 ### Other

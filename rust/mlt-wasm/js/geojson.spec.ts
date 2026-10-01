@@ -1,0 +1,15 @@
+import { describe, expect, it } from "vitest";
+import { tileGeoJson } from "./geojson";
+
+describe("tileGeoJson", () => {
+  it("rejects a triangle index whose doubled offset wraps past 2^32 on wasm32", () => {
+    const polyTriWithFirstIndexTwoToThe31 = Uint8Array.from([
+      0x22, 0x02, 0x06, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x31, 0x30, 0x01, 0x0c,
+      0x08, 0x01, 0x01, 0x88, 0x03, 0x07, 0x80, 0x80, 0x80, 0x80, 0x08, 0x00,
+      0x02, 0xa8, 0x03, 0x06, 0x16, 0x68, 0x78, 0x28, 0x13, 0x63, 0x00,
+    ]);
+    expect(() => tileGeoJson(polyTriWithFirstIndexTwoToThe31)).toThrow(
+      new Error("geometry[0]: vertex 2147483648 out of bounds (count=3)"),
+    );
+  });
+});

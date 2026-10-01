@@ -195,11 +195,11 @@ pub(crate) fn read<'a>(
             while at < n {
                 let len: u64;
                 (input, len) = parse_varint(input)?;
-                let len = usize::try_from(len).map_err(|_| PresenceRunOverflow(count))?;
-                let end = at.checked_add(len).ok_or(PresenceRunOverflow(count))?;
-                if end > n {
-                    return Err(PresenceRunOverflow(count));
-                }
+                let end = usize::try_from(len)
+                    .ok()
+                    .and_then(|len| at.checked_add(len))
+                    .filter(|&end| end <= n)
+                    .ok_or(PresenceRunOverflow(count))?;
                 if present {
                     bits[at..end].fill(true);
                 }
@@ -222,16 +222,14 @@ pub(crate) fn read<'a>(
                 let gap: u32;
                 (input, gap) = parse_varint(input)?;
                 let at = match prev {
-                    None => gap.into_usize(),
+                    None => Some(gap.into_usize()),
                     // Gaps are stored less one, so this is the next index after `p`.
                     Some(p) => p
                         .checked_add(gap.into_usize())
-                        .and_then(|v| v.checked_add(1))
-                        .ok_or(PresenceIndexOrder(count))?,
-                };
-                if at >= n {
-                    return Err(PresenceIndexOrder(count));
+                        .and_then(|v| v.checked_add(1)),
                 }
+                .filter(|&at| at < n)
+                .ok_or(PresenceIndexOrder(count))?;
                 bits.set(at, true);
                 prev = Some(at);
             }
@@ -324,6 +322,25 @@ mod tests {
     }
 
     #[test]
+    fn a_run_overflowing_the_position_is_rejected() {
+        let mut buf = Vec::new();
+        buf.write_varint(1u64).unwrap();
+        buf.write_varint(u64::MAX).unwrap();
+        assert!(matches!(
+            read(&buf, 8, PresenceCoding::Runs, &mut Unmetered),
+            Err(PresenceRunOverflow(8))
+        ));
+    }
+
+    #[test]
+    fn only_the_three_coding_bytes_name_a_coding() {
+        let named: Vec<u8> = (0..=u8::MAX)
+            .filter(|&b| PresenceCoding::from_byte(b).is_some())
+            .collect();
+        assert_eq!(named, [1, 2, 3]);
+    }
+
+    #[test]
     fn an_index_past_the_end_is_rejected() {
         let mut buf = Vec::new();
         buf.write_varint(1u64).unwrap();
@@ -355,6 +372,51 @@ mod tests {
             u32::MAX,
             "{coding:?} allocated without charging the budget"
         );
+    }
+
+    struct Refused;
+    impl PresenceBudget for Refused {
+        fn reserve_bits(&mut self, count: u32) -> MltResult<()> {
+            Err(crate::MltError::MemoryLimitExceeded {
+                limit: 0,
+                used: 0,
+                requested: count,
+            })
+        }
+    }
+
+    #[rstest::rstest]
+    #[case::runs(PresenceCoding::Runs)]
+    #[case::indices(PresenceCoding::Indices)]
+    fn a_refused_budget_is_an_error(#[case] coding: PresenceCoding) {
+        assert!(matches!(
+            read(&[0], 8, coding, &mut Refused),
+            Err(crate::MltError::MemoryLimitExceeded { requested: 8, .. })
+        ));
+    }
+
+    #[test]
+    fn a_short_bitmap_is_rejected() {
+        assert!(matches!(
+            read(&[0], 9, PresenceCoding::Bitmap, &mut Unmetered),
+            Err(crate::MltError::UnableToTake(2))
+        ));
+    }
+
+    #[test]
+    fn a_missing_index_count_is_rejected() {
+        assert!(matches!(
+            read(&[], 8, PresenceCoding::Indices, &mut Unmetered),
+            Err(crate::MltError::BufferUnderflow(1, 0))
+        ));
+    }
+
+    #[test]
+    fn a_missing_index_is_rejected() {
+        assert!(matches!(
+            read(&[2, 0], 8, PresenceCoding::Indices, &mut Unmetered),
+            Err(crate::MltError::BufferUnderflow(1, 0))
+        ));
     }
 
     #[test]

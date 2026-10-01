@@ -1,7 +1,7 @@
 [package]
 name = "mlt-wasm"
 description = "WebAssembly bindings for the MapLibre Tile (MLT) format"
-version = "0.1.31"
+version = "0.1.33"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -20,6 +20,8 @@ crate-type = ["cdylib"]
 [features]
 # Export the recorded LLVM coverage counters, for `just rust::wasm-coverage`
 coverage = ["dep:minicov"]
+# Decode v2 layers in `decode_tile`, which otherwise skips them
+unstable-v2 = []
 
 [dependencies]
 js-sys.workspace = true

@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use derive_debug::Dbg;
 use num_enum::TryFromPrimitive;
 
+use crate::errors::AsMltError as _;
 use crate::utils::formatter::{bytes_dbg, compact_dbg};
 use crate::{MltError, MltResult};
 
@@ -108,7 +109,7 @@ pub struct AlpScale {
 }
 
 /// ALP parameters: `v = (base + offset) * 10^f / 10^e`.
-/// Written as three header varints, the stream itself holding the unsigned offsets.
+/// Written as a scale byte and a base varint, the stream itself holding the unsigned offsets.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Alp {
     pub(crate) scale: AlpScale,
@@ -129,6 +130,26 @@ impl AlpScale {
     pub(crate) fn net(self) -> u8 {
         self.e - self.f
     }
+
+    /// The header byte naming this scale, the pairs with `f <= e` numbered row by row.
+    pub(crate) fn to_byte(self) -> u8 {
+        Self::row_start(self.e) + self.f
+    }
+
+    /// Read a scale back from its header byte, rejecting the codes past the last pair.
+    pub(crate) fn from_byte(byte: u8) -> MltResult<Self> {
+        (0..=Self::MAX_EXPONENT)
+            .find_map(|e| {
+                let f = byte.checked_sub(Self::row_start(e))?;
+                (f <= e).then_some(Self { e, f })
+            })
+            .ok_or(MltError::InvalidAlpScale(byte))
+    }
+
+    /// First byte of the row for `e`, which is `e * (e + 1) / 2`.
+    fn row_start(e: u8) -> u8 {
+        (1..=e).sum()
+    }
 }
 
 /// Flattened, since the nesting is an encoder concern and these appear in stream labels.
@@ -144,6 +165,7 @@ impl std::fmt::Debug for Alp {
 
 #[cfg(feature = "unstable-v2")]
 impl Alp {
+    #[cfg(test)]
     pub(crate) fn new(e: u8, f: u8, base: i64) -> MltResult<Self> {
         if e <= AlpScale::MAX_EXPONENT && f <= e {
             Ok(Self {
@@ -195,6 +217,8 @@ pub enum IntLogical {
     Delta,
     Rle(RleMeta),
     DeltaRle(RleMeta),
+    /// Deltas of the deltas, both running from zero.
+    Delta2,
 }
 
 /// Logical encoding of a bool column's data stream or a presence bitfield.
@@ -227,7 +251,20 @@ pub enum VertexLogical {
     None,
     Delta,
     ComponentwiseDelta,
+    /// Componentwise deltas of the componentwise deltas.
+    ComponentwiseDelta2,
     MortonDelta(Morton),
+}
+
+impl VertexLogical {
+    /// The 32-bit words one vertex spans, where a Morton code is one word.
+    #[must_use]
+    pub fn words_per_vertex(self) -> u32 {
+        match self {
+            Self::None | Self::Delta | Self::ComponentwiseDelta | Self::ComponentwiseDelta2 => 2,
+            Self::MortonDelta(_) => 1,
+        }
+    }
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
@@ -242,6 +279,15 @@ pub enum LogicalEncoding {
 }
 
 impl LogicalEncoding {
+    /// The 32-bit words one counted value spans, which only a vertex stream makes more than one.
+    #[must_use]
+    pub(crate) fn words_per_value(self) -> u32 {
+        match self {
+            Self::Vertex(logical) => logical.words_per_vertex(),
+            Self::Int(_) | Self::Bool(_) | Self::Float(_) => 1,
+        }
+    }
+
     /// The kind of values this encoding belongs to.
     #[must_use]
     pub fn kind(self) -> ValueKind {
@@ -405,15 +451,29 @@ impl StreamMeta {
         }
     }
 
+    /// A meta for a stream of `num_words` physical words, which a vertex stream counts in vertices.
     #[inline]
     pub(crate) fn new2(
         stream_type: StreamType,
         logical: LogicalEncoding,
         physical: PhysicalEncoding,
-        num_values: usize,
+        num_words: usize,
     ) -> MltResult<Self> {
         let enc = IntEncoding::new(logical, physical);
-        Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
+        let num_words = u32::try_from(num_words)?;
+        let per_value = logical.words_per_value();
+        if !num_words.is_multiple_of(per_value) {
+            return Err(MltError::PartialVertex(num_words, per_value));
+        }
+        Ok(Self::new(stream_type, enc, num_words / per_value))
+    }
+
+    /// The physical words the stream's values span.
+    #[inline]
+    pub(crate) fn num_words(&self) -> MltResult<u32> {
+        self.num_values
+            .checked_mul(self.encoding.logical.words_per_value())
+            .or_overflow()
     }
 
     #[inline]
@@ -501,6 +561,7 @@ impl Display for LogicalEncoding {
                     IntLogical::Delta => "delta",
                     IntLogical::Rle(_) => "rle",
                     IntLogical::DeltaRle(_) => "delta-rle",
+                    IntLogical::Delta2 => "delta2",
                 },
             ),
             Self::Bool(b) => (
@@ -524,6 +585,7 @@ impl Display for LogicalEncoding {
                     VertexLogical::None => "none",
                     VertexLogical::Delta => "delta",
                     VertexLogical::ComponentwiseDelta => "componentwise-delta",
+                    VertexLogical::ComponentwiseDelta2 => "componentwise-delta2",
                     VertexLogical::MortonDelta(_) => "morton-delta",
                 },
             ),
@@ -555,6 +617,7 @@ impl Display for PhysicalEncoding {
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    use usize_cast::IntoUsize as _;
 
     use super::*;
 
@@ -664,6 +727,46 @@ mod tests {
         #[case] expected: &str,
     ) {
         assert_eq!(encoding.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case::ints(LogicalEncoding::Int(IntLogical::Delta), 6, 6)]
+    #[case::pairs(LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta), 6, 3)]
+    #[case::morton_codes(LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())), 6, 6)]
+    fn a_stream_counts_its_words_as_values(
+        #[case] logical: LogicalEncoding,
+        #[case] words: usize,
+        #[case] values: u32,
+    ) {
+        let meta = StreamMeta::new2(
+            StreamType::Present,
+            logical,
+            PhysicalEncoding::VarInt,
+            words,
+        )
+        .unwrap();
+        assert_eq!(meta.num_values, values);
+        assert_eq!(meta.num_words().unwrap().into_usize(), words);
+    }
+
+    #[rstest]
+    #[case::pairs(LogicalEncoding::Vertex(VertexLogical::Delta), 5, 2)]
+    fn a_stream_of_partial_vertices_is_rejected(
+        #[case] logical: LogicalEncoding,
+        #[case] words: u32,
+        #[case] per_vertex: u32,
+    ) {
+        let err = StreamMeta::new2(
+            StreamType::Present,
+            logical,
+            PhysicalEncoding::VarInt,
+            words.into_usize(),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, MltError::PartialVertex(w, p) if w == words && p == per_vertex),
+            "{err:?}"
+        );
     }
 
     #[rstest]

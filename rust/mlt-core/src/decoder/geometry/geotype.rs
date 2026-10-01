@@ -6,11 +6,12 @@ use geo_types::{
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::{
-    GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets,
-    NoPartOffsets, NoRingOffsets,
+    GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
+    NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
 };
 use crate::MltResult;
 use crate::decoder::{GeometryType, GeometryValues};
+use crate::errors::AsMltError as _;
 
 impl GeometryType {
     #[must_use]
@@ -77,18 +78,66 @@ impl GeometryValues {
         self.ring_offsets.as_deref()
     }
 
-    /// Triangle index buffer produced by Earcut tessellation.
+    /// Triangle index buffer produced by Earcut tessellation, three indices per triangle.
+    /// Each index names a vertex of the whole layer, so the buffer can go to a GPU as is.
     /// `None` unless the `GeometryValues` was created with [`Self::new_tessellated`].
     #[must_use]
     pub fn index_buffer(&self) -> Option<&[u32]> {
         self.index_buffer.as_deref()
     }
 
-    /// Per-feature triangle counts produced by Earcut tessellation.
+    /// Cumulative triangle counts, one run per polygon feature, starting at `0`.
     /// `None` unless the `GeometryValues` was created with [`Self::new_tessellated`].
     #[must_use]
-    pub fn triangles(&self) -> Option<&[u32]> {
-        self.triangles.as_deref()
+    pub fn triangle_offsets(&self) -> Option<&[u32]> {
+        self.triangle_offsets.as_deref()
+    }
+
+    /// The first vertex of every polygon feature, which a v1 triangle index counts from.
+    fn polygon_vertex_starts(&self) -> impl Iterator<Item = MltResult<u32>> {
+        self.vector_types
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| t.is_polygon())
+            .map(|(index, _)| {
+                let start = self.vertex_range(index)?.start;
+                u32::try_from(start).or_overflow()
+            })
+    }
+
+    /// Replace each polygon feature's triangle indices with `shift(index, first_vertex)`.
+    fn rebase_indices(&mut self, shift: impl Fn(u32, u32) -> Option<u32>) -> MltResult<()> {
+        let Some(mut indices) = self.index_buffer.take() else {
+            return Ok(());
+        };
+        let offsets = self.triangle_offsets.as_deref().unwrap_or(&[0]);
+        let starts = self
+            .polygon_vertex_starts()
+            .collect::<MltResult<Vec<_>>>()?;
+        if offsets.len() != starts.len() + 1 {
+            return Err(GeometryIndexOutOfBounds(offsets.len().saturating_sub(1)));
+        }
+        for (run, start) in offsets.windows(2).zip(starts) {
+            let [from, to] = [run[0], run[1]].map(|t| t.into_usize().saturating_mul(3));
+            let slice = indices
+                .get_mut(from..to)
+                .ok_or(GeometryIndexOutOfBounds(to))?;
+            for idx in slice {
+                *idx = shift(*idx, start).ok_or(IntegerOverflow)?;
+            }
+        }
+        self.index_buffer = Some(indices);
+        Ok(())
+    }
+
+    /// Turn v1's per-feature triangle indices into the layer-wide ones this type holds.
+    pub(crate) fn rebase_indices_to_layer(&mut self) -> MltResult<()> {
+        self.rebase_indices(u32::checked_add)
+    }
+
+    /// Turn the layer-wide triangle indices this type holds into v1's per-feature ones.
+    pub(crate) fn rebase_indices_to_feature(&mut self) -> MltResult<()> {
+        self.rebase_indices(u32::checked_sub)
     }
 
     /// Flat vertex buffer: `[x0, y0, x1, y1, …]` in tile coordinates.
@@ -171,8 +220,8 @@ impl GeometryValues {
         let ring_range = |s: &[u32], i: usize| off_pair(s, i, "ring_offsets");
 
         let vert = |idx: usize| -> MltResult<Coord<i32>> {
-            verts
-                .get(idx * 2..idx * 2 + 2)
+            idx.checked_mul(2)
+                .and_then(|w| verts.get(w..w.checked_add(2)?))
                 .map(|s| Coord { x: s[0], y: s[1] })
                 .ok_or(GeometryVertexOutOfBounds {
                     index,
@@ -205,6 +254,32 @@ impl GeometryValues {
             .vector_types
             .get(index)
             .ok_or(GeometryIndexOutOfBounds(index))?;
+
+        if parts.is_none()
+            && let Some(indices) = self.index_buffer.as_deref()
+        {
+            let tris = self.triangle_offsets.as_deref().unwrap_or(&[]);
+            let run = off_pair(tris, index, "triangle_offsets")?;
+            let run = run.start.saturating_mul(3)..run.end.saturating_mul(3);
+            let len = indices.len();
+            let corners = indices.get(run.clone()).ok_or(GeometryOutOfBounds {
+                index,
+                field: "index_buffer",
+                idx: run.end,
+                len,
+            })?;
+            let triangles = corners
+                .as_chunks::<3>()
+                .0
+                .iter()
+                .map(|tri| {
+                    let [a, b, c] = tri.map(|i| vert(i.into_usize()));
+                    let (a, b, c) = (a?, b?, c?);
+                    Ok(Polygon::new(LineString(vec![a, b, c, a]), vec![]))
+                })
+                .collect::<MltResult<_>>()?;
+            return Ok(Geometry::<i32>::MultiPolygon(MultiPolygon(triangles)));
+        }
 
         match geom_type {
             GeometryType::Point => {

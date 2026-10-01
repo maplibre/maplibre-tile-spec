@@ -20,9 +20,9 @@ use crate::decoder::stream::header02::{
     StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
-    Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, GeoLayout,
-    Interior02, LayerHeader02, LayerLayout, LengthType, NodeKind02, NodePresence, NodeType02,
-    Presence02, SharedDictKind, StreamType, ValuesColumn02,
+    AlpScale, Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02,
+    GeoLayout, Interior02, LayerHeader02, LayerLayout, LengthType, NodeKind02, NodePresence,
+    NodeType02, Presence02, SharedDictKind, StreamType, ValuesColumn02,
 };
 use crate::tile::MAX_NESTED_DEPTH;
 use crate::utils::{parse_string, parse_u8, take};
@@ -856,9 +856,16 @@ impl<'a> Walker<'a> {
             stream.meta.encoding.logical,
             LogicalEncoding::Float(FloatLogical::Alp(_))
         ) {
-            for name in ["alp_e", "alp_f"] {
-                (c, _) = self.field(c, name, |i| parse_varint::<u8>(i), |v| Some(v.to_string()))?;
-            }
+            (c, _) = self.field(
+                c,
+                "alp_scale",
+                |i| parse_u8(i),
+                |v| {
+                    AlpScale::from_byte(*v)
+                        .ok()
+                        .map(|s| format!("e={}, f={}", s.e, s.f))
+                },
+            )?;
             (c, _) = self.field(
                 c,
                 "alp_base",

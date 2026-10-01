@@ -1,0 +1,255 @@
+import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
+import type { DumpTree } from "./annotate.ts";
+import { regionBands } from "./hex.ts";
+import RegionTree from "./RegionTree.vue";
+import { region, tinyTree, wrappedTree } from "./testing.ts";
+
+function tree(dump: DumpTree = tinyTree(), sections = false) {
+  return mount(RegionTree, {
+    props: {
+      tree: dump,
+      activeIndex: null,
+      bands: sections ? regionBands(dump) : null,
+    },
+  });
+}
+
+/** A tree opened all the way, which is what most of these cases are about. */
+async function openTree(dump: DumpTree = tinyTree(), sections = false) {
+  const view = tree(dump, sections);
+  await view.get(".treebar button").trigger("click");
+  return view;
+}
+
+function bar(view: ReturnType<typeof tree>) {
+  const button = view.get(".treebar button");
+  return {
+    label: button.text(),
+    disabled: (button.element as HTMLButtonElement).disabled,
+    press: () => button.trigger("click"),
+  };
+}
+
+const flat: DumpTree = {
+  bufLen: 2,
+  regions: [region({ offset: 0, len: 2, label: "name", value: "water" })],
+};
+
+describe("opening a fresh tree", () => {
+  it("opens a lone layer one level, which is the tile at a glance", () => {
+    // layer[0] and what it holds directly, but not inside `geometry`.
+    expect(tree().findAll(".node")).toHaveLength(3);
+  });
+
+  it("leaves every layer shut when the tile has several", () => {
+    const two: DumpTree = {
+      bufLen: 4,
+      regions: [
+        region({ offset: 0, len: 2, label: "layer[0]", container: true }),
+        region({ offset: 0, len: 2, label: "name", depth: 1 }),
+        region({ offset: 2, len: 2, label: "layer[1]", container: true }),
+        region({ offset: 2, len: 2, label: "name", depth: 1 }),
+      ],
+    };
+    expect(tree(two).findAll(".node")).toHaveLength(2);
+  });
+});
+
+describe("picking a section header", () => {
+  it("leaves the section as it was", async () => {
+    const view = tree();
+    await view.findAll("button.label")[2].trigger("click");
+    expect(view.findAll(".node")).toHaveLength(3);
+  });
+
+  it("reports the pick", async () => {
+    const view = tree();
+    await view.findAll("button.label")[2].trigger("click");
+    await view.findAll("button.label")[2].trigger("click");
+    expect(view.emitted("pick")).toEqual([[2], [2]]);
+  });
+});
+
+describe("double clicking a section header", () => {
+  it("expands a collapsed section", async () => {
+    const view = tree();
+    expect(view.findAll(".node")).toHaveLength(3);
+    await view.findAll("button.label")[2].trigger("dblclick");
+    expect(view.findAll(".node")).toHaveLength(5);
+  });
+
+  it("collapses an open section", async () => {
+    const view = await openTree();
+    expect(view.findAll(".node")).toHaveLength(5);
+    await view.findAll("button.label")[2].trigger("dblclick");
+    expect(view.findAll(".node")).toHaveLength(3);
+  });
+
+  it("leaves a leaf alone", async () => {
+    const view = await openTree();
+    await view.findAll("button.label")[1].trigger("dblclick");
+    expect(view.findAll(".node")).toHaveLength(5);
+  });
+});
+
+/** An `Id` column holds one stream and nothing else, which is the shape that folds. */
+const wrapped: DumpTree = {
+  bufLen: 6,
+  regions: [
+    region({ offset: 0, len: 6, label: "layer[0]", container: true }),
+    region({ offset: 0, len: 1, label: "name", depth: 1, value: "water" }),
+    region({
+      offset: 1,
+      len: 5,
+      label: "column[0] Id",
+      depth: 1,
+      container: true,
+    }),
+    region({ offset: 1, len: 5, label: "id", depth: 2, container: true }),
+    region({ offset: 1, len: 1, label: "num_values", depth: 3, value: "2" }),
+    region({ offset: 2, len: 4, label: "data", depth: 3, kind: "dataBlob" }),
+  ],
+};
+
+describe("a container that holds one container and nothing else", () => {
+  it("shows the parent alone, the wrapper's own name being implied", async () => {
+    const view = await openTree(wrapped);
+    const labels = view.findAll(".name").map((at) => at.text());
+    expect(labels).toEqual([
+      "layer[0]",
+      "name",
+      "column[0] Id",
+      "num_values",
+      "data",
+    ]);
+  });
+
+  it("opens onto what the wrapper held, not the wrapper", async () => {
+    const view = tree(wrapped);
+    await view.get('[data-index="2"] button.caret').trigger("click");
+    expect(view.findAll(".name")).toHaveLength(5);
+  });
+
+  it("reports the row it folded into, not the region picked", async () => {
+    const view = await openTree(wrapped);
+    await view.findAll("button.label")[2].trigger("click");
+    expect(view.emitted("pick")).toEqual([[2]]);
+  });
+
+  it("lights up the row when the map selects a region it swallowed", async () => {
+    const view = await openTree(wrapped);
+    await view.setProps({ activeIndex: 3 });
+    expect(view.get(".node.on").get(".name").text()).toBe("column[0] Id");
+  });
+
+  it("leaves a lone leaf where it is", async () => {
+    const view = await openTree();
+    expect(view.findAll(".name").map((at) => at.text())).toContain("geometry");
+  });
+});
+
+describe("the caret", () => {
+  it("toggles on a single click without selecting", async () => {
+    const view = tree();
+    await view.get('[data-index="2"] button.caret').trigger("click");
+    expect(view.findAll(".node")).toHaveLength(5);
+    expect(view.emitted("pick")).toBeUndefined();
+  });
+});
+
+describe("the expand and collapse button", () => {
+  it("collapses an open tree", async () => {
+    const view = await openTree();
+    expect(bar(view).label).toBe("collapse all");
+    await bar(view).press();
+    expect(view.findAll(".node")).toHaveLength(1);
+  });
+
+  it("expands again once collapsed", async () => {
+    const view = await openTree();
+    await bar(view).press();
+    expect(bar(view).label).toBe("expand all");
+    await bar(view).press();
+    expect(view.findAll(".node")).toHaveLength(5);
+  });
+
+  it("expands first from a half-open tree", async () => {
+    const view = tree();
+    expect(bar(view).label).toBe("expand all");
+    await bar(view).press();
+    expect(view.findAll(".node")).toHaveLength(5);
+  });
+
+  it("is disabled on a tree without containers", () => {
+    expect(bar(tree(flat)).disabled).toBe(true);
+  });
+});
+
+function rowsWith(view: ReturnType<typeof tree>, name: string): number[] {
+  return view
+    .findAll(".node")
+    .flatMap((node, at) => (node.classes().includes(name) ? [at] : []));
+}
+
+describe("row bands", () => {
+  it("tints a container and the rows it holds as one block", async () => {
+    const view = await openTree(tinyTree(), true);
+    expect(rowsWith(view, "b0")).toEqual([0, 1]);
+    expect(rowsWith(view, "b1")).toEqual([2, 3, 4]);
+  });
+
+  it("rounds a block off where the next one starts", async () => {
+    const view = await openTree(tinyTree(), true);
+    expect(rowsWith(view, "top")).toEqual([0, 2]);
+    expect(rowsWith(view, "bottom")).toEqual([1, 4]);
+  });
+
+  it("parts a block from the one below it", async () => {
+    expect(rowsWith(await openTree(tinyTree(), true), "tail")).toEqual([1, 4]);
+  });
+
+  it("parts two neighbouring blocks the tint wraps onto one slot", async () => {
+    const view = await openTree(wrappedTree(), true);
+    expect(rowsWith(view, "b0")).toEqual([0, 11, 12, 13]);
+    expect(rowsWith(view, "top")).toEqual([0, 1, 3, 5, 7, 9, 11, 13]);
+  });
+
+  it("parts nothing while the knob is off", () => {
+    expect(rowsWith(tree(), "tail")).toEqual([]);
+  });
+});
+
+function placeRows(view: ReturnType<typeof tree>, rowHeight: number) {
+  const scroll = view.get(".scroll").element as HTMLElement;
+  scroll.getBoundingClientRect = () => new DOMRect(0, 0, 200, rowHeight * 2);
+  for (const node of view.findAll(".node")) {
+    const index = Number(node.attributes("data-index"));
+    node.element.getBoundingClientRect = () =>
+      new DOMRect(0, index * rowHeight - scroll.scrollTop, 200, rowHeight);
+  }
+  return scroll;
+}
+
+describe("revealing a region", () => {
+  it("scrolls a row below the fold to the top", async () => {
+    const view = await openTree();
+    const scroll = placeRows(view, 10);
+    await view.vm.reveal(4);
+    expect(scroll.scrollTop).toBe(40);
+  });
+
+  it("leaves a row already on screen where it is", async () => {
+    const view = tree();
+    const scroll = placeRows(view, 10);
+    await view.vm.reveal(1);
+    expect(scroll.scrollTop).toBe(0);
+  });
+
+  it("opens a collapsed container to reach the row", async () => {
+    const view = tree();
+    await bar(view).press();
+    await view.vm.reveal(4);
+    expect(view.findAll(".node")).toHaveLength(5);
+  });
+});

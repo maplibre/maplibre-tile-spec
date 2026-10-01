@@ -5,8 +5,8 @@ use super::streams::{
     dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_level1_length_stream,
     encode_level1_without_ring_buffer_length_stream, encode_level2_length_stream,
     encode_morton_vertex_streams02, encode_ring_lengths_for_mixed, encode_root_length_stream,
-    encode_vec2_vertex_stream02, normalize_geometry_offsets, normalize_part_offsets_for_rings,
-    seed_curve_caches,
+    encode_vec2_delta2_vertex_stream02, encode_vec2_vertex_stream02, normalize_geometry_offsets,
+    normalize_part_offsets_for_rings, seed_curve_caches,
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::stream::header02::{Family, WordWidth};
@@ -30,6 +30,15 @@ struct Tessellation {
     index_buffer: Vec<u32>,
 }
 
+/// Whether a tessellated layer keeps the outline topology next to its triangles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Outlines {
+    /// Keep every topology stream, as a layer with anything but polygons must.
+    Keep,
+    /// Drop them when every feature is a polygon, so only the triangles are stored.
+    DropForPolygons,
+}
+
 /// The streams of a v2 geometry section, before the layout byte that declares them is settled.
 pub(crate) struct GeometrySection02 {
     types: Vec<GeometryType>,
@@ -40,14 +49,17 @@ pub(crate) struct GeometrySection02 {
 }
 
 /// Turn a layer's geometries into the v2 stream set.
-pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometrySection02> {
+pub(crate) fn encode_geometry02(
+    geometry: GeometryValues,
+    outlines: Outlines,
+) -> MltResult<GeometrySection02> {
     let GeometryValues {
         vector_types,
         geometry_offsets,
         part_offsets,
         ring_offsets,
         index_buffer,
-        triangles,
+        triangle_offsets,
         vertices,
     } = geometry;
 
@@ -55,7 +67,11 @@ pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometryS
     let part_offsets = part_offsets.unwrap_or_default();
     let ring_offsets = ring_offsets.unwrap_or_default();
     let vertices = vertices.unwrap_or_default();
-    let triangles = triangles.unwrap_or_default();
+    let triangles = triangle_offsets
+        .unwrap_or_default()
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .collect();
     let index_buffer = index_buffer.unwrap_or_default();
 
     // Same part-offset normalization as the v1 writer.
@@ -153,8 +169,14 @@ pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometryS
     // missing one fills the gap with an empty stream rather than dropping the others:
     // the decoder then rebuilds what the stream would have said.
     if tessellation.is_some() {
-        topology = topology.with_rings();
-        geo_lengths.get_or_insert_with(Vec::new);
+        let polygons_only = vector_types.iter().all(|t| t.is_polygon());
+        if outlines == Outlines::DropForPolygons && polygons_only {
+            topology = Topology::Flat;
+            geo_lengths = None;
+        } else {
+            topology = topology.with_rings();
+            geo_lengths.get_or_insert_with(Vec::new);
+        }
     }
 
     Ok(GeometrySection02 {
@@ -262,7 +284,7 @@ fn write_vertices(
     enc.family_context = Family::Vertex;
 
     if tessellated {
-        encode_vec2_vertex_stream02(vertices, enc, codecs)?;
+        write_plain_vertices(vertices, enc, codecs)?;
         return Ok(VertexStorage::Plain);
     }
 
@@ -284,7 +306,7 @@ fn write_vertices(
     }
 
     if !dict_may_be_beneficial(vertices, enc) {
-        encode_vec2_vertex_stream02(vertices, enc, codecs)?;
+        write_plain_vertices(vertices, enc, codecs)?;
         return Ok(VertexStorage::Plain);
     }
 
@@ -309,7 +331,7 @@ fn write_vertices(
         })
     };
     candidate(VertexStorage::Plain, &|enc, codecs| {
-        encode_vec2_vertex_stream02(vertices, enc, codecs)
+        write_plain_vertices(vertices, enc, codecs)
     })?;
     candidate(VertexStorage::Dict, &|enc, codecs| {
         encode_hilbert_vertex_streams02(vertices, enc, codecs)
@@ -319,4 +341,14 @@ fn write_vertices(
     })?;
     drop(alt);
     Ok(winner)
+}
+
+/// The plain vertex stream the encoder picks itself: componentwise delta, raced against second-order deltas when the config allows them.
+fn write_plain_vertices(vertices: &[i32], enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<()> {
+    if vertices.is_empty() || !enc.config().allow_delta2() {
+        return encode_vec2_vertex_stream02(vertices, enc, codecs);
+    }
+    let mut alt = enc.try_alternatives();
+    alt.with(|enc| encode_vec2_vertex_stream02(vertices, enc, codecs))?;
+    alt.with(|enc| encode_vec2_delta2_vertex_stream02(vertices, enc, codecs))
 }

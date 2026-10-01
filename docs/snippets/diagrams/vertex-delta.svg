@@ -1,0 +1,60 @@
+<svg class="mlt-diagram" viewBox="0 0 710 196" role="img" aria-label="The first ring of mix_2_polyh_mpoly delta coded per component, zigzag coded and written as varints" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small mid" x="176" y="14">vertex 0</text>
+<path class="bracket" d="M130 34V28H222V34"/>
+<text class="muted small mid" x="288" y="14">vertex 1</text>
+<path class="bracket" d="M242 34V28H334V34"/>
+<text class="muted small mid" x="400" y="14">vertex 2</text>
+<path class="bracket" d="M354 34V28H446V34"/>
+<text class="row" x="0" y="54">x, y</text>
+<rect class="f1" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">52</text>
+<rect class="f1" x="178" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="54">35</text>
+<rect class="f1" x="242" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="264" y="54">14</text>
+<rect class="f1" x="290" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="312" y="54">55</text>
+<rect class="f1" x="354" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="376" y="54">60</text>
+<rect class="f1" x="402" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="424" y="54">72</text>
+<text class="row" x="0" y="94">delta</text>
+<rect class="f1" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="94">52</text>
+<rect class="f1" x="178" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="94">35</text>
+<rect class="f1" x="242" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="264" y="94">-38</text>
+<rect class="f1" x="290" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="312" y="94">20</text>
+<rect class="f1" x="354" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="376" y="94">46</text>
+<rect class="f1" x="402" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="424" y="94">17</text>
+<text class="row" x="0" y="134">zigzag</text>
+<rect class="f1" x="130" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="134">104</text>
+<rect class="f1" x="178" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="134">70</text>
+<rect class="f1" x="242" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="264" y="134">75</text>
+<rect class="f1" x="290" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="312" y="134">40</text>
+<rect class="f1" x="354" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="376" y="134">92</text>
+<rect class="f1" x="402" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="424" y="134">34</text>
+<text class="row" x="0" y="174">bytes</text>
+<rect class="plain" x="130" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="174">68</text>
+<rect class="plain" x="178" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="174">46</text>
+<rect class="plain" x="242" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="264" y="174">4b</text>
+<rect class="plain" x="290" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="312" y="174">28</text>
+<rect class="plain" x="354" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="376" y="174">5c</text>
+<rect class="plain" x="402" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="424" y="174">22</text>
+</svg>
