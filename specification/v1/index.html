@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../assets/extra.css">
     
+      <link rel="stylesheet" href="../../assets/diagrams.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -1030,7 +1032,7 @@ Signed varints are ZigZag-encoded before being written.</p>
 <p>A tile is a concatenation of tagged layer records.
 There is no tile header.
 Layers are encoded independently and can be concatenated without re-encoding.</p>
-<p><a href="../../inspector/app/?fixture=0x01%2Fpoint.mlt&amp;at=size" target="_blank">See <code>point.mlt</code> in the inspector</a> - a single <code>Point</code>, the smallest v1 tile.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fpoint.mlt&amp;at=size" target="_blank">View example</a> - a single <code>Point</code> and the layer around it.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>tile   := layer*
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>layer  := [varint size] [u8 tag] [u8 body[size - 1]]
 </span></code></pre></div>
@@ -1069,7 +1071,7 @@ Encoders MAY default to <code>4096</code> when a user does not specify the exten
 <h4 id="column-types">Column Types<a class="headerlink" href="#column-types" title="Link to this section">&para;</a></h4>
 <p>The low bit of the type byte is the nullability flag: an odd code is the nullable variant of the even code below it.
 A nullable column writes a <code>Present</code> stream before its data.</p>
-<p><a href="../../inspector/app/?fixture=0x01-rust%2Fprops_mixed_np.mlt" target="_blank">See <code>props_mixed_np.mlt</code> in the inspector</a> - seven of the column types in one layer.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01-rust%2Fprops_mixed_np.mlt" target="_blank">View example</a> - seven of the column types in one layer.</p>
 <table>
 <thead>
 <tr>
@@ -1211,7 +1213,7 @@ A stream is a sequence of values of a known length in a continuous memory chunk,
 <h3 id="stream-types">Stream Types<a class="headerlink" href="#stream-types" title="Link to this section">&para;</a></h3>
 <p>The <code>stream_type</code> byte names what role the stream plays.
 The high nibble is the category and the low nibble is a category-specific subtype.</p>
-<p><a href="../../inspector/app/?fixture=0x01%2Fprops_shared_dict_one_child_fsst.mlt" target="_blank">See <code>props_shared_dict_one_child_fsst.mlt</code> in the inspector</a> - nine of the stream types in one tile.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fprops_shared_dict_one_child_fsst.mlt" target="_blank">View example</a> - all four categories, across nine subtypes.</p>
 <table>
 <thead>
 <tr>
@@ -1332,14 +1334,14 @@ Any combination not listed below is invalid.</p>
 <p>An <code>id</code> column is not mandatory.
 If included, it should be <code>UInt64</code> or narrower (<code>UInt32</code> if possible) for MVT compatibility.
 A narrower type enables the use of efficient encodings like SIMD-FastPFOR.</p>
-<p><a href="../../inspector/app/?fixture=0x01-rust%2Fid64_max_delta.mlt&amp;at=column%5B0%5D" target="_blank">See <code>id64_max_delta.mlt</code> in the inspector</a> - a 64-bit id column.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fid.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a 32-bit <code>Id</code> column.</p>
 <h3 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h3>
 <p>Boolean, integer and floating-point columns are a <code>Present</code> stream when nullable, then one data stream.
 Boolean data streams are bit-packed, one bit per present value; float and double data streams hold fixed-width IEEE 754 words.</p>
-<p><a href="../../inspector/app/?fixture=0x01%2Fprop_i32.mlt&amp;at=column%5B1%5D" target="_blank">See <code>prop_i32.mlt</code> in the inspector</a> - an <code>i32</code> column and its presence stream.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fprop_i32.mlt&amp;at=column%5B1%5D" target="_blank">View example</a> - an <code>i32</code> column and its presence stream.</p>
 <h3 id="string-columns">String Columns<a class="headerlink" href="#string-columns" title="Link to this section">&para;</a></h3>
 <p>A string column declares how many streams follow, and the number of streams determines its layout:</p>
-<p><a href="../../inspector/app/?fixture=0x01-rust%2Fprop_str_empty_np.mlt&amp;at=column%5B1%5D" target="_blank">See <code>prop_str_empty_np.mlt</code> in the inspector</a> - a plain string column.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fprops_str.mlt&amp;at=column%5B1%5D" target="_blank">View example</a> - the byte length of each value, then the values back to back.</p>
 <table>
 <thead>
 <tr>
@@ -1379,7 +1381,7 @@ FSST layouts compress the value bytes with a symbol table; see <a href="../../en
 An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity <code>[0, 1, 2, ...]</code> as its offsets.</p>
 <h3 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h3>
 <p>Several string columns, such as <code>name:en</code>, <code>name:de</code> and <code>name:fr</code>, can share a single dictionary.</p>
-<p><a href="../../inspector/app/?fixture=0x01-rust%2Fprops_shared_dict_no_child_name_np.mlt&amp;at=column%5B1%5D" target="_blank">See <code>props_shared_dict_no_child_name_np.mlt</code> in the inspector</a> - several string columns sharing one dictionary.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fprops_shared_dict.mlt&amp;at=column%5B1%5D" target="_blank">View example</a> - several string columns sharing one dictionary.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>shared_dict := [varint stream_count]
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>               [dictionary streams]     2 (plain) or 4 (FSST), as in the table above
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>               child * child_count      child_count comes from the column metadata
@@ -1477,7 +1479,7 @@ Pre-tessellated polygon meshes can also be stored directly to avoid runtime tria
 If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>NumTriangles</code> and <code>IndexBuffer</code> streams must be provided.</p>
 <h3 id="geometry-types">Geometry Types<a class="headerlink" href="#geometry-types" title="Link to this section">&para;</a></h3>
 <p>Six geometry types are supported, encoded as unsigned integers:</p>
-<p><a href="../../inspector/app/?fixture=0x01%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=meta" target="_blank">See <code>mix_6_pt_line_poly_mpt_mline_mpoly.mlt</code> in the inspector</a> - all six kinds in one layer.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=meta" target="_blank">View example</a> - all six kinds in one layer.</p>
 <table>
 <thead>
 <tr>
@@ -1521,7 +1523,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </table>
 <h3 id="binary-structure">Binary Structure<a class="headerlink" href="#binary-structure" title="Link to this section">&para;</a></h3>
 <p>A geometry column is stored as a sequence of streams, prefixed by a stream count:</p>
-<p><a href="../../inspector/app/?fixture=0x01%2Fpoly.mlt&amp;at=column%5B0%5D" target="_blank">See <code>poly.mlt</code> in the inspector</a> - a polygon, with the topology streams v1 writes.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fpoly.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a polygon, with the topology streams v1 writes.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>geometry_column := [varint stream_count]
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>                   [types stream]                  one geometry type per feature
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>                   [stream * (stream_count - 1)]   topology, tessellation and vertex streams
@@ -1810,7 +1812,7 @@ Each appears at most once.</p>
 <h3 id="vertex-encoding">Vertex Encoding<a class="headerlink" href="#vertex-encoding" title="Link to this section">&para;</a></h3>
 <h4 id="componentwise-delta-encoding">Componentwise Delta Encoding<a class="headerlink" href="#componentwise-delta-encoding" title="Link to this section">&para;</a></h4>
 <p>Vertices are stored as interleaved (x, y) coordinate pairs using <strong>componentwise delta encoding</strong>:</p>
-<p><a href="../../inspector/app/?fixture=0x01%2Fpoint.mlt&amp;at=stream%5B0%5D" target="_blank">See <code>point.mlt</code> in the inspector</a> - x and y each delta against the previous vertex.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fline.mlt&amp;at=stream%5B1%5D" target="_blank">View example</a> - three vertices, each stored as its step from the one before.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 196" role="img" aria-label="The first ring of mix_2_polyh_mpoly delta coded per component, zigzag coded and written as varints" xmlns="http://www.w3.org/2000/svg">
 <text class="muted small mid" x="176" y="14">vertex 0</text>
 <path class="bracket" d="M130 34V28H222V34"/>
@@ -1939,7 +1941,7 @@ Each appears at most once.</p>
 <p>The vertex dictionary is sorted by <a href="https://en.wikipedia.org/wiki/Hilbert_curve">Hilbert curve</a> index for spatial locality. The <code>OFFSET/VERTEX</code> stream contains indices into this dictionary.</p>
 <h4 id="morton-encoding-optional">Morton Encoding (Optional)<a class="headerlink" href="#morton-encoding-optional" title="Link to this section">&para;</a></h4>
 <p>For spatial optimization, vertices can be <a href="https://en.wikipedia.org/wiki/Z-order_curve">Morton-encoded</a> (Z-order curve):</p>
-<p><a href="../../inspector/app/?fixture=0x01-rust%2Fmultipoint_morton_dictionary.mlt&amp;at=column%5B0%5D" target="_blank">See <code>multipoint_morton_dictionary.mlt</code> in the inspector</a> - vertices as Morton codes.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01-rust%2Fmultipoint_morton_dictionary.mlt&amp;at=stream%5B2%5D" target="_blank">View example</a> - vertices as Morton codes.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Coordinate (5, 3):
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>  X bits: 1 0 1
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  Y bits: 0 1 1
@@ -1983,7 +1985,7 @@ Each appears at most once.</p>
 </table>
 <h4 id="rle-format">RLE Format<a class="headerlink" href="#rle-format" title="Link to this section">&para;</a></h4>
 <p><a href="https://en.wikipedia.org/wiki/Run-length_encoding">Run-length encoding</a> stores runs followed by values:</p>
-<p><a href="../../inspector/app/?fixture=0x01-rust%2Fprop_empty_name_np.mlt&amp;at=column%5B1%5D" target="_blank">See <code>prop_empty_name_np.mlt</code> in the inspector</a> - a run-length coded stream.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fids_rle.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - four equal ids as one run: the run length <code>4</code>, then the value <code>103</code>.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>Input:  [5, 5, 5, 3, 3, 3, 3]
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>Runs:   [3, 4]        // 3 fives, 4 threes
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>Values: [5, 3]
@@ -1992,7 +1994,7 @@ Each appears at most once.</p>
 <p>Stream metadata includes <code>runs</code> and <code>num_rle_values</code> counts for decoding.</p>
 <h3 id="tessellation-data-optional">Tessellation Data (Optional)<a class="headerlink" href="#tessellation-data-optional" title="Link to this section">&para;</a></h3>
 <p>Pre-tessellated polygons include additional streams for direct GPU rendering:</p>
-<p><a href="../../inspector/app/?fixture=0x01%2Fmix_2_poly_mpoly_tes.mlt&amp;at=stream%5B3%5D" target="_blank">See <code>mix_2_poly_mpoly_tes.mlt</code> in the inspector</a> - the tile the diagram below is drawn from.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fmix_2_poly_mpoly_tes.mlt&amp;at=stream%5B3%5D" target="_blank">View example</a> - the triangles and vertices drawn below.</p>
 <ul>
 <li><strong>Triangles</strong> (<code>LENGTH/TRIANGLES</code>) hold one triangle count per polygon feature.</li>
 <li><strong>The index buffer</strong> (<code>OFFSET/INDEX</code>) holds three vertex indices per triangle.</li>

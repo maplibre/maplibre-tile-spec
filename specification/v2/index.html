@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../assets/extra.css">
     
+      <link rel="stylesheet" href="../../assets/diagrams.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -773,12 +775,12 @@
   <a href="#columns" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Columns
+        Attribute Columns
       </span>
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Columns">
+    <nav class="md-nav" aria-label="Attribute Columns">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1194,7 +1196,7 @@ A v2 layer decodes into the same in-memory representation as a v1 layer.</p>
 <p>Unchanged from <a href="../v1/#tile-layout">v1</a>.
 A tile is a concatenation of tagged layer records.
 A v2 layer has <code>tag = 0x02</code>.</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=size" target="_blank">See <code>point.mlt</code> in the inspector</a> - a single <code>Point</code>, the smallest tile in the corpus at 17 bytes.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=size" target="_blank">View example</a> - a single <code>Point</code> and the layer around it.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>tile   := layer*
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>layer  := [varint size] [u8 tag] [u8 body[size - 1]]
 </span></code></pre></div>
@@ -1241,7 +1243,7 @@ See <a href="#value-count">Value Count</a>.</p>
 <p>Every field here is one a decoder needs before it can read anything the layer sizes itself by.</p>
 <h4 id="extent">Extent<a class="headerlink" href="#extent" title="Link to this section">&para;</a></h4>
 <p>v2 stores only power-of-two extents, so the nibble holds <code>log2(extent) - 6</code>:</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fextent_512.mlt&amp;at=header" target="_blank">See <code>extent_512.mlt</code> in the inspector</a> - the extent nibble coding <code>512</code>.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fextent_512.mlt&amp;at=header" target="_blank">View example</a> - the extent nibble coding <code>512</code>.</p>
 <table>
 <thead>
 <tr>
@@ -1287,12 +1289,12 @@ An encoder given an extent v2 cannot code MUST reject the layer rather than roun
 </tr>
 </tbody>
 </table>
-<p><a href="../../inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=header" target="_blank">See <code>point.mlt</code> in the inspector</a> - every feature is a <code>Point</code>, so no types stream is written.</p>
-<p>To potimise for the common case of uniform geometries per layer, we allow skipping to write the respective metadata.
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=header" target="_blank">View example</a> - every feature is a <code>Point</code>, so no types stream is written.</p>
+<p>To optimize for the common case of uniform geometries per layer, we allow skipping to write the respective metadata.
 MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> declares.</p>
 <h3 id="column-counts">Column Counts<a class="headerlink" href="#column-counts" title="Link to this section">&para;</a></h3>
-<p>We have two kinds of cloumns, so we need to know how many colllumns of each type there are.</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt&amp;at=column_counts" target="_blank">See <code>mvalues.mlt</code> in the inspector</a> - a layer counting columns and m-values separately.</p>
+<p>We have two kinds of columns, so we need to know how many columns of each type there are.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmvalues_sp_prop.mlt&amp;at=column_counts" target="_blank">View example</a> - one property column and one m-value column, counted apart.</p>
 <p><code>column_count</code> is the number of ids and properties, not counting geometry or m-values.
 <code>m_value_count</code> is the number of <a href="#m-values">m-value columns</a>.</p>
 <p>To optimize the transfer size, if the header byte's m-value bit
@@ -1391,7 +1393,7 @@ A column present over one run of features, or on a handful of them, carries far 
 Decoders MUST reject run lengths that do not sum to <code>N</code>, a <code>K</code> greater than <code>N</code>, and indices that do not strictly increase or that reach <code>N</code>.</p>
 <h3 id="shared-presence-fields">Shared Presence Fields<a class="headerlink" href="#shared-presence-fields" title="Link to this section">&para;</a></h3>
 <p>Several columns MAY reference the same presence field.</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fprops_sp.mlt&amp;at=shared_presence" target="_blank">See <code>props_sp.mlt</code> in the inspector</a> - two columns referencing one shared field.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_sp.mlt&amp;at=shared_presence" target="_blank">View example</a> - two columns referencing one shared field.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>shared_presence := [u8 coding]   only when the layout byte's coding flag is set; 1, 2 or 3, see Presence Codings
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                   [payload]     per that coding, self-delimiting
 </span></code></pre></div>
@@ -1446,12 +1448,12 @@ Each stream's role is given by its position.</p>
 </tr>
 </tbody>
 </table>
-<p><a href="../../inspector/app/?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types" target="_blank">See <code>mix_6_pt_line_poly_mpt_mline_mpoly.mlt</code> in the inspector</a> - all six kinds in one layer, so the types stream carries each.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types" target="_blank">View example</a> - all six kinds in one layer, so the types stream carries each.</p>
 <p>The types stream holds one of these per feature.
 A layer whose features all share one writes the <a href="#uniform-geometry-type">uniform geometry type</a> nibble instead.</p>
 <h3 id="geometry-layout">Geometry Layout<a class="headerlink" href="#geometry-layout" title="Link to this section">&para;</a></h3>
 <p>The low nibble of the layer layout byte:</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fpoly.mlt&amp;at=layout" target="_blank">See <code>poly.mlt</code> in the inspector</a> - the <code>Polygons</code> layout: part and ring lengths, no vertex offsets.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fpoly.mlt&amp;at=layout" target="_blank">View example</a> - the <code>Polygons</code> layout: part and ring lengths, no vertex offsets.</p>
 <table>
 <thead>
 <tr>
@@ -1540,7 +1542,7 @@ A tessellated layer that needs only some of the outline streams uses <code>0xD</
 <p>The meaning of the topology streams, the length threshold rules, componentwise delta coding, Hilbert-sorted vertex dictionaries and Morton codes are unchanged from <a href="../v1/#geometry-column">v1</a>.</p>
 <h3 id="tessellation">Tessellation<a class="headerlink" href="#tessellation" title="Link to this section">&para;</a></h3>
 <p>A tessellated layer stores the triangles its polygons were cut into, next to their vertices.</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fpoly_tri.mlt&amp;at=tri_lengths" target="_blank">See <code>poly_tri.mlt</code> in the inspector</a> - one polygon cut into triangles, with no outlines.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=tri_lengths" target="_blank">View example</a> - the triangles and vertices drawn below.</p>
 <p>Two streams carry the triangles:</p>
 <ul>
 <li><strong>Triangle lengths</strong> hold one triangle count per polygon feature, in feature order.
@@ -2001,6 +2003,7 @@ Its indices convert to v2's by adding that vertex's position, which v1 reads fro
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Without outlines (<code>0xC</code>)</label><label for="__tabbed_2_2">With outlines (<code>0xD</code>)</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_2_poly_mpoly_tri.mlt&amp;at=layout" target="_blank">View example</a> - the same two features as triangles alone, layout <code>0xC</code>.</p>
 <p><code>0xC</code> stores the triangles and nothing else about a polygon's shape:</p>
 <table>
 <thead>
@@ -2055,7 +2058,7 @@ A feature with a triangle count of <code>0</code>, such as a polygon whose verti
 That is why <code>0xC</code> cannot carry <a href="#m-values">m-values</a>.</p>
 </div>
 <div class="tabbed-block">
-<p><a href="../../inspector/app/?fixture=0x02%2Fpoly_tes.mlt&amp;at=tri_lengths" target="_blank">See <code>poly_tes.mlt</code> in the inspector</a> - the same polygon keeping its outline beside the triangles.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=layout" target="_blank">View example</a> - the same two features with their outlines kept, layout <code>0xD</code>.</p>
 <p><code>0xD</code> keeps the full outline topology next to the triangles.
 Each feature decodes as the geometry it was encoded from, and the triangles come on top.</p>
 <p>The vertex stream is the outline vertices, in feature order, as the topology streams lay them out.
@@ -2080,6 +2083,7 @@ A feature that is not a polygon stores no triangle count and owns no run of the 
 The two variants are differentiated by bit 0 of its <a href="#encoding-byte">encoding byte</a>'s extension field being <code>1</code>.
 A <code>z_step</code> byte sits between <code>byte_length</code> and the payload, or directly after the value count when <code>byte_length</code> is omitted.
 <code>byte_length</code> does not count it.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_point.mlt&amp;at=vertices" target="_blank">View example</a> - a point 12 m up, its <code>z</code> one word after <code>x</code> and <code>y</code>.</p>
 <div class="arithmatex">\[
 \text{elevation} = -10000\,\text{m} + z \cdot 10^{\,z\_step - 3}\,\text{m}
 \]</div>
@@ -2112,6 +2116,8 @@ A <code>z_step</code> byte sits between <code>byte_length</code> and the payload
 </tbody>
 </table>
 <p><code>8</code>-<code>255</code> are unassigned and MUST be rejected.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_step_finest.mlt&amp;at=vertices" target="_blank">View example</a> - a <code>z_step</code> of <code>0</code>, one unit per millimeter.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_step_coarsest.mlt&amp;at=vertices" target="_blank">View example</a> - a <code>z_step</code> of <code>7</code>, one unit per 10 km.</p>
 <p><code>z</code> is a signed 32-bit word like <code>x</code> and <code>y</code>, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m.
 Negative <code>z</code> is similarly possible.</p>
 <p>The stream holds <code>3 * num_values</code> words for <code>num_values</code> vertices, with <code>x</code>, <code>y</code> and <code>z</code> interleaved.
@@ -2119,13 +2125,17 @@ Logical <code>None</code>, <code>Delta</code> and <code>Componentwise Delta</cod
 A Morton code spans only <code>x</code> and <code>y</code>, so a vertex stream with bit 0 set and logical <code>Morton</code> MUST be rejected.
 <code>Componentwise Delta2</code> is defined only over pairs, so a vertex stream with bit 0 set and logical <code>Componentwise Delta2</code> MUST be rejected.
 Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
-<p>The vertex stream is indexed, so (<span class="arithmatex">\(x_1, y_1, z_1, x_2, y_2, z_2, ..., x_i, y_i, z_i\)</span>) has the indexe <span class="arithmatex">\(i\)</span>:</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices" target="_blank">View example</a> - all six geometry types, each vertex an interleaved triple.</p>
+<p>The vertex stream is indexed, so (<span class="arithmatex">\(x_1, y_1, z_1, x_2, y_2, z_2, ..., x_i, y_i, z_i\)</span>) has the index <span class="arithmatex">\(i\)</span>:</p>
 <ul>
 <li>Under a dictionary layout, the vertex stream holds the distinct triples and the vertex offsets pointing to them.
-  Two vertices share an entry only when their <code>x</code>, <code>y</code> and <code>z</code> are identical.</li>
+  Two vertices share an entry only when their <code>x</code>, <code>y</code> and <code>z</code> are identical.
+  <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict" target="_blank">View example</a> - five points in four entries: a repeat at the same height shares one, a new height does not.</li>
 <li>Under a tessellated layout, the index buffer names triples.
-  A <code>TessPolygons</code> feature holds the <code>z</code> of each triangle corner, in index buffer order.</li>
-<li>An <a href="#m-values">m-value</a> runs over the same vertex sequence it does without <code>z</code>.</li>
+  A <code>TessPolygons</code> feature holds the <code>z</code> of each triangle corner, in index buffer order.
+  <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole_tri.mlt&amp;at=tri_indexes" target="_blank">View example</a> - a polygon with a hole, cut into six triangles over six <code>(x, y, z)</code> vertices.</li>
+<li>An <a href="#m-values">m-value</a> runs over the same vertex sequence it does without <code>z</code>.
+  <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mvalues.mlt&amp;at=vertices" target="_blank">View example</a> - a line whose three vertices carry both a <code>z</code> and an m-value.</li>
 </ul>
 <p>A decoder that renders in 2D MAY read <code>x</code> and <code>y</code> and step over <code>z</code>.</p>
 <details class="question">
@@ -2142,7 +2152,7 @@ At 1 dm, <code>z</code> is Terrain-RGB's <code>R * 65536 + G * 256 + B</code>.</
 <p>Because one vertex is three adjacent words, a decoded vertex buffer can direct-to-GPU without having to index into another stream to match the z value.
 A layer without <code>z</code> is not impacted due to the extension bit mechanism.</p>
 </details>
-<h2 id="columns">Columns<a class="headerlink" href="#columns" title="Link to this section">&para;</a></h2>
+<h2 id="columns">Attribute Columns<a class="headerlink" href="#columns" title="Link to this section">&para;</a></h2>
 <p><code>column_count</code> columns follow the geometry section.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>column := [u8 column_type]
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>          [string name]              unless the data type is Id or LongId
@@ -2152,7 +2162,7 @@ A layer without <code>z</code> is not impacted due to the extension bit mechanis
 <p>An inline presence field is written in the <a href="#presence-codings">coding</a> its nibble names.</p>
 <h3 id="column-names">Column Names<a class="headerlink" href="#column-names" title="Link to this section">&para;</a></h3>
 <p>A layer has one namespace of column names, so a name identifies exactly one column of it and a style expression such as <code>["get", "foo"]</code> resolves to that column:</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=column%5B0%5D" target="_blank">See <code>prop_i32.mlt</code> in the inspector</a> - one named <code>i32</code> column.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_sp_id.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - an id, which has no name, beside a named <code>u32</code> column.</p>
 <table>
 <thead>
 <tr>
@@ -2294,7 +2304,7 @@ A <a href="#struct-nodes">struct</a> field name and a <a href="#map-nodes">map</
 </tr>
 </tbody>
 </table>
-<p><a href="../../inspector/app/?fixture=0x02%2Fprops_mixed_np.mlt" target="_blank">See <code>props_mixed_np.mlt</code> in the inspector</a> - seven of the data types in one layer.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_mixed_np.mlt" target="_blank">View example</a> - seven of the data types in one layer.</p>
 <p>There are no nullable variants of these codes.
 Nullability is given by the presence nibble.
 There is no geometry code, since the geometry column is not a counted column.</p>
@@ -2326,18 +2336,18 @@ There is no geometry code, since the geometry column is not a counted column.</p
 </tr>
 </tbody>
 </table>
-<p><a href="../../inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=present" target="_blank">See <code>prop_i32.mlt</code> in the inspector</a> - an optional column, so the nibble names an inline bitmap.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=present" target="_blank">View example</a> - an optional column, so the nibble names an inline bitmap.</p>
 <p>The coding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those for the two that are not.</p>
 <p>A shared reference at or past the count in the layout byte MUST be rejected.</p>
 <p>The presence nibble determines the column's value count: <code>feature_count</code> for nibble <code>0</code>, otherwise the number of present values the field names.</p>
 <h3 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h3>
 <p>Boolean, integer and id columns have a single data stream.</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fprop_i32_delta_np.mlt&amp;at=column%5B0%5D" target="_blank">See <code>prop_i32_delta_np.mlt</code> in the inspector</a> - a non-optional <code>i32</code> column.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprop_i32_delta_np.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a non-optional <code>i32</code> column.</p>
 <p>A float or double column has a single data stream, unless its logical encoding is <code>Dict</code>.
 A <code>Dict</code> float column has a second stream holding the distinct values that the first stream's codes index into.</p>
 <h3 id="string-columns">String Columns<a class="headerlink" href="#string-columns" title="Link to this section">&para;</a></h3>
 <p>The extension bits of the leading stream's encoding byte give the column's layout:</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fprop_str_empty_np.mlt&amp;at=column%5B0%5D" target="_blank">See <code>prop_str_empty_np.mlt</code> in the inspector</a> - a plain string column.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_str_plain_np.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - the plain layout: the lengths, then the strings back to back.</p>
 <table>
 <thead>
 <tr>
@@ -2375,7 +2385,7 @@ When the <code>DictValues</code> or <code>Corpus</code> stream's encoding byte n
 <h3 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h3>
 <p>Data type <code>0xF</code> introduces a dictionary followed by the columns that index into it.
 Its high nibble gives the dictionary kind instead of a presence:</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fprops_shared_dict_sp.mlt&amp;at=column%5B0%5D" target="_blank">See <code>props_shared_dict_sp.mlt</code> in the inspector</a> - child columns reading one dictionary.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - child columns reading one dictionary.</p>
 <table>
 <thead>
 <tr>
@@ -2544,7 +2554,7 @@ A byte blob is the exception it always is: bit 7 MUST be <code>0</code> and its 
 <p>A nested column MUST NOT nest more than 8 levels deep, counting the root as the first.</p>
 <h4 id="struct-nodes">Struct Nodes<a class="headerlink" href="#struct-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xC</code>. A fixed set of named, individually typed fields.</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fnested_struct.mlt&amp;at=column%5B0%5D" target="_blank">See <code>nested_struct.mlt</code> in the inspector</a> - a struct column with two leaves.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fnested_struct.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a struct column with two leaves.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>struct_body := [varint field_count]      non-zero
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>               field * field_count
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>field       := [u8 node_type]
@@ -2557,7 +2567,7 @@ Field names MUST be unique within their struct.
 A field present on every value of its struct stores no presence at all, which is what makes a struct the cheap shredding of a stable key set: the key is paid for once, in the tree.</p>
 <h4 id="list-nodes">List Nodes<a class="headerlink" href="#list-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xD</code>. A repeated value of one type.</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fnested_list_struct.mlt&amp;at=column%5B0%5D" target="_blank">See <code>nested_list_struct.mlt</code> in the inspector</a> - a list of structs.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fnested_list_struct.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a list of structs.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>list_body := [lengths stream]            Int family, one length per present list
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>             [u8 node_type]              the element node
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>             [presence stream]           only when the node presence nibble is 1
@@ -2568,7 +2578,7 @@ The element node has no name.</p>
 <p>A list that is null and a list that is empty are different: a null list has its presence bit clear and no length, an empty list has its presence bit set and a length of <code>0</code>.</p>
 <h4 id="map-nodes">Map Nodes<a class="headerlink" href="#map-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xE</code>. String keys chosen per value, over one value type.</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fnested_map_str.mlt&amp;at=column%5B0%5D" target="_blank">See <code>nested_map_str.mlt</code> in the inspector</a> - a map with string values.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fnested_map_str.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a map with string values.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>map_body := [lengths stream]             Int family, one length per present map
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>            [key streams]                a string column's stream set, one key per entry
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>            [u8 node_type]               the value node
@@ -2614,7 +2624,7 @@ It reads them against its own count, and is otherwise the same column.</p>
 </table>
 <h3 id="m-values">M-Values<a class="headerlink" href="#m-values" title="Link to this section">&para;</a></h3>
 <p>An m-value is a measurement taken at a vertex rather than at a feature:</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt&amp;at=m_value%5B0%5D" target="_blank">See <code>mvalues.mlt</code> in the inspector</a> - two m-value columns over the vertices.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt&amp;at=m_value%5B0%5D" target="_blank">View example</a> - two m-value columns over the vertices.</p>
 <ul>
 <li>a distance along a road,</li>
 <li>a timestamp per GPS fix,</li>
@@ -2637,7 +2647,7 @@ An m-value column is not counted in <code>column_count</code>.</p>
 <p><code>Bool</code> through <code>String</code>, codes <code>0x2</code>-<code>0xB</code>, carry exactly the streams they carry as a property column.
 <code>0x0</code>, <code>0x1</code> and <code>0xC</code>-<code>0xF</code> are reserved and MUST be rejected.
 A vertex carries a measurement, not a structure.</p>
-<p><a href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt" target="_blank">See <code>mvalues.mlt</code> in the inspector</a> - an <code>i32</code> and a <code>u32</code> m-value column.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt" target="_blank">View example</a> - an <code>i32</code> and a <code>u32</code> m-value column.</p>
 <h4 id="the-vertex-sequence">The Vertex Sequence<a class="headerlink" href="#the-vertex-sequence" title="Link to this section">&para;</a></h4>
 <p>A layer's vertex sequence is every vertex of every feature, in feature order, as the <a href="#geometry-section">geometry section</a>'s topology streams lay them out.
 Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> vertices.</p>
