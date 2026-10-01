@@ -418,7 +418,10 @@ impl<'a> Walker<'a> {
             | LogicalEncoding::Bool(_)
             | LogicalEncoding::Float(_)
             | LogicalEncoding::Vertex(
-                VertexLogical::None | VertexLogical::Delta | VertexLogical::ComponentwiseDelta,
+                VertexLogical::None
+                | VertexLogical::Delta
+                | VertexLogical::ComponentwiseDelta
+                | VertexLogical::ComponentwiseDelta2,
             ) => {}
         }
 

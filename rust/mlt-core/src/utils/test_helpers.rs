@@ -3,7 +3,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 
-use crate::decoder::Layer01;
+use crate::decoder::{Layer01, LogicalEncoding, StreamType};
+use crate::dump::annotate_tile;
 use crate::{Decoder, Layer, Lazy, MltRefResult, Parser, PropValue, TileLayer};
 
 /// Assert that `len`/`size_hint` equal the number of items actually left, at every
@@ -141,4 +142,17 @@ pub fn assert_mvt_equivalent_layers(a: &TileLayer, b: &TileLayer) {
             "feature properties (index {i})"
         );
     }
+}
+
+/// The logical encoding of every `stream_type` stream in `bytes`, in wire order.
+#[must_use]
+pub fn stream_logicals(bytes: &[u8], stream_type: StreamType) -> Vec<LogicalEncoding> {
+    let (tree, err) = annotate_tile(bytes);
+    assert!(err.is_none(), "annotate_tile: {err:?}");
+    tree.regions
+        .iter()
+        .filter_map(|r| r.blob.as_ref())
+        .filter(|blob| blob.meta.stream_type == stream_type)
+        .map(|blob| blob.meta.encoding.logical)
+        .collect()
 }
