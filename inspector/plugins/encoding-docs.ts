@@ -1,6 +1,6 @@
 /** Slices the encodings page into the sections the inspector shows beside a byte. */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, posix } from "node:path";
 import MarkdownIt from "markdown-it";
 import type { Plugin } from "vite";
@@ -35,8 +35,13 @@ export interface EncodingDoc {
 }
 
 const HEADING = /^(#{2,6})\s+(.*?)(?:\s*\{#([a-z0-9-]+)\})?\s*$/;
-/** `!!! kind "Title"`, whose body is the indented block under it. */
-const ADMONITION = /^!!!\s+(\S+)(?:\s+"([^"]*)")?\s*$/;
+/** `!!! kind "Title"` and its collapsible `???` form, whose body is the block under it. */
+const ADMONITION = /^(?:!!!|\?\?\?\+?)\s+(\S+)(?:\s+"([^"]*)")?\s*$/;
+/** `=== "Title"`, one tab of a set, whose body is the block indented under it. */
+const TAB = /^(\s*)===\s+"([^"]*)"\s*$/;
+/** `--8<-- "path"`, a file spliced in, resolved against the same bases mkdocs.yml lists. */
+const SNIPPET = /^(\s*)--8<--\s+"([^"]+)"\s*$/;
+const SNIPPET_BASES = ["snippets", "../test/synthetic"];
 /** Inline HTML the page uses for a badge, which carries no text of its own. */
 const EXPERIMENTAL = /<span class="experimental"><\/span>/g;
 
@@ -78,6 +83,53 @@ function docsHref(
   return `${root}${at.replace(/\.md$/, "/")}${suffix}`;
 }
 
+/**
+ * Splices in the files the page includes, which is how every diagram reaches this panel.
+ *
+ * An SVG needs no extension to display - it is HTML, and the renderer passes it through -
+ * so inlining the include is all it takes. The lines keep the include's own indentation,
+ * leaving them where the tab and admonition passes below expect to find them.
+ */
+function expandSnippets(lines: string[], docsDir: string): string[] {
+  return lines.flatMap((line) => {
+    const hit = SNIPPET.exec(line);
+    if (!hit) return [line];
+    const [, indent, name] = hit;
+    for (const base of SNIPPET_BASES) {
+      const file = join(docsDir, base, name);
+      if (!existsSync(file)) continue;
+      const text = readFileSync(file, "utf8").trimEnd();
+      return text.split("\n").map((snippet) => `${indent}${snippet}`);
+    }
+    throw new Error(
+      `${name} is included by the docs but is not under ${SNIPPET_BASES}`,
+    );
+  });
+}
+
+/** Tabs are a mkdocs extension; there is no tab strip here, so each one becomes a heading. */
+function flattenTabs(lines: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const head = TAB.exec(lines[i]);
+    if (!head) {
+      out.push(lines[i]);
+      continue;
+    }
+    const [, indent, title] = head;
+    out.push(`${indent}**${title}**`, "");
+    while (i + 1 < lines.length) {
+      const body = lines[i + 1];
+      if (body.trim() !== "" && !body.startsWith(`${indent}    `)) break;
+      i++;
+      out.push(
+        body.trim() === "" ? "" : indent + body.slice(indent.length + 4),
+      );
+    }
+  }
+  return out;
+}
+
 /** Admonitions are a mkdocs extension, so they become blockquotes the renderer knows. */
 function foldAdmonitions(lines: string[]): string[] {
   const out: string[] = [];
@@ -91,7 +143,7 @@ function foldAdmonitions(lines: string[]): string[] {
     out.push(`> **${title}**`, ">");
     while (i + 1 < lines.length && /^(\s{4}|\s*$)/.test(lines[i + 1])) {
       const body = lines[++i];
-      if (body.trim() !== "") out.push(`> ${body.slice(4)}`);
+      out.push(body.trim() === "" ? ">" : `> ${body.slice(4)}`);
     }
     // Without it the next paragraph lazily continues the blockquote.
     out.push("");
@@ -103,8 +155,10 @@ function render(
   lines: string[],
   page: { file: string; site: string },
   root: string,
+  docsDir: string,
 ): string {
-  const tokens = md.parse(foldAdmonitions(lines).join("\n"), {});
+  const folded = foldAdmonitions(flattenTabs(expandSnippets(lines, docsDir)));
+  const tokens = md.parse(folded.join("\n"), {});
   for (const token of tokens) {
     if (token.type !== "inline" || !token.children) continue;
     for (const child of token.children) {
@@ -136,7 +190,7 @@ function readPage(
     if (open) {
       docs[open.anchor] = {
         title: open.title,
-        html: render(body, page, root),
+        html: render(body, page, root, docsDir),
         site: `${root}${page.site}#${open.anchor}`,
         edit: `${EDIT}/${page.file}#L${open.at}`,
       };
@@ -157,7 +211,9 @@ function readPage(
       open = null;
       continue;
     }
-    if (open) body.push(line);
+    // A link back into the inspector is noise inside it, and its `{target=_blank}`
+    // would show as the text the renderer has no attribute list to make sense of.
+    if (open && !line.includes("inspector/app/?fixture=")) body.push(line);
   }
   close();
   return docs;
@@ -192,6 +248,33 @@ function assertEveryKeyResolves(docs: Record<string, EncodingDoc>): void {
   );
 }
 
+/** Markup of a mkdocs extension, which reaching the rendered HTML means nothing handled it. */
+const LEFTOVER: [RegExp, string][] = [
+  [/\?\?\?\+?\s/, "admonition"],
+  [/8&lt;--/, "snippet include"],
+  [/===\s*&quot;/, "tabbed block"],
+];
+
+/**
+ * Fails the build when a page uses an extension this slicer does not understand.
+ *
+ * The pages are written for mkdocs, which has extensions this renderer has never heard
+ * of, and an unhandled one does not fail - it shows the reader its own markup. Catching
+ * it here is the difference between a build error and a panel full of `--8<--`.
+ */
+function assertNoLeftoverMarkup(docs: Record<string, EncodingDoc>): void {
+  const bad = Object.entries(docs).flatMap(([key, doc]) =>
+    LEFTOVER.filter(([pattern]) => pattern.test(doc.html)).map(
+      ([, kind]) => `${key} (${kind})`,
+    ),
+  );
+  if (bad.length === 0) return;
+  throw new Error(
+    `encodings.json would ship raw mkdocs markup in ${bad.length} section(s): ` +
+      `${bad.join(", ")}. Teach inspector/plugins/encoding-docs.ts that extension.`,
+  );
+}
+
 export function encodingDocs(): Plugin {
   let docs: Record<string, EncodingDoc> = {};
   let isBuild = false;
@@ -207,6 +290,7 @@ export function encodingDocs(): Plugin {
         isBuild ? DOCS : SITE,
       );
       assertEveryKeyResolves(docs);
+      assertNoLeftoverMarkup(docs);
     },
 
     buildStart() {

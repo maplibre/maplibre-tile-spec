@@ -1,104 +1,163 @@
-<svg class="mlt-diagram" viewBox="0 0 710 362" role="img" aria-label="Triangle lengths point into the index buffer, whose entries point at vertices of their own feature" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="tess1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs><defs><marker id="tess1-arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
-<text class="row" x="0" y="54">lengths</text>
-<rect class="f0" x="126" y="40" width="28" height="28" rx="3"/>
-<text class="cell" x="140" y="54">1</text>
-<path class="link" d="M140 68V114" marker-end="url(#tess1-arrow)"/>
-<text class="muted small" x="147" y="96">3 × 0</text>
-<rect class="f1" x="198" y="40" width="28" height="28" rx="3"/>
-<text class="cell" x="212" y="54">7</text>
-<path class="link" d="M212 68V114" marker-end="url(#tess1-arrow)"/>
-<text class="muted small" x="219" y="96">3 × 1</text>
-<text class="row" x="0" y="134">index buffer</text>
-<rect class="f0" x="130" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="140" y="134">1</text>
-<rect class="f0" x="152" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="162" y="134">0</text>
-<rect class="f0" x="174" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="184" y="134">2</text>
-<rect class="f1" x="202" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="212" y="134">0</text>
-<rect class="f1" x="224" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="234" y="134">3</text>
-<rect class="f1" x="246" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="256" y="134">5</text>
-<rect class="f1" x="274" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="284" y="134">4</text>
-<rect class="f1" x="296" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="306" y="134">3</text>
-<rect class="f1" x="318" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="328" y="134">0</text>
-<rect class="f1" x="346" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="356" y="134">1</text>
-<rect class="f1" x="368" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="378" y="134">0</text>
-<rect class="f1" x="390" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="400" y="134">5</text>
-<rect class="f1" x="418" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="428" y="134">4</text>
-<rect class="f1" x="440" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="450" y="134">0</text>
-<rect class="f1" x="462" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="472" y="134">2</text>
-<rect class="f1" x="490" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="500" y="134">2</text>
-<rect class="f1" x="512" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="522" y="134">1</text>
-<rect class="f1" x="534" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="544" y="134">5</text>
-<rect class="f1" x="562" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="572" y="134">5</text>
-<rect class="f1" x="584" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="594" y="134">4</text>
-<rect class="f1" x="606" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="616" y="134">2</text>
-<rect class="f1" x="634" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="644" y="134">7</text>
-<rect class="f1" x="656" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="666" y="134">6</text>
-<rect class="f1" x="678" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="688" y="134">8</text>
-<rect class="pick" x="199" y="117" width="70" height="34" rx="5"/>
-<path class="link t1" d="M212 151C212 205 292 205 292 256" marker-end="url(#tess1-arrow1)"/>
-<path class="link t1" d="M234 151C234 205 434 205 434 256" marker-end="url(#tess1-arrow1)"/>
-<path class="link t1" d="M256 151C256 205 522 205 522 256" marker-end="url(#tess1-arrow1)"/>
-<rect class="pick" x="631" y="117" width="70" height="34" rx="5"/>
-<path class="link t1" d="M644 151C644 205 620 205 620 256" marker-end="url(#tess1-arrow1)"/>
-<path class="link t1" d="M666 151C666 205 576 205 576 256" marker-end="url(#tess1-arrow1)"/>
-<path class="link t1" d="M688 151C688 205 664 205 664 256" marker-end="url(#tess1-arrow1)"/>
-<text class="row" x="0" y="274">vertices</text>
-<rect class="f0" x="130" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="150" y="274">0</text>
-<rect class="f0" x="174" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="194" y="274">1</text>
-<rect class="f0" x="218" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="238" y="274">2</text>
-<rect class="f1" x="272" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="292" y="274">0</text>
-<rect class="f1" x="316" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="336" y="274">1</text>
-<rect class="f1" x="360" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="380" y="274">2</text>
-<rect class="f1" x="414" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="434" y="274">3</text>
-<rect class="f1" x="458" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="478" y="274">4</text>
-<rect class="f1" x="502" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="522" y="274">5</text>
-<rect class="f1" x="556" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="576" y="274">6</text>
-<rect class="f1" x="600" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="620" y="274">7</text>
-<rect class="f1" x="644" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="664" y="274">8</text>
-<path class="bracket" d="M272 294V300H400V294"/>
-<text class="muted small mid" x="336" y="316">shell</text>
-<path class="bracket" d="M414 294V300H542V294"/>
-<text class="muted small mid" x="478" y="316">hole</text>
-<path class="bracket" d="M556 294V300H684V294"/>
-<text class="muted small mid" x="620" y="316">2nd polygon</text>
-<path class="bracket t0" d="M130 330V336H258V330"/>
-<text class="t0 bold" x="130" y="350">feature 0</text>
-<path class="bracket t1" d="M272 330V336H684V330"/>
-<text class="t1 bold" x="272" y="350">feature 1</text>
+<svg class="mlt-diagram" viewBox="0 0 710 632" role="img" aria-label="The two features and their triangles, then triangle lengths pointing into the index buffer, whose entries name x,y vertices of their own feature" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="tess1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
+<defs><marker id="tess1-arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<polygon class="f0" points="192.5,227 165.5,20 345.5,173"/>
+<polygon class="f1" points="400.5,119 472.5,119 499.5,164"/>
+<polygon class="f1" points="517.5,74 472.5,119 400.5,119"/>
+<polygon class="f1" points="526.5,218 400.5,119 499.5,164"/>
+<polygon class="f1" points="517.5,74 400.5,119 571.5,20"/>
+<polygon class="f1" points="571.5,20 526.5,218 499.5,164"/>
+<polygon class="f1" points="499.5,164 517.5,74 571.5,20"/>
+<polygon class="f1" points="644.5,101 626.5,20 662.5,83"/>
+<circle class="dot" cx="165.5" cy="20" r="3.5"/>
+<text class="vert halo" x="158.5" y="8">0</text>
+<circle class="dot" cx="192.5" cy="227" r="3.5"/>
+<text class="vert halo" x="186.5" y="240">1</text>
+<circle class="dot" cx="345.5" cy="173" r="3.5"/>
+<text class="vert halo" x="358.5" y="177">2</text>
+<circle class="dot" cx="400.5" cy="119" r="3.5"/>
+<text class="vert halo" x="386.5" y="119">0</text>
+<circle class="dot" cx="526.5" cy="218" r="3.5"/>
+<text class="vert halo" x="530.5" y="232">1</text>
+<circle class="dot" cx="571.5" cy="20" r="3.5"/>
+<text class="vert halo" x="579.5" y="9">2</text>
+<circle class="dot" cx="472.5" cy="119" r="3.5"/>
+<text class="vert halo" x="458.5" y="119">3</text>
+<circle class="dot" cx="517.5" cy="74" r="3.5"/>
+<text class="vert halo" x="523.5" y="61">4</text>
+<circle class="dot" cx="499.5" cy="164" r="3.5"/>
+<text class="vert halo" x="500.5" y="178">5</text>
+<circle class="dot" cx="626.5" cy="20" r="3.5"/>
+<text class="vert halo" x="621.5" y="7">6</text>
+<circle class="dot" cx="644.5" cy="101" r="3.5"/>
+<text class="vert halo" x="644.5" y="115">7</text>
+<circle class="dot" cx="662.5" cy="83" r="3.5"/>
+<text class="vert halo" x="673.5" y="92">8</text>
+<text class="row" x="0" y="290">lengths</text>
+<rect class="f0" x="126" y="276" width="28" height="28" rx="3"/>
+<text class="cell" x="140" y="290">1</text>
+<path class="link" d="M140 304V350" marker-end="url(#tess1-arrow)"/>
+<text class="muted small" x="147" y="332">3 × 1</text>
+<rect class="f1" x="198" y="276" width="28" height="28" rx="3"/>
+<text class="cell" x="212" y="290">7</text>
+<path class="link" d="M212 304V350" marker-end="url(#tess1-arrow)"/>
+<text class="muted small" x="219" y="332">3 × 7</text>
+<text class="row" x="0" y="370">index buffer</text>
+<rect class="f0" x="130" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="140" y="370">1</text>
+<rect class="f0" x="152" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="162" y="370">0</text>
+<rect class="f0" x="174" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="184" y="370">2</text>
+<rect class="f1" x="202" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="212" y="370">0</text>
+<rect class="f1" x="224" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="234" y="370">3</text>
+<rect class="f1" x="246" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="256" y="370">5</text>
+<rect class="f1" x="274" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="284" y="370">4</text>
+<rect class="f1" x="296" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="306" y="370">3</text>
+<rect class="f1" x="318" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="328" y="370">0</text>
+<rect class="f1" x="346" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="356" y="370">1</text>
+<rect class="f1" x="368" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="378" y="370">0</text>
+<rect class="f1" x="390" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="400" y="370">5</text>
+<rect class="f1" x="418" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="428" y="370">4</text>
+<rect class="f1" x="440" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="450" y="370">0</text>
+<rect class="f1" x="462" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="472" y="370">2</text>
+<rect class="f1" x="490" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="500" y="370">2</text>
+<rect class="f1" x="512" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="522" y="370">1</text>
+<rect class="f1" x="534" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="544" y="370">5</text>
+<rect class="f1" x="562" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="572" y="370">5</text>
+<rect class="f1" x="584" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="594" y="370">4</text>
+<rect class="f1" x="606" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="616" y="370">2</text>
+<rect class="f1" x="634" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="644" y="370">7</text>
+<rect class="f1" x="656" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="666" y="370">6</text>
+<rect class="f1" x="678" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="688" y="370">8</text>
+<rect class="pick" x="199" y="353" width="70" height="34" rx="5"/>
+<path class="link t1" d="M212 387C212 441 292 441 292 492" marker-end="url(#tess1-arrow1)"/>
+<path class="link t1" d="M234 387C234 441 434 441 434 492" marker-end="url(#tess1-arrow1)"/>
+<path class="link t1" d="M256 387C256 441 522 441 522 492" marker-end="url(#tess1-arrow1)"/>
+<rect class="pick" x="631" y="353" width="70" height="34" rx="5"/>
+<path class="link t1" d="M644 387C644 441 620 441 620 492" marker-end="url(#tess1-arrow1)"/>
+<path class="link t1" d="M666 387C666 441 576 441 576 492" marker-end="url(#tess1-arrow1)"/>
+<path class="link t1" d="M688 387C688 441 664 441 664 492" marker-end="url(#tess1-arrow1)"/>
+<text class="row" x="0" y="516">vertices</text>
+<text class="muted small" x="122" y="510" text-anchor="end">x</text>
+<text class="muted small" x="122" y="524" text-anchor="end">y</text>
+<rect class="f0" x="130" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="150" y="510">55</text>
+<text class="cell small" x="150" y="524">5</text>
+<text class="muted small mid" x="150" y="550">0</text>
+<rect class="f0" x="174" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="194" y="510">58</text>
+<text class="cell small" x="194" y="524">28</text>
+<text class="muted small mid" x="194" y="550">1</text>
+<rect class="f0" x="218" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="238" y="510">75</text>
+<text class="cell small" x="238" y="524">22</text>
+<text class="muted small mid" x="238" y="550">2</text>
+<rect class="f1" x="272" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="292" y="510">7</text>
+<text class="cell small" x="292" y="524">20</text>
+<text class="muted small mid" x="292" y="550">0</text>
+<rect class="f1" x="316" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="336" y="510">21</text>
+<text class="cell small" x="336" y="524">31</text>
+<text class="muted small mid" x="336" y="550">1</text>
+<rect class="f1" x="360" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="380" y="510">26</text>
+<text class="cell small" x="380" y="524">9</text>
+<text class="muted small mid" x="380" y="550">2</text>
+<rect class="f1" x="414" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="434" y="510">15</text>
+<text class="cell small" x="434" y="524">20</text>
+<text class="muted small mid" x="434" y="550">3</text>
+<rect class="f1" x="458" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="478" y="510">20</text>
+<text class="cell small" x="478" y="524">15</text>
+<text class="muted small mid" x="478" y="550">4</text>
+<rect class="f1" x="502" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="522" y="510">18</text>
+<text class="cell small" x="522" y="524">25</text>
+<text class="muted small mid" x="522" y="550">5</text>
+<rect class="f1" x="556" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="576" y="510">69</text>
+<text class="cell small" x="576" y="524">57</text>
+<text class="muted small mid" x="576" y="550">6</text>
+<rect class="f1" x="600" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="620" y="510">71</text>
+<text class="cell small" x="620" y="524">66</text>
+<text class="muted small mid" x="620" y="550">7</text>
+<rect class="f1" x="644" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="664" y="510">73</text>
+<text class="cell small" x="664" y="524">64</text>
+<text class="muted small mid" x="664" y="550">8</text>
+<path class="bracket" d="M272 562V568H400V562"/>
+<text class="muted small mid" x="336" y="585">shell</text>
+<path class="bracket" d="M414 562V568H542V562"/>
+<text class="muted small mid" x="478" y="585">hole</text>
+<path class="bracket" d="M556 562V568H684V562"/>
+<text class="muted small mid" x="620" y="585">2nd polygon</text>
+<path class="bracket t0" d="M130 598V604H258V598"/>
+<text class="t0 bold" x="130" y="619">feature 0</text>
+<path class="bracket t1" d="M272 598V604H684V598"/>
+<text class="t1 bold" x="272" y="619">feature 1</text>
 </svg>
