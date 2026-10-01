@@ -303,6 +303,13 @@ pub(crate) fn write_stream_meta<W: io::Write>(
                 "v1, whose float columns are stored raw",
             ));
         }
+        #[cfg(feature = "unstable-v2")]
+        LE::Vertex(VL::Xyz(..)) => {
+            return Err(UnsupportedLogicalEncoding(
+                meta.encoding.logical,
+                "v1, whose vertices are (x, y) pairs",
+            ));
+        }
         LE::Int(IL::Delta2) | LE::Vertex(VL::ComponentwiseDelta2) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
@@ -355,6 +362,8 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         | LE::Float(_)
         | LE::Vertex(VL::None | VL::Delta | VL::ComponentwiseDelta) => {}
         // Rejected before the header is written.
+        #[cfg(feature = "unstable-v2")]
+        LE::Vertex(VL::Xyz(..)) => {}
         LE::Int(IL::Delta2) | LE::Vertex(VL::ComponentwiseDelta2) => {}
     }
     Ok(())
@@ -737,6 +746,19 @@ mod tests {
         let mut buf = Vec::new();
         let err = write_stream_meta(&meta, &mut buf, false, 4).unwrap_err();
         assert!(matches!(err, UnsupportedLogicalEncoding(_, _)));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn write_rejects_xyz_vertices() {
+        let step = crate::tile::ZStep::new(0).unwrap();
+        let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(
+            step,
+            crate::decoder::XyzLogical::ComponentwiseDelta,
+        ));
+        let meta = meta(VERTEX, logical, PhysicalEncoding::VarInt, 3);
+        let err = write_stream_meta(&meta, &mut Vec::new(), false, 4).unwrap_err();
+        insta::assert_snapshot!(err, @"unsupported logical encoding Vertex(Xyz(ZStep(0), ComponentwiseDelta)) for v1, whose vertices are (x, y) pairs");
     }
 
     #[rstest]

@@ -76,7 +76,7 @@ brotli.workspace = true
 criterion.workspace = true
 flate2.workspace = true
 geo-types = { workspace = true, features = ["arbitrary"] }
-insta.workspace = true
+insta = { workspace = true, features = ["json"] }
 pretty_assertions.workspace = true
 proptest.workspace = true
 proptest-derive.workspace = true
@@ -122,3 +122,7 @@ required-features = ["__private-v2"]
 [[test]]
 name = "tag02_roundtrip"
 required-features = ["__private-v2"]
+
+[[test]]
+name = "tag02_z"
+required-features = ["unstable-v2"]

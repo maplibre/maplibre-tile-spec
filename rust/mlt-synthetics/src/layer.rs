@@ -4,7 +4,6 @@ use std::io;
 use std::panic::Location;
 use std::path::Path;
 
-use mlt_core::GeometryValues;
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
     Presence, StagedId, StagedLayer, StagedMValue, StagedNested, StagedProperty, StagedSharedDict,
@@ -12,6 +11,7 @@ use mlt_core::encoder::{
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
+use mlt_core::{GeometryValues, ZStep};
 
 use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
@@ -193,6 +193,8 @@ pub struct Layer {
     row_shapes: bool,
     extent: Option<u32>,
     ids: Option<(StagedId, IntEncoder)>,
+    /// The z of every vertex and the grid it lies on, which only v2 can hold.
+    z: Option<(ZStep, Vec<i32>)>,
     versions: &'static [WireVersion],
 }
 
@@ -214,6 +216,7 @@ impl Layer {
             extent: None,
             versions: &[WireVersion::V01, WireVersion::V02],
             ids: None,
+            z: None,
         }
     }
 
@@ -657,6 +660,16 @@ impl Layer {
         self
     }
 
+    /// Give every vertex a z on a grid of `10^exponent` m, in the order the geometries store them.
+    /// v1 vertices are (x, y) pairs, so the layer is v2-only.
+    #[must_use]
+    #[track_caller]
+    pub fn z(mut self, exponent: i8, z: Vec<i32>) -> Self {
+        self.z = Some((ZStep::new(exponent).expect("a z step in range"), z));
+        self.versions = &[WireVersion::V02];
+        self
+    }
+
     /// Set feature IDs with explicit encoding.
     #[must_use]
     pub fn ids(mut self, ids: StagedId, int_enc: IntEncoder) -> Self {
@@ -684,6 +697,7 @@ impl Layer {
             row_shapes,
             extent,
             ids,
+            z,
             versions: _,
         } = self;
 
@@ -700,6 +714,9 @@ impl Layer {
         };
         for geom in &geometry_items {
             geometry.push_geom(geom);
+        }
+        if let Some((step, z)) = z {
+            geometry.add_z(step, &z)?;
         }
 
         let (id, id_int_enc) = match ids {

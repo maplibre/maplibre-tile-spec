@@ -48,6 +48,13 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "z"
+path = "fuzz_targets/z.rs"
+test = false
+doc = false
+bench = false
+
 [dependencies]
 arbitrary = { version = "1.4.2", features = ["derive"] }
 hex = "0.4.3"

@@ -117,6 +117,7 @@ fn main() {
     generate_properties(&mut writer);
     generate_m_values(&mut writer);
     generate_nested(&mut writer);
+    generate_z(&mut writer);
 
     writer.report_ungenerated();
 
@@ -2564,4 +2565,74 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
                 .col("en", E::bitpacked(), cycle(1)),
         )
         .write_per_version(w, "props_shared_dict_codes-rust", "props_shared_dict_bp");
+}
+
+/// Elevations on Terrain-RGB's grid of 10^-1 m, whose `0` is its base of -10000 m.
+///
+/// `100_000` is sea level, so these read as heights of a few tens of metres.
+fn decimetres(metres: &[i32]) -> Vec<i32> {
+    metres.iter().map(|m| (m + 10_000) * 10).collect()
+}
+
+/// Vertices of three coordinates, which only v2 can hold.
+fn generate_z(w: &mut SynthWriter) {
+    geo_varint()
+        .geo(P0)
+        .z(-1, decimetres(&[12]))
+        .write(w, "z_point");
+    geo_varint()
+        .geos([P0, P1, P2, P3])
+        .z(-1, decimetres(&[12, 0, -4, 350]))
+        .write(w, "z_points");
+    geo_varint()
+        .geo(line1())
+        .z(-1, decimetres(&[3, 5, 8]))
+        .write(w, "z_line");
+    geo_fastpfor()
+        .geo(line1())
+        .z(-1, decimetres(&[3, 5, 8]))
+        .write(w, "z_line_fpf");
+    // A ring's closing vertex is not stored, so its six stored vertices carry six z.
+    geo_varint()
+        .geo(poly1h())
+        .z(-1, decimetres(&[40, 41, 42, 10, 11, 12]))
+        .write(w, "z_poly_hole");
+    let mix: Vec<Geometry<i32>> = MIX_TYPES.iter().map(|(_, g)| g.clone()).collect();
+    geo_varint()
+        .geos(mix)
+        .z(0, (0..30).map(|i| 10_000 + i * 3).collect())
+        .write(w, "z_mix");
+    geo_varint()
+        .tessellate()
+        .geo(poly1h())
+        .z(-1, decimetres(&[40, 41, 42, 10, 11, 12]))
+        .write(w, "z_poly_hole_tes");
+    geo_varint()
+        .triangles_only()
+        .geo(poly1h())
+        .z(-1, decimetres(&[40, 41, 42, 10, 11, 12]))
+        .write(w, "z_poly_hole_tri");
+    // P0 repeats at the same height and P1 at two, so the dictionary holds four triples.
+    geo_varint()
+        .geos([P0, P1, P0, P1, P2])
+        .vertex_buffer_type(VertexBufferType::Hilbert)
+        .vertex_offsets(E::varint())
+        .z(-1, decimetres(&[5, 6, 5, 7, 8]))
+        .write(w, "z_points_hilbert");
+    geo_varint()
+        .geos([P0, P1])
+        .z(-3, vec![10_000_000, 10_000_001])
+        .write(w, "z_step_finest");
+    geo_varint()
+        .geos([P0, P1])
+        .z(4, vec![1, 2])
+        .write(w, "z_step_coarsest");
+    geo_varint()
+        .geo(line1())
+        .z(-1, decimetres(&[3, 5, 8]))
+        .add_m_value(
+            E::delta_varint(),
+            M::new("dist", None, MV::U32(vec![0, 10, 25])),
+        )
+        .write(w, "z_mvalues");
 }

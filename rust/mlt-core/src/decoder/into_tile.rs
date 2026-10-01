@@ -64,6 +64,8 @@ impl ParsedLayer01<'_> {
                 m_values: Vec::new(),
                 #[cfg(feature = "unstable-v2")]
                 nested: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                z: Vec::new(),
             });
         }
         Ok(TileParts {
@@ -96,15 +98,23 @@ impl ParsedLayer02<'_> {
         let mut m_spans = dec.alloc::<MValueSpans>(self.m_values.len())?;
         m_spans.extend(self.m_values.iter().map(|m| m.spans(&self.layer.geometry)));
 
+        let geometry = &self.layer.geometry;
         let mut parts = self.layer.collect_parts(dec)?;
         for (index, feature) in parts.features.iter_mut().enumerate() {
             feature.m_values = m_values_of(&self.m_values, &mut m_spans, dec)?;
             feature.nested = nested_of(&self.nested, index, dec)?;
+            let run = geometry.z_run(index)?;
+            let mut z = dec.alloc::<i32>(run.len())?;
+            for value in run {
+                z.push(value?);
+            }
+            feature.z = z;
         }
         parts
             .finish()?
             .with_m_value_names(m_names)?
-            .with_nested(nested_names, nested_kinds)
+            .with_nested(nested_names, nested_kinds)?
+            .with_z_step(geometry.z_step())
     }
 }
 

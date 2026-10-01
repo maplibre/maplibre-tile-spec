@@ -69,6 +69,7 @@ fn feature(layer: &str, geometry: impl Into<Geometry<i32>>, props: &[(&str, Valu
     properties.insert("_extent".into(), json!(4096));
     Feature {
         geometry: geometry.into(),
+        z: None,
         id: None,
         properties,
         ty: "Feature".into(),

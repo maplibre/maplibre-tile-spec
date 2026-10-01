@@ -29,6 +29,11 @@ pub(crate) fn encode_into01(
     if !layer.nested.is_empty() {
         return Err(MltError::NestedNeedsV2(layer.name));
     }
+    // v1 vertices are (x, y) pairs, so a z coordinate has nowhere to go.
+    #[cfg(feature = "unstable-v2")]
+    if layer.geometry.z_step.is_some() {
+        return Err(MltError::ZNeedsV2(layer.name));
+    }
 
     let StagedLayer {
         name,

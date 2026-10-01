@@ -16,7 +16,7 @@ import {
 } from "./vectorTile";
 
 const V2_GAPS: [RegExp, string][] = [
-  [/^mvalues(?!_all_null$)/, "the vector-tile API has no m-value columns"],
+  [/^(z_)?mvalues(?!_all_null$)/, "the vector-tile API has no m-value columns"],
   [/^nested_/, "the vector-tile API has no nested columns"],
   [/_tri$/, "a triangles-only layer has no offsets for loadGeometry to walk"],
 ];
@@ -76,7 +76,7 @@ function tileToFeatureCollection(
 
     for (let i = 0; i < mltLayer.length; i++) {
       const feature = mltLayer.feature(i);
-      const properties: Record<string, number | string | boolean> = {
+      const properties: Record<string, number | string | boolean | number[]> = {
         _layer: mltLayer.name,
         _extent: mltLayer.extent,
       };
@@ -103,6 +103,10 @@ function tileToFeatureCollection(
         }
       }
 
+      if (feature.zStep !== undefined) {
+        properties._z_step = feature.zStep;
+      }
+
       const geojsonFeature: GeoJSON.Feature = {
         type: "Feature",
         geometry: getGeometry(feature),
@@ -118,24 +122,25 @@ function tileToFeatureCollection(
 }
 
 function getGeometry(feature: MltFeature): GeoJSON.Geometry {
-  const rings = feature.loadGeometry();
-  const coords = rings.map((ring) => ring.map((p) => [p.x, p.y]));
+  const z = feature.zStep === undefined ? undefined : feature.loadZ();
+  let next = 0;
+  const position = (p: { x: number; y: number }): number[] =>
+    z === undefined ? [p.x, p.y] : [p.x, p.y, z[next++]];
+  const lines = () => feature.loadGeometry().map((ring) => ring.map(position));
   switch (feature.mltType) {
     case MltGeometryType.Point:
-      return { type: "Point", coordinates: coords[0][0] };
+      return { type: "Point", coordinates: lines()[0][0] };
     case MltGeometryType.MultiPoint:
-      return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
+      return { type: "MultiPoint", coordinates: lines().map((r) => r[0]) };
     case MltGeometryType.LineString:
-      return { type: "LineString", coordinates: coords[0] };
+      return { type: "LineString", coordinates: lines()[0] };
     case MltGeometryType.MultiLineString:
-      return { type: "MultiLineString", coordinates: coords };
+      return { type: "MultiLineString", coordinates: lines() };
     case MltGeometryType.Polygon: {
       const polygons = feature.loadPolygons();
       return {
         type: "Polygon",
-        coordinates: polygons[0].map((ring) =>
-          closeRing(ring.map((p) => [p.x, p.y])),
-        ),
+        coordinates: polygons[0].map((ring) => closeRing(ring.map(position))),
       };
     }
     case MltGeometryType.MultiPolygon: {
@@ -143,7 +148,7 @@ function getGeometry(feature: MltFeature): GeoJSON.Geometry {
       return {
         type: "MultiPolygon",
         coordinates: polygons.map((polygon) =>
-          polygon.map((ring) => closeRing(ring.map((p) => [p.x, p.y]))),
+          polygon.map((ring) => closeRing(ring.map(position))),
         ),
       };
     }
@@ -158,7 +163,7 @@ function closeRing(ring: number[][]): number[][] {
   const first = ring[0];
   const last = ring[ring.length - 1];
   if (first[0] !== last[0] || first[1] !== last[1]) {
-    return [...ring, [first[0], first[1]]];
+    return [...ring, [...first]];
   }
   return ring;
 }

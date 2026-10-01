@@ -33,6 +33,7 @@ pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCol
             properties.insert("_extent".into(), Value::Number(layer.extent.get().into()));
             features.push(Feature {
                 geometry: feat.geometry,
+                z: None,
                 id: feat.id,
                 properties,
                 ty: "Feature".into(),
@@ -121,6 +122,8 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
             m_values: Vec::new(),
             #[cfg(feature = "unstable-v2")]
             nested: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            z: Vec::new(),
         });
     }
 
@@ -180,6 +183,8 @@ impl TryFrom<MvtLayer> for TileLayer {
                 m_values: Vec::new(),
                 #[cfg(feature = "unstable-v2")]
                 nested: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                z: Vec::new(),
             });
         }
 

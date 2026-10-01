@@ -12,8 +12,10 @@ use crate::MltResult;
 use crate::codecs::hilbert::hilbert_sort_key;
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 #[cfg(feature = "unstable-v2")]
-use crate::codecs::zigzag::encode_componentwise_delta2_vec2s;
+use crate::codecs::zigzag::{encode_componentwise_delta_vec3s, encode_componentwise_delta2_vec2s};
 use crate::decoder::GeometryType::Point;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::XyzLogical;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::stream::header02::{Family, WordWidth};
 use crate::decoder::{
@@ -22,6 +24,8 @@ use crate::decoder::{
 };
 use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
+#[cfg(feature = "unstable-v2")]
+use crate::tile::ZStep;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
@@ -361,22 +365,30 @@ pub(super) fn normalize_part_offsets_for_rings(
 /// uniqueness ratio below the threshold.
 #[hotpath::measure]
 pub(super) fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
+    enc.morton_cache.is_some() && mostly_repeated(vertices.as_chunks::<2>().0)
+}
+
+/// [`dict_may_be_beneficial`] for `(x, y, z)` triples, which a dictionary shares only when all three repeat.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn xyz_dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
+    enc.morton_cache.is_some() && mostly_repeated(vertices.as_chunks::<3>().0)
+}
+
+/// Whether a `HyperLogLog` estimate puts the distinct share of `vertices` below the dictionary threshold.
+fn mostly_repeated<const N: usize>(vertices: &[[i32; N]]) -> bool {
     const MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT: f64 = 0.66;
 
-    let coord_count = vertices.len() / 2;
-    if coord_count == 0 || enc.morton_cache.is_none() {
+    if vertices.is_empty() {
         return false;
     }
-
-    let mut hll = HyperLogLog::<Coord<i32>>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
-    for &[x, y] in vertices.as_chunks::<2>().0 {
-        hll.insert(&Coord::<i32> { x, y });
+    let mut hll = HyperLogLog::<[i32; N]>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
+    for vertex in vertices {
+        hll.insert(vertex);
     }
     #[expect(clippy::cast_precision_loss)]
-    let estimated_unique = hll.len().clamp(0.0, coord_count as f64);
-    #[expect(clippy::cast_precision_loss)]
-    let uniqueness_ratio = estimated_unique / coord_count as f64;
-    uniqueness_ratio < MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT
+    let count = vertices.len() as f64;
+    let estimated_unique = hll.len().clamp(0.0, count);
+    estimated_unique / count < MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT
 }
 
 /// Derive the curve parameters from `vertices` unless they are already cached.
@@ -593,6 +605,75 @@ pub(super) fn encode_hilbert_vertex_streams02(
     enc.family_context = Family::Int(WordWidth::W32);
     write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
     codecs.logical.hilbert_offsets = offsets;
+    Ok(())
+}
+
+/// The plain `(x, y, z)` vertex layout v2 writes: componentwise delta over `[x0, y0, z0, …]`.
+///
+/// Always a stream, even an empty one, as [`encode_vec2_vertex_stream02`] writes.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_vec3_vertex_stream02(
+    vertices: &[i32],
+    step: ZStep,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let delta = encode_componentwise_delta_vec3s(vertices, &mut codecs.logical.u32_tmp);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
+    let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(step, XyzLogical::ComponentwiseDelta));
+    write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical, false)?;
+    Ok(())
+}
+
+/// The distinct `(x, y, z)` triples of `vertices` in Hilbert order of their `(x, y)`, and the slot of each vertex.
+///
+/// A Hilbert key keeps only 16 bits per axis, so the triple itself breaks ties and decides what repeats.
+#[cfg(feature = "unstable-v2")]
+fn build_hilbert_xyz_dict(vertices: &[i32], params: CurveParams) -> (Vec<i32>, Vec<u32>) {
+    let triples = vertices.as_chunks::<3>().0;
+    let mut keyed: Vec<(u32, [i32; 3], usize)> = triples
+        .iter()
+        .enumerate()
+        .map(|(i, &[x, y, z])| (hilbert_sort_key(Coord { x, y }, params), [x, y, z], i))
+        .collect();
+    keyed.sort_unstable();
+
+    let mut dict = Vec::new();
+    let mut offsets = vec![0; triples.len()];
+    let mut last = None;
+    for (_, triple, i) in keyed {
+        if last != Some(triple) {
+            dict.extend_from_slice(&triple);
+            last = Some(triple);
+        }
+        offsets[i] = u32::try_from(dict.len() / 3 - 1).expect("vertex count fits a u32 index");
+    }
+    (dict, offsets)
+}
+
+/// The Hilbert-keyed `(x, y, z)` dictionary v2 writes: the componentwise-delta-coded triples, then the per-vertex offsets.
+///
+/// A Morton code spans only `x` and `y`, so this is the one dictionary an xyz layer has.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_hilbert_xyz_vertex_streams02(
+    vertices: &[i32],
+    step: ZStep,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let (dict, offsets) = build_hilbert_xyz_dict(vertices, get_hilbert_params(enc));
+
+    let mut delta = mem::take(&mut codecs.logical.u32_tmp);
+    encode_componentwise_delta_vec3s(&dict, &mut delta);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
+    let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(step, XyzLogical::ComponentwiseDelta));
+    enc.family_context = Family::Vertex;
+    write_geo_precomputed_stream(&delta, ctx, logical, enc, &mut codecs.physical, true)?;
+    codecs.logical.u32_tmp = delta;
+
+    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
+    enc.family_context = Family::Int(WordWidth::W32);
+    write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
     Ok(())
 }
 

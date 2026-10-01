@@ -9,9 +9,13 @@ use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
     NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
 };
+#[cfg(feature = "unstable-v2")]
+use crate::MltError::{ZAlreadySet, ZVertexCountMismatch};
 use crate::MltResult;
 use crate::decoder::{GeometryType, GeometryValues};
 use crate::errors::AsMltError as _;
+#[cfg(feature = "unstable-v2")]
+use crate::tile::ZStep;
 
 impl GeometryType {
     #[must_use]
@@ -43,6 +47,35 @@ fn require<'a>(
         None => Err(missing()),
     }
 }
+
+/// The vertices a feature's z run over: a range of the layer's, or the triangle corners of a triangles-only feature.
+#[cfg(feature = "unstable-v2")]
+enum ZVertices<'a> {
+    Range(Range<usize>),
+    Corners(std::slice::Iter<'a, u32>),
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Iterator for ZVertices<'_> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<usize> {
+        match self {
+            Self::Range(r) => r.next(),
+            Self::Corners(c) => c.next().map(|&i| i.into_usize()),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Range(r) => r.size_hint(),
+            Self::Corners(c) => c.size_hint(),
+        }
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl ExactSizeIterator for ZVertices<'_> {}
 
 impl GeometryValues {
     #[must_use]
@@ -140,10 +173,120 @@ impl GeometryValues {
         self.rebase_indices(u32::checked_sub)
     }
 
-    /// Flat vertex buffer: `[x0, y0, x1, y1, …]` in tile coordinates.
+    /// Flat vertex buffer in tile coordinates: `[x0, y0, x1, y1, …]`, or `[x0, y0, z0, …]` when [`Self::z_step`] is set.
     #[must_use]
     pub fn vertices(&self) -> Option<&[i32]> {
         self.vertices.as_deref()
+    }
+
+    /// How many words of [`Self::vertices`] each vertex takes.
+    #[must_use]
+    #[cfg_attr(
+        not(feature = "unstable-v2"),
+        expect(clippy::unused_self, reason = "only a v2 layer has z coordinates")
+    )]
+    pub fn stride(&self) -> usize {
+        #[cfg(feature = "unstable-v2")]
+        if self.z_step.is_some() {
+            return 3;
+        }
+        2
+    }
+
+    /// The grid of the vertices' z coordinates, or [`None`] when they have none.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn z_step(&self) -> Option<ZStep> {
+        self.z_step
+    }
+
+    /// Interleave one z per vertex into the `(x, y)` pairs, putting them on `step`.
+    ///
+    /// `z` runs over the vertices in the order the pushed geometries stored them.
+    #[cfg(feature = "unstable-v2")]
+    pub fn add_z(&mut self, step: ZStep, z: &[i32]) -> MltResult<()> {
+        if self.z_step.is_some() {
+            return Err(ZAlreadySet);
+        }
+        let pairs = self.vertices.take().unwrap_or_default();
+        let expected = pairs.len() / 2;
+        if z.len() != expected {
+            return Err(ZVertexCountMismatch {
+                expected,
+                actual: z.len(),
+            });
+        }
+        let mut xyz = Vec::with_capacity(pairs.len() + z.len());
+        for (&[x, y], &z) in pairs.as_chunks::<2>().0.iter().zip(z) {
+            xyz.extend([x, y, z]);
+        }
+        self.vertices = (!xyz.is_empty()).then_some(xyz);
+        self.z_step = Some(step);
+        Ok(())
+    }
+
+    /// The z coordinate of each vertex feature `index` stores, in the order its geometry holds them.
+    ///
+    /// A feature decoded from triangles alone holds each triangle's three corners in index order.
+    /// A layer without z coordinates gives none.
+    #[cfg(feature = "unstable-v2")]
+    pub fn z(&self, index: usize) -> MltResult<Vec<i32>> {
+        self.z_run(index)?.collect()
+    }
+
+    /// The z of feature `index`, lazily, with an exact length a caller can charge before collecting.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn z_run(
+        &self,
+        index: usize,
+    ) -> MltResult<impl ExactSizeIterator<Item = MltResult<i32>> + '_> {
+        let verts = self.vertices.as_deref().unwrap_or(&[]);
+        let z_of = move |vertex: usize| -> MltResult<i32> {
+            vertex
+                .checked_mul(3)
+                .and_then(|w| w.checked_add(2))
+                .and_then(|w| verts.get(w))
+                .copied()
+                .ok_or(GeometryVertexOutOfBounds {
+                    index,
+                    vertex,
+                    count: verts.len() / 3,
+                })
+        };
+        let vertices = self.z_vertices(index)?;
+        Ok(vertices.map(z_of))
+    }
+
+    /// The vertices feature `index` stores, in the order its z run over them.
+    #[cfg(feature = "unstable-v2")]
+    fn z_vertices(&self, index: usize) -> MltResult<ZVertices<'_>> {
+        if self.z_step.is_none() {
+            return Ok(ZVertices::Range(0..0));
+        }
+        if self.part_offsets.is_none()
+            && let Some(indices) = self.index_buffer.as_deref()
+        {
+            let tris = self.triangle_offsets.as_deref().unwrap_or(&[]);
+            let run = |i: usize| {
+                tris.get(i)
+                    .map(|&t| t.into_usize().saturating_mul(3))
+                    .ok_or(GeometryOutOfBounds {
+                        index,
+                        field: "triangle_offsets",
+                        idx: i,
+                        len: tris.len(),
+                    })
+            };
+            let run = run(index)?..run(index + 1)?;
+            let corners = indices.get(run.clone()).ok_or(GeometryOutOfBounds {
+                index,
+                field: "index_buffer",
+                idx: run.end,
+                len: indices.len(),
+            })?;
+            return Ok(ZVertices::Corners(corners.iter()));
+        }
+        Ok(ZVertices::Range(self.vertex_range(index)?))
     }
 
     /// The range of the layer's vertex sequence that feature `index` owns.
@@ -219,14 +362,15 @@ impl GeometryValues {
         let part_range = |s: &[u32], i: usize| off_pair(s, i, "part_offsets");
         let ring_range = |s: &[u32], i: usize| off_pair(s, i, "ring_offsets");
 
+        let stride = self.stride();
         let vert = |idx: usize| -> MltResult<Coord<i32>> {
-            idx.checked_mul(2)
+            idx.checked_mul(stride)
                 .and_then(|w| verts.get(w..w.checked_add(2)?))
                 .map(|s| Coord { x: s[0], y: s[1] })
                 .ok_or(GeometryVertexOutOfBounds {
                     index,
                     vertex: idx,
-                    count: verts.len() / 2,
+                    count: verts.len() / stride,
                 })
         };
         let line = |r: Range<usize>| -> MltResult<LineString<i32>> { r.map(&vert).collect() };

@@ -12,7 +12,7 @@ use crate::decoder::PropValueRef;
 use crate::{LendingIterator, MltResult, ParsedLayer};
 #[cfg(feature = "unstable-v2")]
 use crate::{
-    ParsedLayer02,
+    ParsedLayer02, ZStep,
     tile::{MValue, NestedValue},
 };
 
@@ -42,6 +42,11 @@ impl FeatureCollection {
                 ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
                 ParsedLayer::Tag02(l) => nested_properties(l)?.into_iter(),
             };
+            #[cfg(feature = "unstable-v2")]
+            let (z_step, mut z) = match &layer {
+                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => (None, Vec::new().into_iter()),
+                ParsedLayer::Tag02(l) => z_values(l)?,
+            };
             let parsed = match layer {
                 ParsedLayer::Tag01(l) => l,
                 #[cfg(feature = "unstable-v2")]
@@ -61,10 +66,19 @@ impl FeatureCollection {
                 properties.extend(m_values.next().unwrap_or_default());
                 #[cfg(feature = "unstable-v2")]
                 properties.extend(nested.next().unwrap_or_default());
+                #[cfg(feature = "unstable-v2")]
+                if let Some(step) = z_step {
+                    properties.insert("_z_step".into(), step.exponent().into());
+                }
+                #[cfg(feature = "unstable-v2")]
+                let feature_z = z.next();
+                #[cfg(not(feature = "unstable-v2"))]
+                let feature_z = None;
                 properties.insert("_layer".into(), Value::String(layer_name.to_string()));
                 properties.insert("_extent".into(), Value::Number(extent.into()));
                 features.push(Feature {
                     geometry: feat.geometry().clone(),
+                    z: feature_z,
                     id: feat.id(),
                     properties,
                     ty: "Feature".into(),
@@ -94,21 +108,45 @@ impl FromStr for FeatureCollection {
 
 /// `GeoJSON` [`Feature`]
 #[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(from = "FeatureWire")]
 pub struct Feature {
-    #[serde(with = "geom_serde")]
     pub geometry: Geometry<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The z of each stored vertex in vertex order, written as the third value of each position.
+    pub z: Option<Vec<i32>>,
     pub id: Option<u64>,
-    #[serde(default)]
     pub properties: BTreeMap<String, Value>,
-    #[serde(rename = "type")]
     pub ty: String,
 }
 
-struct Geom32Wire<'a>(&'a Geometry<i32>);
+#[derive(Deserialize)]
+struct FeatureWire {
+    #[serde(deserialize_with = "geom_serde::deserialize")]
+    geometry: geom_serde::GeometryWithZ,
+    #[serde(default)]
+    id: Option<u64>,
+    #[serde(default)]
+    properties: BTreeMap<String, Value>,
+    #[serde(rename = "type")]
+    ty: String,
+}
+
+impl From<FeatureWire> for Feature {
+    fn from(wire: FeatureWire) -> Self {
+        let (geometry, z) = wire.geometry;
+        Self {
+            geometry,
+            z,
+            id: wire.id,
+            properties: wire.properties,
+            ty: wire.ty,
+        }
+    }
+}
+
+struct Geom32Wire<'a>(&'a Geometry<i32>, Option<&'a [i32]>);
 impl Serialize for Geom32Wire<'_> {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        geom_serde::serialize(self.0, s)
+        geom_serde::serialize(self.0, self.1, s)
     }
 }
 
@@ -122,77 +160,165 @@ impl Serialize for Feature {
             map.serialize_entry("id", &id)?;
         }
         map.serialize_entry("properties", &self.properties)?;
-        map.serialize_entry("geometry", &Geom32Wire(&self.geometry))?;
+        map.serialize_entry("geometry", &Geom32Wire(&self.geometry, self.z.as_deref()))?;
         map.end()
     }
 }
 
 /// Serialize/deserialize [`Geometry<i32>`](geo_types::Geometry) in `GeoJSON` wire format:
-/// `{"type":"…","coordinates":…}` with `[x, y]` integer arrays.
+/// `{"type":"…","coordinates":…}` with `[x, y]` integer arrays, or `[x, y, z]` when the feature has z.
 mod geom_serde {
     use geo_types::{
-        Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
+        Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
     };
     use serde::de::Error as _;
     use serde::ser::{Error, SerializeMap as _};
     use serde::{Deserialize, Deserializer, Serializer};
     use serde_json::Value;
 
-    type Arr = [i32; 2];
+    use crate::tile::stored_ring_len;
 
-    fn ls_arr(ls: &LineString<i32>) -> Vec<Arr> {
-        ls.0.iter().copied().map(Into::into).collect()
-    }
+    /// A geometry and the z of each stored vertex, when it has any.
+    pub type GeometryWithZ = (Geometry<i32>, Option<Vec<i32>>);
 
-    fn poly_arr(poly: &Polygon<i32>) -> Vec<Vec<Arr>> {
-        std::iter::once(poly.exterior())
-            .chain(poly.interiors())
-            .map(ls_arr)
-            .collect()
-    }
+    /// Writes positions, taking the next z for each stored vertex.
+    struct Writer<'a>(Option<std::slice::Iter<'a, i32>>);
 
-    fn arr_ls(v: Vec<Arr>) -> LineString<i32> {
-        LineString::from(v)
-    }
-
-    fn arr_poly(rings: Vec<Vec<Arr>>) -> Polygon<i32> {
-        let mut it = rings.into_iter();
-        let ext = it.next().map_or_else(|| LineString(vec![]), arr_ls);
-        Polygon::new(ext, it.map(arr_ls).collect())
-    }
-
-    pub fn serialize<S: Serializer>(g: &Geometry<i32>, s: S) -> Result<S::Ok, S::Error> {
-        let mut m = s.serialize_map(Some(2))?;
-        let (ty, coords): (&str, Value) = match g {
-            Geometry::Point(p) => ("Point", serde_json::to_value(Arr::from(*p)).unwrap()),
-            Geometry::LineString(ls) => ("LineString", serde_json::to_value(ls_arr(ls)).unwrap()),
-            Geometry::Polygon(poly) => ("Polygon", serde_json::to_value(poly_arr(poly)).unwrap()),
-            Geometry::MultiPoint(mp) => (
-                "MultiPoint",
-                serde_json::to_value(mp.0.iter().copied().map(Arr::from).collect::<Vec<_>>())
-                    .unwrap(),
-            ),
-            Geometry::MultiLineString(mls) => (
-                "MultiLineString",
-                serde_json::to_value(mls.iter().map(ls_arr).collect::<Vec<_>>()).unwrap(),
-            ),
-            Geometry::MultiPolygon(mpoly) => (
-                "MultiPolygon",
-                serde_json::to_value(mpoly.iter().map(poly_arr).collect::<Vec<_>>()).unwrap(),
-            ),
-            Geometry::Line(_)
-            | Geometry::Rect(_)
-            | Geometry::Triangle(_)
-            | Geometry::GeometryCollection(_) => {
-                return Err(Error::custom("unsupported geometry variant"));
+    impl Writer<'_> {
+        fn pos(&mut self, c: Coord<i32>) -> Result<Value, &'static str> {
+            let mut pos = vec![Value::from(c.x), Value::from(c.y)];
+            if let Some(z) = &mut self.0 {
+                pos.push(Value::from(*z.next().ok_or("fewer z than vertices")?));
             }
-        };
+            Ok(Value::Array(pos))
+        }
+
+        fn line(&mut self, ls: &LineString<i32>) -> Result<Value, &'static str> {
+            ls.0.iter().map(|&c| self.pos(c)).collect()
+        }
+
+        /// A ring's closing position repeats its first, z included, because MLT does not store it.
+        fn ring(&mut self, ring: &LineString<i32>) -> Result<Value, &'static str> {
+            let stored = stored_ring_len(ring);
+            let mut positions = ring.0[..stored]
+                .iter()
+                .map(|&c| self.pos(c))
+                .collect::<Result<Vec<_>, _>>()?;
+            if stored < ring.0.len() {
+                positions.push(positions[0].clone());
+            }
+            Ok(Value::Array(positions))
+        }
+
+        fn poly(&mut self, poly: &Polygon<i32>) -> Result<Value, &'static str> {
+            std::iter::once(poly.exterior())
+                .chain(poly.interiors())
+                .map(|ring| self.ring(ring))
+                .collect()
+        }
+
+        fn coordinates(
+            &mut self,
+            g: &Geometry<i32>,
+        ) -> Result<(&'static str, Value), &'static str> {
+            Ok(match g {
+                Geometry::Point(p) => ("Point", self.pos(p.0)?),
+                Geometry::LineString(ls) => ("LineString", self.line(ls)?),
+                Geometry::Polygon(poly) => ("Polygon", self.poly(poly)?),
+                Geometry::MultiPoint(mp) => (
+                    "MultiPoint",
+                    mp.0.iter()
+                        .map(|p| self.pos(p.0))
+                        .collect::<Result<_, _>>()?,
+                ),
+                Geometry::MultiLineString(mls) => (
+                    "MultiLineString",
+                    mls.iter()
+                        .map(|ls| self.line(ls))
+                        .collect::<Result<_, _>>()?,
+                ),
+                Geometry::MultiPolygon(mpoly) => (
+                    "MultiPolygon",
+                    mpoly
+                        .iter()
+                        .map(|p| self.poly(p))
+                        .collect::<Result<_, _>>()?,
+                ),
+                Geometry::Line(_)
+                | Geometry::Rect(_)
+                | Geometry::Triangle(_)
+                | Geometry::GeometryCollection(_) => return Err("unsupported geometry variant"),
+            })
+        }
+    }
+
+    pub fn serialize<S: Serializer>(
+        g: &Geometry<i32>,
+        z: Option<&[i32]>,
+        s: S,
+    ) -> Result<S::Ok, S::Error> {
+        let mut writer = Writer(z.map(<[i32]>::iter));
+        let (ty, coords) = writer.coordinates(g).map_err(S::Error::custom)?;
+        if writer.0.is_some_and(|mut z| z.next().is_some()) {
+            return Err(S::Error::custom("more z than vertices"));
+        }
+        let mut m = s.serialize_map(Some(2))?;
         m.serialize_entry("type", ty)?;
         m.serialize_entry("coordinates", &coords)?;
         m.end()
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Geometry<i32>, D::Error> {
+    /// Reads positions, collecting the z of each stored vertex.
+    #[derive(Default)]
+    struct Reader {
+        z: Vec<i32>,
+        has_z: Option<bool>,
+    }
+
+    impl Reader {
+        fn pos(&mut self, pos: &[i32]) -> Result<Coord<i32>, &'static str> {
+            let (coord, z) = match *pos {
+                [x, y] => (Coord { x, y }, None),
+                [x, y, z] => (Coord { x, y }, Some(z)),
+                _ => return Err("a position needs two or three coordinates"),
+            };
+            if *self.has_z.get_or_insert(z.is_some()) != z.is_some() {
+                return Err("either every position has z or none does");
+            }
+            self.z.extend(z);
+            Ok(coord)
+        }
+
+        fn line(&mut self, positions: &[Vec<i32>]) -> Result<LineString<i32>, &'static str> {
+            positions.iter().map(|p| self.pos(p)).collect()
+        }
+
+        fn ring(&mut self, positions: &[Vec<i32>]) -> Result<LineString<i32>, &'static str> {
+            let ring = self.line(positions)?;
+            if self.has_z == Some(true) && stored_ring_len(&ring) < ring.0.len() {
+                self.z.pop();
+            }
+            Ok(ring)
+        }
+
+        fn poly(&mut self, rings: &[Vec<Vec<i32>>]) -> Result<Polygon<i32>, &'static str> {
+            let Some((ext, interiors)) = rings.split_first() else {
+                return Ok(Polygon::new(LineString(vec![]), vec![]));
+            };
+            let ext = self.ring(ext)?;
+            let interiors = interiors
+                .iter()
+                .map(|ring| self.ring(ring))
+                .collect::<Result<_, _>>()?;
+            Ok(Polygon::new(ext, interiors))
+        }
+
+        fn finish(self) -> Option<Vec<i32>> {
+            self.has_z.unwrap_or(false).then_some(self.z)
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<GeometryWithZ, D::Error> {
         fn parse<T: serde::de::DeserializeOwned, E: serde::de::Error>(v: Value) -> Result<T, E> {
             serde_json::from_value(v).map_err(E::custom)
         }
@@ -205,22 +331,28 @@ mod geom_serde {
         }
 
         let Wire { ty, coordinates: c } = Wire::deserialize(d)?;
-        Ok(match ty.as_str() {
-            "Point" => Geometry::Point(Point::from(parse::<Arr, _>(c)?)),
-            "LineString" => Geometry::LineString(arr_ls(parse(c)?)),
-            "Polygon" => Geometry::Polygon(arr_poly(parse(c)?)),
-            "MultiPoint" => {
-                let v: Vec<Arr> = parse(c)?;
-                Geometry::MultiPoint(MultiPoint(v.into_iter().map(Point::from).collect()))
-            }
-            "MultiLineString" => {
-                let v: Vec<Vec<Arr>> = parse(c)?;
-                Geometry::MultiLineString(MultiLineString(v.into_iter().map(arr_ls).collect()))
-            }
-            "MultiPolygon" => {
-                let v: Vec<Vec<Vec<Arr>>> = parse(c)?;
-                Geometry::MultiPolygon(MultiPolygon(v.into_iter().map(arr_poly).collect()))
-            }
+        let mut r = Reader::default();
+        let geometry = match ty.as_str() {
+            "Point" => r
+                .pos(&parse::<Vec<i32>, _>(c)?)
+                .map(|c| Geometry::Point(Point(c))),
+            "LineString" => r.line(&parse::<Vec<_>, _>(c)?).map(Geometry::LineString),
+            "Polygon" => r.poly(&parse::<Vec<_>, _>(c)?).map(Geometry::Polygon),
+            "MultiPoint" => parse::<Vec<Vec<i32>>, _>(c)?
+                .into_iter()
+                .map(|p| r.pos(&p).map(Point))
+                .collect::<Result<_, _>>()
+                .map(|points| Geometry::MultiPoint(MultiPoint(points))),
+            "MultiLineString" => parse::<Vec<Vec<Vec<i32>>>, _>(c)?
+                .iter()
+                .map(|ls| r.line(ls))
+                .collect::<Result<_, _>>()
+                .map(|lines| Geometry::MultiLineString(MultiLineString(lines))),
+            "MultiPolygon" => parse::<Vec<Vec<Vec<Vec<i32>>>>, _>(c)?
+                .iter()
+                .map(|p| r.poly(p))
+                .collect::<Result<_, _>>()
+                .map(|polys| Geometry::MultiPolygon(MultiPolygon(polys))),
             _ => {
                 return Err(D::Error::unknown_variant(
                     &ty,
@@ -234,7 +366,9 @@ mod geom_serde {
                     ],
                 ));
             }
-        })
+        }
+        .map_err(D::Error::custom)?;
+        Ok((geometry, r.finish()))
     }
 }
 
@@ -284,6 +418,19 @@ fn m_value_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, V
         }
     }
     Ok(features)
+}
+
+/// The layer's z grid and every feature's z coordinates in vertex order.
+#[cfg(feature = "unstable-v2")]
+fn z_values(layer: &ParsedLayer02<'_>) -> MltResult<(Option<ZStep>, std::vec::IntoIter<Vec<i32>>)> {
+    let geometry = layer.layer().geometry_values();
+    let Some(step) = geometry.z_step() else {
+        return Ok((None, Vec::new().into_iter()));
+    };
+    let z = (0..geometry.feature_count())
+        .map(|index| geometry.z(index))
+        .collect::<MltResult<Vec<_>>>()?;
+    Ok((Some(step), z.into_iter()))
 }
 
 /// Every feature's nested columns as JSON, one entry per column under its own name.
@@ -462,6 +609,7 @@ mod tests {
     fn feature(geometry: Geometry<i32>) -> Feature {
         Feature {
             geometry,
+            z: None,
             id: None,
             properties: BTreeMap::new(),
             ty: "Feature".into(),
@@ -519,6 +667,68 @@ mod tests {
         assert_eq!(err.to_string(), "unsupported geometry variant");
     }
 
+    #[rstest]
+    #[case::point(Geometry::Point(Point::new(1, -2)), vec![7])]
+    #[case::polygon_with_hole(Geometry::Polygon(square_with_hole()), (1..=7).collect())]
+    #[case::multi_point(
+        Geometry::MultiPoint(MultiPoint(vec![Point::new(1, 2), Point::new(3, 4)])),
+        vec![-1, 1],
+    )]
+    fn z_round_trips_as_the_third_coordinate(#[case] geometry: Geometry<i32>, #[case] z: Vec<i32>) {
+        let with_z = Feature {
+            z: Some(z),
+            ..feature(geometry)
+        };
+        let json = serde_json::to_string(&with_z).expect("serialize");
+        let back: Feature = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back, with_z);
+    }
+
+    #[test]
+    fn a_closing_position_repeats_the_first_z() {
+        let with_z = Feature {
+            z: Some((1..=7).collect()),
+            ..feature(Geometry::Polygon(square_with_hole()))
+        };
+        insta::assert_snapshot!(
+            serde_json::to_string(&with_z).expect("serialize"),
+            @r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[0,0,1],[8,0,2],[8,8,3],[0,8,4],[0,0,1]],[[2,2,5],[4,2,6],[4,4,7],[2,2,5]]]}}"#
+        );
+    }
+
+    #[rstest]
+    #[case::fewer_z(vec![1], "fewer z than vertices")]
+    #[case::more_z(vec![1, 2, 3], "more z than vertices")]
+    fn z_must_match_the_vertex_count(#[case] z: Vec<i32>, #[case] expected: &str) {
+        let with_z = Feature {
+            z: Some(z),
+            ..feature(Geometry::LineString(ring(&[(0, 0), (1, 1)])))
+        };
+        let err = serde_json::to_string(&with_z).expect_err("must not serialize");
+        assert_eq!(err.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case::mixed_z(
+        "[[0,0,1],[1,1]]",
+        "either every position has z or none does at line 1 column 81"
+    )]
+    #[case::four_coordinates(
+        "[[0,0,1,2]]",
+        "a position needs two or three coordinates at line 1 column 77"
+    )]
+    #[case::one_coordinate(
+        "[[0]]",
+        "a position needs two or three coordinates at line 1 column 71"
+    )]
+    fn malformed_positions_fail_to_deserialize(#[case] coordinates: &str, #[case] expected: &str) {
+        let err = serde_json::from_str::<Feature>(&format!(
+            r#"{{"type":"Feature","geometry":{{"type":"LineString","coordinates":{coordinates}}}}}"#
+        ))
+        .expect_err("must not deserialize");
+        assert_eq!(err.to_string(), expected);
+    }
+
     #[test]
     fn unknown_geometry_type_fails_to_deserialize() {
         let err = serde_json::from_str::<Feature>(
@@ -537,6 +747,7 @@ mod tests {
             ty: "FeatureCollection".into(),
             features: vec![Feature {
                 geometry: Geometry::Point(Point::new(7, 9)),
+                z: None,
                 id: Some(42),
                 properties: BTreeMap::from([
                     ("name".into(), Value::String("ß".into())),

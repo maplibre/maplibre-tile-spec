@@ -8,14 +8,15 @@
 //!      bits 6-4: logical, numbered densely within the stream's family
 //!      bits 3-2: physical, interpreted per logical encoding
 //!      bits 1-0: logical metadata extension, holding a string column's StrLayout,
-//!                otherwise interpreted per logical encoding or reserved (must be 0)
+//!                a vertex stream's XYZ bit, otherwise reserved (must be 0)
 //! [varint num_values]   only when has_explicit_count = 1; otherwise the count
 //!                       comes from context (feature_count, or the presence
 //!                       popcount for optional column data)
 //! [varint byte_length]  absent on a raw stream whose physical field is `00`,
 //!                       whose length follows from its count and element width
 //! [varint parameters]   what the logical encoding carries, if anything:
-//!                       Framed, Exception-Free ALP's scale and frame of reference, or Morton's grid
+//!                       Framed, Exception-Free ALP's scale and frame of reference,
+//!                       Morton's grid, or an xyz vertex stream's z step
 //! ```
 //!
 //! What the fields mean is per [`Family`], which is fixed by context read before the encoding byte.
@@ -40,9 +41,10 @@ use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     Alp, AlpScale, BoolLogical, DataType02, DictLayout, DictionaryType, FastPForKind, FloatLogical,
     IntEncoding, IntLogical, LengthType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
-    RawStream, RleMeta, StreamMeta, StreamType, VertexLogical,
+    RawStream, RleMeta, StreamMeta, StreamType, VertexLogical, XyzLogical,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
+use crate::tile::ZStep;
 use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 
@@ -63,6 +65,9 @@ const PHYSICAL_SHIFT: u32 = 2;
 
 /// Mask of the encoding byte holding the per-encoding extension field.
 pub(crate) const EXTENSION_MASK: u8 = 0b0000_0011;
+
+/// Extension bit of a vertex stream whose vertices are `(x, y, z)` triples, a z step byte then following the byte length.
+pub(crate) const XYZ: u8 = 0b0000_0001;
 
 /// Physical field of a raw stream that leaves its byte length unwritten, the same pattern in every family.
 const NO_LEN: u8 = 0b0000_0000;
@@ -447,6 +452,14 @@ pub(crate) enum LogicalVertex {
     Morton(PhysicalInt),
 }
 
+/// Logical encoding of an `(x, y, z)` vertex stream, which has no Morton member.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LogicalXyz {
+    None(RawInt),
+    Delta(PhysicalInt),
+    CwDelta(PhysicalInt),
+}
+
 /// One encoding byte's logical and physical fields, read in its family's terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Encoding02 {
@@ -454,6 +467,8 @@ pub(crate) enum Encoding02 {
     Bool(LogicalBool),
     Float(LogicalFloat),
     Vertex(LogicalVertex),
+    /// A vertex stream whose extension bits name the XYZ layout.
+    Xyz(LogicalXyz),
     /// A string column's leading stream, coded as an integer one, plus the layout its extension bits name.
     Str(LogicalInt, StrLayout),
     Bytes(LogicalBytes),
@@ -537,8 +552,8 @@ impl Encoding02 {
         let logical = family
             .logical(code)
             .ok_or(MltError::ParsingEncodingByte(enc_byte))?;
-        // Only a string column's leading stream assigns anything to the extension field.
-        if !matches!(family, Family::Str(_)) {
+        // Only a string column's leading stream and a vertex stream assign anything to the extension field.
+        if !matches!(family, Family::Str(_) | Family::Vertex) {
             no_extension(enc_byte)?;
         }
         Ok(match family {
@@ -602,7 +617,26 @@ impl Encoding02 {
                 | Logical::Delta2
                 | Logical::CwDelta2 => unreachable_member(family, logical),
             }),
+            Family::Vertex if enc_byte & EXTENSION_MASK == XYZ => Self::Xyz(match logical {
+                Logical::None => LogicalXyz::None(raw_int(enc_byte)?),
+                Logical::Delta => LogicalXyz::Delta(physical_int(enc_byte)?),
+                Logical::CwDelta => LogicalXyz::CwDelta(physical_int(enc_byte)?),
+                // A Morton code spans only x and y, and second-order deltas are defined over pairs.
+                Logical::Morton | Logical::CwDelta2 => {
+                    return Err(MltError::ParsingEncodingByte(enc_byte));
+                }
+                Logical::Rle
+                | Logical::DeltaRle
+                | Logical::Alp
+                | Logical::Dict
+                | Logical::FrontCoded
+                | Logical::BitPacked
+                | Logical::Delta2 => unreachable_member(family, logical),
+            }),
             Family::Vertex => Self::Vertex(match logical {
+                _ if enc_byte & EXTENSION_MASK != 0 => {
+                    return Err(MltError::ParsingEncodingByte(enc_byte));
+                }
                 Logical::None => LogicalVertex::None(raw_int(enc_byte)?),
                 Logical::Delta => LogicalVertex::Delta(physical_int(enc_byte)?),
                 Logical::CwDelta => LogicalVertex::CwDelta(physical_int(enc_byte)?),
@@ -627,11 +661,14 @@ impl Encoding02 {
             | Self::Int(LogicalInt::None(_))
             | Self::Bool(LogicalBool::None(_))
             | Self::Float(LogicalFloat::None(_))
-            | Self::Vertex(LogicalVertex::None(_)) => Logical::None,
-            Self::Int(LogicalInt::Delta(_)) | Self::Vertex(LogicalVertex::Delta(_)) => {
-                Logical::Delta
+            | Self::Vertex(LogicalVertex::None(_))
+            | Self::Xyz(LogicalXyz::None(_)) => Logical::None,
+            Self::Int(LogicalInt::Delta(_))
+            | Self::Vertex(LogicalVertex::Delta(_))
+            | Self::Xyz(LogicalXyz::Delta(_)) => Logical::Delta,
+            Self::Vertex(LogicalVertex::CwDelta(_)) | Self::Xyz(LogicalXyz::CwDelta(_)) => {
+                Logical::CwDelta
             }
-            Self::Vertex(LogicalVertex::CwDelta(_)) => Logical::CwDelta,
             Self::Int(LogicalInt::Delta2(_)) => Logical::Delta2,
             Self::Vertex(LogicalVertex::CwDelta2(_)) => Logical::CwDelta2,
             Self::Int(LogicalInt::Rle)
@@ -650,9 +687,9 @@ impl Encoding02 {
     fn physical_label(self) -> &'static str {
         match self {
             Self::Str(logical, _) => Self::Int(logical).physical_label(),
-            Self::Int(LogicalInt::None(raw)) | Self::Vertex(LogicalVertex::None(raw)) => {
-                raw.label()
-            }
+            Self::Int(LogicalInt::None(raw))
+            | Self::Vertex(LogicalVertex::None(raw))
+            | Self::Xyz(LogicalXyz::None(raw)) => raw.label(),
             Self::Int(LogicalInt::Delta(p) | LogicalInt::Delta2(p))
             | Self::Float(LogicalFloat::Dict(p) | LogicalFloat::Alp(p))
             | Self::Vertex(
@@ -660,7 +697,8 @@ impl Encoding02 {
                 | LogicalVertex::CwDelta(p)
                 | LogicalVertex::CwDelta2(p)
                 | LogicalVertex::Morton(p),
-            ) => p.into(),
+            )
+            | Self::Xyz(LogicalXyz::Delta(p) | LogicalXyz::CwDelta(p)) => p.into(),
             Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => p.into(),
             Self::Bytes(LogicalBytes::None | LogicalBytes::FrontCoded) => {
                 PhysicalBits::WithLen.into()
@@ -675,6 +713,7 @@ impl Encoding02 {
     /// The words one counted value spans, which only a vertex stream makes more than one.
     fn words_per_value(self) -> u32 {
         match self {
+            Self::Xyz(_) => 3,
             Self::Vertex(
                 LogicalVertex::None(_)
                 | LogicalVertex::Delta(_)
@@ -695,15 +734,18 @@ impl Encoding02 {
     fn omits_byte_length(self) -> bool {
         match self {
             Self::Str(logical, _) => Self::Int(logical).omits_byte_length(),
-            Self::Int(LogicalInt::None(raw)) | Self::Vertex(LogicalVertex::None(raw)) => {
-                raw == RawInt::NoneNoLen
-            }
+            Self::Int(LogicalInt::None(raw))
+            | Self::Vertex(LogicalVertex::None(raw))
+            | Self::Xyz(LogicalXyz::None(raw)) => raw == RawInt::NoneNoLen,
             Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => {
                 p == PhysicalBits::NoLen
             }
-            Self::Int(_) | Self::Bool(_) | Self::Float(_) | Self::Vertex(_) | Self::Bytes(_) => {
-                false
-            }
+            Self::Int(_)
+            | Self::Bool(_)
+            | Self::Float(_)
+            | Self::Vertex(_)
+            | Self::Xyz(_)
+            | Self::Bytes(_) => false,
         }
     }
 
@@ -789,6 +831,19 @@ impl Encoding02 {
             }
             Self::Float(LogicalFloat::Dict(p)) => {
                 IntEncoding::new(LogicalEncoding::Float(FloatLogical::Dict), flat_int(p))
+            }
+            Self::Xyz(xyz) => {
+                let (after, step) = parse_u8(input)?;
+                rest = after;
+                let (logical, physical) = match xyz {
+                    LogicalXyz::None(raw) => (XyzLogical::None, flat_raw_int(raw)),
+                    LogicalXyz::Delta(p) => (XyzLogical::Delta, flat_int(p)),
+                    LogicalXyz::CwDelta(p) => (XyzLogical::ComponentwiseDelta, flat_int(p)),
+                };
+                IntEncoding::new(
+                    LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::from_code(step)?, logical)),
+                    physical,
+                )
             }
             Self::Vertex(LogicalVertex::Morton(p)) => {
                 let (after, bits) = parse_varint::<u32>(input)?;
@@ -904,7 +959,10 @@ fn wire_fields(
     }
 
     Ok(match encoding.logical {
-        LE::Int(IL::None) | LE::Bool(BL::None) | LE::Float(FL::None) | LE::Vertex(VL::None) => {
+        LE::Int(IL::None)
+        | LE::Bool(BL::None)
+        | LE::Float(FL::None)
+        | LE::Vertex(VL::None | VL::Xyz(_, XyzLogical::None)) => {
             match (encoding.physical, family.raw_byte_length(num_words)?) {
                 (PhysicalEncoding::None, Some(expected)) => {
                     fail_if_invalid_stream_size(byte_length.into_usize(), expected.into_usize())?;
@@ -917,10 +975,12 @@ fn wire_fields(
                 _ => with_length(Logical::None, physical(encoding)?),
             }
         }
-        LE::Int(IL::Delta) | LE::Vertex(VL::Delta) => {
+        LE::Int(IL::Delta) | LE::Vertex(VL::Delta | VL::Xyz(_, XyzLogical::Delta)) => {
             with_length(Logical::Delta, physical(encoding)?)
         }
-        LE::Vertex(VL::ComponentwiseDelta) => with_length(Logical::CwDelta, physical(encoding)?),
+        LE::Vertex(VL::ComponentwiseDelta | VL::Xyz(_, XyzLogical::ComponentwiseDelta)) => {
+            with_length(Logical::CwDelta, physical(encoding)?)
+        }
         LE::Int(IL::Delta2) => with_length(Logical::Delta2, physical(encoding)?),
         LE::Vertex(VL::ComponentwiseDelta2) => with_length(Logical::CwDelta2, physical(encoding)?),
         LE::Int(IL::Rle(rle) | IL::DeltaRle(rle)) => {
@@ -1064,9 +1124,10 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     })?;
     // A blob's count is its byte length, which its length varint already carries.
     let explicit = family != Family::Bytes && count != Count02::Implied(num_values);
-    let extension = match family {
-        Family::Str(layout) => layout as u8,
-        Family::Int(_) | Family::Bool | Family::Float(_) | Family::Vertex | Family::Bytes => 0,
+    let extension = match (family, meta.encoding.logical) {
+        (Family::Str(layout), _) => layout as u8,
+        (Family::Vertex, LE::Vertex(VertexLogical::Xyz(..))) => XYZ,
+        (Family::Int(_) | Family::Bool | Family::Float(_) | Family::Vertex | Family::Bytes, _) => 0,
     };
     let enc_byte = if explicit { HAS_EXPLICIT_COUNT } else { 0 }
         | (code << LOGICAL_SHIFT)
@@ -1082,6 +1143,9 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     if let LE::Float(FloatLogical::Alp(alp)) = meta.encoding.logical {
         writer.write_u8(alp.scale.to_byte())?;
         writer.write_varint(alp.base)?;
+    }
+    if let LE::Vertex(VertexLogical::Xyz(step, _)) = meta.encoding.logical {
+        writer.write_u8(step.code())?;
     }
     if let LE::Vertex(VertexLogical::MortonDelta(morton)) = meta.encoding.logical {
         writer.write_varint(morton.bits)?;
@@ -1171,6 +1235,11 @@ mod tests {
 
     fn vertex(logical: VertexLogical, physical: PhysicalEncoding, num: u32) -> StreamMeta {
         meta(LogicalEncoding::Vertex(logical), physical, num)
+    }
+
+    /// An xyz vertex encoding on a 10^-2 m grid, whose code is `1`.
+    fn xyz(logical: XyzLogical) -> VertexLogical {
+        VertexLogical::Xyz(ZStep::new(-2).unwrap(), logical)
     }
 
     fn rle(num: u32) -> RleMeta {
@@ -1340,6 +1409,18 @@ mod tests {
         Family::Vertex,
         0b1000_0000
     )]
+    #[case::xyz_raw_vertices(
+        vertex(xyz(XyzLogical::None), PE::None, 6),
+        6,
+        Family::Vertex,
+        0b0000_0001
+    )]
+    #[case::xyz_cw_delta_vertices(
+        vertex(xyz(XyzLogical::ComponentwiseDelta), PE::VarInt, 6),
+        6,
+        Family::Vertex,
+        0b0010_1001
+    )]
     #[case::float_dict_codes_varint(
         float(FloatLogical::Dict, PE::VarInt, 5),
         5,
@@ -1455,6 +1536,19 @@ mod tests {
         5,
         VERTEX
     )]
+    #[case::xyz_none(vertex(xyz(XyzLogical::None), PE::VarInt, 9), 9, VERTEX)]
+    #[case::xyz_delta(vertex(xyz(XyzLogical::Delta), PE::VarInt, 9), 9, VERTEX)]
+    #[case::xyz_cw_delta(vertex(xyz(XyzLogical::ComponentwiseDelta), FPF128, 9), 5, VERTEX)]
+    #[case::xyz_finest_step(
+        vertex(VertexLogical::Xyz(ZStep::new(-3).unwrap(), XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
+        3,
+        VERTEX
+    )]
+    #[case::xyz_coarsest_step(
+        vertex(VertexLogical::Xyz(ZStep::new(4).unwrap(), XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
+        3,
+        VERTEX
+    )]
     #[case::str_plain_lengths(int(IntLogical::None, PE::VarInt, 5), 5, STR_PLAIN)]
     #[case::str_fsst_dict_codes(int(IntLogical::DeltaRle(rle(5)), PE::VarInt, 5), 5, STR_FSST_DICT)]
     fn header_roundtrip(
@@ -1516,6 +1610,12 @@ mod tests {
         &[1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0],
         &[0b0000_0000]
     )]
+    #[case::xyz_vertex_triple(
+        vertex(xyz(XyzLogical::None), PE::None, 1),
+        VERTEX,
+        &[1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0],
+        &[0b1000_0001, 1, 1]
+    )]
     #[case::str_dict_codes(
         int(IntLogical::None, PE::None, 2),
         StreamCtx02::StrData(StrLayout::Dict),
@@ -1545,6 +1645,7 @@ mod tests {
 
     #[rstest]
     #[case::pairs(vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 3), 3)]
+    #[case::triples(vertex(xyz(XyzLogical::ComponentwiseDelta), PE::VarInt, 3), 3)]
     #[case::morton_codes(vertex(VertexLogical::MortonDelta(Morton::new(0, 0).unwrap()), PE::VarInt, 5), 5)]
     fn a_vertex_stream_count_on_the_wire(#[case] meta: StreamMeta, #[case] count: u8) {
         let mut buf = Vec::new();
@@ -1557,8 +1658,8 @@ mod tests {
 
     #[test]
     fn a_vertex_count_whose_word_count_overflows_is_rejected() {
-        let mut buf = vec![0b1010_1000];
-        buf.write_varint(u32::MAX / 2 + 1).unwrap();
+        let mut buf = vec![0b1010_1001];
+        buf.write_varint(u32::MAX / 2).unwrap();
         buf.push(0);
         let err = parse_stream(&buf, VERTEX, Count02::Explicit, &mut parser()).unwrap_err();
         assert!(matches!(err, MltError::IntegerOverflow), "{err:?}");
@@ -1656,11 +1757,28 @@ mod tests {
     #[case::vertex_delta_no_len(VERTEX, 0b0001_0000)]
     #[case::cw_delta_no_len(VERTEX, 0b0010_0000)]
     #[case::morton_no_len(VERTEX, 0b0011_0000)]
+    #[case::xyz_morton(VERTEX, 0b0011_1001)]
+    #[case::xyz_cw_delta2(VERTEX, 0b0100_1001)]
+    #[case::vertex_extension_bit1(VERTEX, 0b0010_1010)]
+    #[case::vertex_both_extension_bits(VERTEX, 0b0010_1011)]
+    #[case::xyz_cw_delta_no_len(VERTEX, 0b0010_0001)]
     fn parse_rejects_malformed_encoding_byte(#[case] ctx: StreamCtx02, #[case] enc_byte: u8) {
         let buf = [enc_byte, 0];
         let err = parse_stream(&buf, ctx, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(
             matches!(err, MltError::ParsingEncodingByte(b) if b == enc_byte),
+            "{err:?}"
+        );
+    }
+
+    #[rstest]
+    #[case::one_past_the_coarsest(8)]
+    #[case::high_bit(0x80)]
+    fn parse_rejects_a_z_step_code_outside_the_grid_range(#[case] code: u8) {
+        let buf = [0b0010_1001, 0, code];
+        let err = parse_stream(&buf, VERTEX, Count02::Implied(0), &mut parser()).unwrap_err();
+        assert!(
+            matches!(err, MltError::InvalidZStepCode(c) if c == code),
             "{err:?}"
         );
     }

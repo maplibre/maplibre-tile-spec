@@ -1,0 +1,294 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38,
+          29,
+          10000
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": 0
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            5,
+            38,
+            10003
+          ],
+          [
+            12,
+            45,
+            10006
+          ],
+          [
+            9,
+            70,
+            10009
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": 0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              55,
+              5,
+              10012
+            ],
+            [
+              58,
+              28,
+              10015
+            ],
+            [
+              75,
+              22,
+              10018
+            ],
+            [
+              55,
+              5,
+              10012
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": 0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              52,
+              35,
+              10021
+            ],
+            [
+              14,
+              55,
+              10024
+            ],
+            [
+              60,
+              72,
+              10027
+            ],
+            [
+              52,
+              35,
+              10021
+            ]
+          ],
+          [
+            [
+              32,
+              50,
+              10030
+            ],
+            [
+              36,
+              60,
+              10033
+            ],
+            [
+              24,
+              54,
+              10036
+            ],
+            [
+              32,
+              50,
+              10030
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": 0
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            6,
+            25,
+            10039
+          ],
+          [
+            21,
+            41,
+            10042
+          ],
+          [
+            23,
+            69,
+            10045
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": 0
+      },
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [
+              24,
+              10,
+              10048
+            ],
+            [
+              42,
+              18,
+              10051
+            ]
+          ],
+          [
+            [
+              30,
+              36,
+              10054
+            ],
+            [
+              48,
+              52,
+              10057
+            ],
+            [
+              35,
+              62,
+              10060
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": 0
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                7,
+                20,
+                10063
+              ],
+              [
+                21,
+                31,
+                10066
+              ],
+              [
+                26,
+                9,
+                10069
+              ],
+              [
+                7,
+                20,
+                10063
+              ]
+            ],
+            [
+              [
+                15,
+                20,
+                10072
+              ],
+              [
+                20,
+                15,
+                10075
+              ],
+              [
+                18,
+                25,
+                10078
+              ],
+              [
+                15,
+                20,
+                10072
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                69,
+                57,
+                10081
+              ],
+              [
+                71,
+                66,
+                10084
+              ],
+              [
+                73,
+                64,
+                10087
+              ],
+              [
+                69,
+                57,
+                10081
+              ]
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

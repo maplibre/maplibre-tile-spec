@@ -1,0 +1,37 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": -3
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42,
+          10000000
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": -3
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11,
+          52,
+          10000001
+        ]
+      }
+    }
+  ]
+}

@@ -5,10 +5,14 @@ use num_traits::{PrimInt, ToPrimitive as _};
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogicalEncoding};
+#[cfg(feature = "unstable-v2")]
+use crate::codecs::zigzag::decode_componentwise_delta_vec3s;
 use crate::codecs::zigzag::{
     decode_componentwise_delta_vec2s, decode_componentwise_delta2_vec2s, decode_zigzag,
     decode_zigzag_delta, decode_zigzag_delta2,
 };
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::XyzLogical;
 use crate::decoder::{
     FloatLogical, IntLogical, LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta,
     VertexLogical,
@@ -143,6 +147,17 @@ impl LogicalValue {
             LE::Int(IL::Delta2) => decode_zigzag_delta2::<i32, _>(data, dec),
             LE::Vertex(VL::ComponentwiseDelta2) => decode_componentwise_delta2_vec2s(data, dec),
             LE::Vertex(VL::MortonDelta(v)) => v.decode_delta(data, dec),
+            #[cfg(feature = "unstable-v2")]
+            LE::Vertex(VL::Xyz(_, xyz)) => {
+                if !data.len().is_multiple_of(3) {
+                    return Err(crate::MltError::InvalidTripleStreamSize(data.len()));
+                }
+                match xyz {
+                    XyzLogical::None => decode_zigzag(data, dec),
+                    XyzLogical::Delta => decode_zigzag_delta::<i32, _>(data, dec),
+                    XyzLogical::ComponentwiseDelta => decode_componentwise_delta_vec3s(data, dec),
+                }
+            }
             LE::Bool(_) | LE::Float(_) => Err(UnsupportedLogicalEncoding(
                 self.meta.encoding.logical,
                 "i32",
@@ -344,5 +359,43 @@ mod tests {
         let rle = RleMeta::Interleaved { num_rle_values: 2 };
         let data = [u32::MAX, 7];
         assert!(rle.decode(&data, &mut dec()).is_err());
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn xyz(logical: XyzLogical) -> LogicalValue {
+        use crate::decoder::{DictionaryType, IntEncoding, PhysicalEncoding, StreamType};
+        use crate::tile::ZStep;
+
+        let encoding = IntEncoding::new(
+            LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap(), logical)),
+            PhysicalEncoding::VarInt,
+        );
+        LogicalValue::new(StreamMeta::new(
+            StreamType::Data(DictionaryType::Vertex),
+            encoding,
+            2,
+        ))
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[rstest::rstest]
+    #[case::none(XyzLogical::None, [1, 2, -1, 3, 4, -2])]
+    #[case::delta(XyzLogical::Delta, [1, 3, 2, 5, 9, 7])]
+    #[case::componentwise_delta(XyzLogical::ComponentwiseDelta, [1, 2, -1, 4, 6, -3])]
+    fn an_xyz_stream_decodes_its_triples(#[case] logical: XyzLogical, #[case] expected: [i32; 6]) {
+        let zigzag = [2, 4, 1, 6, 8, 3];
+        assert_eq!(
+            xyz(logical).decode_i32(&zigzag, &mut dec()).unwrap(),
+            expected
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn an_xyz_stream_of_partial_triples_is_rejected() {
+        let err = xyz(XyzLogical::None)
+            .decode_i32(&[2, 4, 1, 6], &mut dec())
+            .unwrap_err();
+        assert!(matches!(err, crate::MltError::InvalidTripleStreamSize(4)));
     }
 }

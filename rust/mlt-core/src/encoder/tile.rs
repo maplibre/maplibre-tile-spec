@@ -59,6 +59,8 @@ impl StagedLayer {
             nested_names,
             #[cfg(feature = "unstable-v2")]
             nested_kinds,
+            #[cfg(feature = "unstable-v2")]
+            z_step,
             mut features,
         } = source;
         let mut geometry = if tessellate {
@@ -68,6 +70,13 @@ impl StagedLayer {
         };
         for f in &features {
             geometry.push_geom(f.geometry());
+        }
+        #[cfg(feature = "unstable-v2")]
+        if let Some(step) = z_step {
+            let z: Vec<i32> = features.iter().flat_map(|f| f.z.iter().copied()).collect();
+            geometry
+                .add_z(step, &z)
+                .expect("TileLayer holds one z per stored vertex");
         }
 
         let id = StagedId::from_optional_with_presence(

@@ -229,6 +229,7 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
         StatLogicalCodec::MortonDelta => "morton-delta",
         StatLogicalCodec::Dict => "dict",
         StatLogicalCodec::Alp => "alp",
+        StatLogicalCodec::Xyz => "xyz",
     })
 }
 
@@ -960,11 +961,22 @@ pub enum StatLogicalCodec {
     MortonDelta,
     Dict,
     Alp,
+    /// Vertices of three coordinates, whatever codec they use.
+    Xyz,
 }
 
 impl From<LogicalEncoding> for StatLogicalCodec {
     fn from(ld: LogicalEncoding) -> Self {
         use LogicalEncoding as LE;
+        // `mlt-core` may carry v2-only encodings this build has no name for,
+        // since its features are resolved separately from this crate's.
+        #[cfg_attr(
+            not(feature = "unstable-v2"),
+            allow(
+                clippy::wildcard_enum_match_arm,
+                reason = "v2 encodings exist only when mlt-core has them"
+            )
+        )]
         match ld {
             LE::Int(IntLogical::None)
             | LE::Bool(BoolLogical::None)
@@ -979,6 +991,11 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Float(FloatLogical::Alp(_)) => Self::Alp,
             LE::Int(IntLogical::Delta2) => Self::Delta2,
             LE::Vertex(VertexLogical::ComponentwiseDelta2) => Self::ComponentwiseDelta2,
+            #[cfg(feature = "unstable-v2")]
+            LE::Vertex(VertexLogical::Xyz(..)) => Self::Xyz,
+            #[cfg(not(feature = "unstable-v2"))]
+            #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
+            _ => Self::Xyz,
         }
     }
 }
@@ -1333,6 +1350,16 @@ mod tests {
             .to_string(),
             @"data[vertex]/varint/componentwise-delta"
         );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn an_xyz_vertex_stream_lists_its_logical_encoding() {
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/synthetic/0x02/z_line.mlt");
+        let buffer = fs::read(&path).expect("fixture");
+        let info = analyze_mlt_buffer(&buffer, &path, ALGORITHMS).expect("analyze");
+        insta::assert_snapshot!(info.algorithms_display(), @"data[vertex]/varint/xyz,length[parts]/varint");
     }
 
     #[test]
