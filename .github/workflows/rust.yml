@@ -38,6 +38,14 @@ jobs:
       - uses: ./.github/actions/mlt-upload-coverage
         with: { suite: rust-unit, file: rust/target/lcov-unit.info }
 
+  test-doc:
+    name: Test docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/mlt-setup-rust
+      - run: just -v rust::ci-test-doc
+
   test-python:
     name: Test mlt-py
     runs-on: ubuntu-latest
@@ -257,6 +265,7 @@ jobs:
       - check
       - lint
       - test
+      - test-doc
       - test-python
       - coverage
       # re-enable once we have stability guarantees regarding MSRV
