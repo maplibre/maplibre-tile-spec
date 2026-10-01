@@ -459,7 +459,7 @@ fn tile_cache_shares_decoded_tiles_and_respects_its_budget() {
 
     let tiny = TileCache::new(1);
     tiny.load(&path).unwrap();
-    assert!(tiny.cached_paths().is_empty());
+    assert_eq!(tiny.cached_paths(), Vec::<PathBuf>::new());
 }
 
 fn mbtiles_app() -> App {
@@ -1307,7 +1307,7 @@ fn filter_clicks_toggle_extensions_and_algorithms() {
     app.finish_scan();
     assert!(app.files.len() > 100);
     let algos = collect_file_algorithms(&app.files);
-    assert!(!algos.is_empty());
+    assert_ne!(algos, Vec::new());
     let geoms = collect_file_geometries(&app.files).len();
     let exts = collect_extensions(&app.files).len();
     let first_algo_row = 3 + exts + 2 + geoms + 2;
