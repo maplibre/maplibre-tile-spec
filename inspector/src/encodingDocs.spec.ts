@@ -132,6 +132,7 @@ const POINT_TILE = [
   region(3, "encoding"),
   region(3, "num_values"),
   region(3, "byte_length"),
+  region(3, "z_step"),
   region(3, "data", {
     streamType: "data[vertex]",
     logical: "vertex/componentwise-delta",
@@ -155,6 +156,10 @@ describe("the encodings a region is shown", () => {
       "encodings#componentwise-delta",
       "encodings#varint",
     ]);
+  });
+
+  it("gives a codec parameter its own section, not the payload's encodings", () => {
+    expect(regionAnchors(POINT_TILE, 12, "v2")).toEqual(["v2#z-coordinates"]);
   });
 });
 

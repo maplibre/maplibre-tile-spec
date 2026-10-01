@@ -39,7 +39,7 @@
                                                                              |         └ bits 1-0 = 01 -> xyz = true -> (x, y, z) triples, a z step byte follows
 00000015  06                                                .                |       num_values: 6
 00000016  15                                                .                |       byte_length: 21
-00000017  02                                                .                |       z_step: 10^-1 m
+00000017  02                                                .                |       z_step: 1 dm
 00000018  16 68 e0 a0 0c 78 28 14 13 63 14 08 58 ff 04 3b   .h...x(..c..X..; |       data [Data(Vertex) Vertex(Xyz(ZStep(-1), ComponentwiseDelta))/VarInt, 6 values, 21 B]
 00000028  13 14 28 27 14                                    ..('.            |
                                                                              |         decoded: [11, 52, 100400, 71, 72, 100410, 61, 22, 100420, 65, 66, 100100, 35, 56, 100110, 55, 36, 100120]
