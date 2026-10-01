@@ -5,8 +5,8 @@
 //! Coordinates must be integer-valued and 2D.
 //!
 //! The Python mapping is deserialized once into [`mlt_core::geojson::FeatureCollection`].
-//! Coordinates are parsed as `[i32; 2]`, rejecting non-integer/3D coordinates, null geometry, and bad feature ids.
-//! Emptiness and non-scalar property values are checked separately, here.
+//! Coordinates are parsed as integers, rejecting non-integer coordinates, null geometry, and bad feature ids.
+//! Emptiness, 3D coordinates, and non-scalar property values are checked separately, here.
 
 use std::collections::HashMap;
 
@@ -198,6 +198,9 @@ fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<Til
             ));
         }
         validate_non_empty(&feat.geometry)?;
+        if feat.z.is_some() {
+            return Err(val_err("3D coordinates are not supported"));
+        }
         for (key, val) in &feat.properties {
             let kind = ColKind::of(key, val)?;
             let idx = *index.entry(key.clone()).or_insert_with(|| {

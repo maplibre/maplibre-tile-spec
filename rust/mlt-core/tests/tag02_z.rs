@@ -302,11 +302,13 @@ fn z_zero_is_terrain_rgb_base() {
 }
 
 #[test]
-#[expect(clippy::float_cmp, reason = "a decimal step reads back exactly")]
 fn a_decimetre_step_is_terrain_rgb_grid() {
     let terrain_rgb_max = (1 << 24) - 1;
     let decimetres = ZStep::new(-1).unwrap();
-    assert_eq!(decimetres.elevation(terrain_rgb_max), 1_667_721.5);
+    assert_eq!(
+        decimetres.elevation(terrain_rgb_max).to_bits(),
+        1_667_721.5_f64.to_bits()
+    );
     assert_eq!(decimetres.z(1_667_721.5), Some(terrain_rgb_max));
 }
 
