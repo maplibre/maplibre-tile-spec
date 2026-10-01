@@ -68,7 +68,7 @@ Each word is stored in 7-bit groups, least significant group first.
 Bit 7 of each byte is set when another byte follows.
 A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
 
-[View example](inspector/app/?fixture=0x02%2Fpoint.mlt&at=vertices){target=_blank .inspector-example} - every length and word is a varint.
+[View example](inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&at=column%5B0%5D){target=_blank .inspector-example} - four `9000`s, two bytes each, the first with bit 7 set.
 
 ```
 300 = 0b1_0010_1100
@@ -83,7 +83,7 @@ Signed values go through [ZigZag](#zigzag) first, where the logical encoding say
 
 Every word is stored in the same number of bits, the bit width of the largest value.
 
-[View example](inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&at=column%5B0%5D){target=_blank .inspector-example} - a shared dictionary whose codes are bit-packed.
+[View example](inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&at=codes){target=_blank .inspector-example} - dictionary codes `0` to `2`, each in two bits.
 
 v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`.
 It stands in for the whole physical step: the words come straight out of the packed bits, and no other logical transform is applied.
@@ -159,7 +159,7 @@ Each word is the difference to the previous value.
 The first value's predecessor is `0`.
 Each difference is [ZigZag](#zigzag)-coded before it becomes a word, whatever the stream's type.
 
-[View example](inspector/app/?fixture=0x02%2Fid64_max_delta.mlt&at=column%5B0%5D){target=_blank .inspector-example} - 64-bit ids stored as deltas.
+[View example](inspector/app/?fixture=0x02%2Fids_opt_delta.mlt&at=column%5B0%5D){target=_blank .inspector-example} - ids `100`, `101`, `105`, `106`, stored as the steps between them.
 
 ```
 delta[0] = values[0] - 0
@@ -216,7 +216,7 @@ The values are stored as runs, each a `(run_length, value)` pair that expands to
 On a signed stream `value` is [ZigZag](#zigzag)-coded.
 Run lengths never are.
 
-[View example](inspector/app/?fixture=0x02%2Fid_max_rle.mlt&at=column%5B0%5D){target=_blank .inspector-example} - an id stream of runs.
+[View example](inspector/app/?fixture=0x02%2Fmvalues_rle.mlt&at=m_value%5B0%5D){target=_blank .inspector-example} - five `5`s and three `7`s, as two runs.
 
 The two tile versions lay the runs out differently:
 
@@ -247,7 +247,7 @@ A v2 payload with an odd number of varints MUST be rejected.
 The deltas are ZigZag-coded, and it is those unsigned words that are run-length coded.
 Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-sum.
 
-[View example](inspector/app/?fixture=0x02%2Fid64_max_delta_rle.mlt&at=column%5B0%5D){target=_blank .inspector-example} - deltas that then run-length code.
+[View example](inspector/app/?fixture=0x02%2Fids_delta_rle.mlt&at=column%5B0%5D){target=_blank .inspector-example} - four equal ids: one step of `103`, then a run of three `0`s.
 
 ```
 values: [10, 11, 12, 13, 20, 20, 20]
@@ -268,7 +268,7 @@ Bit `i % 8` of byte `i / 8` is value `i`, LSB-first.
 The bitmap is `ceil(count / 8)` bytes.
 Bits past `count` in the final byte are padding and MUST be ignored.
 
-[View example](inspector/app/?fixture=0x02%2Fprop_i32.mlt&at=present){target=_blank .inspector-example} - one optional column, so one presence bitmap.
+[View example](inspector/app/?fixture=0x02%2Fprop_i32_val_null.mlt&at=present){target=_blank .inspector-example} - a value, then a null: bits `1` and `0`.
 
 ```
 values: [1, 0, 1, 1, 0, 1]
@@ -283,7 +283,7 @@ A bitmap can be shared between columns; see [Shared Presence Fields](specificati
 v1 compresses the [bitmap](#bitmap) with the byte-level run-length encoding of [ORC](https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding).
 The payload is a sequence of runs, each a control byte and what it names:
 
-[View example](inspector/app/?fixture=0x01%2Fprop_i32.mlt&at=present){target=_blank .inspector-example} - v1 codes its presence stream as byte RLE.
+[View example](inspector/app/?fixture=0x01%2Fids_opt.mlt&at=present){target=_blank .inspector-example} - five ids, one of them missing, as byte runs.
 
 | Control byte `c` | Meaning |
 |---|---|
@@ -317,7 +317,7 @@ This is the only float encoding v1 has.
 
 Framed, Exception-Free ALP (Adaptive Lossless floating-Point compression) stores a float column as integers, which are then [physically encoded](#physical-encodings) like any other integer stream.
 
-[View example](inspector/app/?fixture=0x02%2Fprop_f32_alp_whole_np.mlt&at=column%5B0%5D){target=_blank .inspector-example} - floats that are whole numbers, so the exponent does the work.
+[View example](inspector/app/?fixture=0x02%2Fprop_f32_alp_np.mlt&at=column%5B0%5D){target=_blank .inspector-example} - `-0.75` to `0.75`, stored as `-75` to `75` with `e = 2`.
 
 Most floats in map data are decimals with few significant digits, such as `12.75` or `0.3`, and are exactly representable as a scaled integer.
 Framed, Exception-Free ALP finds one decimal scale for the whole column and stores $i = \operatorname{round}(v \cdot 10^e / 10^f)$ per value.
@@ -421,7 +421,7 @@ The bytes as they are.
 Value `i` is the `lengths[i]` bytes that follow the first `lengths[0] + ... + lengths[i - 1]`.
 Each value MUST be valid UTF-8.
 
-[View example](inspector/app/?fixture=0x02%2Fprop_str_empty_np.mlt&at=column%5B0%5D){target=_blank .inspector-example} - a string column stored as it is.
+[View example](inspector/app/?fixture=0x02%2Fprops_str_plain_np.mlt&at=column%5B0%5D){target=_blank .inspector-example} - several strings, each its length's worth of bytes in turn.
 
 ### Front Coding <span class="experimental"></span> {#front-coding}
 
@@ -502,8 +502,6 @@ A decoder reads the table from the stream, so that only matters when comparing t
 A string column is a set of the streams above.
 The four layouts, in the v2 names:
 
-[View example](inspector/app/?fixture=0x02%2Fnested_map_str.mlt&at=column%5B0%5D){target=_blank .inspector-example} - plain and dictionary-coded strings in one tile.
-
 | Layout | Streams, in order |
 |---|---|
 | Plain | `Lengths`, `Values` |
@@ -525,7 +523,7 @@ See [v1 string columns](specification/v1.md#string-columns) and [v2 string colum
 Several string columns, such as `name:en`, `name:de` and `name:fr`, index into one dictionary.
 The dictionary streams are written once, and each member column then stores only its presence and its `Codes`.
 
-[View example](inspector/app/?fixture=0x01-rust%2Fprops_shared_dict_no_child_name_np.mlt&at=column%5B1%5D){target=_blank .inspector-example} - several columns reading one corpus.
+[View example](inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&at=column%5B0%5D){target=_blank .inspector-example} - several columns reading one corpus.
 
 ```
 DictLengths, DictValues, Present_1, Codes_1, Present_2, Codes_2, ...
@@ -551,7 +549,7 @@ Each coordinate is a delta to the same coordinate of the previous vertex.
 `x` and `y` keep separate predecessors, both starting at `0`.
 Each delta is [ZigZag](#zigzag)-coded.
 
-[View example](inspector/app/?fixture=0x02%2Fpoint.mlt&at=vertices){target=_blank .inspector-example} - x and y each delta against the previous vertex.
+[View example](inspector/app/?fixture=0x02%2Fline.mlt&at=vertices){target=_blank .inspector-example} - three vertices, each stored as its step from the one before.
 
 ```
 dx[i] = x[i] - x[i - 1]        x[-1] = 0
