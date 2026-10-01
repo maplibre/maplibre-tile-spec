@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.2.2...rust-mlt-v0.3.0) - 2026-10-01
+
+### Added
+
+- *(rust)* store z coordinates as a third component of each vertex if extension is set ([#1795](https://github.com/maplibre/maplibre-tile-spec/pull/1795))
+- *(rust)* opt-in second-order delta encodings for v2 integer and vertex streams ([#1806](https://github.com/maplibre/maplibre-tile-spec/pull/1806))
+
+### Fixed
+
+- [**breaking**] remove not very sensible & not implemented MortonRle and plain Morton encodings ([#1777](https://github.com/maplibre/maplibre-tile-spec/pull/1777))
+- *(rust)* fail MBTiles conversions that drop tiles and refresh agg_tiles_hash ([#1808](https://github.com/maplibre/maplibre-tile-spec/pull/1808))
+- *(rust)* check vertex index arithmetic for overflow ([#1798](https://github.com/maplibre/maplibre-tile-spec/pull/1798))
+
+### Other
+
+- rename ALP to mach implementation ([#1810](https://github.com/maplibre/maplibre-tile-spec/pull/1810))
+- *(rust)* fix clippy 1.99 lints and the wasm-bindgen install ([#1807](https://github.com/maplibre/maplibre-tile-spec/pull/1807))
+- link each spec feature to a small tile in the inspector ([#1805](https://github.com/maplibre/maplibre-tile-spec/pull/1805))
+
 ## [0.2.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.2.1...rust-mlt-v0.2.2) - 2026-09-27
 
 ### Added
