@@ -339,7 +339,10 @@ mod tests {
     #[test]
     fn test_decode_rle_interleaved_empty() {
         let rle = RleMeta::Interleaved { num_rle_values: 0 };
-        assert!(rle.decode::<u32>(&[], &mut dec()).unwrap().is_empty());
+        assert_eq!(
+            rle.decode::<u32>(&[], &mut dec()).unwrap(),
+            Vec::<u32>::new()
+        );
     }
 
     #[cfg(feature = "unstable-v2")]
