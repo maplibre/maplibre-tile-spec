@@ -457,6 +457,23 @@ pub(super) fn encode_vec2_delta2_vertex_stream02(
     write_geo_precomputed_stream(delta2, ctx, logical, enc, &mut codecs.physical, false).map(|_| ())
 }
 
+/// The plain vertex layout rANS-coded over the layer's vertex runs, which start at `offsets`.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_rans_vertex_stream02(
+    vertices: &[i32],
+    offsets: Option<&[u32]>,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let payload = crate::codecs::rans::encode_vertices(vertices, offsets)?;
+    let meta = StreamMeta::new2(
+        StreamType::Data(DictionaryType::Vertex),
+        LogicalEncoding::Vertex(VertexLogical::Rans),
+        PhysicalEncoding::None,
+        vertices.len(),
+    )?;
+    write_stream_payload(enc, meta, false, &payload)
+}
+
 fn vec2_vertex_stream(
     vertices: &[i32],
     enc: &mut Encoder,

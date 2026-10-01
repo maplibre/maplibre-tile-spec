@@ -1997,3 +1997,124 @@ mod delta2 {
         assert_eq!(l.clone().encode(v1).unwrap(), l.encode(cfg_v1()).unwrap());
     }
 }
+
+mod rans_vertices {
+    use mlt_core::test_helpers::stream_logicals;
+    use mlt_core::wire::{DictionaryType, LogicalEncoding, StreamType, VertexLogical};
+
+    use super::*;
+
+    fn cfg_rans() -> EncoderConfig {
+        cfg_v2().with_rans_vertices(true)
+    }
+
+    fn vertex_logicals(bytes: &[u8]) -> Vec<LogicalEncoding> {
+        stream_logicals(bytes, StreamType::Data(DictionaryType::Vertex))
+    }
+
+    /// A deterministic walk of `n` vertices starting at `(x, y)`.
+    fn walk(x: i32, y: i32, n: i32) -> Vec<(i32, i32)> {
+        (0..n)
+            .map(|i| (x + i * 7 + (i * i) % 13, y + i * 3 - (i * 5) % 11))
+            .collect()
+    }
+
+    fn square_with_hole(x: i32, y: i32) -> Geometry<i32> {
+        Geometry::Polygon(Polygon::new(
+            ring(&[(x, y), (x + 90, y), (x + 90, y + 90), (x, y + 90)]),
+            vec![ring(&[
+                (x + 30, y + 30),
+                (x + 60, y + 30),
+                (x + 45, y + 60),
+            ])],
+        ))
+    }
+
+    fn lines() -> Vec<Geometry<i32>> {
+        (0..40).map(|i| line(&walk(i * 50, i * 20, 25))).collect()
+    }
+
+    fn polygons() -> Vec<Geometry<i32>> {
+        (0..60)
+            .map(|i| {
+                if i % 3 == 0 {
+                    Geometry::MultiPolygon(MultiPolygon(vec![
+                        Polygon::new(ring(&walk(i * 40, 0, 12)), vec![]),
+                        Polygon::new(ring(&walk(i * 40, 500, 9)), vec![]),
+                    ]))
+                } else {
+                    square_with_hole(i * 100, i * 30)
+                }
+            })
+            .collect()
+    }
+
+    fn mixed() -> Vec<Geometry<i32>> {
+        (0..90)
+            .map(|i| match i % 3 {
+                0 => pt(i * 11, i * 13),
+                1 => line(&walk(i * 30, 0, 15)),
+                _ => square_with_hole(i * 40, 900),
+            })
+            .collect()
+    }
+
+    #[rstest]
+    #[case::lines(lines())]
+    #[case::polygons(polygons())]
+    #[case::mixed(mixed())]
+    fn vertices_are_rans_coded_and_decode_unchanged(#[case] geoms: Vec<Geometry<i32>>) {
+        let l = layer(geoms, None, &[]);
+        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let rans = l.encode(cfg_rans()).unwrap();
+        assert_eq!(
+            vertex_logicals(&rans),
+            [LogicalEncoding::Vertex(VertexLogical::Rans)]
+        );
+        assert!(
+            rans.len() < plain.len(),
+            "{} vs {}",
+            rans.len(),
+            plain.len()
+        );
+        assert_eq!(decode(&rans).1, decode(&plain).1);
+        assert_dump_covers(&rans);
+    }
+
+    #[rstest]
+    fn a_tessellated_layer_codes_its_vertices(#[values(false, true)] triangles_only: bool) {
+        let l = layer(polygons(), None, &[]);
+        let cfg = cfg_rans()
+            .with_tessellation(true)
+            .with_triangles_only(triangles_only);
+        let rans = l.clone().encode(cfg).unwrap();
+        assert_eq!(
+            vertex_logicals(&rans),
+            [LogicalEncoding::Vertex(VertexLogical::Rans)]
+        );
+        assert_eq!(
+            decode(&rans).1,
+            decode(&l.encode(cfg.with_rans_vertices(false)).unwrap()).1
+        );
+    }
+
+    #[test]
+    fn a_few_vertices_stay_componentwise_delta() {
+        let rans = layer(vec![pt(1, 2), pt(3, 4)], None, &[])
+            .encode(cfg_rans())
+            .unwrap();
+        assert_eq!(
+            vertex_logicals(&rans),
+            [LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta)]
+        );
+    }
+
+    #[test]
+    fn v1_ignores_rans_vertices() {
+        let l = layer(lines(), None, &[]);
+        assert_eq!(
+            l.clone().encode(cfg_v1().with_rans_vertices(true)).unwrap(),
+            l.encode(cfg_v1()).unwrap()
+        );
+    }
+}
