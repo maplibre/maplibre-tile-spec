@@ -56,18 +56,7 @@ Mixing geometry types in a layer is allowed, but one type per layer compresses b
 MVT is record-oriented: it writes feature 1 whole, then feature 2 whole, each with its own tags and geometry commands.
 MLT is column-oriented: it writes every feature's `id`, then every feature's geometry, then every feature's `class`, and so on.
 
-```mermaid
-graph TB
-    subgraph MVT["MVT (record-oriented)"]
-        direction LR
-        R["id₁ geom₁ class₁ · id₂ geom₂ class₂ · id₃ geom₃ class₃"]
-    end
-    subgraph MLT["MLT (column-oriented)"]
-        direction LR
-        C["id₁ id₂ id₃ · geom₁ geom₂ geom₃ · class₁ class₂ class₃"]
-    end
-    MVT ~~~ MLT
-```
+--8<-- "diagrams/columns-vs-records.svg"
 
 The column layout has the following consequences:
 
@@ -87,6 +76,8 @@ A nullable string column, for example, becomes:
 - a present stream, one bit per feature, saying which features have a value
 - a length stream, the byte length of each string
 - a data stream, the UTF-8 bytes
+
+--8<-- "diagrams/nullable-string-streams.svg"
 
 MLT defines these stream kinds:
 

@@ -100,13 +100,19 @@ Encoders write them as `0` and decoders MUST ignore them.
 An empty or all-zero stream has `width = 1`.
 A payload whose length is not exactly `1 + ceil(count * width / 8)` MUST be rejected.
 
-```
-values: [5, 1, 7, 0]           width = 3
-bits:   101 001 111 000        value 0 = bits 0-2, value 1 = bits 3-5, ...
-bytes:  0b11_001_101 = 0xCD    bits 0-7:  5, 1, and the low 2 bits of 7
-        0b0000_00_01 = 0x01    bits 8-15: the high bit of 7, 0, padding
-payload: 03 CD 01
-```
+=== "Bits"
+
+    --8<-- "diagrams/bit-packing.svg"
+
+=== "Values"
+
+    ```
+    values: [5, 1, 7, 0]           width = 3
+    bits:   101 001 111 000        value 0 = bits 0-2, value 1 = bits 3-5, ...
+    bytes:  0b11_001_101 = 0xCD    bits 0-7:  5, 1, and the low 2 bits of 7
+            0b0000_00_01 = 0x01    bits 8-15: the high bit of 7, 0, padding
+    payload: 03 CD 01
+    ```
 
 Bit packing beats varint when the values are of similar magnitude, since varint spends at least 8 bits per value.
 One large value raises the width for every value.
@@ -654,12 +660,18 @@ fn decode(code: u32, bits: u32, shift: u32) -> (i32, i32) {
 }
 ```
 
-```
-(x, y) = (5, 3), shift = 0, bits = 3
-sx = 0b101, sy = 0b011
-code bits, from bit 0: x0 y0 x1 y1 x2 y2 = 1 1 0 1 1 0
-code = 0b011011 = 27
-```
+=== "Bits"
+
+    --8<-- "diagrams/morton.svg"
+
+=== "Values"
+
+    ```
+    (x, y) = (5, 3), shift = 0, bits = 3
+    sx = 0b101, sy = 0b011
+    code bits, from bit 0: x0 y0 x1 y1 x2 y2 = 1 1 0 1 1 0
+    code = 0b011011 = 27
+    ```
 
 The loops are the definition.
 The reference Rust codec spreads all 16 bits of an axis at once with masks, which gives the same code for any `bits` up to `16`:

@@ -1,0 +1,53 @@
+<svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="A nullable string column of road, null, track and rail as present, lengths and data streams" xmlns="http://www.w3.org/2000/svg">
+<text class="small mid bold t0" x="190.0" y="14">"road"</text>
+<path class="bracket t0" d="M130 34V28H250V34"/>
+<text class="muted small mid" x="284.0" y="14">null</text>
+<path class="bracket" d="M262 34V28H306V34"/>
+<text class="small mid bold t1" x="393.0" y="14">"track"</text>
+<path class="bracket t1" d="M318 34V28H468V34"/>
+<text class="small mid bold t0" x="540.0" y="14">"rail"</text>
+<path class="bracket t0" d="M480 34V28H600V34"/>
+<text class="row" x="0" y="54">present</text>
+<text class="row" x="0" y="94">lengths</text>
+<text class="row" x="0" y="134">data</text>
+<rect class="f0" x="130" y="40" width="120" height="28" rx="3"/>
+<text class="cell" x="190.0" y="54">1</text>
+<rect class="f0" x="130" y="80" width="120" height="28" rx="3"/>
+<text class="cell" x="190.0" y="94">4</text>
+<rect class="f0" x="130" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="144.0" y="134">r</text>
+<rect class="f0" x="160" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="174.0" y="134">o</text>
+<rect class="f0" x="190" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="204.0" y="134">a</text>
+<rect class="f0" x="220" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="234.0" y="134">d</text>
+<rect class="plain" x="262" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="284.0" y="54">0</text>
+<rect class="f1" x="318" y="40" width="150" height="28" rx="3"/>
+<text class="cell" x="393.0" y="54">1</text>
+<rect class="f1" x="318" y="80" width="150" height="28" rx="3"/>
+<text class="cell" x="393.0" y="94">5</text>
+<rect class="f1" x="318" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="332.0" y="134">t</text>
+<rect class="f1" x="348" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="362.0" y="134">r</text>
+<rect class="f1" x="378" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="392.0" y="134">a</text>
+<rect class="f1" x="408" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="422.0" y="134">c</text>
+<rect class="f1" x="438" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="452.0" y="134">k</text>
+<rect class="f0" x="480" y="40" width="120" height="28" rx="3"/>
+<text class="cell" x="540.0" y="54">1</text>
+<rect class="f0" x="480" y="80" width="120" height="28" rx="3"/>
+<text class="cell" x="540.0" y="94">4</text>
+<rect class="f0" x="480" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="494.0" y="134">r</text>
+<rect class="f0" x="510" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="524.0" y="134">a</text>
+<rect class="f0" x="540" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="554.0" y="134">i</text>
+<rect class="f0" x="570" y="120" width="28" height="28" rx="3"/>
+<text class="cell" x="584.0" y="134">l</text>
+</svg>
