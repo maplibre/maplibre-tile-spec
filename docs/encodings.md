@@ -180,28 +180,35 @@ Delta suits monotonic sequences such as ids and offsets, whose differences are s
 
 ### Delta2 <span class="experimental"></span> {#delta2}
 
-Each word is the [Delta](#delta) of the deltas.
-Both predecessors start at `0`, so the first two words are `values[0]` and `values[1] - 2 * values[0]`.
+Each item is the [Delta](#delta) of the deltas.
+Both predecessors start at `0`, so the first two words are
+- `values[0]` and
+- `values[1] - 2 * values[0]`.
+
 Each second difference is [ZigZag](#zigzag)-coded, and the arithmetic wraps at the stream's width.
 
+This means that encoding is:
 ```
 delta[i]  = values[i] - values[i - 1]      values[-1] = 0
 delta2[i] = delta[i] - delta[i - 1]        delta[-1] = 0
-
-decode: delta[i] = delta[i - 1] + delta2[i], values[i] = values[i - 1] + delta[i]
 ```
 
-Example:
+and decoding is:
+```
+delta[i] = delta[i - 1] + delta2[i]
+values[i] = values[i - 1] + delta[i]
+```
 
-```
-values: [10, 13, 16, 20]
-deltas: [10, 3, 3, 4]
-delta2: [10, -7, 0, 1]
-words:  [20, 13, 0, 2]         zigzag
-```
+!!! example
+
+    ```
+    values: [10, 13, 16, 20]
+    deltas: [10, 3, 3, 4]
+    delta2: [10, -7, 0, 1]
+    words:  [20, 13, 0, 2]         zigzag
+    ```
 
 Delta2 suits smooth sequences, such as a per-vertex elevation along a densely sampled line, whose steps change little from one to the next.
-v2 numbers it `5` in the `Int` family.
 
 ### RLE {#rle}
 
@@ -562,8 +569,7 @@ The v2 `Vertex` family also has a plain `Delta`, which is the integer [Delta](#d
 
 ### Componentwise Delta2 <span class="experimental"></span> {#componentwise-delta2}
 
-[Delta2](#delta2) of each coordinate, `x` and `y` keeping separate predecessors.
-v2 numbers it `4` in the `Vertex` family.
+[Delta2](#delta2) of each coordinate, with `x` and `y` keeping separate predecessors.
 
 ```
 vertices: (0, 0), (70, 1), (140, 3), (210, 6)
