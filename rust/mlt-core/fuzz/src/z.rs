@@ -80,7 +80,7 @@ fn polygon(u: &mut Unstructured<'_>) -> arbitrary::Result<Polygon<i32>> {
     ))
 }
 
-fn geometry(u: &mut Unstructured<'_>) -> arbitrary::Result<Geometry<i32>> {
+pub(crate) fn geometry(u: &mut Unstructured<'_>) -> arbitrary::Result<Geometry<i32>> {
     let parts = u.int_in_range(1..=3u8)?;
     Ok(match u.int_in_range(0..=5u8)? {
         0 => Geometry::Point(Point(coord(u)?)),

@@ -19,7 +19,7 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 [features]
-unstable-v2 = ["mlt-core/unstable-v2", "dep:geojson"]
+unstable-v2 = ["mlt-core/unstable-v2", "dep:geojson", "dep:toml"]
 hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
 hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
 hotpath-mcp = ["hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
@@ -54,6 +54,7 @@ tabled.workspace = true
 thousands.workspace = true
 tilejson.workspace = true
 tokio.workspace = true
+toml = { workspace = true, optional = true }
 usize_cast.workspace = true
 walkdir.workspace = true
 xxhash-rust.workspace = true

@@ -8,7 +8,6 @@ use anyhow::{Result as AnyResult, anyhow, bail};
 use futures::StreamExt;
 use martin_tile_utils::{Encoding, Format};
 use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata, detach_db, init_mbtiles_schema};
-use mlt_core::encoder::EncoderConfig;
 use pmtiles::{Compression, PmTilesWriter, TileCoord, TileType};
 use size_format::SizeFormatterSI;
 use tilejson::{Bounds, TileJSON};
@@ -19,7 +18,7 @@ use super::common::{
     ENCODE_CACHE_BYTES, EncodedTile, MAX_TILE_CACHE_TRACK_SIZE_BYTES, PmTilesGeography, TileStats,
     encode_tile, make_encode_cache, make_progress_bar,
 };
-use super::{ContainerFormat, encode_one, update_mlt_pmtiles_metadata};
+use super::{ContainerFormat, Reencoder, encode_one, update_mlt_pmtiles_metadata};
 
 /// Narrows a tileset's geography to the box a `--bbox` conversion kept.
 fn clip_tilejson(tilejson: &mut TileJSON, clip: Bounds) {
@@ -44,17 +43,17 @@ fn geography_from_metadata(metadata: &Metadata) -> PmTilesGeography {
 pub async fn convert(
     input: &Path,
     output: (&Path, ContainerFormat),
-    cfg: EncoderConfig,
+    reencoder: &Reencoder,
     dst_type: Option<MbtType>,
     tile_compression: Compression,
     clip: Option<Bounds>,
 ) -> AnyResult<()> {
     match output {
         (output, ContainerFormat::Mbtiles) => {
-            convert_mbtiles_to_mbtiles(input, output, dst_type, cfg, clip).await
+            convert_mbtiles_to_mbtiles(input, output, dst_type, reencoder, clip).await
         }
         (output, ContainerFormat::Pmtiles) => {
-            convert_mbtiles_to_pmtiles(input, output, cfg, tile_compression, clip).await
+            convert_mbtiles_to_pmtiles(input, output, reencoder, tile_compression, clip).await
         }
         (output, ContainerFormat::Files) => bail!(
             "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
@@ -109,7 +108,7 @@ async fn convert_mbtiles_to_mbtiles(
     input: &Path,
     output: &Path,
     dst_type: Option<MbtType>,
-    cfg: EncoderConfig,
+    reencoder: &Reencoder,
     clip: Option<Bounds>,
 ) -> AnyResult<()> {
     let (encoding, src_type, mut metadata, total) = get_metadata(input).await?;
@@ -123,12 +122,13 @@ async fn convert_mbtiles_to_mbtiles(
     let bar_ref = bar.clone();
     let sizes = Arc::new(EncodeSizes::default());
     let sizes_ref = Arc::clone(&sizes);
+    let reencoder = reencoder.clone();
 
     let mut transcoder = MbtilesTranscoder::new(input, output, move |data| {
         sizes_ref
             .bytes_in
             .fetch_add(u64::from_usize(data.len()), Ordering::Relaxed);
-        let result = encode_one(data, encoding, cfg)
+        let result = encode_one(data, encoding, &reencoder)
             .map(|(data, _raw_mvt_size)| data)
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { format!("{e:#}").into() });
         match &result {
@@ -204,7 +204,7 @@ async fn convert_mbtiles_to_mbtiles(
 async fn convert_mbtiles_to_pmtiles(
     input: &Path,
     output: &Path,
-    cfg: EncoderConfig,
+    reencoder: &Reencoder,
     tile_compression: Compression,
     clip: Option<Bounds>,
 ) -> AnyResult<()> {
@@ -257,8 +257,9 @@ async fn convert_mbtiles_to_pmtiles(
         })
         .map(|(coord, data)| {
             let cache = cache.clone();
+            let reencoder = reencoder.clone();
             tokio::task::spawn_blocking(move || -> AnyResult<EncodedTile> {
-                let (data, raw_mvt_size, hit) = encode_tile(&cache, &data, encoding, cfg)?;
+                let (data, raw_mvt_size, hit) = encode_tile(&cache, &data, encoding, &reencoder)?;
                 Ok(EncodedTile {
                     coord,
                     data,
@@ -563,7 +564,7 @@ mod tests {
         let err = convert(
             Path::new("input.mbtiles"),
             (Path::new("tiles"), ContainerFormat::Files),
-            EncoderConfig::default(),
+            &Reencoder::default(),
             None,
             Compression::None,
             None,
@@ -592,7 +593,7 @@ mod tests {
         let err = convert(
             &source.0,
             (&output.0, ContainerFormat::Mbtiles),
-            EncoderConfig::default(),
+            &Reencoder::default(),
             None,
             Compression::None,
             None,
@@ -627,7 +628,7 @@ mod tests {
         convert(
             &source.0,
             (&output.0, ContainerFormat::Mbtiles),
-            EncoderConfig::default(),
+            &Reencoder::default(),
             None,
             Compression::None,
             None,
@@ -651,7 +652,7 @@ mod tests {
         convert(
             &source.0,
             (&output.0, ContainerFormat::Mbtiles),
-            EncoderConfig::default(),
+            &Reencoder::default(),
             None,
             Compression::None,
             None,
@@ -706,7 +707,7 @@ mod tests {
         convert(
             &source.0,
             (&output.0, ContainerFormat::Mbtiles),
-            EncoderConfig::default(),
+            &Reencoder::default(),
             Some(MbtType::FlatWithHash),
             Compression::None,
             None,
@@ -741,7 +742,7 @@ mod tests {
         convert(
             &source.0,
             (&output.0, ContainerFormat::Mbtiles),
-            EncoderConfig::default(),
+            &Reencoder::default(),
             None,
             Compression::None,
             Some(Bounds::new(20.0, 20.0, 30.0, 30.0)),
@@ -768,7 +769,7 @@ mod tests {
         convert(
             &source.0,
             (&output.0, ContainerFormat::Pmtiles),
-            EncoderConfig::default(),
+            &Reencoder::default(),
             None,
             Compression::Gzip,
             None,
@@ -831,7 +832,7 @@ mod tests {
         convert(
             &source.0,
             (&output.0, ContainerFormat::Pmtiles),
-            EncoderConfig::default(),
+            &Reencoder::default(),
             None,
             Compression::None,
             Some(bbox),

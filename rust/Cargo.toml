@@ -80,6 +80,7 @@ thiserror = "2.0.11"
 thousands = "0.2"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
+toml = "1"
 union-find = "0.4.4"
 usize_cast = "1.1.0"
 walkdir = "2"
