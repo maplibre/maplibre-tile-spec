@@ -23,7 +23,7 @@ abi3 = ["pyo3/abi3-py310", "generate-import-lib"]
 generate-import-lib = ["pyo3/generate-import-lib"]
 
 [dependencies]
-mlt-core.workspace = true
+mlt-core = { workspace = true, features = ["unstable-v2"] }
 pyo3.workspace = true
 pyo3-stub-gen.workspace = true
 pythonize.workspace = true

@@ -3,13 +3,12 @@ mod feature;
 mod tile_transform;
 
 use std::iter::once;
-use std::ops::Deref;
 
-use mlt_core::geo_types::{Geometry, LineString, Polygon};
+use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{
     Decoder, GeometryType, Layer, LendingIterator, MltError, MltResult, ParsedLayer01, Parser,
-    PropValueRef,
+    PropValueRef, ZStep,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -33,6 +32,9 @@ struct MltLayer {
     name: String,
     #[pyo3(get)]
     extent: u32,
+    /// The power of ten of the z grid's step in metres, or `None` when the vertices carry no z.
+    #[pyo3(get)]
+    z_step: Option<i8>,
     #[pyo3(get)]
     features: Vec<Py<MltFeature>>,
 }
@@ -50,114 +52,174 @@ impl MltLayer {
     }
 }
 
-fn push_coord_raw(buf: &mut Vec<u8>, coord: [i32; 2]) {
-    buf.extend_from_slice(&f64::from(coord[0]).to_le_bytes());
-    buf.extend_from_slice(&f64::from(coord[1]).to_le_bytes());
+/// Writes WKB, taking the next z for each stored vertex when the layer has z.
+///
+/// Z follows xy: the grid value in tile coordinates, the elevation in metres once `xf` projects.
+struct WkbWriter<'a> {
+    buf: Vec<u8>,
+    xf: Option<TileTransform>,
+    z: Option<(ZStep, &'a [i32])>,
+    vertex: usize,
 }
 
-fn push_coord_xform(buf: &mut Vec<u8>, coord: [i32; 2], xf: TileTransform) {
-    let [x, y] = xf.apply(coord);
-    buf.extend_from_slice(&x.to_le_bytes());
-    buf.extend_from_slice(&y.to_le_bytes());
-}
+impl<'a> WkbWriter<'a> {
+    fn new(xf: Option<TileTransform>, z: Option<(ZStep, &'a [i32])>) -> Self {
+        Self {
+            buf: Vec::with_capacity(128),
+            xf,
+            z,
+            vertex: 0,
+        }
+    }
 
-fn push_coord(buf: &mut Vec<u8>, coord: [i32; 2], xf: Option<TileTransform>) {
-    match xf {
-        Some(xf) => push_coord_xform(buf, coord, xf),
-        None => push_coord_raw(buf, coord),
+    fn f64(&mut self, v: f64) {
+        self.buf.extend_from_slice(&v.to_le_bytes());
+    }
+
+    fn u32(&mut self, v: u32) {
+        self.buf.extend_from_slice(&v.to_le_bytes());
+    }
+
+    fn len(&mut self, len: usize) -> MltResult<()> {
+        self.u32(u32::try_from(len).map_err(|_| MltError::IntegerOverflow)?);
+        Ok(())
+    }
+
+    /// The byte order and type, in ISO WKB's Z variant when the layer has z.
+    fn header(&mut self, ty: u32) {
+        self.buf.push(0x01);
+        self.u32(if self.z.is_some() { ty + 1000 } else { ty });
+    }
+
+    /// Write the next stored vertex, returning its z.
+    fn vertex(&mut self, coord: Coord<i32>) -> Option<i32> {
+        let z = self
+            .z
+            .map(|(_, z)| z.get(self.vertex).copied().unwrap_or_default());
+        self.vertex += 1;
+        self.coord(coord, z);
+        z
+    }
+
+    fn coord(&mut self, coord: Coord<i32>, z: Option<i32>) {
+        let [x, y] = match self.xf {
+            Some(xf) => xf.apply(coord.into()),
+            None => [coord.x, coord.y].map(f64::from),
+        };
+        self.f64(x);
+        self.f64(y);
+        if let (Some((step, _)), Some(z)) = (self.z, z) {
+            let z = if self.xf.is_some() {
+                step.elevation(z)
+            } else {
+                f64::from(z)
+            };
+            self.f64(z);
+        }
+    }
+
+    fn point(&mut self, coord: Coord<i32>) {
+        self.header(1);
+        self.vertex(coord);
+    }
+
+    fn line(&mut self, line: &LineString<i32>) -> MltResult<()> {
+        self.header(2);
+        self.len(line.0.len())?;
+        for &c in &line.0 {
+            self.vertex(c);
+        }
+        Ok(())
+    }
+
+    /// A ring's closing position repeats its first, z included, because MLT does not store it.
+    fn ring(&mut self, ring: &LineString<i32>) -> MltResult<()> {
+        let coords = &ring.0;
+        self.len(coords.len())?;
+        let Some((&first, rest)) = coords.split_first() else {
+            return Ok(());
+        };
+        let first_z = self.vertex(first);
+        match rest.split_last() {
+            Some((&last, middle)) if last == first => {
+                for &c in middle {
+                    self.vertex(c);
+                }
+                self.coord(first, first_z);
+            }
+            _ => {
+                for &c in rest {
+                    self.vertex(c);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn polygon(&mut self, poly: &Polygon<i32>) -> MltResult<()> {
+        self.header(3);
+        self.len(poly.interiors().len() + 1)?;
+        for ring in once(poly.exterior()).chain(poly.interiors()) {
+            self.ring(ring)?;
+        }
+        Ok(())
+    }
+
+    fn geometry(&mut self, geom: &Geometry<i32>) -> MltResult<()> {
+        match geom {
+            Geometry::Point(p) => self.point(p.0),
+            Geometry::LineString(line) => self.line(line)?,
+            Geometry::Polygon(poly) => self.polygon(poly)?,
+            Geometry::MultiPoint(points) => {
+                self.header(4);
+                self.len(points.0.len())?;
+                for p in &points.0 {
+                    self.point(p.0);
+                }
+            }
+            Geometry::MultiLineString(lines) => {
+                self.header(5);
+                self.len(lines.0.len())?;
+                for line in &lines.0 {
+                    self.line(line)?;
+                }
+            }
+            Geometry::MultiPolygon(polygons) => {
+                self.header(6);
+                self.len(polygons.0.len())?;
+                for polygon in &polygons.0 {
+                    self.polygon(polygon)?;
+                }
+            }
+            Geometry::Line(_)
+            | Geometry::GeometryCollection(_)
+            | Geometry::Rect(_)
+            | Geometry::Triangle(_) => {
+                return Err(MltError::NotImplemented("unsupported geometry type"));
+            }
+        }
+        Ok(())
+    }
+
+    fn finish(self) -> MltResult<Vec<u8>> {
+        match self.z {
+            Some((_, z)) if z.len() != self.vertex => Err(MltError::ZVertexCountMismatch {
+                expected: self.vertex,
+                actual: z.len(),
+            }),
+            _ => Ok(self.buf),
+        }
     }
 }
 
-fn push_u32(buf: &mut Vec<u8>, v: u32) {
-    buf.extend_from_slice(&v.to_le_bytes());
-}
-
-fn push_rings(
-    buf: &mut Vec<u8>,
-    rings: impl IntoIterator<Item = impl Deref<Target = LineString<i32>>>,
+fn geom32_to_wkb(
+    geom: &Geometry<i32>,
     xf: Option<TileTransform>,
-) -> MltResult<()> {
-    for ring in rings {
-        let len = u32::try_from(ring.0.len()).map_err(|_| MltError::IntegerOverflow)?;
-        push_u32(buf, len);
-        for c in &ring.0 {
-            push_coord(buf, (*c).into(), xf);
-        }
-    }
-    Ok(())
-}
-
-fn push_linestring(
-    buf: &mut Vec<u8>,
-    line: impl Deref<Target = LineString<i32>>,
-    xf: Option<TileTransform>,
-) -> MltResult<()> {
-    buf.push(0x01);
-    push_u32(buf, 2);
-    push_rings(buf, once(line), xf)?;
-    Ok(())
-}
-
-fn push_polygon(
-    buf: &mut Vec<u8>,
-    poly: &Polygon<i32>,
-    xf: Option<TileTransform>,
-) -> MltResult<()> {
-    buf.push(0x01);
-    push_u32(buf, 3);
-    let len = u32::try_from(poly.interiors().len() + 1).map_err(|_| MltError::IntegerOverflow)?;
-    push_u32(buf, len);
-    push_rings(buf, once(poly.exterior()).chain(poly.interiors()), xf)?;
-    Ok(())
-}
-
-fn geom32_to_wkb(geom: &Geometry<i32>, xf: Option<TileTransform>) -> MltResult<Vec<u8>> {
-    let mut buf = Vec::with_capacity(128);
-    match geom {
-        Geometry::<i32>::Point(c) => {
-            buf.push(0x01);
-            push_u32(&mut buf, 1);
-            push_coord(&mut buf, (*c).into(), xf);
-        }
-        Geometry::<i32>::LineString(coords) => push_linestring(&mut buf, coords, xf)?,
-        Geometry::<i32>::Polygon(poly) => push_polygon(&mut buf, poly, xf)?,
-        Geometry::<i32>::MultiPoint(coords) => {
-            buf.push(0x01);
-            push_u32(&mut buf, 4);
-            let len = u32::try_from(coords.0.len()).map_err(|_| MltError::IntegerOverflow)?;
-            push_u32(&mut buf, len);
-            for c in &coords.0 {
-                buf.push(0x01);
-                push_u32(&mut buf, 1);
-                push_coord(&mut buf, (*c).into(), xf);
-            }
-        }
-        Geometry::<i32>::MultiLineString(lines) => {
-            buf.push(0x01);
-            push_u32(&mut buf, 5);
-            let len = u32::try_from(lines.0.len()).map_err(|_| MltError::IntegerOverflow)?;
-            push_u32(&mut buf, len);
-            for line in &lines.0 {
-                push_linestring(&mut buf, line, xf)?;
-            }
-        }
-        Geometry::<i32>::MultiPolygon(polygons) => {
-            buf.push(0x01);
-            push_u32(&mut buf, 6);
-            let len = u32::try_from(polygons.0.len()).map_err(|_| MltError::IntegerOverflow)?;
-            push_u32(&mut buf, len);
-            for polygon in &polygons.0 {
-                push_polygon(&mut buf, polygon, xf)?;
-            }
-        }
-        Geometry::Line(_)
-        | Geometry::GeometryCollection(_)
-        | Geometry::Rect(_)
-        | Geometry::Triangle(_) => {
-            return Err(MltError::NotImplemented("unsupported geometry type"));
-        }
-    }
-    Ok(buf)
+    z: Option<(ZStep, &[i32])>,
+) -> MltResult<Vec<u8>> {
+    let mut writer = WkbWriter::new(xf, z);
+    writer.geometry(geom)?;
+    writer.finish()
 }
 
 fn prop_value_to_py(py: Python<'_>, v: PropValueRef<'_>) -> Py<PyAny> {
@@ -180,13 +242,22 @@ fn build_features(
     layer: &ParsedLayer01<'_>,
     xf: Option<TileTransform>,
 ) -> PyResult<Vec<Py<MltFeature>>> {
+    let geometry = layer.geometry_values();
+    let z_step = geometry.z_step();
     let mut features = Vec::new();
     let mut feat_iter = layer.iter_features();
+    let mut index = 0;
     while let Some(feat_result) = feat_iter.next() {
         let feat = feat_result.map_err(mlt_err)?;
         let geometry_type = GeometryType::try_from(feat.geometry())
             .map_or_else(|()| "Unknown".to_string(), |gt| gt.to_string());
-        let wkb_bytes = geom32_to_wkb(feat.geometry(), xf).map_err(mlt_err)?;
+        let z = z_step
+            .map(|step| geometry.z(index).map(|z| (step, z)))
+            .transpose()
+            .map_err(mlt_err)?;
+        index += 1;
+        let z = z.as_ref().map(|(step, z)| (*step, z.as_slice()));
+        let wkb_bytes = geom32_to_wkb(feat.geometry(), xf, z).map_err(mlt_err)?;
         let wkb = PyBytes::new(py, &wkb_bytes).unbind();
         let prop_dict = PyDict::new(py);
         for p in feat.iter_properties() {
@@ -203,6 +274,9 @@ fn build_features(
 /// If `z`, `x`, `y` are provided, tile-local coordinates are transformed
 /// to EPSG:3857 (Web Mercator) meters. Without them, raw tile coordinates
 /// are preserved.
+///
+/// A layer whose vertices carry z writes them into the WKB as its third ordinate.
+/// They are grid values in raw tile coordinates, and elevations in metres once transformed.
 ///
 /// `tms`: when True (the default), treat `y` as TMS convention (y=0 at south,
 /// used by `OpenMapTiles` / `MBTiles`). Set to False for XYZ / slippy-map tiles
@@ -221,12 +295,15 @@ fn decode_mlt(
     let mut dec = Decoder::default();
     let mut result = Vec::new();
     for lazy_layer in Parser::default().parse_layers(data).map_err(mlt_err)? {
-        let Layer::Tag01(layer01) = lazy_layer else {
-            return Err(PyValueError::new_err(
-                "unsupported layer tag (expected 0x01)",
-            ));
+        let decoded = match lazy_layer {
+            Layer::Tag01(layer) => layer.decode_all(&mut dec).map_err(mlt_err)?,
+            Layer::Tag02(layer) => layer.decode_all(&mut dec).map_err(mlt_err)?.into_layer(),
+            Layer::Unknown(_) | _ => {
+                return Err(PyValueError::new_err(
+                    "unsupported layer tag (expected 0x01 or 0x02)",
+                ));
+            }
         };
-        let decoded = layer01.decode_all(&mut dec).map_err(mlt_err)?;
         let extent = decoded.extent().get();
         let xf = match (z, x, y) {
             (Some(z), Some(x), Some(y)) => Some(TileTransform::from_zxy(z, x, y, extent, tms)?),
@@ -235,6 +312,7 @@ fn decode_mlt(
         result.push(MltLayer {
             name: decoded.name().to_string(),
             extent,
+            z_step: decoded.geometry_values().z_step().map(ZStep::exponent),
             features: build_features(py, &decoded, xf)?,
         });
     }
@@ -304,7 +382,7 @@ mod tests {
         index: usize,
         xf: Option<TileTransform>,
     ) -> MltResult<Vec<u8>> {
-        geom32_to_wkb(&geom.to_geojson(index)?, xf)
+        geom32_to_wkb(&geom.to_geojson(index)?, xf, None)
     }
 
     #[test]

@@ -2,17 +2,18 @@
 //!
 //! Input is an RFC 7946 `FeatureCollection`.
 //! Geometry is in tile-local coordinate space (no projection), mirroring `mapbox_vector_tile`'s default.
-//! Coordinates must be integer-valued and 2D.
+//! Coordinates must be integer-valued, with z on the `z_step` grid when present.
 //!
 //! The Python mapping is deserialized once into [`mlt_core::geojson::FeatureCollection`].
 //! Coordinates are parsed as integers, rejecting non-integer coordinates, null geometry, and bad feature ids.
-//! Emptiness, 3D coordinates, and non-scalar property values are checked separately, here.
+//! Emptiness, z against `z_step`, and non-scalar property values are checked separately, here.
 
 use std::collections::HashMap;
 
+use mlt_core::encoder::WireVersion;
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{PropKind, PropValue, TileLayer};
+use mlt_core::{PropKind, PropValue, TileLayer, ZStep};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -34,10 +35,12 @@ use super::shared::{encoder_config, val_err};
 /// `shared_dict` allows grouping strings into shared dictionaries.
 /// `fsst` allows FSST string compression.
 /// `fastpfor` allows `FastPFOR` integer compression.
+/// `z_step` is the power of ten of the z grid's step in metres, from -3 to 4.
+/// It takes `[x, y, z]` positions with z on that grid, and writes the experimental v2 format.
 /// See the module docs.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(signature = (geojson, name, extent=4096, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
+#[pyo3(signature = (geojson, name, extent=4096, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true, z_step=None))]
 #[expect(
     clippy::too_many_arguments,
     clippy::fn_params_excessive_bools,
@@ -57,10 +60,15 @@ pub fn encode_geojson(
     shared_dict: bool,
     fsst: bool,
     fastpfor: bool,
+    z_step: Option<i8>,
 ) -> PyResult<Py<PyBytes>> {
     if name.is_empty() {
         return Err(val_err("'name' must be non-empty"));
     }
+    let z_step = z_step
+        .map(ZStep::new)
+        .transpose()
+        .map_err(|e| val_err(e.to_string()))?;
 
     let fc: FeatureCollection = pythonize::depythonize(geojson)
         .map_err(|e| val_err(format!("input must be a GeoJSON FeatureCollection: {e}")))?;
@@ -73,8 +81,11 @@ pub fn encode_geojson(
         return Err(val_err("FeatureCollection has no features"));
     }
 
-    let tile = build_layer(fc, name, extent)?;
-    let cfg = encoder_config(tessellate, sort, shared_dict, fsst, fastpfor)?;
+    let tile = build_layer(fc, name, extent, z_step)?;
+    let mut cfg = encoder_config(tessellate, sort, shared_dict, fsst, fastpfor)?;
+    if z_step.is_some() {
+        cfg = cfg.with_wire_version(WireVersion::V02);
+    }
     // The steps above read Python input, so they keep the GIL; release it for the pure-Rust encode.
     let bytes = py
         .detach(|| tile.encode(cfg))
@@ -186,7 +197,12 @@ impl ColKind {
 
 /// Validates geometries, rejects nested property values, and infers one type per column.
 /// Column order follows first appearance across features.
-fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<TileLayer> {
+fn build_layer(
+    fc: FeatureCollection,
+    name: String,
+    extent: u32,
+    z_step: Option<ZStep>,
+) -> PyResult<TileLayer> {
     let mut names: Vec<String> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
     let mut kinds: Vec<ColKind> = Vec::new();
@@ -198,8 +214,10 @@ fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<Til
             ));
         }
         validate_non_empty(&feat.geometry)?;
-        if feat.z.is_some() {
-            return Err(val_err("3D coordinates are not supported"));
+        match (z_step, &feat.z) {
+            (Some(_), None) => return Err(val_err("'z_step' needs [x, y, z] positions")),
+            (None, Some(_)) => return Err(val_err("[x, y, z] positions need a 'z_step'")),
+            _ => {}
         }
         for (key, val) in &feat.properties {
             let kind = ColKind::of(key, val)?;
@@ -221,6 +239,11 @@ fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<Til
 
     let mut builder =
         TileLayer::builder(name, extent).map_err(|err| PyValueError::new_err(err.to_string()))?;
+    if let Some(step) = z_step {
+        builder
+            .set_z_step(step)
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+    }
     let keys = names
         .into_iter()
         .zip(kinds.iter().copied())
@@ -231,6 +254,11 @@ fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<Til
     for feat in fc.features {
         let mut feature = builder.feature(feat.geometry);
         feature.id(feat.id);
+        if let Some(z) = feat.z {
+            feature
+                .z(z)
+                .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        }
         for (key, val) in &feat.properties {
             if val.is_null() {
                 continue;

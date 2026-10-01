@@ -147,7 +147,7 @@ def test_multi_layer_tile_via_concatenation():
         "null_geometry",
         "empty_geometry",
         "fractional_coord",
-        "three_d_coord",
+        "three_d_coord_without_z_step",
         "not_a_feature",
     ],
 )
