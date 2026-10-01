@@ -35,9 +35,7 @@ pub enum LogicalCombination {
     DeltaRle = 0b0010_1100,
     ComponentwiseDelta = 0b0100_0000,
     Rle = 0b0110_0000,
-    Morton = 0b1000_0000,
     MortonDelta = 0b1000_0100,
-    MortonRle = 0b1000_1100,
 }
 
 /// Which RLE stream layout the encoder should produce.
@@ -255,9 +253,7 @@ pub enum VertexLogical {
     ComponentwiseDelta,
     /// Componentwise deltas of the componentwise deltas.
     ComponentwiseDelta2,
-    Morton(Morton),
     MortonDelta(Morton),
-    MortonRle(Morton),
 }
 
 impl VertexLogical {
@@ -266,7 +262,7 @@ impl VertexLogical {
     pub fn words_per_vertex(self) -> u32 {
         match self {
             Self::None | Self::Delta | Self::ComponentwiseDelta | Self::ComponentwiseDelta2 => 2,
-            Self::Morton(_) | Self::MortonDelta(_) | Self::MortonRle(_) => 1,
+            Self::MortonDelta(_) => 1,
         }
     }
 }
@@ -590,9 +586,7 @@ impl Display for LogicalEncoding {
                     VertexLogical::Delta => "delta",
                     VertexLogical::ComponentwiseDelta => "componentwise-delta",
                     VertexLogical::ComponentwiseDelta2 => "componentwise-delta2",
-                    VertexLogical::Morton(_) => "morton",
                     VertexLogical::MortonDelta(_) => "morton-delta",
-                    VertexLogical::MortonRle(_) => "morton-rle",
                 },
             ),
         };
@@ -696,17 +690,9 @@ mod tests {
         LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta),
         "vertex/componentwise-delta"
     )]
-    #[case::vertex_morton(
-        LogicalEncoding::Vertex(VertexLogical::Morton(morton())),
-        "vertex/morton"
-    )]
     #[case::vertex_morton_delta(
         LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())),
         "vertex/morton-delta"
-    )]
-    #[case::vertex_morton_rle(
-        LogicalEncoding::Vertex(VertexLogical::MortonRle(morton())),
-        "vertex/morton-rle"
     )]
     fn every_logical_encoding_renders_kind_then_encoding(
         #[case] encoding: LogicalEncoding,

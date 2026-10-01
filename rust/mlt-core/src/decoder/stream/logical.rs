@@ -142,12 +142,7 @@ impl LogicalValue {
             }
             LE::Int(IL::Delta2) => decode_zigzag_delta2::<i32, _>(data, dec),
             LE::Vertex(VL::ComponentwiseDelta2) => decode_componentwise_delta2_vec2s(data, dec),
-            LE::Vertex(VL::Morton(v)) => v.decode_codes(data, dec),
             LE::Vertex(VL::MortonDelta(v)) => v.decode_delta(data, dec),
-            LE::Vertex(VL::MortonRle(_)) => Err(UnsupportedLogicalEncoding(
-                self.meta.encoding.logical,
-                "i32 (MortonRle)",
-            )),
             LE::Bool(_) | LE::Float(_) => Err(UnsupportedLogicalEncoding(
                 self.meta.encoding.logical,
                 "i32",
@@ -277,15 +272,6 @@ mod tests {
     }
 
     #[test]
-    fn morton_codes_decode_to_vertices() {
-        let morton = crate::decoder::Morton::new(4, 0).unwrap();
-        let decoded = value(LogicalEncoding::Vertex(VertexLogical::Morton(morton)))
-            .decode_i32(&[1, 2, 3], &mut dec())
-            .unwrap();
-        assert_eq!(decoded, [1, 0, 0, 1, 1, 1]);
-    }
-
-    #[test]
     fn a_raw_u64_stream_passes_through() {
         let decoded = value(LogicalEncoding::Int(IntLogical::None))
             .decode_u64(&[7, 9], &mut dec())
@@ -294,10 +280,6 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case::i32_morton_rle(
-        LogicalEncoding::Vertex(VertexLogical::MortonRle(crate::decoder::Morton::new(4, 0).unwrap())),
-        "i32 (MortonRle)"
-    )]
     #[case::i32_bool(LogicalEncoding::Bool(crate::decoder::BoolLogical::None), "i32")]
     #[case::i32_float(LogicalEncoding::Float(FloatLogical::None), "i32")]
     #[case::u32_vertex(LogicalEncoding::Vertex(VertexLogical::None), "u32")]

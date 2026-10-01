@@ -16,7 +16,7 @@ pub const BENCHMARKED_LENGTHS: [u32; 3] = [64, 256, 1024];
 /// Interleave `x` and `y` into a single Morton code using 15 bits per component.
 ///
 /// Even bit positions encode `x`, odd positions encode `y`.
-/// This is the inverse of [`Morton::decode_codes`] / [`Morton::decode_delta`].
+/// [`Morton::decode_delta`] inverts it after the prefix sum.
 #[must_use]
 #[inline]
 pub fn encode_morton_15(x: u32, y: u32) -> u32 {
@@ -74,11 +74,6 @@ fn bench_impls<I: Clone, O>(
 
 fn bench_morton(c: &mut Criterion) {
     let meta = Morton::new(NUM_BITS, COORDINATE_SHIFT).unwrap();
-    bench_impls(c, "morton/decode_codes", make_morton_codes, |v| {
-        meta.decode_codes(v, &mut Decoder::with_max_size(u32::MAX))
-            .unwrap()
-    });
-
     bench_impls(c, "morton/decode_delta", make_morton_deltas, |v| {
         meta.decode_delta(v, &mut Decoder::with_max_size(u32::MAX))
             .unwrap()
