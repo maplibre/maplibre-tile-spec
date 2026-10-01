@@ -82,6 +82,7 @@ describe("indexFixtures", () => {
             "length[dictionary]",
             "length[symbol]",
           ],
+          "zStep": [],
         },
         "name": "props_str_fsst.mlt",
       }

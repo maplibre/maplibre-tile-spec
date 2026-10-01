@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef, watchEffect } from "vue";
+// The same rules the docs site draws its diagrams with, so an inlined SVG is colored here too.
+import "../../docs/assets/diagrams.css";
 import { type EncodingDoc, encodingDocs, sectionsFor } from "./encodingDocs.ts";
 
 const props = defineProps<{
@@ -87,6 +89,12 @@ h4:hover .edit,
   color: var(--accent);
 }
 .prose {
+  /* What the diagram rules read their theme from, on the site, answered from this one. */
+  --md-default-fg-color: var(--text);
+  --md-default-fg-color--light: var(--muted);
+  --md-default-fg-color--lightest: var(--line);
+  --md-default-bg-color: var(--panel);
+  --md-code-font-family: var(--mono);
   color: var(--text);
 }
 .prose :deep(p),

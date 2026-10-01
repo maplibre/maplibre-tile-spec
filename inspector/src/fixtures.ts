@@ -166,6 +166,14 @@ export const AXES: Axis[] = [
     of: field("geomLayout"),
   },
   {
+    key: "zStep",
+    label: "z",
+    section: "Geometry",
+    // The steps of the spec's table; `any` asks only that the vertices carry a z.
+    vocabulary: [ANY, "1mm", "1cm", "1dm", "1m", "10m", "100m", "1km", "10km"],
+    of: withAny(field("zStep")),
+  },
+  {
     key: "extent",
     label: "extent",
     section: "Geometry",

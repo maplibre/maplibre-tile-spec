@@ -45,6 +45,7 @@ const ANY_HINTS: Record<string, string> = {
   required: "require a column every feature has a value for",
   optional: "require a column some features may have no value for",
   mValue: "require a tile with m-values",
+  zStep: "require a tile whose vertices carry z",
 };
 
 /** What a row narrows by, for readers who have not met the term. */
@@ -52,6 +53,7 @@ const ROW_HINTS: Record<string, string> = {
   required: "Filter to files with columns every feature has a value for",
   optional: "Filter to files with columns some features may have no value for",
   mValue: "Filter to files with per-vertex values",
+  zStep: "Filter to files whose vertices carry z, by the step of its grid",
 };
 
 const rowHint = (row: AxisRow) => ROW_HINTS[row.key];
@@ -734,7 +736,7 @@ function fetchUrl() {
   box-sizing: border-box;
   border: none;
   background: none;
-  padding: min(4rem, 8vh) var(--pad);
+  padding: min(4rem, 5vh) var(--pad);
   max-width: none;
   max-height: none;
   width: 100%;
@@ -758,6 +760,12 @@ function fetchUrl() {
   font-size: 0.8125rem;
   /* The empty state centres its column, which the sheet is a child of. */
   text-align: left;
+}
+/* The fixture card grows with the window both ways, so a large screen shows more of
+   the list, and more chips to a row, rather than a small card with empty sheet around it. */
+.card:not(.urlcard) {
+  width: min(max(38rem, 64vw), 80rem, 100%);
+  height: 100%;
 }
 /* Nothing scrolls here, so the card is only as tall as the one question it asks. */
 .urlcard {
