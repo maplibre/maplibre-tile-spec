@@ -126,8 +126,7 @@ function getGeometry(feature: MltFeature): GeoJSON.Geometry {
   let next = 0;
   const position = (p: { x: number; y: number }): number[] =>
     z === undefined ? [p.x, p.y] : [p.x, p.y, z[next++]];
-  const lines = () =>
-    feature.loadGeometry().map((ring) => ring.map(position));
+  const lines = () => feature.loadGeometry().map((ring) => ring.map(position));
   switch (feature.mltType) {
     case MltGeometryType.Point:
       return { type: "Point", coordinates: lines()[0][0] };
