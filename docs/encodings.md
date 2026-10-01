@@ -71,7 +71,7 @@ A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
 [View example](inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&at=column%5B0%5D){target=_blank .inspector-example} - four `9000`s, two bytes each, the first with bit 7 set.
 
 ```
-300 = 0b1_0010_1100
+300 = 0b0000_0001_0010_1100
     -> groups (LSB first): 0101100, 0000010
     -> bytes:              0xAC,    0x02
 ```
@@ -272,7 +272,7 @@ Bits past `count` in the final byte are padding and MUST be ignored.
 
 ```
 values: [1, 0, 1, 1, 0, 1]
-byte:   0b00_101101 = 0x2D
+byte:   0b0010_1101 = 0x2D
 ```
 
 v2 stores every presence bitfield and boolean column as a raw bitmap.

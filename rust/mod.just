@@ -114,9 +114,12 @@ ci-env-info:
 ci-lint: ci-env-info test-fmt clippy ci-docs-rs
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
-# Run all tests as expected by CI
-ci-test: ci-env-info (just 'java::gen-snippets') test
+# Run all tests as expected by CI, except the docs, which `ci-test-doc` runs as a job of its own
+ci-test: ci-env-info test-features generate-synthetic-mlts
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
+
+# Build the docs and run the doctests as expected by CI
+ci-test-doc: ci-env-info test-doc
 
 # Run all tests as expected by CI for wasm
 ci-test-wasm: ci-env-info wasm-test
@@ -135,7 +138,6 @@ ci-test-msrv: ci-env-info
     {{just}} cargo-install cargo-hack
     {{just}} cargo-install cargo-nextest
     {{just}} rust::ci-check
-    {{just}} java::gen-snippets
     {{just}} rust::test
     {{just}} assert-git-is-clean
 
@@ -191,7 +193,7 @@ clippy *args: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Run the test suite under coverage instrumentation and open the report
-coverage *args='--open': (just 'cargo-install' 'cargo-llvm-cov') (just 'java::gen-snippets')
+coverage *args='--open': (just 'cargo-install' 'cargo-llvm-cov')
     #!/usr/bin/env bash
     set -euo pipefail
     source <(cargo llvm-cov show-env --sh)
@@ -469,11 +471,20 @@ sync-wasm-version:
 
 alias t := test
 # Run all tests
-test: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-nextest')
-    cargo hack nextest run --all-targets --no-tests=warn --each-feature {{hack_skip}} \
-        --workspace --exclude-no-default-features --exclude-all-features
+test: test-features
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
+
+# Build every feature combination, then run each test once.
+# mlt-core runs only `__private` and `__private-v2`: every test of its other combinations is among
+# theirs over the same code, since `__private` only widens visibility and `arbitrary` only adds derives.
+test-features: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-nextest')
+    cargo hack nextest run --no-run --all-targets --each-feature {{hack_skip}} \
+        --workspace --exclude-no-default-features --exclude-all-features
+    cargo hack nextest run --all-targets --no-tests=warn --each-feature {{hack_skip}} \
+        --workspace --exclude mlt-core --exclude-no-default-features --exclude-all-features
+    cargo nextest run --all-targets -p mlt-core --no-default-features --features __private
+    cargo nextest run --all-targets -p mlt-core --no-default-features --features __private-v2
 
 # Test documentation generation
 # Doc-tests stay on `cargo test`, the only runner that executes them
