@@ -37,9 +37,7 @@ pub enum LogicalCombination {
     DeltaRle = 0b0010_1100,
     ComponentwiseDelta = 0b0100_0000,
     Rle = 0b0110_0000,
-    Morton = 0b1000_0000,
     MortonDelta = 0b1000_0100,
-    MortonRle = 0b1000_1100,
 }
 
 /// Which RLE stream layout the encoder should produce.
@@ -102,7 +100,7 @@ impl Morton {
     }
 }
 
-/// The decimal scaling an ALP column uses: `i = round(v * 10^e / 10^f)`.
+/// The decimal scaling a Framed, Exception-Free ALP column uses: `i = round(v * 10^e / 10^f)`.
 /// Chosen before any value is seen, so it carries no frame of reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AlpScale {
@@ -112,7 +110,7 @@ pub struct AlpScale {
     pub(crate) f: u8,
 }
 
-/// ALP parameters: `v = (base + offset) * 10^f / 10^e`.
+/// Framed, Exception-Free ALP parameters: `v = (base + offset) * 10^f / 10^e`.
 /// Written as a scale byte and a base varint, the stream itself holding the unsigned offsets.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Alp {
@@ -257,9 +255,7 @@ pub enum VertexLogical {
     ComponentwiseDelta,
     /// Componentwise deltas of the componentwise deltas.
     ComponentwiseDelta2,
-    Morton(Morton),
     MortonDelta(Morton),
-    MortonRle(Morton),
     /// Interleaved `(x, y, z)` triples, whose z lie on the grid of the step.
     #[cfg(feature = "unstable-v2")]
     Xyz(ZStep, XyzLogical),
@@ -271,7 +267,7 @@ impl VertexLogical {
     pub fn words_per_vertex(self) -> u32 {
         match self {
             Self::None | Self::Delta | Self::ComponentwiseDelta | Self::ComponentwiseDelta2 => 2,
-            Self::Morton(_) | Self::MortonDelta(_) | Self::MortonRle(_) => 1,
+            Self::MortonDelta(_) => 1,
             #[cfg(feature = "unstable-v2")]
             Self::Xyz(..) => 3,
         }
@@ -334,7 +330,7 @@ impl LogicalEncoding {
 
     /// Whether the stream's own logical pass is a no-op, so the physical words are already the output.
     /// True for a float dictionary's codes, which the column turns back into floats.
-    /// Not true for ALP, whose offsets still need the frame of reference added back.
+    /// Not true for Framed, Exception-Free ALP, whose offsets still need the frame of reference added back.
     #[must_use]
     pub(crate) fn is_identity(self) -> bool {
         matches!(
@@ -608,9 +604,7 @@ impl Display for LogicalEncoding {
                     VertexLogical::Delta => "delta",
                     VertexLogical::ComponentwiseDelta => "componentwise-delta",
                     VertexLogical::ComponentwiseDelta2 => "componentwise-delta2",
-                    VertexLogical::Morton(_) => "morton",
                     VertexLogical::MortonDelta(_) => "morton-delta",
-                    VertexLogical::MortonRle(_) => "morton-rle",
                     #[cfg(feature = "unstable-v2")]
                     VertexLogical::Xyz(_, XyzLogical::None) => "xyz-none",
                     #[cfg(feature = "unstable-v2")]
@@ -722,17 +716,9 @@ mod tests {
         LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta),
         "vertex/componentwise-delta"
     )]
-    #[case::vertex_morton(
-        LogicalEncoding::Vertex(VertexLogical::Morton(morton())),
-        "vertex/morton"
-    )]
     #[case::vertex_morton_delta(
         LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())),
         "vertex/morton-delta"
-    )]
-    #[case::vertex_morton_rle(
-        LogicalEncoding::Vertex(VertexLogical::MortonRle(morton())),
-        "vertex/morton-rle"
     )]
     fn every_logical_encoding_renders_kind_then_encoding(
         #[case] encoding: LogicalEncoding,

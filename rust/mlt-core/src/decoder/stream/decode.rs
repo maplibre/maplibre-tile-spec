@@ -104,7 +104,7 @@ impl<'a> RawStream<'a> {
         result
     }
 
-    /// Decode an ALP stream's offsets back into the scaled integers they were measured from.
+    /// Decode a Framed, Exception-Free ALP stream's offsets back into the scaled integers they were measured from.
     ///
     /// Unlike [`Self::decode_ints`] this picks the physical word width from the stream rather
     /// than from the output type, so that `FastPFOR`'s `u32` words reach a `u64` offset stream.

@@ -334,11 +334,11 @@ pub enum MltError {
     #[error("front-coded dictionary leaves {0} suffix bytes after its last entry")]
     FrontCodedTrailingSuffixBytes(usize),
     #[cfg(feature = "unstable-v2")]
-    #[error("no ALP parameters return this float column bit-for-bit")]
+    #[error("no Framed, Exception-Free ALP parameters return this float column bit-for-bit")]
     NoAlpParameters,
-    #[error("invalid ALP parameters: e={0}, f={1}")]
+    #[error("invalid Framed, Exception-Free ALP parameters: e={0}, f={1}")]
     InvalidAlpParams(u8, u8),
-    #[error("invalid ALP scale byte {0}")]
+    #[error("invalid Framed, Exception-Free ALP scale byte {0}")]
     InvalidAlpScale(u8),
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),

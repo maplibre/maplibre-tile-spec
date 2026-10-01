@@ -63,7 +63,7 @@ fn an_alp_hint_serializes_its_parameters_beside_its_tag() {
         .regions
         .iter()
         .find(|r| matches!(r.blob, Some(blob) if matches!(blob.hint, DecodeHint::Alp(_))))
-        .expect("an ALP payload");
+        .expect("a Framed, Exception-Free ALP payload");
 
     assert_snapshot!(json(region));
 }

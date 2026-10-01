@@ -15,8 +15,8 @@
 //! [varint byte_length]  absent on a raw stream whose physical field is `00`,
 //!                       whose length follows from its count and element width
 //! [varint parameters]   what the logical encoding carries, if anything:
-//!                       ALP's scale and frame of reference, Morton's grid,
-//!                       or an xyz vertex stream's z step
+//!                       Framed, Exception-Free ALP's scale and frame of reference,
+//!                       Morton's grid, or an xyz vertex stream's z step
 //! ```
 //!
 //! What the fields mean is per [`Family`], which is fixed by context read before the encoding byte.
@@ -420,7 +420,7 @@ pub(crate) enum LogicalFloat {
     /// Fixed-width little-endian values, one per element.
     None(PhysicalBits),
     Rle,
-    /// Adaptive lossless floating-point compression.
+    /// Framed, Exception-Free ALP.
     /// The physical field codes the scaled integers, not the column's element layout.
     // TODO(v2): extension bit 1 = an exception count varint and exception stream follow.
     Alp(PhysicalInt),
@@ -1015,12 +1015,6 @@ fn wire_fields(
         // v2 stores Morton codes only as a sorted dictionary, whose deltas are always the shorter form.
         LE::Vertex(VL::MortonDelta(_)) => {
             with_length(Logical::Morton, physical_int_field(encoding.physical)?)
-        }
-        LE::Vertex(VL::Morton(_) | VL::MortonRle(_)) => {
-            return Err(MltError::UnsupportedLogicalEncoding(
-                encoding.logical,
-                "v2, whose Morton streams are always delta-coded",
-            ));
         }
     })
 }
@@ -1925,7 +1919,7 @@ mod tests {
         INT_FAMILY
     )]
     #[case::morton_on_a_property_column(
-        LogicalEncoding::Vertex(VertexLogical::Morton(Morton::new(4, 0).unwrap())),
+        LogicalEncoding::Vertex(VertexLogical::MortonDelta(Morton::new(4, 0).unwrap())),
         INT_FAMILY
     )]
     #[case::byte_rle_on_a_bool_column(

@@ -1425,7 +1425,7 @@ mod float_codecs {
         (0..n).map(|i| PATTERN[i % PATTERN.len()]).collect()
     }
 
-    /// Values no power of ten scales to an integer, so ALP cannot take them.
+    /// Values no power of ten scales to an integer, so Framed, Exception-Free ALP cannot take them.
     pub fn irrational(n: usize) -> Vec<f64> {
         use std::f64::consts::{E, PI, SQRT_2};
         (0..n).map(|i| [PI, E, SQRT_2][i % 3]).collect()
@@ -1698,11 +1698,11 @@ mod alp {
     }
 
     /// `FastPFOR` codes `u32` words, so a column whose offsets overflow one is not a candidate.
-    /// The spread stays under `2^53` so that ALP still carries the column.
+    /// The spread stays under `2^53` so that Framed, Exception-Free ALP still carries the column.
     #[test]
     fn a_column_whose_offsets_overflow_u32_keeps_varint() {
         // Scaled by `10^1`, the odd values sit `1e10` from the base, past `u32::MAX` (~4.3e9)
-        // and well inside ALP's `2^53 - 1` code bound.
+        // and well inside Framed, Exception-Free ALP's `2^53 - 1` code bound.
         let values: Vec<f64> = (0..1024)
             .map(|i| if i % 2 == 0 { 0.5 } else { 1e9 + 0.5 })
             .collect();

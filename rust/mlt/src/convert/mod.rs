@@ -220,7 +220,7 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
-    /// Disable `ALP` float encoding, storing floats as decimal-scaled integers
+    /// Disable Framed, Exception-Free ALP float encoding, storing floats as decimal-scaled integers
     #[cfg(feature = "unstable-v2")]
     #[clap(long)]
     no_alp: bool,

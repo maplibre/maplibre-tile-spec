@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *(rust,v2)* pack ALP e and f into one byte instead of two varints ([#1779](https://github.com/maplibre/maplibre-tile-spec/pull/1779))
+- *(rust,v2)* pack Framed, Exception-Free ALP e and f into one byte instead of two varints ([#1779](https://github.com/maplibre/maplibre-tile-spec/pull/1779))
 - *(docs)* show all possible filters with dynamic counts ([#1773](https://github.com/maplibre/maplibre-tile-spec/pull/1773))
 
 ## [0.15.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.5...rust-mlt-core-v0.15.0) - 2026-09-25
@@ -65,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(rust)* increase coverage ([#1745](https://github.com/maplibre/maplibre-tile-spec/pull/1745))
 - *(java)* drop the 0x02-java synthetic fixtures ([#1744](https://github.com/maplibre/maplibre-tile-spec/pull/1744))
 - migrate to cargo-nextest ([#1742](https://github.com/maplibre/maplibre-tile-spec/pull/1742))
-- *(rust)* multiply don't divide ALP ([#1741](https://github.com/maplibre/maplibre-tile-spec/pull/1741))
+- *(rust)* multiply don't divide Framed, Exception-Free ALP ([#1741](https://github.com/maplibre/maplibre-tile-spec/pull/1741))
 
 ## [0.14.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.2...rust-mlt-core-v0.14.3) - 2026-09-21
 
@@ -77,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- *(rust)* reject lossy cases in ALP ([#1732](https://github.com/maplibre/maplibre-tile-spec/pull/1732))
+- *(rust)* reject lossy cases in Framed, Exception-Free ALP ([#1732](https://github.com/maplibre/maplibre-tile-spec/pull/1732))
 
 ## [0.14.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.1...rust-mlt-core-v0.14.2) - 2026-09-20
 
@@ -117,10 +117,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - *(rust)* give v2 dictionary and tessellated geometry layouts ([#1614](https://github.com/maplibre/maplibre-tile-spec/pull/1614))
 - *(rust)* front-code v2 string dictionaries and give v2 a shared one ([#1613](https://github.com/maplibre/maplibre-tile-spec/pull/1613))
-- *(rust)* give v2 ALP a frame of reference and let it race FastPFOR ([#1612](https://github.com/maplibre/maplibre-tile-spec/pull/1612))
+- *(rust)* give v2 Framed, Exception-Free ALP a frame of reference and let it race FastPFOR ([#1612](https://github.com/maplibre/maplibre-tile-spec/pull/1612))
 - *(rust)* add `FPF128` with `u32::from_le_bytes` ([#1611](https://github.com/maplibre/maplibre-tile-spec/pull/1611))
 - *(rust)* encode and decode v2 string columns ([#1609](https://github.com/maplibre/maplibre-tile-spec/pull/1609))
-- *(rust)* encode and decode v2 float columns as ALP ([#1603](https://github.com/maplibre/maplibre-tile-spec/pull/1603))
+- *(rust)* encode and decode v2 float columns as Framed, Exception-Free ALP ([#1603](https://github.com/maplibre/maplibre-tile-spec/pull/1603))
 - *(rust)* encode v2 float columns as a dictionary, behind a flag ([#1602](https://github.com/maplibre/maplibre-tile-spec/pull/1602))
 - *(rust)* decode dictionary-encoded v2 float columns ([#1601](https://github.com/maplibre/maplibre-tile-spec/pull/1601))
 - *(rust)* number the v2 encoding byte per stream family ([#1598](https://github.com/maplibre/maplibre-tile-spec/pull/1598))

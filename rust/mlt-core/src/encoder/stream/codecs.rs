@@ -168,7 +168,7 @@ impl Codecs {
         encoder::write_stream_payload(enc, meta, false, cast_slice(values))
     }
 
-    /// Write a float column as ALP integers, its parameters in the header.
+    /// Write a float column as Framed, Exception-Free ALP integers, its parameters in the header.
     #[cfg(feature = "unstable-v2")]
     fn write_alp_stream(
         &mut self,
