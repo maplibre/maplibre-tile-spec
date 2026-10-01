@@ -1436,7 +1436,7 @@ mod tests {
         buf.extend_from_slice(&payload);
 
         let (rest, parsed) = parse_stream(&buf, ctx, count, &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(parsed.meta.encoding, meta.encoding);
         assert_eq!(parsed.meta.num_values, meta.num_values);
         assert_eq!(parsed.meta.stream_type, ctx.stream_type());
@@ -1503,7 +1503,7 @@ mod tests {
         buf.extend_from_slice(payload);
 
         let (rest, parsed) = parse_stream(&buf, ctx, count, &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(parsed.meta.encoding, meta.encoding);
         assert_eq!(parsed.meta.num_values, meta.num_values);
         assert_eq!(parsed.data, payload);
@@ -1717,7 +1717,7 @@ mod tests {
         assert_eq!(buf, [0b1000_1000, 5, 3, 1, 2, 3]);
 
         let (rest, parsed) = parse_stream(&buf, INT, Count02::Explicit, &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(parsed.meta.num_values, 5);
         assert_eq!(parsed.data, payload);
     }
@@ -1736,7 +1736,7 @@ mod tests {
         assert_eq!(buf, [0b0000_0100, 3, 1, 2, 3]);
 
         let (rest, parsed) = parse_stream(&buf, BLOB, Count02::Implied(99), &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(parsed.meta.num_values, 3);
         assert_eq!(parsed.data, payload);
     }

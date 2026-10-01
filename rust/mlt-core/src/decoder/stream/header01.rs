@@ -572,7 +572,7 @@ mod tests {
 
         let hint = meta.encoding.logical.kind();
         let (rest, stream) = parse_stream(&buf, hint, &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(stream.meta, meta);
         assert_eq!(stream.data, payload);
     }
@@ -619,7 +619,7 @@ mod tests {
         buf.extend_from_slice(&payload);
 
         let (rest, stream) = parse_stream(&buf, ValueKind::Int, &mut parser()).unwrap();
-        assert!(rest.is_empty());
+        assert_eq!(rest, b"");
         assert_eq!(stream.meta, meta);
         assert_eq!(stream.data, payload);
     }

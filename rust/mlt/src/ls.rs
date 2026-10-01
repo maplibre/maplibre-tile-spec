@@ -1090,7 +1090,7 @@ fn render_table(rows: &[LsRow], flags: LsFlags) -> String {
                 builder.push_record(data_row);
             }
             LsRow::Error { path, error, size } => {
-                let size_str = size.map_or_else(String::new, &fmt_size);
+                let size_str = size.map_or_else(String::new, fmt_size);
                 let mut data_row = vec![
                     path.display().to_string(),
                     size_str,
