@@ -15,7 +15,7 @@
 //! [varint byte_length]  absent on a raw stream whose physical field is `00`,
 //!                       whose length follows from its count and element width
 //! [varint parameters]   what the logical encoding carries, if anything:
-//!                       ALP's scale and frame of reference, or Morton's grid
+//!                       Framed, Exception-Free ALP's scale and frame of reference, or Morton's grid
 //! ```
 //!
 //! What the fields mean is per [`Family`], which is fixed by context read before the encoding byte.
@@ -415,7 +415,7 @@ pub(crate) enum LogicalFloat {
     /// Fixed-width little-endian values, one per element.
     None(PhysicalBits),
     Rle,
-    /// Adaptive lossless floating-point compression.
+    /// Framed, Exception-Free ALP.
     /// The physical field codes the scaled integers, not the column's element layout.
     // TODO(v2): extension bit 1 = an exception count varint and exception stream follow.
     Alp(PhysicalInt),

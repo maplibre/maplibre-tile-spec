@@ -851,7 +851,7 @@ impl<'a> Walker<'a> {
             )?;
             byte_length
         };
-        // ALP's parameters ride in the header, after the byte length.
+        // Framed, Exception-Free ALP's parameters ride in the header, after the byte length.
         if matches!(
             stream.meta.encoding.logical,
             LogicalEncoding::Float(FloatLogical::Alp(_))
@@ -888,7 +888,7 @@ impl<'a> Walker<'a> {
         if self.off(after_payload) != self.off(rest) {
             return Err(MltError::NotImplemented("v2 stream header re-walk desync"));
         }
-        // A dictionary's codes and ALP's integers are integer streams, whatever the column's type is.
+        // A dictionary's codes and Framed, Exception-Free ALP's integers are integer streams, whatever the column's type is.
         let hint = match stream.meta.encoding.logical {
             LogicalEncoding::Float(FloatLogical::Dict) => DecodeHint::U32,
             LogicalEncoding::Float(FloatLogical::Alp(params)) => DecodeHint::Alp(params),

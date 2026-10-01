@@ -37,7 +37,7 @@ pub enum DecodeHint {
     U32,
     /// Signed 64-bit integers (`i64` columns).
     I64,
-    /// ALP offsets, put back on their frame of reference.
+    /// Framed, Exception-Free ALP offsets, put back on their frame of reference.
     #[cfg(feature = "unstable-v2")]
     Alp(#[serde(serialize_with = "serialize_alp")] Alp),
     /// Unsigned 64-bit integers (`u64` columns, 64-bit ids).
@@ -56,7 +56,7 @@ pub enum DecodeHint {
     PresenceCoded(PresenceCoding),
 }
 
-/// ALP's parameters flattened beside the hint's tag, keeping `Alp`'s fields crate-private.
+/// Framed, Exception-Free ALP's parameters flattened beside the hint's tag, keeping `Alp`'s fields crate-private.
 #[cfg(feature = "unstable-v2")]
 fn serialize_alp<S: Serializer>(alp: &Alp, s: S) -> Result<S::Ok, S::Error> {
     let mut st = s.serialize_struct("Alp", 3)?;

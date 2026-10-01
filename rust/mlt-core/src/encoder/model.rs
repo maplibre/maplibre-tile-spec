@@ -453,7 +453,7 @@ pub struct EncoderConfig {
     /// Allow the v2-only float dictionary encoding
     #[cfg(feature = "unstable-v2")]
     allow_float_dict: bool,
-    /// Allow the v2-only ALP float encoding
+    /// Allow the v2-only Framed, Exception-Free ALP float encoding
     #[cfg(feature = "unstable-v2")]
     allow_float_alp: bool,
     /// Allow the v2-only bit-packed physical encoding for dictionary code streams
@@ -582,7 +582,7 @@ impl EncoderConfig {
         self.allow_float_dict && self.wire_version != WireVersion::V01
     }
 
-    /// Whether float columns may use ALP, which only v2 can express.
+    /// Whether float columns may use Framed, Exception-Free ALP, which only v2 can express.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn allow_float_alp(self) -> bool {

@@ -14,12 +14,12 @@ This page defines what the bytes after the header mean.
 ## Integer Words
 
 Most of MLT is integers.
-Lengths, offsets, ids, dictionary codes, geometry topology and the vertex buffer are all streams of integer words, and so are the scaled integers of an [ALP](#alp) float column.
+Lengths, offsets, ids, dictionary codes, geometry topology and the vertex buffer are all streams of integer words, and so are the scaled integers of an [Framed, Exception-Free ALP](#alp) float column.
 
 An integer stream is decoded in two steps.
 The **physical** encoding turns the payload bytes into a sequence of unsigned words.
 The **logical** encoding turns those words into the values.
-A stream of `Int64`, `UInt64` or `LongId` values has 64-bit words, and so does an [ALP](#alp) offset stream.
+A stream of `Int64`, `UInt64` or `LongId` values has 64-bit words, and so does an [Framed, Exception-Free ALP](#alp) offset stream.
 Every other integer stream has 32-bit words.
 
 ```
@@ -142,7 +142,7 @@ A decoder selects the variant by the layer tag.
 
 FastPFOR only produces 32-bit words.
 A 64-bit integer column cannot use it.
-An [ALP](#alp) offset stream can, and then has 32-bit words.
+An [Framed, Exception-Free ALP](#alp) offset stream can, and then has 32-bit words.
 
 ## Logical Encodings
 
@@ -313,14 +313,14 @@ This is the only float encoding v1 has.
 
 [See `prop_f64_max_np.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprop_f64_max_np.mlt&at=column%5B0%5D){target=_blank} - raw IEEE 754 words.
 
-### ALP <span class="experimental"></span> {#alp}
+### Framed, Exception-Free ALP <span class="experimental"></span> {#alp}
 
-Adaptive Lossless floating-Point compression stores a float column as integers, which are then [physically encoded](#physical-encodings) like any other integer stream.
+Framed, Exception-Free ALP (Adaptive Lossless floating-Point compression) stores a float column as integers, which are then [physically encoded](#physical-encodings) like any other integer stream.
 
 [See `prop_f32_alp_whole_np.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprop_f32_alp_whole_np.mlt&at=column%5B0%5D){target=_blank} - floats that are whole numbers, so the exponent does the work.
 
 Most floats in map data are decimals with few significant digits, such as `12.75` or `0.3`, and are exactly representable as a scaled integer.
-ALP finds one decimal scale for the whole column and stores $i = \operatorname{round}(v \cdot 10^e / 10^f)$ per value.
+Framed, Exception-Free ALP finds one decimal scale for the whole column and stores $i = \operatorname{round}(v \cdot 10^e / 10^f)$ per value.
 
 $e$ is the decimal exponent the values were scaled by, $0 \le e \le 18$.
 $f$ is the factor dividing out the trailing zeros $e$ introduced, $0 \le f \le e$.
@@ -388,7 +388,7 @@ base = -225:   offsets = [150, 250, 375, 0]
 ```
 
 The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints.
-See the [ALP example](specification/v2.md#examples) on the v2 page for the whole layer.
+See the [Framed, Exception-Free ALP example](specification/v2.md#examples) on the v2 page for the whole layer.
 
 ### Float Dictionary <span class="experimental"></span> {#float-dictionary}
 

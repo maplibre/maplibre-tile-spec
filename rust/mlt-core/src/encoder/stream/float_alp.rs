@@ -1,4 +1,4 @@
-//! Choosing ALP parameters for a float column.
+//! Choosing Framed, Exception-Free ALP parameters for a float column.
 
 use crate::MltResult;
 use crate::codecs::alp::{candidates, carries, encode_exact};
@@ -8,7 +8,7 @@ use crate::encoder::model::EncoderConfig;
 use crate::encoder::stream::codecs::PhysicalCodecs;
 use crate::encoder::stream::float_cost::{ENCODING_BYTE, data_bytes, raw_stored_bytes, varint_len};
 
-/// A float column encoded as ALP integers, with the parameters that produced it.
+/// A float column encoded as Framed, Exception-Free ALP integers, with the parameters that produced it.
 pub(crate) struct AlpStream {
     pub(crate) params: Alp,
     /// Offsets from the frame of reference, varint-coded unless [`Self::packed`] holds them.
@@ -22,7 +22,7 @@ pub(crate) struct AlpStream {
 }
 
 impl AlpStream {
-    /// The smallest exception-free ALP encoding of `values`, or [`None`] when no parameters fit.
+    /// The smallest Framed, Exception-Free ALP encoding of `values`, or [`None`] when no parameters fit.
     /// Whether it beats storing the floats raw is the caller's question.
     ///
     /// The first scale that encodes every value is the smallest one, so the search takes it and
@@ -57,7 +57,7 @@ impl AlpStream {
         })
     }
 
-    /// The smallest exception-free ALP encoding, or [`None`] when it would not beat the raw column.
+    /// The smallest Framed, Exception-Free ALP encoding, or [`None`] when it would not beat the raw column.
     /// The physical encodings race first, so the size this is judged on is the size it will store.
     pub(crate) fn worth_building<T: FloatValue>(
         values: &[T],
@@ -133,7 +133,7 @@ fn frame(codes: &[i64], scale: AlpScale) -> Alp {
     }
 }
 
-/// Bytes an ALP stream's header occupies: the encoding byte, the scale byte and the base varint.
+/// Bytes a Framed, Exception-Free ALP stream's header occupies: the encoding byte, the scale byte and the base varint.
 fn header_bytes(params: Alp) -> usize {
     ENCODING_BYTE + SCALE_BYTE + varint_len(params.base)
 }

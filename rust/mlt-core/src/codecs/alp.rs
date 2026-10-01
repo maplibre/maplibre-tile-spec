@@ -1,4 +1,4 @@
-//! Exception-free Adaptive Lossless floating-Point compression (ALP), storing `v` as the integer `i = round(v * 10^e / 10^f)`.
+//! Framed, Exception-Free ALP (Adaptive Lossless floating-Point compression), storing `v` as the integer `i = round(v * 10^e / 10^f)`.
 
 use crate::codecs::float::FloatValue;
 use crate::decoder::AlpScale;
@@ -292,7 +292,10 @@ mod tests {
     fn scale_bytes_past_the_last_pair_are_rejected() {
         for byte in 190..=u8::MAX {
             let err = AlpScale::from_byte(byte).unwrap_err();
-            assert_eq!(err.to_string(), format!("invalid ALP scale byte {byte}"));
+            assert_eq!(
+                err.to_string(),
+                format!("invalid Framed, Exception-Free ALP scale byte {byte}")
+            );
         }
     }
 }

@@ -878,7 +878,7 @@ exports[`decodeBlob > decodes a string payload as text 1`] = `
 }
 `;
 
-exports[`decodeBlob > hands ALP parameters across as a BigInt 1`] = `
+exports[`decodeBlob > hands Framed, Exception-Free ALP parameters across as a BigInt 1`] = `
 {
   "base": -225n,
   "e": 2,
