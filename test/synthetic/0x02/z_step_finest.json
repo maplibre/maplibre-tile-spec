@@ -6,16 +6,14 @@
       "properties": {
         "_extent": 64,
         "_layer": "layer1",
-        "_z": [
-          10000000
-        ],
         "_z_step": -3
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
           13,
-          42
+          42,
+          10000000
         ]
       }
     },
@@ -24,16 +22,14 @@
       "properties": {
         "_extent": 64,
         "_layer": "layer1",
-        "_z": [
-          10000001
-        ],
         "_z_step": -3
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
           11,
-          52
+          52,
+          10000001
         ]
       }
     }

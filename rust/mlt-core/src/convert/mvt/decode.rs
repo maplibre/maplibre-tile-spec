@@ -33,6 +33,7 @@ pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCol
             properties.insert("_extent".into(), Value::Number(layer.extent.get().into()));
             features.push(Feature {
                 geometry: feat.geometry,
+                z: None,
                 id: feat.id,
                 properties,
                 ty: "Feature".into(),

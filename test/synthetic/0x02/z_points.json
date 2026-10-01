@@ -6,16 +6,14 @@
       "properties": {
         "_extent": 64,
         "_layer": "layer1",
-        "_z": [
-          100120
-        ],
         "_z_step": -1
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
           13,
-          42
+          42,
+          100120
         ]
       }
     },
@@ -24,16 +22,14 @@
       "properties": {
         "_extent": 64,
         "_layer": "layer1",
-        "_z": [
-          100000
-        ],
         "_z_step": -1
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
           11,
-          52
+          52,
+          100000
         ]
       }
     },
@@ -42,16 +38,14 @@
       "properties": {
         "_extent": 64,
         "_layer": "layer1",
-        "_z": [
-          99960
-        ],
         "_z_step": -1
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
           71,
-          72
+          72,
+          99960
         ]
       }
     },
@@ -60,16 +54,14 @@
       "properties": {
         "_extent": 64,
         "_layer": "layer1",
-        "_z": [
-          103500
-        ],
         "_z_step": -1
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
           61,
-          22
+          22,
+          103500
         ]
       }
     }
