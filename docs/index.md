@@ -1,3 +1,7 @@
+---
+description: A column-oriented vector tile format for map data
+---
+
 # MapLibre Tile Specification
 
 --8<-- "live-spec-note"

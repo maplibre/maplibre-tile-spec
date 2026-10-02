@@ -1,3 +1,7 @@
+---
+description: The data model of tiles, layers, features, columns and streams
+---
+
 <h1>Overview</h1>
 
 --8<-- "live-spec-note"

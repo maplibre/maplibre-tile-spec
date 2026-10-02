@@ -55,7 +55,7 @@ jobs:
               - '.github/**'
               - 'docs/**'
               - 'inspector/**'
-              - 'mkdocs.yml'
+              - 'zensical.toml'
               # The inspector indexes every tile under test/ and reads their facets
               # from the mlt CLI, so both change what its tests assert.
               - 'rust/**'
