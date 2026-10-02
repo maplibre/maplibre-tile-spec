@@ -29,7 +29,7 @@
 <rect class="f1" x="222" y="80" width="44" height="28" rx="3"/>
 <text class="cell" x="244" y="94">1</text>
 <text x="470" y="94">len 3, symbol <tspan class="t0">11</tspan>, raw <tspan class="t1">1</tspan></text>
-<text class="row" x="0" y="134">−3</text>
+<text class="row" x="0" y="134">-3</text>
 <rect class="implicit" x="130" y="120" width="44" height="28" rx="3"/>
 <text class="cell muted" x="152" y="134">1</text>
 <rect class="f0" x="176" y="120" width="44" height="28" rx="3"/>

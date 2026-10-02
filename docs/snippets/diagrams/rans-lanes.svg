@@ -40,7 +40,7 @@
 <text class="bold mid t0" x="491" y="14">vertex 2</text>
 <path class="bracket t0" d="M426 34V28H556V34"/>
 <rect class="f0" x="426" y="40" width="64" height="28" rx="3"/>
-<text class="cell" x="458" y="54">dx −3</text>
+<text class="cell" x="458" y="54">dx -3</text>
 <path class="link" d="M458 68V96"/>
 <rect class="f0" x="426" y="96" width="64" height="28" rx="3"/>
 <text class="cell" x="458" y="110">10</text>
