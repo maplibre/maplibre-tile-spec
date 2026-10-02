@@ -246,13 +246,14 @@ impl Table {
         }
     }
 
-    fn read(r: &mut BitReader, depth: u32) -> MltResult<Self> {
+    fn read(r: &mut BitReader, depth: u32, dec: &mut Decoder) -> MltResult<Self> {
         let precision = r.get(4);
         let max = r.get(9) as usize;
         if precision > MAX_PRECISION || max >= SYMBOLS {
             return Err(MalformedRans("table out of range"));
         }
-        let mut freq = vec![0; max + 1];
+        let mut freq = dec.alloc(max + 1)?;
+        freq.resize(max + 1, 0);
         if precision == 0 {
             freq[max] = 1;
         } else {
@@ -638,8 +639,8 @@ impl Parts<'_> {
     }
 }
 
-/// Split `data` into its depth, tables, lanes and raw bits.
-pub(crate) fn split(data: &[u8]) -> MltResult<Parts<'_>> {
+/// Split `data` into its depth, tables, lanes and raw bits, charging `dec` for the tables.
+pub(crate) fn split<'a>(data: &'a [u8], dec: &mut Decoder) -> MltResult<Parts<'a>> {
     let (&depth, rest) = data.split_first().ok_or(MalformedRans("empty"))?;
     let depth = u32::from(depth);
     if depth > MAX_DEPTH {
@@ -650,10 +651,10 @@ pub(crate) fn split(data: &[u8]) -> MltResult<Parts<'_>> {
         bytes: rest,
         bit: 0,
     };
-    let mut tables = Vec::with_capacity(CONTEXTS);
+    let mut tables = dec.alloc(CONTEXTS)?;
     for _ in 0..CONTEXTS {
         tables.push(if r.get(1) == 1 {
-            Some(Table::read(&mut r, depth)?)
+            Some(Table::read(&mut r, depth, dec)?)
         } else {
             None
         });
@@ -703,15 +704,15 @@ pub fn decode_vertices(
         tables,
         lanes,
         raw,
-    } = split(data)?;
+    } = split(data, dec)?;
 
     let used = 1 + tables
         .iter()
         .flatten()
         .map(|t| 1_usize << t.precision)
         .sum::<usize>();
-    dec.consume_items::<Slot>(used)?;
     let size = used.next_power_of_two().max(MIN_SLAB);
+    dec.consume_items::<Slot>(size)?;
     if dec.rans_slots.len() < size {
         dec.rans_slots.resize(size, 0);
     }
@@ -741,7 +742,7 @@ pub fn decode_vertices(
 
     let [l0, l1, l2, l3] = lanes;
     let lanes = [Lane::new(l0), Lane::new(l1), Lane::new(l2), Lane::new(l3)];
-    let mut padded = Vec::with_capacity(raw.len() + WINDOW + 8);
+    let mut padded = dec.alloc(raw.len() + WINDOW + 8)?;
     padded.extend_from_slice(raw);
     padded.resize(raw.len() + WINDOW + 8, 0);
 
@@ -912,8 +913,14 @@ mod tests {
 
     #[rstest]
     #[case::vertex_flags(0, "memory limit exceeded: limit=0, used=0, requested=3")]
-    #[case::slots(3, "memory limit exceeded: limit=3, used=3, requested=56")]
-    #[case::output(59, "memory limit exceeded: limit=59, used=59, requested=24")]
+    #[case::tables(3, "memory limit exceeded: limit=3, used=3, requested=448")]
+    #[case::frequencies(451, "memory limit exceeded: limit=451, used=451, requested=48")]
+    #[case::slab(867, "memory limit exceeded: limit=867, used=867, requested=32768")]
+    #[case::raw_bits(
+        33635,
+        "memory limit exceeded: limit=33635, used=33635, requested=2058"
+    )]
+    #[case::output(35693, "memory limit exceeded: limit=35693, used=35693, requested=24")]
     fn every_decoded_allocation_is_charged(#[case] limit: u32, #[case] expected: &str) {
         #[rustfmt::skip]
         let data = [

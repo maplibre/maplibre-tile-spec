@@ -225,7 +225,7 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             fmt_bits(n, |i| data[i / 8] >> (i % 8) & 1 == 1)
         }
         #[cfg(feature = "unstable-v2")]
-        DecodeHint::Rans => match crate::codecs::rans::split(data) {
+        DecodeHint::Rans => match crate::codecs::rans::split(data, dec) {
             Ok(parts) => fmt_rans(&parts),
             Err(e) => format!("<undecodable: {e}>"),
         },
