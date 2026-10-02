@@ -123,6 +123,19 @@ plugins:
         - specification/v1.md
         - specification/v2.md
         - overview.md
+  - llmstxt:
+      full_output: llms-full.txt
+      sections:
+        Docs:
+          - index.md
+          - overview.md: "The data model: tiles, extents, layers, features, columns and streams."
+          - implementation-status.md: Tools, libraries and datasets that support MLT.
+        Specification:
+          - specification/index.md
+          - specification/v1.md: The stable wire format.
+          - specification/v2.md: The next wire format, under development.
+          - encodings.md: The compression schemes used by both versions.
+          - implementation-guide.md: Choosing encodings and decoding into memory.
 validation:
   omitted_files: warn
   absolute_links: warn
