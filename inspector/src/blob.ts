@@ -8,6 +8,8 @@ export function blobChips(blob: DecodedBlob, maxChars: number): string[] {
     case "numbers":
     case "bigints":
       return blob.values.map(String);
+    case "strings":
+      return blob.values;
     case "enum":
       return blob.names;
     case "bools":
@@ -58,7 +60,7 @@ export function blobRaw(blob: DecodedBlob): string[] | null {
 export function blobHidden(
   blob: DecodedBlob,
   maxChars: number,
-): { count: number; unit: "chars" | "values" } | null {
+): { count: number; unit: "chars" | "values" | "strings" } | null {
   if (blob.kind === "text") {
     const count = [...blob.value].length - maxChars;
     return count > 0 ? { count, unit: "chars" } : null;
@@ -66,7 +68,10 @@ export function blobHidden(
   if (blob.kind === "error" || blob.kind === "binary") return null;
   return blob.truncatedFrom === null
     ? null
-    : { count: blob.truncatedFrom - blob.values.length, unit: "values" };
+    : {
+        count: blob.truncatedFrom - blob.values.length,
+        unit: blob.kind === "strings" ? "strings" : "values",
+      };
 }
 
 /** What the chips leave out, which is a character count for text and a value count for the rest. */
@@ -79,7 +84,10 @@ export function blobNote(blob: DecodedBlob, maxChars: number): string {
       ? `text, ${maxChars} of ${chars} chars`
       : `text, ${chars} chars`;
   }
+  const noun = blob.kind === "strings" ? "string" : "value";
+  const total = blob.truncatedFrom ?? blob.values.length;
+  const unit = total === 1 ? noun : `${noun}s`;
   return blob.truncatedFrom === null
-    ? `${blob.values.length} values`
-    : `${blob.values.length} of ${blob.truncatedFrom} values`;
+    ? `${blob.values.length} ${unit}`
+    : `${blob.values.length} of ${blob.truncatedFrom} ${unit}`;
 }

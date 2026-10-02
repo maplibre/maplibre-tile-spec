@@ -96,6 +96,16 @@ describe("a value too long to show", () => {
     expect(pane.get(".reveal button").text()).toBe("show 36 more values");
   });
 
+  it("says one more value, not one more values", () => {
+    const pane = detail(enumOf(65));
+    expect(pane.get(".reveal button").text()).toBe("show 1 more value");
+  });
+
+  it("says one more char for a text one character over", () => {
+    const pane = detail(() => ({ kind: "text", value: "a".repeat(257) }));
+    expect(pane.get(".reveal button").text()).toBe("show 1 more char");
+  });
+
   it("offers nothing when it all fits", () => {
     const pane = detail(enumOf(10));
     expect(pane.find(".reveal").exists()).toBe(false);
@@ -209,5 +219,38 @@ describe("repeated values", () => {
     const pane = detail(() => ({ kind: "text", value: "aaaaaaaaaa" }));
     expect(pane.get(".values i").text()).toBe("aaaaaaaaaa");
     expect(pane.find(".values b").exists()).toBe(false);
+  });
+});
+
+describe("strings", () => {
+  const strings = (total: number, max: number): DecodedBlob => ({
+    kind: "strings",
+    values: Array.from({ length: Math.min(max, total) }, (_, n) => `s${n}`),
+    truncatedFrom: total > max ? total : null,
+  });
+
+  it("shows each string as a value of its own, counted as strings", () => {
+    const pane = detail(() => strings(3, 64));
+    expect(pane.findAll(".values i").map((el) => el.text())).toEqual([
+      "s0",
+      "s1",
+      "s2",
+    ]);
+    expect(pane.get("h3 small").text()).toBe("3 strings");
+  });
+
+  it("does not also count the bytes they were stored in", () => {
+    const pane = detail(() => strings(3, 64));
+    expect(texts(pane, "dt")).not.toContain("values");
+  });
+
+  it("offers the rest in strings", () => {
+    const pane = detail((_, max) => strings(100, max));
+    expect(pane.get(".reveal button").text()).toBe("show 36 more strings");
+  });
+
+  it("says one more string, not one more strings", () => {
+    const pane = detail((_, max) => strings(65, max));
+    expect(pane.get(".reveal button").text()).toBe("show 1 more string");
   });
 });
