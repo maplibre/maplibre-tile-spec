@@ -1,0 +1,41 @@
+<svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="Seven values as two runs, written by v1 as all lengths then all values and by v2 as interleaved pairs" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="200" y="14">3 × 5</text>
+<path class="bracket t0" d="M130 34V28H270V34"/>
+<text class="bold mid t1" x="368" y="14">4 × 3</text>
+<path class="bracket t1" d="M274 34V28H462V34"/>
+<text class="row" x="0" y="54">values</text>
+<text class="row" x="0" y="94">v1 words</text>
+<text class="row" x="0" y="134">v2 bytes</text>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">5</text>
+<rect class="f0" x="178" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="54">5</text>
+<rect class="f0" x="226" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="54">5</text>
+<rect class="f1" x="274" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="54">3</text>
+<rect class="f1" x="322" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="54">3</text>
+<rect class="f1" x="370" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="392" y="54">3</text>
+<rect class="f1" x="418" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="440" y="54">3</text>
+<rect class="f0" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="94">3</text>
+<rect class="f1" x="178" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="94">4</text>
+<rect class="f0" x="226" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="94">5</text>
+<rect class="f1" x="274" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="94">3</text>
+<rect class="f0" x="130" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="134">03</text>
+<rect class="f0" x="178" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="134">05</text>
+<rect class="f1" x="226" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="134">04</text>
+<rect class="f1" x="274" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="134">03</text>
+<text class="muted small" x="334" y="94">runs = 2 in the header</text>
+<text class="muted small" x="334" y="134">pairs until byte_length</text>
+</svg>

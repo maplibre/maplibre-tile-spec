@@ -1,0 +1,35 @@
+<svg class="mlt-diagram" viewBox="0 0 710 132" role="img" aria-label="Six booleans in bits 0 to 5 of the byte 2D, bit 0 first, with two padding bits" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="231" y="14">6 values</text>
+<path class="bracket t0" d="M130 34V28H332V34"/>
+<text class="muted small mid" x="367" y="14">padding</text>
+<path class="bracket" d="M334 34V28H400V34"/>
+<text class="row" x="0" y="54">bits</text>
+<rect class="f0" x="130" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="146" y="54">1</text>
+<rect class="f0" x="164" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="180" y="54">0</text>
+<rect class="f0" x="198" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="214" y="54">1</text>
+<rect class="f0" x="232" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="248" y="54">1</text>
+<rect class="f0" x="266" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="282" y="54">0</text>
+<rect class="f0" x="300" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="316" y="54">1</text>
+<rect class="plain" x="334" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="350" y="54">0</text>
+<rect class="plain" x="368" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="384" y="54">0</text>
+<text class="muted small" x="0" y="82">bit index</text>
+<text class="muted small mid" x="146" y="82">0</text>
+<text class="muted small mid" x="180" y="82">1</text>
+<text class="muted small mid" x="214" y="82">2</text>
+<text class="muted small mid" x="248" y="82">3</text>
+<text class="muted small mid" x="282" y="82">4</text>
+<text class="muted small mid" x="316" y="82">5</text>
+<text class="muted small mid" x="350" y="82">6</text>
+<text class="muted small mid" x="384" y="82">7</text>
+<text class="row" x="0" y="110">byte</text>
+<rect class="plain" x="130" y="96" width="270" height="28" rx="3"/>
+<text class="cell" x="265" y="110">2D</text>
+</svg>

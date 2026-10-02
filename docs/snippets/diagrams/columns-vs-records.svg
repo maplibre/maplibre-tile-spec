@@ -1,0 +1,52 @@
+<svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="Three features written feature by feature in MVT and column by column in MLT" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">MVT</text>
+<text class="muted small mid" x="218.0" y="14">feature 1</text>
+<path class="bracket" d="M130 34V28H306V34"/>
+<rect class="f0" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="158.0" y="54">1</text>
+<rect class="f1" x="190" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="218.0" y="54">geom</text>
+<rect class="plain" x="250" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="278.0" y="54">road</text>
+<text class="muted small mid" x="410.0" y="14">feature 2</text>
+<path class="bracket" d="M322 34V28H498V34"/>
+<rect class="f0" x="322" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="350.0" y="54">2</text>
+<rect class="f1" x="382" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="410.0" y="54">geom</text>
+<rect class="plain" x="442" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="470.0" y="54">road</text>
+<text class="muted small mid" x="602.0" y="14">feature 3</text>
+<path class="bracket" d="M514 34V28H690V34"/>
+<rect class="f0" x="514" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="542.0" y="54">3</text>
+<rect class="f1" x="574" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="602.0" y="54">geom</text>
+<rect class="plain" x="634" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="662.0" y="54">rail</text>
+<text class="row" x="0" y="128">MLT</text>
+<text class="muted small mid" x="218.0" y="88">id</text>
+<path class="bracket" d="M130 108V102H306V108"/>
+<rect class="f0" x="130" y="114" width="56" height="28" rx="3"/>
+<text class="cell" x="158.0" y="128">1</text>
+<rect class="f0" x="190" y="114" width="56" height="28" rx="3"/>
+<text class="cell" x="218.0" y="128">2</text>
+<rect class="f0" x="250" y="114" width="56" height="28" rx="3"/>
+<text class="cell" x="278.0" y="128">3</text>
+<text class="muted small mid" x="410.0" y="88">geometry</text>
+<path class="bracket" d="M322 108V102H498V108"/>
+<rect class="f1" x="322" y="114" width="56" height="28" rx="3"/>
+<text class="cell" x="350.0" y="128">geom</text>
+<rect class="f1" x="382" y="114" width="56" height="28" rx="3"/>
+<text class="cell" x="410.0" y="128">geom</text>
+<rect class="f1" x="442" y="114" width="56" height="28" rx="3"/>
+<text class="cell" x="470.0" y="128">geom</text>
+<text class="muted small mid" x="602.0" y="88">class</text>
+<path class="bracket" d="M514 108V102H690V108"/>
+<rect class="plain" x="514" y="114" width="56" height="28" rx="3"/>
+<text class="cell" x="542.0" y="128">road</text>
+<rect class="plain" x="574" y="114" width="56" height="28" rx="3"/>
+<text class="cell" x="602.0" y="128">road</text>
+<rect class="plain" x="634" y="114" width="56" height="28" rx="3"/>
+<text class="cell" x="662.0" y="128">rail</text>
+</svg>

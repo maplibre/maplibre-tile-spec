@@ -1,0 +1,32 @@
+<svg class="mlt-diagram" viewBox="0 0 710 124" role="img" aria-label="ZigZag maps -2, -1, 0, 1 and 2 to 3, 1, 0, 2 and 4" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="zz" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="zz-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<g transform="translate(0 -32)">
+<text class="row" x="0" y="54">n</text>
+<text class="row" x="0" y="134">zigzag(n)</text>
+<rect class="f1" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="54">-2</text>
+<rect class="f1" x="322" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="350" y="134">3</text>
+<path class="link t1" d="M158 68C158 92 350 92 350 116" marker-end="url(#zz-t1)"/>
+<rect class="f1" x="194" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="222" y="54">-1</text>
+<rect class="f1" x="194" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="222" y="134">1</text>
+<path class="link t1" d="M222 68C222 92 222 92 222 116" marker-end="url(#zz-t1)"/>
+<rect class="f0" x="258" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="286" y="54">0</text>
+<rect class="f0" x="130" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="134">0</text>
+<path class="link" d="M286 68C286 92 158 92 158 116" marker-end="url(#zz)"/>
+<rect class="f0" x="322" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="350" y="54">1</text>
+<rect class="f0" x="258" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="286" y="134">2</text>
+<path class="link" d="M350 68C350 92 286 92 286 116" marker-end="url(#zz)"/>
+<rect class="f0" x="386" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="414" y="54">2</text>
+<rect class="f0" x="386" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="414" y="134">4</text>
+<path class="link" d="M414 68C414 92 414 92 414 116" marker-end="url(#zz)"/>
+</g>
+</svg>

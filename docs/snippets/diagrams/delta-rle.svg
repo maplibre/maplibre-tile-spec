@@ -1,0 +1,41 @@
+<svg class="mlt-diagram" viewBox="0 0 710 110" role="img" aria-label="Values 10 to 13 then three 20s, delta and zigzag coded into words, and the words run-length coded as four runs" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="14">values</text>
+<text class="row" x="0" y="54">words</text>
+<text class="row" x="0" y="94">runs</text>
+<rect class="f0" x="130" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="14">10</text>
+<rect class="f0" x="130" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="54">20</text>
+<rect class="f1" x="194" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="224" y="14">11</text>
+<rect class="f1" x="194" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="224" y="54">2</text>
+<rect class="f1" x="258" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="288" y="14">12</text>
+<rect class="f1" x="258" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="288" y="54">2</text>
+<rect class="f1" x="322" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="352" y="14">13</text>
+<rect class="f1" x="322" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="352" y="54">2</text>
+<rect class="f0" x="386" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="416" y="14">20</text>
+<rect class="f0" x="386" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="416" y="54">14</text>
+<rect class="f1" x="450" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="480" y="14">20</text>
+<rect class="f1" x="450" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="480" y="54">0</text>
+<rect class="f1" x="514" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="544" y="14">20</text>
+<rect class="f1" x="514" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="544" y="54">0</text>
+<rect class="f0" x="130" y="80" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="94">(1, 20)</text>
+<rect class="f1" x="194" y="80" width="188" height="28" rx="3"/>
+<text class="cell" x="288" y="94">(3, 2)</text>
+<rect class="f0" x="386" y="80" width="60" height="28" rx="3"/>
+<text class="cell" x="416" y="94">(1, 14)</text>
+<rect class="f1" x="450" y="80" width="124" height="28" rx="3"/>
+<text class="cell" x="512" y="94">(2, 0)</text>
+</svg>
