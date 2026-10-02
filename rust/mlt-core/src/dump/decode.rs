@@ -5,8 +5,8 @@ use serde::Serialize;
 use usize_cast::IntoUsize as _;
 
 use super::model::{BlobInfo, DecodeHint};
-use crate::Decoder;
 use crate::decoder::RawStream;
+use crate::{Decoder, GeometryType, MltResult};
 
 /// One data blob decoded for display, capped at the caller's value count.
 ///
@@ -33,6 +33,12 @@ pub enum DecodedBlob {
     },
     Bools {
         values: Vec<bool>,
+        truncated_from: Option<u32>,
+    },
+    /// Values that name something: each `names` entry is what the `values` entry stands for.
+    Enum {
+        values: Vec<u32>,
+        names: Vec<String>,
         truncated_from: Option<u32>,
     },
     /// A byte payload that is valid UTF-8.
@@ -90,6 +96,10 @@ pub fn decode_blob(
             Ok(v) => bools(v, max_values),
             Err(e) => error(&e),
         },
+        DecodeHint::GeometryType => geometry_types(
+            RawStream::new(meta, data).decode_ints::<u32>(dec),
+            max_values,
+        ),
         DecodeHint::I32 => numbers(
             RawStream::new(meta, data).decode_ints::<i32>(dec),
             max_values,
@@ -130,7 +140,7 @@ pub fn decode_blob(
     }
 }
 
-fn numbers<T: Into<f64>>(res: crate::MltResult<Vec<T>>, max_values: usize) -> DecodedBlob {
+fn numbers<T: Into<f64>>(res: MltResult<Vec<T>>, max_values: usize) -> DecodedBlob {
     match res {
         Ok(v) => {
             let (v, truncated_from) = cap(v, max_values);
@@ -143,7 +153,30 @@ fn numbers<T: Into<f64>>(res: crate::MltResult<Vec<T>>, max_values: usize) -> De
     }
 }
 
-fn bigints<T: Into<i128>>(res: crate::MltResult<Vec<T>>, max_values: usize) -> DecodedBlob {
+fn geometry_types(res: MltResult<Vec<u32>>, max_values: usize) -> DecodedBlob {
+    match res {
+        Ok(v) => {
+            let (values, truncated_from) = cap(v, max_values);
+            let names = values
+                .iter()
+                .map(|&v| {
+                    u8::try_from(v)
+                        .ok()
+                        .and_then(|b| GeometryType::try_from(b).ok())
+                        .map_or_else(|| format!("unknown({v})"), |t| t.to_string())
+                })
+                .collect();
+            DecodedBlob::Enum {
+                values,
+                names,
+                truncated_from,
+            }
+        }
+        Err(e) => error(&e),
+    }
+}
+
+fn bigints<T: Into<i128>>(res: MltResult<Vec<T>>, max_values: usize) -> DecodedBlob {
     match res {
         Ok(v) => {
             let (v, truncated_from) = cap(v, max_values);

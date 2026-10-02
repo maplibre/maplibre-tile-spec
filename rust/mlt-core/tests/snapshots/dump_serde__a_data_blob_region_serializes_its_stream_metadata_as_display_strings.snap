@@ -17,7 +17,7 @@ expression: json(region)
     "physical": "varint",
     "numValues": 1,
     "hint": {
-      "kind": "u32"
+      "kind": "geometryType"
     }
   }
 }

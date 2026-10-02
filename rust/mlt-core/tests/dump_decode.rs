@@ -25,6 +25,17 @@ const POLY_HOLE: &str = concat!(
     "/../../test/synthetic/0x01/poly_hole.mlt"
 );
 
+const MIX_PT_POLY: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../test/synthetic/0x01/mix_2_pt_poly.mlt"
+);
+
+#[cfg(feature = "unstable-v2")]
+const Z_MIX: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../test/synthetic/0x02/z_mix.mlt"
+);
+
 #[test]
 fn an_int_payload_decodes_to_numbers() {
     let (tree, buf) = annotate(ID);
@@ -69,6 +80,53 @@ fn max_values_caps_the_values_and_reports_the_full_count() {
     insta::assert_snapshot!(
         json(&decode(region, &buf, 3)),
         @r#"{"kind":"numbers","values":[11.0,52.0,71.0],"truncatedFrom":12}"#
+    );
+}
+
+#[test]
+fn a_v1_geometry_types_stream_decodes_to_names_beside_its_numbers() {
+    let (tree, buf) = annotate(MIX_PT_POLY);
+    let region = first_hint(&tree, |h| matches!(h, DecodeHint::GeometryType));
+
+    insta::assert_snapshot!(
+        json(&decode(region, &buf, 0)),
+        @r#"{"kind":"enum","values":[0,2],"names":["Point","Polygon"],"truncatedFrom":null}"#
+    );
+}
+
+#[cfg(feature = "unstable-v2")]
+#[test]
+fn a_v2_geometry_types_stream_decodes_to_names_beside_its_numbers() {
+    let (tree, buf) = annotate(Z_MIX);
+    let region = first_hint(&tree, |h| matches!(h, DecodeHint::GeometryType));
+
+    insta::assert_snapshot!(
+        json(&decode(region, &buf, 0)),
+        @r#"{"kind":"enum","values":[0,1,2,2,3,4,5],"names":["Point","LineString","Polygon","Polygon","MultiPoint","MultiLineString","MultiPolygon"],"truncatedFrom":null}"#
+    );
+}
+
+#[test]
+fn max_values_caps_names_and_numbers_alike() {
+    let (tree, buf) = annotate(MIX_PT_POLY);
+    let region = first_hint(&tree, |h| matches!(h, DecodeHint::GeometryType));
+
+    insta::assert_snapshot!(
+        json(&decode(region, &buf, 1)),
+        @r#"{"kind":"enum","values":[0],"names":["Point"],"truncatedFrom":2}"#
+    );
+}
+
+#[test]
+fn a_geometry_type_no_geometry_has_is_named_unknown() {
+    let (tree, _) = annotate(MIX_PT_POLY);
+    let region = first_hint(&tree, |h| matches!(h, DecodeHint::GeometryType));
+    let blob = region.blob.expect("stream metadata");
+
+    // Two varints: a `Point`, then 7, past the last of the six types.
+    insta::assert_snapshot!(
+        json(&decode_blob(blob, &[0, 7], 0, &mut Decoder::default())),
+        @r#"{"kind":"enum","values":[0,7],"names":["Point","unknown(7)"],"truncatedFrom":null}"#
     );
 }
 

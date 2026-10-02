@@ -412,7 +412,7 @@ exports[`annotateTile > annotates a v1 tile 1`] = `
       "bits": [],
       "blob": {
         "hint": {
-          "kind": "u32",
+          "kind": "geometryType",
         },
         "logical": "int/none",
         "numValues": 1,
