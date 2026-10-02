@@ -74,6 +74,7 @@ export type DecodedBlob =
       names: string[];
       truncatedFrom: number | null;
     }
+  | { kind: "strings"; values: string[]; truncatedFrom: number | null }
   | { kind: "text"; value: string }
   | { kind: "binary"; len: number }
   | { kind: "error"; message: string };

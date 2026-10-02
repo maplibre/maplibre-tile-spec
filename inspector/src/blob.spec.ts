@@ -40,6 +40,15 @@ describe("blobChips", () => {
     ).toEqual(["Point", "Polygon"]);
   });
 
+  it("prints each string as it is", () => {
+    expect(
+      blobChips(
+        { kind: "strings", values: ["ab", "c"], truncatedFrom: null },
+        8,
+      ),
+    ).toEqual(["ab", "c"]);
+  });
+
   it("keeps a whole text payload in one chip", () => {
     expect(blobChips({ kind: "text", value: "water" }, 8)).toEqual(["water"]);
   });
@@ -190,5 +199,27 @@ describe("runs", () => {
       ["b", 1],
       ["a", 4],
     ]);
+  });
+});
+
+describe("a single value", () => {
+  it("is not pluralised", () => {
+    expect(
+      blobNote({ kind: "numbers", values: [1], truncatedFrom: null }, 8),
+    ).toBe("1 value");
+    expect(
+      blobNote({ kind: "strings", values: ["a"], truncatedFrom: null }, 8),
+    ).toBe("1 string");
+  });
+});
+
+describe("strings", () => {
+  it("are counted as strings, not values", () => {
+    expect(
+      blobNote({ kind: "strings", values: ["a", "b"], truncatedFrom: 9 }, 8),
+    ).toBe("2 of 9 strings");
+    expect(
+      blobHidden({ kind: "strings", values: ["a"], truncatedFrom: 9 }, 8),
+    ).toEqual({ count: 8, unit: "strings" });
   });
 });
