@@ -35,6 +35,10 @@ A plain or run-length encoded value is ZigZag-encoded only on a stream of a sign
 Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded.
 Delta arithmetic wraps at the word width.
 
+The steps each logical encoding takes:
+
+--8<-- "diagrams/integer-decode.svg"
+
 ## Physical Encodings
 
 ### ZigZag {#zigzag}
@@ -102,7 +106,7 @@ Every word is stored in the same number of bits, the bit width of the largest va
 [View example](inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&at=codes){target=_blank .inspector-example} - dictionary codes `0` to `2`, each in two bits.
 
 v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`.
-It stands in for the whole physical step: the words come straight out of the packed bits, and no other logical transform is applied.
+It stands in for the whole physical step: the words come straight out of the packed bits, and only [ZigZag](#zigzag) on a signed stream is applied to them.
 
 ```
 payload := [u8 width]                        1-32
@@ -393,16 +397,7 @@ $$
 
 The square root is exact enough in double precision for every valid `scale`.
 
-| `scale` | $e$ | $f$ |
-|---:|---:|---:|
-| $0$ | $0$ | $0$ |
-| $1$ | $1$ | $0$ |
-| $2$ | $1$ | $1$ |
-| $3$ | $2$ | $0$ |
-| $4$ | $2$ | $1$ |
-| $5$ | $2$ | $2$ |
-| $\vdots$ | $\vdots$ | $\vdots$ |
-| $189$ | $18$ | $18$ |
+--8<-- "diagrams/alp-scale.svg"
 
 The payload holds unsigned offsets from `base`, so the smallest is `0` and every value is non-negative.
 The offsets are an ordinary unsigned integer stream and carry their own physical encoding.
