@@ -153,7 +153,7 @@ impl<'a> Walker<'a> {
                 StreamCtx02::GeomTypes,
                 count,
                 "types",
-                DecodeHint::U32,
+                DecodeHint::GeometryType,
             )?;
         }
 
@@ -882,11 +882,7 @@ impl<'a> Walker<'a> {
                 c,
                 "z_step",
                 |i| parse_u8(i),
-                |v| {
-                    ZStep::from_code(*v)
-                        .ok()
-                        .map(|s| format!("10^{} m", s.exponent()))
-                },
+                |v| ZStep::from_code(*v).ok().map(|s| s.to_string()),
             )?;
         }
         // So do the Morton grid's, for a vertex dictionary keyed by Morton code.

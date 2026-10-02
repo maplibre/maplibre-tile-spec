@@ -8,6 +8,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { nextTick } from "vue";
 import App from "./App.vue";
 import { type AnnotatedTile, annotateTile } from "./annotate.ts";
 import HexdumpView from "./HexdumpView.vue";
@@ -420,6 +421,94 @@ describe("a link that names its region", () => {
     await flushPromises();
     expect(app.getComponent(HexdumpView).props("selected")).toBe(1);
     app.unmount();
+  });
+});
+
+describe("the home screen while a tile loads", () => {
+  /** A tile that has not arrived, which `release` lets through. */
+  function held() {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "fixtures.json") return Response.json(index);
+        await gate;
+        return new Response(new Uint8Array(8));
+      }),
+    );
+    return release;
+  }
+
+  it("says what it is loading, in place of the picker, once a link names a tile", async () => {
+    const release = held();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await flushPromises();
+    expect(app.get("[role=status]").text()).toBe("Loading 0x01/point.mlt");
+    expect(app.findComponent(SourcePicker).exists()).toBe(false);
+
+    release();
+    await flushPromises();
+    expect(app.find(".empty").exists()).toBe(false);
+    app.unmount();
+  });
+
+  it("is busy from the first moment, while the index is still in flight", async () => {
+    held();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await nextTick();
+    expect(app.get("[role=status]").text()).toBe("Loading 0x01/point.mlt");
+    app.unmount();
+  });
+
+  it("takes every click while it waits, and gives them back after", async () => {
+    const release = held();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App, { attachTo: document.body });
+    await flushPromises();
+    expect(app.get(".app").attributes("inert")).toBeDefined();
+    expect(app.get(".app").attributes("aria-busy")).toBe("true");
+
+    release();
+    await flushPromises();
+    expect(app.get(".app").attributes("inert")).toBeUndefined();
+    app.unmount();
+  });
+
+  it("marks a tile it is replacing as busy too, with no home screen behind it", async () => {
+    serve();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await flushPromises();
+    const release = held();
+    void app.getComponent(SourcePicker).vm.$emit("fixture", "0x02/line.mlt");
+    await nextTick();
+    expect(app.get("[role=status]").text()).toBe("Loading 0x02/line.mlt");
+    expect(app.get(".app").attributes("inert")).toBeDefined();
+    release();
+    await flushPromises();
+    expect(app.find("[role=status]").exists()).toBe(false);
+    app.unmount();
+  });
+
+  it("offers the picker again when the tile fails to load", async () => {
+    serve(null);
+    history.replaceState(null, "", "/?fixture=0x01/gone.mlt");
+    const app = mount(App);
+    await flushPromises();
+    expect(app.find("[role=status]").exists()).toBe(false);
+    expect(app.findComponent(SourcePicker).exists()).toBe(true);
+  });
+
+  it("shows no busy mark on a bare address", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    expect(app.find("[role=status]").exists()).toBe(false);
   });
 });
 

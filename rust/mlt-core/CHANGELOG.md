@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.17.0...rust-mlt-core-v0.18.0) - 2026-10-02
+
+### Added
+
+- *(rust)* allow parsing string properties into typed columns with `mlt convert --config`, and check round trips with `--verify` ([#1812](https://github.com/maplibre/maplibre-tile-spec/pull/1812))
+
+### Fixed
+
+- *(inspector)* document `z_step` as its own field, not the payload's varint ([#1816](https://github.com/maplibre/maplibre-tile-spec/pull/1816))
+
+### Other
+
+- show geom types by name, fold repeat values, loading ([#1818](https://github.com/maplibre/maplibre-tile-spec/pull/1818))
+
 ## [0.17.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.16.0...rust-mlt-core-v0.17.0) - 2026-10-01
 
 ### Added

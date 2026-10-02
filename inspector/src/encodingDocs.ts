@@ -109,7 +109,7 @@ const BY_LABEL: Record<string, Partial<Record<"v1" | "v2", string>>> = {
   byte_length: { v1: "v1#encoding-byte", v2: "v2#byte-length" },
   present: { v1: "v1#column-metadata", v2: "v2#presence-nibble" },
   shared_presence: { v2: "v2#shared-presence-fields" },
-  coding: { v2: "v2#presence-codings" },
+  coding: { v2: "v2#presence-encodings" },
   feature_count: { v1: "v1#column-data", v2: "v2#layer-body" },
   column_count: { v1: "v1#column-metadata", v2: "v2#column-counts" },
   column_counts: { v2: "v2#column-counts" },
@@ -135,6 +135,7 @@ const BY_LABEL: Record<string, Partial<Record<"v1" | "v2", string>>> = {
   morton_shift: same("encodings#morton"),
   alp_base: same("encodings#alp"),
   alp_scale: same("encodings#alp"),
+  z_step: { v2: "v2#z-coordinates" },
   shapes: { v2: "v2#nested-properties" },
   shape_ids: { v2: "v2#nested-properties" },
   shape_table: { v2: "v2#nested-properties" },
@@ -157,6 +158,15 @@ const BY_LABEL: Record<string, Partial<Record<"v1" | "v2", string>>> = {
   tri_lengths: { v1: "v1#tessellation-data-optional", v2: "v2#tessellation" },
   tri_indexes: { v1: "v1#tessellation-data-optional", v2: "v2#tessellation" },
 };
+
+/** A codec's parameters in a stream header, whose bytes the payload's encodings do not pack. */
+const CODEC_PARAMETERS = new Set([
+  "morton_bits",
+  "morton_shift",
+  "alp_base",
+  "alp_scale",
+  "z_step",
+]);
 
 /** The spec page describing the tile in hand, since the two tags lay bytes out differently. */
 export function specPage(tree: DumpTree | null): "v1" | "v2" {
@@ -273,6 +283,7 @@ export function regionAnchors(
   const label = region.label.replace(/\[\d+\].*$/, "");
   const own = BY_LABEL[label]?.[page];
   const keys = own === undefined ? [] : [own];
+  if (CODEC_PARAMETERS.has(label)) return keys;
   for (const id of streamEncodings(regions, index)) {
     const key = docKeyFor(id);
     if (key !== undefined) keys.push(key);

@@ -29,4 +29,5 @@ They are planned for [MLT v2](specification/v2.md).
 | [Specification v1](specification/v1.md) | The stable wire format. |
 | [Specification v2](specification/v2.md) <span class="experimental"></span> | The next wire format, under development. |
 | [Encoding Algorithms](encodings.md) | The compression schemes used by both versions. |
+| [Implementation Guide](implementation-guide.md) | Choosing encodings and decoding into memory. |
 | [Implementation Status](implementation-status.md) | Tools, libraries and datasets that support MLT. |

@@ -8,4 +8,4 @@ encoding = 0x29 logical=CwDelta physical=VarInt
   physical = VarInt
   xyz = true -> (x, y, z) triples, a z step byte follows
 byte_length = 3
-z_step = 10^-1 m
+z_step = 1 dm

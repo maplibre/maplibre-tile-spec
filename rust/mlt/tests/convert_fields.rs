@@ -2,10 +2,9 @@
 #![cfg(all(feature = "unstable-v2", not(feature = "hotpath")))]
 
 use std::fmt::Write as _;
-use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use std::thread;
+use std::{fs, thread};
 
 use mlt::convert::fields::FieldConfig;
 use mlt_core::encoder::{EncoderConfig, WireVersion};

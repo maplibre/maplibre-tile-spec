@@ -5,8 +5,7 @@ use num_enum::TryFromPrimitive;
 use crate::codecs::morton::{deinterleave_u64, interleave_u32};
 use crate::codecs::presence_coding::PresenceCoding;
 use crate::codecs::varint::parse_varint;
-use crate::decoder::{ColumnStorage, StreamMeta};
-use crate::decoder::{GeometryType, ParsedMValue, ParsedNested};
+use crate::decoder::{ColumnStorage, GeometryType, ParsedMValue, ParsedNested, StreamMeta};
 use crate::{
     Analyze as _, DecodeState, Layer01, Lazy, LazyParsed, MValueColumn, MltError, MltRefResult,
     MltResult, Nested, Parsed,

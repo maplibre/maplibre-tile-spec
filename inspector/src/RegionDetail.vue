@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
-import { blobChips, blobNote } from "./blob.ts";
+import { blobChips, blobHidden, blobNote, blobRaw, runs } from "./blob.ts";
 import EncodingDocs from "./EncodingDocs.vue";
 import { regionAnchors, specPage } from "./encodingDocs.ts";
 import { hex2, hexOffset, regionPath } from "./hex.ts";
@@ -13,6 +13,12 @@ const MAX_VALUES = 64;
 
 /** A text payload crosses whole, and a real tile's string data runs to tens of kilobytes. */
 const MAX_CHARS = 256;
+
+/** Each "show more" multiplies both caps by this, for at most `MAX_REVEALS` presses. */
+const GROWTH = 8;
+
+/** Past this a stream is still read from its start, and the chips stay few enough to draw. */
+const MAX_REVEALS = 2;
 
 const props = defineProps<{
   tree: DumpTree;
@@ -72,22 +78,54 @@ const blob = computed(() =>
     : (props.tree.regions[payload.value]?.blob ?? null),
 );
 
+/** How many times the decoded section has been grown, which a new payload starts over. */
+const reveals = ref(0);
+watch(payload, () => {
+  reveals.value = 0;
+});
+
+const scale = computed(() => GROWTH ** reveals.value);
+const maxValues = computed(() => MAX_VALUES * scale.value);
+const maxChars = computed(() => MAX_CHARS * scale.value);
+
 const decoded = computed<DecodedBlob | null>(() => {
   if (payload.value === null) return null;
-  return props.decode(payload.value, MAX_VALUES);
+  return props.decode(payload.value, maxValues.value);
 });
 
 const chips = computed(() =>
-  decoded.value === null ? [] : blobChips(decoded.value, MAX_CHARS),
+  decoded.value === null ? [] : blobChips(decoded.value, maxChars.value),
+);
+
+/** A named value's numbers, kept on a line of their own beneath the names. */
+const raw = computed(() =>
+  decoded.value === null ? null : blobRaw(decoded.value),
+);
+
+/** A text payload is one chip, and a failure one message, so only values fold into runs. */
+const groups = computed(() =>
+  ["text", "binary", "error"].includes(decoded.value?.kind ?? "")
+    ? chips.value.map((chip, from) => ({ chip, count: 1, from }))
+    : runs(chips.value),
 );
 
 const note = computed(() =>
-  decoded.value === null ? "" : blobNote(decoded.value, MAX_CHARS),
+  decoded.value === null ? "" : blobNote(decoded.value, maxChars.value),
 );
+
+/** What "show more" would add: the rest, or the next step of it, whichever is less. */
+const more = computed(() => {
+  const hidden =
+    decoded.value === null ? null : blobHidden(decoded.value, maxChars.value);
+  if (hidden === null || reveals.value >= MAX_REVEALS) return null;
+  const base = hidden.unit === "chars" ? MAX_CHARS : MAX_VALUES;
+  const step = base * scale.value * (GROWTH - 1);
+  return { count: Math.min(hidden.count, step), unit: hidden.unit };
+});
 
 /** The decoded section already counts them, and for an RLE stream it counts them right. */
 const countedBelow = computed(() =>
-  ["numbers", "bigints", "bools"].includes(decoded.value?.kind ?? ""),
+  ["numbers", "bigints", "bools", "enum"].includes(decoded.value?.kind ?? ""),
 );
 
 const span = computed(() => {
@@ -179,7 +217,32 @@ const anchors = computed(() =>
       <template v-if="decoded">
         <h3>decoded <small>{{ note }}</small></h3>
         <div class="values" :class="decoded.kind">
-          <i v-for="(chip, n) in chips" :key="n">{{ chip }}</i>
+          <i v-for="run in groups" :key="run.from"
+            >{{ run.chip
+            }}<b
+              v-if="run.count > 1"
+              :title="`${run.count} identical values in a row`"
+              >×{{ run.count }}</b
+            ></i
+          >
+        </div>
+        <div v-if="raw" class="values raw" title="as stored">
+          <i v-for="run in groups" :key="run.from"
+            >{{ raw[run.from]
+            }}<b
+              v-if="run.count > 1"
+              :title="`${run.count} identical values in a row`"
+              >×{{ run.count }}</b
+            ></i
+          >
+        </div>
+        <div v-if="more || reveals > 0" class="reveal">
+          <button v-if="more" type="button" @click="reveals++">
+            show {{ more.count }} more {{ more.unit }}
+          </button>
+          <button v-if="reveals > 0" type="button" @click="reveals = 0">
+            show fewer
+          </button>
         </div>
       </template>
 
@@ -292,9 +355,37 @@ dd.value {
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+.values.raw i {
+  color: var(--dim);
+}
+/* A count, not content: a color of its own keeps it from reading as a value. */
+.values b {
+  margin-left: 0.2em;
+  color: var(--bits);
+  font-weight: 600;
+}
+.values.raw b {
+  font-weight: 400;
+}
 .values.error i,
 .values.binary i {
   color: var(--warn);
+}
+.reveal {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.2rem;
+}
+.reveal button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-rule);
+  font: inherit;
+  cursor: pointer;
+}
+.reveal button:hover {
+  text-decoration: underline;
 }
 .idle {
   color: var(--dim);

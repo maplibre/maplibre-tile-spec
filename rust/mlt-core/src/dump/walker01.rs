@@ -213,8 +213,9 @@ impl<'a> Walker<'a> {
         if stream_count == 0 {
             return Err(MltError::GeometryWithoutStreams);
         }
+        let types = |_| DecodeHint::GeometryType;
         input = self
-            .walk_stream(input, ValueKind::Int, StreamLabel::Named("meta"), geom_hint)?
+            .walk_stream(input, ValueKind::Int, StreamLabel::Named("meta"), types)?
             .0;
         for j in 0..stream_count - 1 {
             input = self

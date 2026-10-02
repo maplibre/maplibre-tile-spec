@@ -1,0 +1,41 @@
+<svg class="mlt-diagram" viewBox="0 0 710 154" role="img" aria-label="The FSST corpus 00 01 00 FF 7A expands to abcdabz, which the lengths 4 and 3 split into abcd and abz" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="fsst" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="fsst-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<g transform="translate(0 -32)">
+<text class="row" x="0" y="54">corpus</text>
+<text class="row" x="0" y="134">bytes</text>
+<text class="row" x="0" y="174">lengths</text>
+<rect class="f0" x="130" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="154" y="54">00</text>
+<path class="link" d="M154 68C154 92 168 92 168 116" marker-end="url(#fsst)"/>
+<rect class="f1" x="182" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="206" y="54">01</text>
+<path class="link t1" d="M206 68C206 92 248 92 248 116" marker-end="url(#fsst-t1)"/>
+<rect class="f0" x="234" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="258" y="54">00</text>
+<path class="link" d="M258 68C258 92 328 92 328 116" marker-end="url(#fsst)"/>
+<rect class="plain" x="286" y="40" width="48" height="28" rx="3"/>
+<text class="cell bold" x="310" y="54">FF</text>
+<rect class="plain" x="338" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="362" y="54">7A</text>
+<path class="link" d="M362 68C362 92 388 92 388 116" marker-end="url(#fsst)"/>
+<text class="muted small" x="402" y="54">symbol 0 = ab, 1 = cd, FF = escape</text>
+<rect class="f0" x="130" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="148" y="134">a</text>
+<rect class="f0" x="170" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="188" y="134">b</text>
+<rect class="f1" x="210" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="228" y="134">c</text>
+<rect class="f1" x="250" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="268" y="134">d</text>
+<rect class="f0" x="290" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="308" y="134">a</text>
+<rect class="f0" x="330" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="348" y="134">b</text>
+<rect class="plain" x="370" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="388" y="134">z</text>
+<path class="bracket" d="M130 154V160H286V154"/>
+<text class="bold mid" x="208" y="174">4</text>
+<path class="bracket" d="M290 154V160H406V154"/>
+<text class="bold mid" x="348" y="174">3</text>
+</g>
+</svg>

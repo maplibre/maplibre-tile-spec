@@ -1,0 +1,67 @@
+<svg class="mlt-diagram" viewBox="0 0 710 132" role="img" aria-label="The values 5, 1, 7 and 0 bit packed at width 3 into the bytes CD and 01, with 7 crossing the byte boundary" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180.0" y="14">5</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="282.0" y="14">1</text>
+<path class="bracket t1" d="M232 34V28H332V34"/>
+<text class="bold mid t0" x="384.0" y="14">7</text>
+<path class="bracket t0" d="M334 34V28H434V34"/>
+<text class="bold mid t1" x="486.0" y="14">0</text>
+<path class="bracket t1" d="M436 34V28H536V34"/>
+<text class="muted small mid" x="605.0" y="14">padding</text>
+<path class="bracket" d="M538 34V28H672V34"/>
+<text class="row" x="0" y="54">bits</text>
+<rect class="f0" x="130" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="146.0" y="54">1</text>
+<rect class="f0" x="164" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="180.0" y="54">0</text>
+<rect class="f0" x="198" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="214.0" y="54">1</text>
+<rect class="f1" x="232" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="248.0" y="54">1</text>
+<rect class="f1" x="266" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="282.0" y="54">0</text>
+<rect class="f1" x="300" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="316.0" y="54">0</text>
+<rect class="f0" x="334" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="350.0" y="54">1</text>
+<rect class="f0" x="368" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="384.0" y="54">1</text>
+<rect class="f0" x="402" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="418.0" y="54">1</text>
+<rect class="f1" x="436" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="452.0" y="54">0</text>
+<rect class="f1" x="470" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="486.0" y="54">0</text>
+<rect class="f1" x="504" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="520.0" y="54">0</text>
+<rect class="plain" x="538" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="554.0" y="54">0</text>
+<rect class="plain" x="572" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="588.0" y="54">0</text>
+<rect class="plain" x="606" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="622.0" y="54">0</text>
+<rect class="plain" x="640" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="656.0" y="54">0</text>
+<text class="muted small" x="0" y="82">bit index</text>
+<text class="muted small mid" x="146.0" y="82">0</text>
+<text class="muted small mid" x="180.0" y="82">1</text>
+<text class="muted small mid" x="214.0" y="82">2</text>
+<text class="muted small mid" x="248.0" y="82">3</text>
+<text class="muted small mid" x="282.0" y="82">4</text>
+<text class="muted small mid" x="316.0" y="82">5</text>
+<text class="muted small mid" x="350.0" y="82">6</text>
+<text class="muted small mid" x="384.0" y="82">7</text>
+<text class="muted small mid" x="418.0" y="82">8</text>
+<text class="muted small mid" x="452.0" y="82">9</text>
+<text class="muted small mid" x="486.0" y="82">10</text>
+<text class="muted small mid" x="520.0" y="82">11</text>
+<text class="muted small mid" x="554.0" y="82">12</text>
+<text class="muted small mid" x="588.0" y="82">13</text>
+<text class="muted small mid" x="622.0" y="82">14</text>
+<text class="muted small mid" x="656.0" y="82">15</text>
+<text class="row" x="0" y="110">bytes</text>
+<rect class="plain" x="130" y="96" width="270" height="28" rx="3"/>
+<text class="cell" x="265.0" y="110">CD</text>
+<rect class="plain" x="402" y="96" width="270" height="28" rx="3"/>
+<text class="cell" x="537.0" y="110">01</text>
+</svg>

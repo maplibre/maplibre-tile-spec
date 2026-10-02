@@ -35,6 +35,8 @@ pub enum DecodeHint {
     I32,
     /// Unsigned 32-bit integers (`u8`/`u32` columns, offsets, lengths).
     U32,
+    /// The geometry types stream: `u32`s that each name a [`GeometryType`](crate::GeometryType).
+    GeometryType,
     /// Signed 64-bit integers (`i64` columns).
     I64,
     /// Framed, Exception-Free ALP offsets, put back on their frame of reference.

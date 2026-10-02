@@ -1,0 +1,31 @@
+<svg class="mlt-diagram" viewBox="0 0 710 148" role="img" aria-label="Types Point, MultiPolygon, Polygon: only the MultiPolygon stores a geometries length, 3; the others are an implicit 1, giving offsets 0, 1, 4, 5" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">types</text>
+<text class="row" x="0" y="94">geometries</text>
+<text class="row" x="0" y="134">offsets</text>
+<text class="bold mid t0" x="180" y="14">Point</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">0</text>
+<rect class="implicit" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="180" y="94">1</text>
+<text class="bold mid t1" x="392" y="14">MultiPolygon</text>
+<path class="bracket t1" d="M236 34V28H548V34"/>
+<rect class="f1" x="236" y="40" width="312" height="28" rx="3"/>
+<text class="cell" x="392" y="54">5</text>
+<rect class="f1" x="236" y="80" width="312" height="28" rx="3"/>
+<text class="cell" x="392" y="94">3</text>
+<text class="bold mid t0" x="604" y="14">Polygon</text>
+<path class="bracket t0" d="M554 34V28H654V34"/>
+<rect class="f0" x="554" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="604" y="54">2</text>
+<rect class="implicit" x="554" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="604" y="94">1</text>
+<path class="link" d="M130 112V122"/>
+<text class="muted mid" x="130" y="134">0</text>
+<path class="link" d="M233 112V122"/>
+<text class="muted mid" x="233" y="134">1</text>
+<path class="link" d="M551 112V122"/>
+<text class="muted mid" x="551" y="134">4</text>
+<path class="link" d="M654 112V122"/>
+<text class="muted mid" x="654" y="134">5</text>
+</svg>
