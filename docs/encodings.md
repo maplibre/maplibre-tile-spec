@@ -1,3 +1,7 @@
+---
+description: Payload of every encoding a stream can name
+---
+
 <h1>Encoding Definitions</h1>
 
 ---
