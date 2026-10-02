@@ -40,11 +40,11 @@
     "@typescript/native": "npm:typescript@^7.0.2",
     "@vitest/coverage-v8": "^5.0.2",
     "bytebuffer": "^5.0.1",
-    "earcut": "^3.2.3",
+    "earcut": "^3.2.4",
     "eslint": "^10.11.0",
     "pbf": "^5.1.2",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "^8.70.1",
+    "typescript-eslint": "^8.71.0",
     "vitest": "^5.0.0"
   },
   "dependencies": {
