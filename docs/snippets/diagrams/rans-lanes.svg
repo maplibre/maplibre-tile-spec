@@ -1,0 +1,55 @@
+<svg class="mlt-diagram" viewBox="0 0 710 282" role="img" aria-label="The vertices (100, 200), (105, 210), (102, 215): even vertices code dx and dy on lanes 0 and 1, the odd vertex on lanes 2 and 3, and every delta's raw bits go to one shared stream in vertex order" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="110">lane 0</text>
+<text class="row" x="0" y="144">lane 1</text>
+<text class="row" x="0" y="178">lane 2</text>
+<text class="row" x="0" y="212">lane 3</text>
+<text class="row" x="0" y="54">deltas</text>
+<text class="row" x="0" y="260">raw bits</text>
+<text class="bold mid t0" x="195" y="14">vertex 0</text>
+<path class="bracket t0" d="M130 34V28H260V34"/>
+<rect class="f0" x="130" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="162" y="54">dx 100</text>
+<path class="link" d="M162 68V96"/>
+<rect class="f0" x="130" y="96" width="64" height="28" rx="3"/>
+<text class="cell" x="162" y="110">29</text>
+<rect class="f0" x="130" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="162" y="260">00100</text>
+<rect class="f0" x="196" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="228" y="54">dy 200</text>
+<path class="link" d="M228 68V130"/>
+<rect class="f0" x="196" y="130" width="64" height="28" rx="3"/>
+<text class="cell" x="228" y="144">33</text>
+<rect class="f0" x="196" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="228" y="260">001000</text>
+<text class="bold mid t1" x="343" y="14">vertex 1</text>
+<path class="bracket t1" d="M278 34V28H408V34"/>
+<rect class="f1" x="278" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="310" y="54">dx 5</text>
+<path class="link" d="M310 68V164"/>
+<rect class="f1" x="278" y="164" width="64" height="28" rx="3"/>
+<text class="cell" x="310" y="178">11</text>
+<rect class="f1" x="278" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="310" y="260">1</text>
+<rect class="f1" x="344" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="376" y="54">dy 10</text>
+<path class="link" d="M376 68V198"/>
+<rect class="f1" x="344" y="198" width="64" height="28" rx="3"/>
+<text class="cell" x="376" y="212">15</text>
+<rect class="f1" x="344" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="376" y="260">10</text>
+<text class="bold mid t0" x="491" y="14">vertex 2</text>
+<path class="bracket t0" d="M426 34V28H556V34"/>
+<rect class="f0" x="426" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="458" y="54">dx −3</text>
+<path class="link" d="M458 68V96"/>
+<rect class="f0" x="426" y="96" width="64" height="28" rx="3"/>
+<text class="cell" x="458" y="110">10</text>
+<rect class="implicit" x="426" y="246" width="64" height="28" rx="3"/>
+<rect class="f0" x="492" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="524" y="54">dy 5</text>
+<path class="link" d="M524 68V130"/>
+<rect class="f0" x="492" y="130" width="64" height="28" rx="3"/>
+<text class="cell" x="524" y="144">11</text>
+<rect class="f0" x="492" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="524" y="260">1</text>
+</svg>

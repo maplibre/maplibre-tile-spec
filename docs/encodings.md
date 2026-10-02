@@ -645,7 +645,6 @@ words:    [0, 0, 140, 2, 0, 2, 0, 2]
 ### rANS <span class="experimental"></span> {#rans}
 
 We can entropy-code the [componentwise deltas](#componentwise-delta) of a plain layout's vertex stream.
-v2 numbers it `5` in the `Vertex` family, and its physical field is reserved as `0`.
 A `VertexDict` stream MUST NOT use it.
 
 Each delta is split in two:
@@ -663,7 +662,7 @@ To decode, a decoder:
 3. per vertex, decodes the `dx` symbol, then the `dy` symbol in a context that depends on `dx`, then reads both deltas' raw bits,
 4. prefix-sums the deltas into coordinates, as for componentwise delta.
 
-#### How rANS en/deodes a symbol
+#### How rANS decodes a symbol
 
 A table of precision `p` divides `2^p` slots among its symbols.
 Symbol `s` owns `freq(s)` consecutive slots, starting at `cum(s)`, the sum of the frequencies of the symbols below it.
@@ -680,6 +679,12 @@ s    = the symbol whose slots hold slot
 x    = freq(s) * (x >> p) + slot - cum(s)
 if x < 2^16: x = (x << 16) | next refill word of the lane
 ```
+
+A table of precision `3`, decoding the state `0x10005`:
+
+--8<-- "diagrams/rans-slots.svg"
+
+The state becomes `2 * 8192 + 5 - 4 = 16385`, two bits smaller, and is below `2^16`, so the next word is shifted in.
 
 A table of precision `0` has one slot and one symbol.
 Decoding from it leaves `x` unchanged and costs no bits.
@@ -711,16 +716,22 @@ This is the same split a float makes into exponent, mantissa and dropped precisi
 
 At depth `1`:
 
-| Delta | Binary | `len` | Kept bit | Raw bits | Symbol |
-|---:|---:|---:|---:|---:|---:|
-| `0` | | | | | `0` |
-| `1` | `1` | `1` | | | `3` |
-| `-1` | `1` | `1` | | | `4` |
-| `2` | `10` | `2` | `0` | | `7` |
-| `3` | `11` | `2` | `1` | | `9` |
-| `-3` | `11` | `2` | `1` | | `10` |
-| `5` | `101` | `3` | `0` | `1` | `11` |
-| `100` | `1100100` | `7` | `1` | `00100` | `29` |
+=== "Bits"
+
+    --8<-- "diagrams/rans-symbol.svg"
+
+=== "Values"
+
+    | Delta | Binary | `len` | Kept bit | Raw bits | Symbol |
+    |---:|---:|---:|---:|---:|---:|
+    | `0` | | | | | `0` |
+    | `1` | `1` | `1` | | | `3` |
+    | `-1` | `1` | `1` | | | `4` |
+    | `2` | `10` | `2` | `0` | | `7` |
+    | `3` | `11` | `2` | `1` | | `9` |
+    | `-3` | `11` | `2` | `1` | | `10` |
+    | `5` | `101` | `3` | `0` | `1` | `11` |
+    | `100` | `1100100` | `7` | `1` | `00100` | `29` |
 
 Positive deltas get odd symbols and negative ones the even symbol above.
 A magnitude with fewer than `d` bits after its leading one makes the unused mantissa positions `0`.
@@ -766,6 +777,10 @@ There are 14 contexts, each with its own table:
 
 `dx` and `dy` of a vertex tend to be of similar size, so the `dy` table is picked by how large `dx` was.
 
+A polygon with a hole:
+
+--8<-- "diagrams/rans-runs.svg"
+
 #### Payload
 
 ```
@@ -804,6 +819,10 @@ A lane is its state's initial value as a little-endian `u32`, then the little-en
 Its length MUST be even and at least `4`.
 
 The raw bits are one stream shared by all lanes, read in vertex order: `dx`'s raw bits, then `dy`'s.
+
+The symbols and raw bits of the example below:
+
+--8<-- "diagrams/rans-lanes.svg"
 
 ```
 x_prev = y_prev = 0
