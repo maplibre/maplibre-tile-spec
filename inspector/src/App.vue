@@ -124,9 +124,13 @@ function current(at: number): boolean {
   return at === moves;
 }
 
+/** What the home screen is waiting on, so it can say so rather than look idle. */
+const loading = ref<string | null>(null);
+
 /** Drops the tile so the empty state takes over, which is the app's home screen. */
 function goHome() {
   move();
+  loading.value = null;
   tile.value?.free();
   tile.value = null;
   decoded.value = null;
@@ -141,11 +145,14 @@ function goHome() {
 /** Fetches `key` and shows it, as the move `at`, which a later move cancels. */
 async function open(key: string, at: number) {
   failure.value = null;
+  loading.value = key;
   try {
     const raw = await loadFixture(key);
     if (current(at)) load(raw, { fixture: key });
   } catch (cause) {
     if (current(at)) failure.value = String(cause);
+  } finally {
+    if (current(at)) loading.value = null;
   }
 }
 
@@ -156,11 +163,14 @@ function pickFixture(key: string): Promise<void> {
 /** The same, for a tile named by its address rather than by an index key. */
 async function fetchTile(address: string, at: number) {
   failure.value = null;
+  loading.value = address;
   try {
     const raw = await loadTile(address);
     if (current(at)) load(raw, { href: address });
   } catch (cause) {
     if (current(at)) failure.value = fetchFailure(address, cause);
+  } finally {
+    if (current(at)) loading.value = null;
   }
 }
 
@@ -189,6 +199,8 @@ async function pickFile(file: File) {
 /** The root fills the viewport, so a tile can be dropped anywhere, including onto the hex map. */
 const { isOverDropZone: dragging } = useDropZone(root, {
   onDrop: (files) => {
+    // `inert` stops clicks, but a drop is not one, and it would race the load in flight.
+    if (loading.value !== null) return;
     const file = files?.[0];
     if (file) void pickFile(file);
   },
@@ -237,6 +249,8 @@ async function restore(target: DeepLink) {
 
 onMounted(async () => {
   const initial = readDeepLink(location.search);
+  // The index is fetched first, so the screen would sit idle through that wait as well.
+  loading.value = tileOf(initial);
   try {
     index.value = await loadFixtureIndex();
   } catch (cause) {
@@ -245,6 +259,7 @@ onMounted(async () => {
   // Not `restore`: with no tile to open there is nothing to go home from, and the reset
   // would take an index failure off the screen with it.
   if (tileOf(initial) !== null) await restore(initial);
+  loading.value = null;
   booted.value = true;
 });
 
@@ -340,7 +355,13 @@ watch(
 </script>
 
 <template>
-  <div ref="root" class="app" :class="{ dragging }">
+  <div
+    ref="root"
+    class="app"
+    :class="{ dragging }"
+    :inert="loading !== null || undefined"
+    :aria-busy="loading !== null"
+  >
     <header v-if="tree" :class="{ corner: framed || embedded }">
       <button
         type="button"
@@ -374,6 +395,10 @@ watch(
       </a>
     </header>
     <p v-if="failure" class="failure" role="alert">{{ failure }}</p>
+    <p v-if="loading !== null && tree" class="loading over" role="status">
+      <span class="spinner" aria-hidden="true"></span>
+      Loading {{ loading }}
+    </p>
     <HexdumpView
       v-if="tree"
       v-model:view="view"
@@ -397,7 +422,12 @@ watch(
         {{ corner.glyph }}
       </a>
       <h1>MapLibre Tile Analyzer</h1>
+      <p v-if="loading !== null" class="loading" role="status">
+        <span class="spinner" aria-hidden="true"></span>
+        Loading {{ loading }}
+      </p>
       <SourcePicker
+        v-else
         hero
         v-model:filters="filters"
         v-model:query="query"
@@ -588,5 +618,45 @@ header .popout {
 .empty h1 {
   font: 600 1.5rem / 1.2 var(--font);
   margin: 0;
+}
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  color: var(--muted);
+  font: 0.85rem var(--mono);
+  overflow-wrap: anywhere;
+}
+/* Over a tile that is already open, which the load in flight is about to replace. */
+.loading.over {
+  position: fixed;
+  top: var(--pad);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.spinner {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent-rule);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
 }
 </style>

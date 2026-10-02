@@ -54,6 +54,7 @@ export type DecodeHint =
   | { kind: "bool" }
   | { kind: "i32" }
   | { kind: "u32" }
+  | { kind: "geometryType" }
   | { kind: "i64" }
   | { kind: "u64" }
   | { kind: "f32" }
@@ -66,6 +67,13 @@ export type DecodedBlob =
   | { kind: "numbers"; values: number[]; truncatedFrom: number | null }
   | { kind: "bigints"; values: bigint[]; truncatedFrom: number | null }
   | { kind: "bools"; values: boolean[]; truncatedFrom: number | null }
+  | {
+      kind: "enum";
+      values: number[];
+      /** What each value stands for, one per value. */
+      names: string[];
+      truncatedFrom: number | null;
+    }
   | { kind: "text"; value: string }
   | { kind: "binary"; len: number }
   | { kind: "error"; message: string };

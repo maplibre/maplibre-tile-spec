@@ -153,7 +153,7 @@ impl<'a> Walker<'a> {
                 StreamCtx02::GeomTypes,
                 count,
                 "types",
-                DecodeHint::U32,
+                DecodeHint::GeometryType,
             )?;
         }
 

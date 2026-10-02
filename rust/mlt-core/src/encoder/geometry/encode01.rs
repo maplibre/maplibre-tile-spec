@@ -10,9 +10,9 @@ use super::streams::{
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
-    ColumnType, GeometryType, GeometryValues, LengthType, OffsetType, StreamType,
+    ColumnType, GeometryType, GeometryValues, LengthType, Levels, OffsetType, StreamType,
+    decode_topology,
 };
-use crate::decoder::{Levels, decode_topology};
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
 use crate::{Decoder, MltResult};
