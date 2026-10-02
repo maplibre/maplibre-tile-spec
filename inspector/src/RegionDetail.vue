@@ -125,7 +125,9 @@ const more = computed(() => {
 
 /** The decoded section already counts them, and for an RLE stream it counts them right. */
 const countedBelow = computed(() =>
-  ["numbers", "bigints", "bools", "enum"].includes(decoded.value?.kind ?? ""),
+  ["numbers", "bigints", "bools", "enum", "strings"].includes(
+    decoded.value?.kind ?? "",
+  ),
 );
 
 const span = computed(() => {
@@ -238,7 +240,8 @@ const anchors = computed(() =>
         </div>
         <div v-if="more || reveals > 0" class="reveal">
           <button v-if="more" type="button" @click="reveals++">
-            show {{ more.count }} more {{ more.unit }}
+            show {{ more.count }} more
+            {{ more.count === 1 ? more.unit.slice(0, -1) : more.unit }}
           </button>
           <button v-if="reveals > 0" type="button" @click="reveals = 0">
             show fewer

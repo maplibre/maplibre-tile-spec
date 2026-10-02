@@ -1,12 +1,14 @@
 //! Typed decode of a single data blob, for callers that render the values themselves.
 
+use std::borrow::Cow;
+
 use serde::Serialize;
-#[cfg(feature = "unstable-v2")]
 use usize_cast::IntoUsize as _;
 
-use super::model::{BlobInfo, DecodeHint};
-use crate::decoder::RawStream;
-use crate::{Decoder, GeometryType, MltResult};
+use super::model::{BlobInfo, DecodeHint, DumpTree, Region};
+use crate::codecs::fsst::decode_fsst_bytes;
+use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
+use crate::{Decoder, GeometryType, MltError, MltResult};
 
 /// One data blob decoded for display, capped at the caller's value count.
 ///
@@ -38,7 +40,12 @@ pub enum DecodedBlob {
     /// Values that name something: each `names` entry is what the `values` entry stands for.
     Enum {
         values: Vec<u32>,
-        names: Vec<String>,
+        names: Vec<Cow<'static, str>>,
+        truncated_from: Option<u32>,
+    },
+    /// The strings an FSST corpus stands for, which its own bytes do not say.
+    Strings {
+        values: Vec<String>,
         truncated_from: Option<u32>,
     },
     /// A byte payload that is valid UTF-8.
@@ -140,6 +147,119 @@ pub fn decode_blob(
     }
 }
 
+/// As [`decode_blob`] for the payload at `index` of `tree`, which may need the streams beside it.
+///
+/// An FSST corpus is only codes into the symbol table next to it, so it decodes to the strings
+/// those codes expand to. Any other payload decodes exactly as [`decode_blob`] does.
+pub fn decode_region(
+    tree: &DumpTree,
+    buf: &[u8],
+    index: usize,
+    max_values: usize,
+    dec: &mut Decoder,
+) -> DecodedBlob {
+    let Some(region) = tree.regions.get(index) else {
+        return DecodedBlob::Error {
+            message: format!("the tree has no region {index}"),
+        };
+    };
+    let Some(info) = region.blob else {
+        return DecodedBlob::Error {
+            message: format!("region {index} carries no stream metadata"),
+        };
+    };
+    if let Some(streams) = fsst_streams(&tree.regions, index) {
+        dec.reset_budget();
+        return fsst_strings(streams, buf, max_values, dec).unwrap_or_else(|e| error(&e));
+    }
+    match buf.get(region.offset..region.offset + region.len) {
+        Some(bytes) => decode_blob(info, bytes, max_values, dec),
+        None => DecodedBlob::Error {
+            message: format!("region {index} lies outside the tile buffer"),
+        },
+    }
+}
+
+/// The four streams an FSST corpus is read against, in the order `RawFsstData::new` takes them.
+///
+/// They are the streams of the corpus's own column, so a second of any kind there would make
+/// a pick a guess, and the corpus is then left to decode as bytes.
+fn fsst_streams(regions: &[Region], at: usize) -> Option<[&Region; 4]> {
+    let corpus = &regions[at];
+    if !matches!(
+        corpus.blob?.meta.stream_type,
+        StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
+    ) {
+        return None;
+    }
+    let parent = |of: usize| {
+        regions[..of]
+            .iter()
+            .rposition(|r| r.depth < regions[of].depth)
+    };
+    // The corpus sits in its stream, which sits in the column.
+    let column = parent(parent(at)?)?;
+    let depth = regions[column].depth;
+    let after = &regions[column + 1..];
+    let column_streams = &after[..after
+        .iter()
+        .position(|r| r.depth <= depth)
+        .unwrap_or(after.len())];
+    let only = |want: StreamType| {
+        let mut hits = column_streams
+            .iter()
+            .filter(|r| r.blob.is_some_and(|b| b.meta.stream_type == want));
+        let first = hits.next()?;
+        hits.next().is_none().then_some(first)
+    };
+    Some([
+        only(StreamType::Length(LengthType::Symbol))?,
+        only(StreamType::Data(DictionaryType::Fsst))?,
+        only(StreamType::Length(LengthType::Dictionary))?,
+        corpus,
+    ])
+}
+
+fn fsst_strings(
+    [symbol_lengths, symbol_table, lengths, corpus]: [&Region; 4],
+    buf: &[u8],
+    max_values: usize,
+    dec: &mut Decoder,
+) -> MltResult<DecodedBlob> {
+    let stream = |r: &Region| -> MltResult<RawStream<'_>> {
+        let meta = r
+            .blob
+            .ok_or(MltError::MalformedFsst("a stream without metadata"))?
+            .meta;
+        let bytes = buf
+            .get(r.offset..r.offset + r.len)
+            .ok_or(MltError::MalformedFsst("a stream outside the tile"))?;
+        Ok(RawStream::new(meta, bytes))
+    };
+    let raw = RawFsstData::new(
+        stream(symbol_lengths)?,
+        stream(symbol_table)?,
+        stream(lengths)?,
+        stream(corpus)?,
+    )?;
+    let (bytes, lengths) = decode_fsst_bytes(raw, dec)?;
+    let (kept, truncated_from) = cap(lengths, max_values);
+
+    let mut rest = bytes.as_slice();
+    let mut values = Vec::with_capacity(kept.len());
+    for len in kept {
+        let (string, tail) = rest
+            .split_at_checked(len.into_usize())
+            .ok_or(MltError::MalformedFsst("string lengths overrun the corpus"))?;
+        values.push(String::from_utf8_lossy(string).into_owned());
+        rest = tail;
+    }
+    Ok(DecodedBlob::Strings {
+        values,
+        truncated_from,
+    })
+}
+
 fn numbers<T: Into<f64>>(res: MltResult<Vec<T>>, max_values: usize) -> DecodedBlob {
     match res {
         Ok(v) => {
@@ -163,7 +283,10 @@ fn geometry_types(res: MltResult<Vec<u32>>, max_values: usize) -> DecodedBlob {
                     u8::try_from(v)
                         .ok()
                         .and_then(|b| GeometryType::try_from(b).ok())
-                        .map_or_else(|| format!("unknown({v})"), |t| t.to_string())
+                        .map_or_else(
+                            || format!("unknown({v})").into(),
+                            |t| <&str>::from(t).into(),
+                        )
                 })
                 .collect();
             DecodedBlob::Enum {
@@ -197,7 +320,7 @@ fn bools(v: Vec<bool>, max_values: usize) -> DecodedBlob {
     }
 }
 
-fn error(e: &crate::MltError) -> DecodedBlob {
+fn error(e: &MltError) -> DecodedBlob {
     DecodedBlob::Error {
         message: e.to_string(),
     }

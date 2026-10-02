@@ -3,7 +3,9 @@
 use std::fs;
 
 use mlt_core::Decoder;
-use mlt_core::dump::{DecodeHint, DecodedBlob, DumpTree, Region, annotate_tile, decode_blob};
+use mlt_core::dump::{
+    DecodeHint, DecodedBlob, DumpTree, Region, annotate_tile, decode_blob, decode_region,
+};
 
 const ID: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -34,6 +36,17 @@ const MIX_PT_POLY: &str = concat!(
 const Z_MIX: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../test/synthetic/0x02/z_mix.mlt"
+);
+
+const FSST_V1: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../test/synthetic/0x01/props_shared_dict_fsst.mlt"
+);
+
+#[cfg(feature = "unstable-v2")]
+const FSST_V2: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../test/synthetic/0x02/props_str_fsst.mlt"
 );
 
 #[test]
@@ -118,6 +131,21 @@ fn max_values_caps_names_and_numbers_alike() {
 }
 
 #[test]
+fn a_known_geometry_type_borrows_its_name_rather_than_allocating_one() {
+    let (tree, buf) = annotate(MIX_PT_POLY);
+    let region = first_hint(&tree, |h| matches!(h, DecodeHint::GeometryType));
+
+    let DecodedBlob::Enum { names, .. } = decode(region, &buf, 0) else {
+        panic!("an enum payload");
+    };
+    assert!(
+        names
+            .iter()
+            .all(|n| matches!(n, std::borrow::Cow::Borrowed(_)))
+    );
+}
+
+#[test]
 fn a_geometry_type_no_geometry_has_is_named_unknown() {
     let (tree, _) = annotate(MIX_PT_POLY);
     let region = first_hint(&tree, |h| matches!(h, DecodeHint::GeometryType));
@@ -128,6 +156,77 @@ fn a_geometry_type_no_geometry_has_is_named_unknown() {
         json(&decode_blob(blob, &[0, 7], 0, &mut Decoder::default())),
         @r#"{"kind":"enum","values":[0,7],"names":["Point","unknown(7)"],"truncatedFrom":null}"#
     );
+}
+
+/// The corpus is the only payload there that is `Data(Single)` or `Data(Shared)`.
+fn corpus_index(tree: &DumpTree) -> usize {
+    tree.regions
+        .iter()
+        .position(|r| {
+            r.blob
+                .is_some_and(|b| b.meta.stream_type.to_string().starts_with("data[s"))
+        })
+        .expect("a corpus")
+}
+
+fn decode_at(tree: &DumpTree, buf: &[u8], index: usize, max_values: usize) -> DecodedBlob {
+    decode_region(tree, buf, index, max_values, &mut Decoder::default())
+}
+
+#[cfg(feature = "unstable-v2")]
+#[test]
+fn a_v2_fsst_corpus_decodes_to_the_strings_it_stands_for() {
+    let (tree, buf) = annotate(FSST_V2);
+    insta::assert_snapshot!(
+        json(&decode_at(&tree, &buf, corpus_index(&tree), 0)),
+        @r#"{"kind":"strings","values":["residential_zone_north_sector_1","commercial_zone_south_sector_2","industrial_zone_east_sector_3","park_zone_west_sector_4","water_zone_north_sector_5","residential_zone_south_sector_6"],"truncatedFrom":null}"#
+    );
+}
+
+#[test]
+fn a_v1_fsst_corpus_decodes_to_the_strings_it_stands_for() {
+    let (tree, buf) = annotate(FSST_V1);
+    insta::assert_snapshot!(
+        json(&decode_at(&tree, &buf, corpus_index(&tree), 0)),
+        @r#"{"kind":"strings","values":["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"],"truncatedFrom":null}"#
+    );
+}
+
+#[cfg(feature = "unstable-v2")]
+#[test]
+fn max_values_caps_the_strings_and_reports_the_full_count() {
+    let (tree, buf) = annotate(FSST_V2);
+    insta::assert_snapshot!(
+        json(&decode_at(&tree, &buf, corpus_index(&tree), 2)),
+        @r#"{"kind":"strings","values":["residential_zone_north_sector_1","commercial_zone_south_sector_2"],"truncatedFrom":6}"#
+    );
+}
+
+#[test]
+fn a_payload_that_is_not_a_corpus_decodes_as_decode_blob_does() {
+    let (tree, buf) = annotate(POLY_HOLE);
+    let at = tree
+        .regions
+        .iter()
+        .position(|r| r.blob.is_some_and(|b| matches!(b.hint, DecodeHint::I32)))
+        .expect("a vertex stream");
+    assert_eq!(
+        json(&decode_at(&tree, &buf, at, 3)),
+        json(&decode(&tree.regions[at], &buf, 3))
+    );
+}
+
+#[test]
+fn a_region_that_is_not_a_payload_is_an_error_not_a_panic() {
+    let (tree, buf) = annotate(POLY_HOLE);
+    let DecodedBlob::Error { message } = decode_at(&tree, &buf, 0, 0) else {
+        panic!("an error");
+    };
+    assert!(message.contains("no stream metadata"), "{message}");
+    let DecodedBlob::Error { message } = decode_at(&tree, &buf, usize::MAX, 0) else {
+        panic!("an error");
+    };
+    assert!(message.contains("no region"), "{message}");
 }
 
 #[test]

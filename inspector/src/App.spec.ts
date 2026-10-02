@@ -470,12 +470,67 @@ describe("the home screen while a tile loads", () => {
     history.replaceState(null, "", "/?fixture=0x01/point.mlt");
     const app = mount(App, { attachTo: document.body });
     await flushPromises();
-    expect(app.get(".app").attributes("inert")).toBeDefined();
-    expect(app.get(".app").attributes("aria-busy")).toBe("true");
+    expect(app.get(".popout, .empty").element.closest("[inert]")).toBeNull();
+    expect(app.find(".empty .popout").exists()).toBe(false);
 
     release();
     await flushPromises();
-    expect(app.get(".app").attributes("inert")).toBeUndefined();
+    expect(app.find("[inert]").exists()).toBe(false);
+    app.unmount();
+  });
+
+  /** `inert` takes a subtree out of the accessibility tree, and a screen reader needs the status. */
+  it("keeps the status where a screen reader can reach it", async () => {
+    serve();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App, { attachTo: document.body });
+    await flushPromises();
+    const release = held();
+    void app.getComponent(SourcePicker).vm.$emit("fixture", "0x02/line.mlt");
+    await nextTick();
+    const status = app.get("[role=status]").element;
+    expect(status.closest("[inert]")).toBeNull();
+    expect(app.get("header").attributes("inert")).toBeDefined();
+    expect(app.find("[aria-busy]").exists()).toBe(false);
+    release();
+    await flushPromises();
+    app.unmount();
+  });
+
+  /** The index is still in flight, so a tile the reader asks for meanwhile is a newer load. */
+  it("stays busy for a tile asked for while the index loads", async () => {
+    let indexed = () => {};
+    let tile = () => {};
+    const indexGate = new Promise<void>((r) => {
+      indexed = r;
+    });
+    const tileGate = new Promise<void>((r) => {
+      tile = r;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "fixtures.json") {
+          await indexGate;
+          return Response.json(index);
+        }
+        await tileGate;
+        return new Response(new Uint8Array(8));
+      }),
+    );
+    const app = mount(App);
+    await flushPromises();
+    void app.getComponent(SourcePicker).vm.$emit("fixture", "0x01/point.mlt");
+    await nextTick();
+    expect(app.find("[role=status]").exists()).toBe(true);
+
+    indexed();
+    await flushPromises();
+    expect(app.find("[role=status]").exists()).toBe(true);
+
+    tile();
+    await flushPromises();
+    expect(app.find("[role=status]").exists()).toBe(false);
     app.unmount();
   });
 
@@ -488,7 +543,7 @@ describe("the home screen while a tile loads", () => {
     void app.getComponent(SourcePicker).vm.$emit("fixture", "0x02/line.mlt");
     await nextTick();
     expect(app.get("[role=status]").text()).toBe("Loading 0x02/line.mlt");
-    expect(app.get(".app").attributes("inert")).toBeDefined();
+    expect(app.get("header").attributes("inert")).toBeDefined();
     release();
     await flushPromises();
     expect(app.find("[role=status]").exists()).toBe(false);
