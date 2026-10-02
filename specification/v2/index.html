@@ -984,6 +984,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../implementation-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Implementation Guide
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1389,6 +1416,77 @@ MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> 
 <code>Indices</code> also carries the present count directly, where the other two are counted by the reader.</p>
 <p>A bitmap costs <code>ceil(N / 8)</code> bytes whatever it holds, so it is the smallest form only while <code>N</code> is small or the present values are scattered.
 A column present over one run of features, or on a handful of them, carries far less than that, and the other two codings charge for what it carries rather than for <code>N</code>.</p>
+<p>Six present values among <code>N = 32</code>, at <code>10</code> to <code>15</code>:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 184" role="img" aria-label="Six present values among 32 stored as a bitmap in 4 bytes, as runs in 3 and as indices in 7" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small mid" x="138.0" y="12">0</text>
+<text class="muted small mid" x="318.0" y="12">10</text>
+<text class="muted small mid" x="426.0" y="12">16</text>
+<text class="muted small mid" x="696.0" y="12">31</text>
+<text class="row" x="0" y="38">present</text>
+<rect class="plain" x="130" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="148" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="166" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="184" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="202" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="220" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="238" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="256" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="274" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="292" y="24" width="16" height="28" rx="3"/>
+<rect class="f1" x="310" y="24" width="16" height="28" rx="3"/>
+<rect class="f1" x="328" y="24" width="16" height="28" rx="3"/>
+<rect class="f1" x="346" y="24" width="16" height="28" rx="3"/>
+<rect class="f1" x="364" y="24" width="16" height="28" rx="3"/>
+<rect class="f1" x="382" y="24" width="16" height="28" rx="3"/>
+<rect class="f1" x="400" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="418" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="436" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="454" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="472" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="490" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="508" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="526" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="544" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="562" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="580" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="598" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="616" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="634" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="652" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="670" y="24" width="16" height="28" rx="3"/>
+<rect class="plain" x="688" y="24" width="16" height="28" rx="3"/>
+<text class="row" x="0" y="82">Bitmap<tspan class="muted"> · 4 B</tspan></text>
+<rect class="plain" x="130" y="68" width="142" height="28" rx="3"/>
+<text class="cell" x="201.0" y="82">00</text>
+<rect class="plain" x="274" y="68" width="142" height="28" rx="3"/>
+<text class="cell" x="345.0" y="82">FC</text>
+<rect class="plain" x="418" y="68" width="142" height="28" rx="3"/>
+<text class="cell" x="489.0" y="82">00</text>
+<rect class="plain" x="562" y="68" width="142" height="28" rx="3"/>
+<text class="cell" x="633.0" y="82">00</text>
+<text class="row" x="0" y="122">Runs<tspan class="t1"> · 3 B</tspan></text>
+<rect class="plain" x="130" y="108" width="178" height="28" rx="3"/>
+<text class="cell" x="219.0" y="122">0A</text>
+<rect class="f1" x="310" y="108" width="106" height="28" rx="3"/>
+<text class="cell" x="363.0" y="122">06</text>
+<rect class="plain" x="418" y="108" width="286" height="28" rx="3"/>
+<text class="cell" x="561.0" y="122">10</text>
+<text class="row" x="0" y="162">Indices<tspan class="muted"> · 7 B</tspan></text>
+<rect class="plain" x="130" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="162">06</text>
+<rect class="f1" x="178" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="162">0A</text>
+<rect class="f1" x="226" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="162">00</text>
+<rect class="f1" x="274" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="162">00</text>
+<rect class="f1" x="322" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="162">00</text>
+<rect class="f1" x="370" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="392" y="162">00</text>
+<rect class="f1" x="418" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="440" y="162">00</text>
+</svg></p>
 <p>Encoders MUST write whichever of the three stores the field smallest, breaking a tie toward the lowest code.
 Decoders MUST reject run lengths that do not sum to <code>N</code>, a <code>K</code> greater than <code>N</code>, and indices that do not strictly increase or that reach <code>N</code>.</p>
 <h3 id="shared-presence-fields">Shared Presence Fields<a class="headerlink" href="#shared-presence-fields" title="Link to this section">&para;</a></h3>
@@ -2573,8 +2671,37 @@ A field present on every value of its struct stores no presence at all, which is
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>             [presence stream]           only when the node presence nibble is 1
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>             body
 </span></code></pre></div>
-<p>The lengths stream holds element counts, not offsets, as the geometry section's do.
-The element node has no name.</p>
+<p>The lengths stream holds element counts, not offsets, as the geometry section's do.</p>
+<p><code>items</code> from <a href="#examples"><code>nested_list_struct</code></a>, a list of <code>{id, tag}</code> structs:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="The items column of nested_list_struct: list lengths 2 and 1, then one id and one tag leaf value per list element" xmlns="http://www.w3.org/2000/svg">
+<text class="t0 bold mid" x="233.0" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H336V34"/>
+<text class="t1 bold mid" x="412.0" y="14">feature 1</text>
+<path class="bracket t1" d="M362 34V28H462V34"/>
+<text class="row" x="0" y="54">items</text>
+<text class="row" x="0" y="94">items[].id</text>
+<text class="row" x="0" y="134">items[].tag</text>
+<rect class="f0" x="130" y="40" width="206" height="28" rx="3"/>
+<text class="cell" x="233.0" y="54">2</text>
+<rect class="f1" x="362" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="412.0" y="54">1</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180.0" y="94">1</text>
+<rect class="f0" x="130" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="180.0" y="134">"hi"</text>
+<rect class="f0" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286.0" y="94">2</text>
+<rect class="f0" x="236" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="286.0" y="134">"lo"</text>
+<rect class="f1" x="362" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="412.0" y="94">3</text>
+<rect class="f1" x="362" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="412.0" y="134">"hi"</text>
+<text class="muted small" x="486" y="54">List · lengths</text>
+<text class="muted small" x="486" y="94">Int32 · 3 values</text>
+<text class="muted small" x="486" y="134">String · 3 values</text>
+</svg></p>
+<p>The element node has no name.</p>
 <p>A list that is null and a list that is empty are different: a null list has its presence bit clear and no length, an empty list has its presence bit set and a length of <code>0</code>.</p>
 <h4 id="map-nodes">Map Nodes<a class="headerlink" href="#map-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xE</code>. String keys chosen per value, over one value type.</p>

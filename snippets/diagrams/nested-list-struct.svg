@@ -1,0 +1,28 @@
+<svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="The items column of nested_list_struct: list lengths 2 and 1, then one id and one tag leaf value per list element" xmlns="http://www.w3.org/2000/svg">
+<text class="t0 bold mid" x="233.0" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H336V34"/>
+<text class="t1 bold mid" x="412.0" y="14">feature 1</text>
+<path class="bracket t1" d="M362 34V28H462V34"/>
+<text class="row" x="0" y="54">items</text>
+<text class="row" x="0" y="94">items[].id</text>
+<text class="row" x="0" y="134">items[].tag</text>
+<rect class="f0" x="130" y="40" width="206" height="28" rx="3"/>
+<text class="cell" x="233.0" y="54">2</text>
+<rect class="f1" x="362" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="412.0" y="54">1</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180.0" y="94">1</text>
+<rect class="f0" x="130" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="180.0" y="134">"hi"</text>
+<rect class="f0" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286.0" y="94">2</text>
+<rect class="f0" x="236" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="286.0" y="134">"lo"</text>
+<rect class="f1" x="362" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="412.0" y="94">3</text>
+<rect class="f1" x="362" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="412.0" y="134">"hi"</text>
+<text class="muted small" x="486" y="54">List · lengths</text>
+<text class="muted small" x="486" y="94">Int32 · 3 values</text>
+<text class="muted small" x="486" y="134">String · 3 values</text>
+</svg>

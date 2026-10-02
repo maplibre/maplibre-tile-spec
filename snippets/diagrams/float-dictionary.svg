@@ -1,0 +1,31 @@
+<svg class="mlt-diagram" viewBox="0 0 710 184" role="img" aria-label="Five floats as codes 0, 1, 0, 0, 1 into the two entry dictionary 1.5, 0.25" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="fd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="fd-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="54">codes</text>
+<text class="row" x="0" y="144">dictionary</text>
+<text class="muted small mid" x="152" y="14">1.5</text>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">0</text>
+<text class="muted small mid" x="200" y="14">0.25</text>
+<rect class="f1" x="178" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="54">1</text>
+<text class="muted small mid" x="248" y="14">1.5</text>
+<rect class="f0" x="226" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="54">0</text>
+<text class="muted small mid" x="296" y="14">1.5</text>
+<rect class="f0" x="274" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="54">0</text>
+<text class="muted small mid" x="344" y="14">0.25</text>
+<rect class="f1" x="322" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="54">1</text>
+<rect class="f0" x="130" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="166" y="144">1.5</text>
+<text class="muted small mid" x="166" y="172">0</text>
+<rect class="f1" x="210" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="246" y="144">0.25</text>
+<text class="muted small mid" x="246" y="172">1</text>
+<path class="link" d="M152 68C152 97 166 97 166 126" marker-end="url(#fd)"/>
+<path class="link t1" d="M200 68C200 97 246 97 246 126" marker-end="url(#fd-t1)"/>
+<path class="link" d="M248 68C248 97 166 97 166 126" marker-end="url(#fd)"/>
+<path class="link" d="M296 68C296 97 166 97 166 126" marker-end="url(#fd)"/>
+<path class="link t1" d="M344 68C344 97 246 97 246 126" marker-end="url(#fd-t1)"/>
+</svg>

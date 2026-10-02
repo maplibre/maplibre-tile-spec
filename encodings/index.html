@@ -16,6 +16,8 @@
         <link rel="prev" href="../specification/v2/">
       
       
+        <link rel="next" href="../implementation-guide/">
+      
       
         
       
@@ -1024,21 +1026,37 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#choosing-an-encoding" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Choosing an Encoding
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../implementation-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Implementation Guide
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1164,6 +1182,43 @@ It is not an encoding a stream names; the logical encodings below say where it a
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>unzigzag(u) = (u &gt;&gt; 1) ^ -(u &amp; 1)         // logical shift
 </span></code></pre></div>
 <p>For 64-bit values the shift is <code>63</code>.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mapping</label><label for="__tabbed_1_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 124" role="img" aria-label="ZigZag maps -2, -1, 0, 1 and 2 to 3, 1, 0, 2 and 4" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="zz" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="zz-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<g transform="translate(0 -32)">
+<text class="row" x="0" y="54">n</text>
+<text class="row" x="0" y="134">zigzag(n)</text>
+<rect class="f1" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="54">-2</text>
+<rect class="f1" x="322" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="350" y="134">3</text>
+<path class="link t1" d="M158 68C158 92 350 92 350 116" marker-end="url(#zz-t1)"/>
+<rect class="f1" x="194" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="222" y="54">-1</text>
+<rect class="f1" x="194" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="222" y="134">1</text>
+<path class="link t1" d="M222 68C222 92 222 92 222 116" marker-end="url(#zz-t1)"/>
+<rect class="f0" x="258" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="286" y="54">0</text>
+<rect class="f0" x="130" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="134">0</text>
+<path class="link" d="M286 68C286 92 158 92 158 116" marker-end="url(#zz)"/>
+<rect class="f0" x="322" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="350" y="54">1</text>
+<rect class="f0" x="258" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="286" y="134">2</text>
+<path class="link" d="M350 68C350 92 286 92 286 116" marker-end="url(#zz)"/>
+<rect class="f0" x="386" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="414" y="54">2</text>
+<rect class="f0" x="386" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="414" y="134">4</text>
+<path class="link" d="M414 68C414 92 414 92 414 116" marker-end="url(#zz)"/>
+</g>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <table>
 <thead>
 <tr>
@@ -1194,6 +1249,9 @@ It is not an encoding a stream names; the logical encodings below say where it a
 </tr>
 </tbody>
 </table>
+</div>
+</div>
+</div>
 <h3 id="physical-none">None<a class="headerlink" href="#physical-none" title="Link to this section">&para;</a></h3>
 <p>Each word is stored as it is, little-endian, 4 or 8 bytes per word.</p>
 <p>In v2 a stream whose logical encoding is also <code>None</code> may leave out <code>byte_length</code>, since the value count and the word width give it.
@@ -1203,10 +1261,93 @@ See <a href="../specification/v2/#byte-length">Byte Length</a>.</p>
 Bit 7 of each byte is set when another byte follows.
 A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - four <code>9000</code>s, two bytes each, the first with bit 7 set.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Bits</label><label for="__tabbed_2_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 186" role="img" aria-label="300 split into two 7-bit groups, written low group first with the continuation bit set on the first byte: AC 02" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="vi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="vi-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="muted small mid" x="273" y="14">bits 13-7</text>
+<path class="bracket t1" d="M162 34V28H384V34"/>
+<text class="muted small mid" x="553" y="14">bits 6-0</text>
+<path class="bracket t0" d="M442 34V28H664V34"/>
+<text class="row" x="0" y="54">300</text>
+<text class="row" x="0" y="134">bytes</text>
+<rect class="f1" x="162" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="177" y="54">0</text>
+<rect class="f0" x="442" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="457" y="54">0</text>
+<rect class="f1" x="194" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="209" y="54">0</text>
+<rect class="f0" x="474" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="489" y="54">1</text>
+<rect class="f1" x="226" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="241" y="54">0</text>
+<rect class="f0" x="506" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="521" y="54">0</text>
+<rect class="f1" x="258" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="273" y="54">0</text>
+<rect class="f0" x="538" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="553" y="54">1</text>
+<rect class="f1" x="290" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="305" y="54">0</text>
+<rect class="f0" x="570" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="585" y="54">1</text>
+<rect class="f1" x="322" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="337" y="54">1</text>
+<rect class="f0" x="602" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="617" y="54">0</text>
+<rect class="f1" x="354" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="369" y="54">0</text>
+<rect class="f0" x="634" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="649" y="54">0</text>
+<rect class="plain" x="130" y="120" width="30" height="28" rx="3"/>
+<text class="cell bold" x="145" y="134">1</text>
+<rect class="plain" x="410" y="120" width="30" height="28" rx="3"/>
+<text class="cell bold" x="425" y="134">0</text>
+<rect class="f0" x="162" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="177" y="134">0</text>
+<rect class="f1" x="442" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="457" y="134">0</text>
+<rect class="f0" x="194" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="209" y="134">1</text>
+<rect class="f1" x="474" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="489" y="134">0</text>
+<rect class="f0" x="226" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="241" y="134">0</text>
+<rect class="f1" x="506" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="521" y="134">0</text>
+<rect class="f0" x="258" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="273" y="134">1</text>
+<rect class="f1" x="538" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="553" y="134">0</text>
+<rect class="f0" x="290" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="305" y="134">1</text>
+<rect class="f1" x="570" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="585" y="134">0</text>
+<rect class="f0" x="322" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="337" y="134">0</text>
+<rect class="f1" x="602" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="617" y="134">1</text>
+<rect class="f0" x="354" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="369" y="134">0</text>
+<rect class="f1" x="634" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="649" y="134">0</text>
+<path class="link" d="M553 68C553 92 273 92 273 116" marker-end="url(#vi)"/>
+<path class="link t1" d="M273 68C273 92 553 92 553 116" marker-end="url(#vi-t1)"/>
+<path class="bracket" d="M130 154V160H384V154"/>
+<text class="bold mid" x="257" y="174">AC</text>
+<path class="bracket" d="M410 154V160H664V154"/>
+<text class="bold mid" x="537" y="174">02</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>300 = 0b0000_0001_0010_1100
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    -&gt; groups (LSB first): 0101100, 0000010
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    -&gt; bytes:              0xAC,    0x02
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>This is the unsigned varint of <a href="https://protobuf.dev/programming-guides/encoding/#varints">Protocol Buffers</a> and the length prefix every MLT header uses.
 Signed values go through <a href="#zigzag">ZigZag</a> first, where the logical encoding says so.</p>
 <h3 id="bit-packing">Bit Packing <span class="experimental"></span><a class="headerlink" href="#bit-packing" title="Link to this section">&para;</a></h3>
@@ -1223,12 +1364,87 @@ Encoders write them as <code>0</code> and decoders MUST ignore them.
 <code>width</code> MUST be <code>1</code> to <code>32</code>.
 An empty or all-zero stream has <code>width = 1</code>.
 A payload whose length is not exactly <code>1 + ceil(count * width / 8)</code> MUST be rejected.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Bits</label><label for="__tabbed_3_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 132" role="img" aria-label="The values 5, 1, 7 and 0 bit packed at width 3 into the bytes CD and 01, with 7 crossing the byte boundary" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180.0" y="14">5</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="282.0" y="14">1</text>
+<path class="bracket t1" d="M232 34V28H332V34"/>
+<text class="bold mid t0" x="384.0" y="14">7</text>
+<path class="bracket t0" d="M334 34V28H434V34"/>
+<text class="bold mid t1" x="486.0" y="14">0</text>
+<path class="bracket t1" d="M436 34V28H536V34"/>
+<text class="muted small mid" x="605.0" y="14">padding</text>
+<path class="bracket" d="M538 34V28H672V34"/>
+<text class="row" x="0" y="54">bits</text>
+<rect class="f0" x="130" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="146.0" y="54">1</text>
+<rect class="f0" x="164" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="180.0" y="54">0</text>
+<rect class="f0" x="198" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="214.0" y="54">1</text>
+<rect class="f1" x="232" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="248.0" y="54">1</text>
+<rect class="f1" x="266" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="282.0" y="54">0</text>
+<rect class="f1" x="300" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="316.0" y="54">0</text>
+<rect class="f0" x="334" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="350.0" y="54">1</text>
+<rect class="f0" x="368" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="384.0" y="54">1</text>
+<rect class="f0" x="402" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="418.0" y="54">1</text>
+<rect class="f1" x="436" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="452.0" y="54">0</text>
+<rect class="f1" x="470" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="486.0" y="54">0</text>
+<rect class="f1" x="504" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="520.0" y="54">0</text>
+<rect class="plain" x="538" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="554.0" y="54">0</text>
+<rect class="plain" x="572" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="588.0" y="54">0</text>
+<rect class="plain" x="606" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="622.0" y="54">0</text>
+<rect class="plain" x="640" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="656.0" y="54">0</text>
+<text class="muted small" x="0" y="82">bit index</text>
+<text class="muted small mid" x="146.0" y="82">0</text>
+<text class="muted small mid" x="180.0" y="82">1</text>
+<text class="muted small mid" x="214.0" y="82">2</text>
+<text class="muted small mid" x="248.0" y="82">3</text>
+<text class="muted small mid" x="282.0" y="82">4</text>
+<text class="muted small mid" x="316.0" y="82">5</text>
+<text class="muted small mid" x="350.0" y="82">6</text>
+<text class="muted small mid" x="384.0" y="82">7</text>
+<text class="muted small mid" x="418.0" y="82">8</text>
+<text class="muted small mid" x="452.0" y="82">9</text>
+<text class="muted small mid" x="486.0" y="82">10</text>
+<text class="muted small mid" x="520.0" y="82">11</text>
+<text class="muted small mid" x="554.0" y="82">12</text>
+<text class="muted small mid" x="588.0" y="82">13</text>
+<text class="muted small mid" x="622.0" y="82">14</text>
+<text class="muted small mid" x="656.0" y="82">15</text>
+<text class="row" x="0" y="110">bytes</text>
+<rect class="plain" x="130" y="96" width="270" height="28" rx="3"/>
+<text class="cell" x="265.0" y="110">CD</text>
+<rect class="plain" x="402" y="96" width="270" height="28" rx="3"/>
+<text class="cell" x="537.0" y="110">01</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>values: [5, 1, 7, 0]           width = 3
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>bits:   101 001 111 000        value 0 = bits 0-2, value 1 = bits 3-5, ...
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>bytes:  0b11_001_101 = 0xCD    bits 0-7:  5, 1, and the low 2 bits of 7
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        0b0000_00_01 = 0x01    bits 8-15: the high bit of 7, 0, padding
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>payload: 03 CD 01
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>Bit packing beats varint when the values are of similar magnitude, since varint spends at least 8 bits per value.
 One large value raises the width for every value.
 An encoder SHOULD compare the stored size of both.</p>
@@ -1342,12 +1558,61 @@ Run lengths never are.</p>
 </tbody>
 </table>
 <p>For the input <code>[5, 5, 5, 3, 3, 3, 3]</code>:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Runs</label><label for="__tabbed_4_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="Seven values as two runs, written by v1 as all lengths then all values and by v2 as interleaved pairs" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="200" y="14">3 × 5</text>
+<path class="bracket t0" d="M130 34V28H270V34"/>
+<text class="bold mid t1" x="368" y="14">4 × 3</text>
+<path class="bracket t1" d="M274 34V28H462V34"/>
+<text class="row" x="0" y="54">values</text>
+<text class="row" x="0" y="94">v1 words</text>
+<text class="row" x="0" y="134">v2 bytes</text>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">5</text>
+<rect class="f0" x="178" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="54">5</text>
+<rect class="f0" x="226" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="54">5</text>
+<rect class="f1" x="274" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="54">3</text>
+<rect class="f1" x="322" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="54">3</text>
+<rect class="f1" x="370" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="392" y="54">3</text>
+<rect class="f1" x="418" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="440" y="54">3</text>
+<rect class="f0" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="94">3</text>
+<rect class="f1" x="178" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="94">4</text>
+<rect class="f0" x="226" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="94">5</text>
+<rect class="f1" x="274" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="94">3</text>
+<rect class="f0" x="130" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="134">03</text>
+<rect class="f0" x="178" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="134">05</text>
+<rect class="f1" x="226" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="134">04</text>
+<rect class="f1" x="274" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="134">03</text>
+<text class="muted small" x="334" y="94">runs = 2 in the header</text>
+<text class="muted small" x="334" y="134">pairs until byte_length</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>runs:   [3, 4]
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>values: [5, 3]
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>v1 words: [3, 4, 5, 3]         header: runs = 2, num_rle_values = 7
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>v2 bytes: 03 05 04 03          header: 7 values from context
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>In both versions the decoded element count is known before the payload is read.
 v1 stores it in the header as <code>num_rle_values</code>.
 v2 takes it from the stream's value count.
@@ -1358,11 +1623,60 @@ A v2 payload with an odd number of varints MUST be rejected.</p>
 The deltas are ZigZag-coded, and it is those unsigned words that are run-length coded.
 Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-sum.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fids_delta_rle.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - four equal ids: one step of <code>103</code>, then a run of three <code>0</code>s.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Runs</label><label for="__tabbed_5_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 110" role="img" aria-label="Values 10 to 13 then three 20s, delta and zigzag coded into words, and the words run-length coded as four runs" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="14">values</text>
+<text class="row" x="0" y="54">words</text>
+<text class="row" x="0" y="94">runs</text>
+<rect class="f0" x="130" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="14">10</text>
+<rect class="f0" x="130" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="54">20</text>
+<rect class="f1" x="194" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="224" y="14">11</text>
+<rect class="f1" x="194" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="224" y="54">2</text>
+<rect class="f1" x="258" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="288" y="14">12</text>
+<rect class="f1" x="258" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="288" y="54">2</text>
+<rect class="f1" x="322" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="352" y="14">13</text>
+<rect class="f1" x="322" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="352" y="54">2</text>
+<rect class="f0" x="386" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="416" y="14">20</text>
+<rect class="f0" x="386" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="416" y="54">14</text>
+<rect class="f1" x="450" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="480" y="14">20</text>
+<rect class="f1" x="450" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="480" y="54">0</text>
+<rect class="f1" x="514" y="0" width="60" height="28" rx="3"/>
+<text class="cell" x="544" y="14">20</text>
+<rect class="f1" x="514" y="40" width="60" height="28" rx="3"/>
+<text class="cell" x="544" y="54">0</text>
+<rect class="f0" x="130" y="80" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="94">(1, 20)</text>
+<rect class="f1" x="194" y="80" width="188" height="28" rx="3"/>
+<text class="cell" x="288" y="94">(3, 2)</text>
+<rect class="f0" x="386" y="80" width="60" height="28" rx="3"/>
+<text class="cell" x="416" y="94">(1, 14)</text>
+<rect class="f1" x="450" y="80" width="124" height="28" rx="3"/>
+<text class="cell" x="512" y="94">(2, 0)</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>values: [10, 11, 12, 13, 20, 20, 20]
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>deltas: [10, 1, 1, 1, 7, 0, 0]
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>words:  [20, 2, 2, 2, 14, 0, 0]          zigzag
 </span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>runs:   (1, 20) (3, 2) (1, 14) (2, 0)
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>Delta-RLE suits sequences with a constant step, such as <code>[1, 2, 3, ...]</code>, which become one run.</p>
 <h2 id="boolean-streams">Boolean Streams<a class="headerlink" href="#boolean-streams" title="Link to this section">&para;</a></h2>
 <p>Boolean columns and v1 <code>Present</code> streams hold one bit per value.</p>
@@ -1371,9 +1685,52 @@ Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-su
 The bitmap is <code>ceil(count / 8)</code> bytes.
 Bits past <code>count</code> in the final byte are padding and MUST be ignored.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fprop_i32_val_null.mlt&amp;at=present" target="_blank">View example</a> - a value, then a null: bits <code>1</code> and <code>0</code>.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Bits</label><label for="__tabbed_6_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 132" role="img" aria-label="Six booleans in bits 0 to 5 of the byte 2D, bit 0 first, with two padding bits" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="231" y="14">6 values</text>
+<path class="bracket t0" d="M130 34V28H332V34"/>
+<text class="muted small mid" x="367" y="14">padding</text>
+<path class="bracket" d="M334 34V28H400V34"/>
+<text class="row" x="0" y="54">bits</text>
+<rect class="f0" x="130" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="146" y="54">1</text>
+<rect class="f0" x="164" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="180" y="54">0</text>
+<rect class="f0" x="198" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="214" y="54">1</text>
+<rect class="f0" x="232" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="248" y="54">1</text>
+<rect class="f0" x="266" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="282" y="54">0</text>
+<rect class="f0" x="300" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="316" y="54">1</text>
+<rect class="plain" x="334" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="350" y="54">0</text>
+<rect class="plain" x="368" y="40" width="32" height="28" rx="3"/>
+<text class="cell" x="384" y="54">0</text>
+<text class="muted small" x="0" y="82">bit index</text>
+<text class="muted small mid" x="146" y="82">0</text>
+<text class="muted small mid" x="180" y="82">1</text>
+<text class="muted small mid" x="214" y="82">2</text>
+<text class="muted small mid" x="248" y="82">3</text>
+<text class="muted small mid" x="282" y="82">4</text>
+<text class="muted small mid" x="316" y="82">5</text>
+<text class="muted small mid" x="350" y="82">6</text>
+<text class="muted small mid" x="384" y="82">7</text>
+<text class="row" x="0" y="110">byte</text>
+<rect class="plain" x="130" y="96" width="270" height="28" rx="3"/>
+<text class="cell" x="265" y="110">2D</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>values: [1, 0, 1, 1, 0, 1]
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>byte:   0b0010_1101 = 0x2D
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>v2 stores every presence bitfield and boolean column as a raw bitmap.
 A bitmap can be shared between columns; see <a href="../specification/v2/#shared-presence-fields">Shared Presence Fields</a>.</p>
 <h3 id="boolean-rle">Boolean RLE<a class="headerlink" href="#boolean-rle" title="Link to this section">&para;</a></h3>
@@ -1401,11 +1758,59 @@ The payload is a sequence of runs, each a control byte and what it names:</p>
 <p>A repeated run is 3 to 130 bytes and a literal run 1 to 128.
 The runs expand to exactly <code>ceil(count / 8)</code> bitmap bytes.
 A payload that expands to more, or ends before that, MUST be rejected.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="7:2"><input checked="checked" id="__tabbed_7_1" name="__tabbed_7" type="radio" /><input id="__tabbed_7_2" name="__tabbed_7" type="radio" /><div class="tabbed-labels"><label for="__tabbed_7_1">Runs</label><label for="__tabbed_7_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 186" role="img" aria-label="The payload 02 FF FF 2D expands to five FF bytes from a repeated run and one 2D byte from a literal run" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="brle" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="brle-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="bold mid t0" x="180" y="14">repeated run</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="304" y="14">literal run</text>
+<path class="bracket t1" d="M254 34V28H354V34"/>
+<text class="row" x="0" y="54">payload</text>
+<text class="row" x="0" y="134">bitmap</text>
+<rect class="plain" x="130" y="40" width="48" height="28" rx="3"/>
+<text class="cell bold" x="154" y="54">02</text>
+<rect class="f0" x="182" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="206" y="54">FF</text>
+<rect class="plain" x="254" y="40" width="48" height="28" rx="3"/>
+<text class="cell bold" x="278" y="54">FF</text>
+<rect class="f1" x="306" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="330" y="54">2D</text>
+<text class="muted small" x="370" y="54">control bytes bold</text>
+<rect class="f0" x="130" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="154" y="134">FF</text>
+<path class="link" d="M206 68C206 92 154 92 154 116" marker-end="url(#brle)"/>
+<rect class="f0" x="182" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="206" y="134">FF</text>
+<path class="link" d="M206 68C206 92 206 92 206 116" marker-end="url(#brle)"/>
+<rect class="f0" x="234" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="258" y="134">FF</text>
+<path class="link" d="M206 68C206 92 258 92 258 116" marker-end="url(#brle)"/>
+<rect class="f0" x="286" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="310" y="134">FF</text>
+<path class="link" d="M206 68C206 92 310 92 310 116" marker-end="url(#brle)"/>
+<rect class="f0" x="338" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="362" y="134">FF</text>
+<path class="link" d="M206 68C206 92 362 92 362 116" marker-end="url(#brle)"/>
+<rect class="f1" x="390" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="414" y="134">2D</text>
+<path class="link t1" d="M330 68C330 92 414 92 414 116" marker-end="url(#brle-t1)"/>
+<path class="bracket t0" d="M130 154V160H386V154"/>
+<text class="small mid t0" x="258" y="174">2 + 3 = 5 copies</text>
+<path class="bracket t1" d="M390 154V160H438V154"/>
+<text class="small mid t1" x="414" y="174">256 - 255 = 1</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>bitmap:  FF FF FF FF FF 2D
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>payload: 02 FF FF 2D
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>         02 FF          repeated run: 2 + 3 = 5 copies of FF
 </span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>         FF 2D          literal run: 256 - 255 = 1 byte, 2D
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>The v1 stream header carries no <code>runs</code> or <code>num_rle_values</code> for a boolean stream.
 Both follow from <code>num_values</code>.</p>
 <h2 id="float-streams">Float Streams<a class="headerlink" href="#float-streams" title="Link to this section">&para;</a></h2>
@@ -1521,10 +1926,45 @@ If any value does not round-trip exactly, the encoder MUST use another encoding.
 Beyond that, floating-point scaling can land on a neighboring integer that still passes its own round-trip check.
 This is a limitation of that implementation, not of the format.</p>
 </div>
+<div class="tabbed-set tabbed-alternate" data-tabs="8:2"><input checked="checked" id="__tabbed_8_1" name="__tabbed_8" type="radio" /><input id="__tabbed_8_2" name="__tabbed_8" type="radio" /><div class="tabbed-labels"><label for="__tabbed_8_1">Offsets</label><label for="__tabbed_8_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 136" role="img" aria-label="Four floats scaled by 100 to integers on a line, stored as offsets 0, 150, 250 and 375 from the base -225" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="14">value</text>
+<text class="row" x="0" y="74">i = v · 10²</text>
+<text class="row" x="0" y="104">i - base</text>
+<path class="link" d="M130 44H680"/>
+<text class="mid bold" x="150" y="14">-2.25</text>
+<path class="link" d="M150 26V36"/>
+<circle class="dot" cx="150" cy="44" r="4"/>
+<text class="mid muted" x="150" y="74">-225</text>
+<text class="mid bold t1" x="150" y="104">0</text>
+<text class="mid bold" x="354" y="14">-0.75</text>
+<path class="link" d="M354 26V36"/>
+<circle class="dot" cx="354" cy="44" r="4"/>
+<text class="mid muted" x="354" y="74">-75</text>
+<text class="mid bold t1" x="354" y="104">150</text>
+<text class="mid bold" x="490" y="14">0.25</text>
+<path class="link" d="M490 26V36"/>
+<circle class="dot" cx="490" cy="44" r="4"/>
+<text class="mid muted" x="490" y="74">25</text>
+<text class="mid bold t1" x="490" y="104">250</text>
+<text class="mid bold" x="660" y="14">1.5</text>
+<path class="link" d="M660 26V36"/>
+<circle class="dot" cx="660" cy="44" r="4"/>
+<text class="mid muted" x="660" y="74">150</text>
+<text class="mid bold t1" x="660" y="104">375</text>
+<text class="small muted mid" x="150" y="126">base</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>values:  [-0.75, 0.25, 1.5, -2.25]
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>e = 2, f = 0:  i = [-75, 25, 150, -225]
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>base = -225:   offsets = [150, 250, 375, 0]
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>The header stores <code>e = 2</code>, <code>f = 0</code> as the <code>scale</code> byte <code>03</code> and <code>base</code> as the ZigZag varint <code>c1 03</code>, and the payload the four offsets as varints.
 See the <a href="../specification/v2/#examples">Framed, Exception-Free ALP example</a> on the v2 page for the whole layer.</p>
 <h3 id="float-dictionary">Float Dictionary <span class="experimental"></span><a class="headerlink" href="#float-dictionary" title="Link to this section">&para;</a></h3>
@@ -1533,10 +1973,49 @@ See the <a href="../specification/v2/#examples">Framed, Exception-Free ALP examp
 <p>The column has two streams.
 The first is the codes: an integer stream of 32-bit words, logical <code>Dict</code> in the <code>Float</code> family, with its own physical encoding.
 The second is the dictionary: <a href="#plain-floats">plain floats</a>, one per distinct value, with an explicit count in its header.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="9:2"><input checked="checked" id="__tabbed_9_1" name="__tabbed_9" type="radio" /><input id="__tabbed_9_2" name="__tabbed_9" type="radio" /><div class="tabbed-labels"><label for="__tabbed_9_1">Codes</label><label for="__tabbed_9_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 184" role="img" aria-label="Five floats as codes 0, 1, 0, 0, 1 into the two entry dictionary 1.5, 0.25" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="fd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="fd-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="54">codes</text>
+<text class="row" x="0" y="144">dictionary</text>
+<text class="muted small mid" x="152" y="14">1.5</text>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">0</text>
+<text class="muted small mid" x="200" y="14">0.25</text>
+<rect class="f1" x="178" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="54">1</text>
+<text class="muted small mid" x="248" y="14">1.5</text>
+<rect class="f0" x="226" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="54">0</text>
+<text class="muted small mid" x="296" y="14">1.5</text>
+<rect class="f0" x="274" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="54">0</text>
+<text class="muted small mid" x="344" y="14">0.25</text>
+<rect class="f1" x="322" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="54">1</text>
+<rect class="f0" x="130" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="166" y="144">1.5</text>
+<text class="muted small mid" x="166" y="172">0</text>
+<rect class="f1" x="210" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="246" y="144">0.25</text>
+<text class="muted small mid" x="246" y="172">1</text>
+<path class="link" d="M152 68C152 97 166 97 166 126" marker-end="url(#fd)"/>
+<path class="link t1" d="M200 68C200 97 246 97 246 126" marker-end="url(#fd-t1)"/>
+<path class="link" d="M248 68C248 97 166 97 166 126" marker-end="url(#fd)"/>
+<path class="link" d="M296 68C296 97 166 97 166 126" marker-end="url(#fd)"/>
+<path class="link t1" d="M344 68C344 97 246 97 246 126" marker-end="url(#fd-t1)"/>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>values: [1.5, 0.25, 1.5, 1.5, 0.25]
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>codes:  [0, 1, 0, 0, 1]
 </span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>dict:   [1.5, 0.25]
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>Entries are distinct by bit pattern.
 <code>-0.0</code> and <code>0.0</code> are two entries, and a <code>NaN</code> is never equal to any entry.
 A code at or past the dictionary's count MUST be rejected.</p>
@@ -1562,12 +2041,163 @@ A prefix length longer than the previous entry, a lengths stream with an odd cou
 Random access requires a scan from the start of the dictionary.
 Prefix lengths are in bytes and may split a multi-byte character.
 Only the reconstructed entry has to be valid UTF-8.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="10:2"><input checked="checked" id="__tabbed_10_1" name="__tabbed_10" type="radio" /><input id="__tabbed_10_2" name="__tabbed_10" type="radio" /><div class="tabbed-labels"><label for="__tabbed_10_1">Prefixes</label><label for="__tabbed_10_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 158" role="img" aria-label="Three sorted entries that each copy a prefix of the one before and store only their suffix" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="14">entry 0</text>
+<rect class="f0" x="130" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="138" y="14">M</text>
+<rect class="f0" x="148" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="156" y="14">a</text>
+<rect class="f0" x="166" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="174" y="14">i</text>
+<rect class="f0" x="184" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="192" y="14">n</text>
+<rect class="f0" x="202" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="210" y="14">·</text>
+<rect class="f0" x="220" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="228" y="14">S</text>
+<rect class="f0" x="238" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="246" y="14">t</text>
+<rect class="f0" x="256" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="264" y="14">r</text>
+<rect class="f0" x="274" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="282" y="14">e</text>
+<rect class="f0" x="292" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="300" y="14">e</text>
+<rect class="f0" x="310" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="318" y="14">t</text>
+<text class="muted small" x="452" y="14">prefix 0, suffix 11</text>
+<text class="row" x="0" y="54">entry 1</text>
+<rect class="implicit" x="130" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="138" y="54">M</text>
+<rect class="implicit" x="148" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="156" y="54">a</text>
+<rect class="implicit" x="166" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="174" y="54">i</text>
+<rect class="implicit" x="184" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="192" y="54">n</text>
+<rect class="implicit" x="202" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="210" y="54">·</text>
+<rect class="implicit" x="220" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="228" y="54">S</text>
+<rect class="implicit" x="238" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="246" y="54">t</text>
+<rect class="implicit" x="256" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="264" y="54">r</text>
+<rect class="implicit" x="274" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="282" y="54">e</text>
+<rect class="implicit" x="292" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="300" y="54">e</text>
+<rect class="implicit" x="310" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="318" y="54">t</text>
+<rect class="f1" x="328" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="336" y="54">·</text>
+<rect class="f1" x="346" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="354" y="54">N</text>
+<rect class="f1" x="364" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="372" y="54">o</text>
+<rect class="f1" x="382" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="390" y="54">r</text>
+<rect class="f1" x="400" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="408" y="54">t</text>
+<rect class="f1" x="418" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="426" y="54">h</text>
+<text class="muted small" x="452" y="54">prefix 11, suffix 6</text>
+<text class="row" x="0" y="94">entry 2</text>
+<rect class="implicit" x="130" y="80" width="16" height="28" rx="3"/>
+<text class="cell muted" x="138" y="94">M</text>
+<rect class="implicit" x="148" y="80" width="16" height="28" rx="3"/>
+<text class="cell muted" x="156" y="94">a</text>
+<rect class="f0" x="166" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="174" y="94">p</text>
+<rect class="f0" x="184" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="192" y="94">l</text>
+<rect class="f0" x="202" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="210" y="94">e</text>
+<rect class="f0" x="220" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="228" y="94">·</text>
+<rect class="f0" x="238" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="246" y="94">A</text>
+<rect class="f0" x="256" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="264" y="94">v</text>
+<rect class="f0" x="274" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="282" y="94">e</text>
+<rect class="f0" x="292" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="300" y="94">n</text>
+<rect class="f0" x="310" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="318" y="94">u</text>
+<rect class="f0" x="328" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="336" y="94">e</text>
+<text class="muted small" x="452" y="94">prefix 2, suffix 10</text>
+<text class="row" x="0" y="144">blob</text>
+<rect class="f0" x="130" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="138" y="144">M</text>
+<rect class="f0" x="148" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="156" y="144">a</text>
+<rect class="f0" x="166" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="174" y="144">i</text>
+<rect class="f0" x="184" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="192" y="144">n</text>
+<rect class="f0" x="202" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="210" y="144">·</text>
+<rect class="f0" x="220" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="228" y="144">S</text>
+<rect class="f0" x="238" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="246" y="144">t</text>
+<rect class="f0" x="256" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="264" y="144">r</text>
+<rect class="f0" x="274" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="282" y="144">e</text>
+<rect class="f0" x="292" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="300" y="144">e</text>
+<rect class="f0" x="310" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="318" y="144">t</text>
+<rect class="f1" x="328" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="336" y="144">·</text>
+<rect class="f1" x="346" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="354" y="144">N</text>
+<rect class="f1" x="364" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="372" y="144">o</text>
+<rect class="f1" x="382" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="390" y="144">r</text>
+<rect class="f1" x="400" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="408" y="144">t</text>
+<rect class="f1" x="418" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="426" y="144">h</text>
+<rect class="f0" x="436" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="444" y="144">p</text>
+<rect class="f0" x="454" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="462" y="144">l</text>
+<rect class="f0" x="472" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="480" y="144">e</text>
+<rect class="f0" x="490" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="498" y="144">·</text>
+<rect class="f0" x="508" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="516" y="144">A</text>
+<rect class="f0" x="526" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="534" y="144">v</text>
+<rect class="f0" x="544" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="552" y="144">e</text>
+<rect class="f0" x="562" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="570" y="144">n</text>
+<rect class="f0" x="580" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="588" y="144">u</text>
+<rect class="f0" x="598" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="606" y="144">e</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>entries:  ["Main Street", "Main Street North", "Maple Avenue"]
 </span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>prefixes: [0, 11, 2]
 </span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>suffixes: [11, 6, 10]
 </span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>lengths:  [0, 11, 2, 11, 6, 10]
 </span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>blob:     "Main Street" " North" "ple Avenue"
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>Front coding can be combined with <a href="#fsst">FSST</a>.
 The corpus is front-coded first and then FSST-compressed.
 An encoder SHOULD compare the stored size of each combination.</p>
@@ -1619,10 +2249,59 @@ It supports random access to one value once its lengths are known, since every c
 <p>The corpus compresses all values as one buffer, so a symbol may span two values.
 The lengths stream beside the corpus holds the <strong>uncompressed</strong> length of each value.
 A decoder expands the whole corpus and then splits it by those lengths.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="11:2"><input checked="checked" id="__tabbed_11_1" name="__tabbed_11" type="radio" /><input id="__tabbed_11_2" name="__tabbed_11" type="radio" /><div class="tabbed-labels"><label for="__tabbed_11_1">Expansion</label><label for="__tabbed_11_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 154" role="img" aria-label="The FSST corpus 00 01 00 FF 7A expands to abcdabz, which the lengths 4 and 3 split into abcd and abz" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="fsst" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="fsst-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<g transform="translate(0 -32)">
+<text class="row" x="0" y="54">corpus</text>
+<text class="row" x="0" y="134">bytes</text>
+<text class="row" x="0" y="174">lengths</text>
+<rect class="f0" x="130" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="154" y="54">00</text>
+<path class="link" d="M154 68C154 92 168 92 168 116" marker-end="url(#fsst)"/>
+<rect class="f1" x="182" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="206" y="54">01</text>
+<path class="link t1" d="M206 68C206 92 248 92 248 116" marker-end="url(#fsst-t1)"/>
+<rect class="f0" x="234" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="258" y="54">00</text>
+<path class="link" d="M258 68C258 92 328 92 328 116" marker-end="url(#fsst)"/>
+<rect class="plain" x="286" y="40" width="48" height="28" rx="3"/>
+<text class="cell bold" x="310" y="54">FF</text>
+<rect class="plain" x="338" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="362" y="54">7A</text>
+<path class="link" d="M362 68C362 92 388 92 388 116" marker-end="url(#fsst)"/>
+<text class="muted small" x="402" y="54">symbol 0 = ab, 1 = cd, FF = escape</text>
+<rect class="f0" x="130" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="148" y="134">a</text>
+<rect class="f0" x="170" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="188" y="134">b</text>
+<rect class="f1" x="210" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="228" y="134">c</text>
+<rect class="f1" x="250" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="268" y="134">d</text>
+<rect class="f0" x="290" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="308" y="134">a</text>
+<rect class="f0" x="330" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="348" y="134">b</text>
+<rect class="plain" x="370" y="120" width="36" height="28" rx="3"/>
+<text class="cell" x="388" y="134">z</text>
+<path class="bracket" d="M130 154V160H286V154"/>
+<text class="bold mid" x="208" y="174">4</text>
+<path class="bracket" d="M290 154V160H406V154"/>
+<text class="bold mid" x="348" y="174">3</text>
+</g>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>symbols:      ["ab", "cd"]           SymbolLengths = [2, 2], SymbolTable = "abcd"
 </span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>values:       ["abcd", "abz"]        Lengths = [4, 3]
 </span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>corpus bytes: 00 01 00 FF 7A         ab cd ab &lt;esc&gt; z
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>The algorithm that trains the table is described by <a href="https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf">Boncz, Neumann and Leis, <em>FSST: Fast Random Access String Compression</em></a>.
 Different implementations train different tables for the same input.
 A decoder reads the table from the stream, so that only matters when comparing the output of two encoders.</p>
@@ -1702,10 +2381,56 @@ Each delta is <a href="#zigzag">ZigZag</a>-coded.</p>
 <code>VertexOffsets</code> is an ordinary unsigned integer stream.
 <code>VertexDict</code> is a vertex stream and carries any of the encodings in this section.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict" target="_blank">View example</a> - vertices stored once and indexed.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="12:2"><input checked="checked" id="__tabbed_12_1" name="__tabbed_12" type="radio" /><input id="__tabbed_12_2" name="__tabbed_12" type="radio" /><div class="tabbed-labels"><label for="__tabbed_12_1">Offsets</label><label for="__tabbed_12_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 184" role="img" aria-label="Six vertices as offsets 0, 1, 2, 1, 0, 2 into a three entry vertex dictionary" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="vd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="vd-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="54">offsets</text>
+<text class="row" x="0" y="144">dictionary</text>
+<text class="muted small mid" x="152" y="14">0,0</text>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">0</text>
+<text class="muted small mid" x="200" y="14">10,10</text>
+<rect class="f1" x="178" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="54">1</text>
+<text class="muted small mid" x="248" y="14">20,20</text>
+<rect class="plain" x="226" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="54">2</text>
+<text class="muted small mid" x="296" y="14">10,10</text>
+<rect class="f1" x="274" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="54">1</text>
+<text class="muted small mid" x="344" y="14">0,0</text>
+<rect class="f0" x="322" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="54">0</text>
+<text class="muted small mid" x="392" y="14">20,20</text>
+<rect class="plain" x="370" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="392" y="54">2</text>
+<rect class="f0" x="130" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="166" y="144">0,0</text>
+<text class="muted small mid" x="166" y="172">0</text>
+<rect class="f1" x="210" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="246" y="144">10,10</text>
+<text class="muted small mid" x="246" y="172">1</text>
+<rect class="plain" x="290" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="326" y="144">20,20</text>
+<text class="muted small mid" x="326" y="172">2</text>
+<path class="link" d="M152 68C152 97 166 97 166 126" marker-end="url(#vd)"/>
+<path class="link t1" d="M200 68C200 97 246 97 246 126" marker-end="url(#vd-t1)"/>
+<path class="link" d="M248 68C248 97 326 97 326 126" marker-end="url(#vd)"/>
+<path class="link t1" d="M296 68C296 97 246 97 246 126" marker-end="url(#vd-t1)"/>
+<path class="link" d="M344 68C344 97 166 97 166 126" marker-end="url(#vd)"/>
+<path class="link" d="M392 68C392 97 326 97 326 126" marker-end="url(#vd)"/>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>VertexOffsets: [0, 1, 2, 1, 0, 2]
 </span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>VertexDict:    [(0,0), (10,10), (20,20)]
 </span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>vertices:      (0,0), (10,10), (20,20), (10,10), (0,0), (20,20)
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>An offset at or past the dictionary's vertex count MUST be rejected.</p>
 <h4 id="hilbert-order">Hilbert Order<a class="headerlink" href="#hilbert-order" title="Link to this section">&para;</a></h4>
 <p>Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short.
@@ -1767,11 +2492,61 @@ Shift both coordinates, then interleave them: bit <code>i</code> of <code>sx</co
 </span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="w">    </span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">wrapping_sub</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">.</span><span class="n">wrapping_sub</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span>
 </span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="p">}</span>
 </span></code></pre></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="13:2"><input checked="checked" id="__tabbed_13_1" name="__tabbed_13" type="radio" /><input id="__tabbed_13_2" name="__tabbed_13" type="radio" /><div class="tabbed-labels"><label for="__tabbed_13_1">Bits</label><label for="__tabbed_13_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 180" role="img" aria-label="The Morton code of (5, 3): bit i of x lands on bit 2i and bit i of y on bit 2i + 1, giving 27" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="12">bit</text>
+<text class="muted small mid" x="152.0" y="12">0</text>
+<text class="muted small mid" x="202.0" y="12">1</text>
+<text class="muted small mid" x="252.0" y="12">2</text>
+<text class="muted small mid" x="302.0" y="12">3</text>
+<text class="muted small mid" x="352.0" y="12">4</text>
+<text class="muted small mid" x="402.0" y="12">5</text>
+<text class="row" x="0" y="42">x = 5</text>
+<text class="row" x="0" y="102">code = 27</text>
+<text class="row" x="0" y="162">y = 3</text>
+<rect class="f0" x="130" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="152.0" y="42">1</text>
+<path class="link" d="M152.0 56V88"/>
+<rect class="f1" x="180" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="202.0" y="162">1</text>
+<path class="link" d="M202.0 148V116"/>
+<rect class="f0" x="230" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="252.0" y="42">0</text>
+<path class="link" d="M252.0 56V88"/>
+<rect class="f1" x="280" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="302.0" y="162">1</text>
+<path class="link" d="M302.0 148V116"/>
+<rect class="f0" x="330" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="352.0" y="42">1</text>
+<path class="link" d="M352.0 56V88"/>
+<rect class="f1" x="380" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="402.0" y="162">0</text>
+<path class="link" d="M402.0 148V116"/>
+<rect class="f0" x="130" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="152.0" y="102">1</text>
+<rect class="f1" x="180" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="202.0" y="102">1</text>
+<rect class="f0" x="230" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="252.0" y="102">0</text>
+<rect class="f1" x="280" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="302.0" y="102">1</text>
+<rect class="f0" x="330" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="352.0" y="102">1</text>
+<rect class="f1" x="380" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="402.0" y="102">0</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>(x, y) = (5, 3), shift = 0, bits = 3
 </span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>sx = 0b101, sy = 0b011
 </span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>code bits, from bit 0: x0 y0 x1 y1 x2 y2 = 1 1 0 1 1 0
 </span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>code = 0b011011 = 27
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <p>The loops are the definition.
 The reference Rust codec spreads all 16 bits of an axis at once with masks, which gives the same code for any <code>bits</code> up to <code>16</code>:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="sd">/// Bit `i` of `v` lands on bit `2i`.</span>
@@ -1807,16 +2582,6 @@ The dictionary is sorted ascending by code, so every difference is non-negative.
 <div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>dict codes: [27, 30, 45]
 </span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>words:      [27, 3, 15]
 </span></code></pre></div>
-<h2 id="choosing-an-encoding">Choosing an Encoding<a class="headerlink" href="#choosing-an-encoding" title="Link to this section">&para;</a></h2>
-<p>A brute-force search over every combination is too costly.
-Use the selection strategy from the <a href="https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf">BTRBlocks</a> paper:</p>
-<ul>
-<li>Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).</li>
-<li>Use a sampling-based algorithm: randomly select parts of the data totaling ~1% of the full dataset and apply the candidate encodings from step 1.
-  Choose the scheme that produces the smallest output.</li>
-</ul>
-<p>Compare stored bytes, not an estimate.
-Do not assume a later gzip pass changes which candidate wins.</p>
 
 
 
@@ -1869,6 +2634,22 @@ Do not assume a later gzip pass changes which candidate wins.</p>
             </div>
           </a>
         
+        
+          
+          <a href="../implementation-guide/" class="md-footer__link md-footer__link--next" aria-label="Next: Implementation Guide">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Implementation Guide
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
         
       </nav>
     
