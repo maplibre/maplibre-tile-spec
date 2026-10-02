@@ -36,5 +36,5 @@
 <path class="bracket t0" d="M130 154V160H386V154"/>
 <text class="small mid t0" x="258" y="174">2 + 3 = 5 copies</text>
 <path class="bracket t1" d="M390 154V160H438V154"/>
-<text class="small mid t1" x="414" y="174">256 − 255 = 1</text>
+<text class="small mid t1" x="414" y="174">256 - 255 = 1</text>
 </svg>

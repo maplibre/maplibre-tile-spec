@@ -4,12 +4,12 @@
 <text class="row" x="0" y="54">n</text>
 <text class="row" x="0" y="134">zigzag(n)</text>
 <rect class="f1" x="130" y="40" width="56" height="28" rx="3"/>
-<text class="cell" x="158" y="54">−2</text>
+<text class="cell" x="158" y="54">-2</text>
 <rect class="f1" x="322" y="120" width="56" height="28" rx="3"/>
 <text class="cell" x="350" y="134">3</text>
 <path class="link t1" d="M158 68C158 92 350 92 350 116" marker-end="url(#zz-t1)"/>
 <rect class="f1" x="194" y="40" width="56" height="28" rx="3"/>
-<text class="cell" x="222" y="54">−1</text>
+<text class="cell" x="222" y="54">-1</text>
 <rect class="f1" x="194" y="120" width="56" height="28" rx="3"/>
 <text class="cell" x="222" y="134">1</text>
 <path class="link t1" d="M222 68C222 92 222 92 222 116" marker-end="url(#zz-t1)"/>

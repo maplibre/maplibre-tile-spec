@@ -1,17 +1,17 @@
 <svg class="mlt-diagram" viewBox="0 0 710 136" role="img" aria-label="Four floats scaled by 100 to integers on a line, stored as offsets 0, 150, 250 and 375 from the base -225" xmlns="http://www.w3.org/2000/svg">
 <text class="row" x="0" y="14">value</text>
 <text class="row" x="0" y="74">i = v · 10²</text>
-<text class="row" x="0" y="104">i − base</text>
+<text class="row" x="0" y="104">i - base</text>
 <path class="link" d="M130 44H680"/>
-<text class="mid bold" x="150" y="14">−2.25</text>
+<text class="mid bold" x="150" y="14">-2.25</text>
 <path class="link" d="M150 26V36"/>
 <circle class="dot" cx="150" cy="44" r="4"/>
-<text class="mid muted" x="150" y="74">−225</text>
+<text class="mid muted" x="150" y="74">-225</text>
 <text class="mid bold t1" x="150" y="104">0</text>
-<text class="mid bold" x="354" y="14">−0.75</text>
+<text class="mid bold" x="354" y="14">-0.75</text>
 <path class="link" d="M354 26V36"/>
 <circle class="dot" cx="354" cy="44" r="4"/>
-<text class="mid muted" x="354" y="74">−75</text>
+<text class="mid muted" x="354" y="74">-75</text>
 <text class="mid bold t1" x="354" y="104">150</text>
 <text class="mid bold" x="490" y="14">0.25</text>
 <path class="link" d="M490 26V36"/>
