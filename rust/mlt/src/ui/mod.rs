@@ -49,7 +49,6 @@ use crate::ui::rendering::map::{render_map_panel, render_mbtiles_map_panel};
 use crate::ui::scan::start_scan;
 use crate::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
 use crate::ui::tile::{TileCache, polygon_coord_count};
-use crate::winding::coords_area2;
 
 pub const CLR_POINT: Color = Color::Magenta;
 pub const CLR_MULTI_POINT: Color = Color::LightMagenta;
@@ -877,11 +876,23 @@ fn is_entry_visible(layer: usize, feat: usize, sel: &TreeItem) -> bool {
 
 // --- Winding ---
 
-/// Whether a ring winds as an MVT exterior, with a positive area in tile
-/// coordinates. The map draws y upwards, so such a ring appears counter-clockwise
-/// there; see [`crate::winding`].
+fn ring_signed_area(ring: &[Coord<i32>]) -> f64 {
+    let mut area = 0.0;
+    for w in ring.windows(2) {
+        let [x1, y1] = coord_f64(w[0]);
+        let [x2, y2] = coord_f64(w[1]);
+        area += (x2 - x1) * (y2 + y1);
+    }
+    if let (Some(&last), Some(&first)) = (ring.last(), ring.first()) {
+        let [lx, ly] = coord_f64(last);
+        let [fx, fy] = coord_f64(first);
+        area += (fx - lx) * (fy + ly);
+    }
+    area
+}
+
 pub(crate) fn is_ring_ccw(ring: &[Coord<i32>]) -> bool {
-    coords_area2(ring) > 0.0
+    ring_signed_area(ring) < 0.0
 }
 
 fn has_bad_winding(geom: &Geometry<i32>) -> bool {

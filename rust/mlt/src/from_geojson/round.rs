@@ -1,19 +1,13 @@
 //! Rounding of clipped geometries onto a tile's integer grid, keeping the z of
 //! each stored vertex. Vertices that land on their predecessor are merged, and
 //! parts left too short to draw are dropped.
-//!
-//! Polygon rings come out wound as MVT needs, whatever the input's winding: an
-//! exterior with a positive area and a hole with a negative one (see
-//! [`crate::winding`]). The projection already winds them so, but rounding can
-//! flip a sliver, so each ring is checked again on its tile's grid.
 
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 
 use super::EXTENT;
-use super::project::{Geom, Ring, Vertex};
-use crate::winding::coords_area2;
+use super::project::{Geom, Vertex};
 
 /// Round a vertex of the unit square onto a tile's integer grid: `scale` is the
 /// grid's size across the whole world at the tile's zoom and `origin` the tile's
@@ -54,14 +48,12 @@ fn round_line(
     (coords.len() >= 2).then(|| (LineString::new(coords), z))
 }
 
-/// Round an open ring, wind it as `ring` needs, and close it, or `None` when
-/// fewer than three distinct vertices remain. A reversed ring keeps its first
-/// vertex. The z values cover the stored vertices only.
+/// Round an open ring and close it, or `None` when fewer than three distinct
+/// vertices remain. The z values cover the stored vertices only.
 fn round_ring(
     open: &[Vertex],
     scale: f64,
     origin: (f64, f64),
-    ring: Ring,
 ) -> Option<(LineString<i32>, Vec<i32>)> {
     let (mut coords, mut z) = round_run(open, scale, origin);
     if coords.len() > 1 && coords.first() == coords.last() {
@@ -70,10 +62,6 @@ fn round_ring(
     }
     if coords.len() < 3 {
         return None;
-    }
-    if ring.is_wound_backwards(coords_area2(&coords)) {
-        coords[1..].reverse();
-        z[1..].reverse();
     }
     coords.push(coords[0]);
     Some((LineString::new(coords), z))
@@ -87,9 +75,9 @@ fn round_polygon(
     origin: (f64, f64),
 ) -> Option<(Polygon<i32>, Vec<i32>)> {
     let mut rings = rings.iter();
-    let (exterior, mut z) = round_ring(rings.next()?, scale, origin, Ring::Exterior)?;
+    let (exterior, mut z) = round_ring(rings.next()?, scale, origin)?;
     let (interiors, holes_z) =
-        gather(rings.map(|r| round_ring(r, scale, origin, Ring::Hole))).unwrap_or_default();
+        gather(rings.map(|r| round_ring(r, scale, origin))).unwrap_or_default();
     z.extend(holes_z);
     Some((Polygon::new(exterior, interiors), z))
 }
@@ -170,75 +158,16 @@ mod tests {
             v(10.0, 10.0, 3.0),
             v(0.0, 10.0, 4.4),
         ];
-        let (ring, z) = round_ring(&open, 1.0, ORIGIN, Ring::Exterior).unwrap();
+        let (ring, z) = round_ring(&open, 1.0, ORIGIN).unwrap();
         assert_eq!(ring.0.len(), 5);
         assert_eq!(ring.0[0], ring.0[4]);
         assert_eq!(z, [1, 2, 3, 4]);
     }
 
-    /// The open square `(0, 0), (0, 10), (10, 10), (10, 0)`, which has a negative
-    /// area with y down, with z 1..=4.
-    fn negative_square() -> [Vertex; 4] {
-        [
-            v(0.0, 0.0, 1.0),
-            v(0.0, 10.0, 2.0),
-            v(10.0, 10.0, 3.0),
-            v(10.0, 0.0, 4.0),
-        ]
-    }
-
-    fn coords(points: [(i32, i32); 5]) -> Vec<Coord<i32>> {
-        points.map(|(x, y)| Coord { x, y }).to_vec()
-    }
-
-    #[test]
-    fn an_exterior_with_a_negative_area_is_reversed_with_its_z() {
-        let (ring, z) = round_ring(&negative_square(), 1.0, ORIGIN, Ring::Exterior).unwrap();
-        assert_eq!(ring.0, coords([(0, 0), (10, 0), (10, 10), (0, 10), (0, 0)]));
-        assert_eq!(z, [1, 4, 3, 2]);
-    }
-
-    #[test]
-    fn a_hole_with_a_negative_area_is_kept_and_one_with_a_positive_area_is_reversed() {
-        let (ring, z) = round_ring(&negative_square(), 1.0, ORIGIN, Ring::Hole).unwrap();
-        assert_eq!(ring.0, coords([(0, 0), (0, 10), (10, 10), (10, 0), (0, 0)]));
-        assert_eq!(z, [1, 2, 3, 4]);
-
-        let mut positive = negative_square();
-        positive[1..].reverse();
-        let (ring, z) = round_ring(&positive, 1.0, ORIGIN, Ring::Hole).unwrap();
-        assert_eq!(ring.0, coords([(0, 0), (0, 10), (10, 10), (10, 0), (0, 0)]));
-        assert_eq!(z, [1, 2, 3, 4]);
-    }
-
-    #[test]
-    fn a_polygon_gets_a_positive_exterior_and_negative_holes_with_z_in_step() {
-        let mut exterior = vec![
-            v(0.0, 0.0, 1.0),
-            v(0.0, 20.0, 2.0),
-            v(20.0, 20.0, 3.0),
-            v(20.0, 0.0, 4.0),
-        ];
-        let hole = vec![
-            v(5.0, 5.0, 5.0),
-            v(15.0, 5.0, 6.0),
-            v(15.0, 15.0, 7.0),
-            v(5.0, 15.0, 8.0),
-        ];
-        let (polygon, z) = round_polygon(&[exterior.clone(), hole], 1.0, ORIGIN).unwrap();
-        assert!(coords_area2(&polygon.exterior().0) > 0.0);
-        assert!(coords_area2(&polygon.interiors()[0].0) < 0.0);
-        assert_eq!(z, [1, 4, 3, 2, 5, 8, 7, 6]);
-
-        exterior[1..].reverse();
-        let (polygon, _) = round_polygon(&[exterior], 1.0, ORIGIN).unwrap();
-        assert!(coords_area2(&polygon.exterior().0) > 0.0);
-    }
-
     #[test]
     fn a_ring_collapsing_under_rounding_is_dropped() {
         let open = [v(0.1, 0.1, 0.0), v(0.2, 0.2, 0.0), v(0.3, 0.1, 0.0)];
-        assert!(round_ring(&open, 1.0, ORIGIN, Ring::Exterior).is_none());
+        assert!(round_ring(&open, 1.0, ORIGIN).is_none());
     }
 
     #[test]
@@ -249,7 +178,7 @@ mod tests {
             v(10.0, 10.0, 0.0),
             v(0.0, 0.0, 0.0),
         ];
-        let (ring, z) = round_ring(&open, 1.0, ORIGIN, Ring::Exterior).unwrap();
+        let (ring, z) = round_ring(&open, 1.0, ORIGIN).unwrap();
         assert_eq!(ring.0.len(), 4);
         assert_eq!(z.len(), 3);
     }

@@ -20,7 +20,7 @@
 //!
 //! Points are not cut; the caller says which ones a tile owns.
 
-use super::project::{Geom, Vertex, ring_area2};
+use super::project::{Geom, Vertex};
 
 /// An axis-aligned rectangle in the same coordinates as the vertices.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -180,6 +180,18 @@ pub(super) fn clip_ring(ring: &[Vertex], rect: &Rect) -> Vec<Vertex> {
 /// treated as empty: below it lies only floating-point noise from the cuts.
 const EMPTY_AREA_FRACTION: f64 = 1e-9;
 
+/// Twice the unsigned area of an open ring, measured from the rectangle's corner
+/// so that a tiny ring far from the origin does not lose its area to cancellation.
+fn ring_area2(ring: &[Vertex], rect: &Rect) -> f64 {
+    let mut sum = 0.0;
+    for (a, b) in ring.iter().zip(ring.iter().cycle().skip(1)) {
+        let (ax, ay) = (a.x - rect.min_x, a.y - rect.min_y);
+        let (bx, by) = (b.x - rect.min_x, b.y - rect.min_y);
+        sum += ax * by - bx * ay;
+    }
+    sum.abs()
+}
+
 /// Clip a whole geometry to `rect`, keeping the vertices' coordinate space.
 ///
 /// A `LineString` that leaves and re-enters becomes a `MultiLineString`; other
@@ -200,7 +212,7 @@ pub(super) fn clip_geom(geom: &Geom, rect: &Rect, owns: impl Fn(&Vertex) -> bool
             .filter(|r| !r.is_empty())
             .collect();
         let area2 =
-            ring_area2(&exterior).abs() - holes.iter().map(|h| ring_area2(h).abs()).sum::<f64>();
+            ring_area2(&exterior, rect) - holes.iter().map(|h| ring_area2(h, rect)).sum::<f64>();
         let rect_area2 = 2.0 * (rect.max_x - rect.min_x) * (rect.max_y - rect.min_y);
         if area2 <= rect_area2 * EMPTY_AREA_FRACTION {
             return None;
@@ -452,8 +464,8 @@ mod tests {
             panic!("a polygon");
         };
         assert_eq!(rings.len(), 2);
-        assert!((ring_area2(&rings[0]).abs() - 200.0).abs() < 1e-9);
-        assert!((ring_area2(&rings[1]).abs() - 50.0).abs() < 1e-9);
+        assert!((ring_area2(&rings[0], &UNIT) - 200.0).abs() < 1e-9);
+        assert!((ring_area2(&rings[1], &UNIT) - 50.0).abs() < 1e-9);
     }
 
     #[test]

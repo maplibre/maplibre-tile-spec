@@ -7,7 +7,6 @@ pub mod from_geojson;
 pub mod hexdump;
 pub mod ls;
 pub mod ui;
-mod winding;
 
 use clap::ValueEnum;
 
