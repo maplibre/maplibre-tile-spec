@@ -1,0 +1,32 @@
+<svg class="mlt-diagram" viewBox="0 0 710 214" role="img" aria-label="city in the Plain layout, in byte order: the type byte and name in the metadata section, then in the data section the stream count 3 and the streams, each led by its stream type byte" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="14">metadata</text>
+<text class="row" x="0" y="54">city</text>
+<text class="muted small mid" x="184.7" y="30">type</text>
+<rect class="f0" x="150" y="40" width="69.4" height="28" rx="3"/>
+<text class="cell" x="184.7" y="54">1d</text>
+<text class="small mid" x="184.7" y="82">OptString</text>
+<text class="muted small mid" x="258.8" y="30">name</text>
+<rect class="f0" x="225.4" y="40" width="66.8" height="28" rx="3"/>
+<text class="cell" x="258.8" y="54">"city"</text>
+<text class="muted small" x="0" y="112">data</text>
+<text class="row" x="0" y="152">city</text>
+<text class="muted small mid" x="194.6" y="128">stream_count</text>
+<rect class="f0" x="150" y="138" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="152">3</text>
+<text class="small mid" x="194.6" y="180">Present + 2</text>
+<text class="muted small mid" x="279.9" y="128">Present</text>
+<rect class="f1" x="245.2" y="138" width="69.4" height="28" rx="3"/>
+<text class="cell" x="279.9" y="152">ff 07</text>
+<text class="small mid" x="279.9" y="180">0x00</text>
+<text class="small mid" x="279.9" y="194">bits 1110</text>
+<text class="muted small mid" x="378.4" y="128">Length/VarBinary</text>
+<rect class="f1" x="320.6" y="138" width="115.6" height="28" rx="3"/>
+<text class="cell" x="378.4" y="152">[7,5,7]</text>
+<text class="small mid" x="378.4" y="180">0x30</text>
+<text class="small mid" x="378.4" y="194">count 3</text>
+<text class="muted small mid" x="534.1" y="128">Data/None</text>
+<rect class="f1" x="442.2" y="138" width="183.8" height="28" rx="3"/>
+<text class="cell" x="534.1" y="152">"MailandMilanMailand"</text>
+<text class="small mid" x="534.1" y="180">0x10</text>
+<text class="small mid" x="534.1" y="194">19 B</text>
+</svg>
