@@ -93,20 +93,20 @@
 <text class="muted small mid" x="152" y="210">count</text>
 <rect class="f1" x="178" y="168" width="44" height="28" rx="3"/>
 <text class="cell" x="200" y="182">0A</text>
-<text class="muted small mid" x="200" y="210">→ 10</text>
+<text class="muted small mid" x="200" y="210">-> 10</text>
 <rect class="f1" x="226" y="168" width="44" height="28" rx="3"/>
 <text class="cell" x="248" y="182">00</text>
-<text class="muted small mid" x="248" y="210">→ 11</text>
+<text class="muted small mid" x="248" y="210">-> 11</text>
 <rect class="f1" x="274" y="168" width="44" height="28" rx="3"/>
 <text class="cell" x="296" y="182">00</text>
-<text class="muted small mid" x="296" y="210">→ 12</text>
+<text class="muted small mid" x="296" y="210">-> 12</text>
 <rect class="f1" x="322" y="168" width="44" height="28" rx="3"/>
 <text class="cell" x="344" y="182">00</text>
-<text class="muted small mid" x="344" y="210">→ 13</text>
+<text class="muted small mid" x="344" y="210">-> 13</text>
 <rect class="f1" x="370" y="168" width="44" height="28" rx="3"/>
 <text class="cell" x="392" y="182">00</text>
-<text class="muted small mid" x="392" y="210">→ 14</text>
+<text class="muted small mid" x="392" y="210">-> 14</text>
 <rect class="f1" x="418" y="168" width="44" height="28" rx="3"/>
 <text class="cell" x="440" y="182">00</text>
-<text class="muted small mid" x="440" y="210">→ 15</text>
+<text class="muted small mid" x="440" y="210">-> 15</text>
 </svg>
