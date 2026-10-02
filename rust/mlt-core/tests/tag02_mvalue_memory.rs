@@ -7,7 +7,7 @@ use mlt_core::geo_types::{Coord, Geometry, LineString};
 use mlt_core::{Decoder, GeometryValues, Layer, MltError, Parser};
 
 /// The budget the decode below is given, which is the default one.
-const BUDGET: usize = 20 * 1024 * 1024;
+const BUDGET: usize = 64 * 1024 * 1024;
 const FEATURES: usize = 20_000;
 const COLUMNS: usize = 128;
 
