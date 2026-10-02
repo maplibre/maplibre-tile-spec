@@ -1,0 +1,88 @@
+<svg class="mlt-diagram" viewBox="0 0 710 396" role="img" aria-label="The first three tags of nested_map_shapes as a Map, with 3 lengths, 7 keys and 7 values, and as a Struct, with presence streams on de and en and none on fr" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="221" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H312V34"/>
+<text class="bold mid t1" x="386" y="14">feature 1</text>
+<path class="bracket t1" d="M326 34V28H446V34"/>
+<text class="bold mid t0" x="520" y="14">feature 2</text>
+<path class="bracket t0" d="M460 34V28H580V34"/>
+<text class="muted small" x="0" y="50">Map</text>
+<text class="row" x="0" y="74">tags</text>
+<text class="row" x="0" y="114">keys</text>
+<text class="row" x="0" y="154">values</text>
+<rect class="f0" x="130" y="60" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="74">3</text>
+<rect class="f0" x="130" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="159" y="114">"de"</text>
+<rect class="f0" x="130" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="159" y="154">"berg"</text>
+<rect class="f0" x="192" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="221" y="114">"en"</text>
+<rect class="f0" x="192" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="221" y="154">"hill"</text>
+<rect class="f0" x="254" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="283" y="114">"fr"</text>
+<rect class="f0" x="254" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="283" y="154">"mont"</text>
+<rect class="f1" x="326" y="60" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="74">2</text>
+<rect class="f1" x="326" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="355" y="114">"de"</text>
+<rect class="f1" x="326" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="355" y="154">"see"</text>
+<rect class="f1" x="388" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="417" y="114">"fr"</text>
+<rect class="f1" x="388" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="417" y="154">"lac"</text>
+<rect class="f0" x="460" y="60" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="74">2</text>
+<rect class="f0" x="460" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="489" y="114">"en"</text>
+<rect class="f0" x="460" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="489" y="154">"sea"</text>
+<rect class="f0" x="522" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="551" y="114">"fr"</text>
+<rect class="f0" x="522" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="551" y="154">"mer"</text>
+<text class="muted small" x="598" y="74">3 lengths</text>
+<text class="muted small" x="598" y="114">7 String keys</text>
+<text class="muted small" x="598" y="154">7 String values</text>
+<text class="muted small" x="0" y="190">Struct</text>
+<text class="row" x="0" y="214">tags.de</text>
+<rect class="f0" x="130" y="200" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="214">1</text>
+<rect class="f1" x="326" y="200" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="214">1</text>
+<rect class="f0" x="460" y="200" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="214">0</text>
+<text class="muted small" x="598" y="214">3 presence bits</text>
+<rect class="f0" x="130" y="240" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="254">"berg"</text>
+<rect class="f1" x="326" y="240" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="254">"see"</text>
+<rect class="implicit" x="460" y="240" width="120" height="28" rx="3"/>
+<text class="cell muted" x="520" y="254">null</text>
+<text class="muted small" x="598" y="254">2 String values</text>
+<text class="row" x="0" y="294">tags.en</text>
+<rect class="f0" x="130" y="280" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="294">1</text>
+<rect class="f1" x="326" y="280" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="294">0</text>
+<rect class="f0" x="460" y="280" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="294">1</text>
+<text class="muted small" x="598" y="294">3 presence bits</text>
+<rect class="f0" x="130" y="320" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="334">"hill"</text>
+<rect class="implicit" x="326" y="320" width="120" height="28" rx="3"/>
+<text class="cell muted" x="386" y="334">null</text>
+<rect class="f0" x="460" y="320" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="334">"sea"</text>
+<text class="muted small" x="598" y="334">2 String values</text>
+<text class="row" x="0" y="374">tags.fr</text>
+<rect class="f0" x="130" y="360" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="374">"mont"</text>
+<rect class="f1" x="326" y="360" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="374">"lac"</text>
+<rect class="f0" x="460" y="360" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="374">"mer"</text>
+<text class="muted small" x="598" y="374">3 String values</text>
+</svg>

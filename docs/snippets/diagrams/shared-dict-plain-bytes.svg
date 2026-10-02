@@ -1,0 +1,49 @@
+<svg class="mlt-diagram" viewBox="0 0 710 242" role="img" aria-label="The name: group with a Plain dictionary in byte order: its type byte, prefix, child count and dictionary streams, then each child&#x27;s type byte, name, presence and codes" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">name:</text>
+<text class="muted small mid" x="152" y="10">type</text>
+<rect class="f0" x="130" y="20" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="34">0f</text>
+<text class="small mid" x="152" y="62">Plain</text>
+<text class="muted small mid" x="217.3" y="10">name</text>
+<rect class="f0" x="180" y="20" width="74.6" height="28" rx="3"/>
+<text class="cell" x="217.3" y="34">"name:"</text>
+<text class="muted small mid" x="282.6" y="10">children</text>
+<rect class="f0" x="260.6" y="20" width="44" height="28" rx="3"/>
+<text class="cell" x="282.6" y="34">2</text>
+<text class="muted small mid" x="363.5" y="10">DictLengths</text>
+<rect class="f1" x="310.6" y="20" width="105.8" height="28" rx="3"/>
+<text class="cell" x="363.5" y="34">[3,4,7,5,5]</text>
+<text class="small mid" x="363.5" y="62">count 5</text>
+<text class="muted small mid" x="533.8" y="10">DictValues</text>
+<rect class="f1" x="422.4" y="20" width="222.8" height="28" rx="3"/>
+<text class="cell" x="533.8" y="34">"RomRomeMailandMilanParis"</text>
+<text class="small mid" x="533.8" y="62">24 B blob</text>
+<text class="row" x="0" y="112">name:de</text>
+<text class="muted small mid" x="152" y="88">type</text>
+<rect class="f0" x="130" y="98" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="112">0b</text>
+<text class="small mid" x="152" y="140">String</text>
+<text class="muted small mid" x="205.6" y="88">name</text>
+<rect class="f0" x="180" y="98" width="51.2" height="28" rx="3"/>
+<text class="cell" x="205.6" y="112">"de"</text>
+<text class="muted small mid" x="282.3" y="88">codes</text>
+<rect class="f1" x="237.2" y="98" width="90.2" height="28" rx="3"/>
+<text class="cell" x="282.3" y="112">[0,2,4,0]</text>
+<text class="small mid" x="282.3" y="140">implied 4</text>
+<text class="row" x="0" y="190">name:en</text>
+<text class="muted small mid" x="152" y="166">type</text>
+<rect class="f0" x="130" y="176" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="190">1b</text>
+<text class="small mid" x="152" y="218">String</text>
+<text class="muted small mid" x="205.6" y="166">name</text>
+<rect class="f0" x="180" y="176" width="51.2" height="28" rx="3"/>
+<text class="cell" x="205.6" y="190">"en"</text>
+<text class="muted small mid" x="262.8" y="166">presence</text>
+<rect class="f1" x="237.2" y="176" width="51.2" height="28" rx="3"/>
+<text class="cell" x="262.8" y="190">1110</text>
+<text class="small mid" x="262.8" y="218">bitmap</text>
+<text class="muted small mid" x="331.7" y="166">codes</text>
+<rect class="f1" x="294.4" y="176" width="74.6" height="28" rx="3"/>
+<text class="cell" x="331.7" y="190">[1,3,4]</text>
+<text class="small mid" x="331.7" y="218">implied 3</text>
+</svg>
