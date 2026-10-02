@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.35](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.34...rust-mlt-wasm-v0.1.35) - 2026-10-02
+
+### Other
+
+- show geom types by name, fold repeat values, loading ([#1818](https://github.com/maplibre/maplibre-tile-spec/pull/1818))
+
 ## [0.1.34](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.33...rust-mlt-wasm-v0.1.34) - 2026-10-01
 
 ### Added
