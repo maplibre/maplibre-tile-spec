@@ -1,0 +1,26 @@
+# MapLibre Tile Specification
+
+> MLT is a column-oriented vector tile format that stores the same layers, features, geometries and properties as MVT in fewer bytes.
+
+MLT (MapLibre Tile) is a vector tile format for map data.
+It stores the same content as an MVT tile, layers of features with geometries and properties, in a column-oriented layout.
+Each column is split into streams, and each stream picks the lightweight encoding that suits its values.
+The first byte of every tile names its wire format version: v1 is stable, v2 is experimental.
+
+## Getting Started
+
+- [Home](<https://maplibre.org/maplibre-tile-spec/index.md>): A column-oriented vector tile format for map data
+- [Overview](<https://maplibre.org/maplibre-tile-spec/overview/index.md>): The data model of tiles, layers, features, columns and streams
+- [Implementation Status](<https://maplibre.org/maplibre-tile-spec/implementation-status/index.md>): Libraries, tools and datasets that support MLT
+
+## Specification
+
+- [Overview](<https://maplibre.org/maplibre-tile-spec/specification/index.md>): How the first byte of a tile selects its wire format version
+- [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>): Byte layout of the stable MLT v1 wire format
+- [MLT v2 (experimental)](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>): Byte layout of the experimental MLT v2 wire format
+- [Encoding Algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>): Payload of every encoding a stream can name
+- [Implementation Guide](<https://maplibre.org/maplibre-tile-spec/implementation-guide/index.md>): Choosing encodings and decoding into memory
+
+## Optional
+
+- [Tile Inspector](<https://maplibre.org/maplibre-tile-spec/inspector/index.md>): Decode a tile in the browser and walk through its bytes
