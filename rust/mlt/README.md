@@ -8,7 +8,7 @@ The `mlt` binary provides several commands for working with MLT files:
 * **`decode`** - Parse an MLT file, decode all layers, and dump the result (supports text and `GeoJSON` output)
 * **`hexdump`** - Annotated byte/bit-level hexdump of an MLT file's metadata and stream payloads
 * **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT
-* **`from-geojson`** - Tile a WGS84 `GeoJSON` `FeatureCollection` (2D or 3D) into a directory of v2 MLT tiles (`unstable-v2` builds only)
+* **`from-geojson`** - Tile a `GeoJSON` file, including 3D positions, into MLT files
 * **`ui`** - Interactive terminal visualizer for MLT files
 
 ### Format conversion
@@ -42,30 +42,19 @@ It needs an `.mbtiles` or `.pmtiles` input, the only ones that record where each
 
 ### Tiling GeoJSON
 
-`from-geojson` tiles a WGS84 `GeoJSON` `FeatureCollection` into a `z/x/y.mlt` directory tree
-(XYZ scheme, `y = 0` at the north). The whole file becomes one layer, named after the file
-unless `--layer` says otherwise, at every zoom from `--min-zoom` (default 0) to the required
-`--max-zoom`. It always writes the v2 format, so it exists only in a binary built with
+Tile a WGS84 `GeoJSON` `FeatureCollection` into a `z/x/y.mlt` directory as a single layer
+named after the file. This writes the v2 format, so it needs a binary built with
 `--features unstable-v2`:
 
 ```bash
-mlt from-geojson buildings.geojson tiles --max-zoom 14 --layer buildings
+mlt from-geojson buildings.geojson tiles --max-zoom 14
 ```
 
-Tiles use an extent of 4096. Lines and polygons are clipped to each tile plus a 64-unit
-buffer; a point is written to the one tile it falls in. The property schema is
-inferred once across all features: integers widen to 64 bits, integers and floats to float,
-and any other mix to string. Nested arrays and objects are rejected. Feature
-ids must be non-negative integers when present. `GeometryCollection` is rejected, as is a
-position with fewer than two coordinates or a longitude or latitude outside its range.
-
-Positions with an altitude (`[lon, lat, alt]`) become MLT z coordinates and need a `--z-step`:
-the power of ten of the vertical grid's step in metres, from `-3` (1 mm) to `4` (10 km).
-Altitudes are interpolated where a tile edge cuts a line or ring. A file must be all flat or
-all 3D; mixing the two is rejected.
+Positions with an altitude (`[lon, lat, alt]`) become z coordinates on a `--z-step` grid,
+a power of ten in metres from `-3` (1 mm) to `4` (10 km):
 
 ```bash
-mlt from-geojson terrain_lines.geojson tiles --max-zoom 12 --z-step -1
+mlt from-geojson power_lines.geojson tiles --max-zoom 14 --z-step -1
 ```
 
 ### Visualizer
