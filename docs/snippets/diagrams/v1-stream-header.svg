@@ -1,0 +1,55 @@
+<svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="The v1 stream header bytes 13 and 42 of a vertex stream: Data, Vertex, then ComponentwiseDelta, None, VarInt" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">stream_type</text>
+<rect class="f0" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="54">0</text>
+<rect class="f0" x="192" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="220" y="54">0</text>
+<rect class="f0" x="254" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="282" y="54">0</text>
+<rect class="f0" x="316" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="344" y="54">1</text>
+<text class="small mid t0" x="251" y="14">Data</text>
+<path class="bracket t0" d="M130 34V28H372V34"/>
+<rect class="f1" x="378" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="406" y="54">0</text>
+<rect class="f1" x="440" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="468" y="54">0</text>
+<rect class="f1" x="502" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="530" y="54">1</text>
+<rect class="f1" x="564" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="592" y="54">1</text>
+<text class="small mid t1" x="499" y="14">Vertex</text>
+<path class="bracket t1" d="M378 34V28H620V34"/>
+<text class="muted small mid" x="592" y="82">0</text>
+<text class="muted small mid" x="530" y="82">1</text>
+<text class="muted small mid" x="468" y="82">2</text>
+<text class="muted small mid" x="406" y="82">3</text>
+<text class="muted small mid" x="344" y="82">4</text>
+<text class="muted small mid" x="282" y="82">5</text>
+<text class="muted small mid" x="220" y="82">6</text>
+<text class="muted small mid" x="158" y="82">7</text>
+<text class="muted small" x="0" y="82">bit</text>
+<text class="row" x="0" y="110">encoding</text>
+<rect class="f0" x="130" y="96" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="110">0</text>
+<rect class="f0" x="192" y="96" width="56" height="28" rx="3"/>
+<text class="cell" x="220" y="110">1</text>
+<rect class="f0" x="254" y="96" width="56" height="28" rx="3"/>
+<text class="cell" x="282" y="110">0</text>
+<path class="bracket t0" d="M130 130V136H310V130"/>
+<text class="small mid t0" x="220" y="150">ComponentwiseDelta</text>
+<rect class="f1" x="316" y="96" width="56" height="28" rx="3"/>
+<text class="cell" x="344" y="110">0</text>
+<rect class="f1" x="378" y="96" width="56" height="28" rx="3"/>
+<text class="cell" x="406" y="110">0</text>
+<rect class="f1" x="440" y="96" width="56" height="28" rx="3"/>
+<text class="cell" x="468" y="110">0</text>
+<path class="bracket t1" d="M316 130V136H496V130"/>
+<text class="small mid t1" x="406" y="150">None</text>
+<rect class="f0" x="502" y="96" width="56" height="28" rx="3"/>
+<text class="cell" x="530" y="110">1</text>
+<rect class="f0" x="564" y="96" width="56" height="28" rx="3"/>
+<text class="cell" x="592" y="110">0</text>
+<path class="bracket t0" d="M502 130V136H620V130"/>
+<text class="small mid t0" x="561" y="150">VarInt</text>
+</svg>

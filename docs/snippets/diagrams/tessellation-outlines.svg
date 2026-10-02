@@ -1,6 +1,6 @@
 <svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
-<text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> · with outlines</tspan></text>
-<text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> · without outlines</tspan></text>
+<text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> with outlines</tspan></text>
+<text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> without outlines</tspan></text>
 <text class="muted small" x="40" y="44">fill</text>
 <path class="fill" fill-rule="evenodd" d="M40,169.6L174.4,275.2L222.4,64ZM116.8,169.6L164.8,121.6L145.6,217.6ZM264,64L283.2,150.4L302.4,131.2Z"/>
 <path class="fill" d="M420,169.6L496.8,169.6L525.6,217.6ZM544.8,121.6L496.8,169.6L420,169.6ZM554.4,275.2L420,169.6L525.6,217.6ZM544.8,121.6L420,169.6L602.4,64ZM602.4,64L554.4,275.2L525.6,217.6ZM525.6,217.6L544.8,121.6L602.4,64ZM663.2,150.4L644,64L682.4,131.2Z"/>
