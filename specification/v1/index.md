@@ -271,6 +271,12 @@ Six geometry types are supported, encoded as unsigned integers:
 | 4 | MultiLineString | Collection of line strings |
 | 5 | MultiPolygon | Collection of polygons |
 
+### Polygon Rings
+
+Rings take their roles from their order: the first ring of each polygon is its exterior, and any rings after it are its holes. The [topology streams](<#topology-encoding>) say which rings belong to which polygon. Decoders MUST take each polygon's exterior and holes from the topology streams, not from winding.
+
+**Winding carries no meaning**: each ring MAY be wound either way, independently of the others. Unlike [MVT](<https://github.com/mapbox/vector-tile-spec/tree/master/2.1#4344-polygon-geometry-type>), MLT does not require exteriors to have a positive area or holes a negative one.
+
 ### Binary Structure
 
 A geometry column is stored as a sequence of streams, prefixed by a stream count:

@@ -220,6 +220,12 @@ There is no layout with ring lengths but without part lengths. A tessellated lay
 
 The meaning of the topology streams, the length threshold rules, componentwise delta encoding, Hilbert-sorted vertex dictionaries and Morton codes are unchanged from [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#geometry-column>).
 
+### Polygon Rings
+
+Rings take their roles from their order: the first ring of each polygon is its exterior, and any rings after it are its holes. The part and ring lengths of the [geometry layout](<#geometry-layout>) say which rings belong to which polygon. Decoders MUST take each polygon's exterior and holes from these lengths, not from winding.
+
+**Winding carries no meaning**: each ring MAY be wound either way, independently of the others. Unlike [MVT](<https://github.com/mapbox/vector-tile-spec/tree/master/2.1#4344-polygon-geometry-type>), MLT does not require exteriors to have a positive area or holes a negative one.
+
 ### Tessellation
 
 A tessellated layer stores the triangles its polygons were cut into, next to their vertices.

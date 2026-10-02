@@ -767,6 +767,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#polygon-rings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Polygon Rings
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#binary-structure" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1604,6 +1615,36 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </tr>
 </tbody>
 </table>
+<h3 id="polygon-rings">Polygon Rings<a class="headerlink" href="#polygon-rings" title="Link to this section">&para;</a></h3>
+<p>Rings take their roles from their order: the first ring of each polygon is its exterior, and any rings after it are its holes.
+The <a href="#topology-encoding">topology streams</a> say which rings belong to which polygon.
+Decoders MUST take each polygon's exterior and holes from the topology streams, not from winding.</p>
+<p><strong>Winding carries no meaning</strong>: each ring MAY be wound either way, independently of the others.
+Unlike <a href="https://github.com/mapbox/vector-tile-spec/tree/master/2.1#4344-polygon-geometry-type">MVT</a>, MLT does not require exteriors to have a positive area or holes a negative one.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 290" role="img" aria-label="The same three rings read from the topology streams, as MLT decoders do, and from their winding, as MVT decoders do: the clockwise hole becomes a second exterior and the counter-clockwise triangle becomes a hole" xmlns="http://www.w3.org/2000/svg">
+<text class="bold" x="40" y="14">from topology<tspan class="muted"> ✓ MLT</tspan></text>
+<text class="muted small" x="40" y="34">parts [2, 1]</text>
+<path class="f0 wind" fill-rule="evenodd" d="M40,60H220V240H40ZM90,110H170V190H90Z"/>
+<path class="f1 wind" d="M250,240L310,240L280,150Z"/>
+<path class="head t0" d="M125,55L134,60L125,65Z"/>
+<path class="head t0" d="M125,105L134,110L125,115Z"/>
+<path class="head t1" d="M275,235L284,240L275,245Z"/>
+<text class="vert halo" x="56" y="76">0</text>
+<text class="vert halo" x="130" y="150">1</text>
+<text class="vert halo" x="280" y="218">2</text>
+<text class="bold" x="400" y="14">from winding<tspan class="muted"> ✗ MVT</tspan></text>
+<text class="muted small" x="400" y="34">cw exterior, ccw hole</text>
+<path class="f0 wind" d="M400,60H580V240H400Z"/>
+<path class="f1 wind" d="M450,110H530V190H450Z"/>
+<path class="lost wind" d="M610,240L670,240L640,150Z"/>
+<path class="head t0" d="M485,55L494,60L485,65Z"/>
+<path class="head t1" d="M485,105L494,110L485,115Z"/>
+<path class="head" d="M635,235L644,240L635,245Z"/>
+<text class="vert halo" x="416" y="76">0</text>
+<text class="vert halo" x="490" y="150">1</text>
+<text class="vert halo" x="640" y="218">2</text>
+<text class="muted" x="40" y="274"><tspan class="fg">0-2</tspan> ring order, arrows show winding</text>
+</svg></p>
 <h3 id="binary-structure">Binary Structure<a class="headerlink" href="#binary-structure" title="Link to this section">&para;</a></h3>
 <p>A geometry column is stored as a sequence of streams, prefixed by a stream count:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fpoly.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a polygon, with the topology streams v1 writes.</p>
