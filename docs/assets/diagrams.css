@@ -114,3 +114,26 @@
 .mlt-diagram tspan.fg {
   fill: var(--md-default-fg-color);
 }
+.mlt-diagram .head.t0 {
+  fill: var(--mlt-f0);
+}
+.mlt-diagram .lost {
+  fill: none;
+  stroke: var(--md-default-fg-color--light);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.mlt-diagram .wind {
+  stroke-dasharray: 6 4;
+  animation: mlt-wind 1s linear infinite;
+}
+@keyframes mlt-wind {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mlt-diagram .wind {
+    animation: none;
+  }
+}
