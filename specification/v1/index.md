@@ -47,6 +47,8 @@ string := [varint length] [u8 bytes[length]]
 
 Metadata and data are in two separate sections, both in `column_count` order.
 
+A geometry column and a nullable string column `name`:
+
 A layer MUST contain exactly one geometry column and at most one id column.
 
 ### Column Metadata

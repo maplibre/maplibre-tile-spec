@@ -1681,87 +1681,180 @@ A layer whose features all share one writes the <a href="#uniform-geometry-type"
 <h3 id="geometry-layout">Geometry Layout<a class="headerlink" href="#geometry-layout" title="Link to this section">&para;</a></h3>
 <p>The low nibble of the layer layout byte:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fpoly.mlt&amp;at=layout" target="_blank">View example</a> - the <code>Polygons</code> layout: part and ring lengths, no vertex offsets.</p>
+<p>Every layout leads with the types stream, unless the header byte names a <a href="#uniform-geometry-type">uniform geometry type</a>.
+The streams it writes after that, in column order:</p>
 <table>
 <thead>
 <tr>
 <th style="text-align: right;">Code</th>
 <th>Name</th>
-<th>Streams, in order</th>
+<th style="text-align: center;">GeoLengths</th>
+<th style="text-align: center;">PartLengths</th>
+<th style="text-align: center;">RingLengths</th>
+<th style="text-align: center;">TriLengths</th>
+<th style="text-align: center;">IndexBuffer</th>
+<th style="text-align: center;">Vertices</th>
+<th style="text-align: center;">VertexOffsets</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td style="text-align: right;"><code>0x0</code></td>
 <td>Points</td>
-<td>Types, Vertices</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">all</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x1</code></td>
 <td>PointsDict</td>
-<td>Types, VertexDict, VertexOffsets</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">distinct</td>
+<td style="text-align: center;">●</td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x2</code></td>
 <td>MultiPoints</td>
-<td>Types, GeoLengths, Vertices</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">all</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x3</code></td>
 <td>MultiPointsDict</td>
-<td>Types, GeoLengths, VertexDict, VertexOffsets</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">distinct</td>
+<td style="text-align: center;">●</td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x4</code></td>
 <td>Lines</td>
-<td>Types, PartLengths, Vertices</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">all</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x5</code></td>
 <td>LinesDict</td>
-<td>Types, PartLengths, VertexDict, VertexOffsets</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">distinct</td>
+<td style="text-align: center;">●</td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x6</code></td>
 <td>MultiLines</td>
-<td>Types, GeoLengths, PartLengths, Vertices</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">all</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x7</code></td>
 <td>MultiLinesDict</td>
-<td>Types, GeoLengths, PartLengths, VertexDict, VertexOffsets</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">distinct</td>
+<td style="text-align: center;">●</td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x8</code></td>
 <td>Polygons</td>
-<td>Types, PartLengths, RingLengths, Vertices</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">all</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x9</code></td>
 <td>PolygonsDict</td>
-<td>Types, PartLengths, RingLengths, VertexDict, VertexOffsets</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">distinct</td>
+<td style="text-align: center;">●</td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0xA</code></td>
 <td>MultiPolygons</td>
-<td>Types, GeoLengths, PartLengths, RingLengths, Vertices</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">all</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0xB</code></td>
 <td>MultiPolygonsDict</td>
-<td>Types, GeoLengths, PartLengths, RingLengths, VertexDict, VertexOffsets</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">distinct</td>
+<td style="text-align: center;">●</td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0xC</code></td>
 <td>TessPolygons</td>
-<td>Types, TriLengths, IndexBuffer, Vertices</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">all</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0xD</code></td>
 <td>TessPolygonsWithOutlines</td>
-<td>Types, GeoLengths, PartLengths, RingLengths, TriLengths, IndexBuffer, Vertices</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">all</td>
+<td style="text-align: center;"></td>
 </tr>
 </tbody>
 </table>
+<p><code>all</code> is every vertex in sequence, <code>distinct</code> the dictionary the vertex offsets index into.</p>
 <p><code>0xE</code> and <code>0xF</code> are unassigned and MUST be rejected.</p>
 <p>There is no layout with ring lengths but without part lengths.
 A tessellated layer either has no outline topology (<code>0xC</code>) or all three outline streams (<code>0xD</code>).
@@ -2338,7 +2431,7 @@ A feature that is not a polygon stores no triangle count and owns no run of the 
 <h3 id="z-coordinates">Z Coordinates<a class="headerlink" href="#z-coordinates" title="Link to this section">&para;</a></h3>
 <p>A vertex stream MAY hold <code>(x, y, z)</code> triples instead of <code>(x, y)</code> pairs.
 The two variants are differentiated by bit 0 of its <a href="#encoding-byte">encoding byte</a>'s extension field being <code>1</code>.
-A <code>z_step</code> byte sits between <code>byte_length</code> and the payload, or directly after the value count when <code>byte_length</code> is omitted.
+A <code>z_step</code> byte is the stream's <a href="#parameters">parameter</a>.
 <code>byte_length</code> does not count it.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_point.mlt&amp;at=vertices" target="_blank">View example</a> - a point 12 m up, its <code>z</code> one word after <code>x</code> and <code>y</code>.</p>
 <div class="arithmatex">\[
@@ -4190,12 +4283,16 @@ A tessellated layer that needs m-values uses <code>0xD</code>.</p>
 <p>Bit 7 is set only when the stream's value count differs from the implied count.
 The implied count is:</p>
 <ul>
-<li><code>feature_count</code>, for the geometry types stream, when there is one, and for the data stream of a column with presence nibble <code>0</code></li>
-<li>the number of present values the presence field names, for the data stream of any other column</li>
 <li><code>byte_length</code>, for a byte blob</li>
+<li>the leading stream's count, for every stream after the leading one of a <a href="#string-columns">string</a> stream set or a float <code>Dict</code> column</li>
+<li><code>feature_count</code>, for every stream of the <a href="#geometry-section">geometry section</a></li>
+<li><code>feature_count</code>, for the data stream of a column with presence nibble <code>0</code></li>
+<li>the number of present values the presence field names, for the data stream of any other column</li>
+<li>the <a href="#counts">parent or present count</a>, for the streams of a nested node above the first <code>List</code> or <code>Map</code></li>
 </ul>
 <p>Bit 7 MUST be <code>0</code> on a byte blob.
-Bit 7 MUST be <code>1</code> on an <a href="#m-values">m-value column</a>'s leading data stream, which has no implied count.
+Bit 7 MUST be <code>1</code> on a <a href="#shared-dictionary-columns">shared dictionary</a>'s corpus streams other than its blobs, which have no implied count.
+Bit 7 MUST be <code>1</code> on an <a href="#m-values">m-value column</a>'s leading data stream, which has none either.
 Bit 7 MUST be <code>1</code> on the streams a <a href="#counts">nested node</a> at or below a <code>List</code> or <code>Map</code> writes, which have none either.</p>
 <p>A vertex stream counts vertices: one per <code>(x, y)</code> pair, <a href="#z-coordinates"><code>(x, y, z)</code></a> triple or Morton code.</p>
 <p>For an RLE stream the value count is the decoded element count.
@@ -4427,7 +4524,7 @@ If you are building an decoder, the <code>.json</code> snapshot are what an deco
 <div class="tabbed-block">
 <p>A single <code>Point</code> at <code>(13, 42)</code> with id <code>100</code>.</p>
 <p>Every feature is a <code>Point</code>, so the header byte's uniform type nibble replaces the types stream.
-The vertex stream has two words for one point, so it sets bit 7 of its encoding byte and writes its count.</p>
+The vertex stream holds one vertex, which <code>feature_count</code> implies, so it writes no count.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>00000000                                                                     | layer[0] "layer1" (21 B)
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>00000000  14                                                .                |   size: 20 (varint) - tag + body
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02

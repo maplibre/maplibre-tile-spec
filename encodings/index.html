@@ -1173,6 +1173,79 @@ Every other integer stream has 32-bit words.</p>
 A plain or run-length encoded value is ZigZag-encoded only on a stream of a signed type.
 Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded.
 Delta arithmetic wraps at the word width.</p>
+<p>The steps each logical encoding takes:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 236" role="img" aria-label="How each integer logical encoding decodes: the physical step turns the payload into words, RLE and DeltaRLE read VarInt pairs and expand the runs, ZigZag is undone always under the delta encodings and only on signed streams otherwise, and the delta encodings end in one or two prefix sums. BitPacked unpacks the bits in place of the physical step" xmlns="http://www.w3.org/2000/svg">
+<defs></defs>
+<text class="small mid muted" x="215" y="10">physical</text>
+<text class="small mid muted" x="355" y="10">runs</text>
+<text class="small mid muted" x="460" y="10">ZigZag</text>
+<text class="small mid muted" x="565" y="10">prefix sum</text>
+<text class="small muted" text-anchor="end" x="124" y="10">payload</text>
+<text class="small muted" x="640" y="10">values</text>
+<text class="row" x="0" y="38">None</text>
+<path class="link" d="M118 38.0H130"/>
+<rect class="f0" x="130" y="24" width="170" height="28" rx="3"/>
+<text class="cell small" x="215" y="38">None, VarInt, FastPFOR</text>
+<path class="link" d="M300 38.0H410"/>
+<rect class="f0" x="410" y="24" width="100" height="28" rx="3"/>
+<text class="cell" x="460" y="38">if signed</text>
+<path class="link" d="M510 38.0H632" marker-end="url(#ip)"/>
+<text class="row" x="0" y="74">Delta</text>
+<path class="link" d="M118 74.0H130"/>
+<rect class="f0" x="130" y="60" width="170" height="28" rx="3"/>
+<text class="cell small" x="215" y="74">None, VarInt, FastPFOR</text>
+<path class="link" d="M300 74.0H410"/>
+<rect class="f1" x="410" y="60" width="100" height="28" rx="3"/>
+<text class="cell" x="460" y="74">always</text>
+<path class="link" d="M510 74.0H520"/>
+<rect class="f1" x="520" y="60" width="90" height="28" rx="3"/>
+<text class="cell" x="565" y="74">once</text>
+<path class="link" d="M610 74.0H632" marker-end="url(#ip)"/>
+<text class="row" x="0" y="110">RLE</text>
+<path class="link" d="M118 110.0H130"/>
+<rect class="f1" x="130" y="96" width="170" height="28" rx="3"/>
+<text class="cell small" x="215" y="110">VarInt pairs</text>
+<path class="link" d="M300 110.0H310"/>
+<rect class="f1" x="310" y="96" width="90" height="28" rx="3"/>
+<text class="cell" x="355" y="110">expand</text>
+<path class="link" d="M400 110.0H410"/>
+<rect class="f0" x="410" y="96" width="100" height="28" rx="3"/>
+<text class="cell" x="460" y="110">if signed</text>
+<path class="link" d="M510 110.0H632" marker-end="url(#ip)"/>
+<text class="row" x="0" y="146">DeltaRLE</text>
+<path class="link" d="M118 146.0H130"/>
+<rect class="f1" x="130" y="132" width="170" height="28" rx="3"/>
+<text class="cell small" x="215" y="146">VarInt pairs</text>
+<path class="link" d="M300 146.0H310"/>
+<rect class="f1" x="310" y="132" width="90" height="28" rx="3"/>
+<text class="cell" x="355" y="146">expand</text>
+<path class="link" d="M400 146.0H410"/>
+<rect class="f1" x="410" y="132" width="100" height="28" rx="3"/>
+<text class="cell" x="460" y="146">always</text>
+<path class="link" d="M510 146.0H520"/>
+<rect class="f1" x="520" y="132" width="90" height="28" rx="3"/>
+<text class="cell" x="565" y="146">once</text>
+<path class="link" d="M610 146.0H632" marker-end="url(#ip)"/>
+<text class="row" x="0" y="182">BitPacked</text>
+<path class="link" d="M118 182.0H130"/>
+<rect class="f1" x="130" y="168" width="170" height="28" rx="3"/>
+<text class="cell small" x="215" y="182">unpack bits</text>
+<path class="link" d="M300 182.0H410"/>
+<rect class="f0" x="410" y="168" width="100" height="28" rx="3"/>
+<text class="cell" x="460" y="182">if signed</text>
+<path class="link" d="M510 182.0H632" marker-end="url(#ip)"/>
+<text class="row" x="0" y="218">Delta2</text>
+<path class="link" d="M118 218.0H130"/>
+<rect class="f0" x="130" y="204" width="170" height="28" rx="3"/>
+<text class="cell small" x="215" y="218">None, VarInt, FastPFOR</text>
+<path class="link" d="M300 218.0H410"/>
+<rect class="f1" x="410" y="204" width="100" height="28" rx="3"/>
+<text class="cell" x="460" y="218">always</text>
+<path class="link" d="M510 218.0H520"/>
+<rect class="f1" x="520" y="204" width="90" height="28" rx="3"/>
+<text class="cell" x="565" y="218">twice</text>
+<path class="link" d="M610 218.0H632" marker-end="url(#ip)"/>
+</svg></p>
 <h2 id="physical-encodings">Physical Encodings<a class="headerlink" href="#physical-encodings" title="Link to this section">&para;</a></h2>
 <h3 id="zigzag">ZigZag<a class="headerlink" href="#zigzag" title="Link to this section">&para;</a></h3>
 <p>Used wherever a signed value has to become an unsigned word.
@@ -1354,7 +1427,7 @@ Signed values go through <a href="#zigzag">ZigZag</a> first, where the logical e
 <p>Every word is stored in the same number of bits, the bit width of the largest value.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes" target="_blank">View example</a> - dictionary codes <code>0</code> to <code>2</code>, each in two bits.</p>
 <p>v2 numbers bit packing as a logical encoding, and its physical field is reserved as <code>0</code>.
-It stands in for the whole physical step: the words come straight out of the packed bits, and no other logical transform is applied.</p>
+It stands in for the whole physical step: the words come straight out of the packed bits, and only <a href="#zigzag">ZigZag</a> on a signed stream is applied to them.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>payload := [u8 width]                        1-32
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>           [u8 packed[ceil(count * width / 8)]]
 </span></code></pre></div>
@@ -1855,57 +1928,131 @@ e = \left\lfloor \frac{\sqrt{8 \cdot \mathit{scale} + 1} - 1}{2} \right\rfloor
 f = \mathit{scale} - \frac{e(e+1)}{2}
 \]</div>
 <p>The square root is exact enough in double precision for every valid <code>scale</code>.</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: right;"><code>scale</code></th>
-<th style="text-align: right;"><span class="arithmatex">\(e\)</span></th>
-<th style="text-align: right;"><span class="arithmatex">\(f\)</span></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
-</tr>
-<tr>
-<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
-</tr>
-<tr>
-<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
-</tr>
-<tr>
-<td style="text-align: right;"><span class="arithmatex">\(3\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
-</tr>
-<tr>
-<td style="text-align: right;"><span class="arithmatex">\(4\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
-</tr>
-<tr>
-<td style="text-align: right;"><span class="arithmatex">\(5\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
-</tr>
-<tr>
-<td style="text-align: right;"><span class="arithmatex">\(\vdots\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(\vdots\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(\vdots\)</span></td>
-</tr>
-<tr>
-<td style="text-align: right;"><span class="arithmatex">\(189\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(18\)</span></td>
-<td style="text-align: right;"><span class="arithmatex">\(18\)</span></td>
-</tr>
-</tbody>
-</table>
+<p><svg class="mlt-diagram" viewBox="0 0 710 221" role="img" aria-label="The ALP scale byte numbers the valid (e, f) pairs row by row: row e starts at e(e+1)/2, and (18, 18) is 189" xmlns="http://www.w3.org/2000/svg">
+<text class="small muted" x="0" y="10">f</text>
+<text class="small muted mid" x="77" y="10">0</text>
+<text class="small muted mid" x="109" y="10">1</text>
+<text class="small muted mid" x="141" y="10">2</text>
+<text class="small muted mid" x="173" y="10">3</text>
+<text class="small muted mid" x="205" y="10">4</text>
+<text class="small muted mid" x="237" y="10">5</text>
+<text class="small muted mid" x="269" y="10">6</text>
+<text class="small muted mid" x="301" y="10">7</text>
+<text class="small muted mid" x="333" y="10">8</text>
+<text class="small muted mid" x="365" y="10">9</text>
+<text class="small muted mid" x="397" y="10">10</text>
+<text class="small muted mid" x="429" y="10">11</text>
+<text class="small muted mid" x="461" y="10">12</text>
+<text class="small muted mid" x="493" y="10">13</text>
+<text class="small muted mid" x="525" y="10">14</text>
+<text class="small muted mid" x="557" y="10">15</text>
+<text class="small muted mid" x="589" y="10">16</text>
+<text class="small muted mid" x="621" y="10">17</text>
+<text class="small muted mid" x="653" y="10">18</text>
+<text class="small" x="0" y="34">e = 0</text>
+<rect class="plain" x="62" y="24" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="34">0</text>
+<text class="small" x="0" y="56">e = 1</text>
+<rect class="plain" x="62" y="46" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="56">1</text>
+<rect class="plain" x="94" y="46" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="56">2</text>
+<text class="small" x="0" y="78">e = 2</text>
+<rect class="plain" x="62" y="68" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="78">3</text>
+<rect class="plain" x="94" y="68" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="78">4</text>
+<rect class="plain" x="126" y="68" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="78">5</text>
+<text class="small" x="0" y="100">e = 3</text>
+<rect class="plain" x="62" y="90" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="100">6</text>
+<rect class="plain" x="94" y="90" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="100">7</text>
+<rect class="plain" x="126" y="90" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="100">8</text>
+<rect class="plain" x="158" y="90" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="100">9</text>
+<text class="small" x="0" y="122">e = 4</text>
+<rect class="plain" x="62" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="122">10</text>
+<rect class="plain" x="94" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="122">11</text>
+<rect class="plain" x="126" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="122">12</text>
+<rect class="plain" x="158" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="122">13</text>
+<rect class="plain" x="190" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="205" y="122">14</text>
+<text class="small" x="0" y="144">e = 5</text>
+<rect class="plain" x="62" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="144">15</text>
+<rect class="plain" x="94" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="144">16</text>
+<rect class="plain" x="126" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="144">17</text>
+<rect class="plain" x="158" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="144">18</text>
+<rect class="plain" x="190" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="205" y="144">19</text>
+<rect class="plain" x="222" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="237" y="144">20</text>
+<text class="small" x="0" y="166">e = 6</text>
+<rect class="plain" x="62" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="166">21</text>
+<rect class="plain" x="94" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="166">22</text>
+<rect class="plain" x="126" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="166">23</text>
+<rect class="plain" x="158" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="166">24</text>
+<rect class="plain" x="190" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="205" y="166">25</text>
+<rect class="plain" x="222" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="237" y="166">26</text>
+<rect class="plain" x="254" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="269" y="166">27</text>
+<text class="muted mid" x="77" y="188">⋮</text>
+<text class="small" x="0" y="210">e = 18</text>
+<rect class="plain" x="62" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="210">171</text>
+<rect class="plain" x="94" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="210">172</text>
+<rect class="plain" x="126" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="210">173</text>
+<rect class="plain" x="158" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="210">174</text>
+<rect class="plain" x="190" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="205" y="210">175</text>
+<rect class="plain" x="222" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="237" y="210">176</text>
+<rect class="plain" x="254" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="269" y="210">177</text>
+<rect class="plain" x="286" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="301" y="210">178</text>
+<rect class="plain" x="318" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="333" y="210">179</text>
+<rect class="plain" x="350" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="365" y="210">180</text>
+<rect class="plain" x="382" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="397" y="210">181</text>
+<rect class="plain" x="414" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="429" y="210">182</text>
+<rect class="plain" x="446" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="461" y="210">183</text>
+<rect class="plain" x="478" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="493" y="210">184</text>
+<rect class="plain" x="510" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="525" y="210">185</text>
+<rect class="plain" x="542" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="557" y="210">186</text>
+<rect class="plain" x="574" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="589" y="210">187</text>
+<rect class="plain" x="606" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="621" y="210">188</text>
+<rect class="plain" x="638" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="653" y="210">189</text>
+</svg></p>
 <p>The payload holds unsigned offsets from <code>base</code>, so the smallest is <code>0</code> and every value is non-negative.
 The offsets are an ordinary unsigned integer stream and carry their own physical encoding.
 Its words are 64-bit, except under FastPFOR, which only has 32-bit words.</p>

@@ -22,6 +22,8 @@ values = logical_decode(physical_decode(payload))
 
 A difference is signed even when the values are not, so every delta is [ZigZag](<#zigzag>)-encoded. A plain or run-length encoded value is ZigZag-encoded only on a stream of a signed type. Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded. Delta arithmetic wraps at the word width.
 
+The steps each logical encoding takes:
+
 ## Physical Encodings
 
 ### ZigZag
@@ -71,7 +73,7 @@ Every word is stored in the same number of bits, the bit width of the largest va
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - dictionary codes `0` to `2`, each in two bits.
 
-v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`. It stands in for the whole physical step: the words come straight out of the packed bits, and no other logical transform is applied.
+v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`. It stands in for the whole physical step: the words come straight out of the packed bits, and only [ZigZag](<#zigzag>) on a signed stream is applied to them.
 
 ```text
 payload := [u8 width]                        1-32
@@ -292,17 +294,6 @@ To decode, \\(e\\) is the largest integer with \\(\\frac{e(e+1)}{2} \\le \\mathi
 \\\[ e = \\left\\lfloor \\frac{\\sqrt{8 \\cdot \\mathit{scale} + 1} - 1}{2} \\right\\rfloor \\qquad f = \\mathit{scale} - \\frac{e(e+1)}{2} \\\]
 
 The square root is exact enough in double precision for every valid `scale`.
-
-| `scale` | \\(e\\) | \\(f\\) |
-| ---: | ---: | ---: |
-| \\(0\\) | \\(0\\) | \\(0\\) |
-| \\(1\\) | \\(1\\) | \\(0\\) |
-| \\(2\\) | \\(1\\) | \\(1\\) |
-| \\(3\\) | \\(2\\) | \\(0\\) |
-| \\(4\\) | \\(2\\) | \\(1\\) |
-| \\(5\\) | \\(2\\) | \\(2\\) |
-| \\(\\vdots\\) | \\(\\vdots\\) | \\(\\vdots\\) |
-| \\(189\\) | \\(18\\) | \\(18\\) |
 
 The payload holds unsigned offsets from `base`, so the smallest is `0` and every value is non-negative. The offsets are an ordinary unsigned integer stream and carry their own physical encoding. Its words are 64-bit, except under FastPFOR, which only has 32-bit words.
 
