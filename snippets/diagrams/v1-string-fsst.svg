@@ -1,0 +1,78 @@
+<svg class="mlt-diagram" viewBox="0 0 710 308" role="img" aria-label="city stored in the 4-stream FSST layout, in stream order" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="198" y="14">feature 0</text>
+<path class="bracket t0" d="M150 34V28H246V34"/>
+<text class="bold mid t1" x="300" y="14">feature 1</text>
+<path class="bracket t1" d="M252 34V28H348V34"/>
+<text class="bold mid t0" x="402" y="14">feature 2</text>
+<path class="bracket t0" d="M354 34V28H450V34"/>
+<text class="bold mid t1" x="504" y="14">feature 3</text>
+<path class="bracket t1" d="M456 34V28H552V34"/>
+<text class="row" x="0" y="54">Present</text>
+<rect class="f0" x="150" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="54">1</text>
+<rect class="f1" x="252" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="54">1</text>
+<rect class="f0" x="354" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="54">1</text>
+<rect class="f1" x="456" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="muted small mid" x="180" y="88">symbol 0</text>
+<rect class="plain" x="150" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="112">3</text>
+<rect class="plain" x="150" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="152">"Mai"</text>
+<text class="muted small mid" x="243" y="88">symbol 1</text>
+<rect class="plain" x="213" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="112">3</text>
+<rect class="plain" x="213" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="152">"lan"</text>
+<text class="muted small mid" x="306" y="88">symbol 2</text>
+<rect class="plain" x="276" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="112">1</text>
+<rect class="plain" x="276" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="152">"d"</text>
+<text class="muted small mid" x="369" y="88">symbol 3</text>
+<rect class="plain" x="339" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="112">2</text>
+<rect class="plain" x="339" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="152">"Mi"</text>
+<text class="row" x="0" y="112">Length/Symbol</text>
+<text class="row" x="0" y="152">Data/FSST</text>
+<text class="muted small" x="590" y="112">4 symbols</text>
+<text class="muted small" x="590" y="152">9 B</text>
+<text class="row" x="0" y="192">Length/Dictionary</text>
+<rect class="f0" x="150" y="178" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="192">7</text>
+<rect class="f1" x="252" y="178" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="192">5</text>
+<rect class="f0" x="354" y="178" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="192">7</text>
+<rect class="implicit" x="456" y="178" width="96" height="28" rx="3"/>
+<text class="cell muted" x="504" y="192">null</text>
+<text class="muted small" x="590" y="192">3 lengths</text>
+<text class="muted small mid" x="198" y="232">value 0</text>
+<path class="bracket" d="M150 252V246H246V252"/>
+<rect class="plain" x="158" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="170" y="274">00</text>
+<rect class="plain" x="186" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="198" y="274">01</text>
+<rect class="plain" x="214" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="226" y="274">02</text>
+<text class="muted small mid" x="300" y="232">value 1</text>
+<path class="bracket" d="M252 252V246H348V252"/>
+<rect class="plain" x="274" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="286" y="274">03</text>
+<rect class="plain" x="302" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="314" y="274">01</text>
+<text class="muted small mid" x="402" y="232">value 2</text>
+<path class="bracket" d="M354 252V246H450V252"/>
+<rect class="plain" x="362" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="374" y="274">00</text>
+<rect class="plain" x="390" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="402" y="274">01</text>
+<rect class="plain" x="418" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="430" y="274">02</text>
+<text class="row" x="0" y="274">Data/Single</text>
+<text class="muted small" x="590" y="274">8 B</text>
+</svg>

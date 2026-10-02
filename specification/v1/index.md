@@ -201,6 +201,10 @@ In the plain layout the `Length` stream holds the byte length of each present va
 
 The offset stream comes last in the 5-stream layout and before the data stream in the 3-stream layout. An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity `[0, 1, 2, ...]` as its offsets.
 
+`city` over four features, null on feature 3:
+
+The same column in each layout, then in byte order:
+
 ### Shared Dictionary Columns
 
 Several string columns, such as `name:en`, `name:de` and `name:fr`, can share a single dictionary.
@@ -223,6 +227,10 @@ child       := [varint stream_count]
 > Some tiles in the wild were written with `stream_count` one too high, by an encoder bug since fixed. Decoders SHOULD accept `expected + 1` as well so those files still parse.
 
 Each child's own `stream_count` is `1`, plus `1` when it is nullable.
+
+`name:de` and `name:en` over four features, `name:en` null on feature 3:
+
+The same two columns, stored with each kind of dictionary, then in byte order:
 
 ## Geometry Column
 
@@ -443,8 +451,6 @@ A `Polygon` triangle, then a `MultiPolygon` of a polygon with a hole and a secon
 
 ### Decoding Examples
 
-#### Point
-
 ```text
 Streams:
   META: types = [0]          // Point
@@ -454,8 +460,6 @@ Decode:
   zigzag(200) = 100, zigzag(400) = 200
   Result: Point(100, 200)
 ```
-
-#### LineString
 
 ```text
 Streams:
@@ -469,8 +473,6 @@ Decode:
   Result: LineString with 3 vertices
 ```
 
-#### Polygon with Hole
-
 ```text
 Streams:
   META: types = [2]          // Polygon
@@ -483,8 +485,6 @@ Decode:
   ring_offsets = [0, 4, 8]   // ring boundaries
   Result: Polygon with exterior ring (4 verts) and hole (4 verts)
 ```
-
-#### MultiPolygon
 
 ```text
 Streams:
@@ -525,29 +525,6 @@ Decode:
 ```
 
 The integer and vertex encodings referenced above are specified in detail in the [Encoding Definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) document.
-
-## Choosing Encodings
-
-MLT uses various lightweight compression schemes for space-efficient storage and fast decoding. Encodings can be recursively cascaded (hybrid encodings) to a certain degree. For example, integer columns resulting from dictionary encoding can be further compressed using integer encoding schemes.
-
-The following encoding pool was selected based on analysis of compression ratio and decoding speed on test datasets like OpenMapTiles and Bing Maps tilesets.
-
-| Data Type | Logical Level Technique | Physical Level Technique |
-| --- | --- | --- |
-| Boolean | [Boolean RLE](<https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding>) |  |
-| Integer | Plain, RLE, Delta, Delta-RLE | [SIMD-FastPFOR](<https://arxiv.org/pdf/1209.2137.pdf>), [Varint](<https://protobuf.dev/programming-guides/encoding/#varints>) |
-| Float | Plain, RLE |  |
-| String | Plain, Dictionary, [FSST](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>), FSST Dictionary |  |
-| Geometry | Plain, Dictionary, Morton-Dictionary |  |
-
-SIMD-FastPFOR is generally preferred over Varint encoding due to its smaller output and faster decoding speed. Varint encoding is included mainly for compatibility and simplicity, and it can be more efficient when combined with heavyweight compression like GZip.
-
-A brute-force search for the best encoding scheme is too costly. Instead, we recommend the selection strategy from the [BTRBlocks](<https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf>) paper:
-
-- Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).
-- Use a sampling-based algorithm: randomly select parts of the data totaling \~1% of the full dataset and apply the candidate encodings from step 1. Choose the scheme that produces the smallest output.
-
-Choosing the right column to sort features by can also significantly reduce the size of a layer, and is crucial for leveraging the columnar layout fully. Exhaustively testing every possible sorting order for every column in every layer is computationally expensive, so the same sampling heuristic applies.
 
 ## Examples
 

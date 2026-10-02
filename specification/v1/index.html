@@ -860,17 +860,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#choosing-encodings" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Choosing Encodings
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#examples" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1473,6 +1462,435 @@ In a dictionary layout the <code>Offset/String</code> stream holds one dictionar
 FSST layouts compress the value bytes with a symbol table; see <a href="../../encodings/#fsst">FSST</a>.</p>
 <p>The offset stream comes last in the 5-stream layout and before the data stream in the 3-stream layout.
 An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity <code>[0, 1, 2, ...]</code> as its offsets.</p>
+<p><code>city</code> over four features, null on feature 3:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 76" role="img" aria-label="Input: city is Mailand, Milan, Mailand, null" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">"Mailand"</text>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<rect class="f1" x="236" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="54">"Milan"</text>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<rect class="f0" x="342" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="54">"Mailand"</text>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<rect class="implicit" x="448" y="40" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="54">null</text>
+<text class="row" x="0" y="54">city</text>
+</svg></p>
+<p>The same column in each layout, then in byte order:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Plain</label><label for="__tabbed_1_2">Dictionary</label><label for="__tabbed_1_3">FSST</label><label for="__tabbed_1_4">FSST dictionary</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 164" role="img" aria-label="city stored in the 2-stream Plain layout, in stream order" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="198" y="14">feature 0</text>
+<path class="bracket t0" d="M150 34V28H246V34"/>
+<text class="bold mid t1" x="300" y="14">feature 1</text>
+<path class="bracket t1" d="M252 34V28H348V34"/>
+<text class="bold mid t0" x="402" y="14">feature 2</text>
+<path class="bracket t0" d="M354 34V28H450V34"/>
+<text class="bold mid t1" x="504" y="14">feature 3</text>
+<path class="bracket t1" d="M456 34V28H552V34"/>
+<text class="row" x="0" y="54">Present</text>
+<rect class="f0" x="150" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="54">1</text>
+<rect class="f1" x="252" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="54">1</text>
+<rect class="f0" x="354" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="54">1</text>
+<rect class="f1" x="456" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="row" x="0" y="94">Length/VarBinary</text>
+<rect class="f0" x="150" y="80" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="94">7</text>
+<rect class="f1" x="252" y="80" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="94">5</text>
+<rect class="f0" x="354" y="80" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="94">7</text>
+<rect class="implicit" x="456" y="80" width="96" height="28" rx="3"/>
+<text class="cell muted" x="504" y="94">null</text>
+<text class="muted small" x="590" y="94">3 lengths</text>
+<text class="row" x="0" y="134">Data/None</text>
+<rect class="f0" x="150" y="120" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="134">"Mailand"</text>
+<rect class="f1" x="252" y="120" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="134">"Milan"</text>
+<rect class="f0" x="354" y="120" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="134">"Mailand"</text>
+<text class="muted small" x="590" y="134">19 B</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 214" role="img" aria-label="city in the Plain layout, in byte order: the type byte and name in the metadata section, then in the data section the stream count 3 and the streams, each led by its stream type byte" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="14">metadata</text>
+<text class="row" x="0" y="54">city</text>
+<text class="muted small mid" x="184.7" y="30">type</text>
+<rect class="f0" x="150" y="40" width="69.4" height="28" rx="3"/>
+<text class="cell" x="184.7" y="54">1d</text>
+<text class="small mid" x="184.7" y="82">OptString</text>
+<text class="muted small mid" x="258.8" y="30">name</text>
+<rect class="f0" x="225.4" y="40" width="66.8" height="28" rx="3"/>
+<text class="cell" x="258.8" y="54">"city"</text>
+<text class="muted small" x="0" y="112">data</text>
+<text class="row" x="0" y="152">city</text>
+<text class="muted small mid" x="194.6" y="128">stream_count</text>
+<rect class="f0" x="150" y="138" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="152">3</text>
+<text class="small mid" x="194.6" y="180">Present + 2</text>
+<text class="muted small mid" x="279.9" y="128">Present</text>
+<rect class="f1" x="245.2" y="138" width="69.4" height="28" rx="3"/>
+<text class="cell" x="279.9" y="152">ff 07</text>
+<text class="small mid" x="279.9" y="180">0x00</text>
+<text class="small mid" x="279.9" y="194">bits 1110</text>
+<text class="muted small mid" x="378.4" y="128">Length/VarBinary</text>
+<rect class="f1" x="320.6" y="138" width="115.6" height="28" rx="3"/>
+<text class="cell" x="378.4" y="152">[7,5,7]</text>
+<text class="small mid" x="378.4" y="180">0x30</text>
+<text class="small mid" x="378.4" y="194">count 3</text>
+<text class="muted small mid" x="534.1" y="128">Data/None</text>
+<rect class="f1" x="442.2" y="138" width="183.8" height="28" rx="3"/>
+<text class="cell" x="534.1" y="152">"MailandMilanMailand"</text>
+<text class="small mid" x="534.1" y="180">0x10</text>
+<text class="small mid" x="534.1" y="194">19 B</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 240" role="img" aria-label="city stored in the 3-stream Dictionary layout, in stream order" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="198" y="14">feature 0</text>
+<path class="bracket t0" d="M150 34V28H246V34"/>
+<text class="bold mid t1" x="300" y="14">feature 1</text>
+<path class="bracket t1" d="M252 34V28H348V34"/>
+<text class="bold mid t0" x="402" y="14">feature 2</text>
+<path class="bracket t0" d="M354 34V28H450V34"/>
+<text class="bold mid t1" x="504" y="14">feature 3</text>
+<path class="bracket t1" d="M456 34V28H552V34"/>
+<text class="row" x="0" y="54">Present</text>
+<rect class="f0" x="150" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="54">1</text>
+<rect class="f1" x="252" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="54">1</text>
+<rect class="f0" x="354" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="54">1</text>
+<rect class="f1" x="456" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="muted small mid" x="192" y="88">entry 0</text>
+<rect class="plain" x="150" y="98" width="84" height="28" rx="3"/>
+<text class="cell" x="192" y="112">7</text>
+<text class="muted small mid" x="281" y="88">entry 1</text>
+<rect class="plain" x="239" y="98" width="84" height="28" rx="3"/>
+<text class="cell" x="281" y="112">5</text>
+<text class="row" x="0" y="112">Length/Dictionary</text>
+<text class="muted small" x="590" y="112">2 lengths</text>
+<text class="row" x="0" y="152">Offset/String</text>
+<rect class="f0" x="150" y="138" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="152">0</text>
+<rect class="f1" x="252" y="138" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="152">1</text>
+<rect class="f0" x="354" y="138" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="152">0</text>
+<rect class="implicit" x="456" y="138" width="96" height="28" rx="3"/>
+<text class="cell muted" x="504" y="152">null</text>
+<text class="muted small" x="590" y="152">3 offsets</text>
+<rect class="plain" x="150" y="196" width="84" height="28" rx="3"/>
+<text class="cell" x="192" y="210">"Mailand"</text>
+<rect class="plain" x="239" y="196" width="84" height="28" rx="3"/>
+<text class="cell" x="281" y="210">"Milan"</text>
+<text class="row" x="0" y="210">Data/Single</text>
+<text class="muted small" x="590" y="210">12 B</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 214" role="img" aria-label="city in the Dictionary layout, in byte order: the type byte and name in the metadata section, then in the data section the stream count 4 and the streams, each led by its stream type byte" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="14">metadata</text>
+<text class="row" x="0" y="54">city</text>
+<text class="muted small mid" x="184.7" y="30">type</text>
+<rect class="f0" x="150" y="40" width="69.4" height="28" rx="3"/>
+<text class="cell" x="184.7" y="54">1d</text>
+<text class="small mid" x="184.7" y="82">OptString</text>
+<text class="muted small mid" x="258.8" y="30">name</text>
+<rect class="f0" x="225.4" y="40" width="66.8" height="28" rx="3"/>
+<text class="cell" x="258.8" y="54">"city"</text>
+<text class="muted small" x="0" y="112">data</text>
+<text class="row" x="0" y="152">city</text>
+<text class="muted small mid" x="194.6" y="128">stream_count</text>
+<rect class="f0" x="150" y="138" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="152">4</text>
+<text class="small mid" x="194.6" y="180">Present + 3</text>
+<text class="muted small mid" x="279.9" y="128">Present</text>
+<rect class="f1" x="245.2" y="138" width="69.4" height="28" rx="3"/>
+<text class="cell" x="279.9" y="152">ff 07</text>
+<text class="small mid" x="279.9" y="180">0x00</text>
+<text class="small mid" x="279.9" y="194">bits 1110</text>
+<text class="muted small mid" x="381.7" y="128">Length/Dictionary</text>
+<rect class="f1" x="320.6" y="138" width="122.2" height="28" rx="3"/>
+<text class="cell" x="381.7" y="152">[7,5]</text>
+<text class="small mid" x="381.7" y="180">0x36</text>
+<text class="small mid" x="381.7" y="194">count 2</text>
+<text class="muted small mid" x="496.7" y="128">Offset/String</text>
+<rect class="f1" x="448.8" y="138" width="95.8" height="28" rx="3"/>
+<text class="cell" x="496.7" y="152">[0,1,0]</text>
+<text class="small mid" x="496.7" y="180">0x22</text>
+<text class="small mid" x="496.7" y="194">count 3</text>
+<text class="muted small mid" x="615.2" y="128">Data/Single</text>
+<rect class="f1" x="550.6" y="138" width="129.2" height="28" rx="3"/>
+<text class="cell" x="615.2" y="152">"MailandMilan"</text>
+<text class="small mid" x="615.2" y="180">0x11</text>
+<text class="small mid" x="615.2" y="194">12 B</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 308" role="img" aria-label="city stored in the 4-stream FSST layout, in stream order" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="198" y="14">feature 0</text>
+<path class="bracket t0" d="M150 34V28H246V34"/>
+<text class="bold mid t1" x="300" y="14">feature 1</text>
+<path class="bracket t1" d="M252 34V28H348V34"/>
+<text class="bold mid t0" x="402" y="14">feature 2</text>
+<path class="bracket t0" d="M354 34V28H450V34"/>
+<text class="bold mid t1" x="504" y="14">feature 3</text>
+<path class="bracket t1" d="M456 34V28H552V34"/>
+<text class="row" x="0" y="54">Present</text>
+<rect class="f0" x="150" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="54">1</text>
+<rect class="f1" x="252" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="54">1</text>
+<rect class="f0" x="354" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="54">1</text>
+<rect class="f1" x="456" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="muted small mid" x="180" y="88">symbol 0</text>
+<rect class="plain" x="150" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="112">3</text>
+<rect class="plain" x="150" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="152">"Mai"</text>
+<text class="muted small mid" x="243" y="88">symbol 1</text>
+<rect class="plain" x="213" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="112">3</text>
+<rect class="plain" x="213" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="152">"lan"</text>
+<text class="muted small mid" x="306" y="88">symbol 2</text>
+<rect class="plain" x="276" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="112">1</text>
+<rect class="plain" x="276" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="152">"d"</text>
+<text class="muted small mid" x="369" y="88">symbol 3</text>
+<rect class="plain" x="339" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="112">2</text>
+<rect class="plain" x="339" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="152">"Mi"</text>
+<text class="row" x="0" y="112">Length/Symbol</text>
+<text class="row" x="0" y="152">Data/FSST</text>
+<text class="muted small" x="590" y="112">4 symbols</text>
+<text class="muted small" x="590" y="152">9 B</text>
+<text class="row" x="0" y="192">Length/Dictionary</text>
+<rect class="f0" x="150" y="178" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="192">7</text>
+<rect class="f1" x="252" y="178" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="192">5</text>
+<rect class="f0" x="354" y="178" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="192">7</text>
+<rect class="implicit" x="456" y="178" width="96" height="28" rx="3"/>
+<text class="cell muted" x="504" y="192">null</text>
+<text class="muted small" x="590" y="192">3 lengths</text>
+<text class="muted small mid" x="198" y="232">value 0</text>
+<path class="bracket" d="M150 252V246H246V252"/>
+<rect class="plain" x="158" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="170" y="274">00</text>
+<rect class="plain" x="186" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="198" y="274">01</text>
+<rect class="plain" x="214" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="226" y="274">02</text>
+<text class="muted small mid" x="300" y="232">value 1</text>
+<path class="bracket" d="M252 252V246H348V252"/>
+<rect class="plain" x="274" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="286" y="274">03</text>
+<rect class="plain" x="302" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="314" y="274">01</text>
+<text class="muted small mid" x="402" y="232">value 2</text>
+<path class="bracket" d="M354 252V246H450V252"/>
+<rect class="plain" x="362" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="374" y="274">00</text>
+<rect class="plain" x="390" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="402" y="274">01</text>
+<rect class="plain" x="418" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="430" y="274">02</text>
+<text class="row" x="0" y="274">Data/Single</text>
+<text class="muted small" x="590" y="274">8 B</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 306" role="img" aria-label="city in the FSST layout, in byte order: the type byte and name in the metadata section, then in the data section the stream count 5 and the streams, each led by its stream type byte" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="14">metadata</text>
+<text class="row" x="0" y="54">city</text>
+<text class="muted small mid" x="184.7" y="30">type</text>
+<rect class="f0" x="150" y="40" width="69.4" height="28" rx="3"/>
+<text class="cell" x="184.7" y="54">1d</text>
+<text class="small mid" x="184.7" y="82">OptString</text>
+<text class="muted small mid" x="258.8" y="30">name</text>
+<rect class="f0" x="225.4" y="40" width="66.8" height="28" rx="3"/>
+<text class="cell" x="258.8" y="54">"city"</text>
+<text class="muted small" x="0" y="112">data</text>
+<text class="row" x="0" y="152">city</text>
+<text class="muted small mid" x="194.6" y="128">stream_count</text>
+<rect class="f0" x="150" y="138" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="152">5</text>
+<text class="small mid" x="194.6" y="180">Present + 4</text>
+<text class="muted small mid" x="279.9" y="128">Present</text>
+<rect class="f1" x="245.2" y="138" width="69.4" height="28" rx="3"/>
+<text class="cell" x="279.9" y="152">ff 07</text>
+<text class="small mid" x="279.9" y="180">0x00</text>
+<text class="small mid" x="279.9" y="194">bits 1110</text>
+<text class="muted small mid" x="368.5" y="128">Length/Symbol</text>
+<rect class="f1" x="320.6" y="138" width="95.8" height="28" rx="3"/>
+<text class="cell" x="368.5" y="152">[3,3,1,2]</text>
+<text class="small mid" x="368.5" y="180">0x35</text>
+<text class="small mid" x="368.5" y="194">count 4</text>
+<text class="muted small mid" x="475.3" y="128">Data/FSST</text>
+<rect class="f1" x="422.4" y="138" width="105.8" height="28" rx="3"/>
+<text class="cell" x="475.3" y="152">"MailandMi"</text>
+<text class="small mid" x="475.3" y="180">0x15</text>
+<text class="small mid" x="475.3" y="194">9 B</text>
+<text class="muted small mid" x="595.3" y="128">Length/Dictionary</text>
+<rect class="f1" x="534.2" y="138" width="122.2" height="28" rx="3"/>
+<text class="cell" x="595.3" y="152">[7,5,7]</text>
+<text class="small mid" x="595.3" y="180">0x36</text>
+<text class="small mid" x="595.3" y="194">count 3</text>
+<text class="muted small mid" x="249.7" y="220">Data/Single</text>
+<rect class="f1" x="150" y="230" width="199.4" height="28" rx="3"/>
+<text class="cell" x="249.7" y="244">00 01 02 03 01 00 01 02</text>
+<text class="small mid" x="249.7" y="272">0x11</text>
+<text class="small mid" x="249.7" y="286">8 B</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 366" role="img" aria-label="city stored in the 5-stream FSST dictionary layout, in stream order" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="198" y="14">feature 0</text>
+<path class="bracket t0" d="M150 34V28H246V34"/>
+<text class="bold mid t1" x="300" y="14">feature 1</text>
+<path class="bracket t1" d="M252 34V28H348V34"/>
+<text class="bold mid t0" x="402" y="14">feature 2</text>
+<path class="bracket t0" d="M354 34V28H450V34"/>
+<text class="bold mid t1" x="504" y="14">feature 3</text>
+<path class="bracket t1" d="M456 34V28H552V34"/>
+<text class="row" x="0" y="54">Present</text>
+<rect class="f0" x="150" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="54">1</text>
+<rect class="f1" x="252" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="54">1</text>
+<rect class="f0" x="354" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="54">1</text>
+<rect class="f1" x="456" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="muted small mid" x="180" y="88">symbol 0</text>
+<rect class="plain" x="150" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="112">3</text>
+<rect class="plain" x="150" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="152">"Mai"</text>
+<text class="muted small mid" x="243" y="88">symbol 1</text>
+<rect class="plain" x="213" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="112">3</text>
+<rect class="plain" x="213" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="152">"lan"</text>
+<text class="muted small mid" x="306" y="88">symbol 2</text>
+<rect class="plain" x="276" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="112">1</text>
+<rect class="plain" x="276" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="152">"d"</text>
+<text class="muted small mid" x="369" y="88">symbol 3</text>
+<rect class="plain" x="339" y="98" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="112">2</text>
+<rect class="plain" x="339" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="152">"Mi"</text>
+<text class="row" x="0" y="112">Length/Symbol</text>
+<text class="row" x="0" y="152">Data/FSST</text>
+<text class="muted small" x="590" y="112">4 symbols</text>
+<text class="muted small" x="590" y="152">9 B</text>
+<text class="muted small mid" x="192" y="186">entry 0</text>
+<rect class="plain" x="150" y="196" width="84" height="28" rx="3"/>
+<text class="cell" x="192" y="210">7</text>
+<text class="muted small mid" x="281" y="186">entry 1</text>
+<rect class="plain" x="239" y="196" width="84" height="28" rx="3"/>
+<text class="cell" x="281" y="210">5</text>
+<text class="row" x="0" y="210">Length/Dictionary</text>
+<text class="muted small" x="590" y="210">2 lengths</text>
+<text class="muted small mid" x="192" y="250">entry 0</text>
+<path class="bracket" d="M150 270V264H234V270"/>
+<rect class="plain" x="152" y="278" width="24" height="28" rx="3"/>
+<text class="cell" x="164" y="292">00</text>
+<rect class="plain" x="180" y="278" width="24" height="28" rx="3"/>
+<text class="cell" x="192" y="292">01</text>
+<rect class="plain" x="208" y="278" width="24" height="28" rx="3"/>
+<text class="cell" x="220" y="292">02</text>
+<text class="muted small mid" x="281" y="250">entry 1</text>
+<path class="bracket" d="M239 270V264H323V270"/>
+<rect class="plain" x="255" y="278" width="24" height="28" rx="3"/>
+<text class="cell" x="267" y="292">03</text>
+<rect class="plain" x="283" y="278" width="24" height="28" rx="3"/>
+<text class="cell" x="295" y="292">01</text>
+<text class="row" x="0" y="292">Data/Single</text>
+<text class="muted small" x="590" y="292">5 B</text>
+<text class="row" x="0" y="336">Offset/String</text>
+<rect class="f0" x="150" y="322" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="336">0</text>
+<rect class="f1" x="252" y="322" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="336">1</text>
+<rect class="f0" x="354" y="322" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="336">0</text>
+<rect class="implicit" x="456" y="322" width="96" height="28" rx="3"/>
+<text class="cell muted" x="504" y="336">null</text>
+<text class="muted small" x="590" y="336">3 offsets</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 306" role="img" aria-label="city in the FSST dictionary layout, in byte order: the type byte and name in the metadata section, then in the data section the stream count 6 and the streams, each led by its stream type byte" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="14">metadata</text>
+<text class="row" x="0" y="54">city</text>
+<text class="muted small mid" x="184.7" y="30">type</text>
+<rect class="f0" x="150" y="40" width="69.4" height="28" rx="3"/>
+<text class="cell" x="184.7" y="54">1d</text>
+<text class="small mid" x="184.7" y="82">OptString</text>
+<text class="muted small mid" x="258.8" y="30">name</text>
+<rect class="f0" x="225.4" y="40" width="66.8" height="28" rx="3"/>
+<text class="cell" x="258.8" y="54">"city"</text>
+<text class="muted small" x="0" y="112">data</text>
+<text class="row" x="0" y="152">city</text>
+<text class="muted small mid" x="194.6" y="128">stream_count</text>
+<rect class="f0" x="150" y="138" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="152">6</text>
+<text class="small mid" x="194.6" y="180">Present + 5</text>
+<text class="muted small mid" x="279.9" y="128">Present</text>
+<rect class="f1" x="245.2" y="138" width="69.4" height="28" rx="3"/>
+<text class="cell" x="279.9" y="152">ff 07</text>
+<text class="small mid" x="279.9" y="180">0x00</text>
+<text class="small mid" x="279.9" y="194">bits 1110</text>
+<text class="muted small mid" x="368.5" y="128">Length/Symbol</text>
+<rect class="f1" x="320.6" y="138" width="95.8" height="28" rx="3"/>
+<text class="cell" x="368.5" y="152">[3,3,1,2]</text>
+<text class="small mid" x="368.5" y="180">0x35</text>
+<text class="small mid" x="368.5" y="194">count 4</text>
+<text class="muted small mid" x="475.3" y="128">Data/FSST</text>
+<rect class="f1" x="422.4" y="138" width="105.8" height="28" rx="3"/>
+<text class="cell" x="475.3" y="152">"MailandMi"</text>
+<text class="small mid" x="475.3" y="180">0x15</text>
+<text class="small mid" x="475.3" y="194">9 B</text>
+<text class="muted small mid" x="595.3" y="128">Length/Dictionary</text>
+<rect class="f1" x="534.2" y="138" width="122.2" height="28" rx="3"/>
+<text class="cell" x="595.3" y="152">[7,5]</text>
+<text class="small mid" x="595.3" y="180">0x36</text>
+<text class="small mid" x="595.3" y="194">count 2</text>
+<text class="muted small mid" x="214.6" y="220">Data/Single</text>
+<rect class="f1" x="150" y="230" width="129.2" height="28" rx="3"/>
+<text class="cell" x="214.6" y="244">00 01 02 03 01</text>
+<text class="small mid" x="214.6" y="272">0x11</text>
+<text class="small mid" x="214.6" y="286">5 B</text>
+<text class="muted small mid" x="333.1" y="220">Offset/String</text>
+<rect class="f1" x="285.2" y="230" width="95.8" height="28" rx="3"/>
+<text class="cell" x="333.1" y="244">[0,1,0]</text>
+<text class="small mid" x="333.1" y="272">0x22</text>
+<text class="small mid" x="333.1" y="286">count 3</text>
+</svg></p>
+</div>
+</div>
+</div>
 <h3 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h3>
 <p>Several string columns, such as <code>name:en</code>, <code>name:de</code> and <code>name:fr</code>, can share a single dictionary.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fprops_shared_dict.mlt&amp;at=column%5B1%5D" target="_blank">View example</a> - several string columns sharing one dictionary.</p>
@@ -1492,6 +1910,403 @@ The children begin after it.</p>
 Decoders SHOULD accept <code>expected + 1</code> as well so those files still parse.</p>
 </div>
 <p>Each child's own <code>stream_count</code> is <code>1</code>, plus <code>1</code> when it is nullable.</p>
+<p><code>name:de</code> and <code>name:en</code> over four features, <code>name:en</code> null on feature 3:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 116" role="img" aria-label="Input: name:de is Rom, Mailand, Paris, Rom and name:en is Rome, Milan, Paris, null" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">"Rom"</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="94">"Rome"</text>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<rect class="f1" x="236" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="54">"Mailand"</text>
+<rect class="f1" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">"Milan"</text>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<rect class="f0" x="342" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="54">"Paris"</text>
+<rect class="f0" x="342" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="94">"Paris"</text>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<rect class="f1" x="448" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="54">"Rom"</text>
+<rect class="implicit" x="448" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="94">null</text>
+<text class="row" x="0" y="54">name:de</text>
+<text class="row" x="0" y="94">name:en</text>
+</svg></p>
+<p>The same two columns, stored with each kind of dictionary, then in byte order:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Plain</label><label for="__tabbed_2_2">FSST</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 352" role="img" aria-label="name:de and name:en over four features, as offsets into one shared dictionary of five strings. The plain dictionary stores the strings back to back" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="198" y="14">feature 0</text>
+<path class="bracket t0" d="M150 34V28H246V34"/>
+<text class="bold mid t1" x="300" y="14">feature 1</text>
+<path class="bracket t1" d="M252 34V28H348V34"/>
+<text class="bold mid t0" x="402" y="14">feature 2</text>
+<path class="bracket t0" d="M354 34V28H450V34"/>
+<text class="bold mid t1" x="504" y="14">feature 3</text>
+<path class="bracket t1" d="M456 34V28H552V34"/>
+<text class="muted small" x="0" y="50">Plain dictionary</text>
+<text class="muted small mid" x="192" y="64">entry 0</text>
+<rect class="plain" x="150" y="74" width="84" height="28" rx="3"/>
+<text class="cell" x="192" y="88">3</text>
+<text class="muted small mid" x="281" y="64">entry 1</text>
+<rect class="plain" x="239" y="74" width="84" height="28" rx="3"/>
+<text class="cell" x="281" y="88">4</text>
+<text class="muted small mid" x="370" y="64">entry 2</text>
+<rect class="plain" x="328" y="74" width="84" height="28" rx="3"/>
+<text class="cell" x="370" y="88">7</text>
+<text class="muted small mid" x="459" y="64">entry 3</text>
+<rect class="plain" x="417" y="74" width="84" height="28" rx="3"/>
+<text class="cell" x="459" y="88">5</text>
+<text class="muted small mid" x="548" y="64">entry 4</text>
+<rect class="plain" x="506" y="74" width="84" height="28" rx="3"/>
+<text class="cell" x="548" y="88">5</text>
+<text class="row" x="0" y="88">Length/Dictionary</text>
+<text class="muted small" x="613" y="88">5 lengths</text>
+<rect class="plain" x="150" y="132" width="84" height="28" rx="3"/>
+<text class="cell" x="192" y="146">"Rom"</text>
+<rect class="plain" x="239" y="132" width="84" height="28" rx="3"/>
+<text class="cell" x="281" y="146">"Rome"</text>
+<rect class="plain" x="328" y="132" width="84" height="28" rx="3"/>
+<text class="cell" x="370" y="146">"Mailand"</text>
+<rect class="plain" x="417" y="132" width="84" height="28" rx="3"/>
+<text class="cell" x="459" y="146">"Milan"</text>
+<rect class="plain" x="506" y="132" width="84" height="28" rx="3"/>
+<text class="cell" x="548" y="146">"Paris"</text>
+<text class="row" x="0" y="146">Data/Shared</text>
+<text class="muted small" x="613" y="146">24 B</text>
+<text class="muted small" x="0" y="174">read by</text>
+<text class="muted small mid" x="192" y="174">de</text>
+<text class="muted small mid" x="281" y="174">en</text>
+<text class="muted small mid" x="370" y="174">de</text>
+<text class="muted small mid" x="459" y="174">en</text>
+<text class="small mid" x="548" y="174">de + en</text>
+<text class="muted small" x="0" y="206">name:de</text>
+<text class="row" x="0" y="226">Offset/String</text>
+<rect class="f0" x="150" y="212" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="226">0</text>
+<rect class="f1" x="252" y="212" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="226">2</text>
+<rect class="f0" x="354" y="212" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="226">4</text>
+<rect class="f1" x="456" y="212" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="226">0</text>
+<text class="muted small" x="590" y="226">4 offsets</text>
+<text class="muted small" x="0" y="262">name:en</text>
+<text class="row" x="0" y="282">Present</text>
+<rect class="f0" x="150" y="268" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="282">1</text>
+<rect class="f1" x="252" y="268" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="282">1</text>
+<rect class="f0" x="354" y="268" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="282">1</text>
+<rect class="f1" x="456" y="268" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="282">0</text>
+<text class="muted small" x="590" y="282">4 bits</text>
+<text class="row" x="0" y="322">Offset/String</text>
+<rect class="f0" x="150" y="308" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="322">1</text>
+<rect class="f1" x="252" y="308" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="322">3</text>
+<rect class="f0" x="354" y="308" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="322">4</text>
+<rect class="implicit" x="456" y="308" width="96" height="28" rx="3"/>
+<text class="cell muted" x="504" y="322">null</text>
+<text class="muted small" x="590" y="322">3 offsets</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 476" role="img" aria-label="The name: shared dictionary with a plain dictionary in byte order: the type byte, prefix and children in the metadata section, then in the data section the stream count, the dictionary streams, and each child&#x27;s stream count, present stream and offsets" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="14">metadata</text>
+<text class="row" x="0" y="54">name:</text>
+<text class="muted small mid" x="188" y="30">type</text>
+<rect class="f0" x="150" y="40" width="76" height="28" rx="3"/>
+<text class="cell" x="188" y="54">1e</text>
+<text class="small mid" x="188" y="82">SharedDict</text>
+<text class="muted small mid" x="269.3" y="30">name</text>
+<rect class="f0" x="232" y="40" width="74.6" height="28" rx="3"/>
+<text class="cell" x="269.3" y="54">"name:"</text>
+<text class="muted small mid" x="344" y="30">children</text>
+<rect class="f0" x="312.6" y="40" width="62.8" height="28" rx="3"/>
+<text class="cell" x="344" y="54">2</text>
+<text class="row" x="0" y="132"></text>
+<text class="muted small mid" x="174.8" y="108">type</text>
+<rect class="f0" x="150" y="118" width="49.6" height="28" rx="3"/>
+<text class="cell" x="174.8" y="132">1c</text>
+<text class="small mid" x="174.8" y="160">String</text>
+<text class="muted small mid" x="231.2" y="108">name</text>
+<rect class="f0" x="205.6" y="118" width="51.2" height="28" rx="3"/>
+<text class="cell" x="231.2" y="132">"de"</text>
+<text class="muted small mid" x="297.5" y="108">type</text>
+<rect class="f0" x="262.8" y="118" width="69.4" height="28" rx="3"/>
+<text class="cell" x="297.5" y="132">1d</text>
+<text class="small mid" x="297.5" y="160">OptString</text>
+<text class="muted small mid" x="363.8" y="108">name</text>
+<rect class="f0" x="338.2" y="118" width="51.2" height="28" rx="3"/>
+<text class="cell" x="363.8" y="132">"en"</text>
+<text class="muted small" x="0" y="190">data</text>
+<text class="row" x="0" y="230">name:</text>
+<text class="muted small mid" x="194.6" y="206">stream_count</text>
+<rect class="f0" x="150" y="216" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="230">5</text>
+<text class="small mid" x="194.6" y="258">2 + 1 + 2</text>
+<text class="muted small mid" x="306.3" y="206">Length/Dictionary</text>
+<rect class="f1" x="245.2" y="216" width="122.2" height="28" rx="3"/>
+<text class="cell" x="306.3" y="230">[3,4,7,5,5]</text>
+<text class="small mid" x="306.3" y="258">0x36</text>
+<text class="small mid" x="306.3" y="272">count 5</text>
+<text class="muted small mid" x="484.8" y="206">Data/Shared</text>
+<rect class="f1" x="373.4" y="216" width="222.8" height="28" rx="3"/>
+<text class="cell" x="484.8" y="230">"RomRomeMailandMilanParis"</text>
+<text class="small mid" x="484.8" y="258">0x12</text>
+<text class="small mid" x="484.8" y="272">24 B</text>
+<text class="row" x="0" y="322">name:de</text>
+<text class="muted small mid" x="194.6" y="298">stream_count</text>
+<rect class="f0" x="150" y="308" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="322">1</text>
+<text class="muted small mid" x="293.1" y="298">Offset/String</text>
+<rect class="f1" x="245.2" y="308" width="95.8" height="28" rx="3"/>
+<text class="cell" x="293.1" y="322">[0,2,4,0]</text>
+<text class="small mid" x="293.1" y="350">0x22</text>
+<text class="small mid" x="293.1" y="364">count 4</text>
+<text class="row" x="0" y="414">name:en</text>
+<text class="muted small mid" x="194.6" y="390">stream_count</text>
+<rect class="f0" x="150" y="400" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="414">2</text>
+<text class="muted small mid" x="279.9" y="390">Present</text>
+<rect class="f1" x="245.2" y="400" width="69.4" height="28" rx="3"/>
+<text class="cell" x="279.9" y="414">ff 07</text>
+<text class="small mid" x="279.9" y="442">0x00</text>
+<text class="small mid" x="279.9" y="456">bits 1110</text>
+<text class="muted small mid" x="368.5" y="390">Offset/String</text>
+<rect class="f1" x="320.6" y="400" width="95.8" height="28" rx="3"/>
+<text class="cell" x="368.5" y="414">[1,3,4]</text>
+<text class="small mid" x="368.5" y="442">0x22</text>
+<text class="small mid" x="368.5" y="456">count 3</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 478" role="img" aria-label="name:de and name:en over four features, as offsets into one shared dictionary of five strings. The FSST dictionary stores the strings as symbol codes into a seven-symbol table" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="198" y="14">feature 0</text>
+<path class="bracket t0" d="M150 34V28H246V34"/>
+<text class="bold mid t1" x="300" y="14">feature 1</text>
+<path class="bracket t1" d="M252 34V28H348V34"/>
+<text class="bold mid t0" x="402" y="14">feature 2</text>
+<path class="bracket t0" d="M354 34V28H450V34"/>
+<text class="bold mid t1" x="504" y="14">feature 3</text>
+<path class="bracket t1" d="M456 34V28H552V34"/>
+<text class="muted small" x="0" y="50">FSST dictionary</text>
+<text class="muted small mid" x="180" y="64">0</text>
+<rect class="plain" x="150" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="88">3</text>
+<rect class="plain" x="150" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="128">"Rom"</text>
+<text class="muted small mid" x="243" y="64">1</text>
+<rect class="plain" x="213" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="88">1</text>
+<rect class="plain" x="213" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="128">"e"</text>
+<text class="muted small mid" x="306" y="64">2</text>
+<rect class="plain" x="276" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="88">3</text>
+<rect class="plain" x="276" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="128">"Mai"</text>
+<text class="muted small mid" x="369" y="64">3</text>
+<rect class="plain" x="339" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="88">3</text>
+<rect class="plain" x="339" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="128">"lan"</text>
+<text class="muted small mid" x="432" y="64">4</text>
+<rect class="plain" x="402" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="432" y="88">1</text>
+<rect class="plain" x="402" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="432" y="128">"d"</text>
+<text class="muted small mid" x="495" y="64">5</text>
+<rect class="plain" x="465" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="495" y="88">2</text>
+<rect class="plain" x="465" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="495" y="128">"Mi"</text>
+<text class="muted small mid" x="558" y="64">6</text>
+<rect class="plain" x="528" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="558" y="88">5</text>
+<rect class="plain" x="528" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="558" y="128">"Paris"</text>
+<text class="row" x="0" y="88">Length/Symbol</text>
+<text class="row" x="0" y="128">Data/FSST</text>
+<text class="muted small" x="609" y="88">7 symbols</text>
+<text class="muted small" x="609" y="128">18 B</text>
+<text class="muted small mid" x="192" y="162">entry 0</text>
+<rect class="plain" x="150" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="192" y="186">3</text>
+<text class="muted small mid" x="281" y="162">entry 1</text>
+<rect class="plain" x="239" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="281" y="186">4</text>
+<text class="muted small mid" x="370" y="162">entry 2</text>
+<rect class="plain" x="328" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="370" y="186">7</text>
+<text class="muted small mid" x="459" y="162">entry 3</text>
+<rect class="plain" x="417" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="459" y="186">5</text>
+<text class="muted small mid" x="548" y="162">entry 4</text>
+<rect class="plain" x="506" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="548" y="186">5</text>
+<text class="row" x="0" y="186">Length/Dictionary</text>
+<text class="muted small" x="613" y="186">5 lengths</text>
+<text class="muted small mid" x="192" y="226">entry 0</text>
+<path class="bracket" d="M150 246V240H234V246"/>
+<rect class="plain" x="180" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="192" y="268">00</text>
+<text class="muted small mid" x="281" y="226">entry 1</text>
+<path class="bracket" d="M239 246V240H323V246"/>
+<rect class="plain" x="255" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="267" y="268">00</text>
+<rect class="plain" x="283" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="295" y="268">01</text>
+<text class="muted small mid" x="370" y="226">entry 2</text>
+<path class="bracket" d="M328 246V240H412V246"/>
+<rect class="plain" x="330" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="342" y="268">02</text>
+<rect class="plain" x="358" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="370" y="268">03</text>
+<rect class="plain" x="386" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="398" y="268">04</text>
+<text class="muted small mid" x="459" y="226">entry 3</text>
+<path class="bracket" d="M417 246V240H501V246"/>
+<rect class="plain" x="433" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="445" y="268">05</text>
+<rect class="plain" x="461" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="473" y="268">03</text>
+<text class="muted small mid" x="548" y="226">entry 4</text>
+<path class="bracket" d="M506 246V240H590V246"/>
+<rect class="plain" x="536" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="548" y="268">06</text>
+<text class="row" x="0" y="268">Data/Single</text>
+<text class="muted small" x="613" y="268">9 B</text>
+<text class="muted small" x="0" y="300">read by</text>
+<text class="muted small mid" x="192" y="300">de</text>
+<text class="muted small mid" x="281" y="300">en</text>
+<text class="muted small mid" x="370" y="300">de</text>
+<text class="muted small mid" x="459" y="300">en</text>
+<text class="small mid" x="548" y="300">de + en</text>
+<text class="muted small" x="0" y="332">name:de</text>
+<text class="row" x="0" y="352">Offset/String</text>
+<rect class="f0" x="150" y="338" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="352">0</text>
+<rect class="f1" x="252" y="338" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="352">2</text>
+<rect class="f0" x="354" y="338" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="352">4</text>
+<rect class="f1" x="456" y="338" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="352">0</text>
+<text class="muted small" x="590" y="352">4 offsets</text>
+<text class="muted small" x="0" y="388">name:en</text>
+<text class="row" x="0" y="408">Present</text>
+<rect class="f0" x="150" y="394" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="408">1</text>
+<rect class="f1" x="252" y="394" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="408">1</text>
+<rect class="f0" x="354" y="394" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="408">1</text>
+<rect class="f1" x="456" y="394" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="408">0</text>
+<text class="muted small" x="590" y="408">4 bits</text>
+<text class="row" x="0" y="448">Offset/String</text>
+<rect class="f0" x="150" y="434" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="448">1</text>
+<rect class="f1" x="252" y="434" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="448">3</text>
+<rect class="f0" x="354" y="434" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="448">4</text>
+<rect class="implicit" x="456" y="434" width="96" height="28" rx="3"/>
+<text class="cell muted" x="504" y="448">null</text>
+<text class="muted small" x="590" y="448">3 offsets</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 568" role="img" aria-label="The name: shared dictionary with an FSST dictionary in byte order: the type byte, prefix and children in the metadata section, then in the data section the stream count, the dictionary streams, and each child&#x27;s stream count, present stream and offsets" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="14">metadata</text>
+<text class="row" x="0" y="54">name:</text>
+<text class="muted small mid" x="188" y="30">type</text>
+<rect class="f0" x="150" y="40" width="76" height="28" rx="3"/>
+<text class="cell" x="188" y="54">1e</text>
+<text class="small mid" x="188" y="82">SharedDict</text>
+<text class="muted small mid" x="269.3" y="30">name</text>
+<rect class="f0" x="232" y="40" width="74.6" height="28" rx="3"/>
+<text class="cell" x="269.3" y="54">"name:"</text>
+<text class="muted small mid" x="344" y="30">children</text>
+<rect class="f0" x="312.6" y="40" width="62.8" height="28" rx="3"/>
+<text class="cell" x="344" y="54">2</text>
+<text class="row" x="0" y="132"></text>
+<text class="muted small mid" x="174.8" y="108">type</text>
+<rect class="f0" x="150" y="118" width="49.6" height="28" rx="3"/>
+<text class="cell" x="174.8" y="132">1c</text>
+<text class="small mid" x="174.8" y="160">String</text>
+<text class="muted small mid" x="231.2" y="108">name</text>
+<rect class="f0" x="205.6" y="118" width="51.2" height="28" rx="3"/>
+<text class="cell" x="231.2" y="132">"de"</text>
+<text class="muted small mid" x="297.5" y="108">type</text>
+<rect class="f0" x="262.8" y="118" width="69.4" height="28" rx="3"/>
+<text class="cell" x="297.5" y="132">1d</text>
+<text class="small mid" x="297.5" y="160">OptString</text>
+<text class="muted small mid" x="363.8" y="108">name</text>
+<rect class="f0" x="338.2" y="118" width="51.2" height="28" rx="3"/>
+<text class="cell" x="363.8" y="132">"en"</text>
+<text class="muted small" x="0" y="190">data</text>
+<text class="row" x="0" y="230">name:</text>
+<text class="muted small mid" x="194.6" y="206">stream_count</text>
+<rect class="f0" x="150" y="216" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="230">7</text>
+<text class="small mid" x="194.6" y="258">4 + 1 + 2</text>
+<text class="muted small mid" x="313.7" y="206">Length/Symbol</text>
+<rect class="f1" x="245.2" y="216" width="137" height="28" rx="3"/>
+<text class="cell" x="313.7" y="230">[3,1,3,3,1,2,5]</text>
+<text class="small mid" x="313.7" y="258">0x35</text>
+<text class="small mid" x="313.7" y="272">count 7</text>
+<text class="muted small mid" x="476.2" y="206">Data/FSST</text>
+<rect class="f1" x="388.2" y="216" width="176" height="28" rx="3"/>
+<text class="cell" x="476.2" y="230">"RomeMailandMiParis"</text>
+<text class="small mid" x="476.2" y="258">0x15</text>
+<text class="small mid" x="476.2" y="272">18 B</text>
+<text class="muted small mid" x="631.3" y="206">Length/Dictionary</text>
+<rect class="f1" x="570.2" y="216" width="122.2" height="28" rx="3"/>
+<text class="cell" x="631.3" y="230">[3,4,7,5,5]</text>
+<text class="small mid" x="631.3" y="258">0x36</text>
+<text class="small mid" x="631.3" y="272">count 5</text>
+<text class="muted small mid" x="261.4" y="298">Data/Single</text>
+<rect class="f1" x="150" y="308" width="222.8" height="28" rx="3"/>
+<text class="cell" x="261.4" y="322">00 00 01 02 03 04 05 03 06</text>
+<text class="small mid" x="261.4" y="350">0x11</text>
+<text class="small mid" x="261.4" y="364">9 B</text>
+<text class="row" x="0" y="414">name:de</text>
+<text class="muted small mid" x="194.6" y="390">stream_count</text>
+<rect class="f0" x="150" y="400" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="414">1</text>
+<text class="muted small mid" x="293.1" y="390">Offset/String</text>
+<rect class="f1" x="245.2" y="400" width="95.8" height="28" rx="3"/>
+<text class="cell" x="293.1" y="414">[0,2,4,0]</text>
+<text class="small mid" x="293.1" y="442">0x22</text>
+<text class="small mid" x="293.1" y="456">count 4</text>
+<text class="row" x="0" y="506">name:en</text>
+<text class="muted small mid" x="194.6" y="482">stream_count</text>
+<rect class="f0" x="150" y="492" width="89.2" height="28" rx="3"/>
+<text class="cell" x="194.6" y="506">2</text>
+<text class="muted small mid" x="279.9" y="482">Present</text>
+<rect class="f1" x="245.2" y="492" width="69.4" height="28" rx="3"/>
+<text class="cell" x="279.9" y="506">ff 07</text>
+<text class="small mid" x="279.9" y="534">0x00</text>
+<text class="small mid" x="279.9" y="548">bits 1110</text>
+<text class="muted small mid" x="368.5" y="482">Offset/String</text>
+<rect class="f1" x="320.6" y="492" width="95.8" height="28" rx="3"/>
+<text class="cell" x="368.5" y="506">[1,3,4]</text>
+<text class="small mid" x="368.5" y="534">0x22</text>
+<text class="small mid" x="368.5" y="548">count 3</text>
+</svg></p>
+</div>
+</div>
+</div>
 <h2 id="geometry-column">Geometry Column<a class="headerlink" href="#geometry-column" title="Link to this section">&para;</a></h2>
 <p>The geometry column uses a Structure of Arrays (SoA) layout (data-oriented design).
 The <code>x</code>, <code>y</code> coordinates are stored interleaved in a <code>VertexBuffer</code> for efficient CPU processing and direct copying to GPU buffers.</p>
@@ -1726,7 +2541,7 @@ Each appears at most once.</p>
 <h4 id="conceptual-hierarchy">Conceptual Hierarchy<a class="headerlink" href="#conceptual-hierarchy" title="Link to this section">&para;</a></h4>
 <p>Each length counts entries of the level below it: geometries count parts, parts count rings, and rings count vertices.</p>
 <p>A <code>Polygon</code> with a hole, then a <code>MultiPolygon</code> of a polygon with a hole and a triangle, from <code>mix_2_polyh_mpoly</code>.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Shapes</label><label for="__tabbed_1_2">Streams</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Shapes</label><label for="__tabbed_3_2">Streams</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 380" role="img" aria-label="The two features of mix_2_polyh_mpoly with their vertex positions" xmlns="http://www.w3.org/2000/svg">
@@ -1923,7 +2738,7 @@ Each appears at most once.</p>
 </table>
 <p><strong>Rule</strong>: If a geometry type's value is greater than the threshold type's value (see <a href="#geometry-types">Geometry Types</a> table), store its length explicitly. Otherwise, the length is implicitly 1.</p>
 <p><strong>Example</strong>: A column with <code>[Point, MultiPolygon, Polygon]</code> geometry types:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Lengths</label><label for="__tabbed_2_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Lengths</label><label for="__tabbed_4_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 148" role="img" aria-label="Types Point, MultiPolygon, Polygon: only the MultiPolygon stores a geometries length, 3; the others are an implicit 1, giving offsets 0, 1, 4, 5" xmlns="http://www.w3.org/2000/svg">
@@ -2105,7 +2920,7 @@ Each appears at most once.</p>
 <h4 id="morton-encoding-optional">Morton Encoding (Optional)<a class="headerlink" href="#morton-encoding-optional" title="Link to this section">&para;</a></h4>
 <p>For spatial optimization, vertices can be <a href="https://en.wikipedia.org/wiki/Z-order_curve">Morton-encoded</a> (Z-order curve):</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x01-rust%2Fmultipoint_morton_dictionary.mlt&amp;at=stream%5B2%5D" target="_blank">View example</a> - vertices as Morton codes.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Bits</label><label for="__tabbed_3_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Bits</label><label for="__tabbed_5_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 180" role="img" aria-label="The Morton code of (5, 3): bit i of x lands on bit 2i and bit i of y on bit 2i + 1, giving 27" xmlns="http://www.w3.org/2000/svg">
@@ -2199,7 +3014,7 @@ Each appears at most once.</p>
 <h4 id="rle-format">RLE Format<a class="headerlink" href="#rle-format" title="Link to this section">&para;</a></h4>
 <p><a href="https://en.wikipedia.org/wiki/Run-length_encoding">Run-length encoding</a> stores runs followed by values:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fids_rle.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - four equal ids as one run: the run length <code>4</code>, then the value <code>103</code>.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Runs</label><label for="__tabbed_4_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Runs</label><label for="__tabbed_6_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="Seven values as two runs, written by v1 as all lengths then all values and by v2 as interleaved pairs" xmlns="http://www.w3.org/2000/svg">
@@ -2427,7 +3242,9 @@ Each appears at most once.</p>
 <text class="t1 bold" x="272" y="619">feature 1</text>
 </svg></p>
 <h3 id="decoding-examples">Decoding Examples<a class="headerlink" href="#decoding-examples" title="Link to this section">&para;</a></h3>
-<h4 id="point">Point<a class="headerlink" href="#point" title="Link to this section">&para;</a></h4>
+<div class="tabbed-set tabbed-alternate" data-tabs="7:4"><input checked="checked" id="__tabbed_7_1" name="__tabbed_7" type="radio" /><input id="__tabbed_7_2" name="__tabbed_7" type="radio" /><input id="__tabbed_7_3" name="__tabbed_7" type="radio" /><input id="__tabbed_7_4" name="__tabbed_7" type="radio" /><div class="tabbed-labels"><label for="__tabbed_7_1">Point</label><label for="__tabbed_7_2">LineString</label><label for="__tabbed_7_3">Polygon with Hole</label><label for="__tabbed_7_4">MultiPolygon</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Streams:
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>  META: types = [0]          // Point
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>  DATA/VERTEX: [200, 400]    // zigzag-encoded deltas
@@ -2436,7 +3253,8 @@ Each appears at most once.</p>
 </span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>  zigzag(200) = 100, zigzag(400) = 200
 </span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>  Result: Point(100, 200)
 </span></code></pre></div>
-<h4 id="linestring">LineString<a class="headerlink" href="#linestring" title="Link to this section">&para;</a></h4>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>Streams:
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>  META: types = [1]                 // LineString
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>  LENGTH/PARTS: [3]                 // 3 vertices
@@ -2447,7 +3265,8 @@ Each appears at most once.</p>
 </span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>  vertices = [(0,0), (100,0), (100,100)]  // delta-decoded
 </span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>  Result: LineString with 3 vertices
 </span></code></pre></div>
-<h4 id="polygon-with-hole">Polygon with Hole<a class="headerlink" href="#polygon-with-hole" title="Link to this section">&para;</a></h4>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>Streams:
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>  META: types = [2]          // Polygon
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>  LENGTH/PARTS: [2]          // 2 rings (exterior + 1 hole)
@@ -2459,7 +3278,8 @@ Each appears at most once.</p>
 </span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>  ring_offsets = [0, 4, 8]   // ring boundaries
 </span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>  Result: Polygon with exterior ring (4 verts) and hole (4 verts)
 </span></code></pre></div>
-<h4 id="multipolygon">MultiPolygon<a class="headerlink" href="#multipolygon" title="Link to this section">&para;</a></h4>
+</div>
+<div class="tabbed-block">
 <div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>Streams:
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>  META: types = [5]          // MultiPolygon
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>  LENGTH/GEOMETRIES: [2]     // 2 polygons
@@ -2473,6 +3293,9 @@ Each appears at most once.</p>
 </span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>  ring_offsets = [0, 4, 8]   // vertex boundaries
 </span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>  Result: MultiPolygon with 2 simple polygons
 </span></code></pre></div>
+</div>
+</div>
+</div>
 <h3 id="mixed-geometry-columns">Mixed Geometry Columns<a class="headerlink" href="#mixed-geometry-columns" title="Link to this section">&para;</a></h3>
 <p>A single column can contain mixed geometry types. The decoding logic handles this by:</p>
 <ol>
@@ -2481,7 +3304,7 @@ Each appears at most once.</p>
 <li>Using implicit length=1 for simple types (Point, LineString, Polygon) and reading explicit lengths for Multi* types</li>
 </ol>
 <p><strong>Example</strong>: <code>[Point, LineString, Polygon]</code> in one column:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Lengths</label><label for="__tabbed_5_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="8:2"><input checked="checked" id="__tabbed_8_1" name="__tabbed_8" type="radio" /><input id="__tabbed_8_2" name="__tabbed_8" type="radio" /><div class="tabbed-labels"><label for="__tabbed_8_1">Lengths</label><label for="__tabbed_8_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 196" role="img" aria-label="Types Point, LineString, Polygon: parts holds only the Polygon's 1, and rings holds the LineString's 3 vertices next to the Polygon ring's 4" xmlns="http://www.w3.org/2000/svg">
@@ -2547,58 +3370,6 @@ Each appears at most once.</p>
 </div>
 </div>
 <p>The integer and vertex encodings referenced above are specified in detail in the <a href="../../encodings/">Encoding Definitions</a> document.</p>
-<h2 id="choosing-encodings">Choosing Encodings<a class="headerlink" href="#choosing-encodings" title="Link to this section">&para;</a></h2>
-<p>MLT uses various lightweight compression schemes for space-efficient storage and fast decoding.
-Encodings can be recursively cascaded (hybrid encodings) to a certain degree.
-For example, integer columns resulting from dictionary encoding can be further compressed using integer encoding schemes.</p>
-<p>The following encoding pool was selected based on analysis of compression ratio and decoding speed on test datasets like OpenMapTiles and Bing Maps tilesets.</p>
-<table>
-<thead>
-<tr>
-<th>Data Type</th>
-<th>Logical Level Technique</th>
-<th>Physical Level Technique</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Boolean</td>
-<td><a href="https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding">Boolean RLE</a></td>
-<td></td>
-</tr>
-<tr>
-<td>Integer</td>
-<td>Plain, RLE, Delta, Delta-RLE</td>
-<td><a href="https://arxiv.org/pdf/1209.2137.pdf">SIMD-FastPFOR</a>, <a href="https://protobuf.dev/programming-guides/encoding/#varints">Varint</a></td>
-</tr>
-<tr>
-<td>Float</td>
-<td>Plain, RLE</td>
-<td></td>
-</tr>
-<tr>
-<td>String</td>
-<td>Plain, Dictionary, <a href="https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf">FSST</a>, FSST Dictionary</td>
-<td></td>
-</tr>
-<tr>
-<td>Geometry</td>
-<td>Plain, Dictionary, Morton-Dictionary</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p>SIMD-FastPFOR is generally preferred over Varint encoding due to its smaller output and faster decoding speed.
-Varint encoding is included mainly for compatibility and simplicity, and it can be more efficient when combined with heavyweight compression like GZip.</p>
-<p>A brute-force search for the best encoding scheme is too costly.
-Instead, we recommend the selection strategy from the <a href="https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf">BTRBlocks</a> paper:</p>
-<ul>
-<li>Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).</li>
-<li>Use a sampling-based algorithm: randomly select parts of the data totaling ~1% of the full dataset and apply the candidate encodings from step 1.
-  Choose the scheme that produces the smallest output.</li>
-</ul>
-<p>Choosing the right column to sort features by can also significantly reduce the size of a layer, and is crucial for leveraging the columnar layout fully.
-Exhaustively testing every possible sorting order for every column in every layer is computationally expensive, so the same sampling heuristic applies.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this section">&para;</a></h2>
 <p>Every fixture under <code>test/synthetic/0x01/</code> has an annotated hexdump and the <code>.json</code> a decoder MUST produce from it.
 The annotations are generated from the tiles.</p>
@@ -2607,7 +3378,7 @@ The annotations are generated from the tiles.</p>
 </span></code></pre></div>
 <details class="example">
 <summary>Annotated hexdumps</summary>
-<div class="tabbed-set tabbed-alternate" data-tabs="6:4"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><input id="__tabbed_6_3" name="__tabbed_6" type="radio" /><input id="__tabbed_6_4" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Minimal layer</label><label for="__tabbed_6_2">Polygon with a hole</label><label for="__tabbed_6_3">String property</label><label for="__tabbed_6_4">Shared dictionary</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="9:4"><input checked="checked" id="__tabbed_9_1" name="__tabbed_9" type="radio" /><input id="__tabbed_9_2" name="__tabbed_9" type="radio" /><input id="__tabbed_9_3" name="__tabbed_9" type="radio" /><input id="__tabbed_9_4" name="__tabbed_9" type="radio" /><div class="tabbed-labels"><label for="__tabbed_9_1">Minimal layer</label><label for="__tabbed_9_2">Polygon with a hole</label><label for="__tabbed_9_3">String property</label><label for="__tabbed_9_4">Shared dictionary</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>One point with one id: the tile envelope, the column metadata section and the data section.</p>

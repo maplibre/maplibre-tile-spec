@@ -1,0 +1,78 @@
+<svg class="mlt-diagram" viewBox="0 0 710 308" role="img" aria-label="city stored in the FSST layout" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<text class="row" x="0" y="54">presence</text>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">1</text>
+<rect class="f1" x="236" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="54">1</text>
+<rect class="f0" x="342" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="54">1</text>
+<rect class="f1" x="448" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="row" x="0" y="94">Lengths</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="94">7</text>
+<rect class="f1" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">5</text>
+<rect class="f0" x="342" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="94">7</text>
+<rect class="implicit" x="448" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="94">null</text>
+<text class="muted small" x="590" y="94">3 lengths</text>
+<text class="muted small mid" x="160" y="128">symbol 0</text>
+<text class="muted small mid" x="223" y="128">symbol 1</text>
+<text class="muted small mid" x="286" y="128">symbol 2</text>
+<text class="muted small mid" x="349" y="128">symbol 3</text>
+<text class="row" x="0" y="152">SymbolLengths</text>
+<text class="row" x="0" y="192">SymbolTable</text>
+<rect class="plain" x="130" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="152">3</text>
+<rect class="plain" x="130" y="178" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="192">"Mai"</text>
+<rect class="plain" x="193" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="223" y="152">3</text>
+<rect class="plain" x="193" y="178" width="60" height="28" rx="3"/>
+<text class="cell" x="223" y="192">"lan"</text>
+<rect class="plain" x="256" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="286" y="152">1</text>
+<rect class="plain" x="256" y="178" width="60" height="28" rx="3"/>
+<text class="cell" x="286" y="192">"d"</text>
+<rect class="plain" x="319" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="349" y="152">2</text>
+<rect class="plain" x="319" y="178" width="60" height="28" rx="3"/>
+<text class="cell" x="349" y="192">"Mi"</text>
+<text class="muted small" x="590" y="152">4 symbols</text>
+<text class="muted small" x="590" y="192">9 B</text>
+<text class="muted small mid" x="180" y="232">value 0</text>
+<path class="bracket" d="M130 252V246H230V252"/>
+<rect class="plain" x="140" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="152" y="274">00</text>
+<rect class="plain" x="168" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="180" y="274">01</text>
+<rect class="plain" x="196" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="208" y="274">02</text>
+<text class="muted small mid" x="286" y="232">value 1</text>
+<path class="bracket" d="M236 252V246H336V252"/>
+<rect class="plain" x="260" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="272" y="274">03</text>
+<rect class="plain" x="288" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="300" y="274">01</text>
+<text class="muted small mid" x="392" y="232">value 2</text>
+<path class="bracket" d="M342 252V246H442V252"/>
+<rect class="plain" x="352" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="364" y="274">00</text>
+<rect class="plain" x="380" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="392" y="274">01</text>
+<rect class="plain" x="408" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="420" y="274">02</text>
+<text class="row" x="0" y="274">Corpus</text>
+<text class="muted small" x="590" y="274">8 B</text>
+</svg>

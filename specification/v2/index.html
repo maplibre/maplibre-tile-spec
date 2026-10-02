@@ -99,7 +99,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#differences-from-v1" class="md-skip">
+        <a href="#tile-layout" class="md-skip">
           Skip to content
         </a>
       
@@ -617,17 +617,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#differences-from-v1" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Differences from v1
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#tile-layout" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1116,7 +1105,8 @@ Where the two disagree, the implementation is authoritative.</p>
 <p>v2 uses the same data model as <a href="../v1/">v1</a>: tiles, layers, features, columns and streams as described in the <a href="../../overview/">Overview</a>.
 Only the byte layout differs.
 A v2 layer decodes into the same in-memory representation as a v1 layer.</p>
-<h2 id="differences-from-v1">Differences from v1<a class="headerlink" href="#differences-from-v1" title="Link to this section">&para;</a></h2>
+<details class="info">
+<summary>Differences from v1</summary>
 <table>
 <thead>
 <tr>
@@ -1218,6 +1208,7 @@ A v2 layer decodes into the same in-memory representation as a v1 layer.</p>
 </tr>
 </tbody>
 </table>
+</details>
 <p>Encoders MUST select each encoding by comparing the stored size of each candidate.</p>
 <h2 id="tile-layout">Tile Layout<a class="headerlink" href="#tile-layout" title="Link to this section">&para;</a></h2>
 <p>Unchanged from <a href="../v1/#tile-layout">v1</a>.
@@ -2686,6 +2677,397 @@ A <code>Dict</code> float column has a second stream holding the distinct values
 <p><code>Lengths</code> and <code>Codes</code> hold one value per present value.
 The remaining streams carry their own counts, or, for byte blobs, take their count from <code>byte_length</code>.
 When the <code>DictValues</code> or <code>Corpus</code> stream's encoding byte names <a href="../../encodings/#front-coding">front coding</a>, the preceding lengths stream holds <code>2N</code> values: <code>N</code> shared-prefix lengths, then <code>N</code> suffix lengths.</p>
+<p><code>city</code> over four features, null on feature 3:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 76" role="img" aria-label="Input: city is Mailand, Milan, Mailand, null" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">"Mailand"</text>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<rect class="f1" x="236" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="54">"Milan"</text>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<rect class="f0" x="342" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="54">"Mailand"</text>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<rect class="implicit" x="448" y="40" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="54">null</text>
+<text class="row" x="0" y="54">city</text>
+</svg></p>
+<p>The same column in each layout, then in byte order:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:4"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Plain</label><label for="__tabbed_3_2">Dict</label><label for="__tabbed_3_3">FSST</label><label for="__tabbed_3_4">FsstDict</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 164" role="img" aria-label="city stored in the Plain layout" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<text class="row" x="0" y="54">presence</text>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">1</text>
+<rect class="f1" x="236" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="54">1</text>
+<rect class="f0" x="342" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="54">1</text>
+<rect class="f1" x="448" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="row" x="0" y="94">Lengths</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="94">7</text>
+<rect class="f1" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">5</text>
+<rect class="f0" x="342" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="94">7</text>
+<rect class="implicit" x="448" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="94">null</text>
+<text class="muted small" x="590" y="94">3 lengths</text>
+<text class="row" x="0" y="134">Values</text>
+<rect class="f0" x="130" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="134">"Mailand"</text>
+<rect class="f1" x="236" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="134">"Milan"</text>
+<rect class="f0" x="342" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="134">"Mailand"</text>
+<text class="muted small" x="590" y="134">19 B</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 174" role="img" aria-label="city in the Plain layout, in byte order: type byte, name and presence bitmap, then the streams, the first one&#x27;s extension bits 00 naming the layout" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">city</text>
+<text class="muted small mid" x="154.8" y="10">type</text>
+<rect class="f0" x="130" y="20" width="49.6" height="28" rx="3"/>
+<text class="cell" x="154.8" y="34">1b</text>
+<text class="small mid" x="154.8" y="62">String</text>
+<text class="muted small mid" x="219" y="10">name</text>
+<rect class="f0" x="185.6" y="20" width="66.8" height="28" rx="3"/>
+<text class="cell" x="219" y="34">"city"</text>
+<text class="muted small mid" x="289.8" y="10">presence</text>
+<rect class="f1" x="258.4" y="20" width="62.8" height="28" rx="3"/>
+<text class="cell" x="289.8" y="34">1110</text>
+<text class="small mid" x="289.8" y="62">bitmap</text>
+<text class="row" x="0" y="112"></text>
+<text class="muted small mid" x="181.2" y="88">Lengths</text>
+<rect class="f1" x="130" y="98" width="102.4" height="28" rx="3"/>
+<text class="cell" x="181.2" y="112">[7,5,7]</text>
+<text class="small mid" x="181.2" y="140">ext 00 = Plain</text>
+<text class="small mid" x="181.2" y="154">implied 3</text>
+<text class="muted small mid" x="330.3" y="88">Values</text>
+<rect class="f1" x="238.4" y="98" width="183.8" height="28" rx="3"/>
+<text class="cell" x="330.3" y="112">"MailandMilanMailand"</text>
+<text class="small mid" x="330.3" y="140">19 B blob</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 222" role="img" aria-label="city stored in the Dict layout" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<text class="row" x="0" y="54">presence</text>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">1</text>
+<rect class="f1" x="236" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="54">1</text>
+<rect class="f0" x="342" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="54">1</text>
+<rect class="f1" x="448" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="row" x="0" y="94">Codes</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="94">0</text>
+<rect class="f1" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">1</text>
+<rect class="f0" x="342" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="94">0</text>
+<rect class="implicit" x="448" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="94">null</text>
+<text class="muted small" x="590" y="94">3 codes</text>
+<text class="muted small mid" x="172" y="128">entry 0</text>
+<text class="muted small mid" x="261" y="128">entry 1</text>
+<text class="row" x="0" y="152">DictLengths</text>
+<rect class="plain" x="130" y="138" width="84" height="28" rx="3"/>
+<text class="cell" x="172" y="152">7</text>
+<rect class="plain" x="219" y="138" width="84" height="28" rx="3"/>
+<text class="cell" x="261" y="152">5</text>
+<text class="muted small" x="590" y="152">2 lengths</text>
+<text class="row" x="0" y="192">DictValues</text>
+<rect class="plain" x="130" y="178" width="84" height="28" rx="3"/>
+<text class="cell" x="172" y="192">"Mailand"</text>
+<rect class="plain" x="219" y="178" width="84" height="28" rx="3"/>
+<text class="cell" x="261" y="192">"Milan"</text>
+<text class="muted small" x="590" y="192">12 B</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 174" role="img" aria-label="city in the Dict layout, in byte order: type byte, name and presence bitmap, then the streams, the first one&#x27;s extension bits 01 naming the layout" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">city</text>
+<text class="muted small mid" x="154.8" y="10">type</text>
+<rect class="f0" x="130" y="20" width="49.6" height="28" rx="3"/>
+<text class="cell" x="154.8" y="34">1b</text>
+<text class="small mid" x="154.8" y="62">String</text>
+<text class="muted small mid" x="219" y="10">name</text>
+<rect class="f0" x="185.6" y="20" width="66.8" height="28" rx="3"/>
+<text class="cell" x="219" y="34">"city"</text>
+<text class="muted small mid" x="289.8" y="10">presence</text>
+<rect class="f1" x="258.4" y="20" width="62.8" height="28" rx="3"/>
+<text class="cell" x="289.8" y="34">1110</text>
+<text class="small mid" x="289.8" y="62">bitmap</text>
+<text class="row" x="0" y="112"></text>
+<text class="muted small mid" x="177.9" y="88">Codes</text>
+<rect class="f1" x="130" y="98" width="95.8" height="28" rx="3"/>
+<text class="cell" x="177.9" y="112">[0,1,0]</text>
+<text class="small mid" x="177.9" y="140">ext 01 = Dict</text>
+<text class="small mid" x="177.9" y="154">implied 3</text>
+<text class="muted small mid" x="273.1" y="88">DictLengths</text>
+<rect class="f1" x="231.8" y="98" width="82.6" height="28" rx="3"/>
+<text class="cell" x="273.1" y="112">[7,5]</text>
+<text class="small mid" x="273.1" y="140">count 2</text>
+<text class="muted small mid" x="385" y="88">DictValues</text>
+<rect class="f1" x="320.4" y="98" width="129.2" height="28" rx="3"/>
+<text class="cell" x="385" y="112">"MailandMilan"</text>
+<text class="small mid" x="385" y="140">12 B blob</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 308" role="img" aria-label="city stored in the FSST layout" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<text class="row" x="0" y="54">presence</text>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">1</text>
+<rect class="f1" x="236" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="54">1</text>
+<rect class="f0" x="342" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="54">1</text>
+<rect class="f1" x="448" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="row" x="0" y="94">Lengths</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="94">7</text>
+<rect class="f1" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">5</text>
+<rect class="f0" x="342" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="94">7</text>
+<rect class="implicit" x="448" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="94">null</text>
+<text class="muted small" x="590" y="94">3 lengths</text>
+<text class="muted small mid" x="160" y="128">symbol 0</text>
+<text class="muted small mid" x="223" y="128">symbol 1</text>
+<text class="muted small mid" x="286" y="128">symbol 2</text>
+<text class="muted small mid" x="349" y="128">symbol 3</text>
+<text class="row" x="0" y="152">SymbolLengths</text>
+<text class="row" x="0" y="192">SymbolTable</text>
+<rect class="plain" x="130" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="152">3</text>
+<rect class="plain" x="130" y="178" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="192">"Mai"</text>
+<rect class="plain" x="193" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="223" y="152">3</text>
+<rect class="plain" x="193" y="178" width="60" height="28" rx="3"/>
+<text class="cell" x="223" y="192">"lan"</text>
+<rect class="plain" x="256" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="286" y="152">1</text>
+<rect class="plain" x="256" y="178" width="60" height="28" rx="3"/>
+<text class="cell" x="286" y="192">"d"</text>
+<rect class="plain" x="319" y="138" width="60" height="28" rx="3"/>
+<text class="cell" x="349" y="152">2</text>
+<rect class="plain" x="319" y="178" width="60" height="28" rx="3"/>
+<text class="cell" x="349" y="192">"Mi"</text>
+<text class="muted small" x="590" y="152">4 symbols</text>
+<text class="muted small" x="590" y="192">9 B</text>
+<text class="muted small mid" x="180" y="232">value 0</text>
+<path class="bracket" d="M130 252V246H230V252"/>
+<rect class="plain" x="140" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="152" y="274">00</text>
+<rect class="plain" x="168" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="180" y="274">01</text>
+<rect class="plain" x="196" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="208" y="274">02</text>
+<text class="muted small mid" x="286" y="232">value 1</text>
+<path class="bracket" d="M236 252V246H336V252"/>
+<rect class="plain" x="260" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="272" y="274">03</text>
+<rect class="plain" x="288" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="300" y="274">01</text>
+<text class="muted small mid" x="392" y="232">value 2</text>
+<path class="bracket" d="M342 252V246H442V252"/>
+<rect class="plain" x="352" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="364" y="274">00</text>
+<rect class="plain" x="380" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="392" y="274">01</text>
+<rect class="plain" x="408" y="260" width="24" height="28" rx="3"/>
+<text class="cell" x="420" y="274">02</text>
+<text class="row" x="0" y="274">Corpus</text>
+<text class="muted small" x="590" y="274">8 B</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 174" role="img" aria-label="city in the FSST layout, in byte order: type byte, name and presence bitmap, then the streams, the first one&#x27;s extension bits 10 naming the layout" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">city</text>
+<text class="muted small mid" x="154.8" y="10">type</text>
+<rect class="f0" x="130" y="20" width="49.6" height="28" rx="3"/>
+<text class="cell" x="154.8" y="34">1b</text>
+<text class="small mid" x="154.8" y="62">String</text>
+<text class="muted small mid" x="219" y="10">name</text>
+<rect class="f0" x="185.6" y="20" width="66.8" height="28" rx="3"/>
+<text class="cell" x="219" y="34">"city"</text>
+<text class="muted small mid" x="289.8" y="10">presence</text>
+<rect class="f1" x="258.4" y="20" width="62.8" height="28" rx="3"/>
+<text class="cell" x="289.8" y="34">1110</text>
+<text class="small mid" x="289.8" y="62">bitmap</text>
+<text class="row" x="0" y="112"></text>
+<text class="muted small mid" x="177.9" y="88">Lengths</text>
+<rect class="f1" x="130" y="98" width="95.8" height="28" rx="3"/>
+<text class="cell" x="177.9" y="112">[7,5,7]</text>
+<text class="small mid" x="177.9" y="140">ext 10 = FSST</text>
+<text class="small mid" x="177.9" y="154">implied 3</text>
+<text class="muted small mid" x="279.7" y="88">SymbolLengths</text>
+<rect class="f1" x="231.8" y="98" width="95.8" height="28" rx="3"/>
+<text class="cell" x="279.7" y="112">[3,3,1,2]</text>
+<text class="small mid" x="279.7" y="140">count 4</text>
+<text class="muted small mid" x="386.5" y="88">SymbolTable</text>
+<rect class="f1" x="333.6" y="98" width="105.8" height="28" rx="3"/>
+<text class="cell" x="386.5" y="112">"MailandMi"</text>
+<text class="small mid" x="386.5" y="140">9 B blob</text>
+<text class="muted small mid" x="545.1" y="88">Corpus</text>
+<rect class="f1" x="445.4" y="98" width="199.4" height="28" rx="3"/>
+<text class="cell" x="545.1" y="112">00 01 02 03 01 00 01 02</text>
+<text class="small mid" x="545.1" y="140">8 B blob</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 366" role="img" aria-label="city stored in the FsstDict layout" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<text class="row" x="0" y="54">presence</text>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">1</text>
+<rect class="f1" x="236" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="54">1</text>
+<rect class="f0" x="342" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="54">1</text>
+<rect class="f1" x="448" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="row" x="0" y="94">Codes</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="94">0</text>
+<rect class="f1" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">1</text>
+<rect class="f0" x="342" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="94">0</text>
+<rect class="implicit" x="448" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="94">null</text>
+<text class="muted small" x="590" y="94">3 codes</text>
+<text class="muted small mid" x="172" y="128">entry 0</text>
+<text class="muted small mid" x="261" y="128">entry 1</text>
+<text class="row" x="0" y="152">DictLengths</text>
+<rect class="plain" x="130" y="138" width="84" height="28" rx="3"/>
+<text class="cell" x="172" y="152">7</text>
+<rect class="plain" x="219" y="138" width="84" height="28" rx="3"/>
+<text class="cell" x="261" y="152">5</text>
+<text class="muted small" x="590" y="152">2 lengths</text>
+<text class="muted small mid" x="160" y="186">symbol 0</text>
+<text class="muted small mid" x="223" y="186">symbol 1</text>
+<text class="muted small mid" x="286" y="186">symbol 2</text>
+<text class="muted small mid" x="349" y="186">symbol 3</text>
+<text class="row" x="0" y="210">SymbolLengths</text>
+<text class="row" x="0" y="250">SymbolTable</text>
+<rect class="plain" x="130" y="196" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="210">3</text>
+<rect class="plain" x="130" y="236" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="250">"Mai"</text>
+<rect class="plain" x="193" y="196" width="60" height="28" rx="3"/>
+<text class="cell" x="223" y="210">3</text>
+<rect class="plain" x="193" y="236" width="60" height="28" rx="3"/>
+<text class="cell" x="223" y="250">"lan"</text>
+<rect class="plain" x="256" y="196" width="60" height="28" rx="3"/>
+<text class="cell" x="286" y="210">1</text>
+<rect class="plain" x="256" y="236" width="60" height="28" rx="3"/>
+<text class="cell" x="286" y="250">"d"</text>
+<rect class="plain" x="319" y="196" width="60" height="28" rx="3"/>
+<text class="cell" x="349" y="210">2</text>
+<rect class="plain" x="319" y="236" width="60" height="28" rx="3"/>
+<text class="cell" x="349" y="250">"Mi"</text>
+<text class="muted small" x="590" y="210">4 symbols</text>
+<text class="muted small" x="590" y="250">9 B</text>
+<text class="muted small mid" x="172" y="290">entry 0</text>
+<path class="bracket" d="M130 310V304H214V310"/>
+<rect class="plain" x="132" y="318" width="24" height="28" rx="3"/>
+<text class="cell" x="144" y="332">00</text>
+<rect class="plain" x="160" y="318" width="24" height="28" rx="3"/>
+<text class="cell" x="172" y="332">01</text>
+<rect class="plain" x="188" y="318" width="24" height="28" rx="3"/>
+<text class="cell" x="200" y="332">02</text>
+<text class="muted small mid" x="261" y="290">entry 1</text>
+<path class="bracket" d="M219 310V304H303V310"/>
+<rect class="plain" x="235" y="318" width="24" height="28" rx="3"/>
+<text class="cell" x="247" y="332">03</text>
+<rect class="plain" x="263" y="318" width="24" height="28" rx="3"/>
+<text class="cell" x="275" y="332">01</text>
+<text class="row" x="0" y="332">Corpus</text>
+<text class="muted small" x="590" y="332">5 B</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 174" role="img" aria-label="city in the FsstDict layout, in byte order: type byte, name and presence bitmap, then the streams, the first one&#x27;s extension bits 11 naming the layout" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">city</text>
+<text class="muted small mid" x="154.8" y="10">type</text>
+<rect class="f0" x="130" y="20" width="49.6" height="28" rx="3"/>
+<text class="cell" x="154.8" y="34">1b</text>
+<text class="small mid" x="154.8" y="62">String</text>
+<text class="muted small mid" x="219" y="10">name</text>
+<rect class="f0" x="185.6" y="20" width="66.8" height="28" rx="3"/>
+<text class="cell" x="219" y="34">"city"</text>
+<text class="muted small mid" x="289.8" y="10">presence</text>
+<rect class="f1" x="258.4" y="20" width="62.8" height="28" rx="3"/>
+<text class="cell" x="289.8" y="34">1110</text>
+<text class="small mid" x="289.8" y="62">bitmap</text>
+<text class="row" x="0" y="112"></text>
+<text class="muted small mid" x="191.1" y="88">Codes</text>
+<rect class="f1" x="130" y="98" width="122.2" height="28" rx="3"/>
+<text class="cell" x="191.1" y="112">[0,1,0]</text>
+<text class="small mid" x="191.1" y="140">ext 11 = FsstDict</text>
+<text class="small mid" x="191.1" y="154">implied 3</text>
+<text class="muted small mid" x="299.5" y="88">DictLengths</text>
+<rect class="f1" x="258.2" y="98" width="82.6" height="28" rx="3"/>
+<text class="cell" x="299.5" y="112">[7,5]</text>
+<text class="small mid" x="299.5" y="140">count 2</text>
+<text class="muted small mid" x="394.7" y="88">SymbolLengths</text>
+<rect class="f1" x="346.8" y="98" width="95.8" height="28" rx="3"/>
+<text class="cell" x="394.7" y="112">[3,3,1,2]</text>
+<text class="small mid" x="394.7" y="140">count 4</text>
+<text class="muted small mid" x="501.5" y="88">SymbolTable</text>
+<rect class="f1" x="448.6" y="98" width="105.8" height="28" rx="3"/>
+<text class="cell" x="501.5" y="112">"MailandMi"</text>
+<text class="small mid" x="501.5" y="140">9 B blob</text>
+<text class="muted small mid" x="625" y="88">Corpus</text>
+<rect class="f1" x="560.4" y="98" width="129.2" height="28" rx="3"/>
+<text class="cell" x="625" y="112">00 01 02 03 01</text>
+<text class="small mid" x="625" y="140">5 B blob</text>
+</svg></p>
+</div>
+</div>
+</div>
 <h3 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h3>
 <p>Data type <code>0xF</code> introduces a dictionary followed by the columns that index into it.
 Its high nibble gives the dictionary kind instead of a presence:</p>
@@ -2722,6 +3104,364 @@ Its high nibble gives the dictionary kind instead of a presence:</p>
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>               [presence field]        only when the presence nibble names an encoding
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>               [codes stream]          one dictionary index per present value
 </span></code></pre></div>
+<p><code>name:de</code> and <code>name:en</code> over four features, <code>name:en</code> null on feature 3:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 116" role="img" aria-label="Input: name:de is Rom, Mailand, Paris, Rom and name:en is Rome, Milan, Paris, null" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<rect class="f0" x="130" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="54">"Rom"</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="94">"Rome"</text>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<rect class="f1" x="236" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="54">"Mailand"</text>
+<rect class="f1" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">"Milan"</text>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<rect class="f0" x="342" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="54">"Paris"</text>
+<rect class="f0" x="342" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="94">"Paris"</text>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<rect class="f1" x="448" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="54">"Rom"</text>
+<rect class="implicit" x="448" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="94">null</text>
+<text class="row" x="0" y="54">name:de</text>
+<text class="row" x="0" y="94">name:en</text>
+</svg></p>
+<p>The same two columns, stored with each kind of dictionary, then in byte order:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Plain</label><label for="__tabbed_4_2">FSST</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 336" role="img" aria-label="name:de and name:en over four features, as codes into one shared dictionary of five strings. The Plain kind stores the strings back to back" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<text class="muted small" x="0" y="50">name:de</text>
+<text class="row" x="0" y="72">codes</text>
+<text class="muted small" x="0" y="104">name:en</text>
+<text class="row" x="0" y="126">presence</text>
+<text class="row" x="0" y="166">codes</text>
+<rect class="f0" x="130" y="58" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="72">0</text>
+<rect class="f0" x="130" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="126">1</text>
+<rect class="f0" x="130" y="152" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="166">1</text>
+<rect class="f1" x="236" y="58" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="72">2</text>
+<rect class="f1" x="236" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="126">1</text>
+<rect class="f1" x="236" y="152" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="166">3</text>
+<rect class="f0" x="342" y="58" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="72">4</text>
+<rect class="f0" x="342" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="126">1</text>
+<rect class="f0" x="342" y="152" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="166">4</text>
+<rect class="f1" x="448" y="58" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="72">0</text>
+<rect class="f1" x="448" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="126">0</text>
+<rect class="implicit" x="448" y="152" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="166">null</text>
+<text class="muted small" x="588" y="72">4 codes</text>
+<text class="muted small" x="588" y="126">4 bits</text>
+<text class="muted small" x="588" y="166">3 codes</text>
+<text class="muted small" x="0" y="204">Plain dictionary</text>
+<text class="muted small mid" x="172" y="220">entry 0</text>
+<text class="muted small mid" x="261" y="220">entry 1</text>
+<text class="muted small mid" x="350" y="220">entry 2</text>
+<text class="muted small mid" x="439" y="220">entry 3</text>
+<text class="muted small mid" x="528" y="220">entry 4</text>
+<text class="row" x="0" y="244">DictLengths</text>
+<rect class="plain" x="130" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="172" y="244">3</text>
+<rect class="plain" x="219" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="261" y="244">4</text>
+<rect class="plain" x="308" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="350" y="244">7</text>
+<rect class="plain" x="397" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="439" y="244">5</text>
+<rect class="plain" x="486" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="528" y="244">5</text>
+<text class="muted small" x="588" y="244">5 lengths</text>
+<text class="row" x="0" y="284">DictValues</text>
+<rect class="plain" x="130" y="270" width="84" height="28" rx="3"/>
+<text class="cell" x="172" y="284">"Rom"</text>
+<rect class="plain" x="219" y="270" width="84" height="28" rx="3"/>
+<text class="cell" x="261" y="284">"Rome"</text>
+<rect class="plain" x="308" y="270" width="84" height="28" rx="3"/>
+<text class="cell" x="350" y="284">"Mailand"</text>
+<rect class="plain" x="397" y="270" width="84" height="28" rx="3"/>
+<text class="cell" x="439" y="284">"Milan"</text>
+<rect class="plain" x="486" y="270" width="84" height="28" rx="3"/>
+<text class="cell" x="528" y="284">"Paris"</text>
+<text class="muted small" x="588" y="284">24 B</text>
+<text class="muted small" x="0" y="322">read by</text>
+<text class="muted small mid" x="172" y="322">de</text>
+<text class="muted small mid" x="261" y="322">en</text>
+<text class="muted small mid" x="350" y="322">de</text>
+<text class="muted small mid" x="439" y="322">en</text>
+<text class="small mid" x="528" y="322">de + en</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 242" role="img" aria-label="The name: group with a Plain dictionary in byte order: its type byte, prefix, child count and dictionary streams, then each child&#x27;s type byte, name, presence and codes" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">name:</text>
+<text class="muted small mid" x="152" y="10">type</text>
+<rect class="f0" x="130" y="20" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="34">0f</text>
+<text class="small mid" x="152" y="62">Plain</text>
+<text class="muted small mid" x="217.3" y="10">name</text>
+<rect class="f0" x="180" y="20" width="74.6" height="28" rx="3"/>
+<text class="cell" x="217.3" y="34">"name:"</text>
+<text class="muted small mid" x="282.6" y="10">children</text>
+<rect class="f0" x="260.6" y="20" width="44" height="28" rx="3"/>
+<text class="cell" x="282.6" y="34">2</text>
+<text class="muted small mid" x="363.5" y="10">DictLengths</text>
+<rect class="f1" x="310.6" y="20" width="105.8" height="28" rx="3"/>
+<text class="cell" x="363.5" y="34">[3,4,7,5,5]</text>
+<text class="small mid" x="363.5" y="62">count 5</text>
+<text class="muted small mid" x="533.8" y="10">DictValues</text>
+<rect class="f1" x="422.4" y="20" width="222.8" height="28" rx="3"/>
+<text class="cell" x="533.8" y="34">"RomRomeMailandMilanParis"</text>
+<text class="small mid" x="533.8" y="62">24 B blob</text>
+<text class="row" x="0" y="112">name:de</text>
+<text class="muted small mid" x="152" y="88">type</text>
+<rect class="f0" x="130" y="98" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="112">0b</text>
+<text class="small mid" x="152" y="140">String</text>
+<text class="muted small mid" x="205.6" y="88">name</text>
+<rect class="f0" x="180" y="98" width="51.2" height="28" rx="3"/>
+<text class="cell" x="205.6" y="112">"de"</text>
+<text class="muted small mid" x="282.3" y="88">codes</text>
+<rect class="f1" x="237.2" y="98" width="90.2" height="28" rx="3"/>
+<text class="cell" x="282.3" y="112">[0,2,4,0]</text>
+<text class="small mid" x="282.3" y="140">implied 4</text>
+<text class="row" x="0" y="190">name:en</text>
+<text class="muted small mid" x="152" y="166">type</text>
+<rect class="f0" x="130" y="176" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="190">1b</text>
+<text class="small mid" x="152" y="218">String</text>
+<text class="muted small mid" x="205.6" y="166">name</text>
+<rect class="f0" x="180" y="176" width="51.2" height="28" rx="3"/>
+<text class="cell" x="205.6" y="190">"en"</text>
+<text class="muted small mid" x="262.8" y="166">presence</text>
+<rect class="f1" x="237.2" y="176" width="51.2" height="28" rx="3"/>
+<text class="cell" x="262.8" y="190">1110</text>
+<text class="small mid" x="262.8" y="218">bitmap</text>
+<text class="muted small mid" x="331.7" y="166">codes</text>
+<rect class="f1" x="294.4" y="176" width="74.6" height="28" rx="3"/>
+<text class="cell" x="331.7" y="190">[1,3,4]</text>
+<text class="small mid" x="331.7" y="218">implied 3</text>
+</svg></p>
+</div>
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 458" role="img" aria-label="name:de and name:en over four features, as codes into one shared dictionary of five strings. The FSST kind stores the strings as symbol codes into a seven-symbol table" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="180" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="286" y="14">feature 1</text>
+<path class="bracket t1" d="M236 34V28H336V34"/>
+<text class="bold mid t0" x="392" y="14">feature 2</text>
+<path class="bracket t0" d="M342 34V28H442V34"/>
+<text class="bold mid t1" x="498" y="14">feature 3</text>
+<path class="bracket t1" d="M448 34V28H548V34"/>
+<text class="muted small" x="0" y="50">name:de</text>
+<text class="row" x="0" y="72">codes</text>
+<text class="muted small" x="0" y="104">name:en</text>
+<text class="row" x="0" y="126">presence</text>
+<text class="row" x="0" y="166">codes</text>
+<rect class="f0" x="130" y="58" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="72">0</text>
+<rect class="f0" x="130" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="126">1</text>
+<rect class="f0" x="130" y="152" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="166">1</text>
+<rect class="f1" x="236" y="58" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="72">2</text>
+<rect class="f1" x="236" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="126">1</text>
+<rect class="f1" x="236" y="152" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="166">3</text>
+<rect class="f0" x="342" y="58" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="72">4</text>
+<rect class="f0" x="342" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="126">1</text>
+<rect class="f0" x="342" y="152" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="166">4</text>
+<rect class="f1" x="448" y="58" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="72">0</text>
+<rect class="f1" x="448" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="126">0</text>
+<rect class="implicit" x="448" y="152" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="166">null</text>
+<text class="muted small" x="588" y="72">4 codes</text>
+<text class="muted small" x="588" y="126">4 bits</text>
+<text class="muted small" x="588" y="166">3 codes</text>
+<text class="muted small" x="0" y="204">FSST dictionary</text>
+<text class="muted small mid" x="172" y="220">entry 0</text>
+<text class="muted small mid" x="261" y="220">entry 1</text>
+<text class="muted small mid" x="350" y="220">entry 2</text>
+<text class="muted small mid" x="439" y="220">entry 3</text>
+<text class="muted small mid" x="528" y="220">entry 4</text>
+<text class="row" x="0" y="244">DictLengths</text>
+<rect class="plain" x="130" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="172" y="244">3</text>
+<rect class="plain" x="219" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="261" y="244">4</text>
+<rect class="plain" x="308" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="350" y="244">7</text>
+<rect class="plain" x="397" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="439" y="244">5</text>
+<rect class="plain" x="486" y="230" width="84" height="28" rx="3"/>
+<text class="cell" x="528" y="244">5</text>
+<text class="muted small" x="588" y="244">5 lengths</text>
+<text class="muted small mid" x="160" y="274">0</text>
+<text class="muted small mid" x="223" y="274">1</text>
+<text class="muted small mid" x="286" y="274">2</text>
+<text class="muted small mid" x="349" y="274">3</text>
+<text class="muted small mid" x="412" y="274">4</text>
+<text class="muted small mid" x="475" y="274">5</text>
+<text class="muted small mid" x="538" y="274">6</text>
+<text class="row" x="0" y="298">SymbolLengths</text>
+<text class="row" x="0" y="338">SymbolTable</text>
+<rect class="plain" x="130" y="284" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="298">3</text>
+<rect class="plain" x="130" y="324" width="60" height="28" rx="3"/>
+<text class="cell" x="160" y="338">"Rom"</text>
+<rect class="plain" x="193" y="284" width="60" height="28" rx="3"/>
+<text class="cell" x="223" y="298">1</text>
+<rect class="plain" x="193" y="324" width="60" height="28" rx="3"/>
+<text class="cell" x="223" y="338">"e"</text>
+<rect class="plain" x="256" y="284" width="60" height="28" rx="3"/>
+<text class="cell" x="286" y="298">3</text>
+<rect class="plain" x="256" y="324" width="60" height="28" rx="3"/>
+<text class="cell" x="286" y="338">"Mai"</text>
+<rect class="plain" x="319" y="284" width="60" height="28" rx="3"/>
+<text class="cell" x="349" y="298">3</text>
+<rect class="plain" x="319" y="324" width="60" height="28" rx="3"/>
+<text class="cell" x="349" y="338">"lan"</text>
+<rect class="plain" x="382" y="284" width="60" height="28" rx="3"/>
+<text class="cell" x="412" y="298">1</text>
+<rect class="plain" x="382" y="324" width="60" height="28" rx="3"/>
+<text class="cell" x="412" y="338">"d"</text>
+<rect class="plain" x="445" y="284" width="60" height="28" rx="3"/>
+<text class="cell" x="475" y="298">2</text>
+<rect class="plain" x="445" y="324" width="60" height="28" rx="3"/>
+<text class="cell" x="475" y="338">"Mi"</text>
+<rect class="plain" x="508" y="284" width="60" height="28" rx="3"/>
+<text class="cell" x="538" y="298">5</text>
+<rect class="plain" x="508" y="324" width="60" height="28" rx="3"/>
+<text class="cell" x="538" y="338">"Paris"</text>
+<text class="muted small" x="588" y="298">7 symbols</text>
+<text class="muted small" x="588" y="338">18 B</text>
+<text class="row" x="0" y="408">Corpus</text>
+<path class="bracket" d="M130 386V380H214V386"/>
+<text class="muted small mid" x="172" y="370">entry 0</text>
+<rect class="plain" x="160" y="394" width="24" height="28" rx="3"/>
+<text class="cell" x="172" y="408">00</text>
+<path class="bracket" d="M219 386V380H303V386"/>
+<text class="muted small mid" x="261" y="370">entry 1</text>
+<rect class="plain" x="235" y="394" width="24" height="28" rx="3"/>
+<text class="cell" x="247" y="408">00</text>
+<rect class="plain" x="263" y="394" width="24" height="28" rx="3"/>
+<text class="cell" x="275" y="408">01</text>
+<path class="bracket" d="M308 386V380H392V386"/>
+<text class="muted small mid" x="350" y="370">entry 2</text>
+<rect class="plain" x="310" y="394" width="24" height="28" rx="3"/>
+<text class="cell" x="322" y="408">02</text>
+<rect class="plain" x="338" y="394" width="24" height="28" rx="3"/>
+<text class="cell" x="350" y="408">03</text>
+<rect class="plain" x="366" y="394" width="24" height="28" rx="3"/>
+<text class="cell" x="378" y="408">04</text>
+<path class="bracket" d="M397 386V380H481V386"/>
+<text class="muted small mid" x="439" y="370">entry 3</text>
+<rect class="plain" x="413" y="394" width="24" height="28" rx="3"/>
+<text class="cell" x="425" y="408">05</text>
+<rect class="plain" x="441" y="394" width="24" height="28" rx="3"/>
+<text class="cell" x="453" y="408">03</text>
+<path class="bracket" d="M486 386V380H570V386"/>
+<text class="muted small mid" x="528" y="370">entry 4</text>
+<rect class="plain" x="516" y="394" width="24" height="28" rx="3"/>
+<text class="cell" x="528" y="408">06</text>
+<text class="muted small" x="588" y="408">9 B</text>
+<text class="muted small" x="0" y="444">read by</text>
+<text class="muted small mid" x="172" y="444">de</text>
+<text class="muted small mid" x="261" y="444">en</text>
+<text class="muted small mid" x="350" y="444">de</text>
+<text class="muted small mid" x="439" y="444">en</text>
+<text class="small mid" x="528" y="444">de + en</text>
+</svg></p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 320" role="img" aria-label="The name: group with an FSST dictionary in byte order: its type byte, prefix, child count and dictionary streams, then each child&#x27;s type byte, name, presence and codes" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">name:</text>
+<text class="muted small mid" x="152" y="10">type</text>
+<rect class="f0" x="130" y="20" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="34">1f</text>
+<text class="small mid" x="152" y="62">FSST</text>
+<text class="muted small mid" x="217.3" y="10">name</text>
+<rect class="f0" x="180" y="20" width="74.6" height="28" rx="3"/>
+<text class="cell" x="217.3" y="34">"name:"</text>
+<text class="muted small mid" x="282.6" y="10">children</text>
+<rect class="f0" x="260.6" y="20" width="44" height="28" rx="3"/>
+<text class="cell" x="282.6" y="34">2</text>
+<text class="muted small mid" x="363.5" y="10">DictLengths</text>
+<rect class="f1" x="310.6" y="20" width="105.8" height="28" rx="3"/>
+<text class="cell" x="363.5" y="34">[3,4,7,5,5]</text>
+<text class="small mid" x="363.5" y="62">count 5</text>
+<text class="row" x="0" y="112"></text>
+<text class="muted small mid" x="198.5" y="88">SymbolLengths</text>
+<rect class="f1" x="130" y="98" width="137" height="28" rx="3"/>
+<text class="cell" x="198.5" y="112">[3,1,3,3,1,2,5]</text>
+<text class="small mid" x="198.5" y="140">count 7</text>
+<text class="muted small mid" x="361" y="88">SymbolTable</text>
+<rect class="f1" x="273" y="98" width="176" height="28" rx="3"/>
+<text class="cell" x="361" y="112">"RomeMailandMiParis"</text>
+<text class="small mid" x="361" y="140">18 B blob</text>
+<text class="muted small mid" x="566.4" y="88">Corpus</text>
+<rect class="f1" x="455" y="98" width="222.8" height="28" rx="3"/>
+<text class="cell" x="566.4" y="112">00 00 01 02 03 04 05 03 06</text>
+<text class="small mid" x="566.4" y="140">9 B blob</text>
+<text class="row" x="0" y="190">name:de</text>
+<text class="muted small mid" x="152" y="166">type</text>
+<rect class="f0" x="130" y="176" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="190">0b</text>
+<text class="small mid" x="152" y="218">String</text>
+<text class="muted small mid" x="205.6" y="166">name</text>
+<rect class="f0" x="180" y="176" width="51.2" height="28" rx="3"/>
+<text class="cell" x="205.6" y="190">"de"</text>
+<text class="muted small mid" x="282.3" y="166">codes</text>
+<rect class="f1" x="237.2" y="176" width="90.2" height="28" rx="3"/>
+<text class="cell" x="282.3" y="190">[0,2,4,0]</text>
+<text class="small mid" x="282.3" y="218">implied 4</text>
+<text class="row" x="0" y="268">name:en</text>
+<text class="muted small mid" x="152" y="244">type</text>
+<rect class="f0" x="130" y="254" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="268">1b</text>
+<text class="small mid" x="152" y="296">String</text>
+<text class="muted small mid" x="205.6" y="244">name</text>
+<rect class="f0" x="180" y="254" width="51.2" height="28" rx="3"/>
+<text class="cell" x="205.6" y="268">"en"</text>
+<text class="muted small mid" x="262.8" y="244">presence</text>
+<rect class="f1" x="237.2" y="254" width="51.2" height="28" rx="3"/>
+<text class="cell" x="262.8" y="268">1110</text>
+<text class="small mid" x="262.8" y="296">bitmap</text>
+<text class="muted small mid" x="331.7" y="244">codes</text>
+<rect class="f1" x="294.4" y="254" width="74.6" height="28" rx="3"/>
+<text class="cell" x="331.7" y="268">[1,3,4]</text>
+<text class="small mid" x="331.7" y="296">implied 3</text>
+</svg></p>
+</div>
+</div>
+</div>
 <p>Each child has its own presence nibble and MAY reference any of the layer's shared fields.</p>
 <p>Front coding of the dictionary is given by the encoding byte of the last corpus stream, as for a lone string column.</p>
 <h3 id="nested-properties">Nested Properties<a class="headerlink" href="#nested-properties" title="Link to this section">&para;</a></h3>
@@ -2731,6 +3471,46 @@ The column is a tree of nodes.
 Every leaf of the tree holds one flat stream set, encoded exactly as a <a href="#columns">column</a> of its data type.
 The structure lives in the presence and length streams of the interior nodes, never beside the values.
 A key that every feature shares is written once, in the tree, rather than once per feature.</p>
+<p><code>obj</code> from <a href="#examples"><code>nested_struct</code></a>, <code>rank</code> missing on feature 1:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 196" role="img" aria-label="obj of nested_struct: three struct values shred into a name leaf with three strings, and a rank leaf with a presence stream 1 0 1 and two integers" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="174" y="14">feature 0</text>
+<path class="bracket t0" d="M96 34V28H252V34"/>
+<text class="bold mid t1" x="336" y="14">feature 1</text>
+<path class="bracket t1" d="M258 34V28H414V34"/>
+<text class="bold mid t0" x="498" y="14">feature 2</text>
+<path class="bracket t0" d="M420 34V28H576V34"/>
+<text class="row" x="0" y="54">obj</text>
+<text class="row" x="0" y="94">obj.name</text>
+<text class="row" x="0" y="134">obj.rank</text>
+<rect class="plain" x="96" y="40" width="156" height="28" rx="3"/>
+<text class="cell small" x="174" y="54">{"name":"ab","rank":7}</text>
+<rect class="f0" x="96" y="80" width="156" height="28" rx="3"/>
+<text class="cell" x="174" y="94">"ab"</text>
+<rect class="f0" x="96" y="120" width="156" height="28" rx="3"/>
+<text class="cell" x="174" y="134">1</text>
+<rect class="f0" x="96" y="160" width="156" height="28" rx="3"/>
+<text class="cell" x="174" y="174">7</text>
+<rect class="plain" x="258" y="40" width="156" height="28" rx="3"/>
+<text class="cell small" x="336" y="54">{"name":"cd"}</text>
+<rect class="f1" x="258" y="80" width="156" height="28" rx="3"/>
+<text class="cell" x="336" y="94">"cd"</text>
+<rect class="f1" x="258" y="120" width="156" height="28" rx="3"/>
+<text class="cell" x="336" y="134">0</text>
+<rect class="implicit" x="258" y="160" width="156" height="28" rx="3"/>
+<text class="cell muted" x="336" y="174">null</text>
+<rect class="plain" x="420" y="40" width="156" height="28" rx="3"/>
+<text class="cell small" x="498" y="54">{"name":"ef","rank":9}</text>
+<rect class="f0" x="420" y="80" width="156" height="28" rx="3"/>
+<text class="cell" x="498" y="94">"ef"</text>
+<rect class="f0" x="420" y="120" width="156" height="28" rx="3"/>
+<text class="cell" x="498" y="134">1</text>
+<rect class="f0" x="420" y="160" width="156" height="28" rx="3"/>
+<text class="cell" x="498" y="174">9</text>
+<text class="muted small" x="594" y="54">not stored</text>
+<text class="muted small" x="594" y="94">3 String values</text>
+<text class="muted small" x="594" y="134">3 presence bits</text>
+<text class="muted small" x="594" y="174">2 Int32 values</text>
+</svg></p>
 <p>The tree is written depth first, each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>nested_column := [u8 column_type]        presence nibble over 0xC, 0xD or 0xE
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>                 [string name]
@@ -2741,6 +3521,64 @@ A key that every feature shares is written once, in the tree, rather than once p
 Its name comes from the layer's one namespace of <a href="#column-names">column names</a>.
 The type byte is an ordinary <a href="#column-type-byte">column type byte</a>: the high nibble is the column's <a href="#presence-nibble">presence</a> over the layer's features, and MAY name a shared field.
 The low nibble MUST be <code>0xC</code>, <code>0xD</code> or <code>0xE</code>; a scalar root is an ordinary column and MUST be written as one.</p>
+<p><code>items</code> from <a href="#examples"><code>nested_list_struct</code></a>, in byte order:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 320" role="img" aria-label="items of nested_list_struct in byte order: the list node with its lengths, the nameless struct element, then the id and tag leaves, each stream below the list writing its own count" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">items</text>
+<text class="muted small mid" x="152" y="10">type</text>
+<rect class="f0" x="130" y="20" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="34">0d</text>
+<text class="small mid" x="152" y="62">List</text>
+<text class="muted small mid" x="217.3" y="10">name</text>
+<rect class="f0" x="180" y="20" width="74.6" height="28" rx="3"/>
+<text class="cell" x="217.3" y="34">"items"</text>
+<text class="muted small mid" x="290.1" y="10">lengths</text>
+<rect class="f1" x="260.6" y="20" width="59" height="28" rx="3"/>
+<text class="cell" x="290.1" y="34">[2,1]</text>
+<text class="small mid" x="290.1" y="62">count 2</text>
+<text class="muted small" x="470" y="34">12 B</text>
+<text class="row" x="0" y="112">items[]</text>
+<text class="muted small mid" x="152" y="88">type</text>
+<rect class="f0" x="130" y="98" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="112">0c</text>
+<text class="small mid" x="152" y="140">Struct</text>
+<text class="muted small mid" x="216" y="88">name</text>
+<rect class="implicit" x="180" y="98" width="72" height="28" rx="3"/>
+<text class="cell muted" x="216" y="112">none</text>
+<text class="muted small mid" x="280" y="88">fields</text>
+<rect class="f0" x="258" y="98" width="44" height="28" rx="3"/>
+<text class="cell" x="280" y="112">2</text>
+<text class="muted small" x="470" y="112">2 B</text>
+<text class="row" x="0" y="190">items[].id</text>
+<text class="muted small mid" x="152" y="166">type</text>
+<rect class="f0" x="130" y="176" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="190">05</text>
+<text class="small mid" x="152" y="218">Int32</text>
+<text class="muted small mid" x="205.6" y="166">name</text>
+<rect class="f0" x="180" y="176" width="51.2" height="28" rx="3"/>
+<text class="cell" x="205.6" y="190">"id"</text>
+<text class="muted small mid" x="274.5" y="166">data</text>
+<rect class="f1" x="237.2" y="176" width="74.6" height="28" rx="3"/>
+<text class="cell" x="274.5" y="190">[1,2,3]</text>
+<text class="small mid" x="274.5" y="218">count 3</text>
+<text class="muted small" x="470" y="190">10 B</text>
+<text class="row" x="0" y="268">items[].tag</text>
+<text class="muted small mid" x="152" y="244">type</text>
+<rect class="f0" x="130" y="254" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="268">0b</text>
+<text class="small mid" x="152" y="296">String</text>
+<text class="muted small mid" x="209.5" y="244">name</text>
+<rect class="f0" x="180" y="254" width="59" height="28" rx="3"/>
+<text class="cell" x="209.5" y="268">"tag"</text>
+<text class="muted small mid" x="282.3" y="244">lengths</text>
+<rect class="f1" x="245" y="254" width="74.6" height="28" rx="3"/>
+<text class="cell" x="282.3" y="268">[2,2,2]</text>
+<text class="small mid" x="282.3" y="296">count 3</text>
+<text class="muted small mid" x="366.8" y="244">values</text>
+<rect class="f1" x="325.6" y="254" width="82.4" height="28" rx="3"/>
+<text class="cell" x="366.8" y="268">"hilohi"</text>
+<text class="small mid" x="366.8" y="296">6 B blob</text>
+<text class="muted small" x="470" y="268">19 B</text>
+</svg></p>
 <h4 id="node-type-byte">Node Type Byte<a class="headerlink" href="#node-type-byte" title="Link to this section">&para;</a></h4>
 <p>Every node below the root begins with one:</p>
 <table>
@@ -2820,6 +3658,59 @@ It is a stream rather than the bare field a column writes, because under a <a hr
 </table>
 <p>A node's <strong>present count</strong> is its parent count under nibble <code>0</code>, and its presence stream's population count otherwise.
 That is what its data streams hold one value each of.</p>
+<p>A nullable list of <code>{id, tag}</code> structs, <code>tag</code> nullable, over a present, an empty, a null and a present list:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 236" role="img" aria-label="A nullable list of id and tag structs over four features: present, empty, null, present. Presence 1 1 0 1, lengths 2 0 1, three ids, three tag presence bits, two tags" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">items</text>
+<text class="row" x="0" y="134">items[].id</text>
+<text class="row" x="0" y="174">items[].tag</text>
+<text class="bold mid t0" x="189" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H248V34"/>
+<rect class="f0" x="130" y="40" width="118" height="28" rx="3"/>
+<text class="cell" x="189" y="54">1</text>
+<rect class="f0" x="130" y="80" width="118" height="28" rx="3"/>
+<text class="cell" x="189" y="94">2</text>
+<rect class="f0" x="130" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="134">1</text>
+<rect class="f0" x="130" y="160" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="174">1</text>
+<rect class="f0" x="130" y="200" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="214">"a"</text>
+<rect class="f0" x="192" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="220" y="134">2</text>
+<rect class="f0" x="192" y="160" width="56" height="28" rx="3"/>
+<text class="cell" x="220" y="174">0</text>
+<rect class="implicit" x="192" y="200" width="56" height="28" rx="3"/>
+<text class="cell muted" x="220" y="214">null</text>
+<text class="bold mid t1" x="308" y="14">feature 1</text>
+<path class="bracket t1" d="M268 34V28H348V34"/>
+<rect class="f1" x="268" y="40" width="80" height="28" rx="3"/>
+<text class="cell" x="308" y="54">1</text>
+<rect class="f1" x="268" y="80" width="80" height="28" rx="3"/>
+<text class="cell" x="308" y="94">0</text>
+<text class="bold mid t0" x="408" y="14">feature 2</text>
+<path class="bracket t0" d="M368 34V28H448V34"/>
+<rect class="f0" x="368" y="40" width="80" height="28" rx="3"/>
+<text class="cell" x="408" y="54">0</text>
+<rect class="implicit" x="368" y="80" width="80" height="28" rx="3"/>
+<text class="cell muted" x="408" y="94">null</text>
+<text class="bold mid t1" x="508" y="14">feature 3</text>
+<path class="bracket t1" d="M468 34V28H548V34"/>
+<rect class="f1" x="468" y="40" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="54">1</text>
+<rect class="f1" x="468" y="80" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="94">1</text>
+<rect class="f1" x="468" y="120" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="134">3</text>
+<rect class="f1" x="468" y="160" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="174">1</text>
+<rect class="f1" x="468" y="200" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="214">"b"</text>
+<text class="muted small" x="568" y="54">4 presence bits</text>
+<text class="muted small" x="568" y="94">3 lengths</text>
+<text class="muted small" x="568" y="134">3 Int32 values</text>
+<text class="muted small" x="568" y="174">3 presence bits</text>
+<text class="muted small" x="568" y="214">2 String values</text>
+</svg></p>
 <p>A node's streams take their <a href="#value-count">implied count</a> from this context, exactly as a column's do, with one exception.
 The sum of a lengths stream is not known until its payload is decoded, which a decoder may defer, so nothing implies a count at or below the first <code>List</code> or <code>Map</code> on the path from the root.
 The boundary sits at that node rather than below it: the node's own streams are already past it.
@@ -2958,6 +3849,95 @@ The value node has no name.</p>
 A <code>Struct</code> spends one presence stream per key and nothing per entry; a <code>Map</code> spends one key per entry and nothing per key.
 Encoders MUST pick between them by comparing the stored size, as they do for every other encoding.
 A value whose keys hold different types is only a <code>Struct</code>.</p>
+<p>The first three <code>tags</code> of <a href="#examples"><code>nested_map_shapes</code></a>, both ways:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 396" role="img" aria-label="The first three tags of nested_map_shapes as a Map, with 3 lengths, 7 keys and 7 values, and as a Struct, with presence streams on de and en and none on fr" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="221" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H312V34"/>
+<text class="bold mid t1" x="386" y="14">feature 1</text>
+<path class="bracket t1" d="M326 34V28H446V34"/>
+<text class="bold mid t0" x="520" y="14">feature 2</text>
+<path class="bracket t0" d="M460 34V28H580V34"/>
+<text class="muted small" x="0" y="50">Map</text>
+<text class="row" x="0" y="74">tags</text>
+<text class="row" x="0" y="114">keys</text>
+<text class="row" x="0" y="154">values</text>
+<rect class="f0" x="130" y="60" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="74">3</text>
+<rect class="f0" x="130" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="159" y="114">"de"</text>
+<rect class="f0" x="130" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="159" y="154">"berg"</text>
+<rect class="f0" x="192" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="221" y="114">"en"</text>
+<rect class="f0" x="192" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="221" y="154">"hill"</text>
+<rect class="f0" x="254" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="283" y="114">"fr"</text>
+<rect class="f0" x="254" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="283" y="154">"mont"</text>
+<rect class="f1" x="326" y="60" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="74">2</text>
+<rect class="f1" x="326" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="355" y="114">"de"</text>
+<rect class="f1" x="326" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="355" y="154">"see"</text>
+<rect class="f1" x="388" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="417" y="114">"fr"</text>
+<rect class="f1" x="388" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="417" y="154">"lac"</text>
+<rect class="f0" x="460" y="60" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="74">2</text>
+<rect class="f0" x="460" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="489" y="114">"en"</text>
+<rect class="f0" x="460" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="489" y="154">"sea"</text>
+<rect class="f0" x="522" y="100" width="58" height="28" rx="3"/>
+<text class="cell" x="551" y="114">"fr"</text>
+<rect class="f0" x="522" y="140" width="58" height="28" rx="3"/>
+<text class="cell" x="551" y="154">"mer"</text>
+<text class="muted small" x="598" y="74">3 lengths</text>
+<text class="muted small" x="598" y="114">7 String keys</text>
+<text class="muted small" x="598" y="154">7 String values</text>
+<text class="muted small" x="0" y="190">Struct</text>
+<text class="row" x="0" y="214">tags.de</text>
+<rect class="f0" x="130" y="200" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="214">1</text>
+<rect class="f1" x="326" y="200" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="214">1</text>
+<rect class="f0" x="460" y="200" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="214">0</text>
+<text class="muted small" x="598" y="214">3 presence bits</text>
+<rect class="f0" x="130" y="240" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="254">"berg"</text>
+<rect class="f1" x="326" y="240" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="254">"see"</text>
+<rect class="implicit" x="460" y="240" width="120" height="28" rx="3"/>
+<text class="cell muted" x="520" y="254">null</text>
+<text class="muted small" x="598" y="254">2 String values</text>
+<text class="row" x="0" y="294">tags.en</text>
+<rect class="f0" x="130" y="280" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="294">1</text>
+<rect class="f1" x="326" y="280" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="294">0</text>
+<rect class="f0" x="460" y="280" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="294">1</text>
+<text class="muted small" x="598" y="294">3 presence bits</text>
+<rect class="f0" x="130" y="320" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="334">"hill"</text>
+<rect class="implicit" x="326" y="320" width="120" height="28" rx="3"/>
+<text class="cell muted" x="386" y="334">null</text>
+<rect class="f0" x="460" y="320" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="334">"sea"</text>
+<text class="muted small" x="598" y="334">2 String values</text>
+<text class="row" x="0" y="374">tags.fr</text>
+<rect class="f0" x="130" y="360" width="182" height="28" rx="3"/>
+<text class="cell" x="221" y="374">"mont"</text>
+<rect class="f1" x="326" y="360" width="120" height="28" rx="3"/>
+<text class="cell" x="386" y="374">"lac"</text>
+<rect class="f0" x="460" y="360" width="120" height="28" rx="3"/>
+<text class="cell" x="520" y="374">"mer"</text>
+<text class="muted small" x="598" y="374">3 String values</text>
+</svg></p>
 <h4 id="leaf-nodes">Leaf Nodes<a class="headerlink" href="#leaf-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0x2</code>-<code>0xB</code>. A leaf holds exactly the data streams a <a href="#columns">column</a> of the same data type holds: one stream for a boolean or integer, one or two for a float, and the set its leading stream's extension bits name for a string.
 It reads them against its own count, and is otherwise the same column.</p>
@@ -3442,7 +4422,7 @@ If you are building an decoder, the <code>.json</code> snapshot are what an deco
 </span></code></pre></div>
 <details class="example">
 <summary>Annotated hexdumps</summary>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:11"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><input id="__tabbed_3_5" name="__tabbed_3" type="radio" /><input id="__tabbed_3_6" name="__tabbed_3" type="radio" /><input id="__tabbed_3_7" name="__tabbed_3" type="radio" /><input id="__tabbed_3_8" name="__tabbed_3" type="radio" /><input id="__tabbed_3_9" name="__tabbed_3" type="radio" /><input id="__tabbed_3_10" name="__tabbed_3" type="radio" /><input id="__tabbed_3_11" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Minimal layer</label><label for="__tabbed_3_2">Polygon with a hole</label><label for="__tabbed_3_3">Triangles without outlines</label><label for="__tabbed_3_4">Z coordinates</label><label for="__tabbed_3_5">Shared presence</label><label for="__tabbed_3_6">String dictionary</label><label for="__tabbed_3_7">Framed, Exception-Free ALP floats</label><label for="__tabbed_3_8">M-values</label><label for="__tabbed_3_9">Nested struct</label><label for="__tabbed_3_10">Nested list</label><label for="__tabbed_3_11">Nested map</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:11"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><input id="__tabbed_5_3" name="__tabbed_5" type="radio" /><input id="__tabbed_5_4" name="__tabbed_5" type="radio" /><input id="__tabbed_5_5" name="__tabbed_5" type="radio" /><input id="__tabbed_5_6" name="__tabbed_5" type="radio" /><input id="__tabbed_5_7" name="__tabbed_5" type="radio" /><input id="__tabbed_5_8" name="__tabbed_5" type="radio" /><input id="__tabbed_5_9" name="__tabbed_5" type="radio" /><input id="__tabbed_5_10" name="__tabbed_5" type="radio" /><input id="__tabbed_5_11" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Minimal layer</label><label for="__tabbed_5_2">Polygon with a hole</label><label for="__tabbed_5_3">Triangles without outlines</label><label for="__tabbed_5_4">Z coordinates</label><label for="__tabbed_5_5">Shared presence</label><label for="__tabbed_5_6">String dictionary</label><label for="__tabbed_5_7">Framed, Exception-Free ALP floats</label><label for="__tabbed_5_8">M-values</label><label for="__tabbed_5_9">Nested struct</label><label for="__tabbed_5_10">Nested list</label><label for="__tabbed_5_11">Nested map</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>A single <code>Point</code> at <code>(13, 42)</code> with id <code>100</code>.</p>

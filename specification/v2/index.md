@@ -12,28 +12,30 @@
 
 v2 uses the same data model as [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>): tiles, layers, features, columns and streams as described in the [Overview](<https://maplibre.org/maplibre-tile-spec/overview/index.md>). Only the byte layout differs. A v2 layer decodes into the same in-memory representation as a v1 layer.
 
-## Differences from v1
-
-|  | v1 | v2 |
-| --- | --- | --- |
-| Extent | `varint`, any non-zero value | One nibble, a power of two in `64`-`2097152` |
-| Stream role | `stream_type` byte per stream | Implied by position |
-| Stream value count | `num_values` varint per stream | Omitted when it equals the context count |
-| Stream byte length | `byte_length` varint per stream | Omitted on a raw stream, whose count and element width give it |
-| Vertex stream count | Words, except under Morton | [Vertices, under every encoding](<#value-count_1>) |
-| Geometry stream set | `stream_count` + a `stream_type` byte each | One `GeoLayout` nibble in the layer header |
-| Geometry types | A stream, always | A [nibble](<#uniform-geometry-type>) when every feature shares a type, a stream otherwise |
-| Triangle indices | Count from the feature's first vertex | [Count from the layer's first vertex](<#tessellation>) |
-| Nullability | Boolean-RLE `Present` stream | A [bitmap, RLE or indices](<#presence-encodings>), shareable between columns |
-| 8-bit integers | Not implemented | [`Int8` and `UInt8` columns](<#data-types>) |
-| Column metadata | All columns' metadata, then all columns' data | Metadata and data adjacent per column |
-| RLE | All runs, then all values, with `runs` in the header | Interleaved `(run, value)` pairs, no run count |
-| Integer payloads | None, VarInt, FastPFOR (256-value big-endian blocks) | Adds bit packing. FastPFOR uses 128-value little-endian blocks |
-| Float payloads | Raw IEEE 754 words | Adds [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>) and float dictionaries |
-| String dictionaries | Plain, FSST | Adds [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/#front-coding>) |
-| Vertex-scoped values | Not implemented | [M-value columns](<#m-values>) |
-| Maps and lists | Not implemented | [Shredded into one leaf column per path](<#nested-properties>) |
-| Z-Coordinates | Not implemented | [As an alternative in the vertex buffer](<#z-coordinates>) |
+> [!NOTE]
+>
+> **Differences from v1**
+>
+> |  | v1 | v2 |
+> | --- | --- | --- |
+> | Extent | `varint`, any non-zero value | One nibble, a power of two in `64`-`2097152` |
+> | Stream role | `stream_type` byte per stream | Implied by position |
+> | Stream value count | `num_values` varint per stream | Omitted when it equals the context count |
+> | Stream byte length | `byte_length` varint per stream | Omitted on a raw stream, whose count and element width give it |
+> | Vertex stream count | Words, except under Morton | [Vertices, under every encoding](<#value-count_1>) |
+> | Geometry stream set | `stream_count` + a `stream_type` byte each | One `GeoLayout` nibble in the layer header |
+> | Geometry types | A stream, always | A [nibble](<#uniform-geometry-type>) when every feature shares a type, a stream otherwise |
+> | Triangle indices | Count from the feature's first vertex | [Count from the layer's first vertex](<#tessellation>) |
+> | Nullability | Boolean-RLE `Present` stream | A [bitmap, RLE or indices](<#presence-encodings>), shareable between columns |
+> | 8-bit integers | Not implemented | [`Int8` and `UInt8` columns](<#data-types>) |
+> | Column metadata | All columns' metadata, then all columns' data | Metadata and data adjacent per column |
+> | RLE | All runs, then all values, with `runs` in the header | Interleaved `(run, value)` pairs, no run count |
+> | Integer payloads | None, VarInt, FastPFOR (256-value big-endian blocks) | Adds bit packing. FastPFOR uses 128-value little-endian blocks |
+> | Float payloads | Raw IEEE 754 words | Adds [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>) and float dictionaries |
+> | String dictionaries | Plain, FSST | Adds [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/#front-coding>) |
+> | Vertex-scoped values | Not implemented | [M-value columns](<#m-values>) |
+> | Maps and lists | Not implemented | [Shredded into one leaf column per path](<#nested-properties>) |
+> | Z-Coordinates | Not implemented | [As an alternative in the vertex buffer](<#z-coordinates>) |
 
 Encoders MUST select each encoding by comparing the stored size of each candidate.
 
@@ -445,6 +447,10 @@ The extension bits of the leading stream's encoding byte give the column's layou
 
 `Lengths` and `Codes` hold one value per present value. The remaining streams carry their own counts, or, for byte blobs, take their count from `byte_length`. When the `DictValues` or `Corpus` stream's encoding byte names [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/#front-coding>), the preceding lengths stream holds `2N` values: `N` shared-prefix lengths, then `N` suffix lengths.
 
+`city` over four features, null on feature 3:
+
+The same column in each layout, then in byte order:
+
 ### Shared Dictionary Columns
 
 Data type `0xF` introduces a dictionary followed by the columns that index into it. Its high nibble gives the dictionary kind instead of a presence:
@@ -470,6 +476,10 @@ child       := [u8 column_type]        data type MUST be String
                [codes stream]          one dictionary index per present value
 ```
 
+`name:de` and `name:en` over four features, `name:en` null on feature 3:
+
+The same two columns, stored with each kind of dictionary, then in byte order:
+
 Each child has its own presence nibble and MAY reference any of the layer's shared fields.
 
 Front coding of the dictionary is given by the encoding byte of the last corpus stream, as for a lone string column.
@@ -479,6 +489,8 @@ Front coding of the dictionary is given by the encoding byte of the last corpus 
 A property whose value is a map or a list, nestable.
 
 v2 shreds a nested value the way [ORC](<https://orc.apache.org/specification/ORCv1/>) does. The column is a tree of nodes. Every leaf of the tree holds one flat stream set, encoded exactly as a [column](<#columns>) of its data type. The structure lives in the presence and length streams of the interior nodes, never beside the values. A key that every feature shares is written once, in the tree, rather than once per feature.
+
+`obj` from [`nested_struct`](<#examples>), `rank` missing on feature 1:
 
 The tree is written depth first, each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.
 
@@ -490,6 +502,8 @@ nested_column := [u8 column_type]        presence nibble over 0xC, 0xD or 0xE
 ```
 
 A nested column is one entry of `column_count`, however many leaves it shreds into. Its name comes from the layer's one namespace of [column names](<#column-names>). The type byte is an ordinary [column type byte](<#column-type-byte>): the high nibble is the column's [presence](<#presence-nibble>) over the layer's features, and MAY name a shared field. The low nibble MUST be `0xC`, `0xD` or `0xE`; a scalar root is an ordinary column and MUST be written as one.
+
+`items` from [`nested_list_struct`](<#examples>), in byte order:
 
 #### Node Type Byte
 
@@ -526,6 +540,8 @@ Each node is handed a number of values by its parent, its **parent count**:
 | A map key or map value | The sum of the map node's lengths |
 
 A node's **present count** is its parent count under nibble `0`, and its presence stream's population count otherwise. That is what its data streams hold one value each of.
+
+A nullable list of `{id, tag}` structs, `tag` nullable, over a present, an empty, a null and a present list:
 
 A node's streams take their [implied count](<#value-count>) from this context, exactly as a column's do, with one exception. The sum of a lengths stream is not known until its payload is decoded, which a decoder may defer, so nothing implies a count at or below the first `List` or `Map` on the path from the root. The boundary sits at that node rather than below it: the node's own streams are already past it. There, as in an [m-value column](<#m-values>), bit 7 of the [encoding byte](<#encoding-byte>) MUST be `1` on each of:
 
@@ -599,6 +615,8 @@ The keys are the streams a [string column](<#string-columns>) holds, laid out pe
 `tags` from [`nested_map_str`](<#examples>), a map of strings:
 
 A `Map` and a `Struct` express the same thing when every key holds the same type. A `Struct` spends one presence stream per key and nothing per entry; a `Map` spends one key per entry and nothing per key. Encoders MUST pick between them by comparing the stored size, as they do for every other encoding. A value whose keys hold different types is only a `Struct`.
+
+The first three `tags` of [`nested_map_shapes`](<#examples>), both ways:
 
 #### Leaf Nodes
 

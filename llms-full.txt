@@ -424,6 +424,10 @@ In the plain layout the `Length` stream holds the byte length of each present va
 
 The offset stream comes last in the 5-stream layout and before the data stream in the 3-stream layout. An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity `[0, 1, 2, ...]` as its offsets.
 
+`city` over four features, null on feature 3:
+
+The same column in each layout, then in byte order:
+
 ### Shared Dictionary Columns
 
 Several string columns, such as `name:en`, `name:de` and `name:fr`, can share a single dictionary.
@@ -446,6 +450,10 @@ child       := [varint stream_count]
 > Some tiles in the wild were written with `stream_count` one too high, by an encoder bug since fixed. Decoders SHOULD accept `expected + 1` as well so those files still parse.
 
 Each child's own `stream_count` is `1`, plus `1` when it is nullable.
+
+`name:de` and `name:en` over four features, `name:en` null on feature 3:
+
+The same two columns, stored with each kind of dictionary, then in byte order:
 
 ## Geometry Column
 
@@ -666,8 +674,6 @@ A `Polygon` triangle, then a `MultiPolygon` of a polygon with a hole and a secon
 
 ### Decoding Examples
 
-#### Point
-
 ```text
 Streams:
   META: types = [0]          // Point
@@ -677,8 +683,6 @@ Decode:
   zigzag(200) = 100, zigzag(400) = 200
   Result: Point(100, 200)
 ```
-
-#### LineString
 
 ```text
 Streams:
@@ -692,8 +696,6 @@ Decode:
   Result: LineString with 3 vertices
 ```
 
-#### Polygon with Hole
-
 ```text
 Streams:
   META: types = [2]          // Polygon
@@ -706,8 +708,6 @@ Decode:
   ring_offsets = [0, 4, 8]   // ring boundaries
   Result: Polygon with exterior ring (4 verts) and hole (4 verts)
 ```
-
-#### MultiPolygon
 
 ```text
 Streams:
@@ -748,29 +748,6 @@ Decode:
 ```
 
 The integer and vertex encodings referenced above are specified in detail in the [Encoding Definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) document.
-
-## Choosing Encodings
-
-MLT uses various lightweight compression schemes for space-efficient storage and fast decoding. Encodings can be recursively cascaded (hybrid encodings) to a certain degree. For example, integer columns resulting from dictionary encoding can be further compressed using integer encoding schemes.
-
-The following encoding pool was selected based on analysis of compression ratio and decoding speed on test datasets like OpenMapTiles and Bing Maps tilesets.
-
-| Data Type | Logical Level Technique | Physical Level Technique |
-| --- | --- | --- |
-| Boolean | [Boolean RLE](<https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding>) |  |
-| Integer | Plain, RLE, Delta, Delta-RLE | [SIMD-FastPFOR](<https://arxiv.org/pdf/1209.2137.pdf>), [Varint](<https://protobuf.dev/programming-guides/encoding/#varints>) |
-| Float | Plain, RLE |  |
-| String | Plain, Dictionary, [FSST](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>), FSST Dictionary |  |
-| Geometry | Plain, Dictionary, Morton-Dictionary |  |
-
-SIMD-FastPFOR is generally preferred over Varint encoding due to its smaller output and faster decoding speed. Varint encoding is included mainly for compatibility and simplicity, and it can be more efficient when combined with heavyweight compression like GZip.
-
-A brute-force search for the best encoding scheme is too costly. Instead, we recommend the selection strategy from the [BTRBlocks](<https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf>) paper:
-
-- Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).
-- Use a sampling-based algorithm: randomly select parts of the data totaling \~1% of the full dataset and apply the candidate encodings from step 1. Choose the scheme that produces the smallest output.
-
-Choosing the right column to sort features by can also significantly reduce the size of a layer, and is crucial for leveraging the columnar layout fully. Exhaustively testing every possible sorting order for every column in every layer is computationally expensive, so the same sampling heuristic applies.
 
 ## Examples
 
@@ -1157,28 +1134,30 @@ mlt hexdump path/to/tile.mlt
 
 v2 uses the same data model as [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>): tiles, layers, features, columns and streams as described in the [Overview](<https://maplibre.org/maplibre-tile-spec/overview/index.md>). Only the byte layout differs. A v2 layer decodes into the same in-memory representation as a v1 layer.
 
-## Differences from v1
-
-|  | v1 | v2 |
-| --- | --- | --- |
-| Extent | `varint`, any non-zero value | One nibble, a power of two in `64`-`2097152` |
-| Stream role | `stream_type` byte per stream | Implied by position |
-| Stream value count | `num_values` varint per stream | Omitted when it equals the context count |
-| Stream byte length | `byte_length` varint per stream | Omitted on a raw stream, whose count and element width give it |
-| Vertex stream count | Words, except under Morton | [Vertices, under every encoding](<#value-count_1>) |
-| Geometry stream set | `stream_count` + a `stream_type` byte each | One `GeoLayout` nibble in the layer header |
-| Geometry types | A stream, always | A [nibble](<#uniform-geometry-type>) when every feature shares a type, a stream otherwise |
-| Triangle indices | Count from the feature's first vertex | [Count from the layer's first vertex](<#tessellation>) |
-| Nullability | Boolean-RLE `Present` stream | A [bitmap, RLE or indices](<#presence-encodings>), shareable between columns |
-| 8-bit integers | Not implemented | [`Int8` and `UInt8` columns](<#data-types>) |
-| Column metadata | All columns' metadata, then all columns' data | Metadata and data adjacent per column |
-| RLE | All runs, then all values, with `runs` in the header | Interleaved `(run, value)` pairs, no run count |
-| Integer payloads | None, VarInt, FastPFOR (256-value big-endian blocks) | Adds bit packing. FastPFOR uses 128-value little-endian blocks |
-| Float payloads | Raw IEEE 754 words | Adds [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>) and float dictionaries |
-| String dictionaries | Plain, FSST | Adds [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/#front-coding>) |
-| Vertex-scoped values | Not implemented | [M-value columns](<#m-values>) |
-| Maps and lists | Not implemented | [Shredded into one leaf column per path](<#nested-properties>) |
-| Z-Coordinates | Not implemented | [As an alternative in the vertex buffer](<#z-coordinates>) |
+> [!NOTE]
+>
+> **Differences from v1**
+>
+> |  | v1 | v2 |
+> | --- | --- | --- |
+> | Extent | `varint`, any non-zero value | One nibble, a power of two in `64`-`2097152` |
+> | Stream role | `stream_type` byte per stream | Implied by position |
+> | Stream value count | `num_values` varint per stream | Omitted when it equals the context count |
+> | Stream byte length | `byte_length` varint per stream | Omitted on a raw stream, whose count and element width give it |
+> | Vertex stream count | Words, except under Morton | [Vertices, under every encoding](<#value-count_1>) |
+> | Geometry stream set | `stream_count` + a `stream_type` byte each | One `GeoLayout` nibble in the layer header |
+> | Geometry types | A stream, always | A [nibble](<#uniform-geometry-type>) when every feature shares a type, a stream otherwise |
+> | Triangle indices | Count from the feature's first vertex | [Count from the layer's first vertex](<#tessellation>) |
+> | Nullability | Boolean-RLE `Present` stream | A [bitmap, RLE or indices](<#presence-encodings>), shareable between columns |
+> | 8-bit integers | Not implemented | [`Int8` and `UInt8` columns](<#data-types>) |
+> | Column metadata | All columns' metadata, then all columns' data | Metadata and data adjacent per column |
+> | RLE | All runs, then all values, with `runs` in the header | Interleaved `(run, value)` pairs, no run count |
+> | Integer payloads | None, VarInt, FastPFOR (256-value big-endian blocks) | Adds bit packing. FastPFOR uses 128-value little-endian blocks |
+> | Float payloads | Raw IEEE 754 words | Adds [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>) and float dictionaries |
+> | String dictionaries | Plain, FSST | Adds [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/#front-coding>) |
+> | Vertex-scoped values | Not implemented | [M-value columns](<#m-values>) |
+> | Maps and lists | Not implemented | [Shredded into one leaf column per path](<#nested-properties>) |
+> | Z-Coordinates | Not implemented | [As an alternative in the vertex buffer](<#z-coordinates>) |
 
 Encoders MUST select each encoding by comparing the stored size of each candidate.
 
@@ -1590,6 +1569,10 @@ The extension bits of the leading stream's encoding byte give the column's layou
 
 `Lengths` and `Codes` hold one value per present value. The remaining streams carry their own counts, or, for byte blobs, take their count from `byte_length`. When the `DictValues` or `Corpus` stream's encoding byte names [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/#front-coding>), the preceding lengths stream holds `2N` values: `N` shared-prefix lengths, then `N` suffix lengths.
 
+`city` over four features, null on feature 3:
+
+The same column in each layout, then in byte order:
+
 ### Shared Dictionary Columns
 
 Data type `0xF` introduces a dictionary followed by the columns that index into it. Its high nibble gives the dictionary kind instead of a presence:
@@ -1615,6 +1598,10 @@ child       := [u8 column_type]        data type MUST be String
                [codes stream]          one dictionary index per present value
 ```
 
+`name:de` and `name:en` over four features, `name:en` null on feature 3:
+
+The same two columns, stored with each kind of dictionary, then in byte order:
+
 Each child has its own presence nibble and MAY reference any of the layer's shared fields.
 
 Front coding of the dictionary is given by the encoding byte of the last corpus stream, as for a lone string column.
@@ -1624,6 +1611,8 @@ Front coding of the dictionary is given by the encoding byte of the last corpus 
 A property whose value is a map or a list, nestable.
 
 v2 shreds a nested value the way [ORC](<https://orc.apache.org/specification/ORCv1/>) does. The column is a tree of nodes. Every leaf of the tree holds one flat stream set, encoded exactly as a [column](<#columns>) of its data type. The structure lives in the presence and length streams of the interior nodes, never beside the values. A key that every feature shares is written once, in the tree, rather than once per feature.
+
+`obj` from [`nested_struct`](<#examples>), `rank` missing on feature 1:
 
 The tree is written depth first, each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.
 
@@ -1635,6 +1624,8 @@ nested_column := [u8 column_type]        presence nibble over 0xC, 0xD or 0xE
 ```
 
 A nested column is one entry of `column_count`, however many leaves it shreds into. Its name comes from the layer's one namespace of [column names](<#column-names>). The type byte is an ordinary [column type byte](<#column-type-byte>): the high nibble is the column's [presence](<#presence-nibble>) over the layer's features, and MAY name a shared field. The low nibble MUST be `0xC`, `0xD` or `0xE`; a scalar root is an ordinary column and MUST be written as one.
+
+`items` from [`nested_list_struct`](<#examples>), in byte order:
 
 #### Node Type Byte
 
@@ -1671,6 +1662,8 @@ Each node is handed a number of values by its parent, its **parent count**:
 | A map key or map value | The sum of the map node's lengths |
 
 A node's **present count** is its parent count under nibble `0`, and its presence stream's population count otherwise. That is what its data streams hold one value each of.
+
+A nullable list of `{id, tag}` structs, `tag` nullable, over a present, an empty, a null and a present list:
 
 A node's streams take their [implied count](<#value-count>) from this context, exactly as a column's do, with one exception. The sum of a lengths stream is not known until its payload is decoded, which a decoder may defer, so nothing implies a count at or below the first `List` or `Map` on the path from the root. The boundary sits at that node rather than below it: the node's own streams are already past it. There, as in an [m-value column](<#m-values>), bit 7 of the [encoding byte](<#encoding-byte>) MUST be `1` on each of:
 
@@ -1744,6 +1737,8 @@ The keys are the streams a [string column](<#string-columns>) holds, laid out pe
 `tags` from [`nested_map_str`](<#examples>), a map of strings:
 
 A `Map` and a `Struct` express the same thing when every key holds the same type. A `Struct` spends one presence stream per key and nothing per entry; a `Map` spends one key per entry and nothing per key. Encoders MUST pick between them by comparing the stored size, as they do for every other encoding. A value whose keys hold different types is only a `Struct`.
+
+The first three `tags` of [`nested_map_shapes`](<#examples>), both ways:
 
 #### Leaf Nodes
 
@@ -3261,12 +3256,28 @@ This page is guidance for building an encoder or a decoder. The wire format is d
 
 ## Choosing an Encoding
 
-A brute-force search over every combination is too costly. Use the selection strategy from the [BTRBlocks](<https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf>) paper:
+Encodings cascade: the integer codes produced by dictionary encoding are themselves compressed with an integer encoding. A brute-force search over every combination is too costly. Use the selection strategy from the [BTRBlocks](<https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf>) paper:
 
 - Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).
 - Use a sampling-based algorithm: randomly select parts of the data totaling \~1% of the full dataset and apply the candidate encodings from step 1. Choose the scheme that produces the smallest output.
 
 Compare stored bytes, not an estimate. Do not assume a later gzip pass changes which candidate wins.
+
+The v1 encoding pool was selected on compression ratio and decoding speed over OpenMapTiles and Bing Maps tilesets:
+
+| Data Type | Logical Level Technique | Physical Level Technique |
+| --- | --- | --- |
+| Boolean | [Boolean RLE](<https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding>) |  |
+| Integer | Plain, RLE, Delta, Delta-RLE | [SIMD-FastPFOR](<https://arxiv.org/pdf/1209.2137.pdf>), [Varint](<https://protobuf.dev/programming-guides/encoding/#varints>) |
+| Float | Plain, RLE |  |
+| String | Plain, Dictionary, [FSST](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>), FSST Dictionary |  |
+| Geometry | Plain, Dictionary, Morton-Dictionary |  |
+
+SIMD-FastPFOR usually gives smaller output and faster decoding than VarInt. VarInt is simpler, and can come out smaller once a heavyweight compressor like gzip runs over the tile.
+
+### Sort Order
+
+The column the features are sorted by can shrink a layer considerably, since sorting lengthens runs and shrinks deltas. Testing every column of every layer is too costly, so the same sampling applies.
 
 ## In-Memory Format
 
