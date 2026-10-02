@@ -1,3 +1,7 @@
+---
+description: Decode a tile in the browser and walk through its bytes
+---
+
 <style>
   /* Dropped on this page only: under the 61rem grid cap the hex map fits a fraction of the columns the viewport allows. */
   .md-main .md-grid { max-width: none; }
