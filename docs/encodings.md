@@ -642,6 +642,147 @@ delta2:   (0, 0), (70, 1), (0, 1), (0, 1)
 words:    [0, 0, 140, 2, 0, 2, 0, 2]
 ```
 
+
+
+### Vertex Dictionary {#vertex-dictionary}
+
+The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex.
+`VertexOffsets` is an ordinary unsigned integer stream.
+`VertexDict` is a vertex stream and carries any of the encodings in this section.
+
+[View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices stored once and indexed.
+
+=== "Offsets"
+
+    --8<-- "diagrams/vertex-dictionary-offsets.svg"
+
+=== "Values"
+
+    ```
+    VertexOffsets: [0, 1, 2, 1, 0, 2]
+    VertexDict:    [(0,0), (10,10), (20,20)]
+    vertices:      (0,0), (10,10), (20,20), (10,10), (0,0), (20,20)
+    ```
+
+An offset at or past the dictionary's vertex count MUST be rejected.
+
+#### Hilbert Order
+
+Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short.
+The order is not part of the format.
+A decoder resolves vertices through `VertexOffsets` and never depends on it.
+
+The reference encoders use the curve of the [`hilbert_2d`](https://crates.io/crates/hilbert_2d) crate's `Hilbert` variant on a $2^{\mathit{bits}} \times 2^{\mathit{bits}}$ grid.
+`shift` and `bits` are derived as for [Morton](#morton) below, and each shifted coordinate is masked to 16 bits before it is placed on the grid.
+Two vertices with the same curve key are one dictionary entry.
+
+### Morton {#morton}
+
+A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer.
+Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas.
+Only a `VertexDict` stream uses it.
+
+[View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices as Morton codes, delta encoded.
+
+The parameters are two varints in the stream header:
+
+| Parameter | Meaning |
+|---|---|
+| `bits` | Bits per axis, at most `16` |
+| `shift` | Added to `x` and to `y` before interleaving, so that both are non-negative |
+
+`bits > 16` MUST be rejected.
+
+Encoders derive both from the whole layer's vertices.
+`shift` is `-min` when the smallest coordinate `min` on either axis is negative, else `0`.
+`bits` is the bit width of `max + shift`, the largest shifted coordinate.
+
+Encoding is two steps.
+Shift both coordinates, then interleave them: bit `i` of `sx` goes to bit `2i` of the code, and bit `i` of `sy` to bit `2i + 1`.
+
+```rust
+fn encode(x: i32, y: i32, bits: u32, shift: u32) -> u32 {
+    let sx = (i64::from(x) + i64::from(shift)) as u32; // MUST be in 0..2^bits
+    let sy = (i64::from(y) + i64::from(shift)) as u32;
+    let mut code = 0;
+    for i in 0..bits {
+        code |= ((sx >> i) & 1) << (2 * i);
+        code |= ((sy >> i) & 1) << (2 * i + 1);
+    }
+    code
+}
+```
+
+Decoding walks the same bits back and undoes the shift.
+
+```rust
+fn decode(code: u32, bits: u32, shift: u32) -> (i32, i32) {
+    let mut x = 0;
+    let mut y = 0;
+    for i in 0..bits {
+        let mask = 1 << (2 * i);
+        x |= (code & mask) >> i;
+        y |= ((code >> 1) & mask) >> i;
+    }
+    (x.wrapping_sub(shift) as i32, y.wrapping_sub(shift) as i32)
+}
+```
+
+=== "Bits"
+
+    --8<-- "diagrams/morton.svg"
+
+=== "Values"
+
+    ```
+    (x, y) = (5, 3), shift = 0, bits = 3
+    sx = 0b101, sy = 0b011
+    code bits, from bit 0: x0 y0 x1 y1 x2 y2 = 1 1 0 1 1 0
+    code = 0b011011 = 27
+    ```
+
+The loops are the definition.
+The reference Rust codec spreads all 16 bits of an axis at once with masks, which gives the same code for any `bits` up to `16`:
+
+```rust
+/// Bit `i` of `v` lands on bit `2i`.
+fn spread(mut v: u32) -> u32 {
+    v &= 0xFFFF;
+    v = (v | (v << 8)) & 0x00FF_00FF;
+    v = (v | (v << 4)) & 0x0F0F_0F0F;
+    v = (v | (v << 2)) & 0x3333_3333;
+    v = (v | (v << 1)) & 0x5555_5555;
+    v
+}
+
+/// Bit `2i` of `v` lands on bit `i`.
+fn compact(mut v: u32) -> u32 {
+    v &= 0x5555_5555;
+    v = (v | (v >> 1)) & 0x3333_3333;
+    v = (v | (v >> 2)) & 0x0F0F_0F0F;
+    v = (v | (v >> 4)) & 0x00FF_00FF;
+    v = (v | (v >> 8)) & 0x0000_FFFF;
+    v
+}
+
+let code = spread(sx) | (spread(sy) << 1);
+let sx = compact(code);
+let sy = compact(code >> 1);
+```
+
+The codes are stored as an integer stream of unsigned 32-bit words.
+The stream holds the first code, then each code's difference to the previous one.
+v1 names this `MortonDelta`, v2 names it `Morton` in the `Vertex` family.
+There is no plain or RLE Morton encoding.
+
+The deltas are plain differences, not ZigZag-encoded.
+The dictionary is sorted ascending by code, so every difference is non-negative.
+
+```
+dict codes: [27, 30, 45]
+words:      [27, 3, 15]
+```
+
 ### rANS <span class="experimental"></span> {#rans}
 
 We can entropy-code the [componentwise deltas](#componentwise-delta) of a plain layout's vertex stream.
@@ -688,6 +829,62 @@ The state becomes `2 * 8192 + 5 - 4 = 16385`, two bits smaller, and is below `2^
 
 A table of precision `0` has one slot and one symbol.
 Decoding from it leaves `x` unchanged and costs no bits.
+
+#### Why rANS compresses {#rans-math}
+
+A symbol of probability $P$ carries $\log_2 \frac{1}{P}$ bits of information.
+A table approximates $P(s)$ as $\frac{\mathit{freq}(s)}{2^p}$, so the ideal cost of $s$ is $\log_2 \frac{2^p}{\mathit{freq}(s)}$ bits.
+
+The state $x$ holds the symbols encoded so far in about $\log_2 x$ bits.
+Encoding $s$ maps $x$ to
+
+$$
+x' = 2^p \left\lfloor \frac{x}{\mathit{freq}(s)} \right\rfloor + \mathit{cum}(s) + (x \bmod \mathit{freq}(s))
+$$
+
+so $x' \approx x \cdot \frac{2^p}{\mathit{freq}(s)}$, and $\log_2 x$ grows by the ideal cost of $s$.
+
+With every frequency `1` this is $x' = 2^p x + s$, which appends $s$ as a digit of $x$ in base $2^p$, and every symbol costs $p$ bits.
+rANS instead gives $s$ the $\mathit{freq}(s)$ digit values from $\mathit{cum}(s)$ on.
+The digit is $\mathit{cum}(s) + (x \bmod \mathit{freq}(s))$, so it carries $\log_2 \mathit{freq}(s)$ bits of $x$.
+
+The decoder finds $s$ as the symbol whose slots hold the digit $x' \bmod 2^p$.
+The quotient $\lfloor x' / 2^p \rfloor$ is $\lfloor x / \mathit{freq}(s) \rfloor$, and the digit's offset into those slots is $x \bmod \mathit{freq}(s)$, so the decoder rebuilds $x$ exactly.
+Every $x'$ decodes to exactly one pair of $x$ and $s$.
+
+The last symbol encoded is the lowest digit and is decoded first, so the [encoder](#rans-encoding) codes each lane in reverse.
+
+Encoding symbol `3` of the table above into $x = 16385$ gives the state the decoder started from:
+
+$$
+x' = 8 \left\lfloor \frac{16385}{2} \right\rfloor + 4 + (16385 \bmod 2) = 8 \cdot 8192 + 5 = 65541 = \mathtt{0x10005}
+$$
+
+$x$ grows by $\log_2 \frac{65541}{16385} \approx 2 = \log_2 \frac{8}{2}$ bits.
+
+If symbol $s$ occurs $n(s)$ times among the $N$ symbols of a context, that context costs on average
+
+$$
+\sum_s \frac{n(s)}{N} \log_2 \frac{2^p}{\mathit{freq}(s)}
+$$
+
+bits per symbol.
+It is lowest when $\frac{\mathit{freq}(s)}{2^p} = \frac{n(s)}{N}$ for every $s$, and is then the entropy $\sum_s \frac{n(s)}{N} \log_2 \frac{N}{n(s)}$.
+A low precision rounds the frequencies further from the counts and costs more per symbol, and a high one costs more table bits.
+
+#### Renormalization {#rans-renormalization}
+
+The state stays in $[2^{16}, 2^{32})$.
+The encoder shifts 16-bit words out of the state into its lane, and the decoder shifts them back in.
+
+Before encoding $s$, the encoder shifts words out until $x < \mathit{freq}(s) \cdot 2^{32 - p}$, so that $x' < 2^{32}$.
+A shift divides $x$ by $2^{16}$, and the interval $[\mathit{freq}(s) \cdot 2^{16 - p}, \mathit{freq}(s) \cdot 2^{32 - p})$ spans exactly that factor.
+So $x$ lands in it after a unique number of shifts, and $x' \ge 2^{16}$.
+
+Decoding from $x \ge 2^{16}$ leaves $x \ge \mathit{freq}(s) \cdot 2^{16 - p} \ge 2^{16 - p}$.
+Since $p \le 11$, one refill word brings $x$ back to at least $2^{16}$.
+
+[*Asymmetric numeral systems*](https://arxiv.org/abs/1311.2540) by Duda proves these properties, and [*rANS*](https://reearth.engineering/posts/r-ans-en/) by Re:Earth derives them with small decimal examples.
 
 #### Runs {#rans-runs}
 
@@ -838,7 +1035,7 @@ for i in 0..vertex_count:
 
 A decoder MUST reject a symbol from a context without a table, a lane that does not end on state `2^16` with every word read, and raw bits whose byte length is not exactly the one the raw bits read need.
 
-#### Encoding
+#### Encoding {#rans-encoding}
 
 rANS is last in, first out, so an encoder codes each lane's symbols in reverse, starting every state at `2^16`:
 
@@ -882,142 +1079,3 @@ An encoder SHOULD pick the depth and precisions that make the stream shortest, a
               00 00 01 00                            lane 3: 0x00010000
     raw bits: 04 69                                  15 bits: 4, 8, 1, 2, 1, padded
     ```
-
-### Vertex Dictionary {#vertex-dictionary}
-
-The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex.
-`VertexOffsets` is an ordinary unsigned integer stream.
-`VertexDict` is a vertex stream and carries any of the encodings in this section.
-
-[View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices stored once and indexed.
-
-=== "Offsets"
-
-    --8<-- "diagrams/vertex-dictionary-offsets.svg"
-
-=== "Values"
-
-    ```
-    VertexOffsets: [0, 1, 2, 1, 0, 2]
-    VertexDict:    [(0,0), (10,10), (20,20)]
-    vertices:      (0,0), (10,10), (20,20), (10,10), (0,0), (20,20)
-    ```
-
-An offset at or past the dictionary's vertex count MUST be rejected.
-
-#### Hilbert Order
-
-Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short.
-The order is not part of the format.
-A decoder resolves vertices through `VertexOffsets` and never depends on it.
-
-The reference encoders use the curve of the [`hilbert_2d`](https://crates.io/crates/hilbert_2d) crate's `Hilbert` variant on a $2^{\mathit{bits}} \times 2^{\mathit{bits}}$ grid.
-`shift` and `bits` are derived as for [Morton](#morton) below, and each shifted coordinate is masked to 16 bits before it is placed on the grid.
-Two vertices with the same curve key are one dictionary entry.
-
-### Morton {#morton}
-
-A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer.
-Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas.
-Only a `VertexDict` stream uses it.
-
-[View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices as Morton codes, delta encoded.
-
-The parameters are two varints in the stream header:
-
-| Parameter | Meaning |
-|---|---|
-| `bits` | Bits per axis, at most `16` |
-| `shift` | Added to `x` and to `y` before interleaving, so that both are non-negative |
-
-`bits > 16` MUST be rejected.
-
-Encoders derive both from the whole layer's vertices.
-`shift` is `-min` when the smallest coordinate `min` on either axis is negative, else `0`.
-`bits` is the bit width of `max + shift`, the largest shifted coordinate.
-
-Encoding is two steps.
-Shift both coordinates, then interleave them: bit `i` of `sx` goes to bit `2i` of the code, and bit `i` of `sy` to bit `2i + 1`.
-
-```rust
-fn encode(x: i32, y: i32, bits: u32, shift: u32) -> u32 {
-    let sx = (i64::from(x) + i64::from(shift)) as u32; // MUST be in 0..2^bits
-    let sy = (i64::from(y) + i64::from(shift)) as u32;
-    let mut code = 0;
-    for i in 0..bits {
-        code |= ((sx >> i) & 1) << (2 * i);
-        code |= ((sy >> i) & 1) << (2 * i + 1);
-    }
-    code
-}
-```
-
-Decoding walks the same bits back and undoes the shift.
-
-```rust
-fn decode(code: u32, bits: u32, shift: u32) -> (i32, i32) {
-    let mut x = 0;
-    let mut y = 0;
-    for i in 0..bits {
-        let mask = 1 << (2 * i);
-        x |= (code & mask) >> i;
-        y |= ((code >> 1) & mask) >> i;
-    }
-    (x.wrapping_sub(shift) as i32, y.wrapping_sub(shift) as i32)
-}
-```
-
-=== "Bits"
-
-    --8<-- "diagrams/morton.svg"
-
-=== "Values"
-
-    ```
-    (x, y) = (5, 3), shift = 0, bits = 3
-    sx = 0b101, sy = 0b011
-    code bits, from bit 0: x0 y0 x1 y1 x2 y2 = 1 1 0 1 1 0
-    code = 0b011011 = 27
-    ```
-
-The loops are the definition.
-The reference Rust codec spreads all 16 bits of an axis at once with masks, which gives the same code for any `bits` up to `16`:
-
-```rust
-/// Bit `i` of `v` lands on bit `2i`.
-fn spread(mut v: u32) -> u32 {
-    v &= 0xFFFF;
-    v = (v | (v << 8)) & 0x00FF_00FF;
-    v = (v | (v << 4)) & 0x0F0F_0F0F;
-    v = (v | (v << 2)) & 0x3333_3333;
-    v = (v | (v << 1)) & 0x5555_5555;
-    v
-}
-
-/// Bit `2i` of `v` lands on bit `i`.
-fn compact(mut v: u32) -> u32 {
-    v &= 0x5555_5555;
-    v = (v | (v >> 1)) & 0x3333_3333;
-    v = (v | (v >> 2)) & 0x0F0F_0F0F;
-    v = (v | (v >> 4)) & 0x00FF_00FF;
-    v = (v | (v >> 8)) & 0x0000_FFFF;
-    v
-}
-
-let code = spread(sx) | (spread(sy) << 1);
-let sx = compact(code);
-let sy = compact(code >> 1);
-```
-
-The codes are stored as an integer stream of unsigned 32-bit words.
-The stream holds the first code, then each code's difference to the previous one.
-v1 names this `MortonDelta`, v2 names it `Morton` in the `Vertex` family.
-There is no plain or RLE Morton encoding.
-
-The deltas are plain differences, not ZigZag-encoded.
-The dictionary is sorted ascending by code, so every difference is non-negative.
-
-```
-dict codes: [27, 30, 45]
-words:      [27, 3, 15]
-```
