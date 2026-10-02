@@ -9,6 +9,8 @@ use geojson::{GeometryValue, Position};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use mlt_core::ZStep;
 
+use crate::winding::signed_area2;
+
 /// Latitude bound of Web Mercator. Latitudes are clamped here so the projection
 /// never produces infinities at the poles.
 const MAX_LAT: f64 = 85.051_128_779_806_59;
@@ -41,8 +43,8 @@ pub(super) struct Dims {
     pub with_z: usize,
 }
 
-/// A geometry in projected `f64` coordinates. Rings are stored as given (closed
-/// or not); the clipper and the tile builder handle closing.
+/// A geometry in projected `f64` coordinates. Rings are stored closed or not, as
+/// given, but wound as MVT needs; the clipper and the tile builder handle closing.
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Geom {
     Point(Vertex),
@@ -51,6 +53,30 @@ pub(super) enum Geom {
     MultiLineString(Vec<Vec<Vertex>>),
     Polygon(Vec<Vec<Vertex>>),
     MultiPolygon(Vec<Vec<Vec<Vertex>>>),
+}
+
+/// Which side of a polygon a ring bounds, and so the sign of the area MVT gives
+/// it in tile coordinates: positive for the exterior, negative for a hole.
+#[derive(Clone, Copy)]
+pub(super) enum Ring {
+    Exterior,
+    Hole,
+}
+
+/// Twice the signed area of a ring of projected vertices; see [`signed_area2`].
+pub(super) fn ring_area2(ring: &[Vertex]) -> f64 {
+    signed_area2(ring.iter().map(|v| (v.x, v.y)))
+}
+
+impl Ring {
+    /// Whether a ring with twice the signed area `area2` must be reversed to bound
+    /// this side. A ring with no area has no winding to fix.
+    pub fn is_wound_backwards(self, area2: f64) -> bool {
+        match self {
+            Self::Exterior => area2 < 0.0,
+            Self::Hole => area2 > 0.0,
+        }
+    }
 }
 
 impl Geom {
@@ -120,8 +146,25 @@ impl Projector {
         line.iter().map(|p| self.position(p)).collect()
     }
 
+    /// Project a polygon's rings and wind each one as MVT needs, so clipping, which
+    /// keeps the winding, rarely leaves a tile anything to reverse.
     fn rings(&mut self, rings: &[Vec<Position>]) -> AnyResult<Vec<Vec<Vertex>>> {
-        rings.iter().map(|r| self.line(r)).collect()
+        rings
+            .iter()
+            .enumerate()
+            .map(|(index, ring)| {
+                let mut ring = self.line(ring)?;
+                let side = if index == 0 {
+                    Ring::Exterior
+                } else {
+                    Ring::Hole
+                };
+                if side.is_wound_backwards(ring_area2(&ring)) {
+                    ring.reverse();
+                }
+                Ok(ring)
+            })
+            .collect()
     }
 
     /// Project one position. It must hold a longitude in `-180..=180` and a
@@ -394,5 +437,28 @@ mod tests {
         );
         assert!(y0 < 0.5 && y1 > 0.5);
         assert_eq!(Geom::MultiPoint(vec![]).bbox(), None);
+    }
+
+    #[test]
+    fn polygon_rings_are_wound_as_mvt_needs_whatever_the_input_winding() {
+        // RFC 7946 winding (exterior counterclockwise in lon/lat) and the reverse.
+        for json in [
+            r#"{"type":"Polygon","coordinates":[
+                [[0,0],[10,0],[10,10],[0,10],[0,0]],
+                [[2,2],[2,8],[8,8],[8,2],[2,2]]
+            ]}"#,
+            r#"{"type":"Polygon","coordinates":[
+                [[0,0],[0,10],[10,10],[10,0],[0,0]],
+                [[2,2],[8,2],[8,8],[2,8],[2,2]]
+            ]}"#,
+        ] {
+            let Geom::Polygon(rings) = Projector::new(None).project(&geometry(json)).unwrap()
+            else {
+                panic!("a polygon");
+            };
+            assert!(ring_area2(&rings[0]) > 0.0, "{json}");
+            assert!(ring_area2(&rings[1]) < 0.0, "{json}");
+            assert_eq!(rings[0].first(), rings[0].last(), "still closed: {json}");
+        }
     }
 }
