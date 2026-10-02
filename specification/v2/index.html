@@ -684,10 +684,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#presence-codings" class="md-nav__link">
+  <a href="#presence-encodings" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Presence Codings
+        Presence Encodings
       </span>
     </span>
   </a>
@@ -915,17 +915,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Parameters
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#payload-encodings" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Payload Encodings
       </span>
     </span>
   </a>
@@ -1169,7 +1158,7 @@ A v2 layer decodes into the same in-memory representation as a v1 layer.</p>
 <tr>
 <td>Nullability</td>
 <td>Boolean-RLE <code>Present</code> stream</td>
-<td>A <a href="#presence-codings">bitmap, RLE or indices</a>, shareable between columns</td>
+<td>A <a href="#presence-encodings">bitmap, RLE or indices</a>, shareable between columns</td>
 </tr>
 <tr>
 <td>8-bit integers</td>
@@ -1267,10 +1256,45 @@ See <a href="#value-count">Value Count</a>.</p>
 </tr>
 </tbody>
 </table>
-<p>Every field here is one a decoder needs before it can read anything the layer sizes itself by.</p>
+<p><code>A0</code> from <a href="#examples"><code>mvalues</code></a>:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 92" role="img" aria-label="The layer header byte A0 of mvalues: an m-value section, every feature a LineString, extent 64" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="82">bit</text>
+<text class="row" x="0" y="54">A0</text>
+<rect class="f0" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="54">1</text>
+<text class="small mid t0" x="158" y="14">m-values</text>
+<path class="bracket t0" d="M130 34V28H186V34"/>
+<rect class="f1" x="192" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="220" y="54">0</text>
+<rect class="f1" x="254" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="282" y="54">1</text>
+<rect class="f1" x="316" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="344" y="54">0</text>
+<text class="small mid t1" x="282" y="14">LineString</text>
+<path class="bracket t1" d="M192 34V28H372V34"/>
+<rect class="f0" x="378" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="406" y="54">0</text>
+<rect class="f0" x="440" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="468" y="54">0</text>
+<rect class="f0" x="502" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="530" y="54">0</text>
+<rect class="f0" x="564" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="592" y="54">0</text>
+<text class="small mid t0" x="499" y="14">extent 64</text>
+<path class="bracket t0" d="M378 34V28H620V34"/>
+<text class="muted small mid" x="592" y="82">0</text>
+<text class="muted small mid" x="530" y="82">1</text>
+<text class="muted small mid" x="468" y="82">2</text>
+<text class="muted small mid" x="406" y="82">3</text>
+<text class="muted small mid" x="344" y="82">4</text>
+<text class="muted small mid" x="282" y="82">5</text>
+<text class="muted small mid" x="220" y="82">6</text>
+<text class="muted small mid" x="158" y="82">7</text>
+</svg></p>
+<p>A decoder needs these fields before it can read the rest of the layer.</p>
 <h4 id="extent">Extent<a class="headerlink" href="#extent" title="Link to this section">&para;</a></h4>
 <p>v2 stores only power-of-two extents, so the nibble holds <code>log2(extent) - 6</code>:</p>
-<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fextent_512.mlt&amp;at=header" target="_blank">View example</a> - the extent nibble coding <code>512</code>.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fextent_512.mlt&amp;at=header" target="_blank">View example</a> - the extent nibble encoding <code>512</code>.</p>
 <table>
 <thead>
 <tr>
@@ -1330,35 +1354,59 @@ MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> 
   Bit <code>i</code> of <code>column_count</code> sits at bit <code>2i</code> and bit <code>i</code> of <code>m_value_count</code> at bit <code>2i + 1</code>.
   A layer with up to 15 counted columns and up to 7 m-value columns fits both counts in one byte.
   <code>m_value_count</code> MUST be non-zero when the bit is set, so a code whose odd bits are all clear MUST be rejected.</p>
-<p>Visualized, this is:</p>
-<table>
-<thead>
-<tr>
-<th>Bit</th>
-<th>7</th>
-<th>6</th>
-<th>5</th>
-<th>4</th>
-<th>3</th>
-<th>2</th>
-<th>1</th>
-<th>0</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Field</td>
-<td>varint continuation</td>
-<td>column_count bit 3</td>
-<td>m_value_count bit 2</td>
-<td>column_count bit 2</td>
-<td>m_value_count bit 1</td>
-<td>column_count bit 1</td>
-<td>m_value_count bit 0</td>
-<td>column_count bit 0</td>
-</tr>
-</tbody>
-</table>
+<p>Five counted columns and two m-value columns:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 180" role="img" aria-label="Five columns and two m-value columns: bit i of column_count lands on bit 2i and bit i of m_value_count on bit 2i + 1, giving 19" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="12">bit</text>
+<text class="muted small mid" x="152" y="12">0</text>
+<text class="muted small mid" x="202" y="12">1</text>
+<text class="muted small mid" x="252" y="12">2</text>
+<text class="muted small mid" x="302" y="12">3</text>
+<text class="muted small mid" x="352" y="12">4</text>
+<text class="muted small mid" x="402" y="12">5</text>
+<text class="muted small mid" x="452" y="12">6</text>
+<text class="muted small mid" x="502" y="12">7</text>
+<text class="row" x="0" y="42">columns = 5</text>
+<text class="row" x="0" y="102">byte = 0x19</text>
+<text class="row" x="0" y="162">m-values = 2</text>
+<rect class="f0" x="130" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="42">1</text>
+<path class="link" d="M152 56V88"/>
+<rect class="f0" x="130" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="102">1</text>
+<rect class="f1" x="180" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="162">0</text>
+<path class="link" d="M202 148V116"/>
+<rect class="f1" x="180" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="102">0</text>
+<rect class="f0" x="230" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="42">0</text>
+<path class="link" d="M252 56V88"/>
+<rect class="f0" x="230" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="102">0</text>
+<rect class="f1" x="280" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="302" y="162">1</text>
+<path class="link" d="M302 148V116"/>
+<rect class="f1" x="280" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="302" y="102">1</text>
+<rect class="f0" x="330" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="352" y="42">1</text>
+<path class="link" d="M352 56V88"/>
+<rect class="f0" x="330" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="352" y="102">1</text>
+<rect class="f1" x="380" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="402" y="162">0</text>
+<path class="link" d="M402 148V116"/>
+<rect class="f1" x="380" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="402" y="102">0</text>
+<rect class="f0" x="430" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="452" y="42">0</text>
+<path class="link" d="M452 56V88"/>
+<rect class="f0" x="430" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="452" y="102">0</text>
+<rect class="plain" x="480" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="502" y="102">0</text>
+<text class="muted small" x="534" y="102">bit 7: varint continuation</text>
+</svg></p>
 <h3 id="layer-layout-byte">Layer Layout Byte<a class="headerlink" href="#layer-layout-byte" title="Link to this section">&para;</a></h3>
 <table>
 <thead>
@@ -1370,7 +1418,7 @@ MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> 
 <tbody>
 <tr>
 <td>7</td>
-<td>Shared coding flag: each <a href="#shared-presence-fields">shared presence field</a> names its coding</td>
+<td>Shared encoding flag: each <a href="#shared-presence-fields">shared presence field</a> names its encoding</td>
 </tr>
 <tr>
 <td>6-4</td>
@@ -1382,15 +1430,15 @@ MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> 
 </tr>
 </tbody>
 </table>
-<p>A set coding flag with a count of <code>0</code> MUST be rejected.</p>
-<h3 id="presence-codings">Presence Codings<a class="headerlink" href="#presence-codings" title="Link to this section">&para;</a></h3>
+<p>A set encoding flag with a count of <code>0</code> MUST be rejected.</p>
+<h3 id="presence-encodings">Presence Encodings<a class="headerlink" href="#presence-encodings" title="Link to this section">&para;</a></h3>
 <p>A presence field says which of <code>N</code> values are present.
 <code>N</code> is <code>feature_count</code> for a column, and the parent's value count for a <a href="#node-presence-nibble">nested node</a>.</p>
 <table>
 <thead>
 <tr>
 <th style="text-align: right;">Code</th>
-<th>Coding</th>
+<th>Encoding</th>
 <th>Payload</th>
 </tr>
 </thead>
@@ -1415,96 +1463,175 @@ MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> 
 <p><code>Runs</code> and <code>Indices</code> are self-delimiting, so no length is stored for either.
 <code>Indices</code> also carries the present count directly, where the other two are counted by the reader.</p>
 <p>A bitmap costs <code>ceil(N / 8)</code> bytes whatever it holds, so it is the smallest form only while <code>N</code> is small or the present values are scattered.
-A column present over one run of features, or on a handful of them, carries far less than that, and the other two codings charge for what it carries rather than for <code>N</code>.</p>
+A column present over one run of features, or on a handful of them, carries far less than that, and the other two encodings charge for what it carries rather than for <code>N</code>.</p>
 <p>Six present values among <code>N = 32</code>, at <code>10</code> to <code>15</code>:</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 184" role="img" aria-label="Six present values among 32 stored as a bitmap in 4 bytes, as runs in 3 and as indices in 7" xmlns="http://www.w3.org/2000/svg">
-<text class="muted small mid" x="138.0" y="12">0</text>
-<text class="muted small mid" x="318.0" y="12">10</text>
-<text class="muted small mid" x="426.0" y="12">16</text>
-<text class="muted small mid" x="696.0" y="12">31</text>
+<p><svg class="mlt-diagram" viewBox="0 0 710 220" role="img" aria-label="Six present values among 32, at 10 to 15, stored as a bitmap in 4 bytes, as runs of 10 absent, 6 present and 16 absent in 3 bytes, and as a count and indices in 7 bytes" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small mid" x="138" y="12">0</text>
+<text class="muted small mid" x="318" y="12">10</text>
+<text class="muted small mid" x="408" y="12">15</text>
+<text class="muted small mid" x="696" y="12">31</text>
 <text class="row" x="0" y="38">present</text>
 <rect class="plain" x="130" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="138" y="38">0</text>
 <rect class="plain" x="148" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="156" y="38">0</text>
 <rect class="plain" x="166" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="174" y="38">0</text>
 <rect class="plain" x="184" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="192" y="38">0</text>
 <rect class="plain" x="202" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="210" y="38">0</text>
 <rect class="plain" x="220" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="228" y="38">0</text>
 <rect class="plain" x="238" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="246" y="38">0</text>
 <rect class="plain" x="256" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="264" y="38">0</text>
 <rect class="plain" x="274" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="282" y="38">0</text>
 <rect class="plain" x="292" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="300" y="38">0</text>
 <rect class="f1" x="310" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="318" y="38">1</text>
 <rect class="f1" x="328" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="336" y="38">1</text>
 <rect class="f1" x="346" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="354" y="38">1</text>
 <rect class="f1" x="364" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="372" y="38">1</text>
 <rect class="f1" x="382" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="390" y="38">1</text>
 <rect class="f1" x="400" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="408" y="38">1</text>
 <rect class="plain" x="418" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="426" y="38">0</text>
 <rect class="plain" x="436" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="444" y="38">0</text>
 <rect class="plain" x="454" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="462" y="38">0</text>
 <rect class="plain" x="472" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="480" y="38">0</text>
 <rect class="plain" x="490" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="498" y="38">0</text>
 <rect class="plain" x="508" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="516" y="38">0</text>
 <rect class="plain" x="526" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="534" y="38">0</text>
 <rect class="plain" x="544" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="552" y="38">0</text>
 <rect class="plain" x="562" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="570" y="38">0</text>
 <rect class="plain" x="580" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="588" y="38">0</text>
 <rect class="plain" x="598" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="606" y="38">0</text>
 <rect class="plain" x="616" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="624" y="38">0</text>
 <rect class="plain" x="634" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="642" y="38">0</text>
 <rect class="plain" x="652" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="660" y="38">0</text>
 <rect class="plain" x="670" y="24" width="16" height="28" rx="3"/>
+<text class="cell small" x="678" y="38">0</text>
 <rect class="plain" x="688" y="24" width="16" height="28" rx="3"/>
-<text class="row" x="0" y="82">Bitmap<tspan class="muted"> · 4 B</tspan></text>
+<text class="cell small" x="696" y="38">0</text>
+<text class="row" x="0" y="82">Bitmap<tspan class="muted"> 4 B</tspan></text>
 <rect class="plain" x="130" y="68" width="142" height="28" rx="3"/>
-<text class="cell" x="201.0" y="82">00</text>
+<text class="cell" x="201" y="82">00</text>
 <rect class="plain" x="274" y="68" width="142" height="28" rx="3"/>
-<text class="cell" x="345.0" y="82">FC</text>
+<text class="cell" x="345" y="82">FC</text>
 <rect class="plain" x="418" y="68" width="142" height="28" rx="3"/>
-<text class="cell" x="489.0" y="82">00</text>
+<text class="cell" x="489" y="82">00</text>
 <rect class="plain" x="562" y="68" width="142" height="28" rx="3"/>
-<text class="cell" x="633.0" y="82">00</text>
-<text class="row" x="0" y="122">Runs<tspan class="t1"> · 3 B</tspan></text>
+<text class="cell" x="633" y="82">00</text>
+<text class="row" x="0" y="122">Runs<tspan class="t1"> 3 B</tspan></text>
 <rect class="plain" x="130" y="108" width="178" height="28" rx="3"/>
-<text class="cell" x="219.0" y="122">0A</text>
+<text class="cell" x="219" y="122">0A</text>
+<text class="muted small mid" x="219" y="150">10 absent</text>
 <rect class="f1" x="310" y="108" width="106" height="28" rx="3"/>
-<text class="cell" x="363.0" y="122">06</text>
+<text class="cell" x="363" y="122">06</text>
+<text class="muted small mid" x="363" y="150">6 present</text>
 <rect class="plain" x="418" y="108" width="286" height="28" rx="3"/>
-<text class="cell" x="561.0" y="122">10</text>
-<text class="row" x="0" y="162">Indices<tspan class="muted"> · 7 B</tspan></text>
-<rect class="plain" x="130" y="148" width="44" height="28" rx="3"/>
-<text class="cell" x="152" y="162">06</text>
-<rect class="f1" x="178" y="148" width="44" height="28" rx="3"/>
-<text class="cell" x="200" y="162">0A</text>
-<rect class="f1" x="226" y="148" width="44" height="28" rx="3"/>
-<text class="cell" x="248" y="162">00</text>
-<rect class="f1" x="274" y="148" width="44" height="28" rx="3"/>
-<text class="cell" x="296" y="162">00</text>
-<rect class="f1" x="322" y="148" width="44" height="28" rx="3"/>
-<text class="cell" x="344" y="162">00</text>
-<rect class="f1" x="370" y="148" width="44" height="28" rx="3"/>
-<text class="cell" x="392" y="162">00</text>
-<rect class="f1" x="418" y="148" width="44" height="28" rx="3"/>
-<text class="cell" x="440" y="162">00</text>
+<text class="cell" x="561" y="122">10</text>
+<text class="muted small mid" x="561" y="150">16 absent</text>
+<text class="row" x="0" y="182">Indices<tspan class="muted"> 7 B</tspan></text>
+<rect class="plain" x="130" y="168" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="182">06</text>
+<text class="muted small mid" x="152" y="210">count</text>
+<rect class="f1" x="178" y="168" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="182">0A</text>
+<text class="muted small mid" x="200" y="210">-&gt; 10</text>
+<rect class="f1" x="226" y="168" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="182">00</text>
+<text class="muted small mid" x="248" y="210">-&gt; 11</text>
+<rect class="f1" x="274" y="168" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="182">00</text>
+<text class="muted small mid" x="296" y="210">-&gt; 12</text>
+<rect class="f1" x="322" y="168" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="182">00</text>
+<text class="muted small mid" x="344" y="210">-&gt; 13</text>
+<rect class="f1" x="370" y="168" width="44" height="28" rx="3"/>
+<text class="cell" x="392" y="182">00</text>
+<text class="muted small mid" x="392" y="210">-&gt; 14</text>
+<rect class="f1" x="418" y="168" width="44" height="28" rx="3"/>
+<text class="cell" x="440" y="182">00</text>
+<text class="muted small mid" x="440" y="210">-&gt; 15</text>
 </svg></p>
 <p>Encoders MUST write whichever of the three stores the field smallest, breaking a tie toward the lowest code.
 Decoders MUST reject run lengths that do not sum to <code>N</code>, a <code>K</code> greater than <code>N</code>, and indices that do not strictly increase or that reach <code>N</code>.</p>
 <h3 id="shared-presence-fields">Shared Presence Fields<a class="headerlink" href="#shared-presence-fields" title="Link to this section">&para;</a></h3>
 <p>Several columns MAY reference the same presence field.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_sp.mlt&amp;at=shared_presence" target="_blank">View example</a> - two columns referencing one shared field.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>shared_presence := [u8 coding]   only when the layout byte's coding flag is set; 1, 2 or 3, see Presence Codings
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                   [payload]     per that coding, self-delimiting
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>shared_presence := [u8 encoding] only when the layout byte's encoding flag is set; 1, 2 or 3, see Presence Encodings
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                   [payload]     per that encoding, self-delimiting
 </span></code></pre></div>
 <p>The <code>n</code> shared fields follow the layout byte back to back, in index order.
-A shared field has no presence nibble to carry its coding.
-Without the layout byte's coding flag every shared field is a <code>Bitmap</code>, and no coding byte is stored.
-With it, every shared field leads with the byte naming its coding.</p>
-<p>Encoders MUST pick each shared field's coding as for an inline one.
-Encoders MUST set the coding flag only when some shared field's coding is not <code>Bitmap</code>.</p>
+A shared field has no presence nibble to carry its encoding.
+Without the layout byte's encoding flag every shared field is a <code>Bitmap</code>, and no byte naming it is stored.
+With it, every shared field leads with the byte naming its encoding.</p>
+<p>Encoders MUST pick each shared field's encoding as for an inline one.
+Encoders MUST set the encoding flag only when some shared field's encoding is not <code>Bitmap</code>.</p>
 <p>A column references a shared field through its <a href="#presence-nibble">presence nibble</a>.
 Encoders SHOULD only share a field that more than one column references.
 Encoders SHOULD store an unshared field inline.
 Shared fields are ordered by the first column that references each.</p>
+<p><code>a</code> and <code>b</code> from <a href="#examples"><code>props_sp</code></a>, both referencing shared field <code>0</code>:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 136" role="img" aria-label="props_sp: one shared bitmap marks features 0 and 2, and columns a and b both reference it" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small mid" x="180" y="12">feature 0</text>
+<text class="muted small mid" x="286" y="12">feature 1</text>
+<text class="muted small mid" x="392" y="12">feature 2</text>
+<text class="muted small mid" x="498" y="12">feature 3</text>
+<text class="row" x="0" y="38">shared[0]</text>
+<text class="row" x="0" y="78">a</text>
+<text class="row" x="0" y="118">b</text>
+<rect class="f1" x="130" y="24" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="38">1</text>
+<rect class="f0" x="130" y="64" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="78">0</text>
+<rect class="f0" x="130" y="104" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="118">0</text>
+<rect class="plain" x="236" y="24" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="38">0</text>
+<rect class="implicit" x="236" y="64" width="100" height="28" rx="3"/>
+<text class="cell muted" x="286" y="78">null</text>
+<rect class="implicit" x="236" y="104" width="100" height="28" rx="3"/>
+<text class="cell muted" x="286" y="118">null</text>
+<rect class="f1" x="342" y="24" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="38">1</text>
+<rect class="f0" x="342" y="64" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="78">2</text>
+<rect class="f0" x="342" y="104" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="118">2</text>
+<rect class="plain" x="448" y="24" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="38">0</text>
+<rect class="implicit" x="448" y="64" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="78">null</text>
+<rect class="implicit" x="448" y="104" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="118">null</text>
+<text class="muted small" x="572" y="38">1 B bitmap</text>
+<text class="muted small" x="572" y="78">U32, shared[0]</text>
+<text class="muted small" x="572" y="118">U32, shared[0]</text>
+</svg></p>
 <h2 id="geometry-section">Geometry Section<a class="headerlink" href="#geometry-section" title="Link to this section">&para;</a></h2>
 <p>The geometry column is not counted in <code>column_count</code>.
 It always follows the shared presence fields.
@@ -1637,7 +1764,7 @@ A layer whose features all share one writes the <a href="#uniform-geometry-type"
 <p>There is no layout with ring lengths but without part lengths.
 A tessellated layer either has no outline topology (<code>0xC</code>) or all three outline streams (<code>0xD</code>).
 A tessellated layer that needs only some of the outline streams uses <code>0xD</code> and writes the others as empty streams.</p>
-<p>The meaning of the topology streams, the length threshold rules, componentwise delta coding, Hilbert-sorted vertex dictionaries and Morton codes are unchanged from <a href="../v1/#geometry-column">v1</a>.</p>
+<p>The meaning of the topology streams, the length threshold rules, componentwise delta encoding, Hilbert-sorted vertex dictionaries and Morton codes are unchanged from <a href="../v1/#geometry-column">v1</a>.</p>
 <h3 id="tessellation">Tessellation<a class="headerlink" href="#tessellation" title="Link to this section">&para;</a></h3>
 <p>A tessellated layer stores the triangles its polygons were cut into, next to their vertices.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=tri_lengths" target="_blank">View example</a> - the triangles and vertices drawn below.</p>
@@ -1660,9 +1787,9 @@ Feature <code>i</code> starts at three times the sum of the triangle lengths bef
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 446" role="img" aria-label="The triangles of mix_2_poly_mpoly_tes with their vertex positions" xmlns="http://www.w3.org/2000/svg">
-<text class="t0 bold" x="40" y="14">feature 0<tspan class="muted"> · Polygon</tspan></text>
+<text class="t0 bold" x="40" y="14">feature 0<tspan class="muted"> Polygon</tspan></text>
 <path class="bracket t0" d="M40 34V28H280V34"/>
-<text class="t1 bold" x="350" y="14">feature 1<tspan class="muted"> · MultiPolygon</tspan></text>
+<text class="t1 bold" x="350" y="14">feature 1<tspan class="muted"> MultiPolygon</tspan></text>
 <path class="bracket t1" d="M350 34V28H690V34"/>
 <text class="muted small" x="350" y="50">1st polygon, with a hole</text>
 <text class="muted small" x="630" y="50">2nd polygon</text>
@@ -2143,8 +2270,8 @@ Each polygon is a single ring: the triangle's three vertices in index order, the
 A <code>Polygon</code> feature decodes as a <code>MultiPolygon</code> too, since its shell and holes are not stored.
 A feature with a triangle count of <code>0</code>, such as a polygon whose vertices are collinear, decodes as an empty <code>MultiPolygon</code>.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
-<text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> · with outlines</tspan></text>
-<text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> · without outlines</tspan></text>
+<text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> with outlines</tspan></text>
+<text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> without outlines</tspan></text>
 <text class="muted small" x="40" y="44">fill</text>
 <path class="fill" fill-rule="evenodd" d="M40,169.6L174.4,275.2L222.4,64ZM116.8,169.6L164.8,121.6L145.6,217.6ZM264,64L283.2,150.4L302.4,131.2Z"/>
 <path class="fill" d="M420,169.6L496.8,169.6L525.6,217.6ZM544.8,121.6L496.8,169.6L420,169.6ZM554.4,275.2L420,169.6L525.6,217.6ZM544.8,121.6L420,169.6L602.4,64ZM602.4,64L554.4,275.2L525.6,217.6ZM525.6,217.6L544.8,121.6L602.4,64ZM663.2,150.4L644,64L682.4,131.2Z"/>
@@ -2163,8 +2290,8 @@ Each feature decodes as the geometry it was encoded from, and the triangles come
 A ring's closing vertex is not stored, so no index names it.
 A feature that is not a polygon stores no triangle count and owns no run of the index buffer.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
-<text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> · with outlines</tspan></text>
-<text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> · without outlines</tspan></text>
+<text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> with outlines</tspan></text>
+<text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> without outlines</tspan></text>
 <text class="muted small" x="40" y="44">fill</text>
 <path class="fill" fill-rule="evenodd" d="M40,169.6L174.4,275.2L222.4,64ZM116.8,169.6L164.8,121.6L145.6,217.6ZM264,64L283.2,150.4L302.4,131.2Z"/>
 <path class="fill" d="M420,169.6L496.8,169.6L525.6,217.6ZM544.8,121.6L496.8,169.6L420,169.6ZM554.4,275.2L420,169.6L525.6,217.6ZM544.8,121.6L420,169.6L602.4,64ZM602.4,64L554.4,275.2L525.6,217.6ZM525.6,217.6L544.8,121.6L602.4,64ZM663.2,150.4L644,64L682.4,131.2Z"/>
@@ -2218,8 +2345,46 @@ A <code>z_step</code> byte sits between <code>byte_length</code> and the payload
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_step_coarsest.mlt&amp;at=vertices" target="_blank">View example</a> - a <code>z_step</code> of <code>7</code>, one unit per 10 km.</p>
 <p><code>z</code> is a signed 32-bit word like <code>x</code> and <code>y</code>, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m.
 Negative <code>z</code> is similarly possible.</p>
-<p>The stream holds <code>3 * num_values</code> words for <code>num_values</code> vertices, with <code>x</code>, <code>y</code> and <code>z</code> interleaved.
-Logical <code>None</code>, <code>Delta</code> and <code>Componentwise Delta</code> read as they do over pairs, with <code>Componentwise Delta</code> running over three components.
+<p>The stream holds <code>3 * num_values</code> words for <code>num_values</code> vertices, with <code>x</code>, <code>y</code> and <code>z</code> interleaved.</p>
+<p><code>z_mvalues</code> at a <code>z_step</code> of 1 dm:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 124" role="img" aria-label="z_mvalues: three vertices, each x, y and z in adjacent words; at a z_step of 1 dm the z values are 3 m, 5 m and 8 m" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">vertices</text>
+<text class="row" x="0" y="102">elevation</text>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">11</text>
+<rect class="f0" x="176" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="198" y="54">52</text>
+<rect class="f0" x="222" y="40" width="72" height="28" rx="3"/>
+<text class="cell" x="258" y="54">100030</text>
+<rect class="f0" x="222" y="88" width="72" height="28" rx="3"/>
+<text class="cell" x="258" y="102">3 m</text>
+<path class="link" d="M258 68V88"/>
+<text class="bold mid t0" x="212" y="14">vertex 0</text>
+<path class="bracket t0" d="M130 34V28H294V34"/>
+<rect class="f1" x="310" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="332" y="54">71</text>
+<rect class="f1" x="356" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="378" y="54">72</text>
+<rect class="f1" x="402" y="40" width="72" height="28" rx="3"/>
+<text class="cell" x="438" y="54">100050</text>
+<rect class="f1" x="402" y="88" width="72" height="28" rx="3"/>
+<text class="cell" x="438" y="102">5 m</text>
+<path class="link" d="M438 68V88"/>
+<text class="bold mid t1" x="392" y="14">vertex 1</text>
+<path class="bracket t1" d="M310 34V28H474V34"/>
+<rect class="f0" x="490" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="512" y="54">61</text>
+<rect class="f0" x="536" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="558" y="54">22</text>
+<rect class="f0" x="582" y="40" width="72" height="28" rx="3"/>
+<text class="cell" x="618" y="54">100080</text>
+<rect class="f0" x="582" y="88" width="72" height="28" rx="3"/>
+<text class="cell" x="618" y="102">8 m</text>
+<path class="link" d="M618 68V88"/>
+<text class="bold mid t0" x="572" y="14">vertex 2</text>
+<path class="bracket t0" d="M490 34V28H654V34"/>
+</svg></p>
+<p>Logical <code>None</code>, <code>Delta</code> and <code>Componentwise Delta</code> read as they do over pairs, with <code>Componentwise Delta</code> running over three components.
 A Morton code spans only <code>x</code> and <code>y</code>, so a vertex stream with bit 0 set and logical <code>Morton</code> MUST be rejected.
 <code>Componentwise Delta2</code> is defined only over pairs, so a vertex stream with bit 0 set and logical <code>Componentwise Delta2</code> MUST be rejected.
 Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
@@ -2254,10 +2419,10 @@ A layer without <code>z</code> is not impacted due to the extension bit mechanis
 <p><code>column_count</code> columns follow the geometry section.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>column := [u8 column_type]
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>          [string name]              unless the data type is Id or LongId
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>          [presence field]           only when the presence nibble names a coding
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>          [presence field]           only when the presence nibble names an encoding
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>          [data streams]             one, or a set, per the data type
 </span></code></pre></div>
-<p>An inline presence field is written in the <a href="#presence-codings">coding</a> its nibble names.</p>
+<p>An inline presence field is written in the <a href="#presence-encodings">encoding</a> its nibble names.</p>
 <h3 id="column-names">Column Names<a class="headerlink" href="#column-names" title="Link to this section">&para;</a></h3>
 <p>A layer has one namespace of column names, so a name identifies exactly one column of it and a style expression such as <code>["get", "foo"]</code> resolves to that column:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_sp_id.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - an id, which has no name, beside a named <code>u32</code> column.</p>
@@ -2422,7 +2587,7 @@ There is no geometry code, since the geometry column is not a counted column.</p
 </tr>
 <tr>
 <td style="text-align: right;"><code>1</code>-<code>3</code></td>
-<td>An inline presence field, in the <a href="#presence-codings">coding</a> the nibble names, follows the type byte and the name, if any.</td>
+<td>An inline presence field, in the <a href="#presence-encodings">encoding</a> the nibble names, follows the type byte and the name, if any.</td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>4</code>-<code>10</code></td>
@@ -2435,7 +2600,7 @@ There is no geometry code, since the geometry column is not a counted column.</p
 </tbody>
 </table>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=present" target="_blank">View example</a> - an optional column, so the nibble names an inline bitmap.</p>
-<p>The coding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those for the two that are not.</p>
+<p>The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those for the two that are not.</p>
 <p>A shared reference at or past the count in the layout byte MUST be rejected.</p>
 <p>The presence nibble determines the column's value count: <code>feature_count</code> for nibble <code>0</code>, otherwise the number of present values the field names.</p>
 <h3 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h3>
@@ -2513,7 +2678,7 @@ Its high nibble gives the dictionary kind instead of a presence:</p>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>               child * child_count
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>child       := [u8 column_type]        data type MUST be String
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>               [string name]
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>               [presence field]        only when the presence nibble names a coding
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>               [presence field]        only when the presence nibble names an encoding
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>               [codes stream]          one dictionary index per present value
 </span></code></pre></div>
 <p>Each child has its own presence nibble and MAY reference any of the layer's shared fields.</p>
@@ -2528,7 +2693,7 @@ A key that every feature shares is written once, in the tree, rather than once p
 <p>The tree is written depth first, each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>nested_column := [u8 column_type]        presence nibble over 0xC, 0xD or 0xE
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>                 [string name]
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>                 [presence field]        only when the presence nibble names a coding
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>                 [presence field]        only when the presence nibble names an encoding
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>                 body                    of the kind the type byte named
 </span></code></pre></div>
 <p>A nested column is one entry of <code>column_count</code>, however many leaves it shreds into.
@@ -2697,9 +2862,9 @@ A field present on every value of its struct stores no presence at all, which is
 <text class="cell" x="412.0" y="94">3</text>
 <rect class="f1" x="362" y="120" width="100" height="28" rx="3"/>
 <text class="cell" x="412.0" y="134">"hi"</text>
-<text class="muted small" x="486" y="54">List · lengths</text>
-<text class="muted small" x="486" y="94">Int32 · 3 values</text>
-<text class="muted small" x="486" y="134">String · 3 values</text>
+<text class="muted small" x="486" y="54">list lengths</text>
+<text class="muted small" x="486" y="94">3 Int32 values</text>
+<text class="muted small" x="486" y="134">3 String values</text>
 </svg></p>
 <p>The element node has no name.</p>
 <p>A list that is null and a list that is empty are different: a null list has its presence bit clear and no length, an empty list has its presence bit set and a length of <code>0</code>.</p>
@@ -2715,6 +2880,39 @@ A field present on every value of its struct stores no presence at all, which is
 <p>The keys are the streams a <a href="#string-columns">string column</a> holds, laid out per the extension bits of the leading one, holding one key per entry of every present map.
 They carry no node type byte and no presence: a key is neither null nor of any other type, so neither is representable.
 The value node has no name.</p>
+<p><code>tags</code> from <a href="#examples"><code>nested_map_str</code></a>, a map of strings:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="tags of nested_map_str: map lengths 2 and 2, then one key and one value per entry" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">tags</text>
+<text class="row" x="0" y="94">keys</text>
+<text class="row" x="0" y="134">values</text>
+<rect class="f0" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="94">"en"</text>
+<rect class="f0" x="130" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="134">"sea"</text>
+<rect class="f0" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">"de"</text>
+<rect class="f0" x="236" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="134">"meer"</text>
+<text class="bold mid t0" x="233" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H336V34"/>
+<rect class="f0" x="130" y="40" width="206" height="28" rx="3"/>
+<text class="cell" x="233" y="54">2</text>
+<rect class="f1" x="356" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="406" y="94">"en"</text>
+<rect class="f1" x="356" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="406" y="134">"hill"</text>
+<rect class="f1" x="462" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="512" y="94">"de"</text>
+<rect class="f1" x="462" y="120" width="100" height="28" rx="3"/>
+<text class="cell" x="512" y="134">"berg"</text>
+<text class="bold mid t1" x="459" y="14">feature 1</text>
+<path class="bracket t1" d="M356 34V28H562V34"/>
+<rect class="f1" x="356" y="40" width="206" height="28" rx="3"/>
+<text class="cell" x="459" y="54">2</text>
+<text class="muted small" x="586" y="54">map lengths</text>
+<text class="muted small" x="586" y="94">4 String keys</text>
+<text class="muted small" x="586" y="134">4 String values</text>
+</svg></p>
 <p>A <code>Map</code> and a <code>Struct</code> express the same thing when every key holds the same type.
 A <code>Struct</code> spends one presence stream per key and nothing per entry; a <code>Map</code> spends one key per entry and nothing per key.
 Encoders MUST pick between them by comparing the stored size, as they do for every other encoding.
@@ -2763,7 +2961,7 @@ Its column count comes from the layer's <a href="#column-counts">column counts</
 <div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>m_value_section := m_value_column * m_value_count
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>m_value_column  := [u8 column_type]           presence nibble over data type, as for a column
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>                   [string name]
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>                   [presence field]           only when the presence nibble names a coding
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>                   [presence field]           only when the presence nibble names an encoding
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>                   [data streams]             one, or a set, per the data type
 </span></code></pre></div>
 <p>An m-value column reads the same <a href="#column-type-byte">column type byte</a>, the same <a href="#presence-nibble">presence nibble</a> and the same data streams as a <a href="#columns">column</a>.
@@ -2779,6 +2977,71 @@ A vertex carries a measurement, not a structure.</p>
 <p>A layer's vertex sequence is every vertex of every feature, in feature order, as the <a href="#geometry-section">geometry section</a>'s topology streams lay them out.
 Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> vertices.</p>
 <p>An m-value column holds one value per vertex of that run, in the same order.</p>
+<p><code>dist</code> and <code>height</code> from <a href="#examples"><code>mvalues</code></a>, with <code>height</code> null on feature 1:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 196" role="img" aria-label="mvalues: three lines of 3, 3 and 2 vertices; dist holds one value per vertex, height none for the null feature 1" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">part lengths</text>
+<text class="row" x="0" y="94">vertices</text>
+<text class="row" x="0" y="134">dist</text>
+<text class="row" x="0" y="174">height</text>
+<text class="bold mid t0" x="202" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H274V34"/>
+<rect class="f0" x="130" y="40" width="144" height="28" rx="3"/>
+<text class="cell" x="202" y="54">3</text>
+<rect class="f0" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="94">0</text>
+<rect class="f0" x="130" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="134">0</text>
+<rect class="f0" x="180" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="94">1</text>
+<rect class="f0" x="180" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="134">10</text>
+<rect class="f0" x="230" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="94">2</text>
+<rect class="f0" x="230" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="134">25</text>
+<rect class="f0" x="130" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="174">-3</text>
+<rect class="f0" x="180" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="174">4</text>
+<rect class="f0" x="230" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="174">9</text>
+<text class="bold mid t1" x="366" y="14">feature 1</text>
+<path class="bracket t1" d="M294 34V28H438V34"/>
+<rect class="f1" x="294" y="40" width="144" height="28" rx="3"/>
+<text class="cell" x="366" y="54">3</text>
+<rect class="f1" x="294" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="316" y="94">3</text>
+<rect class="f1" x="294" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="316" y="134">0</text>
+<rect class="f1" x="344" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="366" y="94">4</text>
+<rect class="f1" x="344" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="366" y="134">15</text>
+<rect class="f1" x="394" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="416" y="94">5</text>
+<rect class="f1" x="394" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="416" y="134">40</text>
+<rect class="implicit" x="294" y="160" width="144" height="28" rx="3"/>
+<text class="cell muted" x="366" y="174">null</text>
+<text class="bold mid t0" x="505" y="14">feature 2</text>
+<path class="bracket t0" d="M458 34V28H552V34"/>
+<rect class="f0" x="458" y="40" width="94" height="28" rx="3"/>
+<text class="cell" x="505" y="54">2</text>
+<rect class="f0" x="458" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="480" y="94">6</text>
+<rect class="f0" x="458" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="480" y="134">0</text>
+<rect class="f0" x="508" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="530" y="94">7</text>
+<rect class="f0" x="508" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="530" y="134">12</text>
+<rect class="f0" x="458" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="480" y="174">2</text>
+<rect class="f0" x="508" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="530" y="174">7</text>
+<text class="muted small" x="576" y="134">8 U32 values</text>
+<text class="muted small" x="576" y="174">5 I32 values</text>
+</svg></p>
 <ul>
 <li>A polygon ring's closing vertex is not stored, so it has no m-value.</li>
 <li>Under a dictionary layout the sequence is the one the vertex offsets stream spells out, not the distinct vertices the vertex stream holds.
@@ -2798,7 +3061,7 @@ An encoder SHOULD write an explicit count on every stream that can carry one, si
 A byte blob is the exception. Bit 7 MUST be <code>0</code> on it and its count stays <code>byte_length</code>, as on any other column.
 A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.</p>
 <p>Values are one flat sequence across feature boundaries.
-Delta coding and RLE run through them without a break at each feature.</p>
+Delta encoding and RLE run through them without a break at each feature.</p>
 <h4 id="geometry-layouts">Geometry Layouts<a class="headerlink" href="#geometry-layouts" title="Link to this section">&para;</a></h4>
 <p>An m-value section requires a <a href="#geometry-layout">geometry layout</a> whose topology gives every feature's vertex count.</p>
 <table>
@@ -2865,6 +3128,43 @@ A tessellated layer that needs m-values uses <code>0xD</code>.</p>
 </tr>
 </tbody>
 </table>
+<p>The vertex stream of <code>z_mvalues</code>:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 92" role="img" aria-label="The encoding byte A9 of a vertex stream: an explicit count, Componentwise Delta over VarInt, of x, y, z triples" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="82">bit</text>
+<text class="row" x="0" y="54">A9</text>
+<rect class="f0" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="54">1</text>
+<text class="small mid t0" x="158" y="14">num_values</text>
+<path class="bracket t0" d="M130 34V28H186V34"/>
+<rect class="f1" x="192" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="220" y="54">0</text>
+<rect class="f1" x="254" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="282" y="54">1</text>
+<rect class="f1" x="316" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="344" y="54">0</text>
+<text class="small mid t1" x="282" y="14">Componentwise Delta</text>
+<path class="bracket t1" d="M192 34V28H372V34"/>
+<rect class="f0" x="378" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="406" y="54">1</text>
+<rect class="f0" x="440" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="468" y="54">0</text>
+<text class="small mid t0" x="437" y="14">VarInt</text>
+<path class="bracket t0" d="M378 34V28H496V34"/>
+<rect class="f1" x="502" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="530" y="54">0</text>
+<rect class="f1" x="564" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="592" y="54">1</text>
+<text class="small mid t1" x="561" y="14">(x, y, z)</text>
+<path class="bracket t1" d="M502 34V28H620V34"/>
+<text class="muted small mid" x="592" y="82">0</text>
+<text class="muted small mid" x="530" y="82">1</text>
+<text class="muted small mid" x="468" y="82">2</text>
+<text class="muted small mid" x="406" y="82">3</text>
+<text class="muted small mid" x="344" y="82">4</text>
+<text class="muted small mid" x="282" y="82">5</text>
+<text class="muted small mid" x="220" y="82">6</text>
+<text class="muted small mid" x="158" y="82">7</text>
+</svg></p>
 <h4 id="value-count_1">Value Count<a class="headerlink" href="#value-count_1" title="Link to this section">&para;</a></h4>
 <p>Bit 7 is set only when the stream's value count differs from the implied count.
 The implied count is:</p>
@@ -3093,16 +3393,6 @@ A decoder MUST select the variant by the layer tag.</p>
 </tr>
 </tbody>
 </table>
-<h3 id="payload-encodings">Payload Encodings<a class="headerlink" href="#payload-encodings" title="Link to this section">&para;</a></h3>
-<p>Logical encodings whose payload differs from v1, or which v1 does not have:</p>
-<ul>
-<li><strong>RLE / DeltaRLE</strong>: interleaved varint <code>(run_length, value)</code> pairs with no run count. v1 writes all runs, then all values, and stores <code>runs</code> in the header.</li>
-<li><strong>BitPacked</strong>: <code>[u8 width][ceil(count * width / 8) bytes]</code>. Values are laid LSB-first end to end, so value <code>i</code> occupies bits <code>i * width ..</code>. <code>width</code> is <code>1</code>-<code>32</code>.</li>
-<li><strong>Dict</strong> on a float column: one code per element, followed by a second stream of the distinct values.</li>
-<li><strong>Delta2</strong> and <strong>Componentwise Delta2</strong>: second differences, each ZigZag-coded, over the physical encodings Delta admits.</li>
-<li><strong>FrontCoded</strong> on a byte blob: a sorted dictionary stored as shared-prefix lengths plus suffixes.</li>
-</ul>
-<p>All of these are specified in <a href="../../encodings/">Encoding Definitions</a>.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this section">&para;</a></h2>
 <p>Every fixture under <code>test/synthetic/0x02/</code> can be annotated as below hexdump.
 If you are building an decoder, the <code>.json</code> snapshot are what an decoder MUST produce from it.</p>
@@ -3723,7 +4013,7 @@ The lengths stream counts elements per feature, and it and every stream below it
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<p>A <code>Map</code> of strings, its keys a dictionary-coded string stream set.</p>
+<p>A <code>Map</code> of strings, its keys a dictionary-encoded string stream set.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>00000000                                                                     | layer[0] "layer1" (73 B)
 </span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>00000000  48                                                H                |   size: 72 (varint) - tag + body
 </span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02

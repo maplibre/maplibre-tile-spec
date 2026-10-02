@@ -1,0 +1,52 @@
+<svg class="mlt-diagram" viewBox="0 0 710 180" role="img" aria-label="Five columns and two m-value columns: bit i of column_count lands on bit 2i and bit i of m_value_count on bit 2i + 1, giving 19" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="12">bit</text>
+<text class="muted small mid" x="152" y="12">0</text>
+<text class="muted small mid" x="202" y="12">1</text>
+<text class="muted small mid" x="252" y="12">2</text>
+<text class="muted small mid" x="302" y="12">3</text>
+<text class="muted small mid" x="352" y="12">4</text>
+<text class="muted small mid" x="402" y="12">5</text>
+<text class="muted small mid" x="452" y="12">6</text>
+<text class="muted small mid" x="502" y="12">7</text>
+<text class="row" x="0" y="42">columns = 5</text>
+<text class="row" x="0" y="102">byte = 0x19</text>
+<text class="row" x="0" y="162">m-values = 2</text>
+<rect class="f0" x="130" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="42">1</text>
+<path class="link" d="M152 56V88"/>
+<rect class="f0" x="130" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="102">1</text>
+<rect class="f1" x="180" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="162">0</text>
+<path class="link" d="M202 148V116"/>
+<rect class="f1" x="180" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="102">0</text>
+<rect class="f0" x="230" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="42">0</text>
+<path class="link" d="M252 56V88"/>
+<rect class="f0" x="230" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="102">0</text>
+<rect class="f1" x="280" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="302" y="162">1</text>
+<path class="link" d="M302 148V116"/>
+<rect class="f1" x="280" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="302" y="102">1</text>
+<rect class="f0" x="330" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="352" y="42">1</text>
+<path class="link" d="M352 56V88"/>
+<rect class="f0" x="330" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="352" y="102">1</text>
+<rect class="f1" x="380" y="148" width="44" height="28" rx="3"/>
+<text class="cell" x="402" y="162">0</text>
+<path class="link" d="M402 148V116"/>
+<rect class="f1" x="380" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="402" y="102">0</text>
+<rect class="f0" x="430" y="28" width="44" height="28" rx="3"/>
+<text class="cell" x="452" y="42">0</text>
+<path class="link" d="M452 56V88"/>
+<rect class="f0" x="430" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="452" y="102">0</text>
+<rect class="plain" x="480" y="88" width="44" height="28" rx="3"/>
+<text class="cell" x="502" y="102">0</text>
+<text class="muted small" x="534" y="102">bit 7: varint continuation</text>
+</svg>

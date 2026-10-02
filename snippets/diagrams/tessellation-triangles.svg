@@ -1,7 +1,7 @@
 <svg class="mlt-diagram" viewBox="0 0 710 446" role="img" aria-label="The triangles of mix_2_poly_mpoly_tes with their vertex positions" xmlns="http://www.w3.org/2000/svg">
-<text class="t0 bold" x="40" y="14">feature 0<tspan class="muted"> · Polygon</tspan></text>
+<text class="t0 bold" x="40" y="14">feature 0<tspan class="muted"> Polygon</tspan></text>
 <path class="bracket t0" d="M40 34V28H280V34"/>
-<text class="t1 bold" x="350" y="14">feature 1<tspan class="muted"> · MultiPolygon</tspan></text>
+<text class="t1 bold" x="350" y="14">feature 1<tspan class="muted"> MultiPolygon</tspan></text>
 <path class="bracket t1" d="M350 34V28H690V34"/>
 <text class="muted small" x="350" y="50">1st polygon, with a hole</text>
 <text class="muted small" x="630" y="50">2nd polygon</text>

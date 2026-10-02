@@ -1,0 +1,64 @@
+<svg class="mlt-diagram" viewBox="0 0 710 196" role="img" aria-label="mvalues: three lines of 3, 3 and 2 vertices; dist holds one value per vertex, height none for the null feature 1" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">part lengths</text>
+<text class="row" x="0" y="94">vertices</text>
+<text class="row" x="0" y="134">dist</text>
+<text class="row" x="0" y="174">height</text>
+<text class="bold mid t0" x="202" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H274V34"/>
+<rect class="f0" x="130" y="40" width="144" height="28" rx="3"/>
+<text class="cell" x="202" y="54">3</text>
+<rect class="f0" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="94">0</text>
+<rect class="f0" x="130" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="134">0</text>
+<rect class="f0" x="180" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="94">1</text>
+<rect class="f0" x="180" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="134">10</text>
+<rect class="f0" x="230" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="94">2</text>
+<rect class="f0" x="230" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="134">25</text>
+<rect class="f0" x="130" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="174">-3</text>
+<rect class="f0" x="180" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="202" y="174">4</text>
+<rect class="f0" x="230" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="252" y="174">9</text>
+<text class="bold mid t1" x="366" y="14">feature 1</text>
+<path class="bracket t1" d="M294 34V28H438V34"/>
+<rect class="f1" x="294" y="40" width="144" height="28" rx="3"/>
+<text class="cell" x="366" y="54">3</text>
+<rect class="f1" x="294" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="316" y="94">3</text>
+<rect class="f1" x="294" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="316" y="134">0</text>
+<rect class="f1" x="344" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="366" y="94">4</text>
+<rect class="f1" x="344" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="366" y="134">15</text>
+<rect class="f1" x="394" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="416" y="94">5</text>
+<rect class="f1" x="394" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="416" y="134">40</text>
+<rect class="implicit" x="294" y="160" width="144" height="28" rx="3"/>
+<text class="cell muted" x="366" y="174">null</text>
+<text class="bold mid t0" x="505" y="14">feature 2</text>
+<path class="bracket t0" d="M458 34V28H552V34"/>
+<rect class="f0" x="458" y="40" width="94" height="28" rx="3"/>
+<text class="cell" x="505" y="54">2</text>
+<rect class="f0" x="458" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="480" y="94">6</text>
+<rect class="f0" x="458" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="480" y="134">0</text>
+<rect class="f0" x="508" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="530" y="94">7</text>
+<rect class="f0" x="508" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="530" y="134">12</text>
+<rect class="f0" x="458" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="480" y="174">2</text>
+<rect class="f0" x="508" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="530" y="174">7</text>
+<text class="muted small" x="576" y="134">8 U32 values</text>
+<text class="muted small" x="576" y="174">5 I32 values</text>
+</svg>

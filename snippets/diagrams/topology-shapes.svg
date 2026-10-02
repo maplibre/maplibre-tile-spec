@@ -32,9 +32,9 @@
 <text class="vert halo" x="345" y="253">12</text>
 <text class="vert halo" x="355" y="326">13</text>
 <text class="vert halo" x="379" y="300">14</text>
-<text class="t0 bold" x="460" y="20">feature 0<tspan class="muted"> · Polygon</tspan></text>
+<text class="t0 bold" x="460" y="20">feature 0<tspan class="muted"> Polygon</tspan></text>
 <text class="muted small" x="460" y="40">shell, hole</text>
-<text class="t1 bold" x="460" y="74">feature 1<tspan class="muted"> · MultiPolygon</tspan></text>
+<text class="t1 bold" x="460" y="74">feature 1<tspan class="muted"> MultiPolygon</tspan></text>
 <text class="muted small" x="460" y="94">shell and hole, then a triangle</text>
 <text class="muted" x="460" y="360"><tspan class="fg">0-14</tspan> vertex position</text>
 </svg>

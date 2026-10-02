@@ -1169,9 +1169,9 @@ A stream of <code>Int64</code>, <code>UInt64</code> or <code>LongId</code> value
 Every other integer stream has 32-bit words.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>values = logical_decode(physical_decode(payload))
 </span></code></pre></div>
-<p>A difference is signed even when the values are not, so every delta is <a href="#zigzag">ZigZag</a>-coded.
-A plain or run-length coded value is ZigZag-coded only on a stream of a signed type.
-Run lengths, dictionary codes, lengths and offsets are never ZigZag-coded.
+<p>A difference is signed even when the values are not, so every delta is <a href="#zigzag">ZigZag</a>-encoded.
+A plain or run-length encoded value is ZigZag-encoded only on a stream of a signed type.
+Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded.
 Delta arithmetic wraps at the word width.</p>
 <h2 id="physical-encodings">Physical Encodings<a class="headerlink" href="#physical-encodings" title="Link to this section">&para;</a></h2>
 <h3 id="zigzag">ZigZag<a class="headerlink" href="#zigzag" title="Link to this section">&para;</a></h3>
@@ -1455,7 +1455,7 @@ Unlike bit packing it is not sensitive to a handful of outliers.</p>
 <p>The payload is the output of the composite codec <code>Composition(FastPFOR, VariableByte)</code> of the <a href="https://github.com/fast-pack/FastPFOR">FastPFOR library</a>, stored as whole 32-bit words:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>payload := [u32 n]                     number of FastPFOR words that follow
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>           [u32 fastpfor[n]]           whole blocks, in the FastPFOR block format
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>           [u32 vbyte[...]]            the values that did not fill a block, variable-byte coded
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>           [u32 vbyte[...]]            the values that did not fill a block, variable-byte encoded
 </span></code></pre></div>
 <p>The block format is specified by <a href="https://arxiv.org/pdf/1209.2137.pdf">Lemire and Boytsov, <em>Decoding billions of integers per second through vectorization</em></a>, section 6.
 A payload whose length is not a multiple of 4 MUST be rejected.
@@ -1494,7 +1494,7 @@ On a signed stream each word is <a href="#zigzag">ZigZag</a>-decoded.</p>
 <h3 id="delta">Delta<a class="headerlink" href="#delta" title="Link to this section">&para;</a></h3>
 <p>Each word is the difference to the previous value.
 The first value's predecessor is <code>0</code>.
-Each difference is <a href="#zigzag">ZigZag</a>-coded before it becomes a word, whatever the stream's type.</p>
+Each difference is <a href="#zigzag">ZigZag</a>-encoded before it becomes a word, whatever the stream's type.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fids_opt_delta.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - ids <code>100</code>, <code>101</code>, <code>105</code>, <code>106</code>, stored as the steps between them.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>delta[0] = values[0] - 0
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>delta[i] = values[i] - values[i - 1]
@@ -1512,7 +1512,7 @@ Each difference is <a href="#zigzag">ZigZag</a>-coded before it becomes a word, 
 Both predecessors start at <code>0</code>, so the first two words are
 - <code>values[0]</code> and
 - <code>values[1] - 2 * values[0]</code>.</p>
-<p>Each second difference is <a href="#zigzag">ZigZag</a>-coded, and the arithmetic wraps at the stream's width.</p>
+<p>Each second difference is <a href="#zigzag">ZigZag</a>-encoded, and the arithmetic wraps at the stream's width.</p>
 <p>This means that encoding is:
 <div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>delta[i]  = values[i] - values[i - 1]      values[-1] = 0
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>delta2[i] = delta[i] - delta[i - 1]        delta[-1] = 0
@@ -1532,7 +1532,7 @@ Both predecessors start at <code>0</code>, so the first two words are
 <p>Delta2 suits smooth sequences, such as a per-vertex elevation along a densely sampled line, whose steps change little from one to the next.</p>
 <h3 id="rle">RLE<a class="headerlink" href="#rle" title="Link to this section">&para;</a></h3>
 <p>The values are stored as runs, each a <code>(run_length, value)</code> pair that expands to <code>run_length</code> copies of <code>value</code>.
-On a signed stream <code>value</code> is <a href="#zigzag">ZigZag</a>-coded.
+On a signed stream <code>value</code> is <a href="#zigzag">ZigZag</a>-encoded.
 Run lengths never are.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fmvalues_rle.mlt&amp;at=m_value%5B0%5D" target="_blank">View example</a> - five <code>5</code>s and three <code>7</code>s, as two runs.</p>
 <p>The two tile versions lay the runs out differently:</p>
@@ -1547,7 +1547,7 @@ Run lengths never are.</p>
 <tbody>
 <tr>
 <td><strong>v1</strong></td>
-<td>All run lengths, then all values, physically coded as one word sequence</td>
+<td>All run lengths, then all values, physically encoded as one word sequence</td>
 <td><code>runs</code> varint in the stream header</td>
 </tr>
 <tr>
@@ -1620,7 +1620,7 @@ Run lengths that do not sum to exactly that count MUST be rejected.
 A v2 payload with an odd number of varints MUST be rejected.</p>
 <h3 id="delta-rle">Delta-RLE<a class="headerlink" href="#delta-rle" title="Link to this section">&para;</a></h3>
 <p><a href="#delta">Delta</a> followed by <a href="#rle">RLE</a>.
-The deltas are ZigZag-coded, and it is those unsigned words that are run-length coded.
+The deltas are ZigZag-encoded, and it is those unsigned words that are run-length encoded.
 Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-sum.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fids_delta_rle.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - four equal ids: one step of <code>103</code>, then a run of three <code>0</code>s.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Runs</label><label for="__tabbed_5_2">Values</label></div>
@@ -2199,7 +2199,7 @@ Only the reconstructed entry has to be valid UTF-8.</p>
 </div>
 </div>
 <p>Front coding can be combined with <a href="#fsst">FSST</a>.
-The corpus is front-coded first and then FSST-compressed.
+The corpus is front-encoded first and then FSST-compressed.
 An encoder SHOULD compare the stored size of each combination.</p>
 <h3 id="fsst">FSST<a class="headerlink" href="#fsst" title="Link to this section">&para;</a></h3>
 <p>Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes.
@@ -2358,7 +2358,7 @@ Its words are 32-bit and signed.</p>
 <h3 id="componentwise-delta">Componentwise Delta<a class="headerlink" href="#componentwise-delta" title="Link to this section">&para;</a></h3>
 <p>Each coordinate is a delta to the same coordinate of the previous vertex.
 <code>x</code> and <code>y</code> keep separate predecessors, both starting at <code>0</code>.
-Each delta is <a href="#zigzag">ZigZag</a>-coded.</p>
+Each delta is <a href="#zigzag">ZigZag</a>-encoded.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fline.mlt&amp;at=vertices" target="_blank">View example</a> - three vertices, each stored as its step from the one before.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>dx[i] = x[i] - x[i - 1]        x[-1] = 0
 </span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>dy[i] = y[i] - y[i - 1]        y[-1] = 0
@@ -2443,7 +2443,7 @@ Two vertices with the same curve key are one dictionary entry.</p>
 <p>A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer.
 Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas.
 Only a <code>VertexDict</code> stream uses it.</p>
-<p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict" target="_blank">View example</a> - vertices as Morton codes, delta coded.</p>
+<p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict" target="_blank">View example</a> - vertices as Morton codes, delta encoded.</p>
 <p>The parameters are two varints in the stream header:</p>
 <table>
 <thead>
@@ -2577,7 +2577,7 @@ The reference Rust codec spreads all 16 bits of an axis at once with masks, whic
 The stream holds the first code, then each code's difference to the previous one.
 v1 names this <code>MortonDelta</code>, v2 names it <code>Morton</code> in the <code>Vertex</code> family.
 There is no plain or RLE Morton encoding.</p>
-<p>The deltas are plain differences, not ZigZag-coded.
+<p>The deltas are plain differences, not ZigZag-encoded.
 The dictionary is sorted ascending by code, so every difference is non-negative.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>dict codes: [27, 30, 45]
 </span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>words:      [27, 3, 15]
