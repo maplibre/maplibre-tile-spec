@@ -1,3 +1,7 @@
+---
+description: How the first byte of a tile selects its wire format version
+---
+
 <h1>MapLibre Tile Specification</h1>
 
 --8<-- "live-spec-note"

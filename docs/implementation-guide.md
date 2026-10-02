@@ -1,3 +1,7 @@
+---
+description: Choosing encodings and decoding into memory
+---
+
 <h1>Implementation Guide</h1>
 
 ---
