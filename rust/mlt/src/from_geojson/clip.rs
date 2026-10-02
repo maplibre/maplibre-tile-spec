@@ -1,11 +1,19 @@
 //! Clipping of projected lines and rings to a tile rectangle, interpolating the
 //! elevation at every cut.
 //!
-//! Lines use Liang–Barsky per segment and split into parts where they leave the
-//! rectangle. Rings use Sutherland–Hodgman against the four edges, which keeps a
-//! ring a single ring (a concave ring leaving and re-entering the rectangle is
-//! joined along the edge, as in `geojson-vt`). Points are not cut; the caller
-//! says which ones a tile owns.
+//! Both algorithms treat the rectangle as four half-planes and find cut points
+//! by [`Vertex::lerp`], so z is interpolated the same way. They differ in what
+//! they keep connected:
+//!
+//! - Lines use Liang–Barsky, which clips one segment at a time. A line that
+//!   leaves and re-enters becomes separate parts, so no stroke is invented.
+//! - Rings use Sutherland–Hodgman, which clips the whole ring against one edge
+//!   at a time and always returns one closed ring: the part outside is replaced
+//!   by the tile border, which is what a fill needs. A concave ring re-entering
+//!   the tile keeps a zero-width bridge along the edge instead of splitting, as
+//!   in `geojson-vt`; [`clip_geom`] drops polygons left with no area.
+//!
+//! Points are not cut; the caller says which ones a tile owns.
 
 use super::project::{Geom, Vertex};
 
