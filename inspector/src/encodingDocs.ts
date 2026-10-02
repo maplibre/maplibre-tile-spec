@@ -109,7 +109,7 @@ const BY_LABEL: Record<string, Partial<Record<"v1" | "v2", string>>> = {
   byte_length: { v1: "v1#encoding-byte", v2: "v2#byte-length" },
   present: { v1: "v1#column-metadata", v2: "v2#presence-nibble" },
   shared_presence: { v2: "v2#shared-presence-fields" },
-  coding: { v2: "v2#presence-codings" },
+  coding: { v2: "v2#presence-encodings" },
   feature_count: { v1: "v1#column-data", v2: "v2#layer-body" },
   column_count: { v1: "v1#column-metadata", v2: "v2#column-counts" },
   column_counts: { v2: "v2#column-counts" },

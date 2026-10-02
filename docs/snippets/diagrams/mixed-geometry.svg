@@ -1,0 +1,46 @@
+<svg class="mlt-diagram" viewBox="0 0 710 196" role="img" aria-label="Types Point, LineString, Polygon: parts holds only the Polygon's 1, and rings holds the LineString's 3 vertices next to the Polygon ring's 4" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">types</text>
+<text class="row" x="0" y="94">parts</text>
+<text class="row" x="0" y="134">rings</text>
+<text class="row" x="0" y="174">vertices</text>
+<text class="bold mid t0" x="152" y="14">Point</text>
+<path class="bracket t0" d="M130 34V28H174V34"/>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">0</text>
+<rect class="implicit" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell muted" x="152" y="94">1</text>
+<rect class="implicit" x="130" y="120" width="44" height="28" rx="3"/>
+<text class="cell muted" x="152" y="134">1</text>
+<rect class="f0" x="130" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="174">0</text>
+<text class="bold mid t1" x="266" y="14">LineString</text>
+<path class="bracket t1" d="M194 34V28H338V34"/>
+<rect class="f1" x="194" y="40" width="144" height="28" rx="3"/>
+<text class="cell" x="266" y="54">1</text>
+<rect class="implicit" x="194" y="80" width="144" height="28" rx="3"/>
+<text class="cell muted" x="266" y="94">1</text>
+<rect class="f1" x="194" y="120" width="144" height="28" rx="3"/>
+<text class="cell" x="266" y="134">3</text>
+<rect class="f1" x="194" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="216" y="174">1</text>
+<rect class="f1" x="244" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="266" y="174">2</text>
+<rect class="f1" x="294" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="316" y="174">3</text>
+<text class="bold mid t0" x="455" y="14">Polygon</text>
+<path class="bracket t0" d="M358 34V28H552V34"/>
+<rect class="f0" x="358" y="40" width="194" height="28" rx="3"/>
+<text class="cell" x="455" y="54">2</text>
+<rect class="f0" x="358" y="80" width="194" height="28" rx="3"/>
+<text class="cell" x="455" y="94">1</text>
+<rect class="f0" x="358" y="120" width="194" height="28" rx="3"/>
+<text class="cell" x="455" y="134">4</text>
+<rect class="f0" x="358" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="380" y="174">4</text>
+<rect class="f0" x="408" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="430" y="174">5</text>
+<rect class="f0" x="458" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="480" y="174">6</text>
+<rect class="f0" x="508" y="160" width="44" height="28" rx="3"/>
+<text class="cell" x="530" y="174">7</text>
+</svg>

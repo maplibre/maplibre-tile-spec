@@ -26,9 +26,9 @@ Every other integer stream has 32-bit words.
 values = logical_decode(physical_decode(payload))
 ```
 
-A difference is signed even when the values are not, so every delta is [ZigZag](#zigzag)-coded.
-A plain or run-length coded value is ZigZag-coded only on a stream of a signed type.
-Run lengths, dictionary codes, lengths and offsets are never ZigZag-coded.
+A difference is signed even when the values are not, so every delta is [ZigZag](#zigzag)-encoded.
+A plain or run-length encoded value is ZigZag-encoded only on a stream of a signed type.
+Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded.
 Delta arithmetic wraps at the word width.
 
 ## Physical Encodings
@@ -142,7 +142,7 @@ The payload is the output of the composite codec `Composition(FastPFOR, Variable
 ```
 payload := [u32 n]                     number of FastPFOR words that follow
            [u32 fastpfor[n]]           whole blocks, in the FastPFOR block format
-           [u32 vbyte[...]]            the values that did not fill a block, variable-byte coded
+           [u32 vbyte[...]]            the values that did not fill a block, variable-byte encoded
 ```
 
 The block format is specified by [Lemire and Boytsov, *Decoding billions of integers per second through vectorization*](https://arxiv.org/pdf/1209.2137.pdf), section 6.
@@ -175,7 +175,7 @@ On a signed stream each word is [ZigZag](#zigzag)-decoded.
 
 Each word is the difference to the previous value.
 The first value's predecessor is `0`.
-Each difference is [ZigZag](#zigzag)-coded before it becomes a word, whatever the stream's type.
+Each difference is [ZigZag](#zigzag)-encoded before it becomes a word, whatever the stream's type.
 
 [View example](inspector/app/?fixture=0x02%2Fids_opt_delta.mlt&at=column%5B0%5D){target=_blank .inspector-example} - ids `100`, `101`, `105`, `106`, stored as the steps between them.
 
@@ -203,7 +203,7 @@ Both predecessors start at `0`, so the first two words are
 - `values[0]` and
 - `values[1] - 2 * values[0]`.
 
-Each second difference is [ZigZag](#zigzag)-coded, and the arithmetic wraps at the stream's width.
+Each second difference is [ZigZag](#zigzag)-encoded, and the arithmetic wraps at the stream's width.
 
 This means that encoding is:
 ```
@@ -231,7 +231,7 @@ Delta2 suits smooth sequences, such as a per-vertex elevation along a densely sa
 ### RLE {#rle}
 
 The values are stored as runs, each a `(run_length, value)` pair that expands to `run_length` copies of `value`.
-On a signed stream `value` is [ZigZag](#zigzag)-coded.
+On a signed stream `value` is [ZigZag](#zigzag)-encoded.
 Run lengths never are.
 
 [View example](inspector/app/?fixture=0x02%2Fmvalues_rle.mlt&at=m_value%5B0%5D){target=_blank .inspector-example} - five `5`s and three `7`s, as two runs.
@@ -240,7 +240,7 @@ The two tile versions lay the runs out differently:
 
 | | Payload | Run count |
 |---|---|---|
-| **v1** | All run lengths, then all values, physically coded as one word sequence | `runs` varint in the stream header |
+| **v1** | All run lengths, then all values, physically encoded as one word sequence | `runs` varint in the stream header |
 | **v2** | Interleaved `(run_length, value)` pairs as varints, no physical field | Not stored; read pairs until `byte_length` is exhausted |
 
 For the input `[5, 5, 5, 3, 3, 3, 3]`:
@@ -268,7 +268,7 @@ A v2 payload with an odd number of varints MUST be rejected.
 ### Delta-RLE {#delta-rle}
 
 [Delta](#delta) followed by [RLE](#rle).
-The deltas are ZigZag-coded, and it is those unsigned words that are run-length coded.
+The deltas are ZigZag-encoded, and it is those unsigned words that are run-length encoded.
 Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-sum.
 
 [View example](inspector/app/?fixture=0x02%2Fids_delta_rle.mlt&at=column%5B0%5D){target=_blank .inspector-example} - four equal ids: one step of `103`, then a run of three `0`s.
@@ -514,7 +514,7 @@ Only the reconstructed entry has to be valid UTF-8.
     ```
 
 Front coding can be combined with [FSST](#fsst).
-The corpus is front-coded first and then FSST-compressed.
+The corpus is front-encoded first and then FSST-compressed.
 An encoder SHOULD compare the stored size of each combination.
 
 ### FSST {#fsst}
@@ -613,7 +613,7 @@ Its words are 32-bit and signed.
 
 Each coordinate is a delta to the same coordinate of the previous vertex.
 `x` and `y` keep separate predecessors, both starting at `0`.
-Each delta is [ZigZag](#zigzag)-coded.
+Each delta is [ZigZag](#zigzag)-encoded.
 
 [View example](inspector/app/?fixture=0x02%2Fline.mlt&at=vertices){target=_blank .inspector-example} - three vertices, each stored as its step from the one before.
 
@@ -680,7 +680,7 @@ A Morton, or Z-order, code interleaves the bits of a coordinate pair into one in
 Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas.
 Only a `VertexDict` stream uses it.
 
-[View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices as Morton codes, delta coded.
+[View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices as Morton codes, delta encoded.
 
 The parameters are two varints in the stream header:
 
@@ -773,7 +773,7 @@ The stream holds the first code, then each code's difference to the previous one
 v1 names this `MortonDelta`, v2 names it `Morton` in the `Vertex` family.
 There is no plain or RLE Morton encoding.
 
-The deltas are plain differences, not ZigZag-coded.
+The deltas are plain differences, not ZigZag-encoded.
 The dictionary is sorted ascending by code, so every difference is non-negative.
 
 ```

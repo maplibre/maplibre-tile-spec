@@ -22,7 +22,7 @@
 <text class="cell" x="412.0" y="94">3</text>
 <rect class="f1" x="362" y="120" width="100" height="28" rx="3"/>
 <text class="cell" x="412.0" y="134">"hi"</text>
-<text class="muted small" x="486" y="54">List · lengths</text>
-<text class="muted small" x="486" y="94">Int32 · 3 values</text>
-<text class="muted small" x="486" y="134">String · 3 values</text>
+<text class="muted small" x="486" y="54">list lengths</text>
+<text class="muted small" x="486" y="94">3 Int32 values</text>
+<text class="muted small" x="486" y="134">3 String values</text>
 </svg>

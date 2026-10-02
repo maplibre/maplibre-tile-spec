@@ -1,0 +1,37 @@
+<svg class="mlt-diagram" viewBox="0 0 710 124" role="img" aria-label="z_mvalues: three vertices, each x, y and z in adjacent words; at a z_step of 1 dm the z values are 3 m, 5 m and 8 m" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">vertices</text>
+<text class="row" x="0" y="102">elevation</text>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">11</text>
+<rect class="f0" x="176" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="198" y="54">52</text>
+<rect class="f0" x="222" y="40" width="72" height="28" rx="3"/>
+<text class="cell" x="258" y="54">100030</text>
+<rect class="f0" x="222" y="88" width="72" height="28" rx="3"/>
+<text class="cell" x="258" y="102">3 m</text>
+<path class="link" d="M258 68V88"/>
+<text class="bold mid t0" x="212" y="14">vertex 0</text>
+<path class="bracket t0" d="M130 34V28H294V34"/>
+<rect class="f1" x="310" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="332" y="54">71</text>
+<rect class="f1" x="356" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="378" y="54">72</text>
+<rect class="f1" x="402" y="40" width="72" height="28" rx="3"/>
+<text class="cell" x="438" y="54">100050</text>
+<rect class="f1" x="402" y="88" width="72" height="28" rx="3"/>
+<text class="cell" x="438" y="102">5 m</text>
+<path class="link" d="M438 68V88"/>
+<text class="bold mid t1" x="392" y="14">vertex 1</text>
+<path class="bracket t1" d="M310 34V28H474V34"/>
+<rect class="f0" x="490" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="512" y="54">61</text>
+<rect class="f0" x="536" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="558" y="54">22</text>
+<rect class="f0" x="582" y="40" width="72" height="28" rx="3"/>
+<text class="cell" x="618" y="54">100080</text>
+<rect class="f0" x="582" y="88" width="72" height="28" rx="3"/>
+<text class="cell" x="618" y="102">8 m</text>
+<path class="link" d="M618 68V88"/>
+<text class="bold mid t0" x="572" y="14">vertex 2</text>
+<path class="bracket t0" d="M490 34V28H654V34"/>
+</svg>

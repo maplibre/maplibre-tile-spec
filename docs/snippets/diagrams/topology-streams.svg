@@ -1,7 +1,7 @@
 <svg class="mlt-diagram" viewBox="0 0 710 304" role="img" aria-label="Each length in mix_2_polyh_mpoly spans the entries of the stream below it" xmlns="http://www.w3.org/2000/svg">
-<text class="t0 bold" x="130" y="14">feature 0<tspan class="muted"> · Polygon</tspan></text>
+<text class="t0 bold" x="130" y="14">feature 0<tspan class="muted"> Polygon</tspan></text>
 <path class="bracket t0" d="M130 34V28H336V34"/>
-<text class="t1 bold" x="356" y="14">feature 1<tspan class="muted"> · MultiPolygon</tspan></text>
+<text class="t1 bold" x="356" y="14">feature 1<tspan class="muted"> MultiPolygon</tspan></text>
 <path class="bracket t1" d="M356 34V28H674V34"/>
 <text class="row" x="0" y="54">types</text>
 <rect class="f0" x="130" y="40" width="206" height="28" rx="3"/>
