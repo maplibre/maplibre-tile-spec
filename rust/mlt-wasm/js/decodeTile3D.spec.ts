@@ -38,14 +38,15 @@ describe("decodeTile3D against every synthetic fixture", () => {
     }
     it(name, () => {
       const expected = (content as Expected).features;
+      const layers = Object.values(decodeTile3D(data).layers);
+      expect(layers.map((l) => l.zStep)).toEqual(layers2d.map((l) => l.zStep));
       let next = 0;
-      for (const layer of Object.values(decodeTile3D(data).layers)) {
+      for (const layer of layers) {
         for (let i = 0; i < layer.length; i++) {
           const { geometry } = expected[next++];
-          expectClose(
-            coordinates(layer.feature(i)),
-            inMetres(geometry, layer.zStep),
-          );
+          if (geometry.type === "GeometryCollection")
+            throw new Error("not in MLT");
+          expect(coordinates(layer.feature(i))).toEqual(geometry.coordinates);
         }
       }
       expect(next).toBe(expected.length);
@@ -64,23 +65,13 @@ describe("tessellated layouts", () => {
   });
 });
 
-describe("elevation", () => {
-  it("puts z_point 12 m up", () => {
+describe("raw z", () => {
+  it("keeps z_point's z on its 1 dm grid, 12 m up", () => {
     const [layer] = layersOf("0x02/z_point");
     expect(layer.zStep).toBe(-1);
-    expect(layer.feature(0).loadGeometry()[0][0][2]).toBeCloseTo(12, 9);
-  });
-
-  it("reads z_step_finest in millimetres", () => {
-    const [layer] = layersOf("0x02/z_step_finest");
-    const feature = layer.feature(0);
-    const z = feature.loadZ();
-    feature
-      .loadGeometry()
-      .flat()
-      .forEach(([, , e], v) => {
-        expect(e).toBeCloseTo((z[v] - 10_000_000) / 1000, 9);
-      });
+    const [x, y, z] = layer.feature(0).loadGeometry()[0][0];
+    expect([x, y, z]).toEqual([13, 42, 100_120]);
+    expect(-10000 + z * 10 ** layer.zStep).toBeCloseTo(12, 9);
   });
 });
 
@@ -90,20 +81,6 @@ function layersOf(fixture: string): MltLayer3D[] {
     import.meta.url,
   );
   return Object.values(decodeTile3D(readFileSync(url)).layers);
-}
-
-/** The fixture's geometry with each raw z replaced by its elevation, an oracle independent of the decoder. */
-function inMetres(geometry: GeoJSON.Geometry, zStep: number): unknown {
-  const convert = (value: unknown): unknown => {
-    if (!Array.isArray(value)) return value;
-    if (typeof value[0] === "number") {
-      const [x, y, z] = value as number[];
-      return [x, y, -10000 + z * 10 ** zStep];
-    }
-    return value.map(convert);
-  };
-  if (geometry.type === "GeometryCollection") throw new Error("not in MLT");
-  return convert(geometry.coordinates);
 }
 
 /** Feature coordinates in GeoJSON nesting; polygon rings come back closed, as GeoJSON wants. */
@@ -124,16 +101,4 @@ function coordinates(feature: MltFeature3D): unknown {
     default:
       throw new Error(`unknown geometry type ${feature.mltType}`);
   }
-}
-
-function expectClose(actual: unknown, expected: unknown): void {
-  if (typeof expected === "number") {
-    expect(actual).toBeCloseTo(expected, 6);
-    return;
-  }
-  expect(Array.isArray(actual)).toBe(true);
-  const a = actual as unknown[];
-  const e = expected as unknown[];
-  expect(a).toHaveLength(e.length);
-  for (let i = 0; i < e.length; i++) expectClose(a[i], e[i]);
 }

@@ -44,8 +44,6 @@ interface WasmMltTile {
    * JS walks these directly - zero WASM calls per feature for geometry.
    */
   layer_geometry(layer_idx: number): LayerGeometry;
-  /** Each vertex's z as an elevation in metres, parallel to z(). Zero-length when the layer has none. */
-  layer_elevations(layer_idx: number): Float64Array;
   /**
    * The layer's z step for decodeTile3D. Throws when the layer has no z coordinates,
    * or uses the TessPolygons or TessPolygonsWithOutlines geometry layout.
@@ -86,8 +84,11 @@ export enum MltGeometryType {
   MultiPolygon = 5,
 }
 
-/** A vertex in 3D: `x` and `y` in tile coordinates, then the elevation in metres. */
-export type Position3D = [x: number, y: number, elevation: number];
+/**
+ * A vertex in 3D, as stored: `x` and `y` in tile coordinates, then `z` on the layer's
+ * `zStep` grid, which is `-10000 + z * 10 ** zStep` metres.
+ */
+export type Position3D = [x: number, y: number, z: number];
 
 // ---------------------------------------------------------------------------
 // loadGeometry
@@ -382,23 +383,6 @@ abstract class FeatureBase<V> {
     return result;
   }
 
-  /**
-   * Returns one raw z per vertex in storage order, or an empty array when the layer has none.
-   * A polygon ring's closing point is not stored, so it has no z: each ring from
-   * loadGeometry() or loadPolygons() has one more point than it has z values here.
-   */
-  loadZ(): number[] {
-    const { z, geomOffsets, partOffsets, ringOffsets } = this._layer;
-    if (z.length === 0) return [];
-    const [start, end] = vertexRange(
-      this._featureIdx,
-      geomOffsets,
-      partOffsets,
-      ringOffsets,
-    );
-    return Array.from(z.subarray(start, end));
-  }
-
   /** Builds the value this feature's geometry holds for vertex `i`. */
   protected abstract vertex(): VertexOf<V>;
 
@@ -438,6 +422,23 @@ export class MltFeature
     return this.rings();
   }
 
+  /**
+   * Returns one z per vertex in storage order, or an empty array when the layer has none.
+   * A polygon ring's closing point is not stored, so it has no z: each ring from
+   * loadGeometry() or loadPolygons() has one more point than it has z values here.
+   */
+  loadZ(): number[] {
+    const { z, geomOffsets, partOffsets, ringOffsets } = this._layer;
+    if (z.length === 0) return [];
+    const [start, end] = vertexRange(
+      this._featureIdx,
+      geomOffsets,
+      partOffsets,
+      ringOffsets,
+    );
+    return Array.from(z.subarray(start, end));
+  }
+
   /** Returns rings grouped by polygon - avoids the lossy winding-order heuristic in MVT's classifyRings. */
   loadPolygons(): Point[][][] {
     return this.polygons();
@@ -455,25 +456,23 @@ export class MltFeature3D extends FeatureBase<Position3D> {
     featureIdx: number,
     layer: LayerData,
     readonly zStep: number,
-    private readonly _elevations: Float64Array,
   ) {
     super(featureIdx, layer);
   }
 
-  /** Like `MltFeature.loadGeometry`, each vertex `[x, y, elevation]` with elevation in metres. */
+  /** Like `MltFeature.loadGeometry`, each vertex `[x, y, z]` with `z` on the `zStep` grid. */
   loadGeometry(): Position3D[][] {
     return this.rings();
   }
 
-  /** Like `MltFeature.loadPolygons`, each vertex `[x, y, elevation]` with elevation in metres. */
+  /** Like `MltFeature.loadPolygons`, each vertex `[x, y, z]` with `z` on the `zStep` grid. */
   loadPolygons(): Position3D[][][] {
     return this.polygons();
   }
 
   protected vertex(): VertexOf<Position3D> {
-    const verts = this._layer.verts;
-    const elevations = this._elevations;
-    return (i) => [verts[i * 2], verts[i * 2 + 1], elevations[i]];
+    const { verts, z } = this._layer;
+    return (i) => [verts[i * 2], verts[i * 2 + 1], z[i]];
   }
 }
 
@@ -516,7 +515,6 @@ export class MltLayer extends LayerBase implements VectorTileLayerLike {
 export class MltLayer3D extends LayerBase {
   /** The z grid as the power of ten of its step in metres: a raw z is `-10000 + z * 10 ** zStep` metres. */
   readonly zStep: number;
-  private readonly _elevations: Float64Array;
 
   /**
    * Throws when the layer has no z coordinates, or uses the `TessPolygons` or
@@ -525,11 +523,10 @@ export class MltLayer3D extends LayerBase {
   constructor(tile: WasmMltTile, layerIdx: number, name: string) {
     super(tile, layerIdx, name);
     this.zStep = tile.layer_z_step_3d(layerIdx);
-    this._elevations = tile.layer_elevations(layerIdx);
   }
 
   feature(i: number): MltFeature3D {
-    return new MltFeature3D(i, this._data, this.zStep, this._elevations);
+    return new MltFeature3D(i, this._data, this.zStep);
   }
 }
 
@@ -560,7 +557,7 @@ export interface MltTile3D {
 }
 
 /**
- * Decode a tile whose every layer has z coordinates, so every vertex is `[x, y, elevation]`.
+ * Decode a tile whose every layer has z coordinates, so every vertex is `[x, y, z]`.
  *
  * Throws when any layer has none, for which `decodeTile` reads the tile in 2D, or when any
  * layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry layout.

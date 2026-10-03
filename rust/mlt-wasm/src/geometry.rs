@@ -135,16 +135,6 @@ pub(crate) fn z_step_3d(geom: &GeometryValues, layout: Option<GeoLayout>) -> Res
     }
 }
 
-/// Each vertex's z as an elevation in metres, or none in a layer without z.
-pub(crate) fn elevations(geom: &GeometryValues) -> Vec<f64> {
-    let Some(step) = geom.z_step() else {
-        return Vec::new();
-    };
-    let words = geom.vertices().unwrap_or_default();
-    let triples = words.as_chunks::<3>().0;
-    triples.iter().map(|&[_, _, z]| step.elevation(z)).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use mlt_core::encoder::{EncoderConfig, WireVersion};
@@ -152,7 +142,7 @@ mod tests {
     use mlt_core::wire::GeoLayout;
     use mlt_core::{Decoder, GeometryValues, ParsedLayer, Parser, TileLayer, ZStep};
 
-    use super::{elevations, z_step_3d};
+    use super::z_step_3d;
 
     fn coords(pts: &[(i32, i32)]) -> LineString<i32> {
         LineString(pts.iter().map(|&(x, y)| Coord { x, y }).collect())
@@ -208,19 +198,6 @@ mod tests {
     /// A 3D square on [`step`], encoded with `cfg`.
     fn square_3d(cfg: EncoderConfig) -> (GeometryValues, GeoLayout) {
         decoded(square(), Some((step(), vec![100_000; 4])), cfg)
-    }
-
-    #[test]
-    fn elevations_are_metres_on_the_z_step_grid() {
-        // -10000 m + 100_120 dm = 12 m; -10000 m + 99_995 dm = -0.5 m
-        let (geom, _) = decoded(line(), Some((step(), vec![100_120, 99_995])), v2());
-        assert_eq!(elevations(&geom), [12.0, -0.5]);
-    }
-
-    #[test]
-    fn a_flat_layer_has_no_elevations() {
-        let (geom, _) = decoded(line(), None, v2());
-        assert_eq!(elevations(&geom), [] as [f64; 0]);
     }
 
     #[test]

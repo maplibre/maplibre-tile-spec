@@ -2,7 +2,7 @@ use js_sys::{Array, Float64Array, Object, Reflect};
 use mlt_core::ZStep;
 use wasm_bindgen::prelude::*;
 
-use crate::geometry::{LayerGeometry, elevations, z_step_3d};
+use crate::geometry::{LayerGeometry, z_step_3d};
 use crate::layer::DecodedLayer;
 use crate::properties::{build_prop_cache, prop_value_to_js};
 
@@ -94,13 +94,6 @@ impl MltTile {
         z_step_3d(&layer.geometry, layer.geo_layout)
             .map(ZStep::exponent)
             .map_err(|reason| JsError::new(&format!("layer \"{}\" {reason}", layer.tile.name())))
-    }
-
-    /// Each vertex's z of layer `layer_idx` as an elevation in metres, parallel to
-    /// [`LayerGeometry::z`], or zero-length when the layer has none.
-    #[must_use]
-    pub fn layer_elevations(&self, layer_idx: usize) -> Float64Array {
-        Float64Array::from(elevations(&self.layers[layer_idx].geometry).as_slice())
     }
 
     // -----------------------------------------------------------------------
