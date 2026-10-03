@@ -754,7 +754,7 @@ For an RLE stream the value count is the decoded element count. The number of `(
 | A `Double` column's values | `num_values * 8` |
 | A `Bool` bitmap | `ceil(num_values / 8)` |
 
-A byte blob takes its count from `byte_length`, so it MUST NOT use the pattern. Every other logical encoding that reads the physical field MUST reject it. `RLE`, `DeltaRLE` and `BitPacked` reserve the field as `0` and still write `byte_length`. An encoder SHOULD use it wherever it is allowed, since it is one varint shorter.
+A byte blob takes its count from `byte_length`, so it MUST NOT use the pattern. Every other logical encoding that reads the physical field MUST reject it. `RLE`, `DeltaRLE`, `BitPacked` and `rANS` reserve the field as `0` and still write `byte_length`. An encoder SHOULD use it wherever it is allowed, since it is one varint shorter.
 
 ### Families
 
@@ -766,7 +766,7 @@ The logical encodings available to a stream depend on what it holds. Each family
 | **Str** | A string column's leading stream | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/#delta2>) |
 | **Bool** | A boolean column's data stream, a nested node's presence stream | None | RLE† |  |  |  |  |
 | **Float** | A float or double column's data stream | None | RLE† | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>) | Dict |  |  |
-| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/#componentwise-delta2>) |  |
+| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/#componentwise-delta2>) | [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/#rans>) |
 | **Bytes** | Byte blobs: string values, dictionaries, FSST symbol tables | None | [FrontCoded](<https://maplibre.org/maplibre-tile-spec/encodings/#front-coding>) |  |  |  |  |
 
 † Reserved but not implemented. A decoder MUST reject it. The payload format of RLE over booleans is not yet decided.
@@ -792,7 +792,7 @@ For a stream of opaque fixed-width elements, meaning a `Bool` bitmap, raw `Float
 | `01` | Elements as they are |
 | `10`, `11` | Unassigned, MUST be rejected |
 
-`RLE`, `DeltaRLE` and `BitPacked` define their own physical layout. The physical field MUST be `0` for them.
+`RLE`, `DeltaRLE`, `BitPacked` and `rANS` define their own physical layout. The physical field MUST be `0` for them.
 
 > [!NOTE]
 >

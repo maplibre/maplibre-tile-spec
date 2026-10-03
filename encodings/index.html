@@ -1021,6 +1021,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#rans" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rANS <span class="experimental"></span>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2729,6 +2740,559 @@ The dictionary is sorted ascending by code, so every difference is non-negative.
 <div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>dict codes: [27, 30, 45]
 </span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>words:      [27, 3, 15]
 </span></code></pre></div>
+<h3 id="rans">rANS <span class="experimental"></span><a class="headerlink" href="#rans" title="Link to this section">&para;</a></h3>
+<p>We can entropy-code the <a href="#componentwise-delta">componentwise deltas</a> of a plain layout's vertex stream.
+A <code>VertexDict</code> stream MUST NOT use it.</p>
+<p>Each delta is split in two:</p>
+<ul>
+<li>a <strong>symbol</strong>, which says roughly how large the delta is and its sign, and is coded with <a href="https://arxiv.org/abs/1311.2540">rANS</a> so that frequent symbols take fewer bits,</li>
+<li>the delta's low <strong>raw bits</strong>, which are close to random and stored as they are.</li>
+</ul>
+<p>The symbol frequencies are counted per <strong>context</strong>, so a delta is coded with a table of deltas like it.
+The tables travel in the payload.</p>
+<p>To decode, a decoder:</p>
+<ol>
+<li>reads the depth and the tables,</li>
+<li>marks which vertices start a <a href="#rans-runs">run</a>, from the topology streams,</li>
+<li>per vertex, decodes the <code>dx</code> symbol, then the <code>dy</code> symbol in a context that depends on <code>dx</code>, then reads both deltas' raw bits,</li>
+<li>prefix-sums the deltas into coordinates, as for componentwise delta.</li>
+</ol>
+<h4 id="how-rans-decodes-a-symbol">How rANS decodes a symbol<a class="headerlink" href="#how-rans-decodes-a-symbol" title="Link to this section">&para;</a></h4>
+<p>A table of precision <code>p</code> divides <code>2^p</code> slots among its symbols.
+Symbol <code>s</code> owns <code>freq(s)</code> consecutive slots, starting at <code>cum(s)</code>, the sum of the frequencies of the symbols below it.</p>
+<p>The decoder holds a state <code>x</code>, a 32-bit number.
+The low <code>p</code> bits of <code>x</code> are a slot, and the symbol owning that slot is the one decoded.
+The state then shrinks by about <code>log2(2^p / freq(s))</code> bits, so a symbol owning half the slots costs one bit, and one owning a quarter costs two.
+When the state drops below <code>2^16</code>, the next 16-bit word of the stream is shifted in from below.
+The state stays in <code>[2^16, 2^32)</code> between symbols.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>slot = x &amp; (2^p - 1)
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>s    = the symbol whose slots hold slot
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>x    = freq(s) * (x &gt;&gt; p) + slot - cum(s)
+</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>if x &lt; 2^16: x = (x &lt;&lt; 16) | next refill word of the lane
+</span></code></pre></div>
+<p>A table of precision <code>3</code>, decoding the state <code>0x10005</code>:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 160" role="img" aria-label="A table of precision 3: symbol 0 owns slots 0 to 3, symbol 3 slots 4 and 5, symbol 4 slot 6 and symbol 7 slot 7. The state 0x10005 ends in the bits 101, slot 5, so it decodes symbol 3" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="14">symbol</text>
+<text class="row" x="0" y="54">slots</text>
+<text class="bold mid t0" x="237" y="14">0</text>
+<path class="bracket t0" d="M130 34V28H344V34"/>
+<rect class="f0" x="130" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="156" y="54">0</text>
+<rect class="f0" x="184" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="210" y="54">1</text>
+<rect class="f0" x="238" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="264" y="54">2</text>
+<rect class="f0" x="292" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="318" y="54">3</text>
+<text class="bold mid t1" x="399" y="14">3</text>
+<path class="bracket t1" d="M346 34V28H452V34"/>
+<rect class="f1" x="346" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="372" y="54">4</text>
+<rect class="f1" x="400" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="426" y="54">5</text>
+<rect class="pick" x="397" y="37" width="58" height="34" rx="5"/>
+<text class="bold mid t0" x="480" y="14">4</text>
+<path class="bracket t0" d="M454 34V28H506V34"/>
+<rect class="f0" x="454" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="480" y="54">6</text>
+<text class="bold mid t1" x="534" y="14">7</text>
+<path class="bracket t1" d="M508 34V28H560V34"/>
+<rect class="f1" x="508" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="534" y="54">7</text>
+<text class="row" x="0" y="110">x = 0x10005</text>
+<rect class="plain" x="130" y="96" width="268" height="28" rx="3"/>
+<text class="cell" x="264" y="110">8192</text>
+<path class="bracket" d="M130 130V136H398V130"/>
+<text class="small mid" x="264" y="148">x &gt;&gt; 3</text>
+<rect class="f1" x="400" y="96" width="51" height="28" rx="3"/>
+<text class="cell" x="425.5" y="110">1</text>
+<rect class="f1" x="453" y="96" width="51" height="28" rx="3"/>
+<text class="cell" x="478.5" y="110">0</text>
+<rect class="f1" x="506" y="96" width="51" height="28" rx="3"/>
+<text class="cell" x="531.5" y="110">1</text>
+<path class="bracket t1" d="M400 130V136H557V130"/>
+<text class="small mid t1" x="478.5" y="148">slot 5</text>
+</svg></p>
+<p>The state becomes <code>2 * 8192 + 5 - 4 = 16385</code>, two bits smaller, and is below <code>2^16</code>, so the next word is shifted in.</p>
+<p>A table of precision <code>0</code> has one slot and one symbol.
+Decoding from it leaves <code>x</code> unchanged and costs no bits.</p>
+<h4 id="rans-math">Why rANS compresses<a class="headerlink" href="#rans-math" title="Link to this section">&para;</a></h4>
+<p>A symbol of probability <span class="arithmatex">\(P\)</span> carries <span class="arithmatex">\(\log_2 \frac{1}{P}\)</span> bits of information.
+A table approximates <span class="arithmatex">\(P(s)\)</span> as <span class="arithmatex">\(\frac{\mathit{freq}(s)}{2^p}\)</span>, so the ideal cost of <span class="arithmatex">\(s\)</span> is <span class="arithmatex">\(\log_2 \frac{2^p}{\mathit{freq}(s)}\)</span> bits.</p>
+<p>The state <span class="arithmatex">\(x\)</span> holds the symbols encoded so far in about <span class="arithmatex">\(\log_2 x\)</span> bits.
+Encoding <span class="arithmatex">\(s\)</span> maps <span class="arithmatex">\(x\)</span> to</p>
+<div class="arithmatex">\[
+x' = 2^p \left\lfloor \frac{x}{\mathit{freq}(s)} \right\rfloor + \mathit{cum}(s) + (x \bmod \mathit{freq}(s))
+\]</div>
+<p>so <span class="arithmatex">\(x' \approx x \cdot \frac{2^p}{\mathit{freq}(s)}\)</span>, and <span class="arithmatex">\(\log_2 x\)</span> grows by the ideal cost of <span class="arithmatex">\(s\)</span>.</p>
+<p>With every frequency <code>1</code> this is <span class="arithmatex">\(x' = 2^p x + s\)</span>, which appends <span class="arithmatex">\(s\)</span> as a digit of <span class="arithmatex">\(x\)</span> in base <span class="arithmatex">\(2^p\)</span>, and every symbol costs <span class="arithmatex">\(p\)</span> bits.
+rANS instead gives <span class="arithmatex">\(s\)</span> the <span class="arithmatex">\(\mathit{freq}(s)\)</span> digit values from <span class="arithmatex">\(\mathit{cum}(s)\)</span> on.
+The digit is <span class="arithmatex">\(\mathit{cum}(s) + (x \bmod \mathit{freq}(s))\)</span>, so it carries <span class="arithmatex">\(\log_2 \mathit{freq}(s)\)</span> bits of <span class="arithmatex">\(x\)</span>.</p>
+<p>The decoder finds <span class="arithmatex">\(s\)</span> as the symbol whose slots hold the digit <span class="arithmatex">\(x' \bmod 2^p\)</span>.
+The quotient <span class="arithmatex">\(\lfloor x' / 2^p \rfloor\)</span> is <span class="arithmatex">\(\lfloor x / \mathit{freq}(s) \rfloor\)</span>, and the digit's offset into those slots is <span class="arithmatex">\(x \bmod \mathit{freq}(s)\)</span>, so the decoder rebuilds <span class="arithmatex">\(x\)</span> exactly.
+Every <span class="arithmatex">\(x'\)</span> decodes to exactly one pair of <span class="arithmatex">\(x\)</span> and <span class="arithmatex">\(s\)</span>.</p>
+<p>The last symbol encoded is the lowest digit and is decoded first, so the <a href="#rans-encoding">encoder</a> codes each lane in reverse.</p>
+<p>Encoding symbol <code>3</code> of the table above into <span class="arithmatex">\(x = 16385\)</span> gives the state the decoder started from:</p>
+<div class="arithmatex">\[
+x' = 8 \left\lfloor \frac{16385}{2} \right\rfloor + 4 + (16385 \bmod 2) = 8 \cdot 8192 + 5 = 65541 = \mathtt{0x10005}
+\]</div>
+<p><span class="arithmatex">\(x\)</span> grows by <span class="arithmatex">\(\log_2 \frac{65541}{16385} \approx 2 = \log_2 \frac{8}{2}\)</span> bits.</p>
+<p>If symbol <span class="arithmatex">\(s\)</span> occurs <span class="arithmatex">\(n(s)\)</span> times among the <span class="arithmatex">\(N\)</span> symbols of a context, that context costs on average</p>
+<div class="arithmatex">\[
+\sum_s \frac{n(s)}{N} \log_2 \frac{2^p}{\mathit{freq}(s)}
+\]</div>
+<p>bits per symbol.
+It is lowest when <span class="arithmatex">\(\frac{\mathit{freq}(s)}{2^p} = \frac{n(s)}{N}\)</span> for every <span class="arithmatex">\(s\)</span>, and is then the entropy <span class="arithmatex">\(\sum_s \frac{n(s)}{N} \log_2 \frac{N}{n(s)}\)</span>.
+A low precision rounds the frequencies further from the counts and costs more per symbol, and a high one costs more table bits.</p>
+<h4 id="rans-renormalization">Renormalization<a class="headerlink" href="#rans-renormalization" title="Link to this section">&para;</a></h4>
+<p>The state stays in <span class="arithmatex">\([2^{16}, 2^{32})\)</span>.
+The encoder shifts 16-bit words out of the state into its lane, and the decoder shifts them back in.</p>
+<p>Before encoding <span class="arithmatex">\(s\)</span>, the encoder shifts words out until <span class="arithmatex">\(x &lt; \mathit{freq}(s) \cdot 2^{32 - p}\)</span>, so that <span class="arithmatex">\(x' &lt; 2^{32}\)</span>.
+A shift divides <span class="arithmatex">\(x\)</span> by <span class="arithmatex">\(2^{16}\)</span>, and the interval <span class="arithmatex">\([\mathit{freq}(s) \cdot 2^{16 - p}, \mathit{freq}(s) \cdot 2^{32 - p})\)</span> spans exactly that factor.
+So <span class="arithmatex">\(x\)</span> lands in it after a unique number of shifts, and <span class="arithmatex">\(x' \ge 2^{16}\)</span>.</p>
+<p>Decoding from <span class="arithmatex">\(x \ge 2^{16}\)</span> leaves <span class="arithmatex">\(x \ge \mathit{freq}(s) \cdot 2^{16 - p} \ge 2^{16 - p}\)</span>.
+Since <span class="arithmatex">\(p \le 11\)</span>, one refill word brings <span class="arithmatex">\(x\)</span> back to at least <span class="arithmatex">\(2^{16}\)</span>.</p>
+<p><a href="https://arxiv.org/abs/1311.2540"><em>Asymmetric numeral systems</em></a> by Duda proves these properties, and <a href="https://reearth.engineering/posts/r-ans-en/"><em>rANS</em></a> by Re:Earth derives them with small decimal examples.</p>
+<h4 id="rans-runs">Runs<a class="headerlink" href="#rans-runs" title="Link to this section">&para;</a></h4>
+<p>The first vertex of a ring, part or geometry jumps from wherever the previous one ended, and its delta is much larger than the others.
+Such a vertex is encoded in contexts of its own.</p>
+<p>A run is the vertex range
+- of each ring, else
+- of each part, else
+- of each geometry, taken from the deepest offset level the geometry section has.</p>
+<p>A layer with none of the three levels has one run per vertex.
+A vertex starts a run when it is the first of one.
+The runs MUST cover exactly the stream's <code>num_values</code> vertices.
+Because of this, the stream is decoded after the topology streams.</p>
+<h4 id="symbols">Symbols<a class="headerlink" href="#symbols" title="Link to this section">&para;</a></h4>
+<p>Each delta is the wrapping 32-bit difference to the same coordinate of the previous vertex, as in componentwise delta, without ZigZag.</p>
+<p>The symbol keeps the bit length <code>len</code> of the magnitude and the <code>d</code> bits after its leading one.
+<code>d</code> is the stream's mantissa depth, <code>0</code> to <code>2</code>.
+The leading one is implied by <code>len</code>.
+The remaining low bits are the raw bits.
+This is the same split a float makes into exponent, mantissa and dropped precision.</p>
+<p>At depth <code>1</code>:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="14:2"><input checked="checked" id="__tabbed_14_1" name="__tabbed_14" type="radio" /><input id="__tabbed_14_2" name="__tabbed_14" type="radio" /><div class="tabbed-labels"><label for="__tabbed_14_1">Bits</label><label for="__tabbed_14_2">Values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="At depth 1, the deltas 100, 5 and -3 keep their bit length and the bit after the leading one as the symbol, and store the bits below as raw bits: symbols 29, 11 and 10" xmlns="http://www.w3.org/2000/svg">
+<text class="small mid muted" x="152" y="14">implied</text>
+<path class="bracket" d="M130 34V28H174V34"/>
+<text class="small mid t0" x="198" y="14">kept</text>
+<path class="bracket t0" d="M176 34V28H220V34"/>
+<text class="small mid t1" x="336" y="14">raw bits</text>
+<path class="bracket t1" d="M222 34V28H450V34"/>
+<text class="row" x="0" y="54">100</text>
+<rect class="implicit" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell muted" x="152" y="54">1</text>
+<rect class="f0" x="176" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="198" y="54">1</text>
+<rect class="f1" x="222" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="244" y="54">0</text>
+<rect class="f1" x="268" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="290" y="54">0</text>
+<rect class="f1" x="314" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="336" y="54">1</text>
+<rect class="f1" x="360" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="382" y="54">0</text>
+<rect class="f1" x="406" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="428" y="54">0</text>
+<text x="470" y="54">len 7, symbol <tspan class="t0">29</tspan>, raw <tspan class="t1">00100</tspan></text>
+<text class="row" x="0" y="94">5</text>
+<rect class="implicit" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell muted" x="152" y="94">1</text>
+<rect class="f0" x="176" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="198" y="94">0</text>
+<rect class="f1" x="222" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="244" y="94">1</text>
+<text x="470" y="94">len 3, symbol <tspan class="t0">11</tspan>, raw <tspan class="t1">1</tspan></text>
+<text class="row" x="0" y="134">-3</text>
+<rect class="implicit" x="130" y="120" width="44" height="28" rx="3"/>
+<text class="cell muted" x="152" y="134">1</text>
+<rect class="f0" x="176" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="198" y="134">1</text>
+<text x="470" y="134">len 2, symbol <tspan class="t0">10</tspan></text>
+</svg></p>
+</div>
+<div class="tabbed-block">
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Delta</th>
+<th style="text-align: right;">Binary</th>
+<th style="text-align: right;"><code>len</code></th>
+<th style="text-align: right;">Kept bit</th>
+<th style="text-align: right;">Raw bits</th>
+<th style="text-align: right;">Symbol</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><code>0</code></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"><code>0</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"><code>3</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>-1</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"><code>4</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>2</code></td>
+<td style="text-align: right;"><code>10</code></td>
+<td style="text-align: right;"><code>2</code></td>
+<td style="text-align: right;"><code>0</code></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"><code>7</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>3</code></td>
+<td style="text-align: right;"><code>11</code></td>
+<td style="text-align: right;"><code>2</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"><code>9</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>-3</code></td>
+<td style="text-align: right;"><code>11</code></td>
+<td style="text-align: right;"><code>2</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"><code>10</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>5</code></td>
+<td style="text-align: right;"><code>101</code></td>
+<td style="text-align: right;"><code>3</code></td>
+<td style="text-align: right;"><code>0</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"><code>11</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>100</code></td>
+<td style="text-align: right;"><code>1100100</code></td>
+<td style="text-align: right;"><code>7</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"><code>00100</code></td>
+<td style="text-align: right;"><code>29</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<p>Positive deltas get odd symbols and negative ones the even symbol above.
+A magnitude with fewer than <code>d</code> bits after its leading one makes the unused mantissa positions <code>0</code>.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>delta = 0:  symbol 0, no raw bits
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>otherwise:  m = |delta|                       as an unsigned 32-bit value
+</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>            len = bit length of m             1-32
+</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>            k = min(len - 1, d)               mantissa bits the symbol keeps
+</span><span id="__span-32-5"><a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>            raw_bits = len - 1 - k
+</span><span id="__span-32-6"><a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>            mantissa = (m &gt;&gt; raw_bits) &amp; (2^k - 1)
+</span><span id="__span-32-7"><a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a>            code = (len &lt;&lt; d) | (mantissa &lt;&lt; (d - k))
+</span><span id="__span-32-8"><a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a>            symbol = 2 * code - 1 if delta &gt; 0, 2 * code if delta &lt; 0
+</span><span id="__span-32-9"><a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a>            raw = the low raw_bits bits of m
+</span></code></pre></div>
+<p>Decoding reverses it:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>symbol = 0:  delta 0
+</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>otherwise:   code = ceil(symbol / 2)
+</span><span id="__span-33-3"><a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>             len = code &gt;&gt; d
+</span><span id="__span-33-4"><a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>             k = min(len - 1, d)
+</span><span id="__span-33-5"><a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>             raw_bits = len - 1 - k
+</span><span id="__span-33-6"><a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a>             mantissa = (code &amp; (2^d - 1)) &gt;&gt; (d - k)
+</span><span id="__span-33-7"><a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a>             m = ((2^k | mantissa) &lt;&lt; raw_bits) | the next raw_bits raw bits
+</span><span id="__span-33-8"><a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a>             delta = m if symbol is odd, -m if it is even     wrapping, so m = 2^31 is i32::MIN
+</span></code></pre></div>
+<p>Symbols run up to <code>64</code> at depth <code>0</code>, <code>128</code> at depth <code>1</code> and <code>256</code> at depth <code>2</code>, the symbol of <code>i32::MIN</code>.
+The codes above it at depths <code>1</code> and <code>2</code> name no delta.
+A larger depth moves bits from the raw bits into the symbol, where a predictable bit costs less than one, at the price of larger tables.</p>
+<h4 id="contexts">Contexts<a class="headerlink" href="#contexts" title="Link to this section">&para;</a></h4>
+<p>There are 14 contexts, each with its own table:</p>
+<table>
+<thead>
+<tr>
+<th>Context</th>
+<th>Codes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td><code>dx</code> inside a run</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td><code>dx</code> at a run start</td>
+</tr>
+<tr>
+<td><code>2 + 2c + s</code></td>
+<td><code>dy</code>, where <code>c</code> is <code>dx</code>'s <code>len</code> capped at <code>5</code>, <code>0</code> for a zero <code>dx</code>, and <code>s</code> is <code>1</code> at a run start</td>
+</tr>
+</tbody>
+</table>
+<p><code>dx</code> and <code>dy</code> of a vertex tend to be of similar size, so the <code>dy</code> table is picked by how large <code>dx</code> was.</p>
+<p>A polygon with a hole:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 220" role="img" aria-label="A polygon with a hole: the first vertex of each ring starts a run, so its dx is coded in context 1 and the others in context 0, and each dy context comes from the size of the dx before it" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">vertices</text>
+<text class="row" x="0" y="102">dx</text>
+<text class="row" x="0" y="150">dx context</text>
+<text class="row" x="0" y="198">dy context</text>
+<text class="bold mid t0" x="245" y="14">ring 0</text>
+<path class="bracket t0" d="M130 34V28H360V34"/>
+<rect class="f0" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="54">0, 0</text>
+<rect class="plain" x="130" y="88" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="102">0</text>
+<rect class="f0" x="130" y="136" width="56" height="28" rx="3"/>
+<text class="cell bold" x="158" y="150">1</text>
+<rect class="f0" x="130" y="184" width="56" height="28" rx="3"/>
+<text class="cell bold" x="158" y="198">3</text>
+<rect class="f0" x="188" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="216" y="54">8, 0</text>
+<rect class="plain" x="188" y="88" width="56" height="28" rx="3"/>
+<text class="cell" x="216" y="102">8</text>
+<rect class="plain" x="188" y="136" width="56" height="28" rx="3"/>
+<text class="cell" x="216" y="150">0</text>
+<rect class="plain" x="188" y="184" width="56" height="28" rx="3"/>
+<text class="cell" x="216" y="198">10</text>
+<rect class="f0" x="246" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="274" y="54">8, 6</text>
+<rect class="plain" x="246" y="88" width="56" height="28" rx="3"/>
+<text class="cell" x="274" y="102">0</text>
+<rect class="plain" x="246" y="136" width="56" height="28" rx="3"/>
+<text class="cell" x="274" y="150">0</text>
+<rect class="plain" x="246" y="184" width="56" height="28" rx="3"/>
+<text class="cell" x="274" y="198">2</text>
+<rect class="f0" x="304" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="332" y="54">0, 6</text>
+<rect class="plain" x="304" y="88" width="56" height="28" rx="3"/>
+<text class="cell" x="332" y="102">-8</text>
+<rect class="plain" x="304" y="136" width="56" height="28" rx="3"/>
+<text class="cell" x="332" y="150">0</text>
+<rect class="plain" x="304" y="184" width="56" height="28" rx="3"/>
+<text class="cell" x="332" y="198">10</text>
+<text class="bold mid t1" x="448" y="14">ring 1</text>
+<path class="bracket t1" d="M362 34V28H534V34"/>
+<rect class="f1" x="362" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="390" y="54">2, 2</text>
+<rect class="plain" x="362" y="88" width="56" height="28" rx="3"/>
+<text class="cell" x="390" y="102">2</text>
+<rect class="f1" x="362" y="136" width="56" height="28" rx="3"/>
+<text class="cell bold" x="390" y="150">1</text>
+<rect class="f1" x="362" y="184" width="56" height="28" rx="3"/>
+<text class="cell bold" x="390" y="198">7</text>
+<rect class="f1" x="420" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="448" y="54">4, 2</text>
+<rect class="plain" x="420" y="88" width="56" height="28" rx="3"/>
+<text class="cell" x="448" y="102">2</text>
+<rect class="plain" x="420" y="136" width="56" height="28" rx="3"/>
+<text class="cell" x="448" y="150">0</text>
+<rect class="plain" x="420" y="184" width="56" height="28" rx="3"/>
+<text class="cell" x="448" y="198">6</text>
+<rect class="f1" x="478" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="506" y="54">3, 4</text>
+<rect class="plain" x="478" y="88" width="56" height="28" rx="3"/>
+<text class="cell" x="506" y="102">-1</text>
+<rect class="plain" x="478" y="136" width="56" height="28" rx="3"/>
+<text class="cell" x="506" y="150">0</text>
+<rect class="plain" x="478" y="184" width="56" height="28" rx="3"/>
+<text class="cell" x="506" y="198">4</text>
+<polygon class="f0" points="570,40 690,40 690,130 570,130"/>
+<polygon class="f1" points="600,70 630,70 615,100"/>
+<path class="implicit" d="M570 130L600 70"/>
+</svg></p>
+<h4 id="payload">Payload<a class="headerlink" href="#payload" title="Link to this section">&para;</a></h4>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>payload := [u8 depth]           0-2
+</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>           [tables]             bit-packed LSB-first, padded to a byte
+</span><span id="__span-34-3"><a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>           [varint lane_len; 4]
+</span><span id="__span-34-4"><a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a>           [lane; 4]
+</span><span id="__span-34-5"><a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>           [raw bits]           LSB-first, padded to a byte
+</span></code></pre></div>
+<p>The tables are one per context, in context order:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>table := [1 bit present]
+</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>         if present:
+</span><span id="__span-35-3"><a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>           [4 bits precision]   0-11
+</span><span id="__span-35-4"><a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>           [9 bits max_symbol]  0-256
+</span><span id="__span-35-5"><a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a>           if precision &gt; 0:
+</span><span id="__span-35-6"><a id="__codelineno-35-6" name="__codelineno-35-6" href="#__codelineno-35-6"></a>             [gamma(freq + 1)] for every symbol 0..=max_symbol
+</span></code></pre></div>
+<p><code>gamma(v)</code> is Elias gamma, LSB-first: <code>z</code> zero bits, a one bit, then the low <code>z</code> bits of <code>v</code>, where <code>z</code> is the bit length of <code>v</code> minus one.
+A zero frequency is <code>gamma(1)</code>, a single one bit.
+<code>z</code> above <code>12</code> MUST be rejected.</p>
+<p>A table of precision <code>0</code> has no frequencies on the wire.
+Its only symbol is <code>max_symbol</code>, with frequency <code>1</code>.</p>
+<p>The frequencies MUST sum to <code>2^precision</code>, the frequency of <code>max_symbol</code> MUST be non-zero, and a symbol with a non-zero frequency MUST be one some delta maps to at the stream's depth.</p>
+<h4 id="lanes">Lanes<a class="headerlink" href="#lanes" title="Link to this section">&para;</a></h4>
+<p>Four rANS states decode in parallel, each with a lane of its own.
+Vertex <code>i</code> codes <code>dx</code> on lane <code>2 * (i mod 2)</code> and <code>dy</code> on lane <code>2 * (i mod 2) + 1</code>, so even vertices use lanes <code>0</code> and <code>1</code>, and odd vertices lanes <code>2</code> and <code>3</code>.
+A lane is its state's initial value as a little-endian <code>u32</code>, then the little-endian <code>u16</code> refill words in the order they are read.
+Its length MUST be even and at least <code>4</code>.</p>
+<p>The raw bits are one stream shared by all lanes, read in vertex order: <code>dx</code>'s raw bits, then <code>dy</code>'s.</p>
+<p>The symbols and raw bits of the example below:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 282" role="img" aria-label="The vertices (100, 200), (105, 210), (102, 215): even vertices code dx and dy on lanes 0 and 1, the odd vertex on lanes 2 and 3, and every delta's raw bits go to one shared stream in vertex order" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="110">lane 0</text>
+<text class="row" x="0" y="144">lane 1</text>
+<text class="row" x="0" y="178">lane 2</text>
+<text class="row" x="0" y="212">lane 3</text>
+<text class="row" x="0" y="54">deltas</text>
+<text class="row" x="0" y="260">raw bits</text>
+<text class="bold mid t0" x="195" y="14">vertex 0</text>
+<path class="bracket t0" d="M130 34V28H260V34"/>
+<rect class="f0" x="130" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="162" y="54">dx 100</text>
+<path class="link" d="M162 68V96"/>
+<rect class="f0" x="130" y="96" width="64" height="28" rx="3"/>
+<text class="cell" x="162" y="110">29</text>
+<rect class="f0" x="130" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="162" y="260">00100</text>
+<rect class="f0" x="196" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="228" y="54">dy 200</text>
+<path class="link" d="M228 68V130"/>
+<rect class="f0" x="196" y="130" width="64" height="28" rx="3"/>
+<text class="cell" x="228" y="144">33</text>
+<rect class="f0" x="196" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="228" y="260">001000</text>
+<text class="bold mid t1" x="343" y="14">vertex 1</text>
+<path class="bracket t1" d="M278 34V28H408V34"/>
+<rect class="f1" x="278" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="310" y="54">dx 5</text>
+<path class="link" d="M310 68V164"/>
+<rect class="f1" x="278" y="164" width="64" height="28" rx="3"/>
+<text class="cell" x="310" y="178">11</text>
+<rect class="f1" x="278" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="310" y="260">1</text>
+<rect class="f1" x="344" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="376" y="54">dy 10</text>
+<path class="link" d="M376 68V198"/>
+<rect class="f1" x="344" y="198" width="64" height="28" rx="3"/>
+<text class="cell" x="376" y="212">15</text>
+<rect class="f1" x="344" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="376" y="260">10</text>
+<text class="bold mid t0" x="491" y="14">vertex 2</text>
+<path class="bracket t0" d="M426 34V28H556V34"/>
+<rect class="f0" x="426" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="458" y="54">dx -3</text>
+<path class="link" d="M458 68V96"/>
+<rect class="f0" x="426" y="96" width="64" height="28" rx="3"/>
+<text class="cell" x="458" y="110">10</text>
+<rect class="implicit" x="426" y="246" width="64" height="28" rx="3"/>
+<rect class="f0" x="492" y="40" width="64" height="28" rx="3"/>
+<text class="cell" x="524" y="54">dy 5</text>
+<path class="link" d="M524 68V130"/>
+<rect class="f0" x="492" y="130" width="64" height="28" rx="3"/>
+<text class="cell" x="524" y="144">11</text>
+<rect class="f0" x="492" y="246" width="64" height="28" rx="3"/>
+<text class="cell" x="524" y="260">1</text>
+</svg></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>x_prev = y_prev = 0
+</span><span id="__span-36-2"><a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>for i in 0..vertex_count:
+</span><span id="__span-36-3"><a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>    s  = 1 if vertex i starts a run, else 0
+</span><span id="__span-36-4"><a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a>    a  = 2 * (i mod 2)
+</span><span id="__span-36-5"><a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a>    sx = decode a symbol on lane a,     from context s
+</span><span id="__span-36-6"><a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a>    sy = decode a symbol on lane a + 1, from context 2 + 2 * min(ceil(sx / 2) &gt;&gt; d, 5) + s
+</span><span id="__span-36-7"><a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a>    x_prev = x_prev + delta(sx)           reads dx's raw bits, wrapping
+</span><span id="__span-36-8"><a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a>    y_prev = y_prev + delta(sy)           reads dy's raw bits, wrapping
+</span><span id="__span-36-9"><a id="__codelineno-36-9" name="__codelineno-36-9" href="#__codelineno-36-9"></a>    output x_prev, y_prev
+</span></code></pre></div>
+<p>A decoder MUST reject a symbol from a context without a table, a lane that does not end on state <code>2^16</code> with every word read, and raw bits whose byte length is not exactly the one the raw bits read need.</p>
+<h4 id="rans-encoding">Encoding<a class="headerlink" href="#rans-encoding" title="Link to this section">&para;</a></h4>
+<p>rANS is last in, first out, so an encoder codes each lane's symbols in reverse, starting every state at <code>2^16</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>while x &gt;= freq(s) * 2^(32 - p): emit x &amp; 0xFFFF; x = x &gt;&gt; 16
+</span><span id="__span-37-2"><a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>x = ((x / freq(s)) &lt;&lt; p) + x mod freq(s) + cum(s)
+</span></code></pre></div>
+<p>A lane is the final state, then the emitted words in reverse order.
+The final state is where decoding starts, and decoding every symbol returns it to <code>2^16</code>.</p>
+<p>An encoder SHOULD pick the depth and precisions that make the stream shortest, and SHOULD compare its stored size with componentwise delta.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<p>The vertices <code>(100, 200)</code>, <code>(105, 210)</code>, <code>(102, 215)</code> as one run, at depth <code>1</code>:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Vertex</th>
+<th style="text-align: right;">Lanes</th>
+<th style="text-align: right;"><code>dx</code></th>
+<th style="text-align: right;">Symbol</th>
+<th style="text-align: right;">Context</th>
+<th style="text-align: right;">Raw bits</th>
+<th style="text-align: right;"><code>dy</code></th>
+<th style="text-align: right;">Symbol</th>
+<th style="text-align: right;">Context</th>
+<th style="text-align: right;">Raw bits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><code>0</code></td>
+<td style="text-align: right;"><code>0</code>, <code>1</code></td>
+<td style="text-align: right;"><code>100</code></td>
+<td style="text-align: right;"><code>29</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"><code>00100</code></td>
+<td style="text-align: right;"><code>200</code></td>
+<td style="text-align: right;"><code>33</code></td>
+<td style="text-align: right;"><code>13</code></td>
+<td style="text-align: right;"><code>001000</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"><code>2</code>, <code>3</code></td>
+<td style="text-align: right;"><code>5</code></td>
+<td style="text-align: right;"><code>11</code></td>
+<td style="text-align: right;"><code>0</code></td>
+<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"><code>10</code></td>
+<td style="text-align: right;"><code>15</code></td>
+<td style="text-align: right;"><code>8</code></td>
+<td style="text-align: right;"><code>10</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>2</code></td>
+<td style="text-align: right;"><code>0</code>, <code>1</code></td>
+<td style="text-align: right;"><code>-3</code></td>
+<td style="text-align: right;"><code>10</code></td>
+<td style="text-align: right;"><code>0</code></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"><code>5</code></td>
+<td style="text-align: right;"><code>11</code></td>
+<td style="text-align: right;"><code>6</code></td>
+<td style="text-align: right;"><code>1</code></td>
+</tr>
+</tbody>
+</table>
+<p>Context <code>0</code> holds symbols <code>10</code> and <code>11</code>, once each, and gets precision <code>1</code> with one slot per symbol.
+Contexts <code>1</code>, <code>6</code>, <code>8</code> and <code>13</code> hold a single symbol each and get precision <code>0</code>.
+The other nine contexts are absent.</p>
+<p>Only context <code>0</code> changes a state.
+Lane <code>0</code> starts at <code>0x20000</code>, decodes <code>29</code> for free, then slot <code>0x20000 &amp; 1 = 0</code>, symbol <code>10</code>, and ends on <code>1 * (0x20000 &gt;&gt; 1) + 0 - 0 = 0x10000</code>.
+Lane <code>2</code> starts at <code>0x20001</code>, slot <code>1</code>, symbol <code>11</code>, and ends on <code>1 * 0x10000 + 1 - 1 = 0x10000</code>.
+Lanes <code>1</code> and <code>3</code> start and end at <code>0x10000</code>.
+No state drops below <code>2^16</code>, so no lane has refill words.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>depth:    01
+</span><span id="__span-38-2"><a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>tables:   63 C1 FF 52 E8 00 61 81 F0 00 42 08     95 bits, padded
+</span><span id="__span-38-3"><a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>lanes:    04 04 04 04                            four lanes of 4 bytes
+</span><span id="__span-38-4"><a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a>          00 00 02 00                            lane 0: 0x00020000
+</span><span id="__span-38-5"><a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a>          00 00 01 00                            lane 1: 0x00010000
+</span><span id="__span-38-6"><a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a>          01 00 02 00                            lane 2: 0x00020001
+</span><span id="__span-38-7"><a id="__codelineno-38-7" name="__codelineno-38-7" href="#__codelineno-38-7"></a>          00 00 01 00                            lane 3: 0x00010000
+</span><span id="__span-38-8"><a id="__codelineno-38-8" name="__codelineno-38-8" href="#__codelineno-38-8"></a>raw bits: 04 69                                  15 bits: 4, 8, 1, 2, 1, padded
+</span></code></pre></div>
+</div>
 
 
 

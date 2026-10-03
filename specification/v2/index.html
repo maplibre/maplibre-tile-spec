@@ -4341,7 +4341,7 @@ On logical <code>None</code> the payload is the elements as they are, so that pa
 </table>
 <p>A byte blob takes its count from <code>byte_length</code>, so it MUST NOT use the pattern.
 Every other logical encoding that reads the physical field MUST reject it.
-<code>RLE</code>, <code>DeltaRLE</code> and <code>BitPacked</code> reserve the field as <code>0</code> and still write <code>byte_length</code>.
+<code>RLE</code>, <code>DeltaRLE</code>, <code>BitPacked</code> and <code>rANS</code> reserve the field as <code>0</code> and still write <code>byte_length</code>.
 An encoder SHOULD use it wherever it is allowed, since it is one varint shorter.</p>
 <h3 id="families">Families<a class="headerlink" href="#families" title="Link to this section">&para;</a></h3>
 <p>The logical encodings available to a stream depend on what it holds.
@@ -4408,7 +4408,7 @@ Each family numbers its own members from <code>0</code>.</p>
 <td>Componentwise Delta</td>
 <td>Morton</td>
 <td><a href="../../encodings/#componentwise-delta2">Componentwise Delta2</a></td>
-<td></td>
+<td><a href="../../encodings/#rans">rANS</a></td>
 </tr>
 <tr>
 <td><strong>Bytes</strong></td>
@@ -4479,7 +4479,7 @@ A code not listed for the stream's family MUST be rejected.</p>
 </tr>
 </tbody>
 </table>
-<p><code>RLE</code>, <code>DeltaRLE</code> and <code>BitPacked</code> define their own physical layout.
+<p><code>RLE</code>, <code>DeltaRLE</code>, <code>BitPacked</code> and <code>rANS</code> define their own physical layout.
 The physical field MUST be <code>0</code> for them.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

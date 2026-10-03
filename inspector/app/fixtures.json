@@ -20355,6 +20355,37 @@
     }
   },
   {
+    "name": "line_diagonal_rans.mlt",
+    "directory": "0x02",
+    "bytes": 56,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string"
+      ],
+      "geomLayout": [
+        "lines"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "rans"
+      ]
+    }
+  },
+  {
     "name": "line_morton_curve_morton.mlt",
     "directory": "0x02",
     "bytes": 44,
@@ -20415,6 +20446,99 @@
       ],
       "logical": [
         "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "line_morton_curve_rans.mlt",
+    "directory": "0x02",
+    "bytes": 63,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string"
+      ],
+      "geomLayout": [
+        "lines"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "rans"
+      ]
+    }
+  },
+  {
+    "name": "line_rans.mlt",
+    "directory": "0x02",
+    "bytes": 56,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string"
+      ],
+      "geomLayout": [
+        "lines"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "rans"
+      ]
+    }
+  },
+  {
+    "name": "line_wandering_rans.mlt",
+    "directory": "0x02",
+    "bytes": 86,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string"
+      ],
+      "geomLayout": [
+        "lines"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "rans"
       ]
     }
   },
@@ -28592,6 +28716,41 @@
     }
   },
   {
+    "name": "mix_pt_line_polyh_rans.mlt",
+    "directory": "0x02",
+    "bytes": 83,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "polygons"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]",
+        "length[rings]",
+        "length[var-binary]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "rans"
+      ]
+    }
+  },
+  {
     "name": "multiline.mlt",
     "directory": "0x02",
     "bytes": 36,
@@ -28654,6 +28813,40 @@
       "logical": [
         "delta-rle",
         "morton-delta"
+      ]
+    }
+  },
+  {
+    "name": "multiline_rans.mlt",
+    "directory": "0x02",
+    "bytes": 81,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string"
+      ],
+      "geomLayout": [
+        "multi-lines"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[var-binary]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "rans"
       ]
     }
   },
@@ -30246,6 +30439,34 @@
     }
   },
   {
+    "name": "point_rans.mlt",
+    "directory": "0x02",
+    "bytes": 42,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "point"
+      ],
+      "geomLayout": [
+        "points"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]"
+      ],
+      "physical": [],
+      "logical": [
+        "rans"
+      ]
+    }
+  },
+  {
     "name": "poly.mlt",
     "directory": "0x02",
     "bytes": 28,
@@ -30508,6 +30729,38 @@
     }
   },
   {
+    "name": "poly_hole_rans.mlt",
+    "directory": "0x02",
+    "bytes": 69,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "polygons"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]",
+        "length[rings]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "rans"
+      ]
+    }
+  },
+  {
     "name": "poly_hole_tes.mlt",
     "directory": "0x02",
     "bytes": 63,
@@ -30539,6 +30792,41 @@
       ],
       "logical": [
         "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "poly_hole_tes_rans.mlt",
+    "directory": "0x02",
+    "bytes": 96,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "rans"
       ]
     }
   },
