@@ -7,25 +7,13 @@ use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
-use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles, load_tiles, total_bytes};
+use bench_utils::{
+    BENCHMARKED_ZOOM_LEVELS, compress_gzip, decompress_gzip, load_mlt_tiles, load_tiles,
+    mvt_decode, total_bytes,
+};
 
 fn load_proto_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
     load_tiles(zoom, "fixtures/omt", ".mvt")
-}
-
-fn compress_gzip(data: &[u8]) -> Vec<u8> {
-    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-    encoder.write_all(data).expect("gzip compress failed");
-    encoder.finish().expect("gzip finish failed")
-}
-
-fn decompress_gzip(data: &[u8]) -> Vec<u8> {
-    let mut decoder = flate2::read::GzDecoder::new(data);
-    let mut out = Vec::new();
-    decoder
-        .read_to_end(&mut out)
-        .expect("gzip decompress failed");
-    out
 }
 
 fn compress_zstd(data: &[u8]) -> Vec<u8> {
@@ -67,18 +55,6 @@ fn compress_tiles(
 fn mvt_parse(data: &[u8]) {
     let reader =
         fast_mvt::MvtReaderRef::new(black_box(data)).expect("mvt reader construction failed");
-    let _ = black_box(reader);
-}
-
-fn mvt_decode(data: &[u8]) {
-    let reader =
-        fast_mvt::MvtReaderRef::new(black_box(data)).expect("mvt reader construction failed");
-    for layer in reader.layers() {
-        for feature in layer.features() {
-            let _ = black_box(feature.properties_vec().expect("mvt properties failed"));
-            let _ = black_box(feature.geometry().expect("mvt geometry failed"));
-        }
-    }
     let _ = black_box(reader);
 }
 
