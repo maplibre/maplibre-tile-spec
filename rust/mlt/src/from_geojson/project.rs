@@ -94,20 +94,28 @@ impl Projector {
     /// `GeometryCollection`, which MLT has no geometry type for, is an error.
     pub fn project(&mut self, value: &GeometryValue) -> AnyResult<Geom> {
         Ok(match value {
-            GeometryValue::Point { coordinates } => Geom::Point(self.position(coordinates)?),
-            GeometryValue::MultiPoint { coordinates } => Geom::MultiPoint(self.line(coordinates)?),
-            GeometryValue::LineString { coordinates } => Geom::LineString(self.line(coordinates)?),
+            GeometryValue::Point { coordinates } => {
+                Geom::Point(self.project_position(coordinates)?)
+            }
+            GeometryValue::MultiPoint { coordinates } => {
+                Geom::MultiPoint(self.project_line(coordinates)?)
+            }
+            GeometryValue::LineString { coordinates } => {
+                Geom::LineString(self.project_line(coordinates)?)
+            }
             GeometryValue::MultiLineString { coordinates } => Geom::MultiLineString(
                 coordinates
                     .iter()
-                    .map(|l| self.line(l))
+                    .map(|l| self.project_line(l))
                     .collect::<AnyResult<_>>()?,
             ),
-            GeometryValue::Polygon { coordinates } => Geom::Polygon(self.rings(coordinates)?),
+            GeometryValue::Polygon { coordinates } => {
+                Geom::Polygon(self.project_rings(coordinates)?)
+            }
             GeometryValue::MultiPolygon { coordinates } => Geom::MultiPolygon(
                 coordinates
                     .iter()
-                    .map(|p| self.rings(p))
+                    .map(|p| self.project_rings(p))
                     .collect::<AnyResult<_>>()?,
             ),
             GeometryValue::GeometryCollection { .. } => {
@@ -116,18 +124,18 @@ impl Projector {
         })
     }
 
-    fn line(&mut self, line: &[Position]) -> AnyResult<Vec<Vertex>> {
-        line.iter().map(|p| self.position(p)).collect()
+    fn project_line(&mut self, line: &[Position]) -> AnyResult<Vec<Vertex>> {
+        line.iter().map(|p| self.project_position(p)).collect()
     }
 
-    fn rings(&mut self, rings: &[Vec<Position>]) -> AnyResult<Vec<Vec<Vertex>>> {
-        rings.iter().map(|r| self.line(r)).collect()
+    fn project_rings(&mut self, rings: &[Vec<Position>]) -> AnyResult<Vec<Vec<Vertex>>> {
+        rings.iter().map(|r| self.project_line(r)).collect()
     }
 
     /// Project one position. It must hold a longitude in `-180..=180` and a
     /// latitude in `-90..=90`. An altitude is mapped onto the z grid when the
     /// layer has one and must fit it; a fourth (`m`) value is ignored.
-    fn position(&mut self, pos: &Position) -> AnyResult<Vertex> {
+    fn project_position(&mut self, pos: &Position) -> AnyResult<Vertex> {
         let s = pos.as_slice();
         let [lon, lat, rest @ ..] = s else {
             bail!("position {s:?} has fewer than two coordinates");
