@@ -68,10 +68,14 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
         // Decode all columns at once, then clone the geometry, already columnar, before the
         // layer is consumed into its tile.
         let decoded = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
-        let (parsed_geometry, tile) = match decoded {
-            ParsedLayer::Tag01(l) => (l.geometry_values().clone(), l.into_tile(&mut dec)),
+        let (parsed_geometry, geo_layout, tile) = match decoded {
+            ParsedLayer::Tag01(l) => (l.geometry_values().clone(), None, l.into_tile(&mut dec)),
             #[cfg(feature = "unstable-v2")]
-            ParsedLayer::Tag02(l) => (l.layer().geometry_values().clone(), l.into_tile(&mut dec)),
+            ParsedLayer::Tag02(l) => (
+                l.layer().geometry_values().clone(),
+                Some(l.layout().geometry),
+                l.into_tile(&mut dec),
+            ),
             _ => continue,
         };
         let tile = tile.map_err(|e| to_js_err(&e))?;
@@ -98,6 +102,7 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             types_array,
             mlt_types_array,
             geometry: parsed_geometry,
+            geo_layout,
         });
     }
 

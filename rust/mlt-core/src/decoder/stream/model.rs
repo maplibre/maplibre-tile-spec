@@ -256,6 +256,8 @@ pub enum VertexLogical {
     /// Componentwise deltas of the componentwise deltas.
     ComponentwiseDelta2,
     MortonDelta(Morton),
+    /// rANS over componentwise deltas, coded per run of the layer's topology.
+    Rans,
     /// Interleaved `(x, y, z)` triples, whose z lie on the grid of the step.
     #[cfg(feature = "unstable-v2")]
     Xyz(ZStep, XyzLogical),
@@ -266,7 +268,11 @@ impl VertexLogical {
     #[must_use]
     pub fn words_per_vertex(self) -> u32 {
         match self {
-            Self::None | Self::Delta | Self::ComponentwiseDelta | Self::ComponentwiseDelta2 => 2,
+            Self::None
+            | Self::Delta
+            | Self::ComponentwiseDelta
+            | Self::ComponentwiseDelta2
+            | Self::Rans => 2,
             Self::MortonDelta(_) => 1,
             #[cfg(feature = "unstable-v2")]
             Self::Xyz(..) => 3,
@@ -605,6 +611,7 @@ impl Display for LogicalEncoding {
                     VertexLogical::ComponentwiseDelta => "componentwise-delta",
                     VertexLogical::ComponentwiseDelta2 => "componentwise-delta2",
                     VertexLogical::MortonDelta(_) => "morton-delta",
+                    VertexLogical::Rans => "rans",
                     #[cfg(feature = "unstable-v2")]
                     VertexLogical::Xyz(_, XyzLogical::None) => "xyz-none",
                     #[cfg(feature = "unstable-v2")]

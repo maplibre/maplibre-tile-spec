@@ -1,0 +1,125 @@
+<svg class="mlt-diagram" viewBox="0 0 710 221" role="img" aria-label="The ALP scale byte numbers the valid (e, f) pairs row by row: row e starts at e(e+1)/2, and (18, 18) is 189" xmlns="http://www.w3.org/2000/svg">
+<text class="small muted" x="0" y="10">f</text>
+<text class="small muted mid" x="77" y="10">0</text>
+<text class="small muted mid" x="109" y="10">1</text>
+<text class="small muted mid" x="141" y="10">2</text>
+<text class="small muted mid" x="173" y="10">3</text>
+<text class="small muted mid" x="205" y="10">4</text>
+<text class="small muted mid" x="237" y="10">5</text>
+<text class="small muted mid" x="269" y="10">6</text>
+<text class="small muted mid" x="301" y="10">7</text>
+<text class="small muted mid" x="333" y="10">8</text>
+<text class="small muted mid" x="365" y="10">9</text>
+<text class="small muted mid" x="397" y="10">10</text>
+<text class="small muted mid" x="429" y="10">11</text>
+<text class="small muted mid" x="461" y="10">12</text>
+<text class="small muted mid" x="493" y="10">13</text>
+<text class="small muted mid" x="525" y="10">14</text>
+<text class="small muted mid" x="557" y="10">15</text>
+<text class="small muted mid" x="589" y="10">16</text>
+<text class="small muted mid" x="621" y="10">17</text>
+<text class="small muted mid" x="653" y="10">18</text>
+<text class="small" x="0" y="34">e = 0</text>
+<rect class="plain" x="62" y="24" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="34">0</text>
+<text class="small" x="0" y="56">e = 1</text>
+<rect class="plain" x="62" y="46" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="56">1</text>
+<rect class="plain" x="94" y="46" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="56">2</text>
+<text class="small" x="0" y="78">e = 2</text>
+<rect class="plain" x="62" y="68" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="78">3</text>
+<rect class="plain" x="94" y="68" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="78">4</text>
+<rect class="plain" x="126" y="68" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="78">5</text>
+<text class="small" x="0" y="100">e = 3</text>
+<rect class="plain" x="62" y="90" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="100">6</text>
+<rect class="plain" x="94" y="90" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="100">7</text>
+<rect class="plain" x="126" y="90" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="100">8</text>
+<rect class="plain" x="158" y="90" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="100">9</text>
+<text class="small" x="0" y="122">e = 4</text>
+<rect class="plain" x="62" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="122">10</text>
+<rect class="plain" x="94" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="122">11</text>
+<rect class="plain" x="126" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="122">12</text>
+<rect class="plain" x="158" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="122">13</text>
+<rect class="plain" x="190" y="112" width="30" height="20" rx="3"/>
+<text class="cell small" x="205" y="122">14</text>
+<text class="small" x="0" y="144">e = 5</text>
+<rect class="plain" x="62" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="144">15</text>
+<rect class="plain" x="94" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="144">16</text>
+<rect class="plain" x="126" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="144">17</text>
+<rect class="plain" x="158" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="144">18</text>
+<rect class="plain" x="190" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="205" y="144">19</text>
+<rect class="plain" x="222" y="134" width="30" height="20" rx="3"/>
+<text class="cell small" x="237" y="144">20</text>
+<text class="small" x="0" y="166">e = 6</text>
+<rect class="plain" x="62" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="166">21</text>
+<rect class="plain" x="94" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="166">22</text>
+<rect class="plain" x="126" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="166">23</text>
+<rect class="plain" x="158" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="166">24</text>
+<rect class="plain" x="190" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="205" y="166">25</text>
+<rect class="plain" x="222" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="237" y="166">26</text>
+<rect class="plain" x="254" y="156" width="30" height="20" rx="3"/>
+<text class="cell small" x="269" y="166">27</text>
+<text class="muted mid" x="77" y="188">⋮</text>
+<text class="small" x="0" y="210">e = 18</text>
+<rect class="plain" x="62" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="77" y="210">171</text>
+<rect class="plain" x="94" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="109" y="210">172</text>
+<rect class="plain" x="126" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="141" y="210">173</text>
+<rect class="plain" x="158" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="173" y="210">174</text>
+<rect class="plain" x="190" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="205" y="210">175</text>
+<rect class="plain" x="222" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="237" y="210">176</text>
+<rect class="plain" x="254" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="269" y="210">177</text>
+<rect class="plain" x="286" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="301" y="210">178</text>
+<rect class="plain" x="318" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="333" y="210">179</text>
+<rect class="plain" x="350" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="365" y="210">180</text>
+<rect class="plain" x="382" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="397" y="210">181</text>
+<rect class="plain" x="414" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="429" y="210">182</text>
+<rect class="plain" x="446" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="461" y="210">183</text>
+<rect class="plain" x="478" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="493" y="210">184</text>
+<rect class="plain" x="510" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="525" y="210">185</text>
+<rect class="plain" x="542" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="557" y="210">186</text>
+<rect class="plain" x="574" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="589" y="210">187</text>
+<rect class="plain" x="606" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="621" y="210">188</text>
+<rect class="plain" x="638" y="200" width="30" height="20" rx="3"/>
+<text class="cell small" x="653" y="210">189</text>
+</svg>
