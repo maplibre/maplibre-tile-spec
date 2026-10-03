@@ -127,6 +127,14 @@ function getGeometry(feature: MltFeature): GeoJSON.Geometry {
   const position = (p: { x: number; y: number }): number[] =>
     z === undefined ? [p.x, p.y] : [p.x, p.y, z[next++]];
   const lines = () => feature.loadGeometry().map((ring) => ring.map(position));
+
+  // TODO: The closing point has no stored z. This is a workaround by copying the first coordinate instead of reading one.
+  // Probably, this should be properly handled on the API's side.
+  const ringCoordinates = (ring: { x: number; y: number }[]): number[][] => {
+    const coordinates = ring.slice(0, -1).map(position);
+    return [...coordinates, [...coordinates[0]]];
+  };
+
   switch (feature.mltType) {
     case MltGeometryType.Point:
       return { type: "Point", coordinates: lines()[0][0] };
@@ -140,30 +148,17 @@ function getGeometry(feature: MltFeature): GeoJSON.Geometry {
       const polygons = feature.loadPolygons();
       return {
         type: "Polygon",
-        coordinates: polygons[0].map((ring) => closeRing(ring.map(position))),
+        coordinates: polygons[0].map(ringCoordinates),
       };
     }
     case MltGeometryType.MultiPolygon: {
       const polygons = feature.loadPolygons();
       return {
         type: "MultiPolygon",
-        coordinates: polygons.map((polygon) =>
-          polygon.map((ring) => closeRing(ring.map(position))),
-        ),
+        coordinates: polygons.map((polygon) => polygon.map(ringCoordinates)),
       };
     }
     default:
       throw new Error(`Unsupported MLT geometry type: ${feature.mltType}`);
   }
-}
-
-/** GeoJSON polygons must have their first and last coordinate identical. */
-function closeRing(ring: number[][]): number[][] {
-  if (ring.length === 0) return ring;
-  const first = ring[0];
-  const last = ring[ring.length - 1];
-  if (first[0] !== last[0] || first[1] !== last[1]) {
-    return [...ring, [...first]];
-  }
-  return ring;
 }
