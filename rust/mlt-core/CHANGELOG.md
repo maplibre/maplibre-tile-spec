@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.18.0...rust-mlt-core-v0.19.0) - 2026-10-02
+
+### Other
+
+- Add worst-case openmaptiles mvts ([#159](https://github.com/maplibre/maplibre-tile-spec/pull/159))
+- *(docs)* show fsst data in inspector ([#1825](https://github.com/maplibre/maplibre-tile-spec/pull/1825))
+
 ## [0.18.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.17.0...rust-mlt-core-v0.18.0) - 2026-10-02
 
 ### Added

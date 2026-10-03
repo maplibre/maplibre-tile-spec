@@ -1,0 +1,38 @@
+<svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="At depth 1, the deltas 100, 5 and -3 keep their bit length and the bit after the leading one as the symbol, and store the bits below as raw bits: symbols 29, 11 and 10" xmlns="http://www.w3.org/2000/svg">
+<text class="small mid muted" x="152" y="14">implied</text>
+<path class="bracket" d="M130 34V28H174V34"/>
+<text class="small mid t0" x="198" y="14">kept</text>
+<path class="bracket t0" d="M176 34V28H220V34"/>
+<text class="small mid t1" x="336" y="14">raw bits</text>
+<path class="bracket t1" d="M222 34V28H450V34"/>
+<text class="row" x="0" y="54">100</text>
+<rect class="implicit" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell muted" x="152" y="54">1</text>
+<rect class="f0" x="176" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="198" y="54">1</text>
+<rect class="f1" x="222" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="244" y="54">0</text>
+<rect class="f1" x="268" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="290" y="54">0</text>
+<rect class="f1" x="314" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="336" y="54">1</text>
+<rect class="f1" x="360" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="382" y="54">0</text>
+<rect class="f1" x="406" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="428" y="54">0</text>
+<text x="470" y="54">len 7, symbol <tspan class="t0">29</tspan>, raw <tspan class="t1">00100</tspan></text>
+<text class="row" x="0" y="94">5</text>
+<rect class="implicit" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell muted" x="152" y="94">1</text>
+<rect class="f0" x="176" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="198" y="94">0</text>
+<rect class="f1" x="222" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="244" y="94">1</text>
+<text x="470" y="94">len 3, symbol <tspan class="t0">11</tspan>, raw <tspan class="t1">1</tspan></text>
+<text class="row" x="0" y="134">-3</text>
+<rect class="implicit" x="130" y="120" width="44" height="28" rx="3"/>
+<text class="cell muted" x="152" y="134">1</text>
+<rect class="f0" x="176" y="120" width="44" height="28" rx="3"/>
+<text class="cell" x="198" y="134">1</text>
+<text x="470" y="134">len 2, symbol <tspan class="t0">10</tspan></text>
+</svg>

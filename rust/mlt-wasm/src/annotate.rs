@@ -1,4 +1,4 @@
-use mlt_core::dump::{DecodedBlob, DumpTree, annotate_tile, decode_blob, filter_layer};
+use mlt_core::dump::{DumpTree, annotate_tile, decode_region, filter_layer};
 use mlt_core::{Decoder, MltError};
 use serde_wasm_bindgen::Serializer;
 use wasm_bindgen::prelude::*;
@@ -79,21 +79,18 @@ impl AnnotatedTile {
         region_index: usize,
         max_values: usize,
     ) -> Result<JsValue, JsError> {
-        let region = self
-            .tree
-            .regions
-            .get(region_index)
-            .ok_or_else(|| JsError::new(&format!("the tree has no region {region_index}")))?;
-        let bytes = self.buf.get(region.offset..region.offset + region.len);
-        let decoded = match (region.blob, bytes) {
-            (Some(info), Some(bytes)) => decode_blob(info, bytes, max_values, &mut self.dec),
-            (None, _) => DecodedBlob::Error {
-                message: format!("region {region_index} carries no stream metadata"),
-            },
-            (_, None) => DecodedBlob::Error {
-                message: format!("region {region_index} lies outside the tile buffer"),
-            },
-        };
+        if region_index >= self.tree.regions.len() {
+            return Err(JsError::new(&format!(
+                "the tree has no region {region_index}"
+            )));
+        }
+        let decoded = decode_region(
+            &self.tree,
+            &self.buf,
+            region_index,
+            max_values,
+            &mut self.dec,
+        );
         to_js(&decoded)
     }
 }

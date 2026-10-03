@@ -1338,13 +1338,15 @@ checksum = "4f551b382f601850b4f57052d064d1c60dca971aeee4ccb40ac103b87f766640"
 
 [[package]]
 name = "fastpfor"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee8745e6c28edcc26071eb000703397a06de5e08d71ab48de3158703e5b680fb"
+checksum = "f2434ebf43a2a3513a89c26990d3d5f3e3799d6c83ebc7a76ee2a5d814828d8c"
 dependencies = [
  "bytemuck",
  "bytes",
+ "num-traits",
  "thiserror 2.0.21",
+ "wide 0.7.33",
 ]
 
 [[package]]
@@ -2523,9 +2525,9 @@ checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 
 [[package]]
 name = "libc"
-version = "0.2.189"
+version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
+checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
 
 [[package]]
 name = "libm"
@@ -2793,7 +2795,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2833,7 +2835,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "arbitrary",
  "bitvec",
@@ -2867,14 +2869,14 @@ dependencies = [
  "thiserror 2.0.21",
  "union-find",
  "usize_cast",
- "wide",
+ "wide 1.7.1",
  "zigzag",
  "zstd",
 ]
 
 [[package]]
 name = "mlt-ffi"
-version = "0.1.29"
+version = "0.1.30"
 dependencies = [
  "diplomat",
  "diplomat-runtime",
@@ -2883,7 +2885,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "mlt-core",
  "pyo3",
@@ -2904,7 +2906,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-wasm"
-version = "0.1.35"
+version = "0.1.36"
 dependencies = [
  "js-sys",
  "minicov",
@@ -4492,6 +4494,15 @@ name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
+
+[[package]]
+name = "safe_arch"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96b02de82ddbe1b636e6170c21be622223aea188ef2e139be0a5b219ec215323"
+dependencies = [
+ "bytemuck",
+]
 
 [[package]]
 name = "safe_arch"
@@ -6221,12 +6232,22 @@ checksum = "626c4bac6755d76ffc12cb01b2eac751db1996b9e0041de9aa02c8c211ddc82c"
 
 [[package]]
 name = "wide"
+version = "0.7.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce5da8ecb62bcd8ec8b7ea19f69a51275e91299be594ea5cc6ef7819e16cd03"
+dependencies = [
+ "bytemuck",
+ "safe_arch 0.7.4",
+]
+
+[[package]]
+name = "wide"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d920ac99c3c8edce110cb8d07dbb324d6d026011dce85b1e9355b70f0adacc4f"
 dependencies = [
  "bytemuck",
- "safe_arch",
+ "safe_arch 1.2.0",
 ]
 
 [[package]]
