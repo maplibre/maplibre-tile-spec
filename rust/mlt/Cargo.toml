@@ -19,7 +19,7 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 [features]
-unstable-v2 = ["mlt-core/unstable-v2", "dep:toml"]
+unstable-v2 = ["mlt-core/unstable-v2", "dep:geojson", "dep:toml"]
 hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
 hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
 hotpath-mcp = ["hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
@@ -32,6 +32,7 @@ crossbeam-channel.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
 futures.workspace = true
+geojson = { workspace = true, optional = true }
 glob.workspace = true
 globset.workspace = true
 hotpath.workspace = true

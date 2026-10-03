@@ -8,6 +8,7 @@ The `mlt` binary provides several commands for working with MLT files:
 * **`decode`** - Parse an MLT file, decode all layers, and dump the result (supports text and `GeoJSON` output)
 * **`hexdump`** - Annotated byte/bit-level hexdump of an MLT file's metadata and stream payloads
 * **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT
+* **`from-geojson`** - Tile a `GeoJSON` file, including 3D positions, into MLT files
 * **`ui`** - Interactive terminal visualizer for MLT files
 
 ### Format conversion
@@ -38,6 +39,23 @@ mlt convert planet.mvt.pmtiles berlin.mlt.pmtiles --bbox 13.0,52.3,13.8,52.7
 Every tile overlapping the bounds is converted, at every zoom level, and the output's
 bounds and center metadata shrink to the region. Repeat `--bbox` to keep several regions.
 It needs an `.mbtiles` or `.pmtiles` input, the only ones that record where each tile is.
+
+### Tiling GeoJSON
+
+Tile a WGS84 `GeoJSON` `FeatureCollection` into a `z/x/y.mlt` directory as a single layer
+named after the file. This writes the v2 format, so it needs a binary built with
+`--features unstable-v2`:
+
+```bash
+mlt from-geojson buildings.geojson tiles --max-zoom 14
+```
+
+Positions with an altitude (`[lon, lat, alt]`) become z coordinates on a `--z-step` grid,
+a power of ten in metres from `-3` (1 mm) to `4` (10 km):
+
+```bash
+mlt from-geojson power_lines.geojson tiles --max-zoom 14 --z-step -1
+```
 
 ### Visualizer
 

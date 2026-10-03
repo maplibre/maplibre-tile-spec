@@ -10,6 +10,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use mlt::convert::{ConvertArgs, convert};
 use mlt::dump::{AfterDump, DumpArgs, dump};
+#[cfg(feature = "unstable-v2")]
+use mlt::from_geojson::{FromGeoJsonArgs, from_geojson};
 use mlt::hexdump::{HexdumpArgs, hexdump};
 use mlt::ls::{LsArgs, ls};
 use mlt::ui::{UiArgs, ui};
@@ -18,6 +20,8 @@ use mlt::ui::{UiArgs, ui};
 fn main() -> AnyResult<()> {
     match Cli::parse().command {
         Commands::Convert(args) => convert(&args)?,
+        #[cfg(feature = "unstable-v2")]
+        Commands::FromGeojson(args) => from_geojson(&args)?,
         Commands::Dump(args) => dump(&args, AfterDump::KeepRaw)?,
         Commands::Decode(args) => dump(&args, AfterDump::Decode)?,
         Commands::Hexdump(args) => hexdump(&args)?,
@@ -44,6 +48,9 @@ struct Cli {
 enum Commands {
     /// Convert .mlt, .mvt, and .pbf tiles in a directory tree to re-encoded .mlt files
     Convert(ConvertArgs),
+    /// Tile a WGS84 `GeoJSON` `FeatureCollection` (2D or 3D) into a directory tree of v2 z/x/y.mlt tiles
+    #[cfg(feature = "unstable-v2")]
+    FromGeojson(FromGeoJsonArgs),
     /// Parse a tile file (.mlt, .mvt, .pbf) and dump raw layer data without decoding
     Dump(DumpArgs),
     /// Parse a tile file (.mlt, .mvt, .pbf), decode all layers, and dump the result
