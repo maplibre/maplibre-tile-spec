@@ -389,6 +389,53 @@ fn features_too_small_for_the_zoom_write_no_tiles_and_say_so() {
     );
 }
 
+/// 1000 points spread evenly over the four z1 tiles, each with a property key of
+/// its own. A decoder lays out every column for every feature, so the z0 tile
+/// holding all of them needs about 1000 x 1000 values and outgrows the default
+/// decoder budget, while each z1 tile holds a quarter of the features and fits.
+fn too_heavy_at_z0() -> Value {
+    let features: Vec<Value> = (0..1000)
+        .map(|i| {
+            let lon = if i % 2 == 0 { -90 } else { 90 };
+            let lat = if i % 4 < 2 { -45 } else { 45 };
+            feature(
+                &json!({ "type": "Point", "coordinates": [lon, lat] }),
+                &json!({ format!("p{i}"): i }),
+            )
+        })
+        .collect();
+    collection(&features)
+}
+
+#[test]
+fn a_tile_too_heavy_to_decode_fails_naming_the_min_zoom_that_fits() {
+    let geojson = too_heavy_at_z0();
+    let (_dir, output, out) = run_into("input.geojson", "out", &geojson, &["--max-zoom", "1"]);
+    assert!(
+        !out.status.success(),
+        "mlt from-geojson unexpectedly succeeded"
+    );
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("tile 0/0/0"), "{stderr}");
+    assert!(stderr.contains("pass --min-zoom 1"), "{stderr}");
+    assert!(!mlt_files(&output).contains(&"0/0/0.mlt".to_owned()));
+
+    let (_dir, output) = run(&geojson, &["--min-zoom", "1", "--max-zoom", "1"]);
+    assert_eq!(
+        mlt_files(&output),
+        ["1/0/0.mlt", "1/0/1.mlt", "1/1/0.mlt", "1/1/1.mlt"]
+    );
+}
+
+#[test]
+fn a_tile_too_heavy_to_decode_at_the_max_zoom_asks_for_a_higher_max_zoom() {
+    let stderr = run_failing(&too_heavy_at_z0(), &["--max-zoom", "0"]);
+    assert!(
+        stderr.contains("pass --min-zoom 1 and a --max-zoom of at least 1"),
+        "{stderr}"
+    );
+}
+
 #[test]
 fn a_nested_property_value_is_rejected() {
     let geojson = collection(&[feature(

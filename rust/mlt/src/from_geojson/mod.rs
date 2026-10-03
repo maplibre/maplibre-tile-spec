@@ -24,10 +24,9 @@ use anyhow::{Context as _, Result as AnyResult, bail};
 use clap::Args;
 use geojson::{Feature, FeatureCollection, GeoJson};
 use martin_tile_utils::MAX_ZOOM;
-use mlt_core::ZStep;
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::Geometry;
-use mlt_core::{PropValue, TileLayer};
+use mlt_core::{Decoder, MltError, Parser, PropValue, TileLayer, ZStep};
 use rayon::prelude::*;
 
 use self::clip::Rect;
@@ -165,7 +164,24 @@ pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
         min_zoom: args.min_zoom,
         max_zoom: args.max_zoom,
     };
-    let (tiles_written, features_written) = tiler.tile(0, 0, 0, &sources)?;
+    let written = tiler.tile(0, 0, 0, &sources)?;
+    let (tiles_written, features_written) = (written.tiles, written.features);
+
+    // TODO: simplify geometries at low zooms, as other tilers do, so the tiles there
+    // stay light enough to decode, rather than failing and asking for a higher --min-zoom.
+    if let Some((zoom, col, row)) = written.too_heavy {
+        let fits = zoom + 1;
+        let max_zoom = if fits > args.max_zoom {
+            format!(" and a --max-zoom of at least {fits}")
+        } else {
+            String::new()
+        };
+        bail!(
+            "tile {zoom}/{col}/{row} needs more memory to decode than mlt-core's default \
+             decoder budget allows, so it and any such tile at a lower zoom were not written; \
+             pass --min-zoom {fits}{max_zoom}"
+        );
+    }
 
     if sources.is_empty() {
         eprintln!("No features with a geometry to tile in {}", input.display());
@@ -279,14 +295,33 @@ struct Tiler<'a> {
     max_zoom: u8,
 }
 
+/// What the tiles of one subtree of the walk came to.
+#[derive(Clone, Copy, Default)]
+struct Written {
+    tiles: usize,
+    features: usize,
+    /// `(zoom, col, row)` of the highest-zoom tile left unwritten for needing more
+    /// than the default decoder budget, if any.
+    too_heavy: Option<(u8, u32, u32)>,
+}
+
+impl Written {
+    fn add(&mut self, other: Self) {
+        self.tiles += other.tiles;
+        self.features += other.features;
+        // `None` sorts first and the tuples by zoom first, so this keeps the highest zoom.
+        self.too_heavy = self.too_heavy.max(other.too_heavy);
+    }
+}
+
 impl Tiler<'_> {
     /// Write tile `(zoom, col, row)` from `features` when the zoom is wanted, then
-    /// its four children in parallel. Returns `(tiles, features)` written below here.
-    fn tile(&self, zoom: u8, col: u32, row: u32, features: &[Source]) -> AnyResult<(usize, usize)> {
+    /// its four children in parallel. Returns what the tiles below here came to.
+    fn tile(&self, zoom: u8, col: u32, row: u32, features: &[Source]) -> AnyResult<Written> {
+        let mut written = Written::default();
         if features.is_empty() {
-            return Ok((0, 0));
+            return Ok(written);
         }
-        let mut written = (0, 0);
         if zoom >= self.min_zoom {
             let entries: Vec<Entry> = features
                 .iter()
@@ -300,8 +335,13 @@ impl Tiler<'_> {
                 })
                 .collect();
             if !entries.is_empty() {
-                written = (1, entries.len());
-                self.write_tile(zoom, col, row, entries)?;
+                let count = entries.len();
+                if self.write_tile(zoom, col, row, entries)? {
+                    written.tiles = 1;
+                    written.features = count;
+                } else {
+                    written.too_heavy = Some((zoom, col, row));
+                }
             }
         }
         if zoom == self.max_zoom {
@@ -321,20 +361,43 @@ impl Tiler<'_> {
                 self.tile(child_zoom, col, row, &reached)
             })
             .collect::<AnyResult<Vec<_>>>()?;
-        for (tiles, features) in below {
-            written.0 += tiles;
-            written.1 += features;
+        for child in below {
+            written.add(child);
         }
         Ok(written)
     }
 
-    fn write_tile(&self, zoom: u8, col: u32, row: u32, entries: Vec<Entry>) -> AnyResult<()> {
+    /// Encode and write tile `(zoom, col, row)`. Returns `false`, writing nothing,
+    /// when the tile needs more than the default decoder budget.
+    fn write_tile(&self, zoom: u8, col: u32, row: u32, entries: Vec<Entry>) -> AnyResult<bool> {
         let bytes = encode_tile(self.layer, entries)
             .with_context(|| format!("encoding tile {zoom}/{col}/{row}"))?;
+        if !fits_default_decoder(&bytes)
+            .with_context(|| format!("decoding tile {zoom}/{col}/{row} back"))?
+        {
+            return Ok(false);
+        }
         let dir = self.output.join(zoom.to_string()).join(col.to_string());
         fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
         let path = dir.join(format!("{row}.mlt"));
-        fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))
+        fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
+        Ok(true)
+    }
+}
+
+/// Whether `bytes` decode into rows within the default memory budget, as a
+/// renderer reading the tile would decode them.
+fn fits_default_decoder(bytes: &[u8]) -> AnyResult<bool> {
+    let decoded = Parser::default().parse_layers(bytes).and_then(|layers| {
+        let mut dec = Decoder::default();
+        layers
+            .into_iter()
+            .try_for_each(|layer| layer.into_tile(&mut dec).map(drop))
+    });
+    match decoded {
+        Ok(()) => Ok(true),
+        Err(MltError::MemoryLimitExceeded { .. }) => Ok(false),
+        Err(e) => Err(e.into()),
     }
 }
 
