@@ -49,6 +49,12 @@ const FSST_V2: &str = concat!(
     "/../../test/synthetic/0x02/props_str_fsst.mlt"
 );
 
+#[cfg(feature = "unstable-v2")]
+const FSST_FRONT_V2: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../test/synthetic/0x02/props_str_fsst_front_dict.mlt"
+);
+
 #[test]
 fn an_int_payload_decodes_to_numbers() {
     let (tree, buf) = annotate(ID);
@@ -180,6 +186,35 @@ fn a_v2_fsst_corpus_decodes_to_the_strings_it_stands_for() {
     insta::assert_snapshot!(
         json(&decode_at(&tree, &buf, corpus_index(&tree), 0)),
         @r#"{"kind":"strings","values":["residential_zone_north_sector_1","commercial_zone_south_sector_2","industrial_zone_east_sector_3","park_zone_west_sector_4","water_zone_north_sector_5","residential_zone_south_sector_6"],"truncatedFrom":null}"#
+    );
+}
+
+#[cfg(feature = "unstable-v2")]
+#[test]
+fn a_front_coded_fsst_corpus_decodes_to_the_whole_strings() {
+    let (tree, buf) = annotate(FSST_FRONT_V2);
+    insta::assert_snapshot!(
+        json(&decode_at(&tree, &buf, corpus_index(&tree), 0)),
+        @r#"{"kind":"strings","values":["residential_zone_north_sector_1","residential_zone_north_sector_2","residential_zone_north_sector_3"],"truncatedFrom":null}"#
+    );
+}
+
+#[cfg(feature = "unstable-v2")]
+#[test]
+fn an_fsst_corpus_that_is_not_utf8_decodes_to_an_error() {
+    let (tree, mut buf) = annotate(FSST_V2);
+    let symbols = tree
+        .regions
+        .iter()
+        .find(|r| {
+            r.blob
+                .is_some_and(|b| b.meta.stream_type.to_string().starts_with("data[f"))
+        })
+        .expect("a symbol table");
+    buf[symbols.offset..symbols.offset + symbols.len].fill(0xFF);
+    insta::assert_snapshot!(
+        json(&decode_at(&tree, &buf, corpus_index(&tree), 0)),
+        @r#"{"kind":"error","message":"UTF-8 decode error: invalid utf-8 sequence of 1 bytes from index 0"}"#
     );
 }
 
