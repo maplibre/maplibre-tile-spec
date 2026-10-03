@@ -72,7 +72,7 @@ const tile = decodeTile3D(data);
 for (const [name, layer] of Object.entries(tile.layers)) {
     for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
-        // exterior ring, then holes; rings are open (the first vertex is not repeated)
+        // exterior ring, then holes; each ring is closed (its first vertex is repeated at the end)
         const polygons = feature.loadPolygons(); // [x, y, elevation][][][]
     }
 }

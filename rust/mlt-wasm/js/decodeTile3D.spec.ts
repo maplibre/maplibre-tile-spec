@@ -8,7 +8,6 @@ import {
   MltGeometryType,
   type MltLayer,
   type MltLayer3D,
-  type Position3D,
 } from "./vectorTile";
 
 type Expected = {
@@ -107,9 +106,8 @@ function inMetres(geometry: GeoJSON.Geometry, zStep: number): unknown {
   return convert(geometry.coordinates);
 }
 
-/** Feature coordinates in GeoJSON nesting, rings closed. */
+/** Feature coordinates in GeoJSON nesting; polygon rings come back closed, as GeoJSON wants. */
 function coordinates(feature: MltFeature3D): unknown {
-  const close = (ring: Position3D[]) => [...ring, ring[0]];
   switch (feature.mltType) {
     case MltGeometryType.Point:
       return feature.loadGeometry()[0][0];
@@ -120,9 +118,9 @@ function coordinates(feature: MltFeature3D): unknown {
     case MltGeometryType.MultiLineString:
       return feature.loadGeometry();
     case MltGeometryType.Polygon:
-      return feature.loadPolygons()[0].map(close);
+      return feature.loadPolygons()[0];
     case MltGeometryType.MultiPolygon:
-      return feature.loadPolygons().map((p) => p.map(close));
+      return feature.loadPolygons();
     default:
       throw new Error(`unknown geometry type ${feature.mltType}`);
   }
