@@ -1,0 +1,38 @@
+<svg class="mlt-diagram" viewBox="0 0 710 164" role="img" aria-label="city stored in the 2-stream Plain layout, in stream order" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="198" y="14">feature 0</text>
+<path class="bracket t0" d="M150 34V28H246V34"/>
+<text class="bold mid t1" x="300" y="14">feature 1</text>
+<path class="bracket t1" d="M252 34V28H348V34"/>
+<text class="bold mid t0" x="402" y="14">feature 2</text>
+<path class="bracket t0" d="M354 34V28H450V34"/>
+<text class="bold mid t1" x="504" y="14">feature 3</text>
+<path class="bracket t1" d="M456 34V28H552V34"/>
+<text class="row" x="0" y="54">Present</text>
+<rect class="f0" x="150" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="54">1</text>
+<rect class="f1" x="252" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="54">1</text>
+<rect class="f0" x="354" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="54">1</text>
+<rect class="f1" x="456" y="40" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="54">0</text>
+<text class="muted small" x="590" y="54">4 bits</text>
+<text class="row" x="0" y="94">Length/VarBinary</text>
+<rect class="f0" x="150" y="80" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="94">7</text>
+<rect class="f1" x="252" y="80" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="94">5</text>
+<rect class="f0" x="354" y="80" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="94">7</text>
+<rect class="implicit" x="456" y="80" width="96" height="28" rx="3"/>
+<text class="cell muted" x="504" y="94">null</text>
+<text class="muted small" x="590" y="94">3 lengths</text>
+<text class="row" x="0" y="134">Data/None</text>
+<rect class="f0" x="150" y="120" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="134">"Mailand"</text>
+<rect class="f1" x="252" y="120" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="134">"Milan"</text>
+<rect class="f0" x="354" y="120" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="134">"Mailand"</text>
+<text class="muted small" x="590" y="134">19 B</text>
+</svg>

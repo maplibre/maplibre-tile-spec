@@ -305,6 +305,9 @@ pub enum MltError {
     #[error("FSST-compressed data is malformed: {0}")]
     MalformedFsst(&'static str),
     #[cfg(feature = "unstable-v2")]
+    #[error("rANS vertex stream is malformed: {0}")]
+    MalformedRans(&'static str),
+    #[cfg(feature = "unstable-v2")]
     #[error("dictionary code {0} is out of range for a dictionary of {1} values")]
     DictionaryCodeOutOfRange(u32, usize),
     #[cfg(feature = "unstable-v2")]

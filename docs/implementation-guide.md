@@ -11,6 +11,7 @@ The wire format is defined by the [v1](specification/v1.md) and [v2](specificati
 
 ## Choosing an Encoding
 
+Encodings cascade: the integer codes produced by dictionary encoding are themselves compressed with an integer encoding.
 A brute-force search over every combination is too costly.
 Use the selection strategy from the [BTRBlocks](https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf) paper:
 
@@ -20,6 +21,24 @@ Use the selection strategy from the [BTRBlocks](https://www.cs.cit.tum.de/filead
 
 Compare stored bytes, not an estimate.
 Do not assume a later gzip pass changes which candidate wins.
+
+The v1 encoding pool was selected on compression ratio and decoding speed over OpenMapTiles and Bing Maps tilesets:
+
+| Data Type | Logical Level Technique      | Physical Level Technique          |
+| --------- | ---------------------------- | ----------------------------------- |
+| Boolean   | [Boolean RLE](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding) | |
+| Integer   | Plain, RLE, Delta, Delta-RLE | [SIMD-FastPFOR](https://arxiv.org/pdf/1209.2137.pdf), [Varint](https://protobuf.dev/programming-guides/encoding/#varints) |
+| Float     | Plain, RLE | |
+| String    | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf), FSST Dictionary | |
+| Geometry  | Plain, Dictionary, Morton-Dictionary | |
+
+SIMD-FastPFOR usually gives smaller output and faster decoding than VarInt.
+VarInt is simpler, and can come out smaller once a heavyweight compressor like gzip runs over the tile.
+
+### Sort Order
+
+The column the features are sorted by can shrink a layer considerably, since sorting lengthens runs and shrinks deltas.
+Testing every column of every layer is too costly, so the same sampling applies.
 
 ## In-Memory Format
 

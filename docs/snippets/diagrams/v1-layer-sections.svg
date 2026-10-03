@@ -1,0 +1,45 @@
+<svg class="mlt-diagram" viewBox="0 0 710 198" role="img" aria-label="A v1 layer of a geometry column and a nullable string column name: the header and both columns&#x27; metadata come first, then both columns&#x27; data, each led by its own stream_count" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">metadata</text>
+<text class="row" x="0" y="150">data</text>
+<rect class="plain" x="130" y="40" width="80" height="28" rx="3"/>
+<text class="cell" x="170" y="54">"roads"</text>
+<rect class="plain" x="216" y="40" width="70" height="28" rx="3"/>
+<text class="cell" x="251" y="54">4096</text>
+<rect class="plain" x="292" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="342" y="54">2</text>
+<text class="small muted mid" x="170" y="32">name</text>
+<text class="small muted mid" x="251" y="32">extent</text>
+<text class="small muted mid" x="342" y="32">column_count</text>
+<rect class="f0" x="410" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="432" y="54">04</text>
+<rect class="f1" x="460" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="482" y="54">1D</text>
+<rect class="f1" x="510" y="40" width="66" height="28" rx="3"/>
+<text class="cell" x="543" y="54">"name"</text>
+<rect class="f0" x="130" y="136" width="36" height="28" rx="3"/>
+<text class="cell" x="148" y="150">2</text>
+<rect class="f0" x="172" y="136" width="60" height="28" rx="3"/>
+<text class="cell" x="202" y="150">types</text>
+<rect class="f0" x="238" y="136" width="80" height="28" rx="3"/>
+<text class="cell" x="278" y="150">vertices</text>
+<rect class="f1" x="336" y="136" width="36" height="28" rx="3"/>
+<text class="cell" x="354" y="150">3</text>
+<rect class="f1" x="378" y="136" width="70" height="28" rx="3"/>
+<text class="cell" x="413" y="150">present</text>
+<rect class="f1" x="454" y="136" width="70" height="28" rx="3"/>
+<text class="cell" x="489" y="150">lengths</text>
+<rect class="f1" x="530" y="136" width="66" height="28" rx="3"/>
+<text class="cell" x="563" y="150">values</text>
+<text class="small muted mid" x="148" y="128">stream_count</text>
+<text class="small muted mid" x="354" y="128">stream_count</text>
+<path class="bracket t0" d="M410 34V28H454V34"/>
+<text class="small mid t0" x="432" y="14">Geometry</text>
+<path class="bracket t1" d="M460 34V28H576V34"/>
+<text class="small mid t1" x="518" y="14">nullable String</text>
+<path class="bracket t0" d="M130 170V176H318V170"/>
+<text class="small mid t0" x="224" y="190">geometry</text>
+<path class="bracket t1" d="M336 170V176H596V170"/>
+<text class="small mid t1" x="466" y="190">name</text>
+<path class="bracket t0" d="M432 68L224.0 114"/>
+<path class="bracket t1" d="M515 68L466.0 114"/>
+</svg>

@@ -42,7 +42,7 @@ fn decode(bytes: &[u8], expected_tag: u8) -> TileLayer {
         .into_iter()
         .next()
         .unwrap()
-        .into_tile(&mut Decoder::default())
+        .into_tile(&mut Decoder::with_max_size(u32::MAX))
         .expect("into_tile")
         .expect("a known layer tag")
 }

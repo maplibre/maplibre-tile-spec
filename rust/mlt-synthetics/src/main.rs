@@ -111,6 +111,7 @@ fn main() {
     let mut writer = SynthWriter::new(&Args::parse());
 
     generate_geometry(&mut writer);
+    generate_rans_vertices(&mut writer);
     generate_mixed(&mut writer);
     generate_extent(&mut writer);
     generate_ids(&mut writer);
@@ -379,6 +380,59 @@ fn generate_geometry(w: &mut SynthWriter) {
         .vertex_offsets(E::delta_rle_varint())
         .geo(MultiLineString(vec![mline1, mline2]))
         .write(w, "multiline_morton");
+}
+
+/// A line of `n` vertices whose steps vary enough for its rANS lanes to need refill words.
+fn wandering_line(n: usize) -> LineString<i32> {
+    const STEPS: [i32; 10] = [12, -12, 14, -14, 24, -28, 48, 12, 13, -15];
+    let (mut x, mut y) = (100, 100);
+    (0..n)
+        .map(|i| {
+            x += STEPS[i * 7 % 10];
+            y += STEPS[(i * 3 + 1) % 10];
+            c(x, y)
+        })
+        .collect()
+}
+
+fn generate_rans_vertices(w: &mut SynthWriter) {
+    p0().rans_vertices().write(w, "point_rans");
+    geo_varint()
+        .geo(line1())
+        .rans_vertices()
+        .write(w, "line_rans");
+    geo_varint()
+        .geo(LineString::new(morton_curve()))
+        .rans_vertices()
+        .write(w, "line_morton_curve_rans");
+    geo_varint()
+        .geo(wandering_line(24))
+        .rans_vertices()
+        .write(w, "line_wandering_rans");
+    geo_varint()
+        .geo(wkt!(LINESTRING(196 3904, 292 3808, 388 3712, 484 3616, 580 3520, 676 3424)))
+        .rans_vertices()
+        .write(w, "line_diagonal_rans");
+    geo_varint()
+        .geo(line1())
+        .geo(wkt!(MULTILINESTRING((24 10, 42 18),(30 36, 48 52, 35 62))))
+        .rans_vertices()
+        .write(w, "multiline_rans");
+    geo_varint()
+        .geo(poly1h())
+        .rans_vertices()
+        .write(w, "poly_hole_rans");
+    geo_varint()
+        .tessellate()
+        .geo(poly1h())
+        .rans_vertices()
+        .write(w, "poly_hole_tes_rans");
+    geo_varint()
+        .geo(P0)
+        .geo(line1())
+        .geo(poly1h())
+        .rans_vertices()
+        .write(w, "mix_pt_line_polyh_rans");
 }
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {

@@ -298,6 +298,10 @@ pub struct ConvertArgs {
     #[cfg(feature = "unstable-v2")]
     #[clap(long, value_name = "FILE")]
     fields: Option<PathBuf>,
+    /// Store vertex streams rANS-coded when that beats componentwise delta
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    rans_vertices: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -365,7 +369,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_float_dict(!args.no_float_dict)
         .with_packed_dict_codes(args.packed_dict_codes)
         .with_triangles_only(args.triangles_only)
-        .with_delta2(args.delta2);
+        .with_delta2(args.delta2)
+        .with_rans_vertices(args.rans_vertices);
     let reencoder = Reencoder {
         encoder,
         #[cfg(feature = "unstable-v2")]

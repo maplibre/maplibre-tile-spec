@@ -1,0 +1,52 @@
+<svg class="mlt-diagram" viewBox="0 0 710 236" role="img" aria-label="A nullable list of id and tag structs over four features: present, empty, null, present. Presence 1 1 0 1, lengths 2 0 1, three ids, three tag presence bits, two tags" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">items</text>
+<text class="row" x="0" y="134">items[].id</text>
+<text class="row" x="0" y="174">items[].tag</text>
+<text class="bold mid t0" x="189" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H248V34"/>
+<rect class="f0" x="130" y="40" width="118" height="28" rx="3"/>
+<text class="cell" x="189" y="54">1</text>
+<rect class="f0" x="130" y="80" width="118" height="28" rx="3"/>
+<text class="cell" x="189" y="94">2</text>
+<rect class="f0" x="130" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="134">1</text>
+<rect class="f0" x="130" y="160" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="174">1</text>
+<rect class="f0" x="130" y="200" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="214">"a"</text>
+<rect class="f0" x="192" y="120" width="56" height="28" rx="3"/>
+<text class="cell" x="220" y="134">2</text>
+<rect class="f0" x="192" y="160" width="56" height="28" rx="3"/>
+<text class="cell" x="220" y="174">0</text>
+<rect class="implicit" x="192" y="200" width="56" height="28" rx="3"/>
+<text class="cell muted" x="220" y="214">null</text>
+<text class="bold mid t1" x="308" y="14">feature 1</text>
+<path class="bracket t1" d="M268 34V28H348V34"/>
+<rect class="f1" x="268" y="40" width="80" height="28" rx="3"/>
+<text class="cell" x="308" y="54">1</text>
+<rect class="f1" x="268" y="80" width="80" height="28" rx="3"/>
+<text class="cell" x="308" y="94">0</text>
+<text class="bold mid t0" x="408" y="14">feature 2</text>
+<path class="bracket t0" d="M368 34V28H448V34"/>
+<rect class="f0" x="368" y="40" width="80" height="28" rx="3"/>
+<text class="cell" x="408" y="54">0</text>
+<rect class="implicit" x="368" y="80" width="80" height="28" rx="3"/>
+<text class="cell muted" x="408" y="94">null</text>
+<text class="bold mid t1" x="508" y="14">feature 3</text>
+<path class="bracket t1" d="M468 34V28H548V34"/>
+<rect class="f1" x="468" y="40" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="54">1</text>
+<rect class="f1" x="468" y="80" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="94">1</text>
+<rect class="f1" x="468" y="120" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="134">3</text>
+<rect class="f1" x="468" y="160" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="174">1</text>
+<rect class="f1" x="468" y="200" width="80" height="28" rx="3"/>
+<text class="cell" x="508" y="214">"b"</text>
+<text class="muted small" x="568" y="54">4 presence bits</text>
+<text class="muted small" x="568" y="94">3 lengths</text>
+<text class="muted small" x="568" y="134">3 Int32 values</text>
+<text class="muted small" x="568" y="174">3 presence bits</text>
+<text class="muted small" x="568" y="214">2 String values</text>
+</svg>

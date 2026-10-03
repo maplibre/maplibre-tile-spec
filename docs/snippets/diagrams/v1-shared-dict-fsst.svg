@@ -1,0 +1,135 @@
+<svg class="mlt-diagram" viewBox="0 0 710 478" role="img" aria-label="name:de and name:en over four features, as offsets into one shared dictionary of five strings. The FSST dictionary stores the strings as symbol codes into a seven-symbol table" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="198" y="14">feature 0</text>
+<path class="bracket t0" d="M150 34V28H246V34"/>
+<text class="bold mid t1" x="300" y="14">feature 1</text>
+<path class="bracket t1" d="M252 34V28H348V34"/>
+<text class="bold mid t0" x="402" y="14">feature 2</text>
+<path class="bracket t0" d="M354 34V28H450V34"/>
+<text class="bold mid t1" x="504" y="14">feature 3</text>
+<path class="bracket t1" d="M456 34V28H552V34"/>
+<text class="muted small" x="0" y="50">FSST dictionary</text>
+<text class="muted small mid" x="180" y="64">0</text>
+<rect class="plain" x="150" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="88">3</text>
+<rect class="plain" x="150" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="180" y="128">"Rom"</text>
+<text class="muted small mid" x="243" y="64">1</text>
+<rect class="plain" x="213" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="88">1</text>
+<rect class="plain" x="213" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="243" y="128">"e"</text>
+<text class="muted small mid" x="306" y="64">2</text>
+<rect class="plain" x="276" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="88">3</text>
+<rect class="plain" x="276" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="306" y="128">"Mai"</text>
+<text class="muted small mid" x="369" y="64">3</text>
+<rect class="plain" x="339" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="88">3</text>
+<rect class="plain" x="339" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="369" y="128">"lan"</text>
+<text class="muted small mid" x="432" y="64">4</text>
+<rect class="plain" x="402" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="432" y="88">1</text>
+<rect class="plain" x="402" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="432" y="128">"d"</text>
+<text class="muted small mid" x="495" y="64">5</text>
+<rect class="plain" x="465" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="495" y="88">2</text>
+<rect class="plain" x="465" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="495" y="128">"Mi"</text>
+<text class="muted small mid" x="558" y="64">6</text>
+<rect class="plain" x="528" y="74" width="60" height="28" rx="3"/>
+<text class="cell" x="558" y="88">5</text>
+<rect class="plain" x="528" y="114" width="60" height="28" rx="3"/>
+<text class="cell" x="558" y="128">"Paris"</text>
+<text class="row" x="0" y="88">Length/Symbol</text>
+<text class="row" x="0" y="128">Data/FSST</text>
+<text class="muted small" x="609" y="88">7 symbols</text>
+<text class="muted small" x="609" y="128">18 B</text>
+<text class="muted small mid" x="192" y="162">entry 0</text>
+<rect class="plain" x="150" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="192" y="186">3</text>
+<text class="muted small mid" x="281" y="162">entry 1</text>
+<rect class="plain" x="239" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="281" y="186">4</text>
+<text class="muted small mid" x="370" y="162">entry 2</text>
+<rect class="plain" x="328" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="370" y="186">7</text>
+<text class="muted small mid" x="459" y="162">entry 3</text>
+<rect class="plain" x="417" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="459" y="186">5</text>
+<text class="muted small mid" x="548" y="162">entry 4</text>
+<rect class="plain" x="506" y="172" width="84" height="28" rx="3"/>
+<text class="cell" x="548" y="186">5</text>
+<text class="row" x="0" y="186">Length/Dictionary</text>
+<text class="muted small" x="613" y="186">5 lengths</text>
+<text class="muted small mid" x="192" y="226">entry 0</text>
+<path class="bracket" d="M150 246V240H234V246"/>
+<rect class="plain" x="180" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="192" y="268">00</text>
+<text class="muted small mid" x="281" y="226">entry 1</text>
+<path class="bracket" d="M239 246V240H323V246"/>
+<rect class="plain" x="255" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="267" y="268">00</text>
+<rect class="plain" x="283" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="295" y="268">01</text>
+<text class="muted small mid" x="370" y="226">entry 2</text>
+<path class="bracket" d="M328 246V240H412V246"/>
+<rect class="plain" x="330" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="342" y="268">02</text>
+<rect class="plain" x="358" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="370" y="268">03</text>
+<rect class="plain" x="386" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="398" y="268">04</text>
+<text class="muted small mid" x="459" y="226">entry 3</text>
+<path class="bracket" d="M417 246V240H501V246"/>
+<rect class="plain" x="433" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="445" y="268">05</text>
+<rect class="plain" x="461" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="473" y="268">03</text>
+<text class="muted small mid" x="548" y="226">entry 4</text>
+<path class="bracket" d="M506 246V240H590V246"/>
+<rect class="plain" x="536" y="254" width="24" height="28" rx="3"/>
+<text class="cell" x="548" y="268">06</text>
+<text class="row" x="0" y="268">Data/Single</text>
+<text class="muted small" x="613" y="268">9 B</text>
+<text class="muted small" x="0" y="300">read by</text>
+<text class="muted small mid" x="192" y="300">de</text>
+<text class="muted small mid" x="281" y="300">en</text>
+<text class="muted small mid" x="370" y="300">de</text>
+<text class="muted small mid" x="459" y="300">en</text>
+<text class="small mid" x="548" y="300">de + en</text>
+<text class="muted small" x="0" y="332">name:de</text>
+<text class="row" x="0" y="352">Offset/String</text>
+<rect class="f0" x="150" y="338" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="352">0</text>
+<rect class="f1" x="252" y="338" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="352">2</text>
+<rect class="f0" x="354" y="338" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="352">4</text>
+<rect class="f1" x="456" y="338" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="352">0</text>
+<text class="muted small" x="590" y="352">4 offsets</text>
+<text class="muted small" x="0" y="388">name:en</text>
+<text class="row" x="0" y="408">Present</text>
+<rect class="f0" x="150" y="394" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="408">1</text>
+<rect class="f1" x="252" y="394" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="408">1</text>
+<rect class="f0" x="354" y="394" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="408">1</text>
+<rect class="f1" x="456" y="394" width="96" height="28" rx="3"/>
+<text class="cell" x="504" y="408">0</text>
+<text class="muted small" x="590" y="408">4 bits</text>
+<text class="row" x="0" y="448">Offset/String</text>
+<rect class="f0" x="150" y="434" width="96" height="28" rx="3"/>
+<text class="cell" x="198" y="448">1</text>
+<rect class="f1" x="252" y="434" width="96" height="28" rx="3"/>
+<text class="cell" x="300" y="448">3</text>
+<rect class="f0" x="354" y="434" width="96" height="28" rx="3"/>
+<text class="cell" x="402" y="448">4</text>
+<rect class="implicit" x="456" y="434" width="96" height="28" rx="3"/>
+<text class="cell muted" x="504" y="448">null</text>
+<text class="muted small" x="590" y="448">3 offsets</text>
+</svg>
