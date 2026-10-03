@@ -1,0 +1,42 @@
+<svg class="mlt-diagram" viewBox="0 0 710 160" role="img" aria-label="A table of precision 3: symbol 0 owns slots 0 to 3, symbol 3 slots 4 and 5, symbol 4 slot 6 and symbol 7 slot 7. The state 0x10005 ends in the bits 101, slot 5, so it decodes symbol 3" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="14">symbol</text>
+<text class="row" x="0" y="54">slots</text>
+<text class="bold mid t0" x="237" y="14">0</text>
+<path class="bracket t0" d="M130 34V28H344V34"/>
+<rect class="f0" x="130" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="156" y="54">0</text>
+<rect class="f0" x="184" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="210" y="54">1</text>
+<rect class="f0" x="238" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="264" y="54">2</text>
+<rect class="f0" x="292" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="318" y="54">3</text>
+<text class="bold mid t1" x="399" y="14">3</text>
+<path class="bracket t1" d="M346 34V28H452V34"/>
+<rect class="f1" x="346" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="372" y="54">4</text>
+<rect class="f1" x="400" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="426" y="54">5</text>
+<rect class="pick" x="397" y="37" width="58" height="34" rx="5"/>
+<text class="bold mid t0" x="480" y="14">4</text>
+<path class="bracket t0" d="M454 34V28H506V34"/>
+<rect class="f0" x="454" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="480" y="54">6</text>
+<text class="bold mid t1" x="534" y="14">7</text>
+<path class="bracket t1" d="M508 34V28H560V34"/>
+<rect class="f1" x="508" y="40" width="52" height="28" rx="3"/>
+<text class="cell" x="534" y="54">7</text>
+<text class="row" x="0" y="110">x = 0x10005</text>
+<rect class="plain" x="130" y="96" width="268" height="28" rx="3"/>
+<text class="cell" x="264" y="110">8192</text>
+<path class="bracket" d="M130 130V136H398V130"/>
+<text class="small mid" x="264" y="148">x &gt;&gt; 3</text>
+<rect class="f1" x="400" y="96" width="51" height="28" rx="3"/>
+<text class="cell" x="425.5" y="110">1</text>
+<rect class="f1" x="453" y="96" width="51" height="28" rx="3"/>
+<text class="cell" x="478.5" y="110">0</text>
+<rect class="f1" x="506" y="96" width="51" height="28" rx="3"/>
+<text class="cell" x="531.5" y="110">1</text>
+<path class="bracket t1" d="M400 130V136H557V130"/>
+<text class="small mid t1" x="478.5" y="148">slot 5</text>
+</svg>

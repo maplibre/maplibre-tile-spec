@@ -224,6 +224,11 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             }
             fmt_bits(n, |i| data[i / 8] >> (i % 8) & 1 == 1)
         }
+        #[cfg(feature = "unstable-v2")]
+        DecodeHint::Rans => match crate::codecs::rans::split(data, dec) {
+            Ok(parts) => fmt_rans(&parts),
+            Err(e) => format!("<undecodable: {e}>"),
+        },
         DecodeHint::Bool => fmt_res(RawStream::new(meta, data).decode_bools(dec)),
         DecodeHint::I32 => fmt_res(RawStream::new(meta, data).decode_ints::<i32>(dec)),
         DecodeHint::U32 | DecodeHint::GeometryType => {
@@ -242,6 +247,24 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             Err(_) => format!("<{} binary bytes>", data.len()),
         },
     }
+}
+
+/// The parts of a rANS payload, e.g. `depth 1, tables 0:p3 2:p0, lanes 4+4+6+4 B, raw 2 B`.
+#[cfg(feature = "unstable-v2")]
+fn fmt_rans(parts: &crate::codecs::rans::Parts<'_>) -> String {
+    let tables: Vec<String> = parts
+        .precisions()
+        .enumerate()
+        .filter_map(|(ctx, p)| Some(format!("{ctx}:p{}", p?)))
+        .collect();
+    let lanes: Vec<String> = parts.lanes.iter().map(|l| l.len().to_string()).collect();
+    format!(
+        "depth {}, tables {}, lanes {} B, raw {} B",
+        parts.depth,
+        tables.join(" "),
+        lanes.join("+"),
+        parts.raw.len()
+    )
 }
 
 /// Render the first 96 of `n` presence bits as a `0`/`1` string.

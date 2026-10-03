@@ -3,8 +3,8 @@
 use crate::errors::AsMltError as _;
 use crate::{Layer, MltError, MltResult, ParsedLayer};
 
-/// Default memory budget: 20 MiB.
-const DEFAULT_MAX_BYTES: u32 = 20 * 1024 * 1024;
+/// Default memory budget: 64 MiB.
+const DEFAULT_MAX_BYTES: u32 = 64 * 1024 * 1024;
 
 /// Stateful decoder that enforces a per-tile memory budget during decoding.
 ///
@@ -20,6 +20,9 @@ pub struct Decoder {
     /// Reusable scratch buffer for the physical u64 decode pass.
     /// Held here so its heap allocation is reused across streams without extra cost.
     pub(crate) buffer_u64: Vec<u64>,
+    /// The rANS vertex decoder's slot tables, filled per stream but never cleared.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) rans_slots: Vec<u64>,
 }
 
 impl Decoder {
@@ -104,8 +107,7 @@ impl Decoder {
     ///
     /// Call this between tiles when reusing a single `Decoder` for multiple
     /// decodes - the per-tile budget is enforced fresh, but the internal
-    /// `buffer_u32` / `buffer_u64` scratch space is retained so it doesn't
-    /// need to be re-allocated.
+    /// scratch buffers are retained so they don't need to be re-allocated.
     ///
     /// # Safety / correctness precondition
     ///
@@ -188,7 +190,7 @@ struct MemBudget {
 }
 
 impl Default for MemBudget {
-    /// Create a decoder with the default 10 MiB memory budget.
+    /// Create a decoder with the default 64 MiB memory budget.
     fn default() -> Self {
         Self::with_max_size(DEFAULT_MAX_BYTES)
     }
