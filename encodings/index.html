@@ -1533,43 +1533,360 @@ A payload whose length is not exactly <code>1 + ceil(count * width / 8)</code> M
 One large value raises the width for every value.
 An encoder SHOULD compare the stored size of both.</p>
 <h3 id="fastpfor">FastPFOR<a class="headerlink" href="#fastpfor" title="Link to this section">&para;</a></h3>
-<p>A block codec that stores each block of words in the bit width most of them need, and patches the few words that need more as exceptions in a separate area.
-Unlike bit packing it is not sensitive to a handful of outliers.</p>
+<p>A block codec that stores each block of words at the bit width most of them need, and patches the few words that need more from separate exception arrays.
+Unlike <a href="#bit-packing">bit packing</a> it is not sensitive to a handful of outliers.
+It is from <a href="https://arxiv.org/pdf/1209.2137.pdf">Lemire and Boytsov, <em>Decoding billions of integers per second through vectorization</em></a>.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fids_fpf.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - an id stream in the v2 <code>128le</code> variant.</p>
-<p>The payload is the output of the composite codec <code>Composition(FastPFOR, VariableByte)</code> of the <a href="https://github.com/fast-pack/FastPFOR">FastPFOR library</a>, stored as whole 32-bit words:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>payload := [u32 n]                     number of FastPFOR words that follow
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>           [u32 fastpfor[n]]           whole blocks, in the FastPFOR block format
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>           [u32 vbyte[...]]            the values that did not fill a block, variable-byte encoded
-</span></code></pre></div>
-<p>The block format is specified by <a href="https://arxiv.org/pdf/1209.2137.pdf">Lemire and Boytsov, <em>Decoding billions of integers per second through vectorization</em></a>, section 6.
-A payload whose length is not a multiple of 4 MUST be rejected.
-A stream of zero values has an empty payload.</p>
-<p>The two tile versions use different variants, and the words of one cannot be read as the other:</p>
+<p>v1 and v2 use different variants:</p>
 <table>
 <thead>
 <tr>
 <th></th>
-<th>Block size</th>
-<th>Word byte order</th>
+<th>v1</th>
+<th>v2</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>v1</strong></td>
+<td>Block size</td>
 <td>256 values</td>
-<td>big-endian</td>
+<td>128 values</td>
 </tr>
 <tr>
-<td><strong>v2</strong></td>
-<td>128 values</td>
+<td>Packing</td>
+<td><a href="#fastpfor-packing">Sequential</a>, 32 values at a time</td>
+<td><a href="#fastpfor-packing">Interleaved</a>, 128 values at a time</td>
+</tr>
+<tr>
+<td>Word byte order</td>
+<td>big-endian</td>
 <td>little-endian</td>
+</tr>
+<tr>
+<td>Value width</td>
+<td>32 bits</td>
+<td>32 and 64 bits</td>
 </tr>
 </tbody>
 </table>
-<p>A decoder selects the variant by the layer tag.</p>
-<p>FastPFOR only produces 32-bit words.
-A 64-bit integer column cannot use it.
-An <a href="#alp">Framed, Exception-Free ALP</a> offset stream can, and then has 32-bit words.</p>
+<p>The payload is whole 32-bit words, whatever the width of the values:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>payload := [u32 block_values]          values in whole blocks, a multiple of 128
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>           [page; ceil(block_values / 65536)]
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>           [u8 tail[...]]              the remaining values, variable-byte encoded
+</span></code></pre></div>
+<p><code>block_values</code> is the value count rounded down to a multiple of <code>128</code>.
+The values after the last whole block, at most <code>127</code>, are the <a href="#fastpfor-tail">tail</a>.
+A stream of fewer than <code>128</code> values has <code>block_values = 0</code>, no page, and only a tail.
+A stream of zero values has an empty payload.
+A payload whose length is not a multiple of 4 MUST be rejected.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 190" role="img" aria-label="A FastPFOR payload is a block_values word, pages and a tail. A page is a meta_offset, the packed blocks, meta_size, the block metadata, a bitmap and the exception arrays. The block metadata is a width and an exception count per block, then max_width and positions when there are exceptions" xmlns="http://www.w3.org/2000/svg">
+<rect class="plain" x="0" y="4" width="110" height="28" rx="3"/>
+<text class="cell" x="55.0" y="18">block_values</text>
+<rect class="f0" x="114" y="4" width="130" height="28" rx="3"/>
+<text class="cell" x="179.0" y="18">page 0</text>
+<rect class="plain" x="248" y="4" width="130" height="28" rx="3"/>
+<text class="cell" x="313.0" y="18">page 1</text>
+<text class="cell" x="402.0" y="18">…</text>
+<rect class="plain" x="426" y="4" width="80" height="28" rx="3"/>
+<text class="cell" x="466.0" y="18">tail</text>
+<rect class="plain" x="0" y="66" width="100" height="28" rx="3"/>
+<text class="cell" x="50.0" y="80">meta_offset</text>
+<rect class="plain" x="104" y="66" width="140" height="28" rx="3"/>
+<text class="cell" x="174.0" y="80">packed blocks</text>
+<rect class="plain" x="248" y="66" width="84" height="28" rx="3"/>
+<text class="cell" x="290.0" y="80">meta_size</text>
+<rect class="f1" x="336" y="66" width="60" height="28" rx="3"/>
+<text class="cell" x="366.0" y="80">meta</text>
+<rect class="plain" x="400" y="66" width="70" height="28" rx="3"/>
+<text class="cell" x="435.0" y="80">bitmap</text>
+<rect class="plain" x="474" y="66" width="150" height="28" rx="3"/>
+<text class="cell" x="549.0" y="80">exception arrays</text>
+<rect class="f1" x="0" y="128" width="70" height="28" rx="3"/>
+<text class="cell" x="35.0" y="142">width</text>
+<rect class="f1" x="74" y="128" width="100" height="28" rx="3"/>
+<text class="cell" x="124.0" y="142">exceptions</text>
+<rect class="implicit" x="178" y="128" width="100" height="28" rx="3"/>
+<text class="cell" x="228.0" y="142">max_width</text>
+<rect class="implicit" x="282" y="128" width="110" height="28" rx="3"/>
+<text class="cell" x="337.0" y="142">positions</text>
+<text class="cell" x="416.0" y="142">…</text>
+<path class="link" d="M114 32L0 66"/>
+<path class="link" d="M244 32L624 66"/>
+<path class="link" d="M336 94L0 128"/>
+<path class="link" d="M396 94L436 128"/>
+<text class="muted small" x="178" y="174">only with exceptions</text>
+</svg></p>
+<h4 id="pages">Pages<a class="headerlink" href="#pages" title="Link to this section">&para;</a></h4>
+<p>A page holds up to <code>65536</code> values, which is <code>512</code> blocks.
+Every page but the last is full.
+Exceptions are collected per page, so that blocks share one set of exception arrays.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>page := [u32 meta_offset]              words from this word to meta_size, 1 + the packed words
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>        [packed block; blocks]         4 * width words each
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>        [u32 meta_size]                bytes of block metadata
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        [u8 meta[meta_size]]           zero-padded to whole words
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        [bitmap]                       1 word for u32 values, 2 words for u64, low word first
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        [exception array; popcount(bitmap)]
+</span></code></pre></div>
+<p>The metadata is one entry per block, in block order:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>block_meta := [u8 width]               0-32 for u32, 0-64 for u64
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>              [u8 exceptions]          0-127
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>              if exceptions &gt; 0:
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>                [u8 max_width]         bit width of the widest value in the block
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>                [u8 position; exceptions]
+</span></code></pre></div>
+<p><code>width</code> is the bit width the block is packed at.
+A value that needs more is an <strong>exception</strong>: its low <code>width</code> bits stay in the block, and its high bits go to an exception array.
+<code>position</code> is the index of the exception in the block, <code>0</code> to <code>127</code>, and encoders write them in ascending order.</p>
+<p>An exception array exists for each width <code>k</code> from <code>2</code> to the value width, and bit <code>k - 1</code> of the bitmap says whether it does.
+Array <code>k</code> holds the high bits of every exception in the page with <code>max_width - width = k</code>, in block order and then position order.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>exception_array := [u32 count]
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>                   [count values at k bits each]
+</span></code></pre></div>
+<p>The values of an array are packed in groups of 128 <a href="#fastpfor-packing">interleaved</a>, then the rest in groups of 32 <a href="#fastpfor-packing">sequentially</a>.
+The last 32-value group is padded with zero values, and the words the padding alone would fill are not written, so the remainder takes <code>ceil(remainder * k / 32)</code> words.
+Arrays follow in ascending <code>k</code>.</p>
+<p>A block is decoded by unpacking its <code>128</code> values at <code>width</code> bits, then patching its exceptions:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>index = max_width - width
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>for each position p:
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    index == 1:  value[p] |= 1 &lt;&lt; width
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    otherwise:   value[p] |= next value of array[index] &lt;&lt; width
+</span></code></pre></div>
+<p>Arrays are split by <code>k</code> so that each packs at its exact width and no exception stores its own.
+An exception that is a single bit wider than the block has no array: its high part can only be <code>1</code>.
+Every array has its own read position, which starts at its first value on each page.</p>
+<p>A decoder MUST reject
+- a <code>width</code> or <code>max_width</code> above the value width,
+- a <code>max_width</code> that is not above <code>width</code> where there are exceptions,
+- a <code>position</code> of <code>128</code> or more,
+- an exception without a value left in its array,
+- an array with more than <code>65536</code> values,
+- and a payload that ends inside a page.</p>
+<h4 id="fastpfor-packing">Packing<a class="headerlink" href="#fastpfor-packing" title="Link to this section">&para;</a></h4>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Interleaved</label><label for="__tabbed_4_2">Sequential</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>A <strong>group</strong> is 128 values packed at <code>width</code> bits into <code>4 * width</code> words, and a v2 block is one group.
+It is laid out for a 128-bit vector register: 4 lanes of <code>u32</code>, or 2 lanes of <code>u64</code>.</p>
+<p>Value <code>i</code> belongs to lane <code>i mod lanes</code> and row <code>i / lanes</code>.
+Each lane is packed on its own, LSB-first, at <code>width</code> bits per value: row <code>r</code> occupies bits <code>r * width</code> to <code>r * width + width - 1</code> of the lane's bits.
+A lane has <code>128 / lanes</code> rows of <code>width</code> bits, which is exactly <code>width</code> words of the lane's own width.
+The group stores word <code>w</code> of every lane as one 128-bit vector, for <code>w = 0</code> to <code>width - 1</code>:</p>
+<ul>
+<li>for <code>u32</code>, lane <code>l</code> of vector <code>w</code> is the word at <code>4 * w + l</code>,</li>
+<li>for <code>u64</code>, lane <code>l</code> of vector <code>w</code> is the pair of words at <code>4 * w + 2 * l</code> and <code>4 * w + 2 * l + 1</code>, low half first.</li>
+</ul>
+<p>A <code>width</code> of <code>0</code> takes no words, and every value is <code>0</code>.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 250" role="img" aria-label="Four lanes, each holding every fourth value at 3 bits, stored as one 128-bit vector per word index: word 0 of lanes 0 to 3, then word 1 of lanes 0 to 3" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="8">lane streams</text>
+<text class="row" x="0" y="36">lane 0</text>
+<rect class="f0" x="70" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="108.0" y="36">v0</text>
+<rect class="f0" x="150" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="188.0" y="36">v4</text>
+<rect class="f0" x="230" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="268.0" y="36">v8</text>
+<rect class="f0" x="310" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="348.0" y="36">v12</text>
+<rect class="f0" x="390" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="428.0" y="36">v16</text>
+<text class="muted small" x="478" y="36">… 3 bits each</text>
+<text class="row" x="0" y="70">lane 1</text>
+<rect class="f1" x="70" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="108.0" y="70">v1</text>
+<rect class="f1" x="150" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="188.0" y="70">v5</text>
+<rect class="f1" x="230" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="268.0" y="70">v9</text>
+<rect class="f1" x="310" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="348.0" y="70">v13</text>
+<rect class="f1" x="390" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="428.0" y="70">v17</text>
+<text class="muted small" x="478" y="70">… 3 bits each</text>
+<text class="row" x="0" y="104">lane 2</text>
+<rect class="f0" x="70" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="108.0" y="104">v2</text>
+<rect class="f0" x="150" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="188.0" y="104">v6</text>
+<rect class="f0" x="230" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="268.0" y="104">v10</text>
+<rect class="f0" x="310" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="348.0" y="104">v14</text>
+<rect class="f0" x="390" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="428.0" y="104">v18</text>
+<text class="muted small" x="478" y="104">… 3 bits each</text>
+<text class="row" x="0" y="138">lane 3</text>
+<rect class="f1" x="70" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="108.0" y="138">v3</text>
+<rect class="f1" x="150" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="188.0" y="138">v7</text>
+<rect class="f1" x="230" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="268.0" y="138">v11</text>
+<rect class="f1" x="310" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="348.0" y="138">v15</text>
+<rect class="f1" x="390" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="428.0" y="138">v19</text>
+<text class="muted small" x="478" y="138">… 3 bits each</text>
+<text class="muted small" x="0" y="176">words</text>
+<path class="bracket" d="M70 188V182H370V188"/>
+<text class="muted small mid" x="220.0" y="172">vector 0</text>
+<rect class="f0" x="70" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="106.0" y="208">lane 0</text>
+<text class="muted small mid" x="106.0" y="236">u32 0</text>
+<rect class="f1" x="146" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="182.0" y="208">lane 1</text>
+<text class="muted small mid" x="182.0" y="236">u32 1</text>
+<rect class="f0" x="222" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="258.0" y="208">lane 2</text>
+<text class="muted small mid" x="258.0" y="236">u32 2</text>
+<rect class="f1" x="298" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="334.0" y="208">lane 3</text>
+<text class="muted small mid" x="334.0" y="236">u32 3</text>
+<path class="bracket" d="M384 188V182H684V188"/>
+<text class="muted small mid" x="534.0" y="172">vector 1</text>
+<rect class="f0" x="384" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="420.0" y="208">lane 0</text>
+<text class="muted small mid" x="420.0" y="236">u32 4</text>
+<rect class="f1" x="460" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="496.0" y="208">lane 1</text>
+<text class="muted small mid" x="496.0" y="236">u32 5</text>
+<rect class="f0" x="536" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="572.0" y="208">lane 2</text>
+<text class="muted small mid" x="572.0" y="236">u32 6</text>
+<rect class="f1" x="612" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="648.0" y="208">lane 3</text>
+<text class="muted small mid" x="648.0" y="236">u32 7</text>
+</svg></p>
+<p>Because every lane has the same bit offsets, one shift, one mask and one or move <code>lanes</code> values at once, and no value crosses lanes.
+A decoder without vector instructions loops over the lanes and reads the same bytes.</p>
+</div>
+<div class="tabbed-block">
+<p>32 values at <code>k</code> bits each are one continuous LSB-first bit stream of <code>k</code> words: value <code>j</code> occupies bits <code>j * k</code> to <code>j * k + k - 1</code>, with bit <code>i</code> of the stream being bit <code>i mod 32</code> of word <code>i / 32</code>.
+v1 packs every block this way, 32 values at a time.
+v2 uses it only for the remainder of an exception array.
+A <code>u64</code> value of up to <code>64</code> bits crosses word boundaries as any other.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 120" role="img" aria-label="Values packed at 3 bits in one continuous stream: word 0 holds values 0 to 9 and the low two bits of value 10, word 1 starts with the high bit of value 10" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">word 0</text>
+<rect class="f0" x="70" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="97.0" y="34">v0</text>
+<rect class="f1" x="124" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="151.0" y="34">v1</text>
+<rect class="f0" x="178" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="205.0" y="34">v2</text>
+<rect class="f1" x="232" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="259.0" y="34">v3</text>
+<rect class="f0" x="286" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="313.0" y="34">v4</text>
+<rect class="f1" x="340" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="367.0" y="34">v5</text>
+<rect class="f0" x="394" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="421.0" y="34">v6</text>
+<rect class="f1" x="448" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="475.0" y="34">v7</text>
+<rect class="f0" x="502" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="529.0" y="34">v8</text>
+<rect class="f1" x="556" y="20" width="54" height="28" rx="3"/>
+<text class="cell" x="583.0" y="34">v9</text>
+<rect class="f0" x="610" y="20" width="36" height="28" rx="3"/>
+<text class="cell" x="628.0" y="34">v10</text>
+<text class="row" x="0" y="84">word 1</text>
+<rect class="f0" x="70" y="70" width="18" height="28" rx="3"/>
+<rect class="f1" x="88" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="115.0" y="84">v11</text>
+<rect class="f0" x="142" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="169.0" y="84">v12</text>
+<rect class="f1" x="196" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="223.0" y="84">v13</text>
+<rect class="f0" x="250" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="277.0" y="84">v14</text>
+<rect class="f1" x="304" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="331.0" y="84">v15</text>
+<rect class="f0" x="358" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="385.0" y="84">v16</text>
+<rect class="f1" x="412" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="439.0" y="84">v17</text>
+<rect class="f0" x="466" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="493.0" y="84">v18</text>
+<rect class="f1" x="520" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="547.0" y="84">v19</text>
+<rect class="f0" x="574" y="70" width="54" height="28" rx="3"/>
+<text class="cell" x="601.0" y="84">v20</text>
+<rect class="f1" x="628" y="70" width="18" height="28" rx="3"/>
+<text class="muted small mid" x="79" y="62">bit 0</text>
+<text class="muted small mid" x="635" y="62">bit 31</text>
+<text class="muted small mid" x="79" y="112">bit 0</text>
+<text class="muted small mid" x="635" y="112">bit 31</text>
+</svg></p>
+</div>
+</div>
+</div>
+<h4 id="fastpfor-tail">Tail<a class="headerlink" href="#fastpfor-tail" title="Link to this section">&para;</a></h4>
+<p>The tail is variable-byte encoded, with no count and no header.
+Each value is stored in 7-bit groups, least significant group first, and bit 7 of its <strong>last</strong> byte is set.
+This is the reverse of <a href="#varint">VarInt</a>, where bit 7 marks a byte that is followed by another.</p>
+<p>A <code>u32</code> takes 1 to 5 bytes and the fifth carries the top 4 bits.
+A <code>u64</code> takes 1 to 10.
+The bytes are padded with <code>0x00</code> to a multiple of 4.
+A padding byte has bit 7 clear, so it never ends a value, and a decoder discards the unfinished value at the end.
+A decoder reads until the payload ends, and the number of values it read MUST be the stream's value count minus <code>block_values</code>.</p>
+<h4 id="choosing-the-width">Choosing the width<a class="headerlink" href="#choosing-the-width" title="Link to this section">&para;</a></h4>
+<p>The width is the encoder's choice, and any width that decodes to the values is valid.
+The reference encoder counts the values of a block by bit length, and tries each <code>width</code> below the widest value's <code>max_width</code>.
+With <code>e</code> values wider than <code>width</code>, it costs</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>128 * width + e * 8 + e * (max_width - width) + 8        bits
+</span></code></pre></div>
+<p>for the packed block, the position bytes, the exception bits and the <code>max_width</code> byte.
+It picks the cheapest, and <code>max_width</code> itself when no smaller width beats <code>128 * max_width</code>.
+It never picks a <code>width</code> that makes every value an exception.</p>
+<h4 id="example">Example<a class="headerlink" href="#example" title="Link to this section">&para;</a></h4>
+<p>Take 130 <code>u32</code> values, <code>i mod 8</code> for <code>i</code> from <code>0</code>, except <code>300</code> at <code>5</code>, <code>20</code> at <code>77</code>, <code>5</code> at <code>128</code> and <code>200</code> at <code>129</code>.
+The first 128 fit in <code>3</code> bits except two, so <code>width = 3</code> and <code>max_width = 9</code>.
+The last two are the tail.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 190" role="img" aria-label="The 21 words of the example in order: block_values 128, meta_offset 13, the 12 packed words of block 0 at width 3, meta_size 5, the metadata with 2 exceptions at positions 5 and 77, a bitmap with bit 5, an array count of 2, the packed exceptions 37 and 2, and the tail 5 and 200" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small mid" x="50.0" y="12">block_values</text>
+<rect class="f0" x="0" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="50.0" y="34">80 00 00 00</text>
+<text class="small mid" x="50.0" y="62">128</text>
+<text class="muted small mid" x="154.0" y="12">meta_offset</text>
+<rect class="f1" x="104" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="154.0" y="34">0d 00 00 00</text>
+<text class="small mid" x="154.0" y="62">13</text>
+<text class="muted small mid" x="358.0" y="12">packed block</text>
+<rect class="f1" x="208" y="20" width="300" height="28" rx="3"/>
+<text class="cell" x="358.0" y="34">20 08 82 20 61 9a a6 69 …</text>
+<text class="small mid" x="358.0" y="62">block 0 at width 3</text>
+<text class="small mid" x="358.0" y="76">12 words</text>
+<text class="muted small mid" x="562.0" y="12">meta_size</text>
+<rect class="f1" x="512" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="562.0" y="34">05 00 00 00</text>
+<text class="small mid" x="562.0" y="62">5</text>
+<text class="muted small mid" x="100.0" y="104">meta</text>
+<rect class="f1" x="0" y="112" width="200" height="28" rx="3"/>
+<text class="cell" x="100.0" y="126">03 02 09 05 4d 00 00 00</text>
+<text class="small mid" x="100.0" y="154">width 3, 2 exceptions</text>
+<text class="small mid" x="100.0" y="168">max_width 9, at 5 and 77</text>
+<text class="muted small mid" x="254.0" y="104">bitmap</text>
+<rect class="f1" x="204" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="254.0" y="126">20 00 00 00</text>
+<text class="small mid" x="254.0" y="154">bit 5</text>
+<text class="small mid" x="254.0" y="168">k = 9 - 3 = 6</text>
+<text class="muted small mid" x="358.0" y="104">count</text>
+<rect class="f1" x="308" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="358.0" y="126">02 00 00 00</text>
+<text class="small mid" x="358.0" y="154">2</text>
+<text class="muted small mid" x="462.0" y="104">exceptions</text>
+<rect class="f1" x="412" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="462.0" y="126">a5 00 00 00</text>
+<text class="small mid" x="462.0" y="154">37 and 2</text>
+<text class="small mid" x="462.0" y="168">6 bits each</text>
+<text class="muted small mid" x="566.0" y="104">tail</text>
+<rect class="f0" x="516" y="112" width="100" height="28" rx="3"/>
+<text class="cell" x="566.0" y="126">85 48 81 00</text>
+<text class="small mid" x="566.0" y="154">5 and 200</text>
+<text class="small mid" x="566.0" y="168">padded</text>
+</svg></p>
+<p>The same values as <code>u64</code> take 22 words, since the bitmap has two.</p>
+<p>In v2 a stream of 64-bit words, such as the offsets of an <a href="#alp">Framed, Exception-Free ALP</a> column, uses the <code>u64</code> form.
+v1 has no 64-bit FastPFOR, so a v1 stream of 64-bit words cannot use it.</p>
 <h2 id="logical-encodings">Logical Encodings<a class="headerlink" href="#logical-encodings" title="Link to this section">&para;</a></h2>
 <p>The logical encoding is applied to the words the physical step produced.</p>
 <h3 id="logical-none">None<a class="headerlink" href="#logical-none" title="Link to this section">&para;</a></h3>
@@ -1580,15 +1897,15 @@ On a signed stream each word is <a href="#zigzag">ZigZag</a>-decoded.</p>
 The first value's predecessor is <code>0</code>.
 Each difference is <a href="#zigzag">ZigZag</a>-encoded before it becomes a word, whatever the stream's type.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fids_opt_delta.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - ids <code>100</code>, <code>101</code>, <code>105</code>, <code>106</code>, stored as the steps between them.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>delta[0] = values[0] - 0
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>delta[i] = values[i] - values[i - 1]
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>decode: values[i] = values[i - 1] + delta[i]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>delta[0] = values[0] - 0
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>delta[i] = values[i] - values[i - 1]
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>decode: values[i] = values[i - 1] + delta[i]
 </span></code></pre></div>
 <p>Example:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>values: [100, 105, 102]
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>deltas: [100, 5, -3]
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>words:  [200, 10, 5]           zigzag
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>values: [100, 105, 102]
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>deltas: [100, 5, -3]
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>words:  [200, 10, 5]           zigzag
 </span></code></pre></div>
 <p>Delta suits monotonic sequences such as ids and offsets, whose differences are small however large the values are.</p>
 <h3 id="delta2">Delta2 <span class="experimental"></span><a class="headerlink" href="#delta2" title="Link to this section">&para;</a></h3>
@@ -1598,19 +1915,19 @@ Both predecessors start at <code>0</code>, so the first two words are
 - <code>values[1] - 2 * values[0]</code>.</p>
 <p>Each second difference is <a href="#zigzag">ZigZag</a>-encoded, and the arithmetic wraps at the stream's width.</p>
 <p>This means that encoding is:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>delta[i]  = values[i] - values[i - 1]      values[-1] = 0
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>delta2[i] = delta[i] - delta[i - 1]        delta[-1] = 0
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>delta[i]  = values[i] - values[i - 1]      values[-1] = 0
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>delta2[i] = delta[i] - delta[i - 1]        delta[-1] = 0
 </span></code></pre></div></p>
 <p>and decoding is:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>delta[i] = delta[i - 1] + delta2[i]
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>values[i] = values[i - 1] + delta[i]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>delta[i] = delta[i - 1] + delta2[i]
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>values[i] = values[i - 1] + delta[i]
 </span></code></pre></div></p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>values: [10, 13, 16, 20]
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>deltas: [10, 3, 3, 4]
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>delta2: [10, -7, 0, 1]
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>words:  [20, 13, 0, 2]         zigzag
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>values: [10, 13, 16, 20]
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>deltas: [10, 3, 3, 4]
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>delta2: [10, -7, 0, 1]
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>words:  [20, 13, 0, 2]         zigzag
 </span></code></pre></div>
 </div>
 <p>Delta2 suits smooth sequences, such as a per-vertex elevation along a densely sampled line, whose steps change little from one to the next.</p>
@@ -1642,7 +1959,7 @@ Run lengths never are.</p>
 </tbody>
 </table>
 <p>For the input <code>[5, 5, 5, 3, 3, 3, 3]</code>:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Runs</label><label for="__tabbed_4_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Runs</label><label for="__tabbed_5_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="Seven values as two runs, written by v1 as all lengths then all values and by v2 as interleaved pairs" xmlns="http://www.w3.org/2000/svg">
@@ -1688,11 +2005,11 @@ Run lengths never are.</p>
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>runs:   [3, 4]
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>values: [5, 3]
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>v1 words: [3, 4, 5, 3]         header: runs = 2, num_rle_values = 7
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>v2 bytes: 03 05 04 03          header: 7 values from context
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>runs:   [3, 4]
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>values: [5, 3]
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>v1 words: [3, 4, 5, 3]         header: runs = 2, num_rle_values = 7
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>v2 bytes: 03 05 04 03          header: 7 values from context
 </span></code></pre></div>
 </div>
 </div>
@@ -1707,7 +2024,7 @@ A v2 payload with an odd number of varints MUST be rejected.</p>
 The deltas are ZigZag-encoded, and it is those unsigned words that are run-length encoded.
 Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-sum.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fids_delta_rle.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - four equal ids: one step of <code>103</code>, then a run of three <code>0</code>s.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Runs</label><label for="__tabbed_5_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Runs</label><label for="__tabbed_6_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 110" role="img" aria-label="Values 10 to 13 then three 20s, delta and zigzag coded into words, and the words run-length coded as four runs" xmlns="http://www.w3.org/2000/svg">
@@ -1753,10 +2070,10 @@ Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-su
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>values: [10, 11, 12, 13, 20, 20, 20]
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>deltas: [10, 1, 1, 1, 7, 0, 0]
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>words:  [20, 2, 2, 2, 14, 0, 0]          zigzag
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>runs:   (1, 20) (3, 2) (1, 14) (2, 0)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>values: [10, 11, 12, 13, 20, 20, 20]
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>deltas: [10, 1, 1, 1, 7, 0, 0]
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>words:  [20, 2, 2, 2, 14, 0, 0]          zigzag
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>runs:   (1, 20) (3, 2) (1, 14) (2, 0)
 </span></code></pre></div>
 </div>
 </div>
@@ -1769,7 +2086,7 @@ Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-su
 The bitmap is <code>ceil(count / 8)</code> bytes.
 Bits past <code>count</code> in the final byte are padding and MUST be ignored.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fprop_i32_val_null.mlt&amp;at=present" target="_blank">View example</a> - a value, then a null: bits <code>1</code> and <code>0</code>.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Bits</label><label for="__tabbed_6_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="7:2"><input checked="checked" id="__tabbed_7_1" name="__tabbed_7" type="radio" /><input id="__tabbed_7_2" name="__tabbed_7" type="radio" /><div class="tabbed-labels"><label for="__tabbed_7_1">Bits</label><label for="__tabbed_7_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 132" role="img" aria-label="Six booleans in bits 0 to 5 of the byte 2D, bit 0 first, with two padding bits" xmlns="http://www.w3.org/2000/svg">
@@ -1809,8 +2126,8 @@ Bits past <code>count</code> in the final byte are padding and MUST be ignored.<
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>values: [1, 0, 1, 1, 0, 1]
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>byte:   0b0010_1101 = 0x2D
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>values: [1, 0, 1, 1, 0, 1]
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>byte:   0b0010_1101 = 0x2D
 </span></code></pre></div>
 </div>
 </div>
@@ -1842,7 +2159,7 @@ The payload is a sequence of runs, each a control byte and what it names:</p>
 <p>A repeated run is 3 to 130 bytes and a literal run 1 to 128.
 The runs expand to exactly <code>ceil(count / 8)</code> bitmap bytes.
 A payload that expands to more, or ends before that, MUST be rejected.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="7:2"><input checked="checked" id="__tabbed_7_1" name="__tabbed_7" type="radio" /><input id="__tabbed_7_2" name="__tabbed_7" type="radio" /><div class="tabbed-labels"><label for="__tabbed_7_1">Runs</label><label for="__tabbed_7_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="8:2"><input checked="checked" id="__tabbed_8_1" name="__tabbed_8" type="radio" /><input id="__tabbed_8_2" name="__tabbed_8" type="radio" /><div class="tabbed-labels"><label for="__tabbed_8_1">Runs</label><label for="__tabbed_8_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 186" role="img" aria-label="The payload 02 FF FF 2D expands to five FF bytes from a repeated run and one 2D byte from a literal run" xmlns="http://www.w3.org/2000/svg">
@@ -1887,10 +2204,10 @@ A payload that expands to more, or ends before that, MUST be rejected.</p>
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>bitmap:  FF FF FF FF FF 2D
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>payload: 02 FF FF 2D
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>         02 FF          repeated run: 2 + 3 = 5 copies of FF
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>         FF 2D          literal run: 256 - 255 = 1 byte, 2D
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>bitmap:  FF FF FF FF FF 2D
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>payload: 02 FF FF 2D
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>         02 FF          repeated run: 2 + 3 = 5 copies of FF
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>         FF 2D          literal run: 256 - 255 = 1 byte, 2D
 </span></code></pre></div>
 </div>
 </div>
@@ -2066,7 +2383,7 @@ f = \mathit{scale} - \frac{e(e+1)}{2}
 </svg></p>
 <p>The payload holds unsigned offsets from <code>base</code>, so the smallest is <code>0</code> and every value is non-negative.
 The offsets are an ordinary unsigned integer stream and carry their own physical encoding.
-Its words are 64-bit, except under FastPFOR, which only has 32-bit words.</p>
+Its words are 64-bit.</p>
 <p><strong>Decoding</strong>: <span class="arithmatex">\(i = \mathit{base} + \mathit{offset}\)</span>, in 64-bit integer arithmetic, then <span class="arithmatex">\(v = i \cdot 10^f \cdot 10^{-e}\)</span>, with <span class="arithmatex">\(10^{-e}\)</span> the nearest double and not an exact division.</p>
 <p>The sum MUST be formed as an integer before the conversion.
 A column spanning <span class="arithmatex">\([-2, 2^{53} - 1]\)</span> has an offset of <span class="arithmatex">\(2^{53} + 1\)</span>, which a double cannot hold.</p>
@@ -2084,7 +2401,7 @@ If any value does not round-trip exactly, the encoder MUST use another encoding.
 Beyond that, floating-point scaling can land on a neighboring integer that still passes its own round-trip check.
 This is a limitation of that implementation, not of the format.</p>
 </div>
-<div class="tabbed-set tabbed-alternate" data-tabs="8:2"><input checked="checked" id="__tabbed_8_1" name="__tabbed_8" type="radio" /><input id="__tabbed_8_2" name="__tabbed_8" type="radio" /><div class="tabbed-labels"><label for="__tabbed_8_1">Offsets</label><label for="__tabbed_8_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="9:2"><input checked="checked" id="__tabbed_9_1" name="__tabbed_9" type="radio" /><input id="__tabbed_9_2" name="__tabbed_9" type="radio" /><div class="tabbed-labels"><label for="__tabbed_9_1">Offsets</label><label for="__tabbed_9_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 136" role="img" aria-label="Four floats scaled by 100 to integers on a line, stored as offsets 0, 150, 250 and 375 from the base -225" xmlns="http://www.w3.org/2000/svg">
@@ -2116,9 +2433,9 @@ This is a limitation of that implementation, not of the format.</p>
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>values:  [-0.75, 0.25, 1.5, -2.25]
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>e = 2, f = 0:  i = [-75, 25, 150, -225]
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>base = -225:   offsets = [150, 250, 375, 0]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>values:  [-0.75, 0.25, 1.5, -2.25]
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>e = 2, f = 0:  i = [-75, 25, 150, -225]
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>base = -225:   offsets = [150, 250, 375, 0]
 </span></code></pre></div>
 </div>
 </div>
@@ -2131,7 +2448,7 @@ See the <a href="../specification/v2/#examples">Framed, Exception-Free ALP examp
 <p>The column has two streams.
 The first is the codes: an integer stream of 32-bit words, logical <code>Dict</code> in the <code>Float</code> family, with its own physical encoding.
 The second is the dictionary: <a href="#plain-floats">plain floats</a>, one per distinct value, with an explicit count in its header.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="9:2"><input checked="checked" id="__tabbed_9_1" name="__tabbed_9" type="radio" /><input id="__tabbed_9_2" name="__tabbed_9" type="radio" /><div class="tabbed-labels"><label for="__tabbed_9_1">Codes</label><label for="__tabbed_9_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="10:2"><input checked="checked" id="__tabbed_10_1" name="__tabbed_10" type="radio" /><input id="__tabbed_10_2" name="__tabbed_10" type="radio" /><div class="tabbed-labels"><label for="__tabbed_10_1">Codes</label><label for="__tabbed_10_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 184" role="img" aria-label="Five floats as codes 0, 1, 0, 0, 1 into the two entry dictionary 1.5, 0.25" xmlns="http://www.w3.org/2000/svg">
@@ -2167,9 +2484,9 @@ The second is the dictionary: <a href="#plain-floats">plain floats</a>, one per 
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>values: [1.5, 0.25, 1.5, 1.5, 0.25]
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>codes:  [0, 1, 0, 0, 1]
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>dict:   [1.5, 0.25]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>values: [1.5, 0.25, 1.5, 1.5, 0.25]
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>codes:  [0, 1, 0, 0, 1]
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>dict:   [1.5, 0.25]
 </span></code></pre></div>
 </div>
 </div>
@@ -2191,7 +2508,7 @@ Front coding stores the length of the prefix shared with the previous entry, and
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fprops_str_front_dict_np.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a dictionary whose entries share prefixes.</p>
 <p>The lengths stream that precedes the blob holds <code>2N</code> values: <code>N</code> shared-prefix lengths, then <code>N</code> suffix lengths.
 The blob holds the <code>N</code> suffixes back to back.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>entry[i] = entry[i - 1][..prefix_lengths[i]] ++ suffix[i]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>entry[i] = entry[i - 1][..prefix_lengths[i]] ++ suffix[i]
 </span></code></pre></div>
 <p>The first entry's prefix length is always <code>0</code>.
 A prefix length longer than the previous entry, a lengths stream with an odd count, or suffix bytes left over after the last entry MUST be rejected.</p>
@@ -2199,7 +2516,7 @@ A prefix length longer than the previous entry, a lengths stream with an odd cou
 Random access requires a scan from the start of the dictionary.
 Prefix lengths are in bytes and may split a multi-byte character.
 Only the reconstructed entry has to be valid UTF-8.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="10:2"><input checked="checked" id="__tabbed_10_1" name="__tabbed_10" type="radio" /><input id="__tabbed_10_2" name="__tabbed_10" type="radio" /><div class="tabbed-labels"><label for="__tabbed_10_1">Prefixes</label><label for="__tabbed_10_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="11:2"><input checked="checked" id="__tabbed_11_1" name="__tabbed_11" type="radio" /><input id="__tabbed_11_2" name="__tabbed_11" type="radio" /><div class="tabbed-labels"><label for="__tabbed_11_1">Prefixes</label><label for="__tabbed_11_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 158" role="img" aria-label="Three sorted entries that each copy a prefix of the one before and store only their suffix" xmlns="http://www.w3.org/2000/svg">
@@ -2347,11 +2664,11 @@ Only the reconstructed entry has to be valid UTF-8.</p>
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>entries:  ["Main Street", "Main Street North", "Maple Avenue"]
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>prefixes: [0, 11, 2]
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>suffixes: [11, 6, 10]
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>lengths:  [0, 11, 2, 11, 6, 10]
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>blob:     "Main Street" " North" "ple Avenue"
+<div class="language-text highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>entries:  ["Main Street", "Main Street North", "Maple Avenue"]
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>prefixes: [0, 11, 2]
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>suffixes: [11, 6, 10]
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>lengths:  [0, 11, 2, 11, 6, 10]
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>blob:     "Main Street" " North" "ple Avenue"
 </span></code></pre></div>
 </div>
 </div>
@@ -2407,7 +2724,7 @@ It supports random access to one value once its lengths are known, since every c
 <p>The corpus compresses all values as one buffer, so a symbol may span two values.
 The lengths stream beside the corpus holds the <strong>uncompressed</strong> length of each value.
 A decoder expands the whole corpus and then splits it by those lengths.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="11:2"><input checked="checked" id="__tabbed_11_1" name="__tabbed_11" type="radio" /><input id="__tabbed_11_2" name="__tabbed_11" type="radio" /><div class="tabbed-labels"><label for="__tabbed_11_1">Expansion</label><label for="__tabbed_11_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="12:2"><input checked="checked" id="__tabbed_12_1" name="__tabbed_12" type="radio" /><input id="__tabbed_12_2" name="__tabbed_12" type="radio" /><div class="tabbed-labels"><label for="__tabbed_12_1">Expansion</label><label for="__tabbed_12_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 154" role="img" aria-label="The FSST corpus 00 01 00 FF 7A expands to abcdabz, which the lengths 4 and 3 split into abcd and abz" xmlns="http://www.w3.org/2000/svg">
@@ -2453,9 +2770,9 @@ A decoder expands the whole corpus and then splits it by those lengths.</p>
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>symbols:      ["ab", "cd"]           SymbolLengths = [2, 2], SymbolTable = "abcd"
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>values:       ["abcd", "abz"]        Lengths = [4, 3]
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>corpus bytes: 00 01 00 FF 7A         ab cd ab &lt;esc&gt; z
+<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>symbols:      ["ab", "cd"]           SymbolLengths = [2, 2], SymbolTable = "abcd"
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>values:       ["abcd", "abz"]        Lengths = [4, 3]
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>corpus bytes: 00 01 00 FF 7A         ab cd ab &lt;esc&gt; z
 </span></code></pre></div>
 </div>
 </div>
@@ -2503,10 +2820,10 @@ See <a href="../specification/v1/#string-columns">v1 string columns</a> and <a h
 <p>Several string columns, such as <code>name:en</code>, <code>name:de</code> and <code>name:fr</code>, index into one dictionary.
 The dictionary streams are written once, and each member column then stores only its presence and its <code>Codes</code>.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - several columns reading one corpus.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>DictLengths, DictValues, Present_1, Codes_1, Present_2, Codes_2, ...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>DictLengths, DictValues, Present_1, Codes_1, Present_2, Codes_2, ...
 </span></code></pre></div>
 <p>With FSST the dictionary is four streams instead of two:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>DictLengths, SymbolLengths, SymbolTable, Corpus, Present_1, Codes_1, Present_2, Codes_2, ...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>DictLengths, SymbolLengths, SymbolTable, Corpus, Present_1, Codes_1, Present_2, Codes_2, ...
 </span></code></pre></div>
 <p>In v2 presence bitfields are not streams, and a member may reference a bitfield shared with any other column.
 See <a href="../specification/v1/#shared-dictionary-columns">v1</a> and <a href="../specification/v2/#shared-dictionary-columns">v2</a> for the group header each version writes.</p>
@@ -2518,28 +2835,28 @@ Its words are 32-bit and signed.</p>
 <code>x</code> and <code>y</code> keep separate predecessors, both starting at <code>0</code>.
 Each delta is <a href="#zigzag">ZigZag</a>-encoded.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fline.mlt&amp;at=vertices" target="_blank">View example</a> - three vertices, each stored as its step from the one before.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>dx[i] = x[i] - x[i - 1]        x[-1] = 0
-</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>dy[i] = y[i] - y[i - 1]        y[-1] = 0
-</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>words = [zigzag(dx[0]), zigzag(dy[0]), zigzag(dx[1]), zigzag(dy[1]), ...]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>dx[i] = x[i] - x[i - 1]        x[-1] = 0
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>dy[i] = y[i] - y[i - 1]        y[-1] = 0
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>words = [zigzag(dx[0]), zigzag(dy[0]), zigzag(dx[1]), zigzag(dy[1]), ...]
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>vertices: (100, 200), (105, 210), (102, 215)
-</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>deltas:   (100, 200), (5, 10), (-3, 5)
-</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>words:    [200, 400, 10, 20, 5, 10]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>vertices: (100, 200), (105, 210), (102, 215)
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>deltas:   (100, 200), (5, 10), (-3, 5)
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>words:    [200, 400, 10, 20, 5, 10]
 </span></code></pre></div>
 <p>The v2 <code>Vertex</code> family also has a plain <code>Delta</code>, which is the integer <a href="#delta">Delta</a> over the flat word sequence and does not separate the components.</p>
 <h3 id="componentwise-delta2">Componentwise Delta2 <span class="experimental"></span><a class="headerlink" href="#componentwise-delta2" title="Link to this section">&para;</a></h3>
 <p><a href="#delta2">Delta2</a> of each coordinate, with <code>x</code> and <code>y</code> keeping separate predecessors.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>vertices: (0, 0), (70, 1), (140, 3), (210, 6)
-</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>deltas:   (0, 0), (70, 1), (70, 2), (70, 3)
-</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>delta2:   (0, 0), (70, 1), (0, 1), (0, 1)
-</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>words:    [0, 0, 140, 2, 0, 2, 0, 2]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>vertices: (0, 0), (70, 1), (140, 3), (210, 6)
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>deltas:   (0, 0), (70, 1), (70, 2), (70, 3)
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>delta2:   (0, 0), (70, 1), (0, 1), (0, 1)
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>words:    [0, 0, 140, 2, 0, 2, 0, 2]
 </span></code></pre></div>
 <h3 id="vertex-dictionary">Vertex Dictionary<a class="headerlink" href="#vertex-dictionary" title="Link to this section">&para;</a></h3>
 <p>The distinct vertices are stored once in a <code>VertexDict</code> stream, and a <code>VertexOffsets</code> stream holds one index into them per vertex.
 <code>VertexOffsets</code> is an ordinary unsigned integer stream.
 <code>VertexDict</code> is a vertex stream and carries any of the encodings in this section.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict" target="_blank">View example</a> - vertices stored once and indexed.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="12:2"><input checked="checked" id="__tabbed_12_1" name="__tabbed_12" type="radio" /><input id="__tabbed_12_2" name="__tabbed_12" type="radio" /><div class="tabbed-labels"><label for="__tabbed_12_1">Offsets</label><label for="__tabbed_12_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="13:2"><input checked="checked" id="__tabbed_13_1" name="__tabbed_13" type="radio" /><input id="__tabbed_13_2" name="__tabbed_13" type="radio" /><div class="tabbed-labels"><label for="__tabbed_13_1">Offsets</label><label for="__tabbed_13_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 184" role="img" aria-label="Six vertices as offsets 0, 1, 2, 1, 0, 2 into a three entry vertex dictionary" xmlns="http://www.w3.org/2000/svg">
@@ -2582,9 +2899,9 @@ Each delta is <a href="#zigzag">ZigZag</a>-encoded.</p>
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>VertexOffsets: [0, 1, 2, 1, 0, 2]
-</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>VertexDict:    [(0,0), (10,10), (20,20)]
-</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>vertices:      (0,0), (10,10), (20,20), (10,10), (0,0), (20,20)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>VertexOffsets: [0, 1, 2, 1, 0, 2]
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>VertexDict:    [(0,0), (10,10), (20,20)]
+</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>vertices:      (0,0), (10,10), (20,20), (10,10), (0,0), (20,20)
 </span></code></pre></div>
 </div>
 </div>
@@ -2627,30 +2944,30 @@ Only a <code>VertexDict</code> stream uses it.</p>
 <code>bits</code> is the bit width of <code>max + shift</code>, the largest shifted coordinate.</p>
 <p>Encoding is two steps.
 Shift both coordinates, then interleave them: bit <code>i</code> of <code>sx</code> goes to bit <code>2i</code> of the code, and bit <code>i</code> of <code>sy</code> to bit <code>2i + 1</code>.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">encode</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="n">bits</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">shift</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">sx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">i64</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="kt">i64</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">shift</span><span class="p">))</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span><span class="w"> </span><span class="c1">// MUST be in 0..2^bits</span>
-</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">sy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">i64</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="kt">i64</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">shift</span><span class="p">))</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span>
-</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..</span><span class="n">bits</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">        </span><span class="n">code</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="p">((</span><span class="n">sx</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
-</span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">        </span><span class="n">code</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="p">((</span><span class="n">sy</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
-</span><span id="__span-26-8"><a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-26-9"><a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a><span class="w">    </span><span class="n">code</span>
-</span><span id="__span-26-10"><a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">encode</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="n">bits</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">shift</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">sx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">i64</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="kt">i64</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">shift</span><span class="p">))</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span><span class="w"> </span><span class="c1">// MUST be in 0..2^bits</span>
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">sy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">i64</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="kt">i64</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">shift</span><span class="p">))</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span>
+</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+</span><span id="__span-31-5"><a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..</span><span class="n">bits</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-31-6"><a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a><span class="w">        </span><span class="n">code</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="p">((</span><span class="n">sx</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+</span><span id="__span-31-7"><a id="__codelineno-31-7" name="__codelineno-31-7" href="#__codelineno-31-7"></a><span class="w">        </span><span class="n">code</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="p">((</span><span class="n">sy</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+</span><span id="__span-31-8"><a id="__codelineno-31-8" name="__codelineno-31-8" href="#__codelineno-31-8"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-31-9"><a id="__codelineno-31-9" name="__codelineno-31-9" href="#__codelineno-31-9"></a><span class="w">    </span><span class="n">code</span>
+</span><span id="__span-31-10"><a id="__codelineno-31-10" name="__codelineno-31-10" href="#__codelineno-31-10"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Decoding walks the same bits back and undoes the shift.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">decode</span><span class="p">(</span><span class="n">code</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">bits</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">shift</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">(</span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..</span><span class="n">bits</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
-</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="w">        </span><span class="n">x</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="p">(</span><span class="n">code</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
-</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="w">        </span><span class="n">y</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="p">((</span><span class="n">code</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
-</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="w">    </span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">wrapping_sub</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">.</span><span class="n">wrapping_sub</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span>
-</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">decode</span><span class="p">(</span><span class="n">code</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">bits</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">shift</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">(</span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..</span><span class="n">bits</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-32-5"><a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+</span><span id="__span-32-6"><a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="w">        </span><span class="n">x</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="p">(</span><span class="n">code</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+</span><span id="__span-32-7"><a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a><span class="w">        </span><span class="n">y</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="p">((</span><span class="n">code</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">mask</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">i</span><span class="p">;</span>
+</span><span id="__span-32-8"><a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-32-9"><a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a><span class="w">    </span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">wrapping_sub</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">.</span><span class="n">wrapping_sub</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span>
+</span><span id="__span-32-10"><a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a><span class="p">}</span>
 </span></code></pre></div>
-<div class="tabbed-set tabbed-alternate" data-tabs="13:2"><input checked="checked" id="__tabbed_13_1" name="__tabbed_13" type="radio" /><input id="__tabbed_13_2" name="__tabbed_13" type="radio" /><div class="tabbed-labels"><label for="__tabbed_13_1">Bits</label><label for="__tabbed_13_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="14:2"><input checked="checked" id="__tabbed_14_1" name="__tabbed_14" type="radio" /><input id="__tabbed_14_2" name="__tabbed_14" type="radio" /><div class="tabbed-labels"><label for="__tabbed_14_1">Bits</label><label for="__tabbed_14_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 180" role="img" aria-label="The Morton code of (5, 3): bit i of x lands on bit 2i and bit i of y on bit 2i + 1, giving 27" xmlns="http://www.w3.org/2000/svg">
@@ -2697,39 +3014,39 @@ Shift both coordinates, then interleave them: bit <code>i</code> of <code>sx</co
 </svg></p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>(x, y) = (5, 3), shift = 0, bits = 3
-</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>sx = 0b101, sy = 0b011
-</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>code bits, from bit 0: x0 y0 x1 y1 x2 y2 = 1 1 0 1 1 0
-</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>code = 0b011011 = 27
+<div class="language-text highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>(x, y) = (5, 3), shift = 0, bits = 3
+</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>sx = 0b101, sy = 0b011
+</span><span id="__span-33-3"><a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>code bits, from bit 0: x0 y0 x1 y1 x2 y2 = 1 1 0 1 1 0
+</span><span id="__span-33-4"><a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>code = 0b011011 = 27
 </span></code></pre></div>
 </div>
 </div>
 </div>
 <p>The loops are the definition.
 The reference Rust codec spreads all 16 bits of an axis at once with masks, which gives the same code for any <code>bits</code> up to <code>16</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="sd">/// Bit `i` of `v` lands on bit `2i`.</span>
-</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">spread</span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="mh">0xFFFF</span><span class="p">;</span>
-</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">8</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x00FF_00FF</span><span class="p">;</span>
-</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">4</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x0F0F_0F0F</span><span class="p">;</span>
-</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">2</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x3333_3333</span><span class="p">;</span>
-</span><span id="__span-29-7"><a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x5555_5555</span><span class="p">;</span>
-</span><span id="__span-29-8"><a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a><span class="w">    </span><span class="n">v</span>
-</span><span id="__span-29-9"><a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a><span class="p">}</span>
-</span><span id="__span-29-10"><a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a>
-</span><span id="__span-29-11"><a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a><span class="sd">/// Bit `2i` of `v` lands on bit `i`.</span>
-</span><span id="__span-29-12"><a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a><span class="k">fn</span><span class="w"> </span><span class="nf">compact</span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-29-13"><a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="mh">0x5555_5555</span><span class="p">;</span>
-</span><span id="__span-29-14"><a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x3333_3333</span><span class="p">;</span>
-</span><span id="__span-29-15"><a id="__codelineno-29-15" name="__codelineno-29-15" href="#__codelineno-29-15"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">2</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x0F0F_0F0F</span><span class="p">;</span>
-</span><span id="__span-29-16"><a id="__codelineno-29-16" name="__codelineno-29-16" href="#__codelineno-29-16"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">4</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x00FF_00FF</span><span class="p">;</span>
-</span><span id="__span-29-17"><a id="__codelineno-29-17" name="__codelineno-29-17" href="#__codelineno-29-17"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">8</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x0000_FFFF</span><span class="p">;</span>
-</span><span id="__span-29-18"><a id="__codelineno-29-18" name="__codelineno-29-18" href="#__codelineno-29-18"></a><span class="w">    </span><span class="n">v</span>
-</span><span id="__span-29-19"><a id="__codelineno-29-19" name="__codelineno-29-19" href="#__codelineno-29-19"></a><span class="p">}</span>
-</span><span id="__span-29-20"><a id="__codelineno-29-20" name="__codelineno-29-20" href="#__codelineno-29-20"></a>
-</span><span id="__span-29-21"><a id="__codelineno-29-21" name="__codelineno-29-21" href="#__codelineno-29-21"></a><span class="kd">let</span><span class="w"> </span><span class="n">code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">spread</span><span class="p">(</span><span class="n">sx</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">spread</span><span class="p">(</span><span class="n">sy</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
-</span><span id="__span-29-22"><a id="__codelineno-29-22" name="__codelineno-29-22" href="#__codelineno-29-22"></a><span class="kd">let</span><span class="w"> </span><span class="n">sx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">compact</span><span class="p">(</span><span class="n">code</span><span class="p">);</span>
-</span><span id="__span-29-23"><a id="__codelineno-29-23" name="__codelineno-29-23" href="#__codelineno-29-23"></a><span class="kd">let</span><span class="w"> </span><span class="n">sy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">compact</span><span class="p">(</span><span class="n">code</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="sd">/// Bit `i` of `v` lands on bit `2i`.</span>
+</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">spread</span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-34-3"><a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="mh">0xFFFF</span><span class="p">;</span>
+</span><span id="__span-34-4"><a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">8</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x00FF_00FF</span><span class="p">;</span>
+</span><span id="__span-34-5"><a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">4</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x0F0F_0F0F</span><span class="p">;</span>
+</span><span id="__span-34-6"><a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">2</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x3333_3333</span><span class="p">;</span>
+</span><span id="__span-34-7"><a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x5555_5555</span><span class="p">;</span>
+</span><span id="__span-34-8"><a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a><span class="w">    </span><span class="n">v</span>
+</span><span id="__span-34-9"><a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a><span class="p">}</span>
+</span><span id="__span-34-10"><a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a>
+</span><span id="__span-34-11"><a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a><span class="sd">/// Bit `2i` of `v` lands on bit `i`.</span>
+</span><span id="__span-34-12"><a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a><span class="k">fn</span><span class="w"> </span><span class="nf">compact</span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-34-13"><a id="__codelineno-34-13" name="__codelineno-34-13" href="#__codelineno-34-13"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="mh">0x5555_5555</span><span class="p">;</span>
+</span><span id="__span-34-14"><a id="__codelineno-34-14" name="__codelineno-34-14" href="#__codelineno-34-14"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x3333_3333</span><span class="p">;</span>
+</span><span id="__span-34-15"><a id="__codelineno-34-15" name="__codelineno-34-15" href="#__codelineno-34-15"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">2</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x0F0F_0F0F</span><span class="p">;</span>
+</span><span id="__span-34-16"><a id="__codelineno-34-16" name="__codelineno-34-16" href="#__codelineno-34-16"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">4</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x00FF_00FF</span><span class="p">;</span>
+</span><span id="__span-34-17"><a id="__codelineno-34-17" name="__codelineno-34-17" href="#__codelineno-34-17"></a><span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">v</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">8</span><span class="p">))</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x0000_FFFF</span><span class="p">;</span>
+</span><span id="__span-34-18"><a id="__codelineno-34-18" name="__codelineno-34-18" href="#__codelineno-34-18"></a><span class="w">    </span><span class="n">v</span>
+</span><span id="__span-34-19"><a id="__codelineno-34-19" name="__codelineno-34-19" href="#__codelineno-34-19"></a><span class="p">}</span>
+</span><span id="__span-34-20"><a id="__codelineno-34-20" name="__codelineno-34-20" href="#__codelineno-34-20"></a>
+</span><span id="__span-34-21"><a id="__codelineno-34-21" name="__codelineno-34-21" href="#__codelineno-34-21"></a><span class="kd">let</span><span class="w"> </span><span class="n">code</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">spread</span><span class="p">(</span><span class="n">sx</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">(</span><span class="n">spread</span><span class="p">(</span><span class="n">sy</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+</span><span id="__span-34-22"><a id="__codelineno-34-22" name="__codelineno-34-22" href="#__codelineno-34-22"></a><span class="kd">let</span><span class="w"> </span><span class="n">sx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">compact</span><span class="p">(</span><span class="n">code</span><span class="p">);</span>
+</span><span id="__span-34-23"><a id="__codelineno-34-23" name="__codelineno-34-23" href="#__codelineno-34-23"></a><span class="kd">let</span><span class="w"> </span><span class="n">sy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">compact</span><span class="p">(</span><span class="n">code</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
 </span></code></pre></div>
 <p>The codes are stored as an integer stream of unsigned 32-bit words.
 The stream holds the first code, then each code's difference to the previous one.
@@ -2737,8 +3054,8 @@ v1 names this <code>MortonDelta</code>, v2 names it <code>Morton</code> in the <
 There is no plain or RLE Morton encoding.</p>
 <p>The deltas are plain differences, not ZigZag-encoded.
 The dictionary is sorted ascending by code, so every difference is non-negative.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>dict codes: [27, 30, 45]
-</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>words:      [27, 3, 15]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>dict codes: [27, 30, 45]
+</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>words:      [27, 3, 15]
 </span></code></pre></div>
 <h3 id="rans">rANS <span class="experimental"></span><a class="headerlink" href="#rans" title="Link to this section">&para;</a></h3>
 <p>We can entropy-code the <a href="#componentwise-delta">componentwise deltas</a> of a plain layout's vertex stream.
@@ -2765,10 +3082,10 @@ The low <code>p</code> bits of <code>x</code> are a slot, and the symbol owning 
 The state then shrinks by about <code>log2(2^p / freq(s))</code> bits, so a symbol owning half the slots costs one bit, and one owning a quarter costs two.
 When the state drops below <code>2^16</code>, the next 16-bit word of the stream is shifted in from below.
 The state stays in <code>[2^16, 2^32)</code> between symbols.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>slot = x &amp; (2^p - 1)
-</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>s    = the symbol whose slots hold slot
-</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>x    = freq(s) * (x &gt;&gt; p) + slot - cum(s)
-</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>if x &lt; 2^16: x = (x &lt;&lt; 16) | next refill word of the lane
+<div class="language-text highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>slot = x &amp; (2^p - 1)
+</span><span id="__span-36-2"><a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>s    = the symbol whose slots hold slot
+</span><span id="__span-36-3"><a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>x    = freq(s) * (x &gt;&gt; p) + slot - cum(s)
+</span><span id="__span-36-4"><a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a>if x &lt; 2^16: x = (x &lt;&lt; 16) | next refill word of the lane
 </span></code></pre></div>
 <p>A table of precision <code>3</code>, decoding the state <code>0x10005</code>:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 160" role="img" aria-label="A table of precision 3: symbol 0 owns slots 0 to 3, symbol 3 slots 4 and 5, symbol 4 slot 6 and symbol 7 slot 7. The state 0x10005 ends in the bits 101, slot 5, so it decodes symbol 3" xmlns="http://www.w3.org/2000/svg">
@@ -2872,7 +3189,7 @@ The leading one is implied by <code>len</code>.
 The remaining low bits are the raw bits.
 This is the same split a float makes into exponent, mantissa and dropped precision.</p>
 <p>At depth <code>1</code>:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="14:2"><input checked="checked" id="__tabbed_14_1" name="__tabbed_14" type="radio" /><input id="__tabbed_14_2" name="__tabbed_14" type="radio" /><div class="tabbed-labels"><label for="__tabbed_14_1">Bits</label><label for="__tabbed_14_2">Values</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="15:2"><input checked="checked" id="__tabbed_15_1" name="__tabbed_15" type="radio" /><input id="__tabbed_15_2" name="__tabbed_15" type="radio" /><div class="tabbed-labels"><label for="__tabbed_15_1">Bits</label><label for="__tabbed_15_2">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="At depth 1, the deltas 100, 5 and -3 keep their bit length and the bit after the leading one as the symbol, and store the bits below as raw bits: symbols 29, 11 and 10" xmlns="http://www.w3.org/2000/svg">
@@ -2998,25 +3315,25 @@ This is the same split a float makes into exponent, mantissa and dropped precisi
 </div>
 <p>Positive deltas get odd symbols and negative ones the even symbol above.
 A magnitude with fewer than <code>d</code> bits after its leading one makes the unused mantissa positions <code>0</code>.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>delta = 0:  symbol 0, no raw bits
-</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>otherwise:  m = |delta|                       as an unsigned 32-bit value
-</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>            len = bit length of m             1-32
-</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>            k = min(len - 1, d)               mantissa bits the symbol keeps
-</span><span id="__span-32-5"><a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>            raw_bits = len - 1 - k
-</span><span id="__span-32-6"><a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>            mantissa = (m &gt;&gt; raw_bits) &amp; (2^k - 1)
-</span><span id="__span-32-7"><a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a>            code = (len &lt;&lt; d) | (mantissa &lt;&lt; (d - k))
-</span><span id="__span-32-8"><a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a>            symbol = 2 * code - 1 if delta &gt; 0, 2 * code if delta &lt; 0
-</span><span id="__span-32-9"><a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a>            raw = the low raw_bits bits of m
+<div class="language-text highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>delta = 0:  symbol 0, no raw bits
+</span><span id="__span-37-2"><a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>otherwise:  m = |delta|                       as an unsigned 32-bit value
+</span><span id="__span-37-3"><a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>            len = bit length of m             1-32
+</span><span id="__span-37-4"><a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a>            k = min(len - 1, d)               mantissa bits the symbol keeps
+</span><span id="__span-37-5"><a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>            raw_bits = len - 1 - k
+</span><span id="__span-37-6"><a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a>            mantissa = (m &gt;&gt; raw_bits) &amp; (2^k - 1)
+</span><span id="__span-37-7"><a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a>            code = (len &lt;&lt; d) | (mantissa &lt;&lt; (d - k))
+</span><span id="__span-37-8"><a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a>            symbol = 2 * code - 1 if delta &gt; 0, 2 * code if delta &lt; 0
+</span><span id="__span-37-9"><a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a>            raw = the low raw_bits bits of m
 </span></code></pre></div>
 <p>Decoding reverses it:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>symbol = 0:  delta 0
-</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>otherwise:   code = ceil(symbol / 2)
-</span><span id="__span-33-3"><a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>             len = code &gt;&gt; d
-</span><span id="__span-33-4"><a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>             k = min(len - 1, d)
-</span><span id="__span-33-5"><a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>             raw_bits = len - 1 - k
-</span><span id="__span-33-6"><a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a>             mantissa = (code &amp; (2^d - 1)) &gt;&gt; (d - k)
-</span><span id="__span-33-7"><a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a>             m = ((2^k | mantissa) &lt;&lt; raw_bits) | the next raw_bits raw bits
-</span><span id="__span-33-8"><a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a>             delta = m if symbol is odd, -m if it is even     wrapping, so m = 2^31 is i32::MIN
+<div class="language-text highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>symbol = 0:  delta 0
+</span><span id="__span-38-2"><a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>otherwise:   code = ceil(symbol / 2)
+</span><span id="__span-38-3"><a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>             len = code &gt;&gt; d
+</span><span id="__span-38-4"><a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a>             k = min(len - 1, d)
+</span><span id="__span-38-5"><a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a>             raw_bits = len - 1 - k
+</span><span id="__span-38-6"><a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a>             mantissa = (code &amp; (2^d - 1)) &gt;&gt; (d - k)
+</span><span id="__span-38-7"><a id="__codelineno-38-7" name="__codelineno-38-7" href="#__codelineno-38-7"></a>             m = ((2^k | mantissa) &lt;&lt; raw_bits) | the next raw_bits raw bits
+</span><span id="__span-38-8"><a id="__codelineno-38-8" name="__codelineno-38-8" href="#__codelineno-38-8"></a>             delta = m if symbol is odd, -m if it is even     wrapping, so m = 2^31 is i32::MIN
 </span></code></pre></div>
 <p>Symbols run up to <code>64</code> at depth <code>0</code>, <code>128</code> at depth <code>1</code> and <code>256</code> at depth <code>2</code>, the symbol of <code>i32::MIN</code>.
 The codes above it at depths <code>1</code> and <code>2</code> name no delta.
@@ -3117,19 +3434,19 @@ A larger depth moves bits from the raw bits into the symbol, where a predictable
 <path class="implicit" d="M570 130L600 70"/>
 </svg></p>
 <h4 id="payload">Payload<a class="headerlink" href="#payload" title="Link to this section">&para;</a></h4>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>payload := [u8 depth]           0-2
-</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>           [tables]             bit-packed LSB-first, padded to a byte
-</span><span id="__span-34-3"><a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>           [varint lane_len; 4]
-</span><span id="__span-34-4"><a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a>           [lane; 4]
-</span><span id="__span-34-5"><a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>           [raw bits]           LSB-first, padded to a byte
+<div class="language-text highlight"><pre><span></span><code><span id="__span-39-1"><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>payload := [u8 depth]           0-2
+</span><span id="__span-39-2"><a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>           [tables]             bit-packed LSB-first, padded to a byte
+</span><span id="__span-39-3"><a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>           [varint lane_len; 4]
+</span><span id="__span-39-4"><a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a>           [lane; 4]
+</span><span id="__span-39-5"><a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a>           [raw bits]           LSB-first, padded to a byte
 </span></code></pre></div>
 <p>The tables are one per context, in context order:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>table := [1 bit present]
-</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>         if present:
-</span><span id="__span-35-3"><a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>           [4 bits precision]   0-11
-</span><span id="__span-35-4"><a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>           [9 bits max_symbol]  0-256
-</span><span id="__span-35-5"><a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a>           if precision &gt; 0:
-</span><span id="__span-35-6"><a id="__codelineno-35-6" name="__codelineno-35-6" href="#__codelineno-35-6"></a>             [gamma(freq + 1)] for every symbol 0..=max_symbol
+<div class="language-text highlight"><pre><span></span><code><span id="__span-40-1"><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>table := [1 bit present]
+</span><span id="__span-40-2"><a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>         if present:
+</span><span id="__span-40-3"><a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>           [4 bits precision]   0-11
+</span><span id="__span-40-4"><a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>           [9 bits max_symbol]  0-256
+</span><span id="__span-40-5"><a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>           if precision &gt; 0:
+</span><span id="__span-40-6"><a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a>             [gamma(freq + 1)] for every symbol 0..=max_symbol
 </span></code></pre></div>
 <p><code>gamma(v)</code> is Elias gamma, LSB-first: <code>z</code> zero bits, a one bit, then the low <code>z</code> bits of <code>v</code>, where <code>z</code> is the bit length of <code>v</code> minus one.
 A zero frequency is <code>gamma(1)</code>, a single one bit.
@@ -3199,21 +3516,21 @@ Its length MUST be even and at least <code>4</code>.</p>
 <rect class="f0" x="492" y="246" width="64" height="28" rx="3"/>
 <text class="cell" x="524" y="260">1</text>
 </svg></p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>x_prev = y_prev = 0
-</span><span id="__span-36-2"><a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>for i in 0..vertex_count:
-</span><span id="__span-36-3"><a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>    s  = 1 if vertex i starts a run, else 0
-</span><span id="__span-36-4"><a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a>    a  = 2 * (i mod 2)
-</span><span id="__span-36-5"><a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a>    sx = decode a symbol on lane a,     from context s
-</span><span id="__span-36-6"><a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a>    sy = decode a symbol on lane a + 1, from context 2 + 2 * min(ceil(sx / 2) &gt;&gt; d, 5) + s
-</span><span id="__span-36-7"><a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a>    x_prev = x_prev + delta(sx)           reads dx's raw bits, wrapping
-</span><span id="__span-36-8"><a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a>    y_prev = y_prev + delta(sy)           reads dy's raw bits, wrapping
-</span><span id="__span-36-9"><a id="__codelineno-36-9" name="__codelineno-36-9" href="#__codelineno-36-9"></a>    output x_prev, y_prev
+<div class="language-text highlight"><pre><span></span><code><span id="__span-41-1"><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>x_prev = y_prev = 0
+</span><span id="__span-41-2"><a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>for i in 0..vertex_count:
+</span><span id="__span-41-3"><a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a>    s  = 1 if vertex i starts a run, else 0
+</span><span id="__span-41-4"><a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>    a  = 2 * (i mod 2)
+</span><span id="__span-41-5"><a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a>    sx = decode a symbol on lane a,     from context s
+</span><span id="__span-41-6"><a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a>    sy = decode a symbol on lane a + 1, from context 2 + 2 * min(ceil(sx / 2) &gt;&gt; d, 5) + s
+</span><span id="__span-41-7"><a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a>    x_prev = x_prev + delta(sx)           reads dx's raw bits, wrapping
+</span><span id="__span-41-8"><a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a>    y_prev = y_prev + delta(sy)           reads dy's raw bits, wrapping
+</span><span id="__span-41-9"><a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a>    output x_prev, y_prev
 </span></code></pre></div>
 <p>A decoder MUST reject a symbol from a context without a table, a lane that does not end on state <code>2^16</code> with every word read, and raw bits whose byte length is not exactly the one the raw bits read need.</p>
 <h4 id="rans-encoding">Encoding<a class="headerlink" href="#rans-encoding" title="Link to this section">&para;</a></h4>
 <p>rANS is last in, first out, so an encoder codes each lane's symbols in reverse, starting every state at <code>2^16</code>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>while x &gt;= freq(s) * 2^(32 - p): emit x &amp; 0xFFFF; x = x &gt;&gt; 16
-</span><span id="__span-37-2"><a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>x = ((x / freq(s)) &lt;&lt; p) + x mod freq(s) + cum(s)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-42-1"><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>while x &gt;= freq(s) * 2^(32 - p): emit x &amp; 0xFFFF; x = x &gt;&gt; 16
+</span><span id="__span-42-2"><a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>x = ((x / freq(s)) &lt;&lt; p) + x mod freq(s) + cum(s)
 </span></code></pre></div>
 <p>A lane is the final state, then the emitted words in reverse order.
 The final state is where decoding starts, and decoding every symbol returns it to <code>2^16</code>.</p>
@@ -3283,14 +3600,14 @@ Lane <code>0</code> starts at <code>0x20000</code>, decodes <code>29</code> for 
 Lane <code>2</code> starts at <code>0x20001</code>, slot <code>1</code>, symbol <code>11</code>, and ends on <code>1 * 0x10000 + 1 - 1 = 0x10000</code>.
 Lanes <code>1</code> and <code>3</code> start and end at <code>0x10000</code>.
 No state drops below <code>2^16</code>, so no lane has refill words.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>depth:    01
-</span><span id="__span-38-2"><a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>tables:   63 C1 FF 52 E8 00 61 81 F0 00 42 08     95 bits, padded
-</span><span id="__span-38-3"><a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>lanes:    04 04 04 04                            four lanes of 4 bytes
-</span><span id="__span-38-4"><a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a>          00 00 02 00                            lane 0: 0x00020000
-</span><span id="__span-38-5"><a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a>          00 00 01 00                            lane 1: 0x00010000
-</span><span id="__span-38-6"><a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a>          01 00 02 00                            lane 2: 0x00020001
-</span><span id="__span-38-7"><a id="__codelineno-38-7" name="__codelineno-38-7" href="#__codelineno-38-7"></a>          00 00 01 00                            lane 3: 0x00010000
-</span><span id="__span-38-8"><a id="__codelineno-38-8" name="__codelineno-38-8" href="#__codelineno-38-8"></a>raw bits: 04 69                                  15 bits: 4, 8, 1, 2, 1, padded
+<div class="language-text highlight"><pre><span></span><code><span id="__span-43-1"><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>depth:    01
+</span><span id="__span-43-2"><a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>tables:   63 C1 FF 52 E8 00 61 81 F0 00 42 08     95 bits, padded
+</span><span id="__span-43-3"><a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>lanes:    04 04 04 04                            four lanes of 4 bytes
+</span><span id="__span-43-4"><a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a>          00 00 02 00                            lane 0: 0x00020000
+</span><span id="__span-43-5"><a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a>          00 00 01 00                            lane 1: 0x00010000
+</span><span id="__span-43-6"><a id="__codelineno-43-6" name="__codelineno-43-6" href="#__codelineno-43-6"></a>          01 00 02 00                            lane 2: 0x00020001
+</span><span id="__span-43-7"><a id="__codelineno-43-7" name="__codelineno-43-7" href="#__codelineno-43-7"></a>          00 00 01 00                            lane 3: 0x00010000
+</span><span id="__span-43-8"><a id="__codelineno-43-8" name="__codelineno-43-8" href="#__codelineno-43-8"></a>raw bits: 04 69                                  15 bits: 4, 8, 1, 2, 1, padded
 </span></code></pre></div>
 </div>
 

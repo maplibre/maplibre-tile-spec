@@ -94,30 +94,114 @@ Bit packing beats varint when the values are of similar magnitude, since varint 
 
 ### FastPFOR
 
-A block codec that stores each block of words in the bit width most of them need, and patches the few words that need more as exceptions in a separate area. Unlike bit packing it is not sensitive to a handful of outliers.
+A block codec that stores each block of words at the bit width most of them need, and patches the few words that need more from separate exception arrays. Unlike [bit packing](<#bit-packing>) it is not sensitive to a handful of outliers. It is from [Lemire and Boytsov, *Decoding billions of integers per second through vectorization*](<https://arxiv.org/pdf/1209.2137.pdf>).
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_fpf.mlt&amp;at=column%5B0%5D>) - an id stream in the v2 `128le` variant.
 
-The payload is the output of the composite codec `Composition(FastPFOR, VariableByte)` of the [FastPFOR library](<https://github.com/fast-pack/FastPFOR>), stored as whole 32-bit words:
+v1 and v2 use different variants:
+
+|  | v1 | v2 |
+| --- | --- | --- |
+| Block size | 256 values | 128 values |
+| Packing | [Sequential](<#fastpfor-packing>), 32 values at a time | [Interleaved](<#fastpfor-packing>), 128 values at a time |
+| Word byte order | big-endian | little-endian |
+| Value width | 32 bits | 32 and 64 bits |
+
+The payload is whole 32-bit words, whatever the width of the values:
 
 ```text
-payload := [u32 n]                     number of FastPFOR words that follow
-           [u32 fastpfor[n]]           whole blocks, in the FastPFOR block format
-           [u32 vbyte[...]]            the values that did not fill a block, variable-byte encoded
+payload := [u32 block_values]          values in whole blocks, a multiple of 128
+           [page; ceil(block_values / 65536)]
+           [u8 tail[...]]              the remaining values, variable-byte encoded
 ```
 
-The block format is specified by [Lemire and Boytsov, *Decoding billions of integers per second through vectorization*](<https://arxiv.org/pdf/1209.2137.pdf>), section 6. A payload whose length is not a multiple of 4 MUST be rejected. A stream of zero values has an empty payload.
+`block_values` is the value count rounded down to a multiple of `128`. The values after the last whole block, at most `127`, are the [tail](<#fastpfor-tail>). A stream of fewer than `128` values has `block_values = 0`, no page, and only a tail. A stream of zero values has an empty payload. A payload whose length is not a multiple of 4 MUST be rejected.
 
-The two tile versions use different variants, and the words of one cannot be read as the other:
+#### Pages
 
-|  | Block size | Word byte order |
-| --- | --- | --- |
-| **v1** | 256 values | big-endian |
-| **v2** | 128 values | little-endian |
+A page holds up to `65536` values, which is `512` blocks. Every page but the last is full. Exceptions are collected per page, so that blocks share one set of exception arrays.
 
-A decoder selects the variant by the layer tag.
+```text
+page := [u32 meta_offset]              words from this word to meta_size, 1 + the packed words
+        [packed block; blocks]         4 * width words each
+        [u32 meta_size]                bytes of block metadata
+        [u8 meta[meta_size]]           zero-padded to whole words
+        [bitmap]                       1 word for u32 values, 2 words for u64, low word first
+        [exception array; popcount(bitmap)]
+```
 
-FastPFOR only produces 32-bit words. A 64-bit integer column cannot use it. An [Framed, Exception-Free ALP](<#alp>) offset stream can, and then has 32-bit words.
+The metadata is one entry per block, in block order:
+
+```text
+block_meta := [u8 width]               0-32 for u32, 0-64 for u64
+              [u8 exceptions]          0-127
+              if exceptions > 0:
+                [u8 max_width]         bit width of the widest value in the block
+                [u8 position; exceptions]
+```
+
+`width` is the bit width the block is packed at. A value that needs more is an **exception**: its low `width` bits stay in the block, and its high bits go to an exception array. `position` is the index of the exception in the block, `0` to `127`, and encoders write them in ascending order.
+
+An exception array exists for each width `k` from `2` to the value width, and bit `k - 1` of the bitmap says whether it does. Array `k` holds the high bits of every exception in the page with `max_width - width = k`, in block order and then position order.
+
+```text
+exception_array := [u32 count]
+                   [count values at k bits each]
+```
+
+The values of an array are packed in groups of 128 [interleaved](<#fastpfor-packing>), then the rest in groups of 32 [sequentially](<#fastpfor-packing>). The last 32-value group is padded with zero values, and the words the padding alone would fill are not written, so the remainder takes `ceil(remainder * k / 32)` words. Arrays follow in ascending `k`.
+
+A block is decoded by unpacking its `128` values at `width` bits, then patching its exceptions:
+
+```text
+index = max_width - width
+for each position p:
+    index == 1:  value[p] |= 1 << width
+    otherwise:   value[p] |= next value of array[index] << width
+```
+
+Arrays are split by `k` so that each packs at its exact width and no exception stores its own. An exception that is a single bit wider than the block has no array: its high part can only be `1`. Every array has its own read position, which starts at its first value on each page.
+
+A decoder MUST reject - a `width` or `max_width` above the value width, - a `max_width` that is not above `width` where there are exceptions, - a `position` of `128` or more, - an exception without a value left in its array, - an array with more than `65536` values, - and a payload that ends inside a page.
+
+#### Packing
+
+A **group** is 128 values packed at `width` bits into `4 * width` words, and a v2 block is one group. It is laid out for a 128-bit vector register: 4 lanes of `u32`, or 2 lanes of `u64`.
+
+Value `i` belongs to lane `i mod lanes` and row `i / lanes`. Each lane is packed on its own, LSB-first, at `width` bits per value: row `r` occupies bits `r * width` to `r * width + width - 1` of the lane's bits. A lane has `128 / lanes` rows of `width` bits, which is exactly `width` words of the lane's own width. The group stores word `w` of every lane as one 128-bit vector, for `w = 0` to `width - 1`:
+
+- for `u32`, lane `l` of vector `w` is the word at `4 * w + l`,
+- for `u64`, lane `l` of vector `w` is the pair of words at `4 * w + 2 * l` and `4 * w + 2 * l + 1`, low half first.
+
+A `width` of `0` takes no words, and every value is `0`.
+
+Because every lane has the same bit offsets, one shift, one mask and one or move `lanes` values at once, and no value crosses lanes. A decoder without vector instructions loops over the lanes and reads the same bytes.
+
+32 values at `k` bits each are one continuous LSB-first bit stream of `k` words: value `j` occupies bits `j * k` to `j * k + k - 1`, with bit `i` of the stream being bit `i mod 32` of word `i / 32`. v1 packs every block this way, 32 values at a time. v2 uses it only for the remainder of an exception array. A `u64` value of up to `64` bits crosses word boundaries as any other.
+
+#### Tail
+
+The tail is variable-byte encoded, with no count and no header. Each value is stored in 7-bit groups, least significant group first, and bit 7 of its **last** byte is set. This is the reverse of [VarInt](<#varint>), where bit 7 marks a byte that is followed by another.
+
+A `u32` takes 1 to 5 bytes and the fifth carries the top 4 bits. A `u64` takes 1 to 10. The bytes are padded with `0x00` to a multiple of 4. A padding byte has bit 7 clear, so it never ends a value, and a decoder discards the unfinished value at the end. A decoder reads until the payload ends, and the number of values it read MUST be the stream's value count minus `block_values`.
+
+#### Choosing the width
+
+The width is the encoder's choice, and any width that decodes to the values is valid. The reference encoder counts the values of a block by bit length, and tries each `width` below the widest value's `max_width`. With `e` values wider than `width`, it costs
+
+```text
+128 * width + e * 8 + e * (max_width - width) + 8        bits
+```
+
+for the packed block, the position bytes, the exception bits and the `max_width` byte. It picks the cheapest, and `max_width` itself when no smaller width beats `128 * max_width`. It never picks a `width` that makes every value an exception.
+
+#### Example
+
+Take 130 `u32` values, `i mod 8` for `i` from `0`, except `300` at `5`, `20` at `77`, `5` at `128` and `200` at `129`. The first 128 fit in `3` bits except two, so `width = 3` and `max_width = 9`. The last two are the tail.
+
+The same values as `u64` take 22 words, since the bitmap has two.
+
+In v2 a stream of 64-bit words, such as the offsets of an [Framed, Exception-Free ALP](<#alp>) column, uses the `u64` form. v1 has no 64-bit FastPFOR, so a v1 stream of 64-bit words cannot use it.
 
 ## Logical Encodings
 
@@ -295,7 +379,7 @@ To decode, \\(e\\) is the largest integer with \\(\\frac{e(e+1)}{2} \\le \\mathi
 
 The square root is exact enough in double precision for every valid `scale`.
 
-The payload holds unsigned offsets from `base`, so the smallest is `0` and every value is non-negative. The offsets are an ordinary unsigned integer stream and carry their own physical encoding. Its words are 64-bit, except under FastPFOR, which only has 32-bit words.
+The payload holds unsigned offsets from `base`, so the smallest is `0` and every value is non-negative. The offsets are an ordinary unsigned integer stream and carry their own physical encoding. Its words are 64-bit.
 
 **Decoding**: \\(i = \\mathit{base} + \\mathit{offset}\\), in 64-bit integer arithmetic, then \\(v = i \\cdot 10^f \\cdot 10^{-e}\\), with \\(10^{-e}\\) the nearest double and not an exact division.
 

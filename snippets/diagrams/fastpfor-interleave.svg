@@ -1,0 +1,80 @@
+<svg class="mlt-diagram" viewBox="0 0 710 250" role="img" aria-label="Four lanes, each holding every fourth value at 3 bits, stored as one 128-bit vector per word index: word 0 of lanes 0 to 3, then word 1 of lanes 0 to 3" xmlns="http://www.w3.org/2000/svg">
+<text class="muted small" x="0" y="8">lane streams</text>
+<text class="row" x="0" y="36">lane 0</text>
+<rect class="f0" x="70" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="108.0" y="36">v0</text>
+<rect class="f0" x="150" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="188.0" y="36">v4</text>
+<rect class="f0" x="230" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="268.0" y="36">v8</text>
+<rect class="f0" x="310" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="348.0" y="36">v12</text>
+<rect class="f0" x="390" y="22" width="76" height="28" rx="3"/>
+<text class="cell" x="428.0" y="36">v16</text>
+<text class="muted small" x="478" y="36">… 3 bits each</text>
+<text class="row" x="0" y="70">lane 1</text>
+<rect class="f1" x="70" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="108.0" y="70">v1</text>
+<rect class="f1" x="150" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="188.0" y="70">v5</text>
+<rect class="f1" x="230" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="268.0" y="70">v9</text>
+<rect class="f1" x="310" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="348.0" y="70">v13</text>
+<rect class="f1" x="390" y="56" width="76" height="28" rx="3"/>
+<text class="cell" x="428.0" y="70">v17</text>
+<text class="muted small" x="478" y="70">… 3 bits each</text>
+<text class="row" x="0" y="104">lane 2</text>
+<rect class="f0" x="70" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="108.0" y="104">v2</text>
+<rect class="f0" x="150" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="188.0" y="104">v6</text>
+<rect class="f0" x="230" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="268.0" y="104">v10</text>
+<rect class="f0" x="310" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="348.0" y="104">v14</text>
+<rect class="f0" x="390" y="90" width="76" height="28" rx="3"/>
+<text class="cell" x="428.0" y="104">v18</text>
+<text class="muted small" x="478" y="104">… 3 bits each</text>
+<text class="row" x="0" y="138">lane 3</text>
+<rect class="f1" x="70" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="108.0" y="138">v3</text>
+<rect class="f1" x="150" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="188.0" y="138">v7</text>
+<rect class="f1" x="230" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="268.0" y="138">v11</text>
+<rect class="f1" x="310" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="348.0" y="138">v15</text>
+<rect class="f1" x="390" y="124" width="76" height="28" rx="3"/>
+<text class="cell" x="428.0" y="138">v19</text>
+<text class="muted small" x="478" y="138">… 3 bits each</text>
+<text class="muted small" x="0" y="176">words</text>
+<path class="bracket" d="M70 188V182H370V188"/>
+<text class="muted small mid" x="220.0" y="172">vector 0</text>
+<rect class="f0" x="70" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="106.0" y="208">lane 0</text>
+<text class="muted small mid" x="106.0" y="236">u32 0</text>
+<rect class="f1" x="146" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="182.0" y="208">lane 1</text>
+<text class="muted small mid" x="182.0" y="236">u32 1</text>
+<rect class="f0" x="222" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="258.0" y="208">lane 2</text>
+<text class="muted small mid" x="258.0" y="236">u32 2</text>
+<rect class="f1" x="298" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="334.0" y="208">lane 3</text>
+<text class="muted small mid" x="334.0" y="236">u32 3</text>
+<path class="bracket" d="M384 188V182H684V188"/>
+<text class="muted small mid" x="534.0" y="172">vector 1</text>
+<rect class="f0" x="384" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="420.0" y="208">lane 0</text>
+<text class="muted small mid" x="420.0" y="236">u32 4</text>
+<rect class="f1" x="460" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="496.0" y="208">lane 1</text>
+<text class="muted small mid" x="496.0" y="236">u32 5</text>
+<rect class="f0" x="536" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="572.0" y="208">lane 2</text>
+<text class="muted small mid" x="572.0" y="236">u32 6</text>
+<rect class="f1" x="612" y="194" width="72" height="28" rx="3"/>
+<text class="cell" x="648.0" y="208">lane 3</text>
+<text class="muted small mid" x="648.0" y="236">u32 7</text>
+</svg>
