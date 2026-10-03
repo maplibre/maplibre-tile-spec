@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.19.0...rust-mlt-core-v0.19.1) - 2026-10-03
+
+### Fixed
+
+- *(rust)* raise the default decoder memory budget to 64 MiB ([#1835](https://github.com/maplibre/maplibre-tile-spec/pull/1835))
+
 ## [0.19.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.18.0...rust-mlt-core-v0.19.0) - 2026-10-02
 
 ### Other
