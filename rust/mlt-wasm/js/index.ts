@@ -14,4 +14,12 @@ export type {
 } from "./annotate";
 export { annotateTile } from "./annotate";
 export { tileGeoJson } from "./geojson";
-export { decodeTile } from "./vectorTile";
+export {
+  decodeTile,
+  decodeTile3D,
+  type MltFeature3D,
+  MltGeometryType,
+  type MltLayer3D,
+  type MltTile3D,
+  type Position3D,
+} from "./vectorTile";
