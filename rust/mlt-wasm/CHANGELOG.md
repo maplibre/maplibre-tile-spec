@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.39](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.38...rust-mlt-wasm-v0.1.39) - 2026-10-03
+
+### Added
+
+- *(mlt-wasm)* Add `decodeTile3D()` for decoding 3D MLT ([#1837](https://github.com/maplibre/maplibre-tile-spec/pull/1837))
+
 ## [0.1.38](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.37...rust-mlt-wasm-v0.1.38) - 2026-10-03
 
 ### Fixed

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.19.1...rust-mlt-core-v0.19.2) - 2026-10-03
+
+### Other
+
+- *(docs)* show fsst data in inspector ([#1827](https://github.com/maplibre/maplibre-tile-spec/pull/1827))
+
 ## [0.19.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.19.0...rust-mlt-core-v0.19.1) - 2026-10-03
 
 ### Fixed

@@ -2795,7 +2795,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2835,7 +2835,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "arbitrary",
  "bitvec",
@@ -2876,7 +2876,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-ffi"
-version = "0.1.31"
+version = "0.1.32"
 dependencies = [
  "diplomat",
  "diplomat-runtime",
@@ -2885,7 +2885,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "mlt-core",
  "pyo3",
@@ -2906,7 +2906,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-wasm"
-version = "0.1.38"
+version = "0.1.39"
 dependencies = [
  "js-sys",
  "minicov",
