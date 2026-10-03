@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.38](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.37...rust-mlt-wasm-v0.1.38) - 2026-10-03
+
+### Fixed
+
+- *(mlt-wasm)* Make decoder return closed polygons ([#1831](https://github.com/maplibre/maplibre-tile-spec/pull/1831))
+
 ## [0.1.37](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.36...rust-mlt-wasm-v0.1.37) - 2026-10-03
 
 ### Other
