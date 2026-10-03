@@ -7,7 +7,8 @@ use usize_cast::IntoUsize as _;
 
 use super::model::{BlobInfo, DecodeHint, DumpTree, Region};
 use crate::codecs::fsst::decode_fsst_bytes;
-use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
+use crate::decoder::strings::rebuild_dictionary;
+use crate::decoder::{DictLayout, DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
 use crate::{Decoder, GeometryType, MltError, MltResult};
 
 /// One data blob decoded for display, capped at the caller's value count.
@@ -174,7 +175,8 @@ pub fn decode_region(
     };
     if let Some(streams) = fsst_streams(&tree.regions, index) {
         dec.reset_budget();
-        return fsst_strings(streams, buf, max_values, dec).unwrap_or_else(|e| error(&e));
+        let layout = corpus_layout(&tree.regions, buf, index);
+        return fsst_strings(streams, layout, buf, max_values, dec).unwrap_or_else(|e| error(&e));
     }
     match buf.get(region.offset..region.offset + region.len) {
         Some(bytes) => decode_blob(info, bytes, max_values, dec),
@@ -196,13 +198,8 @@ fn fsst_streams(regions: &[Region], at: usize) -> Option<[&Region; 4]> {
     ) {
         return None;
     }
-    let parent = |of: usize| {
-        regions[..of]
-            .iter()
-            .rposition(|r| r.depth < regions[of].depth)
-    };
     // The corpus sits in its stream, which sits in the column.
-    let column = parent(parent(at)?)?;
+    let column = parent(regions, parent(regions, at)?)?;
     let depth = regions[column].depth;
     let after = &regions[column + 1..];
     let column_streams = &after[..after
@@ -224,8 +221,43 @@ fn fsst_streams(regions: &[Region], at: usize) -> Option<[&Region; 4]> {
     ])
 }
 
+/// The region `at` sits in.
+fn parent(regions: &[Region], at: usize) -> Option<usize> {
+    regions[..at]
+        .iter()
+        .rposition(|r| r.depth < regions[at].depth)
+}
+
+/// How the corpus at `at` lays its entries out, as its stream's encoding byte says.
+///
+/// Only a v2 layer has that byte, so a v1 corpus is always plain.
+#[cfg(feature = "unstable-v2")]
+fn corpus_layout(regions: &[Region], buf: &[u8], at: usize) -> DictLayout {
+    let is_v2 = regions[..at]
+        .iter()
+        .rposition(|r| r.depth == 0)
+        .and_then(|layer| {
+            regions[layer + 1..at]
+                .iter()
+                .find(|r| r.depth == 1 && r.label == "tag")
+        })
+        .and_then(|tag| buf.get(tag.offset))
+        == Some(&2);
+    let enc_byte = parent(regions, at).and_then(|stream| buf.get(regions[stream].offset));
+    match enc_byte {
+        Some(&b) if is_v2 => DictLayout::from_bits(b).unwrap_or(DictLayout::Plain),
+        _ => DictLayout::Plain,
+    }
+}
+
+#[cfg(not(feature = "unstable-v2"))]
+fn corpus_layout(_: &[Region], _: &[u8], _: usize) -> DictLayout {
+    DictLayout::Plain
+}
+
 fn fsst_strings(
     [symbol_lengths, symbol_table, lengths, corpus]: [&Region; 4],
+    layout: DictLayout,
     buf: &[u8],
     max_values: usize,
     dec: &mut Decoder,
@@ -247,15 +279,20 @@ fn fsst_strings(
         stream(corpus)?,
     )?;
     let (bytes, lengths) = decode_fsst_bytes(raw, dec)?;
-    let (kept, truncated_from) = cap(lengths, max_values);
+    let (text, lengths) = rebuild_dictionary(layout, &lengths, &bytes)?;
+    if let Cow::Owned(entries) = &text {
+        dec.consume_items::<u8>(entries.len())?;
+    }
+    let (kept, truncated_from) = cap(lengths.into_owned(), max_values);
 
-    let mut rest = bytes.as_slice();
-    let mut values = Vec::with_capacity(kept.len());
+    let mut rest = &*text;
+    let mut values = dec.alloc(kept.len())?;
     for len in kept {
         let (string, tail) = rest
             .split_at_checked(len.into_usize())
             .ok_or(MltError::MalformedFsst("string lengths overrun the corpus"))?;
-        values.push(String::from_utf8_lossy(string).into_owned());
+        dec.consume_items::<u8>(string.len())?;
+        values.push(string.to_owned());
         rest = tail;
     }
     Ok(DecodedBlob::Strings {
