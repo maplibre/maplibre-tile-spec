@@ -15,7 +15,7 @@ MLT is natively supported by [MapLibre GL JS](https://maplibre.org/maplibre-gl-j
 
 MLT is mainly inspired by MVT, but has been redesigned from the ground up to improve the following areas:
 
-- **Improved compression ratio** - a planet of MLT v2 tiles is 4–7% smaller than gzipped MVT, and 10–18% smaller with gzip on top ([Size](#size)), based on a column oriented layout with (custom) lightweight encodings
+- **Improved compression ratio** - a planet of MLT v2 tiles is 4-7% smaller than gzipped MVT, and 10-18% smaller with gzip on top ([Size](#size)), based on a column oriented layout with (custom) lightweight encodings
 - **Better decoding performance** - fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
 - **Support for linear referencing and m-values** to efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)
 - **Support 3D coordinates**, i.e. elevation
@@ -60,15 +60,15 @@ Each option changes the planet size of its version's defaults by:
 | `--no-fsst` | +0.2% | +0.2% | +0.7% | +0.8% |
 | `--sort none` | +0.1% | +0.1% | +0.2% | +0.2% |
 | `--sort all` | -0.1% | -0.1% | -0.4% | -0.4% |
-| `--no-alp` | — | +0.1% | — | +0.0% |
-| `--no-float-dict` | — | +0.0% | — | +0.0% |
-| `--packed-dict-codes` | — | -0.3% | — | -0.7% |
-| `--delta2` | — | -0.6% | — | -0.5% |
-| `--rans-vertices` | — | -5.3% | — | -5.4% |
+| `--no-alp` | - | +0.1% | - | +0.0% |
+| `--no-float-dict` | - | +0.0% | - | +0.0% |
+| `--packed-dict-codes` | - | -0.3% | - | -0.7% |
+| `--delta2` | - | -0.6% | - | -0.5% |
+| `--rans-vertices` | - | -5.3% | - | -5.4% |
 | `--tessellate` | +32.4% | +35.8% | +21.9% | +24.9% |
-| `--tessellate --triangles-only` | — | +33.5% | — | +23.2% |
+| `--tessellate --triangles-only` | - | +33.5% | - | +23.2% |
 
-- **Data:** the [Protomaps](https://protomaps.com/) basemap build of 2026-10-02 (z0–15, 136 M distinct tiles) and the [OpenMapTiles](https://openmaptiles.org/) 3.11 planet by MapTiler of 2020-02-10 (z0–14, 34 M distinct tiles).
+- **Data:** the [Protomaps](https://protomaps.com/) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](https://openmaptiles.org/) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles).
 - **Encoder:** `mlt convert --verify` at [`89ceaef3`](https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88), which decodes every layer and compares it to the source.
 - **Sample:** up to 5,000 distinct tiles per zoom, drawn uniformly, and each zoom scaled by its distinct-tile count. The 95% bootstrap interval of each share is within ±2% for MLT and ±4.3% for uncompressed MVT.
 - **gzip:** zlib level 6 per tile, the level both source archives were written with.
