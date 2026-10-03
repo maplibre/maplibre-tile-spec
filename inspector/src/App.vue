@@ -127,6 +127,9 @@ function current(at: number): boolean {
 /** What the home screen is waiting on, so it can say so rather than look idle. */
 const loading = ref<string | null>(null);
 
+/** `inert` is read as on by its mere presence, so off has to be no attribute at all. */
+const blocked = computed(() => (loading.value !== null ? true : undefined));
+
 /** Drops the tile so the empty state takes over, which is the app's home screen. */
 function goHome() {
   move();
@@ -259,7 +262,6 @@ onMounted(async () => {
   // Not `restore`: with no tile to open there is nothing to go home from, and the reset
   // would take an index failure off the screen with it.
   if (tileOf(initial) !== null) await restore(initial);
-  loading.value = null;
   booted.value = true;
 });
 
@@ -355,14 +357,12 @@ watch(
 </script>
 
 <template>
-  <div
-    ref="root"
-    class="app"
-    :class="{ dragging }"
-    :inert="loading !== null || undefined"
-    :aria-busy="loading !== null"
-  >
-    <header v-if="tree" :class="{ corner: framed || embedded }">
+  <div ref="root" class="app" :class="{ dragging }">
+    <header
+      v-if="tree"
+      :class="{ corner: framed || embedded }"
+      :inert="blocked"
+    >
       <button
         type="button"
         class="home"
@@ -385,6 +385,7 @@ watch(
       <a
         v-if="framed || embedded"
         class="popout"
+        :inert="blocked"
         :href="corner.href"
         :target="corner.target"
         rel="noopener"
@@ -401,6 +402,7 @@ watch(
     </p>
     <HexdumpView
       v-if="tree"
+      :inert="blocked"
       v-model:view="view"
       v-model:selected="selected"
       :tree="tree"
@@ -413,6 +415,7 @@ watch(
       <a
         v-if="framed || embedded"
         class="popout"
+        :inert="blocked"
         :href="corner.href"
         :target="corner.target"
         rel="noopener"
@@ -656,7 +659,7 @@ header .popout {
 }
 @media (prefers-reduced-motion: reduce) {
   .spinner {
-    animation-duration: 3s;
+    animation: none;
   }
 }
 </style>

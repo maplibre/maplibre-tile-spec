@@ -1,0 +1,160 @@
+[project]
+site_name = "MapLibre Tile Specification"
+site_url = "https://maplibre.org/maplibre-tile-spec/"
+repo_url = "https://github.com/maplibre/maplibre-tile-spec"
+site_description = "MLT is a column-oriented vector tile format that stores the same layers, features, geometries and properties as MVT in fewer bytes."
+copyright = "&copy; 2024 MapLibre contributors"
+edit_uri = "edit/main/docs"
+extra_css = ["assets/extra.css", "assets/diagrams.css"]
+extra_javascript = [
+  "assets/mathjax.js",
+  "https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js",
+]
+nav = [
+  { "Home" = "index.md" },
+  { "Overview" = "overview.md" },
+  { "Implementation Status" = "implementation-status.md" },
+  { "Specification" = [
+    { "Overview" = "specification/index.md" },
+    { "Tile Inspector" = "inspector/index.md" },
+    { "MLT v1" = "specification/v1.md" },
+    { "MLT v2 (experimental)" = "specification/v2.md" },
+    { "Encoding Algorithms" = "encodings.md" },
+    { "Implementation Guide" = "implementation-guide.md" },
+  ] },
+]
+
+[project.theme]
+favicon = "https://maplibre.org/favicon.ico"
+logo = "assets/logo.svg"
+features = [
+  "content.code.copy",
+  "search.suggest",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.instant.progress",
+  "navigation.path",
+  "navigation.tracking",
+  "navigation.tabs",
+  "navigation.tabs.sticky",
+  "navigation.sections",
+  "navigation.footer",
+  "navigation.top",
+  "content.action.edit",
+  "toc.follow",
+  "toc.integrate",
+  "header.autohide",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "material/brightness-auto"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "material/brightness-4"
+toggle.name = "Switch to system preference"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/mastodon"
+link = "https://mastodon.social/@maplibre"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/x-twitter"
+link = "https://twitter.com/maplibre"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/linkedin"
+link = "https://www.linkedin.com/company/maplibre"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/slack"
+link = "https://osmus.slack.com/archives/C01G3D28DAB"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/maplibre"
+
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+
+[project.markdown_extensions.pymdownx.inlinehilite]
+
+[project.markdown_extensions.pymdownx.snippets]
+dedent_subsections = true
+check_paths = true
+base_path = ["docs/snippets", "test/synthetic"]
+
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+
+[project.markdown_extensions.pymdownx.arithmatex]
+generic = true
+
+[project.markdown_extensions.pymdownx.escapeall]
+hardbreak = true
+nbsp = true
+
+[project.markdown_extensions.admonition]
+
+[project.markdown_extensions.pymdownx.details]
+
+[project.markdown_extensions.footnotes]
+
+[project.markdown_extensions.attr_list]
+
+[project.markdown_extensions.md_in_html]
+
+[project.markdown_extensions.toc]
+permalink = true
+permalink_title = "Link to this section"
+toc_depth = 3
+
+[project.plugins.search]
+
+[project.plugins.callouts]
+
+[project.plugins.social]
+cards_layout_options.background_color = "#295DAA"
+cards_layout_options.color = "#FFFFFF"
+
+[project.plugins.llmstxt]
+full_output = "llms-full.txt"
+markdown_description = """
+MLT (MapLibre Tile) is a vector tile format for map data.
+It stores the same content as an MVT tile, layers of features with geometries and properties, in a column-oriented layout.
+Each column is split into streams, and each stream picks the lightweight encoding that suits its values.
+The first byte of every tile names its wire format version: v1 is stable, v2 is experimental.
+"""
+
+[project.plugins.llmstxt.sections]
+"Getting Started" = [
+  { "index.md" = "A column-oriented vector tile format for map data" },
+  { "overview.md" = "The data model of tiles, layers, features, columns and streams" },
+  { "implementation-status.md" = "Libraries, tools and datasets that support MLT" },
+]
+Specification = [
+  { "specification/index.md" = "How the first byte of a tile selects its wire format version" },
+  { "specification/v1.md" = "Byte layout of the stable MLT v1 wire format" },
+  { "specification/v2.md" = "Byte layout of the experimental MLT v2 wire format" },
+  { "encodings.md" = "Payload of every encoding a stream can name" },
+  { "implementation-guide.md" = "Choosing encodings and decoding into memory" },
+]
+Optional = [
+  { "inspector/index.md" = "Decode a tile in the browser and walk through its bytes" },
+]

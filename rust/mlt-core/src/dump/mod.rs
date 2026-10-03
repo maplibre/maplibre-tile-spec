@@ -11,7 +11,7 @@ mod walker01;
 #[cfg(feature = "unstable-v2")]
 mod walker02;
 
-pub use decode::{DecodedBlob, decode_blob};
+pub use decode::{DecodedBlob, decode_blob, decode_region};
 pub use model::{
     BitField, BlobInfo, DecodeHint, DumpTree, Region, RegionKind, UNANNOTATED, filter_layer,
 };

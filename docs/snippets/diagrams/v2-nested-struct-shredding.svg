@@ -1,0 +1,39 @@
+<svg class="mlt-diagram" viewBox="0 0 710 196" role="img" aria-label="obj of nested_struct: three struct values shred into a name leaf with three strings, and a rank leaf with a presence stream 1 0 1 and two integers" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid t0" x="174" y="14">feature 0</text>
+<path class="bracket t0" d="M96 34V28H252V34"/>
+<text class="bold mid t1" x="336" y="14">feature 1</text>
+<path class="bracket t1" d="M258 34V28H414V34"/>
+<text class="bold mid t0" x="498" y="14">feature 2</text>
+<path class="bracket t0" d="M420 34V28H576V34"/>
+<text class="row" x="0" y="54">obj</text>
+<text class="row" x="0" y="94">obj.name</text>
+<text class="row" x="0" y="134">obj.rank</text>
+<rect class="plain" x="96" y="40" width="156" height="28" rx="3"/>
+<text class="cell small" x="174" y="54">{"name":"ab","rank":7}</text>
+<rect class="f0" x="96" y="80" width="156" height="28" rx="3"/>
+<text class="cell" x="174" y="94">"ab"</text>
+<rect class="f0" x="96" y="120" width="156" height="28" rx="3"/>
+<text class="cell" x="174" y="134">1</text>
+<rect class="f0" x="96" y="160" width="156" height="28" rx="3"/>
+<text class="cell" x="174" y="174">7</text>
+<rect class="plain" x="258" y="40" width="156" height="28" rx="3"/>
+<text class="cell small" x="336" y="54">{"name":"cd"}</text>
+<rect class="f1" x="258" y="80" width="156" height="28" rx="3"/>
+<text class="cell" x="336" y="94">"cd"</text>
+<rect class="f1" x="258" y="120" width="156" height="28" rx="3"/>
+<text class="cell" x="336" y="134">0</text>
+<rect class="implicit" x="258" y="160" width="156" height="28" rx="3"/>
+<text class="cell muted" x="336" y="174">null</text>
+<rect class="plain" x="420" y="40" width="156" height="28" rx="3"/>
+<text class="cell small" x="498" y="54">{"name":"ef","rank":9}</text>
+<rect class="f0" x="420" y="80" width="156" height="28" rx="3"/>
+<text class="cell" x="498" y="94">"ef"</text>
+<rect class="f0" x="420" y="120" width="156" height="28" rx="3"/>
+<text class="cell" x="498" y="134">1</text>
+<rect class="f0" x="420" y="160" width="156" height="28" rx="3"/>
+<text class="cell" x="498" y="174">9</text>
+<text class="muted small" x="594" y="54">not stored</text>
+<text class="muted small" x="594" y="94">3 String values</text>
+<text class="muted small" x="594" y="134">3 presence bits</text>
+<text class="muted small" x="594" y="174">2 Int32 values</text>
+</svg>
