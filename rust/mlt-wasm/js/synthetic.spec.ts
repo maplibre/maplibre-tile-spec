@@ -132,7 +132,9 @@ function getGeometry(feature: MltFeature): GeoJSON.Geometry {
   // Probably, this should be properly handled on the API's side.
   const ringCoordinates = (ring: { x: number; y: number }[]): number[][] => {
     const coordinates = ring.slice(0, -1).map(position);
-    return [...coordinates, [...coordinates[0]]];
+    return coordinates.length === 0
+      ? coordinates
+      : [...coordinates, [...coordinates[0]]];
   };
 
   switch (feature.mltType) {

@@ -116,8 +116,9 @@ function lineString(verts: Int32Array, start: number, end: number): Point[] {
  * The closing point is a copy, so callers that mutate points in place don't move it twice.
  */
 function closedRing(verts: Int32Array, start: number, end: number): Point[] {
-  if (end <= start) {
-    throw new Error(`polygon ring at vertex ${start} has no vertices`);
+  if (end === start) return [];
+  if (end < start) {
+    throw new Error(`polygon ring at vertex ${start} ends before it starts`);
   }
   const n = end - start;
   const ring = readPoints(verts, start, end, n + 1);
