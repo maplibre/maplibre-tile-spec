@@ -641,6 +641,8 @@ delta2:   (0, 0), (70, 1), (0, 1), (0, 1)
 words:    [0, 0, 140, 2, 0, 2, 0, 2]
 ```
 
+
+
 ### Vertex Dictionary {#vertex-dictionary}
 
 The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex.
@@ -779,3 +781,300 @@ The dictionary is sorted ascending by code, so every difference is non-negative.
 dict codes: [27, 30, 45]
 words:      [27, 3, 15]
 ```
+
+### rANS <span class="experimental"></span> {#rans}
+
+We can entropy-code the [componentwise deltas](#componentwise-delta) of a plain layout's vertex stream.
+A `VertexDict` stream MUST NOT use it.
+
+Each delta is split in two:
+
+- a **symbol**, which says roughly how large the delta is and its sign, and is coded with [rANS](https://arxiv.org/abs/1311.2540) so that frequent symbols take fewer bits,
+- the delta's low **raw bits**, which are close to random and stored as they are.
+
+The symbol frequencies are counted per **context**, so a delta is coded with a table of deltas like it.
+The tables travel in the payload.
+
+To decode, a decoder:
+
+1. reads the depth and the tables,
+2. marks which vertices start a [run](#rans-runs), from the topology streams,
+3. per vertex, decodes the `dx` symbol, then the `dy` symbol in a context that depends on `dx`, then reads both deltas' raw bits,
+4. prefix-sums the deltas into coordinates, as for componentwise delta.
+
+#### How rANS decodes a symbol
+
+A table of precision `p` divides `2^p` slots among its symbols.
+Symbol `s` owns `freq(s)` consecutive slots, starting at `cum(s)`, the sum of the frequencies of the symbols below it.
+
+The decoder holds a state `x`, a 32-bit number.
+The low `p` bits of `x` are a slot, and the symbol owning that slot is the one decoded.
+The state then shrinks by about `log2(2^p / freq(s))` bits, so a symbol owning half the slots costs one bit, and one owning a quarter costs two.
+When the state drops below `2^16`, the next 16-bit word of the stream is shifted in from below.
+The state stays in `[2^16, 2^32)` between symbols.
+
+```
+slot = x & (2^p - 1)
+s    = the symbol whose slots hold slot
+x    = freq(s) * (x >> p) + slot - cum(s)
+if x < 2^16: x = (x << 16) | next refill word of the lane
+```
+
+A table of precision `3`, decoding the state `0x10005`:
+
+--8<-- "diagrams/rans-slots.svg"
+
+The state becomes `2 * 8192 + 5 - 4 = 16385`, two bits smaller, and is below `2^16`, so the next word is shifted in.
+
+A table of precision `0` has one slot and one symbol.
+Decoding from it leaves `x` unchanged and costs no bits.
+
+#### Why rANS compresses {#rans-math}
+
+A symbol of probability $P$ carries $\log_2 \frac{1}{P}$ bits of information.
+A table approximates $P(s)$ as $\frac{\mathit{freq}(s)}{2^p}$, so the ideal cost of $s$ is $\log_2 \frac{2^p}{\mathit{freq}(s)}$ bits.
+
+The state $x$ holds the symbols encoded so far in about $\log_2 x$ bits.
+Encoding $s$ maps $x$ to
+
+$$
+x' = 2^p \left\lfloor \frac{x}{\mathit{freq}(s)} \right\rfloor + \mathit{cum}(s) + (x \bmod \mathit{freq}(s))
+$$
+
+so $x' \approx x \cdot \frac{2^p}{\mathit{freq}(s)}$, and $\log_2 x$ grows by the ideal cost of $s$.
+
+With every frequency `1` this is $x' = 2^p x + s$, which appends $s$ as a digit of $x$ in base $2^p$, and every symbol costs $p$ bits.
+rANS instead gives $s$ the $\mathit{freq}(s)$ digit values from $\mathit{cum}(s)$ on.
+The digit is $\mathit{cum}(s) + (x \bmod \mathit{freq}(s))$, so it carries $\log_2 \mathit{freq}(s)$ bits of $x$.
+
+The decoder finds $s$ as the symbol whose slots hold the digit $x' \bmod 2^p$.
+The quotient $\lfloor x' / 2^p \rfloor$ is $\lfloor x / \mathit{freq}(s) \rfloor$, and the digit's offset into those slots is $x \bmod \mathit{freq}(s)$, so the decoder rebuilds $x$ exactly.
+Every $x'$ decodes to exactly one pair of $x$ and $s$.
+
+The last symbol encoded is the lowest digit and is decoded first, so the [encoder](#rans-encoding) codes each lane in reverse.
+
+Encoding symbol `3` of the table above into $x = 16385$ gives the state the decoder started from:
+
+$$
+x' = 8 \left\lfloor \frac{16385}{2} \right\rfloor + 4 + (16385 \bmod 2) = 8 \cdot 8192 + 5 = 65541 = \mathtt{0x10005}
+$$
+
+$x$ grows by $\log_2 \frac{65541}{16385} \approx 2 = \log_2 \frac{8}{2}$ bits.
+
+If symbol $s$ occurs $n(s)$ times among the $N$ symbols of a context, that context costs on average
+
+$$
+\sum_s \frac{n(s)}{N} \log_2 \frac{2^p}{\mathit{freq}(s)}
+$$
+
+bits per symbol.
+It is lowest when $\frac{\mathit{freq}(s)}{2^p} = \frac{n(s)}{N}$ for every $s$, and is then the entropy $\sum_s \frac{n(s)}{N} \log_2 \frac{N}{n(s)}$.
+A low precision rounds the frequencies further from the counts and costs more per symbol, and a high one costs more table bits.
+
+#### Renormalization {#rans-renormalization}
+
+The state stays in $[2^{16}, 2^{32})$.
+The encoder shifts 16-bit words out of the state into its lane, and the decoder shifts them back in.
+
+Before encoding $s$, the encoder shifts words out until $x < \mathit{freq}(s) \cdot 2^{32 - p}$, so that $x' < 2^{32}$.
+A shift divides $x$ by $2^{16}$, and the interval $[\mathit{freq}(s) \cdot 2^{16 - p}, \mathit{freq}(s) \cdot 2^{32 - p})$ spans exactly that factor.
+So $x$ lands in it after a unique number of shifts, and $x' \ge 2^{16}$.
+
+Decoding from $x \ge 2^{16}$ leaves $x \ge \mathit{freq}(s) \cdot 2^{16 - p} \ge 2^{16 - p}$.
+Since $p \le 11$, one refill word brings $x$ back to at least $2^{16}$.
+
+[*Asymmetric numeral systems*](https://arxiv.org/abs/1311.2540) by Duda proves these properties, and [*rANS*](https://reearth.engineering/posts/r-ans-en/) by Re:Earth derives them with small decimal examples.
+
+#### Runs {#rans-runs}
+
+The first vertex of a ring, part or geometry jumps from wherever the previous one ended, and its delta is much larger than the others.
+Such a vertex is encoded in contexts of its own.
+
+A run is the vertex range
+- of each ring, else
+- of each part, else
+- of each geometry, taken from the deepest offset level the geometry section has.
+
+A layer with none of the three levels has one run per vertex.
+A vertex starts a run when it is the first of one.
+The runs MUST cover exactly the stream's `num_values` vertices.
+Because of this, the stream is decoded after the topology streams.
+
+#### Symbols
+
+Each delta is the wrapping 32-bit difference to the same coordinate of the previous vertex, as in componentwise delta, without ZigZag.
+
+The symbol keeps the bit length `len` of the magnitude and the `d` bits after its leading one.
+`d` is the stream's mantissa depth, `0` to `2`.
+The leading one is implied by `len`.
+The remaining low bits are the raw bits.
+This is the same split a float makes into exponent, mantissa and dropped precision.
+
+At depth `1`:
+
+=== "Bits"
+
+    --8<-- "diagrams/rans-symbol.svg"
+
+=== "Values"
+
+    | Delta | Binary | `len` | Kept bit | Raw bits | Symbol |
+    |---:|---:|---:|---:|---:|---:|
+    | `0` | | | | | `0` |
+    | `1` | `1` | `1` | | | `3` |
+    | `-1` | `1` | `1` | | | `4` |
+    | `2` | `10` | `2` | `0` | | `7` |
+    | `3` | `11` | `2` | `1` | | `9` |
+    | `-3` | `11` | `2` | `1` | | `10` |
+    | `5` | `101` | `3` | `0` | `1` | `11` |
+    | `100` | `1100100` | `7` | `1` | `00100` | `29` |
+
+Positive deltas get odd symbols and negative ones the even symbol above.
+A magnitude with fewer than `d` bits after its leading one makes the unused mantissa positions `0`.
+
+```
+delta = 0:  symbol 0, no raw bits
+otherwise:  m = |delta|                       as an unsigned 32-bit value
+            len = bit length of m             1-32
+            k = min(len - 1, d)               mantissa bits the symbol keeps
+            raw_bits = len - 1 - k
+            mantissa = (m >> raw_bits) & (2^k - 1)
+            code = (len << d) | (mantissa << (d - k))
+            symbol = 2 * code - 1 if delta > 0, 2 * code if delta < 0
+            raw = the low raw_bits bits of m
+```
+
+Decoding reverses it:
+
+```
+symbol = 0:  delta 0
+otherwise:   code = ceil(symbol / 2)
+             len = code >> d
+             k = min(len - 1, d)
+             raw_bits = len - 1 - k
+             mantissa = (code & (2^d - 1)) >> (d - k)
+             m = ((2^k | mantissa) << raw_bits) | the next raw_bits raw bits
+             delta = m if symbol is odd, -m if it is even     wrapping, so m = 2^31 is i32::MIN
+```
+
+Symbols run up to `64` at depth `0`, `128` at depth `1` and `256` at depth `2`, the symbol of `i32::MIN`.
+The codes above it at depths `1` and `2` name no delta.
+A larger depth moves bits from the raw bits into the symbol, where a predictable bit costs less than one, at the price of larger tables.
+
+#### Contexts
+
+There are 14 contexts, each with its own table:
+
+| Context | Codes |
+|---|---|
+| `0` | `dx` inside a run |
+| `1` | `dx` at a run start |
+| `2 + 2c + s` | `dy`, where `c` is `dx`'s `len` capped at `5`, `0` for a zero `dx`, and `s` is `1` at a run start |
+
+`dx` and `dy` of a vertex tend to be of similar size, so the `dy` table is picked by how large `dx` was.
+
+A polygon with a hole:
+
+--8<-- "diagrams/rans-runs.svg"
+
+#### Payload
+
+```
+payload := [u8 depth]           0-2
+           [tables]             bit-packed LSB-first, padded to a byte
+           [varint lane_len; 4]
+           [lane; 4]
+           [raw bits]           LSB-first, padded to a byte
+```
+
+The tables are one per context, in context order:
+
+```
+table := [1 bit present]
+         if present:
+           [4 bits precision]   0-11
+           [9 bits max_symbol]  0-256
+           if precision > 0:
+             [gamma(freq + 1)] for every symbol 0..=max_symbol
+```
+
+`gamma(v)` is Elias gamma, LSB-first: `z` zero bits, a one bit, then the low `z` bits of `v`, where `z` is the bit length of `v` minus one.
+A zero frequency is `gamma(1)`, a single one bit.
+`z` above `12` MUST be rejected.
+
+A table of precision `0` has no frequencies on the wire.
+Its only symbol is `max_symbol`, with frequency `1`.
+
+The frequencies MUST sum to `2^precision`, the frequency of `max_symbol` MUST be non-zero, and a symbol with a non-zero frequency MUST be one some delta maps to at the stream's depth.
+
+#### Lanes
+
+Four rANS states decode in parallel, each with a lane of its own.
+Vertex `i` codes `dx` on lane `2 * (i mod 2)` and `dy` on lane `2 * (i mod 2) + 1`, so even vertices use lanes `0` and `1`, and odd vertices lanes `2` and `3`.
+A lane is its state's initial value as a little-endian `u32`, then the little-endian `u16` refill words in the order they are read.
+Its length MUST be even and at least `4`.
+
+The raw bits are one stream shared by all lanes, read in vertex order: `dx`'s raw bits, then `dy`'s.
+
+The symbols and raw bits of the example below:
+
+--8<-- "diagrams/rans-lanes.svg"
+
+```
+x_prev = y_prev = 0
+for i in 0..vertex_count:
+    s  = 1 if vertex i starts a run, else 0
+    a  = 2 * (i mod 2)
+    sx = decode a symbol on lane a,     from context s
+    sy = decode a symbol on lane a + 1, from context 2 + 2 * min(ceil(sx / 2) >> d, 5) + s
+    x_prev = x_prev + delta(sx)           reads dx's raw bits, wrapping
+    y_prev = y_prev + delta(sy)           reads dy's raw bits, wrapping
+    output x_prev, y_prev
+```
+
+A decoder MUST reject a symbol from a context without a table, a lane that does not end on state `2^16` with every word read, and raw bits whose byte length is not exactly the one the raw bits read need.
+
+#### Encoding {#rans-encoding}
+
+rANS is last in, first out, so an encoder codes each lane's symbols in reverse, starting every state at `2^16`:
+
+```
+while x >= freq(s) * 2^(32 - p): emit x & 0xFFFF; x = x >> 16
+x = ((x / freq(s)) << p) + x mod freq(s) + cum(s)
+```
+
+A lane is the final state, then the emitted words in reverse order.
+The final state is where decoding starts, and decoding every symbol returns it to `2^16`.
+
+An encoder SHOULD pick the depth and precisions that make the stream shortest, and SHOULD compare its stored size with componentwise delta.
+
+!!! example
+
+    The vertices `(100, 200)`, `(105, 210)`, `(102, 215)` as one run, at depth `1`:
+
+    | Vertex | Lanes | `dx` | Symbol | Context | Raw bits | `dy` | Symbol | Context | Raw bits |
+    |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+    | `0` | `0`, `1` | `100` | `29` | `1` | `00100` | `200` | `33` | `13` | `001000` |
+    | `1` | `2`, `3` | `5` | `11` | `0` | `1` | `10` | `15` | `8` | `10` |
+    | `2` | `0`, `1` | `-3` | `10` | `0` | | `5` | `11` | `6` | `1` |
+
+    Context `0` holds symbols `10` and `11`, once each, and gets precision `1` with one slot per symbol.
+    Contexts `1`, `6`, `8` and `13` hold a single symbol each and get precision `0`.
+    The other nine contexts are absent.
+
+    Only context `0` changes a state.
+    Lane `0` starts at `0x20000`, decodes `29` for free, then slot `0x20000 & 1 = 0`, symbol `10`, and ends on `1 * (0x20000 >> 1) + 0 - 0 = 0x10000`.
+    Lane `2` starts at `0x20001`, slot `1`, symbol `11`, and ends on `1 * 0x10000 + 1 - 1 = 0x10000`.
+    Lanes `1` and `3` start and end at `0x10000`.
+    No state drops below `2^16`, so no lane has refill words.
+
+    ```
+    depth:    01
+    tables:   63 C1 FF 52 E8 00 61 81 F0 00 42 08     95 bits, padded
+    lanes:    04 04 04 04                            four lanes of 4 bytes
+              00 00 02 00                            lane 0: 0x00020000
+              00 00 01 00                            lane 1: 0x00010000
+              01 00 02 00                            lane 2: 0x00020001
+              00 00 01 00                            lane 3: 0x00010000
+    raw bits: 04 69                                  15 bits: 4, 8, 1, 2, 1, padded
+    ```

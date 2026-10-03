@@ -1,0 +1,41 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            196,
+            3904
+          ],
+          [
+            292,
+            3808
+          ],
+          [
+            388,
+            3712
+          ],
+          [
+            484,
+            3616
+          ],
+          [
+            580,
+            3520
+          ],
+          [
+            676,
+            3424
+          ]
+        ]
+      }
+    }
+  ]
+}

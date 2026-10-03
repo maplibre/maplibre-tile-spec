@@ -468,6 +468,9 @@ pub struct EncoderConfig {
     /// Allow the v2-only second-order delta encodings of integer and vertex streams
     #[cfg(feature = "unstable-v2")]
     allow_delta2: bool,
+    /// Allow the v2-only rANS vertex encoding
+    #[cfg(feature = "unstable-v2")]
+    allow_rans_vertices: bool,
 }
 impl Default for EncoderConfig {
     fn default() -> Self {
@@ -494,6 +497,8 @@ impl Default for EncoderConfig {
             allow_triangles_only: false,
             #[cfg(feature = "unstable-v2")]
             allow_delta2: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_rans_vertices: false,
         }
     }
 }
@@ -700,6 +705,21 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_packed_dict_codes(mut self, enabled: bool) -> Self {
         self.allow_packed_dict_codes = enabled;
+        self
+    }
+
+    /// Whether vertex streams may be rANS-coded.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_rans_vertices(self) -> bool {
+        self.allow_rans_vertices && self.wire_version != WireVersion::V01
+    }
+
+    /// Allow plain vertex streams to be rANS-coded over the layer's vertex runs.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_rans_vertices(mut self, enabled: bool) -> Self {
+        self.allow_rans_vertices = enabled;
         self
     }
 }

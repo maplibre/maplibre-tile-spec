@@ -299,6 +299,14 @@ impl Layer {
         self.no_v1()
     }
 
+    /// rANS-code the vertices over the layer's runs, which only v2 can do.
+    #[must_use]
+    #[track_caller]
+    pub fn rans_vertices(mut self) -> Self {
+        self.vertex_buffer_type = VertexBufferType::Rans;
+        self.no_v1()
+    }
+
     /// Force a geometry stream to be written even when its data is empty.
     ///
     /// `name` is the geometry stream name as used internally by the encoder

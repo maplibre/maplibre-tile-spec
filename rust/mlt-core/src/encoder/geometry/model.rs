@@ -15,4 +15,7 @@ pub enum VertexBufferType {
     /// componentwise-delta encoded. Each vertex position in the stream is replaced
     /// by its index into that dictionary.
     Hilbert,
+    /// Standard 2D `(x, y)` pairs rANS-coded over their componentwise deltas.
+    /// Only v2 can write it.
+    Rans,
 }
