@@ -5,9 +5,9 @@
 //! by [`Vertex::lerp`], so z is interpolated the same way. They differ in what
 //! they keep connected:
 //!
-//! - Lines use Liang–Barsky, which clips one segment at a time. A line that
+//! - Lines use Liang-Barsky, which clips one segment at a time. A line that
 //!   leaves and re-enters becomes separate parts, so no stroke is invented.
-//! - Rings use Sutherland–Hodgman, which clips the whole ring against one edge
+//! - Rings use Sutherland-Hodgman, which clips the whole ring against one edge
 //!   at a time and always returns one closed ring: the part outside is replaced
 //!   by the tile border, which is what a fill needs. A concave ring re-entering
 //!   the tile keeps a zero-width bridge along the edge instead of splitting, as
@@ -32,7 +32,7 @@ pub(super) struct Rect {
 }
 
 /// The parameter range `t0..=t1` of segment `a -> b` inside `rect`, or `None`
-/// when the segment misses it. Liang–Barsky.
+/// when the segment misses it. Liang-Barsky.
 fn liang_barsky(a: Vertex, b: Vertex, rect: &Rect) -> Option<(f64, f64)> {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
@@ -131,7 +131,7 @@ impl Edge {
     }
 }
 
-/// Clip a ring to `rect` with Sutherland–Hodgman. The input may or may not
+/// Clip a ring to `rect` with Sutherland-Hodgman. The input may or may not
 /// repeat its first vertex at the end; the output never does and is empty when
 /// fewer than three vertices remain.
 #[expect(
