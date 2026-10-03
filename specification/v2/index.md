@@ -315,9 +315,7 @@ A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. The two 
 
 `8`-`255` are unassigned and MUST be rejected.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_step_finest.mlt&amp;at=vertices>) - a `z_step` of `0`, one unit per millimeter.
-
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_step_coarsest.mlt&amp;at=vertices>) - a `z_step` of `7`, one unit per 10 km.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices>) - a polygon with a hole at a `z_step` of `2`, one unit per decimeter.
 
 `z` is a signed 32-bit word like `x` and `y`, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m. Negative `z` is similarly possible.
 
@@ -812,7 +810,7 @@ Parameters sit between `byte_length`, where written, and the payload:
 
 ## Examples
 
-Every fixture under `test/synthetic/0x02/` can be annotated as below hexdump. If you are building an decoder, the `.json` snapshot are what an decoder MUST produce from it.
+Every fixture under `test/synthetic/0x02/` can be annotated as a hexdump below. If you are building a decoder, you must produce the same `.json` snapshot for validation.
 
 The same annotation can be produced for any tile with the [`mlt` CLI](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md>):
 

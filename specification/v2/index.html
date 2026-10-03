@@ -2475,8 +2475,7 @@ A <code>z_step</code> byte is the stream's <a href="#parameters">parameter</a>.
 </tbody>
 </table>
 <p><code>8</code>-<code>255</code> are unassigned and MUST be rejected.</p>
-<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_step_finest.mlt&amp;at=vertices" target="_blank">View example</a> - a <code>z_step</code> of <code>0</code>, one unit per millimeter.</p>
-<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_step_coarsest.mlt&amp;at=vertices" target="_blank">View example</a> - a <code>z_step</code> of <code>7</code>, one unit per 10 km.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices" target="_blank">View example</a> - a polygon with a hole at a <code>z_step</code> of <code>2</code>, one unit per decimeter.</p>
 <p><code>z</code> is a signed 32-bit word like <code>x</code> and <code>y</code>, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m.
 Negative <code>z</code> is similarly possible.</p>
 <p>The stream holds <code>3 * num_values</code> words for <code>num_values</code> vertices, with <code>x</code>, <code>y</code> and <code>z</code> interleaved.</p>
@@ -4521,8 +4520,8 @@ A decoder MUST select the variant by the layer tag.</p>
 </tbody>
 </table>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this section">&para;</a></h2>
-<p>Every fixture under <code>test/synthetic/0x02/</code> can be annotated as below hexdump.
-If you are building an decoder, the <code>.json</code> snapshot are what an decoder MUST produce from it.</p>
+<p>Every fixture under <code>test/synthetic/0x02/</code> can be annotated as a hexdump below.
+If you are building a decoder, you must produce the same <code>.json</code> snapshot for validation.</p>
 <p>The same annotation can be produced for any tile with the <a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md"><code>mlt</code> CLI</a>:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>mlt<span class="w"> </span>hexdump<span class="w"> </span>path/to/tile.mlt
 </span></code></pre></div>
