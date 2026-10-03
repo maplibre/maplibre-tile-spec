@@ -1864,16 +1864,23 @@ A tessellated layer that needs only some of the outline streams uses <code>0xD</
 <p>Rings take their roles from their order: the first ring of each polygon is its exterior, and any rings after it are its holes.
 The part and ring lengths of the <a href="#geometry-layout">geometry layout</a> say which rings belong to which polygon.
 Decoders MUST take each polygon's exterior and holes from these lengths, not from winding.</p>
+<p>A polygon ring is stored without its closing vertex, and its ring length does not count it.
+An encoder MUST NOT store the closing vertex.
+A decoder that returns polygon rings MUST close each non-empty ring by repeating its first vertex at the end.</p>
 <p><strong>Winding carries no meaning</strong>: each ring MAY be wound either way, independently of the others.
 Unlike <a href="https://github.com/mapbox/vector-tile-spec/tree/master/2.1#4344-polygon-geometry-type">MVT</a>, MLT does not require exteriors to have a positive area or holes a negative one.</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 290" role="img" aria-label="The same three rings read from the topology streams, as MLT decoders do, and from their winding, as MVT decoders do: the clockwise hole becomes a second exterior and the counter-clockwise triangle becomes a hole" xmlns="http://www.w3.org/2000/svg">
+<p><svg class="mlt-diagram" viewBox="0 0 710 290" role="img" aria-label="The same three rings read from the topology streams, as MLT decoders do, with each ring stored without its closing vertex, and from their winding, as MVT decoders do: the clockwise hole becomes a second exterior and the counter-clockwise triangle becomes a hole" xmlns="http://www.w3.org/2000/svg">
 <text class="bold" x="40" y="14">from topology<tspan class="muted"> ✓ MLT</tspan></text>
-<text class="muted small" x="40" y="34">parts [2, 1]</text>
-<path class="f0 wind" fill-rule="evenodd" d="M40,60H220V240H40ZM90,110H170V190H90Z"/>
-<path class="f1 wind" d="M250,240L310,240L280,150Z"/>
+<text class="muted small" x="40" y="34">parts [2, 1] rings [4, 4, 3]</text>
+<path class="f0 area" fill-rule="evenodd" d="M40,60H220V240H40ZM90,110H170V190H90Z"/>
+<path class="f1 area" d="M250,240L310,240L280,150Z"/>
+<path class="f0 edge wind" d="M40,60H220V240H40M90,110H170V190H90"/>
+<path class="f1 edge wind" d="M250,240L310,240L280,150"/>
+<path class="implicit" d="M40,240V60M90,190V110M280,150L250,240"/>
 <path class="head t0" d="M125,55L134,60L125,65Z"/>
 <path class="head t0" d="M125,105L134,110L125,115Z"/>
 <path class="head t1" d="M275,235L284,240L275,245Z"/>
+<circle class="dot" cx="40" cy="60" r="2.5"/><circle class="dot" cx="220" cy="60" r="2.5"/><circle class="dot" cx="220" cy="240" r="2.5"/><circle class="dot" cx="40" cy="240" r="2.5"/><circle class="dot" cx="90" cy="110" r="2.5"/><circle class="dot" cx="170" cy="110" r="2.5"/><circle class="dot" cx="170" cy="190" r="2.5"/><circle class="dot" cx="90" cy="190" r="2.5"/><circle class="dot" cx="250" cy="240" r="2.5"/><circle class="dot" cx="310" cy="240" r="2.5"/><circle class="dot" cx="280" cy="150" r="2.5"/>
 <text class="vert halo" x="56" y="76">0</text>
 <text class="vert halo" x="130" y="150">1</text>
 <text class="vert halo" x="280" y="218">2</text>
@@ -1889,6 +1896,8 @@ Unlike <a href="https://github.com/mapbox/vector-tile-spec/tree/master/2.1#4344-
 <text class="vert halo" x="490" y="150">1</text>
 <text class="vert halo" x="640" y="218">2</text>
 <text class="muted" x="40" y="274"><tspan class="fg">0-2</tspan> ring order, arrows show winding</text>
+<path class="implicit" d="M330,274H354"/>
+<text class="muted" x="362" y="274">closing edge, not stored</text>
 </svg></p>
 <h3 id="tessellation">Tessellation<a class="headerlink" href="#tessellation" title="Link to this section">&para;</a></h3>
 <p>A tessellated layer stores the triangles its polygons were cut into, next to their vertices.</p>
@@ -2412,7 +2421,7 @@ That is why <code>0xC</code> cannot carry <a href="#m-values">m-values</a>.</p>
 <p><code>0xD</code> keeps the full outline topology next to the triangles.
 Each feature decodes as the geometry it was encoded from, and the triangles come on top.</p>
 <p>The vertex stream is the outline vertices, in feature order, as the topology streams lay them out.
-A ring's closing vertex is not stored, so no index names it.
+A ring's <a href="#polygon-rings">closing vertex is not stored</a>, so no index names it.
 A feature that is not a polygon stores no triangle count and owns no run of the index buffer.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
 <text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> with outlines</tspan></text>
@@ -4157,7 +4166,7 @@ Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> ver
 <text class="muted small" x="576" y="174">5 I32 values</text>
 </svg></p>
 <ul>
-<li>A polygon ring's closing vertex is not stored, so it has no m-value.</li>
+<li>A polygon ring's <a href="#polygon-rings">closing vertex is not stored</a>, so it has no m-value.</li>
 <li>Under a dictionary layout the sequence is the one the vertex offsets stream spells out, not the distinct vertices the vertex stream holds.
   Two vertices that share a dictionary entry still have an m-value each.</li>
 <li>Under <code>TessPolygonsWithOutlines</code> the sequence is the outline vertices, which the index buffer indexes into.</li>

@@ -508,6 +508,8 @@ Six geometry types are supported, encoded as unsigned integers:
 
 Rings take their roles from their order: the first ring of each polygon is its exterior, and any rings after it are its holes. The [topology streams](<#topology-encoding>) say which rings belong to which polygon. Decoders MUST take each polygon's exterior and holes from the topology streams, not from winding.
 
+A polygon ring is stored without its closing vertex, and its ring length does not count it. An encoder MUST NOT store the closing vertex. A decoder that returns polygon rings MUST close each non-empty ring by repeating its first vertex at the end.
+
 **Winding carries no meaning**: each ring MAY be wound either way, independently of the others. Unlike [MVT](<https://github.com/mapbox/vector-tile-spec/tree/master/2.1#4344-polygon-geometry-type>), MLT does not require exteriors to have a positive area or holes a negative one.
 
 ### Binary Structure
@@ -1354,6 +1356,8 @@ The meaning of the topology streams, the length threshold rules, componentwise d
 
 Rings take their roles from their order: the first ring of each polygon is its exterior, and any rings after it are its holes. The part and ring lengths of the [geometry layout](<#geometry-layout>) say which rings belong to which polygon. Decoders MUST take each polygon's exterior and holes from these lengths, not from winding.
 
+A polygon ring is stored without its closing vertex, and its ring length does not count it. An encoder MUST NOT store the closing vertex. A decoder that returns polygon rings MUST close each non-empty ring by repeating its first vertex at the end.
+
 **Winding carries no meaning**: each ring MAY be wound either way, independently of the others. Unlike [MVT](<https://github.com/mapbox/vector-tile-spec/tree/master/2.1#4344-polygon-geometry-type>), MLT does not require exteriors to have a positive area or holes a negative one.
 
 ### Tessellation
@@ -1419,7 +1423,7 @@ A decoder cannot stroke an outline, count a feature's vertices, or rebuild the g
 
 `0xD` keeps the full outline topology next to the triangles. Each feature decodes as the geometry it was encoded from, and the triangles come on top.
 
-The vertex stream is the outline vertices, in feature order, as the topology streams lay them out. A ring's closing vertex is not stored, so no index names it. A feature that is not a polygon stores no triangle count and owns no run of the index buffer.
+The vertex stream is the outline vertices, in feature order, as the topology streams lay them out. A ring's [closing vertex is not stored](<#polygon-rings>), so no index names it. A feature that is not a polygon stores no triangle count and owns no run of the index buffer.
 
 A layer needs `0xD` to stroke its polygon outlines, to hold anything but polygons, or to carry [m-values](<#m-values>).
 
@@ -1797,7 +1801,7 @@ An m-value column holds one value per vertex of that run, in the same order.
 
 `dist` and `height` from [`mvalues`](<#examples>), with `height` null on feature 1:
 
-- A polygon ring's closing vertex is not stored, so it has no m-value.
+- A polygon ring's [closing vertex is not stored](<#polygon-rings>), so it has no m-value.
 - Under a dictionary layout the sequence is the one the vertex offsets stream spells out, not the distinct vertices the vertex stream holds. Two vertices that share a dictionary entry still have an m-value each.
 - Under `TessPolygonsWithOutlines` the sequence is the outline vertices, which the index buffer indexes into.
 
