@@ -29,6 +29,12 @@
   fill: var(--mlt-f1);
   stroke: var(--mlt-f1);
 }
+.mlt-diagram .area {
+  stroke: none;
+}
+.mlt-diagram .edge {
+  fill: none;
+}
 .mlt-diagram .fill {
   fill: var(--mlt-f1);
   fill-opacity: 0.3;

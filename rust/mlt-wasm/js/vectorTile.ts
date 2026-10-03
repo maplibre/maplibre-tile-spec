@@ -90,14 +90,39 @@ export enum MltGeometryType {
 }
 
 // ---------------------------------------------------------------------------
-// loadGeometry - JS equivalent of DecodedGeometry::to_mvt_rings
+// loadGeometry
 // ---------------------------------------------------------------------------
 
-function openRing(verts: Int32Array, start: number, end: number): Point[] {
-  const ring: Point[] = new Array(end - start) as Point[];
+/** Reads vertices `start..end` into an array of `length` points; slots past them are left for the caller. */
+function readPoints(
+  verts: Int32Array,
+  start: number,
+  end: number,
+  length: number,
+): Point[] {
+  const points: Point[] = new Array(length) as Point[];
   for (let i = start; i < end; i++) {
-    ring[i - start] = new Point(verts[i * 2], verts[i * 2 + 1]);
+    points[i - start] = new Point(verts[i * 2], verts[i * 2 + 1]);
   }
+  return points;
+}
+
+function lineString(verts: Int32Array, start: number, end: number): Point[] {
+  return readPoints(verts, start, end, end - start);
+}
+
+/**
+ * MLT stores a ring without its closing vertex; this appends it, as @mapbox/vector-tile does.
+ * The closing point is a copy, so callers that mutate points in place don't move it twice.
+ */
+function closedRing(verts: Int32Array, start: number, end: number): Point[] {
+  if (end === start) return [];
+  if (end < start) {
+    throw new Error(`polygon ring at vertex ${start} ends before it starts`);
+  }
+  const n = end - start;
+  const ring = readPoints(verts, start, end, n + 1);
+  ring[n] = ring[0].clone();
   return ring;
 }
 
@@ -146,7 +171,7 @@ function loadGeometry(
         start = partOffsets[featureIdx];
         end = partOffsets[featureIdx + 1];
       }
-      return [openRing(verts, start, end)];
+      return [lineString(verts, start, end)];
     } else {
       const gStart = geomOffsets[featureIdx];
       const gEnd = geomOffsets[featureIdx + 1];
@@ -162,7 +187,7 @@ function loadGeometry(
           start = partOffsets[g];
           end = partOffsets[g + 1];
         }
-        result[g - gStart] = openRing(verts, start, end);
+        result[g - gStart] = lineString(verts, start, end);
       }
       return result;
     }
@@ -174,7 +199,7 @@ function loadGeometry(
       const partEnd = partOffsets[featureIdx + 1];
       const rings: Point[][] = new Array(partEnd - partStart) as Point[][];
       for (let r = partStart; r < partEnd; r++) {
-        rings[r - partStart] = openRing(
+        rings[r - partStart] = closedRing(
           verts,
           ringOffsets[r],
           ringOffsets[r + 1],
@@ -190,7 +215,7 @@ function loadGeometry(
         const partStart = partOffsets[g];
         const partEnd = partOffsets[g + 1];
         for (let r = partStart; r < partEnd; r++) {
-          result.push(openRing(verts, ringOffsets[r], ringOffsets[r + 1]));
+          result.push(closedRing(verts, ringOffsets[r], ringOffsets[r + 1]));
         }
       }
       return result;
@@ -228,7 +253,7 @@ function loadPolygons(
     const partEnd = partOffsets[featureIdx + 1];
     const rings: Point[][] = new Array(partEnd - partStart) as Point[][];
     for (let r = partStart; r < partEnd; r++) {
-      rings[r - partStart] = openRing(
+      rings[r - partStart] = closedRing(
         verts,
         ringOffsets[r],
         ringOffsets[r + 1],
@@ -245,7 +270,7 @@ function loadPolygons(
     const partEnd = partOffsets[g + 1];
     const rings: Point[][] = new Array(partEnd - partStart) as Point[][];
     for (let r = partStart; r < partEnd; r++) {
-      rings[r - partStart] = openRing(
+      rings[r - partStart] = closedRing(
         verts,
         ringOffsets[r],
         ringOffsets[r + 1],
@@ -335,7 +360,11 @@ export class MltFeature implements VectorTileFeatureLike {
     );
   }
 
-  /** Returns one z per vertex in storage order, or an empty array when the layer has none. */
+  /**
+   * Returns one z per vertex in storage order, or an empty array when the layer has none.
+   * A polygon ring's closing point is not stored, so it has no z: each ring from
+   * loadGeometry() or loadPolygons() has one more point than it has z values here.
+   */
   loadZ(): number[] {
     if (this._z.length === 0) return [];
     const [start, end] = vertexRange(
