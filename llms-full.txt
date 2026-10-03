@@ -3085,9 +3085,20 @@ dict:   [1.5, 0.25]
 
 Entries are distinct by bit pattern. `-0.0` and `0.0` are two entries, and a `NaN` is never equal to any entry. A code at or past the dictionary's count MUST be rejected.
 
-## Byte Blobs
+## Strings
 
 String values, dictionary values and FSST symbol tables are byte blobs. A blob's count is its `byte_length`, and a lengths stream beside it says where each value ends.
+
+A string column is stored with one of four encodings, which combine a blob with an optional dictionary:
+
+| Encoding | Stores |
+| --- | --- |
+| Plain | Every value's bytes as [plain bytes](<#plain-bytes>) |
+| Dictionary | The distinct values once, and a code per value |
+| FSST | Every value's bytes, compressed with [FSST](<#fsst>) |
+| FSST dictionary | The distinct values once, compressed with [FSST](<#fsst>), and a code per value |
+
+The streams of each encoding and how a column announces it are the business of [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#string-columns>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#string-columns>).
 
 ### Plain Bytes
 
@@ -3155,38 +3166,29 @@ corpus bytes: 00 01 00 FF 7A         ab cd ab <esc> z
 
 The algorithm that trains the table is described by [Boncz, Neumann and Leis, *FSST: Fast Random Access String Compression*](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>). Different implementations train different tables for the same input. A decoder reads the table from the stream, so that only matters when comparing the output of two encoders.
 
-## String Layouts
+### Dictionary
 
-A string column is a set of the streams above. The four layouts, in the v2 names:
+The distinct values are stored once, and a code names one of them per element. Repeated values such as a city or a country cost one code instead of their bytes.
 
-| Layout | Streams, in order |
-| --- | --- |
-| Plain | `Lengths`, `Values` |
-| Dict | `Codes`, `DictLengths`, `DictValues` |
-| FSST | `Lengths`, `SymbolLengths`, `SymbolTable`, `Corpus` |
-| FsstDict | `Codes`, `DictLengths`, `SymbolLengths`, `SymbolTable`, `Corpus` |
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - three distinct strings and one code per feature.
 
-`Lengths` and `Codes` hold one value per present value. The other streams describe the distinct values. A dictionary is what makes `Codes` an integer stream that any [logical](<#logical-encodings>) and [physical](<#physical-encodings>) encoding can compress.
+The codes are an unsigned integer stream, so any [logical](<#logical-encodings>) and [physical](<#physical-encodings>) encoding can compress them. The dictionary is a byte blob, [plain](<#plain-bytes>), [front-coded](<#front-coding>) or [FSST](<#fsst>)-compressed. Its lengths are those of the distinct values.
 
-The stream order and the way the layout is announced differ between versions. v1 counts the streams and puts `Codes` after the dictionary lengths, or last with FSST. v2 puts `Codes` first and names the layout in the extension bits of that stream. See [v1 string columns](<https://maplibre.org/maplibre-tile-spec/specification/v1/#string-columns>) and [v2 string columns](<https://maplibre.org/maplibre-tile-spec/specification/v2/#string-columns>).
+```text
+values: ["Oslo", "Bergen", "Oslo", "Oslo"]
+codes:  [0, 1, 0, 0]
+dict:   ["Oslo", "Bergen"]
+```
+
+A code at or past the dictionary's count MUST be rejected. A dictionary beats plain strings once values repeat, and loses when they are mostly distinct, so an encoder SHOULD compare the stored size of both.
 
 ### Shared Dictionary
 
-Several string columns, such as `name:en`, `name:de` and `name:fr`, index into one dictionary. The dictionary streams are written once, and each member column then stores only its presence and its `Codes`.
+Several string columns, such as `name:en`, `name:de` and `name:fr`, index into one dictionary. The dictionary is written once, and each member column then stores only its presence and its codes.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D>) - several columns reading one corpus.
 
-```text
-DictLengths, DictValues, Present_1, Codes_1, Present_2, Codes_2, ...
-```
-
-With FSST the dictionary is four streams instead of two:
-
-```text
-DictLengths, SymbolLengths, SymbolTable, Corpus, Present_1, Codes_1, Present_2, Codes_2, ...
-```
-
-In v2 presence bitfields are not streams, and a member may reference a bitfield shared with any other column. See [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#shared-dictionary-columns>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#shared-dictionary-columns>) for the group header each version writes.
+The dictionary can be plain, front-coded or FSST-compressed, as for a single column. See [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#shared-dictionary-columns>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#shared-dictionary-columns>) for the group header each version writes.
 
 ## Vertex Streams
 
