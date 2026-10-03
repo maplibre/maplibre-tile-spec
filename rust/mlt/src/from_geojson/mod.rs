@@ -152,7 +152,7 @@ pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
     }
     // The parsed tree is no longer needed; it would otherwise double peak memory while tiling.
     drop(features);
-    check_dimensions(projector.dims, z_step)?;
+    check_dimensions(projector.dims(), z_step)?;
 
     let layer = LayerSpec {
         name,
@@ -200,23 +200,18 @@ fn read_features(input: &Path) -> AnyResult<Vec<Feature>> {
     Ok(collection.features)
 }
 
-/// The file must be all flat or all 3D, and `--z-step` must match which.
-fn check_dimensions(dims: Dims, z_step: Option<ZStep>) -> AnyResult<()> {
-    match (dims.flat > 0, dims.with_z > 0, z_step) {
-        (true, true, _) => bail!(
-            "the GeoJSON mixes {} positions without an altitude and {} with one; \
-             an MLT layer is either flat or 3D, so make them all [lon, lat] or all [lon, lat, alt]",
-            dims.flat,
-            dims.with_z
-        ),
-        (_, true, None) => bail!(
+/// `--z-step` must match whether the positions carry an altitude. `dims` is
+/// `None` when the file has no positions.
+fn check_dimensions(dims: Option<Dims>, z_step: Option<ZStep>) -> AnyResult<()> {
+    match (dims == Some(Dims::Xyz), z_step) {
+        (true, None) => bail!(
             "the GeoJSON positions carry an altitude, so --z-step is required \
              (the power of ten of the z grid's step in metres, -3..=4)"
         ),
-        (_, false, Some(_)) => bail!(
+        (false, Some(_)) => bail!(
             "--z-step needs [lon, lat, alt] positions, but the GeoJSON positions have no altitude"
         ),
-        (_, true, Some(_)) | (_, false, None) => Ok(()),
+        (true, Some(_)) | (false, None) => Ok(()),
     }
 }
 

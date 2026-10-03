@@ -34,11 +34,19 @@ impl Vertex {
     }
 }
 
-/// How many positions came with and without an altitude.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub(super) struct Dims {
-    pub flat: usize,
-    pub with_z: usize,
+/// Whether positions carry an altitude. An MLT layer is either flat or 3D, so
+/// every position of a file must agree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Dims {
+    Xy,
+    Xyz,
+}
+
+impl Dims {
+    /// The dimensions of a position: a third value is an altitude.
+    fn of(pos: &[f64]) -> Self {
+        if pos.len() > 2 { Self::Xyz } else { Self::Xy }
+    }
 }
 
 /// A geometry in projected `f64` coordinates. Rings are stored as given (closed
@@ -75,22 +83,29 @@ impl Geom {
     }
 }
 
-/// Projects `GeoJSON` geometries onto a layer's grid, counting the dimensions of
-/// the positions it sees so the caller can check the file is all flat or all 3D.
+/// Projects `GeoJSON` geometries onto a layer's grid, rejecting a position whose
+/// dimensions differ from the first one's so the file is all flat or all 3D.
 pub(super) struct Projector {
     z_step: Option<ZStep>,
-    pub dims: Dims,
+    /// The first position projected, `None` before any. Every later position
+    /// must have its dimensions, and it is quoted when one does not.
+    first: Option<Vec<f64>>,
 }
 
 impl Projector {
     pub fn new(z_step: Option<ZStep>) -> Self {
         Self {
             z_step,
-            dims: Dims::default(),
+            first: None,
         }
     }
 
-    /// Project a geometry. An invalid position (see [`Self::position`]) or a
+    /// The dimensions every projected position shares, `None` before any.
+    pub fn dims(&self) -> Option<Dims> {
+        self.first.as_deref().map(Dims::of)
+    }
+
+    /// Project a geometry. An invalid position (see [`Self::project_position`]) or a
     /// `GeometryCollection`, which MLT has no geometry type for, is an error.
     pub fn project(&mut self, value: &GeometryValue) -> AnyResult<Geom> {
         Ok(match value {
@@ -133,8 +148,10 @@ impl Projector {
     }
 
     /// Project one position. It must hold a longitude in `-180..=180` and a
-    /// latitude in `-90..=90`. An altitude is mapped onto the z grid when the
-    /// layer has one and must fit it; a fourth (`m`) value is ignored.
+    /// latitude in `-90..=90`, and have an altitude exactly when the first
+    /// position did. An altitude is mapped onto the z grid when the layer has
+    /// one and must fit it. Values past the third, such as a historical `m`,
+    /// are ignored.
     fn project_position(&mut self, pos: &Position) -> AnyResult<Vertex> {
         let s = pos.as_slice();
         let [lon, lat, rest @ ..] = s else {
@@ -148,10 +165,17 @@ impl Projector {
         }
         let (x, y) = mercator_unit(*lon, *lat);
         let altitude = rest.first().copied();
-        if altitude.is_some() {
-            self.dims.with_z += 1;
-        } else {
-            self.dims.flat += 1;
+        let dims = Dims::of(s);
+        let first = self.first.get_or_insert_with(|| s.to_vec());
+        if Dims::of(first) != dims {
+            let (this, that) = match dims {
+                Dims::Xy => ("has no altitude", "has one"),
+                Dims::Xyz => ("has an altitude", "has none"),
+            };
+            bail!(
+                "position {s:?} {this}, but the first position {first:?} {that}; an MLT layer is \
+                 either flat or 3D, so make them all [lon, lat] or all [lon, lat, alt]"
+            );
         }
         let z = match (self.z_step, altitude) {
             (Some(step), Some(metres)) => {
@@ -164,7 +188,7 @@ impl Projector {
                 grid_z(step, metres)
             }
             // A flat layer stores no z; a mismatch between the altitudes and
-            // the step is reported by the caller once every position is counted.
+            // the step is reported by the caller after projection.
             _ => 0.0,
         };
         Ok(Vertex { x, y, z })
@@ -281,22 +305,54 @@ mod tests {
     }
 
     #[test]
-    fn dims_count_flat_and_z_positions() {
+    fn dims_are_set_by_the_first_position() {
         let mut projector = Projector::new(None);
-        projector
-            .project(&geometry(r#"{"type":"Point","coordinates":[1,2]}"#))
-            .unwrap();
+        assert_eq!(projector.dims(), None);
         projector
             .project(&geometry(
                 r#"{"type":"LineString","coordinates":[[1,2,3],[4,5,6]]}"#,
             ))
             .unwrap();
+        assert_eq!(projector.dims(), Some(Dims::Xyz));
+
+        let mut projector = Projector::new(None);
         projector
             .project(&geometry(
                 r#"{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,0]]]}"#,
             ))
             .unwrap();
-        assert_eq!(projector.dims, Dims { flat: 5, with_z: 2 });
+        assert_eq!(projector.dims(), Some(Dims::Xy));
+    }
+
+    #[test]
+    fn mixing_flat_and_3d_positions_is_rejected() {
+        let mut projector = Projector::new(None);
+        projector
+            .project(&geometry(r#"{"type":"Point","coordinates":[1,2]}"#))
+            .unwrap();
+        let err = projector
+            .project(&geometry(
+                r#"{"type":"LineString","coordinates":[[1,2,3],[4,5,6]]}"#,
+            ))
+            .unwrap_err();
+        assert!(
+            err.to_string().starts_with(
+                "position [1.0, 2.0, 3.0] has an altitude, but the first position [1.0, 2.0] has none"
+            ),
+            "{err}"
+        );
+
+        // Within one geometry too.
+        let err = Projector::new(None)
+            .project(&geometry(
+                r#"{"type":"LineString","coordinates":[[1,2,3],[4,5]]}"#,
+            ))
+            .unwrap_err();
+        assert!(
+            err.to_string()
+                .starts_with("position [4.0, 5.0] has no altitude, but the first position [1.0, 2.0, 3.0] has one"),
+            "{err}"
+        );
     }
 
     fn point_z(z_step: Option<ZStep>, json: &str) -> f64 {

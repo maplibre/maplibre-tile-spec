@@ -501,7 +501,9 @@ fn mixing_flat_and_3d_positions_is_rejected() {
     ]);
     let stderr = run_failing(&geojson, &["--max-zoom", "0"]);
     assert!(
-        stderr.contains("mixes 1 positions without an altitude and 1 with one"),
+        stderr.contains(
+            "position [0.0, 10.0, 5.0] has an altitude, but the first position [0.0, 0.0] has none"
+        ),
         "{stderr}"
     );
 }
