@@ -99,6 +99,10 @@ pub fn decode_blob(
                 max_values,
             )
         }
+        #[cfg(feature = "unstable-v2")]
+        DecodeHint::Rans => DecodedBlob::Binary {
+            len: count(data.len()),
+        },
         DecodeHint::Bool => match RawStream::new(meta, data).decode_bools(dec) {
             Ok(v) => bools(v, max_values),
             Err(e) => error(&e),

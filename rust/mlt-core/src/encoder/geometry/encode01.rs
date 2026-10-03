@@ -10,12 +10,12 @@ use super::streams::{
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
-    ColumnType, GeometryType, GeometryValues, LengthType, Levels, OffsetType, StreamType,
-    decode_topology,
+    ColumnType, GeometryType, GeometryValues, LengthType, Levels, LogicalEncoding, OffsetType,
+    StreamType, VertexLogical, decode_topology,
 };
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
-use crate::{Decoder, MltResult};
+use crate::{Decoder, MltError, MltResult};
 
 impl GeometryValues {
     /// Write the geometry column to `enc`.
@@ -174,6 +174,12 @@ impl GeometryValues {
                 VertexBufferType::Vec2 => encode_vec2_vertex_stream(&vertices, enc, codecs)?,
                 VertexBufferType::Morton => encode_morton_vertex_streams(&vertices, enc, codecs)?,
                 VertexBufferType::Hilbert => encode_hilbert_vertex_streams(&vertices, enc, codecs)?,
+                VertexBufferType::Rans => {
+                    return Err(MltError::UnsupportedLogicalEncoding(
+                        LogicalEncoding::Vertex(VertexLogical::Rans),
+                        "v1, which has no rANS vertex coding",
+                    ));
+                }
             };
         } else if dict_may_be_beneficial(&vertices, enc) {
             // Morton fits (the gate above ensures it), so race all three.

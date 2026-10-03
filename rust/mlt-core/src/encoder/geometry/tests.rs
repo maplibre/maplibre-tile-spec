@@ -438,12 +438,14 @@ fn encoded_stream_types(data: &[u8]) -> HashSet<StreamType> {
 
 #[cfg(feature = "unstable-v2")]
 mod v2 {
+    use insta::assert_snapshot;
     use pretty_assertions::assert_eq;
 
     use super::*;
+    use crate::decoder::{LogicalEncoding, VertexLogical};
     use crate::encoder::model::WireVersion;
     use crate::encoder::{StagedId, StagedLayer};
-    use crate::test_helpers::into_layer01;
+    use crate::test_helpers::{into_layer01, stream_logicals};
     use crate::{MltResult, TileLayer, ZStep};
 
     /// Encode `decoded` as a whole layer with the vertex layout pinned to `strategy`.
@@ -491,9 +493,10 @@ mod v2 {
     fn a_degenerate_geometry_survives_a_v2_roundtrip(
         #[case] geoms: Vec<Geometry<i32>>,
         #[values(false, true)] tessellate: bool,
+        #[values(VertexBufferType::Vec2, VertexBufferType::Rans)] strategy: VertexBufferType,
     ) {
         let decoded = stage(&geoms, tessellate);
-        let layer = forced_layer(&decoded, VertexBufferType::Vec2, WireVersion::V02);
+        let layer = forced_layer(&decoded, strategy, WireVersion::V02);
         let read_back: Vec<_> = layer.features.into_iter().map(|f| f.geometry).collect();
         assert_eq!(read_back, geoms);
     }
@@ -502,10 +505,34 @@ mod v2 {
     #[case::vec2(VertexBufferType::Vec2)]
     #[case::morton(VertexBufferType::Morton)]
     #[case::hilbert(VertexBufferType::Hilbert)]
+    #[case::rans(VertexBufferType::Rans)]
     fn a_forced_vertex_layout_decodes_as_v1_does(#[case] strategy: VertexBufferType) {
         let decoded = repeated_multipoint();
         let v1 = forced_layer(&decoded, VertexBufferType::Vec2, WireVersion::V01);
         assert_eq!(v1, forced_layer(&decoded, strategy, WireVersion::V02));
+    }
+
+    #[rstest]
+    fn a_forced_rans_layout_writes_a_rans_stream(#[values(false, true)] tessellate: bool) {
+        let geoms = [wkt!(POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))).into()];
+        let decoded = stage(&geoms, tessellate);
+        let bytes = forced_layer_bytes(&decoded, VertexBufferType::Rans, WireVersion::V02)
+            .expect("encode failed");
+        assert_eq!(
+            stream_logicals(&bytes, StreamType::Data(DictionaryType::Vertex)),
+            [LogicalEncoding::Vertex(VertexLogical::Rans)]
+        );
+    }
+
+    #[test]
+    fn v1_refuses_a_forced_rans_layout() {
+        let err = forced_layer_bytes(
+            &repeated_multipoint(),
+            VertexBufferType::Rans,
+            WireVersion::V01,
+        )
+        .unwrap_err();
+        assert_snapshot!(err, @"unsupported logical encoding Vertex(Rans) for v1, which has no rANS vertex coding");
     }
 
     #[test]
@@ -516,6 +543,17 @@ mod v2 {
             .unwrap();
         let err =
             forced_layer_bytes(&decoded, VertexBufferType::Morton, WireVersion::V02).unwrap_err();
-        insta::assert_snapshot!(err, @"not implemented: Morton vertices with z coordinates, since a Morton code spans only x and y");
+        assert_snapshot!(err, @"not implemented: Morton vertices with z coordinates, since a Morton code spans only x and y");
+    }
+
+    #[test]
+    fn a_forced_rans_layout_rejects_z() {
+        let mut decoded = repeated_multipoint();
+        decoded
+            .add_z(ZStep::new(0).unwrap(), &[1, 2, 3, 4, 5, 6])
+            .unwrap();
+        let err =
+            forced_layer_bytes(&decoded, VertexBufferType::Rans, WireVersion::V02).unwrap_err();
+        assert_snapshot!(err, @"not implemented: rANS vertices with z coordinates, since its tables are defined over pairs");
     }
 }

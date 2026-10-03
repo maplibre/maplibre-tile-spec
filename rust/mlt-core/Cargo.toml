@@ -17,6 +17,16 @@ harness = false
 required-features = ["__private"]
 
 [[bench]]
+name = "decoding_v2_vertices"
+harness = false
+required-features = ["__private-v2"]
+
+[[bench]]
+name = "rans_isolated"
+harness = false
+required-features = ["__private-v2"]
+
+[[bench]]
 name = "encoding_e2e"
 harness = false
 required-features = ["__private"]

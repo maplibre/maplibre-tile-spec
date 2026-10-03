@@ -901,9 +901,11 @@ impl<'a> Walker<'a> {
             return Err(MltError::NotImplemented("v2 stream header re-walk desync"));
         }
         // A dictionary's codes and Framed, Exception-Free ALP's integers are integer streams, whatever the column's type is.
+        // A rANS payload needs the topology to decode, so the dump shows its parts.
         let hint = match stream.meta.encoding.logical {
             LogicalEncoding::Float(FloatLogical::Dict) => DecodeHint::U32,
             LogicalEncoding::Float(FloatLogical::Alp(params)) => DecodeHint::Alp(params),
+            LogicalEncoding::Vertex(VertexLogical::Rans) => DecodeHint::Rans,
             LogicalEncoding::Float(FloatLogical::None)
             | LogicalEncoding::Int(_)
             | LogicalEncoding::Bool(_)

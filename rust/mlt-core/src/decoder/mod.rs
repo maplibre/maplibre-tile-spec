@@ -26,6 +26,8 @@ pub(crate) mod stream;
 // ── Crate-internal re-exports ─────────────────────────────────────────────────
 // Allow internal modules to keep using `crate::decoder::*` paths without
 // reaching into sub-module paths explicitly.
+#[cfg(feature = "unstable-v2")]
+pub(crate) use geometry::decode::run_offsets;
 pub(crate) use geometry::decode::{Levels, decode_topology};
 pub(crate) use geometry::{GeoTypes, Geometry, IndexBase, RawGeometry};
 pub use geometry::{GeometryType, GeometryValues};
