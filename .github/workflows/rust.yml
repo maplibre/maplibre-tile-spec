@@ -146,7 +146,7 @@ jobs:
         with: { coverage: true }
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with: { distribution: 'temurin', java-version: '21' }
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - run: just -v rust::ci-test-ffi
       - run: just -v rust::coverage-report ffi --release  # the FFI tests run against the release cdylib
       - uses: ./.github/actions/mlt-upload-coverage
@@ -251,7 +251,7 @@ jobs:
       - name: Download the per-suite lcov reports
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { pattern: 'coverage-rust-*', merge-multiple: true, path: 'rust/target/coverage' }
-      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with: { tool: 'just,grcov' }
       - run: just -v coverage-merge rust/target/coverage rust/target/cobertura.xml
       - uses: ./.github/actions/mlt-publish-coverage
@@ -339,7 +339,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with: { tool: 'just' }
       - name: Get mlt version for release tag
         id: get_version
