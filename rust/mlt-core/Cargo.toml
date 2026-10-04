@@ -1,7 +1,7 @@
 [package]
 name = "mlt-core"
 description = "MapLibre Tile library code"
-version = "0.18.0"
+version = "0.19.2"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -79,6 +79,7 @@ thiserror.workspace = true
 union-find.workspace = true
 usize_cast.workspace = true
 wide.workspace = true
+xxhash-rust.workspace = true
 zigzag.workspace = true
 
 [dev-dependencies]

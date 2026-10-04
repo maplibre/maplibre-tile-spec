@@ -1,0 +1,37 @@
+<svg class="mlt-diagram" viewBox="0 0 710 190" role="img" aria-label="A FastPFOR payload is a block_values word, pages and a tail. A page is a meta_offset, the packed blocks, meta_size, the block metadata, a bitmap and the exception arrays. The block metadata is a width and an exception count per block, then max_width and positions when there are exceptions" xmlns="http://www.w3.org/2000/svg">
+<rect class="plain" x="0" y="4" width="110" height="28" rx="3"/>
+<text class="cell" x="55.0" y="18">block_values</text>
+<rect class="f0" x="114" y="4" width="130" height="28" rx="3"/>
+<text class="cell" x="179.0" y="18">page 0</text>
+<rect class="plain" x="248" y="4" width="130" height="28" rx="3"/>
+<text class="cell" x="313.0" y="18">page 1</text>
+<text class="cell" x="402.0" y="18">…</text>
+<rect class="plain" x="426" y="4" width="80" height="28" rx="3"/>
+<text class="cell" x="466.0" y="18">tail</text>
+<rect class="plain" x="0" y="66" width="100" height="28" rx="3"/>
+<text class="cell" x="50.0" y="80">meta_offset</text>
+<rect class="plain" x="104" y="66" width="140" height="28" rx="3"/>
+<text class="cell" x="174.0" y="80">packed blocks</text>
+<rect class="plain" x="248" y="66" width="84" height="28" rx="3"/>
+<text class="cell" x="290.0" y="80">meta_size</text>
+<rect class="f1" x="336" y="66" width="60" height="28" rx="3"/>
+<text class="cell" x="366.0" y="80">meta</text>
+<rect class="plain" x="400" y="66" width="70" height="28" rx="3"/>
+<text class="cell" x="435.0" y="80">bitmap</text>
+<rect class="plain" x="474" y="66" width="150" height="28" rx="3"/>
+<text class="cell" x="549.0" y="80">exception arrays</text>
+<rect class="f1" x="0" y="128" width="70" height="28" rx="3"/>
+<text class="cell" x="35.0" y="142">width</text>
+<rect class="f1" x="74" y="128" width="100" height="28" rx="3"/>
+<text class="cell" x="124.0" y="142">exceptions</text>
+<rect class="implicit" x="178" y="128" width="100" height="28" rx="3"/>
+<text class="cell" x="228.0" y="142">max_width</text>
+<rect class="implicit" x="282" y="128" width="110" height="28" rx="3"/>
+<text class="cell" x="337.0" y="142">positions</text>
+<text class="cell" x="416.0" y="142">…</text>
+<path class="link" d="M114 32L0 66"/>
+<path class="link" d="M244 32L624 66"/>
+<path class="link" d="M336 94L0 128"/>
+<path class="link" d="M396 94L436 128"/>
+<text class="muted small" x="178" y="174">only with exceptions</text>
+</svg>

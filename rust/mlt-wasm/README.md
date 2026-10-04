@@ -57,6 +57,30 @@ for (const [name, layer] of Object.entries(tile.layers)) {
 }
 ```
 
+### 3D
+
+`decodeTile3D` reads a tile whose every layer has z coordinates. Its features have the same
+`loadGeometry()` and `loadPolygons()`, with every vertex an `[x, y, z]` array, so the rest of the
+code can assume 3D. It throws when any layer has no z coordinates, for which `decodeTile` reads the
+tile in 2D, and when any layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry
+layout, since tessellation is not supported in 3D.
+
+Like `x` and `y`, `z` is the stored integer: it lies on the layer's `zStep` grid, and its
+elevation is `-10000 + z * 10 ** zStep` metres.
+
+```ts
+import { decodeTile3D } from '@maplibre/mlt-wasm';
+
+const tile = decodeTile3D(data);
+for (const [name, layer] of Object.entries(tile.layers)) {
+    for (let i = 0; i < layer.length; i++) {
+        const feature = layer.feature(i);
+        // exterior ring, then holes; each ring is closed (its first vertex is repeated at the end)
+        const polygons = feature.loadPolygons(); // [x, y, z][][][]
+    }
+}
+```
+
 ## Annotate
 
 `annotateTile` walks a tile into the regions an annotated hexdump is made of: every byte beside

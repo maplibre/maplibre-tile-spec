@@ -1,3 +1,4 @@
+use mlt_core::wire::GeoLayout;
 use mlt_core::{GeometryValues, TileLayer};
 
 /// All per-layer state owned by [`crate::tile::MltTile`].
@@ -13,4 +14,7 @@ pub(crate) struct DecodedLayer {
     pub(crate) mlt_types_array: js_sys::Uint8Array,
 
     pub(crate) geometry: GeometryValues,
+
+    /// The v2 geometry layout the layer was written with, or `None` for a v1 layer.
+    pub(crate) geo_layout: Option<GeoLayout>,
 }

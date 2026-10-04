@@ -1,7 +1,8 @@
 use js_sys::{Array, Float64Array, Object, Reflect};
+use mlt_core::ZStep;
 use wasm_bindgen::prelude::*;
 
-use crate::geometry::LayerGeometry;
+use crate::geometry::{LayerGeometry, z_step_3d};
 use crate::layer::DecodedLayer;
 use crate::properties::{build_prop_cache, prop_value_to_js};
 
@@ -82,6 +83,17 @@ impl MltTile {
     #[must_use]
     pub fn layer_geometry(&self, layer_idx: usize) -> LayerGeometry {
         LayerGeometry::from_values(&self.layers[layer_idx].geometry)
+    }
+
+    /// The z grid of layer `layer_idx` for `decodeTile3D`, as the power of ten of its step in metres.
+    ///
+    /// Throws when the layer has no z coordinates, or uses the `TessPolygons` or
+    /// `TessPolygonsWithOutlines` geometry layout, which `decodeTile3D` does not support.
+    pub fn layer_z_step_3d(&self, layer_idx: usize) -> Result<i8, JsError> {
+        let layer = &self.layers[layer_idx];
+        z_step_3d(&layer.geometry, layer.geo_layout)
+            .map(ZStep::exponent)
+            .map_err(|reason| JsError::new(&format!("layer \"{}\" {reason}", layer.tile.name())))
     }
 
     // -----------------------------------------------------------------------
