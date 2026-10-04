@@ -335,12 +335,7 @@ mod tests {
                 r#"{"type":"LineString","coordinates":[[1,2,3],[4,5,6]]}"#,
             ))
             .unwrap_err();
-        assert!(
-            err.to_string().starts_with(
-                "position [1.0, 2.0, 3.0] has an altitude, but the first position [1.0, 2.0] has none"
-            ),
-            "{err}"
-        );
+        insta::assert_snapshot!(err, @"position [1.0, 2.0, 3.0] has an altitude, but the first position [1.0, 2.0] has none; an MLT layer is either flat or 3D, so make them all [lon, lat] or all [lon, lat, alt]");
 
         // Within one geometry too.
         let err = Projector::new(None)
@@ -348,11 +343,7 @@ mod tests {
                 r#"{"type":"LineString","coordinates":[[1,2,3],[4,5]]}"#,
             ))
             .unwrap_err();
-        assert!(
-            err.to_string()
-                .starts_with("position [4.0, 5.0] has no altitude, but the first position [1.0, 2.0, 3.0] has one"),
-            "{err}"
-        );
+        insta::assert_snapshot!(err, @"position [4.0, 5.0] has no altitude, but the first position [1.0, 2.0, 3.0] has one; an MLT layer is either flat or 3D, so make them all [lon, lat] or all [lon, lat, alt]");
     }
 
     fn point_z(z_step: Option<ZStep>, json: &str) -> f64 {
@@ -389,29 +380,26 @@ mod tests {
 
     #[test]
     fn invalid_positions_are_rejected() {
-        for (json, message) in [
-            (
-                r#"{"type":"LineString","coordinates":[[0,0],[139.7]]}"#,
-                "position [139.7] has fewer than two coordinates",
-            ),
-            (
-                r#"{"type":"LineString","coordinates":[[0,0],[181.5,10]]}"#,
-                "position [181.5, 10.0] has a longitude outside -180..=180",
-            ),
-            (
-                r#"{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,-91],[0,0]]]}"#,
-                "position [1.0, -91.0] has a latitude outside -90..=90",
-            ),
-            (
-                r#"{"type":"Point","coordinates":[0,0,1e12]}"#,
-                "position [0.0, 0.0, 1000000000000.0] has an altitude outside the z grid of 10^-3 m steps",
-            ),
-        ] {
-            let err = Projector::new(step(-3))
+        let errors: Vec<String> = [
+            r#"{"type":"LineString","coordinates":[[0,0],[139.7]]}"#,
+            r#"{"type":"LineString","coordinates":[[0,0],[181.5,10]]}"#,
+            r#"{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,-91],[0,0]]]}"#,
+            r#"{"type":"Point","coordinates":[0,0,1e12]}"#,
+        ]
+        .into_iter()
+        .map(|json| {
+            Projector::new(step(-3))
                 .project(&geometry(json))
-                .unwrap_err();
-            assert_eq!(err.to_string(), message);
-        }
+                .unwrap_err()
+                .to_string()
+        })
+        .collect();
+        insta::assert_snapshot!(errors.join("\n"), @"
+        position [139.7] has fewer than two coordinates
+        position [181.5, 10.0] has a longitude outside -180..=180
+        position [1.0, -91.0] has a latitude outside -90..=90
+        position [0.0, 0.0, 1000000000000.0] has an altitude outside the z grid of 10^-3 m steps
+        ");
     }
 
     #[test]
@@ -435,10 +423,7 @@ mod tests {
                 r#"{"type":"GeometryCollection","geometries":[]}"#,
             ))
             .unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "GeometryCollection geometries are not supported by MLT"
-        );
+        insta::assert_snapshot!(err, @"GeometryCollection geometries are not supported by MLT");
     }
 
     #[test]

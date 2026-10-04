@@ -26,7 +26,7 @@ bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-h
     {{just}} rust::sync-docs-hexdumps
 
     # __private-v2 is the union of mlt-core's test-gating features, so one pass reaches every
-    # snapshot; hotpath stays off because two of mlt's test files are gated on not(hotpath)
+    # snapshot; hotpath stays off because several of mlt's test files are gated on not(hotpath)
     cargo hack insta test --test-runner nextest --dnd --accept --unreferenced=delete \
         --all-targets --ignore-unknown-features \
         --features __private-v2,arbitrary,unstable-v2 \

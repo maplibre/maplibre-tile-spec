@@ -263,13 +263,14 @@ mod tests {
 
     #[test]
     fn nested_values_are_rejected() {
-        for props in [json!({ "obj": { "x": 1 } }), json!({ "obj": [1, 2] })] {
-            let err = Schema::infer(&[feature(&props)]).unwrap_err();
-            assert_eq!(
-                err.to_string(),
-                "property \"obj\" holds a nested array or object, which is not supported; flatten it or remove it"
-            );
-        }
+        let errors: Vec<String> = [json!({ "obj": { "x": 1 } }), json!({ "arr": [1, 2] })]
+            .iter()
+            .map(|props| Schema::infer(&[feature(props)]).unwrap_err().to_string())
+            .collect();
+        insta::assert_snapshot!(errors.join("\n"), @r#"
+        property "obj" holds a nested array or object, which is not supported; flatten it or remove it
+        property "arr" holds a nested array or object, which is not supported; flatten it or remove it
+        "#);
     }
 
     #[test]
@@ -294,10 +295,7 @@ mod tests {
         let schema = Schema::infer(&features).unwrap();
         assert_eq!(schema.columns[0].1, PropKind::I64);
         let err = schema.values(&features[1]).unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "property \"n\" value 18446744073709551615 does not fit a signed 64-bit column"
-        );
+        insta::assert_snapshot!(err, @r#"property "n" value 18446744073709551615 does not fit a signed 64-bit column"#);
     }
 
     fn with_id(id: &serde_json::Value) -> Feature {
@@ -316,21 +314,14 @@ mod tests {
 
     #[test]
     fn other_ids_are_rejected() {
-        for (id, message) in [
-            (
-                json!(-1),
-                "id -1 is not a non-negative integer, which is all an MLT id can hold",
-            ),
-            (
-                json!(3.5),
-                "id 3.5 is not a non-negative integer, which is all an MLT id can hold",
-            ),
-            (
-                json!("abc"),
-                "id \"abc\" is a string, but an MLT id must be a non-negative integer; drop it or move it to a property",
-            ),
-        ] {
-            assert_eq!(feature_id(&with_id(&id)).unwrap_err().to_string(), message);
-        }
+        let errors: Vec<String> = [json!(-1), json!(3.5), json!("abc")]
+            .iter()
+            .map(|id| feature_id(&with_id(id)).unwrap_err().to_string())
+            .collect();
+        insta::assert_snapshot!(errors.join("\n"), @r#"
+        id -1 is not a non-negative integer, which is all an MLT id can hold
+        id 3.5 is not a non-negative integer, which is all an MLT id can hold
+        id "abc" is a string, but an MLT id must be a non-negative integer; drop it or move it to a property
+        "#);
     }
 }

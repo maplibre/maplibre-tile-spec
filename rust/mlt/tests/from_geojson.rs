@@ -2,8 +2,9 @@
 //! `GeoJSON` file, runs the binary, and decodes the tiles it wrote back through
 //! `mlt-core` to check geometry (including z), properties, and tile placement.
 
-// The command only exists in a v2 build.
-#![cfg(feature = "unstable-v2")]
+// The command only exists in a v2 build, and hotpath appends its profile to
+// stderr, which no exact snapshot can survive.
+#![cfg(all(feature = "unstable-v2", not(feature = "hotpath")))]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -38,6 +39,9 @@ impl Drop for TempDir {
 
 /// Write `geojson` as `<file_name>` in a temp dir and run `mlt from-geojson` on it,
 /// writing to `<out_name>` beside it.
+///
+/// CI exports `RUST_BACKTRACE=1`, and an inherited backtrace on stderr would break
+/// every snapshot here.
 fn run_into(
     file_name: &str,
     out_name: &str,
@@ -53,9 +57,17 @@ fn run_into(
         .arg(&input)
         .arg(&output)
         .args(args)
+        .env_remove("RUST_BACKTRACE")
         .output()
         .unwrap();
     (dir, output, out)
+}
+
+/// The stderr of `out`, with the temp dir it ran in shown as `[TMP]`.
+fn stderr_of(dir: &TempDir, out: &Output) -> String {
+    String::from_utf8(out.stderr.clone())
+        .unwrap()
+        .replace(dir.0.to_str().unwrap(), "[TMP]")
 }
 
 #[track_caller]
@@ -76,13 +88,13 @@ fn run(geojson: &Value, args: &[&str]) -> (TempDir, PathBuf) {
 
 /// Run a conversion expected to fail, returning its stderr.
 fn run_failing(geojson: &Value, args: &[&str]) -> String {
-    let (_dir, output, out) = run_into("input.geojson", "out", geojson, args);
+    let (dir, output, out) = run_into("input.geojson", "out", geojson, args);
     assert!(
         !out.status.success(),
         "mlt from-geojson unexpectedly succeeded"
     );
     assert_eq!(mlt_files(&output), Vec::<String>::new());
-    String::from_utf8(out.stderr).unwrap()
+    stderr_of(&dir, &out)
 }
 
 /// Every `.mlt` under `dir` as a `z/x/y.mlt` string, sorted.
@@ -341,23 +353,27 @@ fn a_bare_feature_or_geometry_is_rejected() {
         ),
         &["--max-zoom", "0"],
     );
-    assert!(
-        stderr.contains("Expected GeoJSON type `FeatureCollection`, found `Feature`"),
-        "{stderr}"
-    );
+    insta::assert_snapshot!(stderr, @"
+    Error: reading [TMP]/input.geojson
+
+    Caused by:
+        Expected GeoJSON type `FeatureCollection`, found `Feature`
+    ");
     let stderr = run_failing(
         &json!({ "type": "Point", "coordinates": [0, 0] }),
         &["--max-zoom", "0"],
     );
-    assert!(
-        stderr.contains("Expected GeoJSON type `FeatureCollection`, found `Geometry`"),
-        "{stderr}"
-    );
+    insta::assert_snapshot!(stderr, @"
+    Error: reading [TMP]/input.geojson
+
+    Caused by:
+        Expected GeoJSON type `FeatureCollection`, found `Geometry`
+    ");
 }
 
 #[test]
 fn an_empty_collection_writes_no_tiles() {
-    let (_dir, output, out) = run_into(
+    let (dir, output, out) = run_into(
         "input.geojson",
         "out",
         &collection(&[]),
@@ -365,11 +381,8 @@ fn an_empty_collection_writes_no_tiles() {
     );
     assert_success(&out);
     assert_eq!(mlt_files(&output), Vec::<String>::new());
-    let stderr = String::from_utf8(out.stderr).unwrap();
-    assert!(
-        stderr.contains("No features with a geometry to tile"),
-        "{stderr}"
-    );
+    let stderr = stderr_of(&dir, &out);
+    insta::assert_snapshot!(stderr, @"No features with a geometry to tile in [TMP]/input.geojson");
 }
 
 #[test]
@@ -379,14 +392,11 @@ fn features_too_small_for_the_zoom_write_no_tiles_and_say_so() {
         &json!({ "type": "Polygon", "coordinates": [[[0, 0], [0.00001, 0], [0.00001, 0.00001], [0, 0]]] }),
         &json!({}),
     )]);
-    let (_dir, output, out) = run_into("input.geojson", "out", &geojson, &["--max-zoom", "0"]);
+    let (dir, output, out) = run_into("input.geojson", "out", &geojson, &["--max-zoom", "0"]);
     assert_success(&out);
     assert_eq!(mlt_files(&output), Vec::<String>::new());
-    let stderr = String::from_utf8(out.stderr).unwrap();
-    assert!(
-        stderr.contains("none of its 1 feature(s) spans a grid unit at zooms 0..=0"),
-        "{stderr}"
-    );
+    let stderr = stderr_of(&dir, &out);
+    insta::assert_snapshot!(stderr, @"[TMP]/input.geojson: none of its 1 feature(s) spans a grid unit at zooms 0..=0, so no tile was written; raise --max-zoom");
 }
 
 /// 1000 points spread evenly over the four z1 tiles, each with a property key of
@@ -410,15 +420,17 @@ fn too_heavy_at_z0() -> Value {
 #[test]
 fn a_tile_too_heavy_to_decode_fails_naming_the_min_zoom_that_fits() {
     let geojson = too_heavy_at_z0();
-    let (_dir, output, out) = run_into("input.geojson", "out", &geojson, &["--max-zoom", "1"]);
+    let (dir, output, out) = run_into("input.geojson", "out", &geojson, &["--max-zoom", "1"]);
     assert!(
         !out.status.success(),
         "mlt from-geojson unexpectedly succeeded"
     );
-    let stderr = String::from_utf8(out.stderr).unwrap();
-    assert!(stderr.contains("tile 0/0/0"), "{stderr}");
-    assert!(stderr.contains("pass --min-zoom 1"), "{stderr}");
-    assert!(!mlt_files(&output).contains(&"0/0/0.mlt".to_owned()));
+    let stderr = stderr_of(&dir, &out);
+    insta::assert_snapshot!(stderr, @"Error: tile 0/0/0 needs more memory to decode than mlt-core's default decoder budget allows, so it and any such tile at a lower zoom were not written; pass --min-zoom 1");
+    assert_eq!(
+        mlt_files(&output),
+        ["1/0/0.mlt", "1/0/1.mlt", "1/1/0.mlt", "1/1/1.mlt"]
+    );
 
     let (_dir, output) = run(&geojson, &["--min-zoom", "1", "--max-zoom", "1"]);
     assert_eq!(
@@ -430,23 +442,7 @@ fn a_tile_too_heavy_to_decode_fails_naming_the_min_zoom_that_fits() {
 #[test]
 fn a_tile_too_heavy_to_decode_at_the_max_zoom_asks_for_a_higher_max_zoom() {
     let stderr = run_failing(&too_heavy_at_z0(), &["--max-zoom", "0"]);
-    assert!(
-        stderr.contains("pass --min-zoom 1 and a --max-zoom of at least 1"),
-        "{stderr}"
-    );
-}
-
-#[test]
-fn a_nested_property_value_is_rejected() {
-    let geojson = collection(&[feature(
-        &json!({ "type": "Point", "coordinates": [0, 0] }),
-        &json!({ "meta": { "k": 1 } }),
-    )]);
-    let stderr = run_failing(&geojson, &["--max-zoom", "0"]);
-    assert!(
-        stderr.contains("property \"meta\" holds a nested array or object"),
-        "{stderr}"
-    );
+    insta::assert_snapshot!(stderr, @"Error: tile 0/0/0 needs more memory to decode than mlt-core's default decoder budget allows, so it and any such tile at a lower zoom were not written; pass --min-zoom 1 and a --max-zoom of at least 1");
 }
 
 #[test]
@@ -459,8 +455,12 @@ fn a_string_id_is_rejected_naming_the_feature() {
         json!({ "type": "Feature", "id": "way/42", "geometry": { "type": "Point", "coordinates": [1, 1] }, "properties": {} }),
     ]);
     let stderr = run_failing(&geojson, &["--max-zoom", "0"]);
-    assert!(stderr.contains("reading the id of feature 1"), "{stderr}");
-    assert!(stderr.contains("id \"way/42\" is a string"), "{stderr}");
+    insta::assert_snapshot!(stderr, @r#"
+    Error: reading the id of feature 1
+
+    Caused by:
+        id "way/42" is a string, but an MLT id must be a non-negative integer; drop it or move it to a property
+    "#);
 }
 
 #[test]
@@ -476,50 +476,25 @@ fn an_invalid_position_is_rejected_naming_the_feature() {
         ),
     ]);
     let stderr = run_failing(&geojson, &["--max-zoom", "0"]);
-    assert!(stderr.contains("projecting feature 1"), "{stderr}");
-    assert!(
-        stderr.contains("position [181.5, 10.0] has a longitude outside -180..=180"),
-        "{stderr}"
-    );
-    let geojson = collection(&[feature(
-        &json!({ "type": "LineString", "coordinates": [[0, 0], [139.7]] }),
-        &json!({}),
-    )]);
-    let stderr = run_failing(&geojson, &["--max-zoom", "0"]);
-    assert!(stderr.contains("projecting feature 0"), "{stderr}");
-    assert!(
-        stderr.contains("position [139.7] has fewer than two coordinates"),
-        "{stderr}"
-    );
-}
+    insta::assert_snapshot!(stderr, @"
+    Error: projecting feature 1
 
-#[test]
-fn a_geometry_collection_is_rejected() {
-    let geojson = collection(&[feature(
-        &json!({ "type": "GeometryCollection", "geometries": [{ "type": "Point", "coordinates": [0, 0] }] }),
-        &json!({}),
-    )]);
-    let stderr = run_failing(&geojson, &["--max-zoom", "0"]);
-    assert!(
-        stderr.contains("GeometryCollection geometries are not supported by MLT"),
-        "{stderr}"
-    );
+    Caused by:
+        position [181.5, 10.0] has a longitude outside -180..=180
+    ");
 }
 
 #[test]
 fn a_min_zoom_above_the_max_zoom_is_rejected() {
     let stderr = run_failing(&collection(&[]), &["--min-zoom", "5", "--max-zoom", "2"]);
-    assert!(
-        stderr.contains("--min-zoom (5) must be <= --max-zoom (2)"),
-        "{stderr}"
-    );
+    insta::assert_snapshot!(stderr, @"Error: --min-zoom (5) must be <= --max-zoom (2)");
     let stderr = run_failing(&collection(&[]), &["--max-zoom", "31"]);
-    assert!(stderr.contains("--max-zoom (31) must be <= 30"), "{stderr}");
+    insta::assert_snapshot!(stderr, @"Error: --max-zoom (31) must be <= 30");
 }
 
 #[test]
 fn an_archive_output_is_rejected() {
-    let (_dir, output, out) = run_into(
+    let (dir, output, out) = run_into(
         "input.geojson",
         "out.pmtiles",
         &collection(&[]),
@@ -527,11 +502,8 @@ fn an_archive_output_is_rejected() {
     );
     assert!(!out.status.success());
     assert!(!output.exists());
-    let stderr = String::from_utf8(out.stderr).unwrap();
-    assert!(
-        stderr.contains("archive output is not supported yet"),
-        "{stderr}"
-    );
+    let stderr = stderr_of(&dir, &out);
+    insta::assert_snapshot!(stderr, @"Error: from-geojson writes a directory of z/x/y.mlt tiles; archive output is not supported yet, got: [TMP]/out.pmtiles");
 }
 
 #[test]
@@ -547,12 +519,12 @@ fn mixing_flat_and_3d_positions_is_rejected() {
         ),
     ]);
     let stderr = run_failing(&geojson, &["--max-zoom", "0"]);
-    assert!(
-        stderr.contains(
-            "position [0.0, 10.0, 5.0] has an altitude, but the first position [0.0, 0.0] has none"
-        ),
-        "{stderr}"
-    );
+    insta::assert_snapshot!(stderr, @"
+    Error: projecting feature 1
+
+    Caused by:
+        position [0.0, 10.0, 5.0] has an altitude, but the first position [0.0, 0.0] has none; an MLT layer is either flat or 3D, so make them all [lon, lat] or all [lon, lat, alt]
+    ");
 }
 
 mod z {
@@ -626,7 +598,7 @@ mod z {
             &json!({}),
         )]);
         let stderr = run_failing(&geojson, &["--max-zoom", "0"]);
-        assert!(stderr.contains("so --z-step is required"), "{stderr}");
+        insta::assert_snapshot!(stderr, @"Error: the GeoJSON positions carry an altitude, so --z-step is required (the power of ten of the z grid's step in metres, -3..=4)");
     }
 
     #[test]
@@ -636,10 +608,7 @@ mod z {
             &json!({}),
         )]);
         let stderr = run_failing(&geojson, &["--max-zoom", "0", "--z-step", "0"]);
-        assert!(
-            stderr.contains("--z-step needs [lon, lat, alt] positions"),
-            "{stderr}"
-        );
+        insta::assert_snapshot!(stderr, @"Error: --z-step needs [lon, lat, alt] positions, but the GeoJSON positions have no altitude");
     }
 
     #[test]
@@ -649,9 +618,6 @@ mod z {
             &json!({}),
         )]);
         let stderr = run_failing(&geojson, &["--max-zoom", "0", "--z-step", "5"]);
-        assert!(
-            stderr.contains("a z step of 10^5 m is outside 10^-3..=10^4 m"),
-            "{stderr}"
-        );
+        insta::assert_snapshot!(stderr, @"Error: a z step of 10^5 m is outside 10^-3..=10^4 m");
     }
 }
