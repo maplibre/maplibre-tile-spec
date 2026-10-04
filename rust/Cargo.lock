@@ -1885,9 +1885,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.28.3"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d553ab03dfbae1d1104652719199823728bf30fb5511afc0764fb02d65a5656b"
+checksum = "92f8d56370b4cf47b04cf873315d2d0a226a3766ca74f5131521b7aa8bc3d41f"
 dependencies = [
  "arc-swap",
  "axum",
@@ -1900,7 +1900,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.28.3",
+ "hotpath-macros 0.28.4",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -1921,18 +1921,18 @@ dependencies = [
 
 [[package]]
 name = "hotpath-drain"
-version = "0.28.3"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42349e85f9425bfe533e9c7aadf6dae93b51b2171ca92f308e9b401962ffeb0e"
+checksum = "f9b046ca03d797e6728d43593d7d6aca9782a217cdaa1d81ea9c632993d78292"
 dependencies = [
  "hotpath-meta",
 ]
 
 [[package]]
 name = "hotpath-drain-meta"
-version = "0.28.3"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9d6a392aad6d335d4dda0938163a21fe429dcb72895789810bd62a03a865063"
+checksum = "669af07000773e43461cc0ef8113566f5dd0e0ab7ef82d52d2241f17c89918bb"
 
 [[package]]
 name = "hotpath-macros"
@@ -1942,9 +1942,9 @@ checksum = "846bde0d9600d98434e1aac376977d7718bfe3d2f5312a041b7c59a6a466c51a"
 
 [[package]]
 name = "hotpath-macros"
-version = "0.28.3"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05dde24c0cc623819d9466bce63175212d0ecbf450278404a33ab54290e35ed8"
+checksum = "b846c9cd71ddc939fa4f3ca40fef97505e2d4838580cfed2328a02f345a94761"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1953,9 +1953,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.28.3"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e19ebfefde5829910f6192cb0de729dcd78fe80936764e0896a61270eeafa9b"
+checksum = "74169a535cf7bc4a2bf4750ca3c4cce8939bc79ebea36e2fc5867cdf216e4625"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1964,9 +1964,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-meta"
-version = "0.28.3"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db1fd26574af8d19bf72880c0b27cfa0fdf42be742164f19e5858fe3f9a34774"
+checksum = "5629bf62c1d124018bcbb874e2df9017e4d74dd978db6d315741cedc20c480ea"
 dependencies = [
  "arc-swap",
  "axum",
@@ -2787,9 +2787,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "1.2.3"
+version = "1.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b18443e9c262bfe8fa82f51666e2642c53393f7e5c27b3e1aeab922cff5b9d8"
+checksum = "1788edb87fdc09c7e26304471e2f5be8cdefb1b6930d6e3985fc02ff53bf86ee"
 dependencies = [
  "libc",
  "log",
@@ -2799,7 +2799,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2811,7 +2811,7 @@ dependencies = [
  "geojson",
  "glob",
  "globset",
- "hotpath 0.28.3",
+ "hotpath 0.28.4",
  "indicatif",
  "insta",
  "martin-tile-utils",
@@ -2840,7 +2840,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.19.2"
+version = "0.19.3"
 dependencies = [
  "arbitrary",
  "bitvec",
@@ -2857,7 +2857,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath 0.28.3",
+ "hotpath 0.28.4",
  "insta",
  "integer-encoding",
  "num-traits",
@@ -2882,7 +2882,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-ffi"
-version = "0.1.32"
+version = "0.1.33"
 dependencies = [
  "diplomat",
  "diplomat-runtime",
@@ -2891,7 +2891,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "mlt-core",
  "pyo3",
@@ -2912,7 +2912,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-wasm"
-version = "0.1.39"
+version = "0.1.40"
 dependencies = [
  "js-sys",
  "minicov",
