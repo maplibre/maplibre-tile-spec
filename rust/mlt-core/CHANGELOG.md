@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.19.2...rust-mlt-core-v0.19.3) - 2026-10-04
+
+### Added
+
+- *(rust/mlt)* Convert 2D/3D GeoJSON to MLT ([#1832](https://github.com/maplibre/maplibre-tile-spec/pull/1832))
+
+### Fixed
+
+- *(rust)* label hotpath blocks with a braced expression ([#1849](https://github.com/maplibre/maplibre-tile-spec/pull/1849))
+
+### Other
+
+- *(rust)* widen runs of single-byte varints eight at a time ([#1851](https://github.com/maplibre/maplibre-tile-spec/pull/1851))
+- *(rust)* cover mlt ls path handling, validation and detail columns ([#1848](https://github.com/maplibre/maplibre-tile-spec/pull/1848))
+- *(rust)* cover the nested stream and string-storage walkers ([#1847](https://github.com/maplibre/maplibre-tile-spec/pull/1847))
+- *(rust/mlt-core)* Treat a float property mixed with integer as float ([#1845](https://github.com/maplibre/maplibre-tile-spec/pull/1845))
+- *(rust)* speed up mlt convert, found with hotpath ([#1843](https://github.com/maplibre/maplibre-tile-spec/pull/1843))
+
 ## [0.19.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.19.1...rust-mlt-core-v0.19.2) - 2026-10-03
 
 ### Other

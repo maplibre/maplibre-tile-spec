@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.40](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.39...rust-mlt-wasm-v0.1.40) - 2026-10-04
+
+### Other
+
+- updated the following local packages: mlt-core
+
 ## [0.1.39](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.38...rust-mlt-wasm-v0.1.39) - 2026-10-03
 
 ### Added
