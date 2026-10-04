@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::ops::{Deref, DerefMut};
+
 use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
@@ -29,6 +32,47 @@ impl StagedLayer {
         }
         #[cfg(not(feature = "unstable-v2"))]
         encode01::encode_into01(self, enc, codecs)
+    }
+}
+
+/// Scratch capacity above which a [`Codecs`] is dropped instead of kept for the next layer.
+const POOLED_CODECS_MAX_BYTES: usize = 16 << 20;
+
+thread_local! {
+    static CODECS_POOL: RefCell<Option<Codecs>> = const { RefCell::new(None) };
+}
+
+/// A [`Codecs`] borrowed from this thread's pool, which keeps scratch buffers warm between layers.
+struct PooledCodecs(Option<Codecs>);
+
+impl PooledCodecs {
+    fn take() -> Self {
+        let pooled = CODECS_POOL.try_with(|pool| pool.borrow_mut().take());
+        Self(Some(pooled.ok().flatten().unwrap_or_default()))
+    }
+}
+
+impl Deref for PooledCodecs {
+    type Target = Codecs;
+
+    fn deref(&self) -> &Codecs {
+        self.0.as_ref().expect("codecs are only taken on drop")
+    }
+}
+
+impl DerefMut for PooledCodecs {
+    fn deref_mut(&mut self) -> &mut Codecs {
+        self.0.as_mut().expect("codecs are only taken on drop")
+    }
+}
+
+impl Drop for PooledCodecs {
+    fn drop(&mut self) {
+        if let Some(codecs) = self.0.take()
+            && codecs.scratch_bytes() <= POOLED_CODECS_MAX_BYTES
+        {
+            let _ = CODECS_POOL.try_with(|pool| *pool.borrow_mut() = Some(codecs));
+        }
     }
 }
 
@@ -96,12 +140,11 @@ impl TileLayer {
         seed_curve_caches(&mut enc, curve_params);
 
         let (last, init) = sort_by.split_last().expect("at least one strategy");
+        let mut codecs = PooledCodecs::take();
         if init.is_empty() {
-            let mut codecs = Codecs::default();
             StagedLayer::from_tile(self, *last, &stats, cfg.tessellate(), curve_params)
                 .encode_into(enc, &mut codecs)?
         } else {
-            let mut codecs = Codecs::default();
             enc = {
                 let first = init[0];
                 StagedLayer::from_tile(self.clone(), first, &stats, cfg.tessellate(), curve_params)

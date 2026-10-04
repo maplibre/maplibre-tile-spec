@@ -102,6 +102,7 @@ pub fn make_encode_cache() -> EncodeCache {
 /// Returns the encoded bytes, the raw MVT size, and whether it was a cache hit.
 /// Only small tiles (ocean, empty land) repeat often across a tileset.
 /// Tiles over [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the cache since city tiles are unique.
+#[hotpath::measure]
 pub fn encode_tile(
     cache: &EncodeCache,
     data: &[u8],
@@ -109,14 +110,14 @@ pub fn encode_tile(
     reencoder: &Reencoder,
 ) -> AnyResult<(Bytes, u64, bool)> {
     if data.len() > MAX_TILE_CACHE_TRACK_SIZE_BYTES {
-        let (encoded, raw_mvt_size) = encode_one(data.to_vec(), encoding, reencoder)?;
+        let (encoded, raw_mvt_size) = encode_one(data, encoding, reencoder)?;
         return Ok((encoded, raw_mvt_size, false));
     }
     let mut hit = true;
     let encoded = cache
         .try_get_with_by_ref(data, || {
             hit = false;
-            encode_one(data.to_vec(), encoding, reencoder)
+            encode_one(data, encoding, reencoder)
         })
         .map_err(|e| anyhow!("{e}"))?;
     Ok((encoded.0, encoded.1, hit))

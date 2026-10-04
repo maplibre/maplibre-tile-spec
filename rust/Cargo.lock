@@ -2861,6 +2861,7 @@ dependencies = [
  "union-find",
  "usize_cast",
  "wide 1.7.1",
+ "xxhash-rust",
  "zigzag",
  "zstd",
 ]

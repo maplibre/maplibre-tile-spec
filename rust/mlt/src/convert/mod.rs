@@ -7,6 +7,7 @@ mod from_mbtiles;
 mod from_pmtiles;
 pub mod verify;
 
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 #[cfg(feature = "unstable-v2")]
 use std::sync::Arc;
@@ -210,6 +211,7 @@ pub(crate) struct Reencoder {
 }
 
 impl Reencoder {
+    #[hotpath::measure]
     fn encode(&self, layer: mlt_core::TileLayer) -> AnyResult<Vec<u8>> {
         let source = self.verify.then(|| layer.clone());
         #[cfg(feature = "unstable-v2")]
@@ -514,7 +516,8 @@ fn convert_mlt_buffer(buffer: &[u8], reencoder: &Reencoder) -> AnyResult<Vec<u8>
     Ok(out)
 }
 
-fn convert_mvt_buffer(buffer: Vec<u8>, reencoder: &Reencoder) -> AnyResult<Vec<u8>> {
+#[hotpath::measure]
+fn convert_mvt_buffer(buffer: &[u8], reencoder: &Reencoder) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
     for tile in mvt_to_tile_layers(buffer)? {
         out.extend_from_slice(&reencoder.encode(tile)?);
@@ -541,16 +544,17 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
     Ok(tiles)
 }
 
-fn encode_one(data: Vec<u8>, encoding: Encoding, reencoder: &Reencoder) -> AnyResult<(Bytes, u64)> {
+#[hotpath::measure]
+fn encode_one(data: &[u8], encoding: Encoding, reencoder: &Reencoder) -> AnyResult<(Bytes, u64)> {
     let mvt = match encoding {
-        Encoding::Gzip => decode_gzip(&data)?,
-        Encoding::Zlib => decode_zlib(&data)?,
-        Encoding::Brotli => decode_brotli(&data)?,
-        Encoding::Zstd => decode_zstd(&data)?,
-        Encoding::Uncompressed | Encoding::Internal => data,
+        Encoding::Gzip => Cow::Owned(decode_gzip(data)?),
+        Encoding::Zlib => Cow::Owned(decode_zlib(data)?),
+        Encoding::Brotli => Cow::Owned(decode_brotli(data)?),
+        Encoding::Zstd => Cow::Owned(decode_zstd(data)?),
+        Encoding::Uncompressed | Encoding::Internal => Cow::Borrowed(data),
     };
     let raw_mvt_size = mvt.len() as u64;
-    convert_mvt_buffer(mvt, reencoder).map(|data| (Bytes::from_owner(data), raw_mvt_size))
+    convert_mvt_buffer(&mvt, reencoder).map(|data| (Bytes::from_owner(data), raw_mvt_size))
 }
 
 /// Convert one input buffer to the requested target format.
@@ -562,7 +566,7 @@ fn convert_buffer(
 ) -> AnyResult<Vec<u8>> {
     match (from, to) {
         (TileFormat::Mlt, TileFormat::Mlt) => convert_mlt_buffer(&buffer, reencoder),
-        (TileFormat::Mvt, TileFormat::Mlt) => convert_mvt_buffer(buffer, reencoder),
+        (TileFormat::Mvt, TileFormat::Mlt) => convert_mvt_buffer(&buffer, reencoder),
         (TileFormat::Mlt, TileFormat::Mvt) => {
             Ok(tile_layers_to_mvt(mlt_buffer_to_tile_layers(&buffer)?)?)
         }

@@ -128,7 +128,7 @@ async fn convert_mbtiles_to_mbtiles(
         sizes_ref
             .bytes_in
             .fetch_add(u64::from_usize(data.len()), Ordering::Relaxed);
-        let result = encode_one(data, encoding, &reencoder)
+        let result = encode_one(&data, encoding, &reencoder)
             .map(|(data, _raw_mvt_size)| data)
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { format!("{e:#}").into() });
         match &result {
@@ -279,7 +279,7 @@ async fn convert_mbtiles_to_pmtiles(
             raw_mvt_size,
             hit,
         } = joined??;
-        stream_writer.add_tile(coord, &data)?;
+        hotpath::measure_block!("pmtiles::add_tile", stream_writer.add_tile(coord, &data))?;
         stats.record(data.len() as u64, raw_mvt_size, hit);
         bar.inc(1);
     }

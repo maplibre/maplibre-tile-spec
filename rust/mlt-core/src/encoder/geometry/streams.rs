@@ -423,6 +423,7 @@ fn get_hilbert_params(enc: &Encoder) -> CurveParams {
 
 /// Encode the plain Vec2 vertex layout: componentwise-delta over the raw
 /// `[x0, y0, x1, y1, …]` slice.
+#[hotpath::measure]
 pub(super) fn encode_vec2_vertex_stream(
     vertices: &[i32],
     enc: &mut Encoder,
@@ -488,6 +489,7 @@ fn vec2_vertex_stream(
 
 /// Encode a Morton-keyed vertex dictionary: per-vertex offsets stream
 /// followed by a delta-encoded Morton-code dictionary.
+#[hotpath::measure]
 pub(super) fn encode_morton_vertex_streams(
     vertices: &[i32],
     enc: &mut Encoder,
@@ -510,6 +512,7 @@ pub(super) fn encode_morton_vertex_streams(
 /// Encode a Hilbert-keyed vertex dictionary: per-vertex offsets stream
 /// followed by a componentwise-delta-encoded `[x, y, …]` dictionary in
 /// Hilbert order.
+#[hotpath::measure]
 pub(super) fn encode_hilbert_vertex_streams(
     vertices: &[i32],
     enc: &mut Encoder,
@@ -699,6 +702,7 @@ pub(super) fn encode_hilbert_xyz_vertex_streams02(
 ///
 /// Returns `1` if the stream was written, `0` if it was skipped.  Empty streams are skipped
 /// unless [`Encoder::force_stream`] returns `true` for this stream's [`StreamCtx`].
+#[hotpath::measure]
 pub(super) fn write_geo_u32_stream(
     data: &[u32],
     ctx: StreamCtx,
@@ -717,6 +721,7 @@ pub(super) fn write_geo_u32_stream(
 /// only the physical encoders instead of applying a logical transform.
 ///
 /// Returns `1` if the stream was written, `0` if skipped (empty + no force).
+#[hotpath::measure]
 fn write_geo_precomputed_stream(
     data: &[u32],
     ctx: StreamCtx,

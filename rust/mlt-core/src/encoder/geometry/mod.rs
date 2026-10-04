@@ -7,4 +7,5 @@ mod streams;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use geotype::coord_count;
 pub use model::*;

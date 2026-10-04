@@ -2,8 +2,9 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use fast_mvt::{MvtLayer, MvtLayerRef, MvtReaderRef, MvtValue, MvtValueRef};
+use fast_mvt::{MvtError, MvtLayer, MvtLayerRef, MvtReaderRef, MvtValue, MvtValueRef};
 use serde_json::Value;
+use usize_cast::IntoUsize as _;
 
 use crate::geojson::{Feature, FeatureCollection};
 use crate::tile::{PropValue, TileFeature, TileLayer};
@@ -61,6 +62,7 @@ pub fn mvt_to_tile_layers(data: impl AsRef<[u8]>) -> MltResult<Vec<TileLayer>> {
 }
 
 /// Build a [`TileLayer`] straight from the borrowed reader.
+#[hotpath::measure]
 fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
     let name = layer.name();
     if name.is_empty() {
@@ -68,31 +70,39 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
     }
 
     // First pass: collect property names (insertion-ordered) and infer column types.
+    let keys = layer.keys();
+    let table: Vec<MvtValueRef<'_>> = layer.values().collect();
     let mut col_names: Vec<String> = Vec::new();
     let mut col_index: HashMap<&str, usize> = HashMap::new();
     let mut col_types: Vec<InferredType> = Vec::new();
-    // Each value with its column, so the second pass resolves no keys.
-    let mut values: Vec<(usize, MvtValueRef<'_>)> = Vec::new();
-    let mut feature_ends: Vec<usize> = Vec::with_capacity(layer.feature_count());
+    // The column of each key-table entry, so no property is looked up by name.
+    let mut key_cols: Vec<Option<usize>> = vec![None; keys.len()];
 
     for feat in layer.features() {
-        for prop in feat.properties() {
-            let (key, value) = prop?;
-            let idx = if let Some(&idx) = col_index.get(key) {
-                idx
-            } else {
-                let idx = col_names.len();
-                col_names.push(key.to_string());
-                col_index.insert(key, idx);
-                col_types.push(InferredType::Unknown);
-                idx
+        for pair in feat.tags().chunks(2) {
+            let &[key_idx, value_idx] = pair else {
+                return Err(MvtError::InvalidTagsLength(pair.len()).into());
             };
+            let (Some(&key), Some(slot)) = (
+                keys.get(key_idx.into_usize()),
+                key_cols.get_mut(key_idx.into_usize()),
+            ) else {
+                return Err(MvtError::InvalidKeyIndex(key_idx).into());
+            };
+            let Some(&value) = table.get(value_idx.into_usize()) else {
+                return Err(MvtError::InvalidValueIndex(value_idx).into());
+            };
+            let idx = *slot.get_or_insert_with(|| {
+                *col_index.entry(key).or_insert_with(|| {
+                    col_names.push(key.to_string());
+                    col_types.push(InferredType::Unknown);
+                    col_names.len() - 1
+                })
+            });
             // One bounds check rather than one per index expression.
             let slot = &mut col_types[idx];
             *slot = slot.merge(InferredType::from_mvt(value));
-            values.push((idx, value));
         }
-        feature_ends.push(values.len());
     }
 
     // Columns that were only ever null fall back to Str.
@@ -104,16 +114,18 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
 
     // Second pass: build TileFeature objects.
     let mut tile_features = Vec::with_capacity(layer.feature_count());
-    let mut start = 0;
-    for (feat, &end) in layer.features().zip(&feature_ends) {
+    for feat in layer.features() {
         // Start every slot with a typed null; fill in present values below.
         let mut properties: Vec<PropValue> = col_types.iter().map(|t| t.typed_null()).collect();
-        for &(idx, value) in &values[start..end] {
+        let (pairs, _) = feat.tags().as_chunks::<2>();
+        for pair in pairs {
+            let value = table[pair[1].into_usize()];
             if !matches!(value, MvtValueRef::Null) {
+                let idx =
+                    key_cols[pair[0].into_usize()].expect("the first pass resolved every key");
                 properties[idx] = col_types[idx].convert(value.into_owned());
             }
         }
-        start = end;
         tile_features.push(TileFeature {
             id: feat.id(),
             geometry: feat.geometry()?,
