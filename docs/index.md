@@ -40,6 +40,30 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | 99th percentile tile | 12.3 kB | 11.9 kB | 10.8 kB | 11.4 kB | 10.6 kB |
     | Largest tile | 485.9 kB | 473.1 kB | 450.8 kB | 473.9 kB | 449.9 kB |
 
+    The median tile among the largest 1% (from 16 kB as MVT) is this many times smaller:
+
+    | | vs MVT | vs MVT + gzip |
+    |---|---:|---:|
+    | MLT v1 | 1.48x | 1.03x |
+    | MLT v2 | 1.51x | 1.07x |
+
+    Each `mlt convert` option changes the planet size by:
+
+    | Option | MLT v1 | MLT v2 |
+    |---|---:|---:|
+    | `--no-shared-dict` | +0.8% | +0.8% |
+    | `--no-fastpfor` | +2.9% | +3.4% |
+    | `--no-fsst` | +0.2% | +0.2% |
+    | `--sort none` | +0.1% | +0.1% |
+    | `--sort all` | -0.1% | -0.1% |
+    | `--no-alp` | - | +0.1% |
+    | `--no-float-dict` | - | +0.0% |
+    | `--packed-dict-codes` | - | -0.3% |
+    | `--delta2` | - | -0.6% |
+    | `--rans-vertices` | - | -5.3% |
+    | `--tessellate` | +32.4% | +35.8% |
+    | `--tessellate --triangles-only` | - | +33.5% |
+
 === "OpenMapTiles"
 
     --8<-- "diagrams/planet-size-omt.svg"
@@ -51,36 +75,33 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | 99th percentile tile | 18.4 kB | 16.4 kB | 14.0 kB | 15.4 kB | 13.6 kB |
     | Largest tile | 727.9 kB | 570.5 kB | 497.6 kB | 550.3 kB | 486.1 kB |
 
-The median tile among the largest 1% is this many times smaller:
+    The median tile among the largest 1% (from 30 kB as MVT) is this many times smaller:
 
-| | Protomaps | OpenMapTiles |
-|---|---:|---:|
-| MLT v1 vs MVT | 1.48x | 2.12x |
-| MLT v2 vs MVT | 1.51x | 2.27x |
-| MLT v1 vs MVT + gzip | 1.03x | 1.22x |
-| MLT v2 vs MVT + gzip | 1.07x | 1.29x |
+    | | vs MVT | vs MVT + gzip |
+    |---|---:|---:|
+    | MLT v1 | 2.12x | 1.22x |
+    | MLT v2 | 2.27x | 1.29x |
 
-Each option changes the size of its version's defaults by:
+    Each `mlt convert` option changes the planet size by:
 
-| `mlt convert` option | Protomaps v1 | Protomaps v2 | OpenMapTiles v1 | OpenMapTiles v2 |
-|---|---:|---:|---:|---:|
-| `--no-shared-dict` | +0.8% | +0.8% | +25.4% | +25.3% |
-| `--no-fastpfor` | +2.9% | +3.4% | +2.6% | +3.1% |
-| `--no-fsst` | +0.2% | +0.2% | +0.7% | +0.8% |
-| `--sort none` | +0.1% | +0.1% | +0.2% | +0.2% |
-| `--sort all` | -0.1% | -0.1% | -0.4% | -0.4% |
-| `--no-alp` | - | +0.1% | - | +0.0% |
-| `--no-float-dict` | - | +0.0% | - | +0.0% |
-| `--packed-dict-codes` | - | -0.3% | - | -0.7% |
-| `--delta2` | - | -0.6% | - | -0.5% |
-| `--rans-vertices` | - | -5.3% | - | -5.4% |
-| `--tessellate` | +32.4% | +35.8% | +21.9% | +24.9% |
-| `--tessellate --triangles-only` | - | +33.5% | - | +23.2% |
+    | Option | MLT v1 | MLT v2 |
+    |---|---:|---:|
+    | `--no-shared-dict` | +25.4% | +25.3% |
+    | `--no-fastpfor` | +2.6% | +3.1% |
+    | `--no-fsst` | +0.7% | +0.8% |
+    | `--sort none` | +0.2% | +0.2% |
+    | `--sort all` | -0.4% | -0.4% |
+    | `--no-alp` | - | +0.0% |
+    | `--no-float-dict` | - | +0.0% |
+    | `--packed-dict-codes` | - | -0.7% |
+    | `--delta2` | - | -0.5% |
+    | `--rans-vertices` | - | -5.4% |
+    | `--tessellate` | +21.9% | +24.9% |
+    | `--tessellate --triangles-only` | - | +23.2% |
 
 - **Data:** the [Protomaps](https://protomaps.com/) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](https://openmaptiles.org/) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles).
 - **Encoder:** `mlt convert --verify` at [`89ceaef3`](https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88) with [#1835](https://github.com/maplibre/maplibre-tile-spec/pull/1835), which decodes every layer and compares it to the source.
 - **Sizes:** the bytes of every distinct tile in the archive, with each deduplicated tile counted once.
-- **Largest 1%:** by uncompressed MVT size, from 16 kB on Protomaps and 30 kB on OpenMapTiles.
 - **Sample:** the largest-1% and option tables use up to 5,000 distinct tiles per zoom, drawn uniformly, with each zoom scaled by its distinct-tile count.
 - **gzip:** zlib level 6 per tile, the level both source archives were written with.
 
