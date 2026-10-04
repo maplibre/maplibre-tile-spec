@@ -11,9 +11,11 @@ extra_javascript = [
   "https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js",
 ]
 nav = [
-  { "Home" = "index.md" },
-  { "Overview" = "overview.md" },
-  { "Implementation Status" = "implementation-status.md" },
+  { "Introduction" = [
+    { "About MLT" = "index.md" },
+    { "Data Model" = "overview.md" },
+    { "Implementation Status" = "implementation-status.md" },
+  ] },
   { "Specification" = [
     { "Overview" = "specification/index.md" },
     { "Tile Inspector" = "inspector/index.md" },
