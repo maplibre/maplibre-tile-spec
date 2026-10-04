@@ -4,10 +4,6 @@ description: The data model of tiles, layers, features, columns and streams
 
 <h1>Overview</h1>
 
---8<-- "live-spec-note"
-
----
-
 This page describes the MLT data model.
 The byte layout is in the [v1 specification](specification/v1.md) and the [v2 specification](specification/v2.md).
 
@@ -149,6 +145,8 @@ The differences come from MVT's per-feature tag/value model versus MLT's per-lay
 Every layer in a tile is prefixed with a one-byte tag naming the format of its body.
 A decoder skips a layer whose tag it does not know.
 Versions can therefore be mixed in one tile, and a new version does not break old readers.
+
+--8<-- "live-spec-note"
 
 | Tag | Version | Status |
 |---|---|---|
