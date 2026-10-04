@@ -51,8 +51,9 @@ pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCol
 ///
 /// Each MVT layer becomes one [`TileLayer`].  Property column types are inferred
 /// from all features in the layer: the first non-null value seen for each column
-/// determines its type, with `I64`+`U64` widened to `I64` and `F32`+`F64` widened
-/// to `F64`; all other type conflicts fall back to `Str`.
+/// determines its type, with `I64`+`U64` widened to `I64`, and `F32`+`F64` or any
+/// integer+float mix widened to `F64` (integers beyond 2^53 lose precision); all
+/// other type conflicts fall back to `Str`.
 pub fn mvt_to_tile_layers(data: impl AsRef<[u8]>) -> MltResult<Vec<TileLayer>> {
     MvtReaderRef::new(data.as_ref())?
         .layers()
