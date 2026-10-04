@@ -1,0 +1,22 @@
+<svg class="mlt-diagram" viewBox="0 0 710 130" role="img" aria-label="Per-stream metadata: v1 writes a stream type, an encoding, a value count and a byte length; v2 writes one encoding byte and implies the rest" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">v1</text>
+<rect class="f0" x="130" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="34">stream_type</text>
+<rect class="f0" x="236" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="34">encoding</text>
+<rect class="f0" x="342" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="34">num_values</text>
+<rect class="f0" x="448" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="34">byte_length</text>
+<text class="muted small" x="566" y="34">per stream</text>
+<text class="row" x="0" y="94">v2</text>
+<rect class="implicit" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="180" y="94">by position</text>
+<rect class="f1" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">encoding</text>
+<rect class="implicit" x="342" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="392" y="94">implied</text>
+<rect class="implicit" x="448" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="94">implied</text>
+<text class="muted small" x="566" y="94">usually 1 byte</text>
+</svg>
