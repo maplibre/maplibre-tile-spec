@@ -51,7 +51,7 @@ impl TileLayer {
     pub(crate) fn group_string_properties(&self, properties: &mut [PropertyStats]) {
         let mut trigrams = Vec::<u32>::new();
         let profiles: Vec<StringProfile<'_>> = hotpath::measure_block!(
-            "shared_dict::build_profiles",
+            { "shared_dict::build_profiles" },
             self.property_names()
                 .iter()
                 .enumerate()
