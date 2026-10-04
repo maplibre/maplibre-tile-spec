@@ -167,10 +167,21 @@ mod tests {
     }
 
     #[test]
+    fn integers_mixed_with_floats_widen_to_f64() {
+        let features = [props(&json!({ "n": 3.5 })), props(&json!({ "n": 1 }))];
+        let schema = infer(&features).unwrap();
+        assert_eq!(schema.kinds(), [PropKind::F64]);
+        assert_eq!(
+            schema.values(&features[1]).unwrap(),
+            [(0, PropValue::F64(Some(1.0)))]
+        );
+    }
+
+    #[test]
     fn conflicting_kinds_fall_back_to_str() {
         let k = kinds(&[
             props(&json!({ "a": true, "b": 1, "c": 3.5 })),
-            props(&json!({ "a": "x", "b": "y", "c": 1 })),
+            props(&json!({ "a": "x", "b": "y", "c": false })),
         ]);
         assert_eq!(k["a"], PropKind::Str);
         assert_eq!(k["b"], PropKind::Str);
