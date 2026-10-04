@@ -29,7 +29,7 @@ bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-h
     # snapshot; hotpath stays off because several of mlt's test files are gated on not(hotpath)
     cargo hack insta test --test-runner nextest --dnd --accept --unreferenced=delete \
         --all-targets --ignore-unknown-features \
-        --features __private-v2,arbitrary,unstable-v2 \
+        --features __private-v2,arbitrary \
         --package mlt-core --package mlt \
         {{args}}
     {{just}} rust::wasm-bless
@@ -448,7 +448,6 @@ sync-pyo3-version:
 sync-docs-hexdumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo build -p mlt
     for dump in ../docs/snippets/0x0*/*.mlt.hexdump; do
         fixture="../test/synthetic/$(basename "$(dirname "$dump")")/$(basename "$dump" .hexdump)"
         target/release/mlt hexdump "$fixture" > "$dump"
