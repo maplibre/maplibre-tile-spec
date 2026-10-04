@@ -15,7 +15,7 @@ MLT is natively supported by [MapLibre GL JS](https://maplibre.org/maplibre-gl-j
 
 MLT is mainly inspired by MVT, but has been redesigned from the ground up to improve the following areas:
 
-- **Improved compression ratio** - a planet of MLT v2 tiles is 4-7% smaller than gzipped MVT, and 10-19% smaller with gzip on top ([Size](#size)), based on a column oriented layout with (custom) lightweight encodings
+- **Improved compression ratio** - a planet of MLT v2 tiles is 4-7% smaller than gzipped MVT (10-19% with gzip on top), and its largest tiles are 1.5-2.3x smaller than uncompressed MVT ([Size](#size)), based on a column oriented layout with (custom) lightweight encodings
 - **Better decoding performance** - fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
 - **Support for linear referencing and m-values** to efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)
 - **Support 3D coordinates**, i.e. elevation
@@ -51,6 +51,15 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | 99th percentile tile | 18.4 kB | 16.4 kB | 14.0 kB | 15.4 kB | 13.6 kB |
     | Largest tile | 727.9 kB | 570.5 kB | 497.6 kB | 550.3 kB | 486.1 kB |
 
+The median tile among the largest 1% is this many times smaller:
+
+| | Protomaps | OpenMapTiles |
+|---|---:|---:|
+| MLT v1 vs MVT | 1.48x | 2.12x |
+| MLT v2 vs MVT | 1.51x | 2.27x |
+| MLT v1 vs MVT + gzip | 1.03x | 1.22x |
+| MLT v2 vs MVT + gzip | 1.07x | 1.29x |
+
 Each option changes the size of its version's defaults by:
 
 | `mlt convert` option | Protomaps v1 | Protomaps v2 | OpenMapTiles v1 | OpenMapTiles v2 |
@@ -71,7 +80,8 @@ Each option changes the size of its version's defaults by:
 - **Data:** the [Protomaps](https://protomaps.com/) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](https://openmaptiles.org/) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles).
 - **Encoder:** `mlt convert --verify` at [`89ceaef3`](https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88) with [#1835](https://github.com/maplibre/maplibre-tile-spec/pull/1835), which decodes every layer and compares it to the source.
 - **Sizes:** the bytes of every distinct tile in the archive, with each deduplicated tile counted once.
-- **Options:** measured on up to 5,000 distinct tiles per zoom, drawn uniformly, with each zoom scaled by its distinct-tile count.
+- **Largest 1%:** by uncompressed MVT size, from 16 kB on Protomaps and 30 kB on OpenMapTiles.
+- **Sample:** the largest-1% and option tables use up to 5,000 distinct tiles per zoom, drawn uniformly, with each zoom scaled by its distinct-tile count.
 - **gzip:** zlib level 6 per tile, the level both source archives were written with.
 
 ## Documentation
