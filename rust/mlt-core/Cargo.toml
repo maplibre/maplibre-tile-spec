@@ -17,6 +17,11 @@ harness = false
 required-features = ["__private"]
 
 [[bench]]
+name = "decoding_planet"
+harness = false
+required-features = ["__private-v2"]
+
+[[bench]]
 name = "decoding_v2_vertices"
 harness = false
 required-features = ["__private-v2"]
