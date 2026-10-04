@@ -1,6 +1,7 @@
 //! Rounding of clipped geometries onto a tile's integer grid, keeping the z of
-//! each stored vertex. Vertices that land on their predecessor are merged, and
-//! parts left too short to draw are dropped.
+//! each stored vertex. Vertices that land on their predecessor in x, y, and z
+//! are merged, and parts left with too few vertices are dropped. A vertex that
+//! only differs in z is kept, so a vertical line or wall keeps its shape.
 
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
@@ -24,13 +25,13 @@ fn round_vertex(v: &Vertex, scale: f64, origin: (f64, f64)) -> (Coord<i32>, i32)
     (coord, v.z.round() as i32)
 }
 
-/// Round a run of vertices, dropping any that lands on the previous one.
+/// Round a run of vertices, dropping any that lands on the previous one in x, y, and z.
 fn round_run(vertices: &[Vertex], scale: f64, origin: (f64, f64)) -> (Vec<Coord<i32>>, Vec<i32>) {
     let mut coords: Vec<Coord<i32>> = Vec::with_capacity(vertices.len());
     let mut z = Vec::with_capacity(vertices.len());
     for v in vertices {
         let (c, vz) = round_vertex(v, scale, origin);
-        if coords.last() != Some(&c) {
+        if coords.last().zip(z.last()) != Some((&c, &vz)) {
             coords.push(c);
             z.push(vz);
         }
@@ -56,7 +57,7 @@ fn round_ring(
     origin: (f64, f64),
 ) -> Option<(LineString<i32>, Vec<i32>)> {
     let (mut coords, mut z) = round_run(open, scale, origin);
-    if coords.len() > 1 && coords.first() == coords.last() {
+    if coords.len() > 1 && coords.first() == coords.last() && z.first() == z.last() {
         coords.pop();
         z.pop();
     }
@@ -199,8 +200,41 @@ mod tests {
 
     #[test]
     fn a_multi_line_string_losing_every_part_to_rounding_is_dropped() {
-        let geom = Geom::MultiLineString(vec![vec![v(0.5, 0.5, 0.0), v(0.500_000_01, 0.5, 1.0)]]);
+        let geom = Geom::MultiLineString(vec![vec![v(0.5, 0.5, 1.0), v(0.500_000_01, 0.5, 1.2)]]);
         assert!(to_tile(&geom, 0, 0, 0).is_none());
+    }
+
+    #[test]
+    fn a_vertical_line_keeps_both_ends() {
+        let geom = Geom::LineString(vec![v(0.5, 0.5, 0.0), v(0.5, 0.5, 10.0)]);
+        let (geometry, z) = to_tile(&geom, 0, 0, 0).unwrap();
+        let Geometry::LineString(line) = geometry else {
+            panic!("a line string, got {geometry:?}");
+        };
+        assert_eq!(line.0, [Coord { x: 2048, y: 2048 }; 2]);
+        assert_eq!(z, [0, 10]);
+    }
+
+    #[test]
+    fn a_vertical_ring_keeps_its_four_corners() {
+        let open = [
+            v(0.0, 0.0, 0.0),
+            v(10.0, 0.0, 0.0),
+            v(10.0, 0.0, 5.0),
+            v(0.0, 0.0, 5.0),
+        ];
+        let (ring, z) = round_ring(&open, 1.0, ORIGIN).unwrap();
+        assert_eq!(ring.0.len(), 5);
+        assert_eq!(ring.0[0], ring.0[4]);
+        assert_eq!(z, [0, 0, 5, 5]);
+    }
+
+    #[test]
+    fn a_ring_ending_above_its_start_is_not_closed_early() {
+        let open = [v(0.0, 0.0, 0.0), v(10.0, 0.0, 0.0), v(0.0, 0.0, 5.0)];
+        let (ring, z) = round_ring(&open, 1.0, ORIGIN).unwrap();
+        assert_eq!(ring.0.len(), 4);
+        assert_eq!(z, [0, 0, 5]);
     }
 
     #[test]

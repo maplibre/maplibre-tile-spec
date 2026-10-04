@@ -594,6 +594,36 @@ mod z {
     }
 
     #[test]
+    fn vertical_geometries_keep_every_vertex() {
+        let geojson = collection(&[
+            feature(
+                &json!({ "type": "LineString", "coordinates": [[0, 0, 0], [0, 0, 10]] }),
+                &json!({ "name": "pole" }),
+            ),
+            feature(
+                &json!({ "type": "Polygon", "coordinates": [[[0, 0, 0], [10, 0, 0], [10, 0, 50], [0, 0, 50], [0, 0, 0]]] }),
+                &json!({ "name": "wall" }),
+            ),
+        ]);
+        let (_dir, output) = run(&geojson, &["--max-zoom", "0", "--z-step", "0"]);
+        let fc = decode(&output, "0/0/0.mlt");
+        assert_eq!(
+            coordinates(named(&fc, "pole")),
+            &json!([[2048, 2048, 10_000], [2048, 2048, 10_010]])
+        );
+        assert_eq!(
+            coordinates(named(&fc, "wall")),
+            &json!([[
+                [2048, 2048, 10_000],
+                [2162, 2048, 10_000],
+                [2162, 2048, 10_050],
+                [2048, 2048, 10_050],
+                [2048, 2048, 10_000]
+            ]])
+        );
+    }
+
+    #[test]
     fn a_clipped_line_interpolates_its_altitude_at_the_cut() {
         // From 0 m at 90°W to 1000 m at 90°E: tile 1/0/0 keeps the line up to its
         // buffered edge at world x 4160, 51.5625% of the way, and tile 1/1/0 from
