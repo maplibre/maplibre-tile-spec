@@ -239,19 +239,17 @@ impl InferredType {
         if other == Self::Unknown || self == other {
             return self;
         }
-        if matches!(
-            (self, other),
-            (Self::I64, Self::U64) | (Self::U64, Self::I64)
-        ) {
-            return Self::I64;
+        match (self, other) {
+            // Signed and unsigned integers share a signed column.
+            (Self::I64 | Self::U64, Self::I64 | Self::U64) => Self::I64,
+            // Every f32 is exactly representable as f64.
+            (Self::F32 | Self::F64, Self::F32 | Self::F64) => Self::F64,
+            // Integers mixed with floats are most likely whole-number values of a float column
+            // that the encoder wrote as integers, so the column stays a float.
+            (Self::I64 | Self::U64, Self::F32 | Self::F64)
+            | (Self::F32 | Self::F64, Self::I64 | Self::U64) => Self::F64,
+            _ => Self::Str,
         }
-        if matches!(
-            (self, other),
-            (Self::F32, Self::F64) | (Self::F64, Self::F32)
-        ) {
-            return Self::F64;
-        }
-        Self::Str
     }
 
     fn typed_null(self) -> PropValue {
@@ -280,6 +278,16 @@ impl InferredType {
             (Self::F32, MvtValue::Float(f)) => PropValue::F32(Some(f)),
             (Self::F64, MvtValue::Double(f)) => PropValue::F64(Some(f)),
             (Self::F64, MvtValue::Float(f)) => PropValue::F64(Some(f64::from(f))),
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "integers in a float column are taken as floats"
+            )]
+            (Self::F64, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::F64(Some(i as f64)),
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "integers in a float column are taken as floats"
+            )]
+            (Self::F64, MvtValue::UInt(u)) => PropValue::F64(Some(u as f64)),
             (_, MvtValue::String(s)) => PropValue::Str(Some(s)),
             // A column that mixes types keeps every value as its text form.
             (_, MvtValue::Bool(b)) => PropValue::Str(Some(b.to_string())),
@@ -342,6 +350,27 @@ mod tests {
     #[case::double_then_float(
         vec![MvtValue::Double(2.5), MvtValue::Float(1.5)],
         vec![PropValue::F64(Some(2.5)), PropValue::F64(Some(1.5))],
+    )]
+    #[case::double_then_int(
+        vec![MvtValue::Double(2.5), MvtValue::Int(-3)],
+        vec![PropValue::F64(Some(2.5)), PropValue::F64(Some(-3.0))],
+    )]
+    #[case::sint_then_float(
+        vec![MvtValue::SInt(-3), MvtValue::Float(1.5)],
+        vec![PropValue::F64(Some(-3.0)), PropValue::F64(Some(1.5))],
+    )]
+    #[case::uint_then_float(
+        vec![MvtValue::UInt(7), MvtValue::Float(1.5)],
+        vec![PropValue::F64(Some(7.0)), PropValue::F64(Some(1.5))],
+    )]
+    #[case::unsigned_signed_then_double(
+        vec![MvtValue::UInt(u64::MAX), MvtValue::SInt(-1), MvtValue::Double(0.5)],
+        vec![
+            // u64::MAX rounds to 2^64.
+            PropValue::F64(Some(2f64.powi(64))),
+            PropValue::F64(Some(-1.0)),
+            PropValue::F64(Some(0.5)),
+        ],
     )]
     #[case::bool_only(
         vec![MvtValue::Bool(true), MvtValue::Bool(false)],
