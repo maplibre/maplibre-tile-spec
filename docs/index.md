@@ -99,11 +99,10 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | `--tessellate` | +21.9% | +24.9% |
     | `--tessellate --triangles-only` | - | +23.2% |
 
-- **Data:** the [Protomaps](https://protomaps.com/) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](https://openmaptiles.org/) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles).
-- **Encoder:** `mlt convert --verify` at [`89ceaef3`](https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88) with [#1835](https://github.com/maplibre/maplibre-tile-spec/pull/1835), which decodes every layer and compares it to the source.
-- **Sizes:** the bytes of every distinct tile in the archive, with each deduplicated tile counted once.
-- **Sample:** the largest-1% and option tables use up to 5,000 distinct tiles per zoom, drawn uniformly, with each zoom scaled by its distinct-tile count.
-- **gzip:** zlib level 6 per tile, the level both source archives were written with.
+The [Protomaps](https://protomaps.com/) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](https://openmaptiles.org/) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles).
+The `mlt convert` at [`89ceaef3`](https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88) was used.
+Bytes of tile in the archive are only counted once.
+For re-encoding we use Zlib level 6 per tile, since this is the level both source archives were written with.
 
 ## Documentation
 
