@@ -1,0 +1,20 @@
+<svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="One v2 feature: a line whose vertices carry an elevation and a lane count, a ref property holding a list and a name property holding a map" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid" x="170" y="14">geometry</text>
+<path class="line" d="M40 120L170 70L300 105"/>
+<circle class="f1" cx="40" cy="120" r="5"/>
+<circle class="f1" cx="170" cy="70" r="5"/>
+<circle class="f1" cx="300" cy="105" r="5"/>
+<text class="small mid halo" x="40" y="100">z 3 m</text>
+<text class="muted small mid halo" x="40" y="140">lanes 2</text>
+<text class="small mid halo" x="170" y="50">z 8 m</text>
+<text class="muted small mid halo" x="170" y="90">lanes 3</text>
+<text class="small mid halo" x="300" y="85">z 5 m</text>
+<text class="muted small mid halo" x="300" y="125">lanes 2</text>
+<text class="bold mid" x="560" y="14">properties</text>
+<text class="row" x="370" y="54">ref</text>
+<rect class="f0" x="436" y="40" width="248" height="28" rx="3"/>
+<text class="cell" x="560" y="54">["A1", "E35"]</text>
+<text class="row" x="370" y="104">name</text>
+<rect class="f0" x="436" y="90" width="248" height="28" rx="3"/>
+<text class="cell" x="560" y="104">{en: "Bridge", de: "Brücke"}</text>
+</svg>
