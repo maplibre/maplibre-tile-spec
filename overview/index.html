@@ -722,13 +722,6 @@
 
 <h1>Overview</h1>
 
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This is a live specification that evolves continuously.
-Features marked as <span class="experimental"></span> are under active development and may change in future versions.
-Stable features are those without experimental tags.</p>
-</div>
-<hr />
 <p>This page describes the MLT data model.
 The byte layout is in the <a href="../specification/v1/">v1 specification</a> and the <a href="../specification/v2/">v2 specification</a>.</p>
 <h1 id="tiles">Tiles<a class="headerlink" href="#tiles" title="Link to this section">&para;</a></h1>
@@ -962,6 +955,12 @@ The differences come from MVT's per-feature tag/value model versus MLT's per-lay
 <p>Every layer in a tile is prefixed with a one-byte tag naming the format of its body.
 A decoder skips a layer whose tag it does not know.
 Versions can therefore be mixed in one tile, and a new version does not break old readers.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is a live specification that evolves continuously.
+Features marked as <span class="experimental"></span> are under active development and may change in future versions.
+Stable features are those without experimental tags.</p>
+</div>
 <table>
 <thead>
 <tr>

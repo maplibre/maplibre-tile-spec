@@ -1,11 +1,5 @@
 # Overview
 
-> [!NOTE]
->
-> This is a live specification that evolves continuously. Features marked as are under active development and may change in future versions. Stable features are those without experimental tags.
-
----
-
 This page describes the MLT data model. The byte layout is in the [v1 specification](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) and the [v2 specification](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>).
 
 # Tiles
@@ -103,6 +97,10 @@ MLT can represent the same common vector tile content as MVT, but it is not a by
 # Format versions
 
 Every layer in a tile is prefixed with a one-byte tag naming the format of its body. A decoder skips a layer whose tag it does not know. Versions can therefore be mixed in one tile, and a new version does not break old readers.
+
+> [!NOTE]
+>
+> This is a live specification that evolves continuously. Features marked as are under active development and may change in future versions. Stable features are those without experimental tags.
 
 | Tag | Version | Status |
 | --- | --- | --- |
