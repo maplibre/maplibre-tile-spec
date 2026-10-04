@@ -129,7 +129,7 @@ fn a_tile_matching_its_json_is_left_out_of_the_validation_table() {
     let output = ls(&tree(), &["line.mlt", "--validate-to-json"]);
     assert!(output.status.success());
     insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"
-     File | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON 
+     File | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON
     ------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------+------
     ");
 }
@@ -139,7 +139,7 @@ fn a_tile_with_no_json_beside_it_fails_validation() {
     let output = ls(&tree(), &["point.mlt", "--validate-to-json"]);
     assert!(!output.status.success());
     insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"
-     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON 
+     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON
     -----------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------+------
      point.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt             | ✗
     ");
@@ -149,7 +149,7 @@ fn a_tile_with_no_json_beside_it_fails_validation() {
 fn all_details_adds_the_algorithms_column() {
     let output = ls(&tree(), &["point.mlt", "--details", "all"]);
     insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"
-     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | Algorithms                                                        
+     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | Algorithms
     -----------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------+-------------------------------------------------------------------
      point.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt             | data[vertex]/varint/componentwise-delta,length[var-binary]/varint
     ");
