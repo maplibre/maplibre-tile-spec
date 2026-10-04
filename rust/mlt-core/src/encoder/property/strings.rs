@@ -90,7 +90,8 @@ impl Encoder {
             hotpath::gauge!("fsst_cache::hits").inc(1.0);
         } else {
             hotpath::gauge!("fsst_cache::misses").inc(1.0);
-            hotpath::gauge!("fsst_cache::trained_strings").inc(corpus.len() as f64);
+            hotpath::gauge!("fsst_cache::trained_strings")
+                .inc(f64::from(u32::try_from(corpus.len()).unwrap_or(u32::MAX)));
             self.fsst_cache
                 .insert(key.to_owned(), fsst_try_train(corpus));
         }

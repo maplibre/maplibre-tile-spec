@@ -89,7 +89,8 @@ impl TileLayer {
                 })
                 .collect()
         );
-        hotpath::gauge!("shared_dict::profiles").set(profiles.len() as f64);
+        hotpath::gauge!("shared_dict::profiles")
+            .set(f64::from(u32::try_from(profiles.len()).unwrap_or(u32::MAX)));
 
         for group in cluster_by_similarity(profiles) {
             debug_assert!(
@@ -110,7 +111,7 @@ impl TileLayer {
     }
 }
 
-/// SplitMix64 finalizer.
+/// `SplitMix64` finalizer.
 const fn mix64(mut x: u64) -> u64 {
     x = (x ^ (x >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
     x = (x ^ (x >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);

@@ -117,7 +117,8 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
     for feat in layer.features() {
         // Start every slot with a typed null; fill in present values below.
         let mut properties: Vec<PropValue> = col_types.iter().map(|t| t.typed_null()).collect();
-        for pair in feat.tags().chunks_exact(2) {
+        let (pairs, _) = feat.tags().as_chunks::<2>();
+        for pair in pairs {
             let value = table[pair[1].into_usize()];
             if !matches!(value, MvtValueRef::Null) {
                 let idx =
