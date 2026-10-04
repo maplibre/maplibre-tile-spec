@@ -45,6 +45,7 @@ pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
     }
     let total_plain_size: usize = strings.iter().map(|s| s.len()).sum();
     if total_plain_size < FSST_OVERHEAD_THRESHOLD {
+        hotpath::gauge!("fsst_train::none_small").inc(1.0);
         return None;
     }
     let byte_slices: Vec<&[u8]> = strings.iter().map(|s| s.as_bytes()).collect();
@@ -67,8 +68,10 @@ pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
         .map(|s| compressor.compress(s.as_bytes()).len())
         .sum();
     if symbol_overhead + compressed_size < plain_size {
+        hotpath::gauge!("fsst_train::some").inc(1.0);
         Some(compressor)
     } else {
+        hotpath::gauge!("fsst_train::none_unviable").inc(1.0);
         None
     }
 }
@@ -83,10 +86,15 @@ impl Encoder {
         if !self.config().allow_fsst() {
             return None;
         }
-        self.fsst_cache
-            .entry(key.to_owned())
-            .or_insert_with(|| fsst_try_train(corpus))
-            .as_ref()
+        if self.fsst_cache.contains_key(key) {
+            hotpath::gauge!("fsst_cache::hits").inc(1.0);
+        } else {
+            hotpath::gauge!("fsst_cache::misses").inc(1.0);
+            hotpath::gauge!("fsst_cache::trained_strings").inc(corpus.len() as f64);
+            self.fsst_cache
+                .insert(key.to_owned(), fsst_try_train(corpus));
+        }
+        self.fsst_cache.get(key)?.as_ref()
     }
 }
 
@@ -458,6 +466,7 @@ fn write_str_dict(
 }
 
 /// Write pre-deduped dictionary data.
+#[hotpath::measure]
 fn write_str_dict_raw(
     unique: &[&str],
     offset_indices: &[u32],
@@ -494,6 +503,7 @@ fn write_str_fsst(
 }
 
 /// Shared FSST write logic.
+#[hotpath::measure]
 fn write_str_fsst_raw(
     raw: &FsstRawData,
     count: usize,
@@ -527,6 +537,7 @@ fn write_str_fsst_dict(
 }
 
 /// Shared FSST+dict write logic.
+#[hotpath::measure]
 fn write_str_fsst_dict_raw(
     raw: &FsstRawData,
     offset_indices: &[u32],
@@ -542,6 +553,7 @@ fn write_str_fsst_dict_raw(
     codecs.write_int_stream(offset_indices, &ctx, enc)
 }
 
+#[hotpath::measure]
 fn write_presence_stream(
     presence: Option<&StagedStrings>,
     enc: &mut Encoder,
@@ -681,7 +693,7 @@ impl StagedStrings {
 
     #[must_use]
     pub fn dense_values(&self) -> Vec<&str> {
-        let mut values = Vec::new();
+        let mut values = Vec::with_capacity(self.lengths.iter().filter(|&&end| end >= 0).count());
         let mut start = 0_u32;
         for &end in &self.lengths {
             if end >= 0 {

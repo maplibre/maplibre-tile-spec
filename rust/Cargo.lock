@@ -727,6 +727,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "cookie"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a373e3602691c3cdea496d2f0ee5935151e6168fe87739483c463db1b2f2f87"
+dependencies = [
+ "percent-encoding",
+ "time",
+ "version_check",
+]
+
+[[package]]
+name = "cookie_store"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15b2c103cf610ec6cae3da84a766285b42fd16aad564758459e6ecf128c75206"
+dependencies = [
+ "cookie",
+ "document-features",
+ "idna",
+ "indexmap",
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "time",
+ "url",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1843,9 +1872,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.27.0"
+version = "0.28.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fea08cd9a9b44bff59a678e2c140e25c90e0a5cf69032b546622ca4b29fdce6"
+checksum = "d553ab03dfbae1d1104652719199823728bf30fb5511afc0764fb02d65a5656b"
 dependencies = [
  "arc-swap",
  "axum",
@@ -1858,8 +1887,8 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.27.0",
- "hotpath-meta 0.27.0",
+ "hotpath-macros 0.28.3",
+ "hotpath-meta",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -1874,28 +1903,23 @@ dependencies = [
  "tiny_http",
  "tokio",
  "tokio-util",
+ "ureq",
 ]
 
 [[package]]
 name = "hotpath-drain"
-version = "0.0.2"
+version = "0.28.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e149b660b611650bdf3307941ef3e9b81be3c30ed1dfdbe7f670319674f023a6"
+checksum = "42349e85f9425bfe533e9c7aadf6dae93b51b2171ca92f308e9b401962ffeb0e"
 dependencies = [
- "hotpath-meta 0.26.1",
+ "hotpath-meta",
 ]
 
 [[package]]
 name = "hotpath-drain-meta"
-version = "0.0.1"
+version = "0.28.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0e602d0f92a8787ace1df49889b420a748c79cfa0bd5b0f98ed129dc7dcc6b6"
-
-[[package]]
-name = "hotpath-drain-meta"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f1847eb431f83cbd0924460ab7c5db2aeec3411607915048292ab46396f07d1"
+checksum = "f9d6a392aad6d335d4dda0938163a21fe429dcb72895789810bd62a03a865063"
 
 [[package]]
 name = "hotpath-macros"
@@ -1905,9 +1929,9 @@ checksum = "846bde0d9600d98434e1aac376977d7718bfe3d2f5312a041b7c59a6a466c51a"
 
 [[package]]
 name = "hotpath-macros"
-version = "0.27.0"
+version = "0.28.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc192b9ee12373854f13fd22ca359a2225e2c11d584999d61d8384ee589d06ef"
+checksum = "05dde24c0cc623819d9466bce63175212d0ecbf450278404a33ab54290e35ed8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1916,20 +1940,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.26.1"
+version = "0.28.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3673610fdff1b660d46bb8ff684558f346fd9985a2d381232ff1454e333e3207"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "hotpath-macros-meta"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "036ee7d31c9fbafb3840de9f1fbdb623eeeef664e5ed8bf3584dd1c05d5e627c"
+checksum = "0e19ebfefde5829910f6192cb0de729dcd78fe80936764e0896a61270eeafa9b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1938,31 +1951,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-meta"
-version = "0.26.1"
+version = "0.28.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecf60fda4313ca88c2e0a0cb14dae42287cb8e5ce30719710969649f2175b236"
-dependencies = [
- "arc-swap",
- "cfg-if",
- "crossbeam-channel",
- "futures-core",
- "hdrhistogram",
- "hotpath-drain-meta 0.0.1",
- "hotpath-macros-meta 0.26.1",
- "libc",
- "pin-project-lite",
- "quanta",
- "regex-lite",
- "serde",
- "serde_json",
- "tiny_http",
-]
-
-[[package]]
-name = "hotpath-meta"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "992c69d60cd39138d194ec08457c6ab30683fb4f336b15569524ab2d037d97ed"
+checksum = "db1fd26574af8d19bf72880c0b27cfa0fdf42be742164f19e5858fe3f9a34774"
 dependencies = [
  "arc-swap",
  "axum",
@@ -1970,8 +1961,8 @@ dependencies = [
  "crossbeam-channel",
  "futures-core",
  "hdrhistogram",
- "hotpath-drain-meta 0.0.2",
- "hotpath-macros-meta 0.27.0",
+ "hotpath-drain-meta",
+ "hotpath-macros-meta",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -2806,7 +2797,7 @@ dependencies = [
  "futures",
  "glob",
  "globset",
- "hotpath 0.27.0",
+ "hotpath 0.28.3",
  "indicatif",
  "insta",
  "martin-tile-utils",
@@ -2852,7 +2843,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath 0.27.0",
+ "hotpath 0.28.3",
  "insta",
  "integer-encoding",
  "num-traits",
@@ -2870,6 +2861,7 @@ dependencies = [
  "union-find",
  "usize_cast",
  "wide 1.7.1",
+ "xxhash-rust",
  "zigzag",
  "zstd",
 ]
@@ -4346,7 +4338,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
 dependencies = [
  "aws-lc-rs",
+ "log",
  "once_cell",
+ "ring",
  "rustls-pki-types",
  "rustls-webpki",
  "subtle",
@@ -5923,6 +5917,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
+name = "ureq"
+version = "3.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a7ac20be9b7726e0bbdbf974c059676d9acb1cd414961f570a4e8231cacd7fc"
+dependencies = [
+ "base64 0.23.1",
+ "cookie_store",
+ "log",
+ "percent-encoding",
+ "rustls",
+ "rustls-pki-types",
+ "serde",
+ "serde_json",
+ "ureq-proto",
+ "utf8-zero",
+ "webpki-roots",
+]
+
+[[package]]
+name = "ureq-proto"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f86fd172ccca569e458f61b6bdd6220965a9ef36e672a6852953b51a0e1583be"
+dependencies = [
+ "base64 0.23.1",
+ "http",
+ "httparse",
+ "log",
+]
+
+[[package]]
 name = "url"
 version = "2.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5939,6 +5964,12 @@ name = "usize_cast"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "810f3a98a85147e3ad2a1331aa6dac66490e802d65fa0ab283c383058e3f9751"
+
+[[package]]
+name = "utf8-zero"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8c0a043c9540bae7c578c88f91dda8bd82e59ae27c21baca69c8b191aaf5a6e"
 
 [[package]]
 name = "utf8_iter"
@@ -6148,6 +6179,15 @@ name = "webpki-root-certs"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b96554aa2acc8ccdb7e1c9a58a7a68dd5d13bccc69cd124cb09406db612a1c9b"
+dependencies = [
+ "rustls-pki-types",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7dcd9d09a39985f5344844e66b0c530a33843579125f23e21e9f0f220850f22a"
 dependencies = [
  "rustls-pki-types",
 ]

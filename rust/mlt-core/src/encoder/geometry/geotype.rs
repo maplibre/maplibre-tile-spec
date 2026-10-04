@@ -25,6 +25,25 @@ impl TryFrom<&Geometry<i32>> for GeometryType {
     }
 }
 
+/// How many coordinates `geom` stores.
+pub(crate) fn coord_count(geom: &Geometry<i32>) -> usize {
+    let polygon = |p: &Polygon<i32>| {
+        p.exterior().0.len() + p.interiors().iter().map(|r| r.0.len()).sum::<usize>()
+    };
+    match geom {
+        Geometry::<i32>::Point(_) => 1,
+        Geometry::<i32>::Line(_) => 2,
+        Geometry::<i32>::LineString(ls) => ls.0.len(),
+        Geometry::<i32>::Polygon(p) => polygon(p),
+        Geometry::<i32>::MultiPoint(mp) => mp.0.len(),
+        Geometry::<i32>::MultiLineString(mls) => mls.0.iter().map(|ls| ls.0.len()).sum(),
+        Geometry::<i32>::MultiPolygon(mp) => mp.0.iter().map(polygon).sum(),
+        Geometry::<i32>::Triangle(_) => 4,
+        Geometry::<i32>::Rect(_) => 5,
+        Geometry::<i32>::GeometryCollection(gc) => gc.0.iter().map(coord_count).sum(),
+    }
+}
+
 /// Run the Earcut algorithm on `polygon`, append triangle indices (shifted by `vertex_offset`)
 /// into `index_buf`, and return `(num_triangles, num_vertices)`.
 ///
@@ -107,6 +126,16 @@ impl GeometryValues {
         Self {
             triangle_offsets: Some(vec![0]),
             ..Default::default()
+        }
+    }
+
+    /// Reserve room for `geoms` more geometries, holding `coords` coordinates between them.
+    pub(crate) fn reserve(&mut self, geoms: usize, coords: usize) {
+        self.vector_types.reserve(geoms);
+        if coords > 0 {
+            self.vertices
+                .get_or_insert_with(Vec::new)
+                .reserve(coords * 2);
         }
     }
 

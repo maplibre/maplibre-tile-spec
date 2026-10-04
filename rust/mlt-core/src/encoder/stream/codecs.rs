@@ -40,6 +40,22 @@ pub struct Codecs {
     pub(crate) physical: PhysicalCodecs,
 }
 
+impl Codecs {
+    /// Bytes of scratch capacity held across the codecs' buffers.
+    pub(crate) fn scratch_bytes(&self) -> usize {
+        let (l, p) = (&self.logical, &self.physical);
+        4 * (l.u32_tmp.capacity()
+            + l.u32_tmp2.capacity()
+            + l.hilbert_offsets.capacity()
+            + l.hilbert_dict_xy.capacity()
+            + p.u32_tmp.capacity())
+            + 8 * (l.u64_tmp.capacity() + l.u64_tmp2.capacity() + l.hilbert_indexed.capacity())
+            + l.u8_tmp.capacity()
+            + l.u8_tmp2.capacity()
+            + p.u8_tmp.capacity()
+    }
+}
+
 #[derive(Default)]
 pub struct PhysicalCodecs {
     pub(crate) u32_tmp: Vec<u32>,
