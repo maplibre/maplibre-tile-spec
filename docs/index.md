@@ -107,7 +107,7 @@ For re-encoding we use Zlib level 6 per tile, since this is the level both sourc
 
 | Page | Contents |
 |---|---|
-| [Overview](overview.md) | The data model: tiles, extents, layers, features, columns and streams. |
+| [Data Model](overview.md) | Tiles, extents, layers, features, columns and streams. |
 | [Specification v1](specification/v1.md) | The stable wire format. |
 | [Specification v2](specification/v2.md) <span class="experimental"></span> | The next wire format, under development. |
 | [Encoding Algorithms](encodings.md) | The compression schemes used by both versions. |
