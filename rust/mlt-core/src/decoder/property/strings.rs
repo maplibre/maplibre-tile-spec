@@ -144,6 +144,10 @@ pub(crate) fn resolve_dict_spans(
 fn dict_span_str(dict_data: &str, span: (u32, u32)) -> MltResult<&str> {
     let start = span.0.into_usize();
     let end = span.1.into_usize();
+    // A slice of valid UTF-8 is valid itself wherever both ends fall on character boundaries.
+    if let Some(value) = dict_data.get(start..end) {
+        return Ok(value);
+    }
     let bytes = dict_data.as_bytes();
     let Some(value) = bytes.get(start..end) else {
         let len = span.1.saturating_sub(span.0);
@@ -440,7 +444,20 @@ fn decode_dictionary_strings<'a>(
     let dict_spans = shared_dict_spans(dict_lengths, dec)?;
     let resolved_spans = resolve_dict_spans(offsets, presence, &dict_spans, dec)?;
     let mut lengths = dec.alloc(resolved_spans.len())?;
-    let mut data = String::new();
+    // Charged up front, since a few entries repeated over many rows can outgrow the input by far.
+    let dict_len = dict_data.len();
+    let total = resolved_spans
+        .iter()
+        .flatten()
+        .fold(0_usize, |sum, &(start, end)| {
+            sum.saturating_add(
+                end.into_usize()
+                    .min(dict_len)
+                    .saturating_sub(start.into_usize()),
+            )
+        });
+    dec.consume_items::<u8>(total)?;
+    let mut data = String::with_capacity(total);
     let mut end = 0_i32;
     for span in resolved_spans {
         if let Some(span) = span {
@@ -563,6 +580,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::test_helpers::dec;
 
     #[rstest]
     #[case::empty(&[], "", &[])]
@@ -621,5 +639,51 @@ mod tests {
         assert_eq!(strings.get(last), None);
         assert!(strings.presence_bools().iter().all(|&p| p));
         assert_eq!(strings.materialize().last(), Some(&None));
+    }
+
+    fn dictionary_rows(
+        dict_lengths: &[u32],
+        dict: &str,
+        offsets: &[u32],
+    ) -> MltResult<Vec<Option<String>>> {
+        decode_dictionary_strings("col", dict_lengths, offsets, None, dict, &mut dec())
+            .map(|strings| strings.materialize())
+    }
+
+    #[test]
+    fn dictionary_rows_repeat_multibyte_entries() {
+        let rows = dictionary_rows(&[2, 3], "µ€", &[1, 0, 1]).expect("valid dictionary");
+        assert_eq!(
+            rows,
+            [
+                Some("€".to_string()),
+                Some("µ".to_string()),
+                Some("€".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn dictionary_entry_past_the_dictionary() {
+        let err = dictionary_rows(&[5], "ab", &[0]).expect_err("entry runs past the dictionary");
+        assert!(matches!(err, BufferUnderflow(5, 2)), "{err:?}");
+    }
+
+    #[test]
+    fn dictionary_entry_splitting_a_character() {
+        let err = dictionary_rows(&[1, 1], "µ", &[0]).expect_err("entry splits a character");
+        assert!(matches!(err, MltError::Utf8(_)), "{err:?}");
+    }
+
+    #[test]
+    fn dictionary_rows_are_charged_to_the_budget() {
+        let consumed = |dict: &str| {
+            let mut dec = dec();
+            let len = u32::try_from(dict.len()).expect("small");
+            decode_dictionary_strings("col", &[len], &[0; 100], None, dict, &mut dec)
+                .expect("valid dictionary");
+            dec.consumed()
+        };
+        assert_eq!(consumed("abc") - consumed("a"), 200);
     }
 }
