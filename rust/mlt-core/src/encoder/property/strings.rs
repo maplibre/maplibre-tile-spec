@@ -86,16 +86,14 @@ impl Encoder {
         if !self.config().allow_fsst() {
             return None;
         }
-        if self.fsst_cache.contains_key(key) {
-            hotpath::gauge!("fsst_cache::hits").inc(1.0);
-        } else {
-            hotpath::gauge!("fsst_cache::misses").inc(1.0);
-            hotpath::gauge!("fsst_cache::trained_strings")
-                .inc(f64::from(u32::try_from(corpus.len()).unwrap_or(u32::MAX)));
-            self.fsst_cache
-                .insert(key.to_owned(), fsst_try_train(corpus));
-        }
-        self.fsst_cache.get(key)?.as_ref()
+        hotpath::gauge!("fsst_cache::lookups").inc(1.0);
+        self.fsst_cache
+            .entry(key.to_owned())
+            .or_insert_with(|| {
+                hotpath::gauge!("fsst_cache::misses").inc(1.0);
+                fsst_try_train(corpus)
+            })
+            .as_ref()
     }
 }
 
