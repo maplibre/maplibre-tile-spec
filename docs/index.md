@@ -9,17 +9,13 @@ MLT is natively supported by [MapLibre GL JS](https://maplibre.org/maplibre-gl-j
 
 ## Why MLT
 
-MLT is mainly inspired by MVT, but has been redesigned from the ground up to improve the following areas:
+MLT is mainly inspired by MVT, but has been redesigned from the ground up.
+It stores each column on its own, so each gets the lightweight encoding that fits it.
+That makes tiles smaller, see [Size](#size), fast to decode with SIMD, and cheap to load into GPU buffers.
 
-- **Improved compression ratio** - a planet of MLT v2 tiles is 4-7% smaller than gzipped MVT (10-19% with gzip on top), and its largest tiles are 1.6-2.2x smaller than uncompressed MVT ([Size](#size)), based on a column oriented layout with (custom) lightweight encodings
-- **Better decoding performance** - fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
-- **Support for linear referencing and m-values** to efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)
-- **Support 3D coordinates**, i.e. elevation
-- **Support complex types**, including nested properties, lists and maps
-- **Improved processing performance**: Based on an in-memory format that can be processed efficiently on the CPU and GPU and loaded directly into GPU buffers partially (like polygons in WebGL) or completely (in case of WebGPU compute shader usage) without additional processing
+--8<-- "diagrams/why-mlt.svg"
 
-The last three are not yet implemented.
-They are planned for [MLT v2](specification/v2.md).
+[MLT v2](specification/v2.md) adds m-values, 3D coordinates and properties whose values are lists or maps.
 
 ## Size
 
