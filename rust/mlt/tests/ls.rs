@@ -40,7 +40,12 @@ fn mlt_ls(dir: &TempDir, args: &[&str]) -> Output {
 }
 
 fn stdout_of(output: &Output) -> String {
-    String::from_utf8(output.stdout.clone()).unwrap()
+    String::from_utf8(output.stdout.clone())
+        .unwrap()
+        .lines()
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn stderr_of(output: &Output) -> String {
@@ -58,10 +63,10 @@ fn a_directory_argument_lists_the_tiles_in_its_subdirectories() {
 
     assert!(output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File            | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+     File            | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
     -----------------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
-     nested/deep.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt             
-     top.mlt         |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt             
+     nested/deep.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt
+     top.mlt         |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt
     -----------------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
      TOTAL           |  48B |  -26% |     18B |  20B |   111% |     88B | -83% |     2 |       2 |      4 |
     ");
@@ -78,7 +83,7 @@ fn no_recursive_leaves_the_subdirectories_out() {
 
     assert!(output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File    | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+     File    | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
     ---------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
      top.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt
     ");
@@ -96,7 +101,7 @@ fn an_excluded_file_and_an_excluded_directory_are_both_skipped() {
 
     assert!(output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File     | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+     File     | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
     ----------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
      kept.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt
     ");
@@ -113,10 +118,10 @@ fn a_glob_argument_is_expanded_to_the_files_it_matches() {
 
     assert!(output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File  | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+     File  | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
     -------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
-     a.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt             
-     b.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt             
+     a.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt
+     b.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt
     -------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
      TOTAL |  48B |  -26% |     18B |  20B |   111% |     88B | -83% |     2 |       2 |      4 |
     ");
@@ -132,7 +137,7 @@ fn an_extension_filter_leaves_out_the_other_default_extensions() {
 
     assert!(output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File     | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+     File     | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
     ----------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
      tile.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt
     ");
@@ -148,7 +153,7 @@ fn a_file_argument_lists_just_that_file() {
 
     assert!(output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File       | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+     File       | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
     ------------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
      wanted.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt
     ");
@@ -163,7 +168,7 @@ fn a_tile_that_does_not_parse_is_reported_and_fails_the_run() {
 
     assert!(!output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File       | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+     File       | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
     ------------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
      broken.mlt | 10B
     ");
@@ -260,7 +265,7 @@ fn a_tile_matching_the_json_beside_it_is_left_out_of_the_validation_table() {
 
     assert!(output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON 
+     File | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON
     ------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------+------
     ");
 }
@@ -274,7 +279,7 @@ fn a_tile_with_no_json_beside_it_fails_validation() {
 
     assert!(!output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON 
+     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON
     -----------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------+------
      point.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt             | ✗
     ");
@@ -290,7 +295,7 @@ fn a_tile_whose_json_differs_fails_validation() {
 
     assert!(!output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON 
+     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | JSON
     -----------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------+------
      point.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt             | ✗
     ");
@@ -305,7 +310,7 @@ fn details_all_adds_the_algorithms_column() {
 
     assert!(output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | Algorithms                                                        
+     File      | Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types | Algorithms
     -----------+------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------+-------------------------------------------------------------------
      point.mlt |  24B |  -26% |      9B |  10B |   111% |     44B | -83% |     1 |       1 |      2 | Pt             | data[vertex]/varint/componentwise-delta,length[var-binary]/varint
     ");
@@ -320,7 +325,7 @@ fn details_basic_drops_the_gzip_columns() {
 
     assert!(output.status.success());
     insta::assert_snapshot!(stdout_of(&output), @"
-     File      | Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types 
+     File      | Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types
     -----------+------+-------+---------+------+--------+-------+---------+--------+----------------
      point.mlt |  24B |  -26% |      9B |  10B |   111% |     1 |       1 |      2 | Pt
     ");
