@@ -221,46 +221,20 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
-        
-  
-  Home
-
-      </a>
-    </li>
-  
-
+    
       
-        
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
   
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../overview/" class="md-tabs__link">
-        
-  
-  Overview
+  Introduction
 
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../../implementation-status/" class="md-tabs__link">
-        
-  
-  Implementation Status
-
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -346,6 +320,57 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Introduction
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_1">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Introduction
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../.." class="md-nav__link">
         
@@ -354,7 +379,7 @@
   <span class="md-ellipsis">
     
   
-  Home
+  About MLT
 
     
   </span>
@@ -365,9 +390,10 @@
     </li>
   
 
-    
-      
-      
+                
+              
+                
+                  
   
   
   
@@ -380,7 +406,7 @@
   <span class="md-ellipsis">
     
   
-  Overview
+  Data Model
 
     
   </span>
@@ -391,9 +417,10 @@
     </li>
   
 
-    
-      
-      
+                
+              
+                
+                  
   
   
   
@@ -414,6 +441,15 @@
   
 
       </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -443,10 +479,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -464,8 +500,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-            <label class="md-nav__title" for="__nav_4">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_2">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -983,53 +1019,6 @@
 
 
 
-  
-
-
-  <nav class="md-path" aria-label="Navigation" >
-    <ol class="md-path__list">
-      
-        
-  
-  
-    <li class="md-path__item">
-      <a href="../.." class="md-path__link">
-        
-  
-  <span class="md-ellipsis">
-    Home
-  </span>
-
-      </a>
-    </li>
-  
-
-      
-      
-        
-  
-  
-    
-    
-    
-    
-    
-      <li class="md-path__item">
-        <a href="../" class="md-path__link">
-          
-  
-  <span class="md-ellipsis">
-    Specification
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ol>
-  </nav>
 
               
               <article class="md-content__inner md-typeset">
@@ -1047,7 +1036,7 @@
 
 <h1 id="maplibre-tile-specification-v1">MapLibre Tile Specification v1<a class="headerlink" href="#maplibre-tile-specification-v1" title="Link to this section">&para;</a></h1>
 <p>This document specifies the byte layout of an MLT v1 layer.
-The data model it assumes, tiles, extents, layers, features, columns and streams, is described in the <a href="../../overview/">Overview</a>.</p>
+The data model it assumes, tiles, extents, layers, features, columns and streams, is described in <a href="../../overview/">Data Model</a>.</p>
 <p>Only implemented features are specified here.
 Complex and nested property types, logical types, linear referencing, vertex-scoped m-values and separate tileset metadata were designed for v1 but never implemented.
 They are being redesigned for <a href="../v2/">MLT v2</a>.</p>

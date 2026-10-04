@@ -10,7 +10,7 @@
 >
 > v2 is implemented in the Rust `mlt-core` crate behind the `unstable-v2` cargo feature. This page describes that implementation. Where the two disagree, the implementation is authoritative.
 
-v2 uses the same data model as [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>): tiles, layers, features, columns and streams as described in the [Overview](<https://maplibre.org/maplibre-tile-spec/overview/index.md>). Only the byte layout differs. A v2 layer decodes into the same in-memory representation as a v1 layer.
+v2 uses the same data model as [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>): tiles, layers, features, columns and streams as described in [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>). Only the byte layout differs. A v2 layer decodes into the same in-memory representation as a v1 layer.
 
 > [!NOTE]
 >

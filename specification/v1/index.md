@@ -1,6 +1,6 @@
 # MapLibre Tile Specification v1
 
-This document specifies the byte layout of an MLT v1 layer. The data model it assumes, tiles, extents, layers, features, columns and streams, is described in the [Overview](<https://maplibre.org/maplibre-tile-spec/overview/index.md>).
+This document specifies the byte layout of an MLT v1 layer. The data model it assumes, tiles, extents, layers, features, columns and streams, is described in [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>).
 
 Only implemented features are specified here. Complex and nested property types, logical types, linear referencing, vertex-scoped m-values and separate tileset metadata were designed for v1 but never implemented. They are being redesigned for [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>).
 

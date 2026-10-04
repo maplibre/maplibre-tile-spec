@@ -9,8 +9,8 @@ The first byte of every tile names its wire format version: v1 is stable, v2 is 
 
 ## Getting Started
 
-- [Home](<https://maplibre.org/maplibre-tile-spec/index.md>): A column-oriented vector tile format for map data
-- [Overview](<https://maplibre.org/maplibre-tile-spec/overview/index.md>): The data model of tiles, layers, features, columns and streams
+- [About MLT](<https://maplibre.org/maplibre-tile-spec/index.md>): A column-oriented vector tile format for map data
+- [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>): The data model of tiles, layers, features, columns and streams
 - [Implementation Status](<https://maplibre.org/maplibre-tile-spec/implementation-status/index.md>): Libraries, tools and datasets that support MLT
 
 ## Specification

@@ -1,0 +1,21 @@
+<svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="Protomaps basemap: MVT 133%, MVT + gzip 100%, MLT v1 106%, MLT v1 + gzip 95%, MLT v2 96%, MLT v2 + gzip 90% of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
+<path class="implicit" d="M461.4 4V214"/>
+<text class="row" x="0" y="19">MVT</text>
+<rect class="plain" x="130" y="8" width="440.0" height="22" rx="3"/>
+<text class="halo" x="578.0" y="19"><tspan class="bold">133%</tspan><tspan class="muted small"> 183.5 GB</tspan></text>
+<text class="row" x="0" y="53">MVT + gzip</text>
+<rect class="plain" x="130" y="42" width="331.4" height="22" rx="3"/>
+<text class="halo" x="469.4" y="53"><tspan class="bold">100%</tspan><tspan class="muted small"> 138.2 GB</tspan></text>
+<text class="row" x="0" y="87">MLT v1</text>
+<rect class="f0" x="130" y="76" width="349.8" height="22" rx="3"/>
+<text class="halo" x="487.8" y="87"><tspan class="bold">106%</tspan><tspan class="muted small"> 145.9 GB</tspan></text>
+<text class="row" x="0" y="121">MLT v1 + gzip</text>
+<rect class="f0" x="130" y="110" width="314.5" height="22" rx="3"/>
+<text class="halo" x="452.5" y="121"><tspan class="bold">95%</tspan><tspan class="muted small"> 131.1 GB</tspan></text>
+<text class="row" x="0" y="155">MLT v2</text>
+<rect class="f1" x="130" y="144" width="319.1" height="22" rx="3"/>
+<text class="halo" x="457.1" y="155"><tspan class="bold">96%</tspan><tspan class="muted small"> 133.1 GB</tspan></text>
+<text class="row" x="0" y="189">MLT v2 + gzip</text>
+<rect class="f1" x="130" y="178" width="299.1" height="22" rx="3"/>
+<text class="halo" x="437.1" y="189"><tspan class="bold">90%</tspan><tspan class="muted small"> 124.7 GB</tspan></text>
+</svg>
