@@ -30,16 +30,28 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
 
 /// Parse `size` varints of wire type `T` into a `Vec<T>`, charging `dec` for
 /// the output allocation.
-pub fn parse_varint_vec<'a, T: VarInt>(
+pub fn parse_varint_vec<'a, T: VarInt + From<u8>>(
     mut input: &'a [u8],
     size: u32,
     dec: &mut Decoder,
 ) -> MltRefResult<'a, Vec<T>> {
-    let mut values = dec.alloc::<T>(size.into_usize())?;
-    for _ in 0..size {
+    const CONTINUATION_BITS: u64 = 0x8080_8080_8080_8080;
+    let mut remaining = size.into_usize();
+    let mut values = dec.alloc::<T>(remaining)?;
+    while remaining > 0 {
+        if remaining >= 8
+            && let Some((chunk, rest)) = input.split_first_chunk::<8>()
+            && u64::from_le_bytes(*chunk) & CONTINUATION_BITS == 0
+        {
+            values.extend(chunk.iter().map(|&b| T::from(b)));
+            input = rest;
+            remaining -= 8;
+            continue;
+        }
         let val;
         (input, val) = parse_varint::<T>(input)?;
         values.push(val);
+        remaining -= 1;
     }
     Ok((input, values))
 }
@@ -105,6 +117,26 @@ mod tests {
             parse_varint_vec::<u32>(&buf, 3, &mut dec()).expect("parse_varint_vec failed");
         assert_eq!(remaining, [] as [u8; 0]);
         assert_eq!(values, [1, 2, 3]);
+    }
+
+    #[rstest]
+    #[case::all_single_byte_aligned(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])]
+    #[case::multi_byte_first(&[300, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])]
+    #[case::multi_byte_inside_a_window(&[1, 2, 3, 70_000, 5, 6, 7, 8, 9, 10, 11, 12])]
+    #[case::multi_byte_last(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, u32::MAX])]
+    #[case::shorter_than_a_window(&[1, 2, 3])]
+    fn parse_varint_vec_matches_value_by_value_parsing(#[case] values: &[u32]) {
+        let mut buf = Vec::new();
+        for v in values {
+            let mut tmp = [0u8; 10];
+            let written = v.encode_var(&mut tmp);
+            buf.extend_from_slice(&tmp[..written]);
+        }
+        buf.extend_from_slice(&[0x7F, 0x7F]);
+        let count = u32::try_from(values.len()).unwrap();
+        let (rest, parsed) = parse_varint_vec::<u32>(&buf, count, &mut dec()).unwrap();
+        assert_eq!(parsed, values);
+        assert_eq!(rest, [0x7F, 0x7F]);
     }
 
     #[test]

@@ -23,7 +23,7 @@ pub fn encode_bools_to_bytes(
 
 /// A physical word type a stream can be decoded into (`u32` or `u64`).
 /// Decoder-side mirror of the encoder's `PhysicalIntStreamKind`.
-pub trait PhysicalWord: Copy + Sized + VarInt {
+pub trait PhysicalWord: Copy + Sized + VarInt + From<u8> {
     /// Read one little-endian word from exactly `size_of::<Self>()` bytes.
     fn from_le_word(bytes: &[u8]) -> Self;
 
