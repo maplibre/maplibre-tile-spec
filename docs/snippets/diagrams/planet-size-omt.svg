@@ -1,21 +1,21 @@
-<svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="OpenMapTiles: MVT 152%, MVT + gzip 100%, MLT v1 102%, MLT v1 + gzip 85%, MLT v2 93%, MLT v2 + gzip 82% of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
-<path class="implicit" d="M420.0 4V214"/>
+<svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="OpenMapTiles: MVT 152%, MVT + gzip 100%, MLT v1 102%, MLT v1 + gzip 85%, MLT v2 92%, MLT v2 + gzip 82% of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
+<path class="implicit" d="M419.7 4V214"/>
 <text class="row" x="0" y="19">MVT</text>
 <rect class="plain" x="130" y="8" width="440.0" height="22" rx="3"/>
-<text class="halo" x="578.0" y="19"><tspan class="bold">152%</tspan><tspan class="muted small"> 76.9 GB</tspan></text>
+<text class="halo" x="578.0" y="19"><tspan class="bold">152%</tspan><tspan class="muted small"> 76.7 GB</tspan></text>
 <text class="row" x="0" y="53">MVT + gzip</text>
-<rect class="plain" x="130" y="42" width="290.0" height="22" rx="3"/>
-<text class="halo" x="428.0" y="53"><tspan class="bold">100%</tspan><tspan class="muted small"> 50.7 GB</tspan></text>
+<rect class="plain" x="130" y="42" width="289.7" height="22" rx="3"/>
+<text class="halo" x="427.7" y="53"><tspan class="bold">100%</tspan><tspan class="muted small"> 50.5 GB</tspan></text>
 <text class="row" x="0" y="87">MLT v1</text>
-<rect class="f0" x="130" y="76" width="297.1" height="22" rx="3"/>
-<text class="halo" x="435.1" y="87"><tspan class="bold">102%</tspan><tspan class="muted small"> 51.9 GB</tspan></text>
+<rect class="f0" x="130" y="76" width="296.3" height="22" rx="3"/>
+<text class="halo" x="434.3" y="87"><tspan class="bold">102%</tspan><tspan class="muted small"> 51.7 GB</tspan></text>
 <text class="row" x="0" y="121">MLT v1 + gzip</text>
-<rect class="f0" x="130" y="110" width="247.3" height="22" rx="3"/>
-<text class="halo" x="385.3" y="121"><tspan class="bold">85%</tspan><tspan class="muted small"> 43.2 GB</tspan></text>
+<rect class="f0" x="130" y="110" width="247.2" height="22" rx="3"/>
+<text class="halo" x="385.2" y="121"><tspan class="bold">85%</tspan><tspan class="muted small"> 43.1 GB</tspan></text>
 <text class="row" x="0" y="155">MLT v2</text>
-<rect class="f1" x="130" y="144" width="268.7" height="22" rx="3"/>
-<text class="halo" x="406.7" y="155"><tspan class="bold">93%</tspan><tspan class="muted small"> 47.0 GB</tspan></text>
+<rect class="f1" x="130" y="144" width="268.0" height="22" rx="3"/>
+<text class="halo" x="406.0" y="155"><tspan class="bold">92%</tspan><tspan class="muted small"> 46.7 GB</tspan></text>
 <text class="row" x="0" y="189">MLT v2 + gzip</text>
-<rect class="f1" x="130" y="178" width="236.6" height="22" rx="3"/>
-<text class="halo" x="374.6" y="189"><tspan class="bold">82%</tspan><tspan class="muted small"> 41.4 GB</tspan></text>
+<rect class="f1" x="130" y="178" width="236.2" height="22" rx="3"/>
+<text class="halo" x="374.2" y="189"><tspan class="bold">82%</tspan><tspan class="muted small"> 41.2 GB</tspan></text>
 </svg>
