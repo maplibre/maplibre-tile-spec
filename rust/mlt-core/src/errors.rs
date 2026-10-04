@@ -43,6 +43,16 @@ pub enum MltError {
         expected: crate::tile::PropKind,
         actual: crate::tile::PropKind,
     },
+    #[error(
+        "property {name:?} holds a nested array or object, which is not supported; flatten it or remove it"
+    )]
+    NestedPropertyValue { name: String },
+    #[error("property {name:?} value {value} does not fit its {kind:?} column")]
+    PropertyValueMismatch {
+        name: String,
+        value: String,
+        kind: crate::tile::PropKind,
+    },
     #[error("staged column {column} feature count mismatch: expected {expected}, got {actual}")]
     StagedFeatureCountMismatch {
         column: String,

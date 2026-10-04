@@ -3,6 +3,8 @@ mod common;
 #[cfg(feature = "unstable-v2")]
 pub mod fields;
 mod from_files;
+#[cfg(feature = "unstable-v2")]
+mod from_geojson;
 mod from_mbtiles;
 mod from_pmtiles;
 pub mod verify;
@@ -245,7 +247,8 @@ impl Reencoder {
     reason = "each bool is an independent CLI on/off flag, not a state machine"
 )]
 pub struct ConvertArgs {
-    /// Input: a directory with .mlt/.mvt/.pbf tiles, a single tile file, an .mbtiles or .pmtiles archive
+    /// Input: a directory with .mlt/.mvt/.pbf tiles, a single tile file, an .mbtiles or .pmtiles archive,
+    /// or a WGS84 .geojson file holding a `FeatureCollection` to tile
     input: PathBuf,
     /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,
@@ -326,6 +329,34 @@ pub struct ConvertArgs {
     /// If omitted, the whole input is converted.
     #[clap(long, value_name = "BBOX", allow_hyphen_values = true)]
     bbox: Vec<Bounds>,
+    /// Lowest zoom level to tile a `GeoJSON` input into (default: 0)
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long, value_name = "ZOOM", help_heading = "GeoJSON input")]
+    min_zoom: Option<u8>,
+    /// Highest zoom level to tile a `GeoJSON` input into (required)
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long, value_name = "ZOOM", help_heading = "GeoJSON input")]
+    max_zoom: Option<u8>,
+    /// MLT layer name of a `GeoJSON` input (default: the input file stem)
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long, value_name = "NAME", help_heading = "GeoJSON input")]
+    layer: Option<String>,
+    /// Power of ten of the z grid's step in metres (-3..=4) for `GeoJSON` positions with an altitude
+    ///
+    /// Required when the positions carry an altitude, and rejected when they do not.
+    #[cfg(feature = "unstable-v2")]
+    #[clap(
+        long,
+        value_name = "EXPONENT",
+        allow_hyphen_values = true,
+        help_heading = "GeoJSON input"
+    )]
+    z_step: Option<i8>,
+}
+
+/// Whether `path` names a `GeoJSON` file, which `convert` tiles rather than re-encodes.
+fn is_geojson(path: &Path) -> bool {
+    path.extension().and_then(std::ffi::OsStr::to_str) == Some("geojson")
 }
 
 impl ConvertArgs {
@@ -389,9 +420,54 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         );
     }
 
-    let filter = BboxFilter::new(&args.bbox)?;
     let input_container = args.input_container();
     let output_container = args.output_container();
+    let geojson_input = is_geojson(&args.input);
+    #[cfg(not(feature = "unstable-v2"))]
+    if geojson_input {
+        bail!(
+            "tiling a GeoJSON input writes MLT version 2, which requires building with `--features unstable-v2`"
+        );
+    }
+    #[cfg(feature = "unstable-v2")]
+    {
+        let geojson_only = [
+            ("--min-zoom", args.min_zoom.is_some()),
+            ("--max-zoom", args.max_zoom.is_some()),
+            ("--layer", args.layer.is_some()),
+            ("--z-step", args.z_step.is_some()),
+        ];
+        if geojson_input {
+            if args.max_zoom.is_none() {
+                bail!("tiling a GeoJSON input requires --max-zoom");
+            }
+            if args.to == TileFormat::Mvt {
+                bail!("--to mvt is not supported for a GeoJSON input; it is tiled into MLT");
+            }
+            if args.mlt_version != MltVersion::V2 {
+                bail!("tiling a GeoJSON input writes MLT version 2, so it needs --mlt-version 2");
+            }
+            if output_container != ContainerFormat::Files {
+                bail!(
+                    "a GeoJSON input is tiled into a directory of z/x/y.mlt tiles; archive output is not supported yet, got: {}",
+                    args.output.display()
+                );
+            }
+            if args.output.exists() {
+                bail!(
+                    "Output {} already exists; refusing to append. \
+                     Delete it first or choose a different path.",
+                    args.output.display()
+                );
+            }
+        } else if let Some((flag, _)) = geojson_only.iter().find(|(_, given)| *given) {
+            bail!(
+                "{flag} tiles a GeoJSON input, but the input is not a .geojson file: {}",
+                args.input.display()
+            );
+        }
+    }
+    let filter = BboxFilter::new(&args.bbox)?;
     let has_archive_input =
         input_container == ContainerFormat::Mbtiles || input_container == ContainerFormat::Pmtiles;
     if filter.is_some() && !has_archive_input {
@@ -447,6 +523,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 unreachable!("`has_archive_input` above rules out a directory input")
             }
         }
+    } else if geojson_input {
+        tile_geojson(args, &reencoder)
     } else {
         from_files::convert(&args.input, &args.output, &reencoder, args.to)
     };
@@ -457,6 +535,18 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         }
     }
     converted
+}
+
+/// Tiles a `GeoJSON` input into a directory of `z/x/y.mlt` tiles.
+#[cfg(feature = "unstable-v2")]
+fn tile_geojson(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()> {
+    from_geojson::convert(args, reencoder)
+}
+
+/// Without `unstable-v2`, [`convert`] rejects a `GeoJSON` input before reaching here.
+#[cfg(not(feature = "unstable-v2"))]
+fn tile_geojson(_args: &ConvertArgs, _reencoder: &Reencoder) -> AnyResult<()> {
+    unreachable!("a GeoJSON input is rejected above without `unstable-v2`")
 }
 
 /// Converts an `.mbtiles` input, first extracting the requested boxes into a temporary

@@ -16,6 +16,9 @@ use crate::{
     tile::{MValue, NestedValue},
 };
 
+mod schema;
+pub use schema::PropertySchema;
+
 /// `GeoJSON` [`FeatureCollection`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FeatureCollection {
