@@ -4,7 +4,7 @@
 
 // GeoJSON input is only tiled in a v2 build, and hotpath appends its profile to
 // stderr, which no exact snapshot can survive.
-#![cfg(all(feature = "unstable-v2", not(feature = "hotpath")))]
+#![cfg(not(feature = "hotpath"))]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -64,6 +64,7 @@ fn mlt_convert(input: &Path, output: &Path, args: &[&str]) -> Output {
         .arg("convert")
         .arg(input)
         .arg(output)
+        .args(["--mlt-version", "2"])
         .args(args)
         .env_remove("RUST_BACKTRACE")
         .output()

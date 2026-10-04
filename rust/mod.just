@@ -388,7 +388,7 @@ _build-ffi-lib:
 
 # Build the release `mlt` binary that the hexdump recipes shell out to, once per run
 _build-mlt-release:
-    cargo build --bin mlt --release --features unstable-v2
+    cargo build --bin mlt --release
 
 # Run the C FFI round-trip test (builds cdylib, compiles + runs test)
 test-ffi-c: _build-ffi-lib
@@ -448,7 +448,7 @@ sync-pyo3-version:
 sync-docs-hexdumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo build -p mlt -F unstable-v2
+    cargo build -p mlt
     for dump in ../docs/snippets/0x0*/*.mlt.hexdump; do
         fixture="../test/synthetic/$(basename "$(dirname "$dump")")/$(basename "$dump" .hexdump)"
         target/release/mlt hexdump "$fixture" > "$dump"

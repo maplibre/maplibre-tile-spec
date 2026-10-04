@@ -73,7 +73,7 @@ bench = false
 arbitrary = { version = "1.4.2", features = ["derive"] }
 hex = "0.4.3"
 libfuzzer-sys = "0.4"
-mlt = { path = "../../mlt", features = ["unstable-v2"] }
+mlt = { path = "../../mlt" }
 mlt-core = { path = "..", features = ["arbitrary", "__private", "unstable-v2"] }
 pretty_assertions = "1.4"
 serde_json = { version = "1", features = ["arbitrary_precision"] }

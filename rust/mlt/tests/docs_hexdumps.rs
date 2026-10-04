@@ -1,5 +1,5 @@
 //! Checks every `docs/snippets/0x0N/*.mlt.hexdump` still matches what `mlt hexdump` prints.
-#![cfg(all(feature = "unstable-v2", not(feature = "hotpath")))]
+#![cfg(not(feature = "hotpath"))]
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -1,5 +1,5 @@
 //! Checks every inspector link in the spec pages still names a tile and a region of it.
-#![cfg(all(feature = "unstable-v2", not(feature = "hotpath")))]
+#![cfg(not(feature = "hotpath"))]
 
 use std::fs;
 use std::path::{Path, PathBuf};

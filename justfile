@@ -79,13 +79,13 @@ ci-extract-version language tag:
 [no-cd]
 [positional-arguments]  # avoids shell expansions
 mlt *args:
-    cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt --features unstable-v2 -- "$@"
+    cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
 
 # Run the mlt CLI tool with the given arguments from current dir.
 [no-cd]
 [positional-arguments]  # avoids shell expansions
 mlt-rel *args:
-    cargo run --release --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt --features unstable-v2 -- "$@"
+    cargo run --release --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
 
 # Ensure a command is available
 assert-cmd command:

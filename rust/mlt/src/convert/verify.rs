@@ -7,7 +7,6 @@ use std::fmt;
 use anyhow::{Context as _, Result as AnyResult, anyhow, bail, ensure};
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::{Decoder, Parser, PropValue, TileFeature, TileLayer};
-#[cfg(feature = "unstable-v2")]
 use mlt_core::{MValue, NestedValue};
 
 /// Decode `encoded`, hand it to `restore`, and require the result to hold what `source` does.
@@ -52,7 +51,6 @@ fn same_layer(expected: &TileLayer, actual: &TileLayer) -> AnyResult<()> {
         actual.extent().get(),
         expected.extent().get()
     );
-    #[cfg(feature = "unstable-v2")]
     ensure!(
         expected.z_step() == actual.z_step(),
         "z step {:?}, not {:?}",
@@ -98,9 +96,7 @@ struct Row<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Role {
     Property,
-    #[cfg(feature = "unstable-v2")]
     MValue,
-    #[cfg(feature = "unstable-v2")]
     Nested,
 }
 
@@ -111,9 +107,7 @@ enum Value<'a> {
     Int(i128),
     Float(Bits),
     Str(&'a str),
-    #[cfg(feature = "unstable-v2")]
     List(Vec<Option<Self>>),
-    #[cfg(feature = "unstable-v2")]
     Map(BTreeMap<&'a str, Self>),
 }
 
@@ -164,7 +158,6 @@ impl<'a> Value<'a> {
         })
     }
 
-    #[cfg(feature = "unstable-v2")]
     fn of_m_value(value: &'a MValue) -> Option<Self> {
         fn ints<T: Copy + Into<i128>>(v: &[T]) -> Value<'_> {
             Value::List(v.iter().map(|&x| Some(Value::Int(x.into()))).collect())
@@ -189,7 +182,6 @@ impl<'a> Value<'a> {
     }
 
     /// A null inside a list stays a null item, never an empty list.
-    #[cfg(feature = "unstable-v2")]
     fn of_nested(value: &'a NestedValue) -> Option<Self> {
         Some(match value {
             NestedValue::Leaf(v) => Self::of(v)?,
@@ -269,7 +261,6 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature) -> Row<'a> {
             values.insert((Role::Property, name.as_str()), value);
         }
     }
-    #[cfg(feature = "unstable-v2")]
     {
         for (name, value) in layer.m_value_names().iter().zip(feature.m_values()) {
             if let Some(value) = Value::of_m_value(value) {
@@ -285,10 +276,7 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature) -> Row<'a> {
     Row {
         id: feature.id(),
         geometry: feature.geometry(),
-        #[cfg(feature = "unstable-v2")]
         z: feature.z(),
-        #[cfg(not(feature = "unstable-v2"))]
-        z: &[],
         values,
     }
 }
@@ -333,7 +321,6 @@ mod tests {
         same_layer(&wide, &narrow).unwrap();
     }
 
-    #[cfg(feature = "unstable-v2")]
     fn layer_with_z(step: Option<i8>, z: Vec<i32>) -> TileLayer {
         let mut layer = TileLayer::builder("l", 4096).unwrap();
         if let Some(step) = step {
@@ -350,7 +337,6 @@ mod tests {
         layer.finish()
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn a_dropped_z_step_is_reported() {
         let a = layer_with_z(Some(0), vec![100]);
@@ -358,7 +344,6 @@ mod tests {
         insta::assert_snapshot!(same_layer(&a, &b).unwrap_err(), @"z step None, not Some(ZStep(0))");
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn a_changed_z_names_the_feature() {
         let a = layer_with_z(Some(0), vec![100]);
@@ -366,7 +351,6 @@ mod tests {
         insta::assert_snapshot!(same_layer(&a, &b).unwrap_err(), @"feature 1 has other z: [101], not [100]");
     }
 
-    #[cfg(feature = "unstable-v2")]
     fn layer_with_nested(kind: mlt_core::NestedKind, value: NestedValue) -> TileLayer {
         let mut layer = TileLayer::builder("l", 4096).unwrap();
         let key = layer.add_nested("n", kind).unwrap();
@@ -377,7 +361,6 @@ mod tests {
         layer.finish()
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn a_null_list_item_is_not_an_empty_list() {
         use mlt_core::NestedKind;
@@ -560,7 +543,6 @@ mod tests {
         "#);
     }
 
-    #[cfg(feature = "unstable-v2")]
     fn layer_with_m_value(kind: PropKind, value: MValue) -> TileLayer {
         let mut layer = TileLayer::builder("l", 4096).unwrap();
         let key = layer.add_m_value("m", kind).unwrap();
@@ -571,7 +553,6 @@ mod tests {
         layer.finish()
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn a_change_in_every_m_value_kind_is_reported() {
         let changes = [
@@ -646,7 +627,6 @@ mod tests {
         "#);
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn a_changed_map_entry_is_reported() {
         use mlt_core::NestedKind;
@@ -662,7 +642,6 @@ mod tests {
         insta::assert_snapshot!(same_layer(&a, &b).unwrap_err(), @r#"feature 1 has other values: Nested n is Map({"k": Int(2)}), not Map({"k": Int(1)})"#);
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn a_null_map_entry_is_a_missing_one() {
         use mlt_core::NestedKind;

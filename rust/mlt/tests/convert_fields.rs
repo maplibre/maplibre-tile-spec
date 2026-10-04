@@ -1,5 +1,5 @@
 //! Checks how `mlt convert --fields` parses string properties into typed columns, and what `--verify` accepts.
-#![cfg(all(feature = "unstable-v2", not(feature = "hotpath")))]
+#![cfg(not(feature = "hotpath"))]
 
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -792,7 +792,9 @@ fn run_tile(config: Option<&str>, file: &str, bytes: &[u8]) -> Result<Vec<u8>, S
     fs::write(dir.join("in").join(file), bytes).unwrap();
 
     let mut command = Command::new(env!("CARGO_BIN_EXE_mlt"));
-    command.arg("convert").arg("--verify");
+    command
+        .arg("convert")
+        .args(["--mlt-version", "2", "--verify"]);
     if let Some(config) = config {
         fs::write(dir.join("fields.toml"), config).unwrap();
         command.arg("--fields").arg(dir.join("fields.toml"));

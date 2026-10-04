@@ -13,7 +13,7 @@ use bench_utils::{compress_gzip, decompress_gzip, load_all_tiles, mvt_decode, to
 
 const CORPORA: [&str; 4] = ["omt", "amazon", "amazon_here", "bing"];
 
-/// The v2 encoding `mlt convert` writes by default.
+/// The v2 encoding `mlt convert --mlt-version 2` writes by default.
 fn cfg_v2() -> EncoderConfig {
     EncoderConfig::default()
         .with_wire_version(WireVersion::V02)
