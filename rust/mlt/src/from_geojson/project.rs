@@ -105,16 +105,20 @@ impl Projector {
         self.first.as_deref().map(Dims::of)
     }
 
-    /// Project a geometry. An invalid position (see [`Self::project_position`]) or a
-    /// `GeometryCollection`, which MLT has no geometry type for, is an error.
+    /// Project a geometry. An invalid position (see [`Self::project_position`]), a
+    /// segment that crosses the antimeridian (see [`reject_antimeridian_crossing`]),
+    /// or a `GeometryCollection`, which MLT has no geometry type for, is an error.
     pub fn project(&mut self, value: &GeometryValue) -> AnyResult<Geom> {
         Ok(match value {
             GeometryValue::Point { coordinates } => {
                 Geom::Point(self.project_position(coordinates)?)
             }
-            GeometryValue::MultiPoint { coordinates } => {
-                Geom::MultiPoint(self.project_line(coordinates)?)
-            }
+            GeometryValue::MultiPoint { coordinates } => Geom::MultiPoint(
+                coordinates
+                    .iter()
+                    .map(|p| self.project_position(p))
+                    .collect::<AnyResult<_>>()?,
+            ),
             GeometryValue::LineString { coordinates } => {
                 Geom::LineString(self.project_line(coordinates)?)
             }
@@ -139,12 +143,32 @@ impl Projector {
         })
     }
 
+    /// Project the positions of a line string, whose consecutive positions are
+    /// joined by segments.
     fn project_line(&mut self, line: &[Position]) -> AnyResult<Vec<Vertex>> {
-        line.iter().map(|p| self.project_position(p)).collect()
+        let vertices = line
+            .iter()
+            .map(|p| self.project_position(p))
+            .collect::<AnyResult<_>>()?;
+        for segment in line.windows(2) {
+            reject_antimeridian_crossing(&segment[0], &segment[1])?;
+        }
+        Ok(vertices)
     }
 
+    /// Project the rings of a polygon. A ring that is not closed is joined back
+    /// to its first position, so that closing segment is checked too.
     fn project_rings(&mut self, rings: &[Vec<Position>]) -> AnyResult<Vec<Vec<Vertex>>> {
-        rings.iter().map(|r| self.project_line(r)).collect()
+        rings
+            .iter()
+            .map(|r| {
+                let vertices = self.project_line(r)?;
+                if let (Some(last), Some(first)) = (r.last(), r.first()) {
+                    reject_antimeridian_crossing(last, first)?;
+                }
+                Ok(vertices)
+            })
+            .collect()
     }
 
     /// Project one position. It must hold a longitude in `-180..=180` and a
@@ -193,6 +217,27 @@ impl Projector {
         };
         Ok(Vertex { x, y, z })
     }
+}
+
+/// Reject a segment spanning over 180 degrees of longitude: it almost surely means
+/// to cross the antimeridian, which RFC 7946 section 3.1.9 says to split. One with
+/// both ends at -180 or 180 runs along the map edge and is accepted. The positions
+/// must already be validated by [`Projector::project_position`].
+#[expect(
+    clippy::float_cmp,
+    reason = "only a longitude of exactly -180 or 180 lies on the antimeridian"
+)]
+fn reject_antimeridian_crossing(a: &Position, b: &Position) -> AnyResult<()> {
+    let (a, b) = (a.as_slice(), b.as_slice());
+    let on_antimeridian = |lon: f64| lon.abs() == 180.0;
+    if (a[0] - b[0]).abs() > 180.0 && !(on_antimeridian(a[0]) && on_antimeridian(b[0])) {
+        bail!(
+            "segment from {a:?} to {b:?} spans more than 180 degrees of longitude, so it \
+             crosses the antimeridian; split the geometry at longitude 180 (RFC 7946 section \
+             3.1.9)"
+        );
+    }
+    Ok(())
 }
 
 /// The exact (unrounded) grid value of an elevation, with the arithmetic order
@@ -414,6 +459,49 @@ mod tests {
         };
         assert!(close(line[0].x, 0.0) && close(line[0].y, 0.0), "{line:?}");
         assert!(close(line[1].x, 1.0) && close(line[1].y, 1.0), "{line:?}");
+    }
+
+    #[test]
+    fn a_segment_crossing_the_antimeridian_is_rejected() {
+        let errors: Vec<String> = [
+            r#"{"type":"LineString","coordinates":[[179,10],[-179,10]]}"#,
+            // One end on the antimeridian: the short way still crosses it.
+            r#"{"type":"LineString","coordinates":[[-180,0],[170,0]]}"#,
+            r#"{"type":"MultiPolygon","coordinates":[[[[0,0],[1,0],[1,1],[0,0]]],[[[179,0],[-179,0],[-179,1],[179,0]]]]}"#,
+            r#"{"type":"MultiLineString","coordinates":[[[0,0],[1,0]],[[-170,0],[170,0]]]}"#,
+            // The implicit closing segment of an unclosed ring.
+            r#"{"type":"Polygon","coordinates":[[[-179,0],[-90,0],[0,0],[90,0],[179,1]]]}"#,
+        ]
+        .into_iter()
+        .map(|json| {
+            Projector::new(None)
+                .project(&geometry(json))
+                .unwrap_err()
+                .to_string()
+        })
+        .collect();
+        insta::assert_snapshot!(errors.join("\n"), @"
+        segment from [179.0, 10.0] to [-179.0, 10.0] spans more than 180 degrees of longitude, so it crosses the antimeridian; split the geometry at longitude 180 (RFC 7946 section 3.1.9)
+        segment from [-180.0, 0.0] to [170.0, 0.0] spans more than 180 degrees of longitude, so it crosses the antimeridian; split the geometry at longitude 180 (RFC 7946 section 3.1.9)
+        segment from [179.0, 0.0] to [-179.0, 0.0] spans more than 180 degrees of longitude, so it crosses the antimeridian; split the geometry at longitude 180 (RFC 7946 section 3.1.9)
+        segment from [-170.0, 0.0] to [170.0, 0.0] spans more than 180 degrees of longitude, so it crosses the antimeridian; split the geometry at longitude 180 (RFC 7946 section 3.1.9)
+        segment from [179.0, 1.0] to [-179.0, 0.0] spans more than 180 degrees of longitude, so it crosses the antimeridian; split the geometry at longitude 180 (RFC 7946 section 3.1.9)
+        ");
+    }
+
+    #[test]
+    fn segments_spanning_up_to_180_degrees_or_along_the_map_edge_are_accepted() {
+        for json in [
+            r#"{"type":"LineString","coordinates":[[-90,0],[90,0]]}"#,
+            // The world bounding box, and the edge Natural Earth's Antarctica runs along.
+            r#"{"type":"Polygon","coordinates":[[[-180,-90],[180,-90],[180,90],[-180,90],[-180,-90]]]}"#,
+            r#"{"type":"LineString","coordinates":[[180,-85],[180,-90],[-180,-90],[-180,-85]]}"#,
+            r#"{"type":"LineString","coordinates":[[-180,0],[180,0]]}"#,
+            r#"{"type":"Polygon","coordinates":[[[-180,0],[0,0],[180,0],[0,10],[-180,0]]]}"#,
+            r#"{"type":"MultiPoint","coordinates":[[179,10],[-179,10]]}"#,
+        ] {
+            Projector::new(None).project(&geometry(json)).unwrap();
+        }
     }
 
     #[test]
