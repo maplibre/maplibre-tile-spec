@@ -2846,6 +2846,7 @@ dependencies = [
  "bitvec",
  "brotli",
  "bytemuck",
+ "clap",
  "criterion",
  "derive-debug",
  "enum_dispatch",

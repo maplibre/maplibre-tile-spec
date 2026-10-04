@@ -17,6 +17,11 @@ harness = false
 required-features = ["__private"]
 
 [[bench]]
+name = "decoding_planet"
+harness = false
+required-features = ["__private-v2"]
+
+[[bench]]
 name = "decoding_v2_vertices"
 harness = false
 required-features = ["__private-v2"]
@@ -84,6 +89,7 @@ zigzag.workspace = true
 
 [dev-dependencies]
 brotli.workspace = true
+clap.workspace = true
 criterion.workspace = true
 flate2.workspace = true
 geo-types = { workspace = true, features = ["arbitrary"] }
