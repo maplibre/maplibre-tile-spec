@@ -1,8 +1,8 @@
-//! End-to-end tests of `mlt from-geojson <file> <dir>`: each writes a small
+//! End-to-end tests of `mlt convert <file>.geojson <dir>`: each writes a small
 //! `GeoJSON` file, runs the binary, and decodes the tiles it wrote back through
 //! `mlt-core` to check geometry (including z), properties, and tile placement.
 
-// The command only exists in a v2 build, and hotpath appends its profile to
+// GeoJSON input is only tiled in a v2 build, and hotpath appends its profile to
 // stderr, which no exact snapshot can survive.
 #![cfg(all(feature = "unstable-v2", not(feature = "hotpath")))]
 
@@ -24,8 +24,10 @@ struct TempDir(PathBuf);
 impl TempDir {
     fn new() -> Self {
         let id = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
-        let path =
-            std::env::temp_dir().join(format!("mlt-from-geojson-test-{}-{id}", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "mlt-convert-geojson-test-{}-{id}",
+            std::process::id()
+        ));
         fs::create_dir_all(&path).unwrap();
         Self(path)
     }
@@ -37,7 +39,7 @@ impl Drop for TempDir {
     }
 }
 
-/// Write `geojson` as `<file_name>` in a temp dir and run `mlt from-geojson` on it,
+/// Write `geojson` as `<file_name>` in a temp dir and run `mlt convert` on it,
 /// writing to `<out_name>` beside it.
 ///
 /// CI exports `RUST_BACKTRACE=1`, and an inherited backtrace on stderr would break
@@ -52,14 +54,14 @@ fn run_into(
     let input = dir.0.join(file_name);
     fs::write(&input, serde_json::to_vec(geojson).unwrap()).unwrap();
     let output = dir.0.join(out_name);
-    let out = mlt_from_geojson(&input, &output, args);
+    let out = mlt_convert(&input, &output, args);
     (dir, output, out)
 }
 
-/// Run `mlt from-geojson <input> <output> <args>`.
-fn mlt_from_geojson(input: &Path, output: &Path, args: &[&str]) -> Output {
+/// Run `mlt convert <input> <output> <args>`.
+fn mlt_convert(input: &Path, output: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_mlt"))
-        .arg("from-geojson")
+        .arg("convert")
         .arg(input)
         .arg(output)
         .args(args)
@@ -79,7 +81,7 @@ fn stderr_of(dir: &TempDir, out: &Output) -> String {
 fn assert_success(out: &Output) {
     assert!(
         out.status.success(),
-        "mlt from-geojson failed: {}",
+        "mlt convert failed: {}",
         String::from_utf8_lossy(&out.stderr)
     );
 }
@@ -94,10 +96,7 @@ fn run(geojson: &Value, args: &[&str]) -> (TempDir, PathBuf) {
 /// Run a conversion expected to fail, returning its stderr.
 fn run_failing(geojson: &Value, args: &[&str]) -> String {
     let (dir, output, out) = run_into("input.geojson", "out", geojson, args);
-    assert!(
-        !out.status.success(),
-        "mlt from-geojson unexpectedly succeeded"
-    );
+    assert!(!out.status.success(), "mlt convert unexpectedly succeeded");
     assert_eq!(mlt_files(&output), Vec::<String>::new());
     stderr_of(&dir, &out)
 }
@@ -426,17 +425,19 @@ fn too_heavy_at_z0() -> Value {
 #[test]
 fn a_tile_too_heavy_to_decode_fails_naming_the_min_zoom_that_fits() {
     let geojson = too_heavy_at_z0();
-    let (dir, output, out) = run_into("input.geojson", "out", &geojson, &["--max-zoom", "1"]);
-    assert!(
-        !out.status.success(),
-        "mlt from-geojson unexpectedly succeeded"
-    );
-    let stderr = stderr_of(&dir, &out);
-    insta::assert_snapshot!(stderr, @"Error: tile 0/0/0 needs more memory to decode than mlt-core's default decoder budget allows, so it and any such tile at a lower zoom were not written; pass --min-zoom 1");
-    assert_eq!(
-        mlt_files(&output),
-        ["1/0/0.mlt", "1/0/1.mlt", "1/1/0.mlt", "1/1/1.mlt"]
-    );
+    // `--verify` decodes each tile itself, and must spot the same tile.
+    for args in [&["--max-zoom", "1"][..], &["--max-zoom", "1", "--verify"]] {
+        let (dir, output, out) = run_into("input.geojson", "out", &geojson, args);
+        assert!(!out.status.success(), "mlt convert unexpectedly succeeded");
+        let stderr = stderr_of(&dir, &out);
+        insta::allow_duplicates! {
+            insta::assert_snapshot!(stderr, @"Error: tile 0/0/0 needs more memory to decode than mlt-core's default decoder budget allows, so it and any such tile at a lower zoom were not written; pass --min-zoom 1");
+        }
+        assert_eq!(
+            mlt_files(&output),
+            ["1/0/0.mlt", "1/0/1.mlt", "1/1/0.mlt", "1/1/1.mlt"]
+        );
+    }
 
     let (_dir, output) = run(&geojson, &["--min-zoom", "1", "--max-zoom", "1"]);
     assert_eq!(
@@ -509,7 +510,25 @@ fn an_archive_output_is_rejected() {
     assert!(!out.status.success());
     assert!(!output.exists());
     let stderr = stderr_of(&dir, &out);
-    insta::assert_snapshot!(stderr, @"Error: from-geojson writes a directory of z/x/y.mlt tiles; archive output is not supported yet, got: [TMP]/out.pmtiles");
+    insta::assert_snapshot!(stderr, @"Error: a GeoJSON input is tiled into a directory of z/x/y.mlt tiles; archive output is not supported yet, got: [TMP]/out.pmtiles");
+}
+
+#[test]
+fn a_geojson_input_without_a_max_zoom_is_rejected() {
+    let stderr = run_failing(&collection(&[]), &[]);
+    insta::assert_snapshot!(stderr, @"Error: tiling a GeoJSON input requires --max-zoom");
+}
+
+#[test]
+fn a_geojson_only_option_on_another_input_is_rejected() {
+    let dir = TempDir::new();
+    let input = dir.0.join("tiles");
+    fs::create_dir_all(&input).unwrap();
+    let out = mlt_convert(&input, &dir.0.join("out"), &["--max-zoom", "3"]);
+    assert!(!out.status.success(), "mlt convert unexpectedly succeeded");
+    assert!(!dir.0.join("out").exists());
+    let stderr = stderr_of(&dir, &out);
+    insta::assert_snapshot!(stderr, @"Error: --max-zoom tiles a GeoJSON input, but the input is not a .geojson file: [TMP]/tiles");
 }
 
 #[test]
@@ -521,7 +540,7 @@ fn an_existing_output_is_rejected_and_left_untouched() {
     let (dir, output) = run(&geojson, &["--max-zoom", "0"]);
     let before = fs::read(output.join("0/0/0.mlt")).unwrap();
 
-    let out = mlt_from_geojson(
+    let out = mlt_convert(
         &dir.0.join("input.geojson"),
         &output,
         &["--min-zoom", "1", "--max-zoom", "1"],

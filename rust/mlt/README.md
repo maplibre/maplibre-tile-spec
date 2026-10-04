@@ -7,8 +7,7 @@ The `mlt` binary provides several commands for working with MLT files:
 * **`dump`** - Parse an MLT file and dump raw layer data without decoding
 * **`decode`** - Parse an MLT file, decode all layers, and dump the result (supports text and `GeoJSON` output)
 * **`hexdump`** - Annotated byte/bit-level hexdump of an MLT file's metadata and stream payloads
-* **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT
-* **`from-geojson`** - Tile a `GeoJSON` file, including 3D positions, into MLT files
+* **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT, or tile a `GeoJSON` file, including 3D positions, into MLT files
 * **`ui`** - Interactive terminal visualizer for MLT files
 
 ### Format conversion
@@ -42,19 +41,20 @@ It needs an `.mbtiles` or `.pmtiles` input, the only ones that record where each
 
 ### Tiling GeoJSON
 
-Tile a WGS84 `GeoJSON` `FeatureCollection` into a `z/x/y.mlt` directory as a single layer
-named after the file. This writes the v2 format, so it needs a binary built with
-`--features unstable-v2`:
+Give `convert` a WGS84 `GeoJSON` `FeatureCollection` to tile it into a `z/x/y.mlt` directory
+as a single layer named after the file. `--max-zoom` is required, and `--min-zoom` and
+`--layer` are optional; the encoder options above apply as to any other input. This writes
+the v2 format, so it needs a binary built with `--features unstable-v2`:
 
 ```bash
-mlt from-geojson buildings.geojson tiles --max-zoom 14
+mlt convert buildings.geojson tiles --max-zoom 14
 ```
 
 Positions with an altitude (`[lon, lat, alt]`) become z coordinates on a `--z-step` grid,
 a power of ten in metres from `-3` (1 mm) to `4` (10 km):
 
 ```bash
-mlt from-geojson power_lines.geojson tiles --max-zoom 14 --z-step -1
+mlt convert power_lines.geojson tiles --max-zoom 14 --z-step -1
 ```
 
 ### Visualizer

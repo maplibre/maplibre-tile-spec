@@ -1,4 +1,4 @@
-//! `mlt from-geojson <file>.geojson <dir>`: tile a WGS84 `GeoJSON` file into an
+//! `mlt convert <file>.geojson <dir>`: tile a WGS84 `GeoJSON` file into an
 //! MLT `z/x/y.mlt` tree (XYZ scheme, `y = 0` at the north).
 //!
 //! `GeoJSON` has no layer or tiling concept, so the whole file becomes one named
@@ -8,7 +8,7 @@
 //! [`ZStep`] for all its vertices.
 //!
 //! Altitudes become MLT z coordinates on a `--z-step` grid. Only the v2 wire
-//! format holds them, so this command always writes v2 and exists only in an
+//! format holds them, so this path always writes v2 and exists only in an
 //! `mlt` built with `unstable-v2`.
 
 mod clip;
@@ -17,14 +17,12 @@ mod project;
 mod round;
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context as _, Result as AnyResult, bail};
-use clap::Args;
 use geojson::{Feature, FeatureCollection, GeoJson};
 use martin_tile_utils::MAX_ZOOM;
-use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::PropertySchema;
 use mlt_core::{Decoder, MltError, Parser, PropValue, TileLayer, ZStep};
@@ -34,29 +32,7 @@ use self::clip::Rect;
 use self::feature_id::feature_id;
 use self::project::{Dims, Geom, Projector, Vertex};
 use self::round::to_tile;
-use crate::convert::ContainerFormat;
-
-#[derive(Args)]
-pub struct FromGeoJsonArgs {
-    /// Input: a WGS84 `GeoJSON` file holding a `FeatureCollection`
-    input: PathBuf,
-    /// Output: a directory for the `z/x/y.mlt` tile tree, which must not exist yet
-    output: PathBuf,
-    /// Lowest zoom level to tile into
-    #[clap(long, value_name = "ZOOM", default_value_t = 0)]
-    min_zoom: u8,
-    /// Highest zoom level to tile into
-    #[clap(long, value_name = "ZOOM")]
-    max_zoom: u8,
-    /// MLT layer name (default: the input file stem)
-    #[clap(long, value_name = "NAME")]
-    layer: Option<String>,
-    /// Power of ten of the z grid's step in metres (-3..=4) for positions with an altitude
-    ///
-    /// Required when the positions carry an altitude, and rejected when they do not.
-    #[clap(long, value_name = "EXPONENT", allow_hyphen_values = true)]
-    z_step: Option<i8>,
-}
+use super::{ConvertArgs, Reencoder};
 
 /// The number of grid units across a tile, the value every MVT/MLT consumer expects.
 const EXTENT: u32 = 4096;
@@ -94,30 +70,20 @@ struct Entry {
     props: Arc<Vec<(usize, PropValue)>>,
 }
 
-pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
+/// Tile the `GeoJSON` file `args.input` into the directory `args.output`.
+/// [`super::convert`] has already checked that the input is `GeoJSON`, that
+/// `--max-zoom` was given, and that the output is a directory that does not exist.
+pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()> {
     let (input, output) = (args.input.as_path(), args.output.as_path());
-    if args.min_zoom > args.max_zoom {
-        bail!(
-            "--min-zoom ({}) must be <= --max-zoom ({})",
-            args.min_zoom,
-            args.max_zoom
-        );
+    let min_zoom = args.min_zoom.unwrap_or(0);
+    let max_zoom = args
+        .max_zoom
+        .expect("`convert` requires --max-zoom for a GeoJSON input");
+    if min_zoom > max_zoom {
+        bail!("--min-zoom ({min_zoom}) must be <= --max-zoom ({max_zoom})");
     }
-    if args.max_zoom > MAX_ZOOM {
-        bail!("--max-zoom ({}) must be <= {MAX_ZOOM}", args.max_zoom);
-    }
-    if ContainerFormat::from_path(output) != ContainerFormat::Files {
-        bail!(
-            "from-geojson writes a directory of z/x/y.mlt tiles; archive output is not supported yet, got: {}",
-            output.display()
-        );
-    }
-    if output.exists() {
-        bail!(
-            "Output {} already exists; refusing to append. \
-             Delete it first or choose a different path.",
-            output.display()
-        );
+    if max_zoom > MAX_ZOOM {
+        bail!("--max-zoom ({max_zoom}) must be <= {MAX_ZOOM}");
     }
     let name = match &args.layer {
         Some(name) => name.clone(),
@@ -172,8 +138,9 @@ pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
     let tiler = Tiler {
         output,
         layer: &layer,
-        min_zoom: args.min_zoom,
-        max_zoom: args.max_zoom,
+        reencoder,
+        min_zoom,
+        max_zoom,
     };
     let written = tiler.tile(0, 0, 0, &sources)?;
     let (tiles_written, features_written) = (written.tiles, written.features);
@@ -182,7 +149,7 @@ pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
     // stay light enough to decode, rather than failing and asking for a higher --min-zoom.
     if let Some((zoom, col, row)) = written.too_heavy {
         let fits = zoom + 1;
-        let max_zoom = if fits > args.max_zoom {
+        let raise_max = if fits > max_zoom {
             format!(" and a --max-zoom of at least {fits}")
         } else {
             String::new()
@@ -190,7 +157,7 @@ pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
         bail!(
             "tile {zoom}/{col}/{row} needs more memory to decode than mlt-core's default \
              decoder budget allows, so it and any such tile at a lower zoom were not written; \
-             pass --min-zoom {fits}{max_zoom}"
+             pass --min-zoom {fits}{raise_max}"
         );
     }
 
@@ -198,19 +165,15 @@ pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
         eprintln!("No features with a geometry to tile in {}", input.display());
     } else if tiles_written == 0 {
         eprintln!(
-            "{}: none of its {} feature(s) spans a grid unit at zooms {}..={}, so no tile was written; raise --max-zoom",
+            "{}: none of its {} feature(s) spans a grid unit at zooms {min_zoom}..={max_zoom}, so no tile was written; raise --max-zoom",
             input.display(),
             sources.len(),
-            args.min_zoom,
-            args.max_zoom,
         );
     } else {
         eprintln!(
-            "{} -> {}: wrote {tiles_written} tile(s) holding {features_written} feature(s) at zooms {}..={}",
+            "{} -> {}: wrote {tiles_written} tile(s) holding {features_written} feature(s) at zooms {min_zoom}..={max_zoom}",
             input.display(),
             output.display(),
-            args.min_zoom,
-            args.max_zoom,
         );
     }
     Ok(())
@@ -302,6 +265,7 @@ fn clip_to_tile(src: &Source, zoom: u8, col: u32, row: u32) -> Option<Source> {
 struct Tiler<'a> {
     output: &'a Path,
     layer: &'a LayerSpec,
+    reencoder: &'a Reencoder,
     min_zoom: u8,
     max_zoom: u8,
 }
@@ -381,13 +345,21 @@ impl Tiler<'_> {
     /// Encode and write tile `(zoom, col, row)`. Returns `false`, writing nothing,
     /// when the tile needs more than the default decoder budget.
     fn write_tile(&self, zoom: u8, col: u32, row: u32, entries: Vec<Entry>) -> AnyResult<bool> {
-        let bytes = encode_tile(self.layer, entries)
-            .with_context(|| format!("encoding tile {zoom}/{col}/{row}"))?;
-        if !fits_default_decoder(&bytes)
-            .with_context(|| format!("decoding tile {zoom}/{col}/{row} back"))?
-        {
-            return Ok(false);
-        }
+        let checked = encode_tile(self.layer, self.reencoder, entries)
+            .with_context(|| format!("encoding tile {zoom}/{col}/{row}"))
+            .and_then(|bytes| {
+                // `--verify` has already decoded the tile with the default budget.
+                if !self.reencoder.verify {
+                    decode_with_default_budget(&bytes)
+                        .with_context(|| format!("decoding tile {zoom}/{col}/{row} back"))?;
+                }
+                Ok(bytes)
+            });
+        let bytes = match checked {
+            Ok(bytes) => bytes,
+            Err(e) if is_memory_limit(&e) => return Ok(false),
+            Err(e) => return Err(e),
+        };
         let dir = self.output.join(zoom.to_string()).join(col.to_string());
         fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
         let path = dir.join(format!("{row}.mlt"));
@@ -396,23 +368,33 @@ impl Tiler<'_> {
     }
 }
 
-/// Whether `bytes` decode into rows within the default memory budget, as a
-/// renderer reading the tile would decode them.
-fn fits_default_decoder(bytes: &[u8]) -> AnyResult<bool> {
-    let decoded = Parser::default().parse_layers(bytes).and_then(|layers| {
-        let mut dec = Decoder::default();
-        layers
-            .into_iter()
-            .try_for_each(|layer| layer.into_tile(&mut dec).map(drop))
-    });
-    match decoded {
-        Ok(()) => Ok(true),
-        Err(MltError::MemoryLimitExceeded { .. }) => Ok(false),
-        Err(e) => Err(e.into()),
-    }
+/// Whether `err` stems from a decoder running out of its memory budget.
+fn is_memory_limit(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        matches!(
+            cause.downcast_ref::<MltError>(),
+            Some(MltError::MemoryLimitExceeded { .. })
+        )
+    })
 }
 
-fn encode_tile(layer: &LayerSpec, entries: Vec<Entry>) -> AnyResult<Vec<u8>> {
+/// Decode `bytes` into rows within the default memory budget, as a renderer
+/// reading the tile would decode them.
+fn decode_with_default_budget(bytes: &[u8]) -> Result<(), MltError> {
+    let layers = Parser::default().parse_layers(bytes)?;
+    let mut dec = Decoder::default();
+    layers
+        .into_iter()
+        .try_for_each(|layer| layer.into_tile(&mut dec).map(drop))
+}
+
+/// Build the tile's layer and encode it the way every other `convert` input is,
+/// with the sort, tessellation, `--fields` and `--verify` settings of `reencoder`.
+fn encode_tile(
+    layer: &LayerSpec,
+    reencoder: &Reencoder,
+    entries: Vec<Entry>,
+) -> AnyResult<Vec<u8>> {
     let mut builder = TileLayer::builder(layer.name.clone(), EXTENT)?;
     if let Some(step) = layer.z_step {
         builder.set_z_step(step)?;
@@ -436,8 +418,7 @@ fn encode_tile(layer: &LayerSpec, entries: Vec<Entry>) -> AnyResult<Vec<u8>> {
         }
         feature.finish()?;
     }
-    let cfg = EncoderConfig::default().with_wire_version(WireVersion::V02);
-    Ok(builder.finish().encode(cfg)?)
+    reencoder.encode(builder.finish())
 }
 
 #[cfg(test)]

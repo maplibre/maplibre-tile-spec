@@ -2,8 +2,6 @@
 
 pub mod convert;
 pub mod dump;
-#[cfg(feature = "unstable-v2")]
-pub mod from_geojson;
 pub mod hexdump;
 pub mod ls;
 pub mod ui;
