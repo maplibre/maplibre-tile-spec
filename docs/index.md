@@ -15,7 +15,76 @@ That makes tiles smaller, see [Size](#size), fast to decode with SIMD, and cheap
 
 --8<-- "diagrams/why-mlt.svg"
 
-[MLT v2](specification/v2.md) adds m-values, 3D coordinates and properties whose values are lists or maps.
+MVT limits a feature to 2D vertices and single-value properties.
+Elevation and per-vertex values like lane count are lost, and lists or maps get flattened into columns like `name:en` and `name:de`.
+[MLT v2](specification/v2.md) removes these limits:
+
+--8<-- "diagrams/v2-feature.svg"
+
+!!! tip "MLT 0x03"
+    MLT 0x03, a 3D extension that expands these capabilities, is in the requirements engineering stage.
+    Join the MapLibre [Slack](https://maplibre.org/community/) to learn more and share your ideas.
+
+## Decoding speed
+
+Time to decode every property and geometry of the same sampled tiles, as a share of the time for gzipped MVT.
+Tiles are sampled at up to 5,000 per zoom level timed as the best of 15 runs on one core of an AMD Ryzen 9 3900.
+MVT is read with [fast-mvt](https://crates.io/crates/fast-mvt) (the fastest known MVT library) and MLT with `decode_all` (so no "unfair" gains from being lazy).
+
+=== "OpenMapTiles"
+
+    --8<-- "diagrams/decode-speed-omt.svg"
+
+    | Decode time | MVT | MVT + gzip | MLT v1 | MLT v1 + gzip | MLT v2 | MLT v2 + gzip |
+    |---|---:|---:|---:|---:|---:|---:|
+    | All tiles | 64% | 100% | 44% | 69% | 49% | 72% |
+    | Median tile | 40% | 100% | 53% | 117% | 56% | 115% |
+    | Largest 1% of tiles | 70% | 100% | 32% | 47% | 33% | 48% |
+
+    Decode time with one `mlt convert` option added, relative to the same MLT version without it (`-` where only v2 has the option):
+
+    | Added option | MLT v1 | MLT v2 |
+    |---|---:|---:|
+    | `--no-shared-dict` | +24% | +44% |
+    | `--no-fastpfor` | +17% | +16% |
+    | `--no-fsst` | -7% | -9% |
+    | `--sort none` | +1% | 0% |
+    | `--sort all` | +1% | +1% |
+    | `--no-alp` | - | 0% |
+    | `--no-float-dict` | - | 0% |
+    | `--packed-dict-codes` | - | -2% |
+    | `--delta2` | - | 0% |
+    | `--rans-vertices` | - | +15% |
+    | `--tessellate` | +25% | +13% |
+    | `--tessellate --triangles-only` | - | +9% |
+
+=== "Protomaps"
+
+    --8<-- "diagrams/decode-speed-protomaps.svg"
+
+    | Decode time | MVT | MVT + gzip | MLT v1 | MLT v1 + gzip | MLT v2 | MLT v2 + gzip |
+    |---|---:|---:|---:|---:|---:|---:|
+    | All tiles | 55% | 100% | 27% | 55% | 28% | 55% |
+    | Median tile | 38% | 100% | 50% | 116% | 51% | 111% |
+    | Largest 1% of tiles | 57% | 100% | 18% | 38% | 18% | 39% |
+
+    Decode time with one `mlt convert` option added, relative to the same MLT version without it (`-` where only v2 has the option):
+
+    | Added option | MLT v1 | MLT v2 |
+    |---|---:|---:|
+    | `--no-shared-dict` | +2% | +3% |
+    | `--no-fastpfor` | +100% | +98% |
+    | `--no-fsst` | 0% | -2% |
+    | `--sort none` | +1% | +1% |
+    | `--sort all` | 0% | +1% |
+    | `--no-alp` | - | 0% |
+    | `--no-float-dict` | - | 0% |
+    | `--packed-dict-codes` | - | 0% |
+    | `--delta2` | - | +1% |
+    | `--rans-vertices` | - | +89% |
+    | `--tessellate` | +141% | +66% |
+    | `--tessellate --triangles-only` | - | +57% |
+
 
 ## Size
 

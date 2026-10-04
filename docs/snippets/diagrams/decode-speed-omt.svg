@@ -1,0 +1,21 @@
+<svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="OpenMapTiles: MVT 64%, MVT + gzip 100%, MLT v1 44%, MLT v1 + gzip 69%, MLT v2 49%, MLT v2 + gzip 72% of the decode time of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
+<path class="implicit" d="M570.0 4V214"/>
+<text class="row" x="0" y="19">MVT</text>
+<rect class="plain" x="130" y="8" width="280.9" height="22" rx="3"/>
+<text class="halo" x="418.9" y="19"><tspan class="bold">64%</tspan><tspan class="muted small"> 1.6x as fast</tspan></text>
+<text class="row" x="0" y="53">MVT + gzip</text>
+<rect class="plain" x="130" y="42" width="440.0" height="22" rx="3"/>
+<text class="halo" x="578.0" y="53"><tspan class="bold">100%</tspan></text>
+<text class="row" x="0" y="87">MLT v1</text>
+<rect class="f0" x="130" y="76" width="193.1" height="22" rx="3"/>
+<text class="halo" x="331.1" y="87"><tspan class="bold">44%</tspan><tspan class="muted small"> 2.3x as fast</tspan></text>
+<text class="row" x="0" y="121">MLT v1 + gzip</text>
+<rect class="f0" x="130" y="110" width="305.3" height="22" rx="3"/>
+<text class="halo" x="443.3" y="121"><tspan class="bold">69%</tspan><tspan class="muted small"> 1.4x as fast</tspan></text>
+<text class="row" x="0" y="155">MLT v2</text>
+<rect class="f1" x="130" y="144" width="214.9" height="22" rx="3"/>
+<text class="halo" x="352.9" y="155"><tspan class="bold">49%</tspan><tspan class="muted small"> 2.0x as fast</tspan></text>
+<text class="row" x="0" y="189">MLT v2 + gzip</text>
+<rect class="f1" x="130" y="178" width="318.8" height="22" rx="3"/>
+<text class="halo" x="456.8" y="189"><tspan class="bold">72%</tspan><tspan class="muted small"> 1.4x as fast</tspan></text>
+</svg>
