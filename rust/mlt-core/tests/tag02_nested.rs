@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::{Coord, Geometry, LineString, Point};
+use mlt_core::wire::ColumnStorage;
 use mlt_core::{
     Decoder, Layer, MltError, NestedKind, NestedValue, Parser, PropKind, PropValue, TileLayer,
 };
@@ -127,6 +128,99 @@ fn nested_layer(
 
 fn two_points() -> Vec<Geometry<i32>> {
     vec![point(0, 0), point(1, 1)]
+}
+
+fn walked(bytes: &[u8]) -> (usize, Vec<ColumnStorage>) {
+    let layers = Parser::default().parse_layers(bytes).expect("parse");
+    let Layer::Tag02(layer) = layers.into_iter().next().expect("a layer") else {
+        panic!("expected a v2 layer")
+    };
+    let mut streams = 0;
+    layer.for_each_stream(&mut |_| streams += 1);
+    let mut storages = Vec::new();
+    layer.for_each_column_storage(&mut |storage| storages.push(storage));
+    (streams, storages)
+}
+
+#[test]
+fn walking_a_nested_layer_reports_its_streams_and_string_storage() {
+    let cases = [
+        (
+            "struct",
+            map_kind(&[("a", leaf(PropKind::Str)), ("b", leaf(PropKind::I32))]),
+            entries(&[("a", str_value("x")), ("b", i32_value(1))]),
+        ),
+        (
+            "list",
+            NestedKind::list(leaf(PropKind::Str)),
+            NestedValue::list([str_value("x"), str_value("y")]),
+        ),
+        (
+            "map",
+            map_kind(&[("a", leaf(PropKind::Str)), ("b", leaf(PropKind::Str))]),
+            entries(&[("a", str_value("x")), ("b", str_value("y"))]),
+        ),
+    ];
+    let walks: Vec<_> = cases
+        .into_iter()
+        .map(|(name, kind, value)| {
+            let layer = nested_layer(kind, &two_points(), &[value.clone(), value]);
+            let bytes = layer.encode(cfg_row_shapes()).expect("v2 encode");
+            (name, walked(&bytes))
+        })
+        .collect();
+    insta::assert_debug_snapshot!(walks, @r#"
+    [
+        (
+            "struct",
+            (
+                4,
+                [
+                    ColumnStorage {
+                        string: Some(
+                            Plain,
+                        ),
+                        dictionary: None,
+                    },
+                ],
+            ),
+        ),
+        (
+            "list",
+            (
+                4,
+                [
+                    ColumnStorage {
+                        string: Some(
+                            Plain,
+                        ),
+                        dictionary: None,
+                    },
+                ],
+            ),
+        ),
+        (
+            "map",
+            (
+                5,
+                [
+                    ColumnStorage {
+                        string: Some(
+                            Plain,
+                        ),
+                        dictionary: None,
+                    },
+                    ColumnStorage {
+                        string: Some(
+                            Plain,
+                        ),
+                        dictionary: None,
+                    },
+                ],
+            ),
+        ),
+    ]
+    "#);
 }
 
 #[test]
