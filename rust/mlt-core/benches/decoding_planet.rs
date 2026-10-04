@@ -93,10 +93,18 @@ fn main() {
                 let (z, tiles) = read_pack(path);
                 if let Some(first) = encodings.first() {
                     let first: &Encoding = first;
-                    assert_eq!(first.tiles.len(), tiles.len(), "{name} has a different tile count");
+                    assert_eq!(
+                        first.tiles.len(),
+                        tiles.len(),
+                        "{name} has a different tile count"
+                    );
                 }
                 zooms = z;
-                encodings.push(Encoding { name: name.to_owned(), kind, tiles });
+                encodings.push(Encoding {
+                    name: name.to_owned(),
+                    kind,
+                    tiles,
+                });
             }
         }
     }
@@ -124,10 +132,23 @@ fn main() {
     }
     json.push_str("],\n  \"tiles\": [\n");
     for (t, row) in best.iter().enumerate() {
-        let ns = row.iter().map(|d| d.as_nanos().to_string()).collect::<Vec<_>>().join(", ");
-        let bytes = encodings.iter().map(|e| e.tiles[t].len().to_string()).collect::<Vec<_>>().join(", ");
+        let ns = row
+            .iter()
+            .map(|d| d.as_nanos().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let bytes = encodings
+            .iter()
+            .map(|e| e.tiles[t].len().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
         let comma = if t + 1 == n_tiles { "" } else { "," };
-        writeln!(json, "    {{\"z\": {}, \"ns\": [{ns}], \"bytes\": [{bytes}]}}{comma}", zooms[t]).unwrap();
+        writeln!(
+            json,
+            "    {{\"z\": {}, \"ns\": [{ns}], \"bytes\": [{bytes}]}}{comma}",
+            zooms[t]
+        )
+        .unwrap();
     }
     json.push_str("  ]\n}\n");
     match out {
