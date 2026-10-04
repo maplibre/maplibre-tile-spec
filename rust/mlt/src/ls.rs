@@ -786,8 +786,11 @@ fn collect_from_dir<F>(
 where
     F: Fn(&Path) -> bool,
 {
-    for entry in fs::read_dir(dir)? {
-        let path = entry?.path();
+    let mut paths = fs::read_dir(dir)?
+        .map(|entry| entry.map(|e| e.path()))
+        .collect::<Result<Vec<_>, _>>()?;
+    paths.sort();
+    for path in paths {
         if path.is_file() {
             if !exclude_set.is_some_and(|s| s.is_match(&path)) && matches_ext(&path) {
                 files.push(path);
