@@ -143,84 +143,81 @@ fn walked(bytes: &[u8]) -> (usize, Vec<ColumnStorage>) {
 }
 
 #[test]
-fn walking_a_nested_layer_reports_its_streams_and_string_storage() {
-    let cases = [
-        (
-            "struct",
-            map_kind(&[("a", leaf(PropKind::Str)), ("b", leaf(PropKind::I32))]),
-            entries(&[("a", str_value("x")), ("b", i32_value(1))]),
-        ),
-        (
-            "list",
-            NestedKind::list(leaf(PropKind::Str)),
-            NestedValue::list([str_value("x"), str_value("y")]),
-        ),
-        (
-            "map",
-            map_kind(&[("a", leaf(PropKind::Str)), ("b", leaf(PropKind::Str))]),
-            entries(&[("a", str_value("x")), ("b", str_value("y"))]),
-        ),
-    ];
-    let walks: Vec<_> = cases
-        .into_iter()
-        .map(|(name, kind, value)| {
-            let layer = nested_layer(kind, &two_points(), &[value.clone(), value]);
-            let bytes = layer.encode(cfg_row_shapes()).expect("v2 encode");
-            (name, walked(&bytes))
-        })
-        .collect();
-    insta::assert_debug_snapshot!(walks, @r#"
-    [
-        (
-            "struct",
-            (
-                4,
-                [
-                    ColumnStorage {
-                        string: Some(
-                            Plain,
-                        ),
-                        dictionary: None,
-                    },
-                ],
-            ),
-        ),
-        (
-            "list",
-            (
-                4,
-                [
-                    ColumnStorage {
-                        string: Some(
-                            Plain,
-                        ),
-                        dictionary: None,
-                    },
-                ],
-            ),
-        ),
-        (
-            "map",
-            (
-                5,
-                [
-                    ColumnStorage {
-                        string: Some(
-                            Plain,
-                        ),
-                        dictionary: None,
-                    },
-                    ColumnStorage {
-                        string: Some(
-                            Plain,
-                        ),
-                        dictionary: None,
-                    },
-                ],
-            ),
-        ),
-    ]
-    "#);
+fn a_struct_layer_reports_four_streams_and_one_plain_string_column() {
+    let kind = map_kind(&[("a", leaf(PropKind::Str)), ("b", leaf(PropKind::I32))]);
+    let value = entries(&[("a", str_value("x")), ("b", i32_value(1))]);
+    let layer = nested_layer(kind, &two_points(), &[value.clone(), value]);
+    let bytes = layer.encode(cfg_row_shapes()).expect("v2 encode");
+
+    let walked = walked(&bytes);
+
+    insta::assert_debug_snapshot!(walked, @"
+    (
+        4,
+        [
+            ColumnStorage {
+                string: Some(
+                    Plain,
+                ),
+                dictionary: None,
+            },
+        ],
+    )
+    ");
+}
+
+#[test]
+fn a_list_layer_reports_four_streams_and_one_plain_string_column() {
+    let kind = NestedKind::list(leaf(PropKind::Str));
+    let value = NestedValue::list([str_value("x"), str_value("y")]);
+    let layer = nested_layer(kind, &two_points(), &[value.clone(), value]);
+    let bytes = layer.encode(cfg_row_shapes()).expect("v2 encode");
+
+    let walked = walked(&bytes);
+
+    insta::assert_debug_snapshot!(walked, @"
+    (
+        4,
+        [
+            ColumnStorage {
+                string: Some(
+                    Plain,
+                ),
+                dictionary: None,
+            },
+        ],
+    )
+    ");
+}
+
+#[test]
+fn a_map_layer_reports_five_streams_and_two_plain_string_columns() {
+    let kind = map_kind(&[("a", leaf(PropKind::Str)), ("b", leaf(PropKind::Str))]);
+    let value = entries(&[("a", str_value("x")), ("b", str_value("y"))]);
+    let layer = nested_layer(kind, &two_points(), &[value.clone(), value]);
+    let bytes = layer.encode(cfg_row_shapes()).expect("v2 encode");
+
+    let walked = walked(&bytes);
+
+    insta::assert_debug_snapshot!(walked, @"
+    (
+        5,
+        [
+            ColumnStorage {
+                string: Some(
+                    Plain,
+                ),
+                dictionary: None,
+            },
+            ColumnStorage {
+                string: Some(
+                    Plain,
+                ),
+                dictionary: None,
+            },
+        ],
+    )
+    ");
 }
 
 #[test]
