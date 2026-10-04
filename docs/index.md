@@ -47,9 +47,9 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | MLT v1 | 1.48x | 1.03x |
     | MLT v2 | 1.51x | 1.07x |
 
-    Each `mlt convert` option changes the planet size by:
+    Planet size with one `mlt convert` option added, relative to the same MLT version without it (no gzip, `-` where only v2 has the option):
 
-    | Option | MLT v1 | MLT v2 |
+    | Added option | MLT v1 | MLT v2 |
     |---|---:|---:|
     | `--no-shared-dict` | +0.8% | +0.8% |
     | `--no-fastpfor` | +2.9% | +3.4% |
@@ -82,9 +82,9 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | MLT v1 | 2.12x | 1.22x |
     | MLT v2 | 2.27x | 1.29x |
 
-    Each `mlt convert` option changes the planet size by:
+    Planet size with one `mlt convert` option added, relative to the same MLT version without it (no gzip, `-` where only v2 has the option):
 
-    | Option | MLT v1 | MLT v2 |
+    | Added option | MLT v1 | MLT v2 |
     |---|---:|---:|
     | `--no-shared-dict` | +25.4% | +25.3% |
     | `--no-fastpfor` | +2.6% | +3.1% |
