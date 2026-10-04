@@ -4,10 +4,9 @@
 use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
-use probabilistic_collections::SipHasherBuilder;
-use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 use usize_cast::IntoUsize as _;
+use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MltError::DictIndexOutOfBounds;
 use crate::codecs::fsst::compress_fsst_with;
@@ -21,7 +20,7 @@ use crate::tile::{PropValue, TileLayer};
 use crate::utils::{checked_sum3, strings_to_lengths};
 use crate::{ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
 
-/// Number of [`MinHash`] permutations. 128 gives ~9 % error on Jaccard estimates.
+/// Number of `MinHash` permutations. 128 gives ~9 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
 
 /// String columns whose estimated Jaccard similarity exceeds this threshold are
@@ -50,58 +49,48 @@ impl TileLayer {
     /// Compute which string columns can be merged into a shared dict.
     #[hotpath::measure]
     pub(crate) fn group_string_properties(&self, properties: &mut [PropertyStats]) {
-        let exact_mh = MinHash::with_hashers(
-            MINHASH_PERMUTATIONS,
-            [
-                SipHasherBuilder::from_seed(0, 0),
-                SipHasherBuilder::from_seed(1, 1),
-            ],
-        );
-        let trigram_mh = MinHash::with_hashers(
-            MINHASH_PERMUTATIONS,
-            [
-                SipHasherBuilder::from_seed(0, 0),
-                SipHasherBuilder::from_seed(1, 1),
-            ],
-        );
-
-        let profiles: Vec<StringProfile<'_>> = self
-            .property_names()
-            .iter()
-            .enumerate()
-            .filter_map(|(col_idx, name)| {
-                let mut vals: Vec<&str> = self
-                    .features()
-                    .iter()
-                    .filter_map(|f| match f.properties().get(col_idx) {
-                        Some(PropValue::Str(Some(s))) => Some(s.as_str()),
-                        _ => None,
+        let mut trigrams = Vec::<u32>::new();
+        let profiles: Vec<StringProfile<'_>> = hotpath::measure_block!(
+            "shared_dict::build_profiles",
+            self.property_names()
+                .iter()
+                .enumerate()
+                .filter_map(|(col_idx, name)| {
+                    let mut vals: Vec<&str> = self
+                        .features()
+                        .iter()
+                        .filter_map(|f| match f.properties().get(col_idx) {
+                            Some(PropValue::Str(Some(s))) => Some(s.as_str()),
+                            _ => None,
+                        })
+                        .collect();
+                    if vals.is_empty() {
+                        return None;
+                    }
+                    vals.sort_unstable();
+                    vals.dedup();
+                    let exact_hashes = min_hashes(vals.iter().map(|s| xxh3_64(s.as_bytes())));
+                    trigrams.clear();
+                    trigrams.extend(vals.iter().flat_map(|s| {
+                        s.as_bytes()
+                            .windows(3)
+                            .map(|w| u32::from(w[0]) << 16 | u32::from(w[1]) << 8 | u32::from(w[2]))
+                    }));
+                    trigrams.sort_unstable();
+                    trigrams.dedup();
+                    let trigram_hashes = min_hashes(trigrams.iter().map(|&t| mix64(t.into())));
+                    Some(StringProfile {
+                        col_idx,
+                        name,
+                        unique_values: vals,
+                        exact_hashes,
+                        trigram_hashes,
                     })
-                    .collect();
-                if vals.is_empty() {
-                    return None;
-                }
-                vals.sort_unstable();
-                vals.dedup();
-                let exact_hashes = exact_mh.get_min_hashes(vals.iter().copied());
-                let trigrams: Vec<[u8; 3]> = vals
-                    .iter()
-                    .flat_map(|s| s.as_bytes().windows(3).map(|w| [w[0], w[1], w[2]]))
-                    .collect();
-                let trigram_hashes = if trigrams.is_empty() {
-                    Vec::new()
-                } else {
-                    trigram_mh.get_min_hashes(trigrams.into_iter())
-                };
-                Some(StringProfile {
-                    col_idx,
-                    name,
-                    unique_values: vals,
-                    exact_hashes,
-                    trigram_hashes,
                 })
-            })
-            .collect();
+                .collect()
+        );
+        hotpath::gauge!("shared_dict::profiles")
+            .set(f64::from(u32::try_from(profiles.len()).unwrap_or(u32::MAX)));
 
         for group in cluster_by_similarity(profiles) {
             debug_assert!(
@@ -122,6 +111,30 @@ impl TileLayer {
     }
 }
 
+/// `SplitMix64` finalizer.
+const fn mix64(mut x: u64) -> u64 {
+    x = (x ^ (x >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    x ^ (x >> 31)
+}
+
+/// `MinHash` signature of pre-hashed elements via double hashing, empty when there are none.
+fn min_hashes(hashes: impl Iterator<Item = u64>) -> Vec<u64> {
+    let mut mins = [u64::MAX; MINHASH_PERMUTATIONS];
+    let mut any = false;
+    for h in hashes {
+        any = true;
+        let h1 = mix64(h);
+        let h2 = mix64(h1) | 1;
+        let mut v = h1;
+        for m in &mut mins {
+            *m = (*m).min(v);
+            v = v.wrapping_add(h2);
+        }
+    }
+    if any { mins.to_vec() } else { Vec::new() }
+}
+
 /// Estimate Jaccard similarity from two `MinHash` signature vectors.
 #[allow(clippy::cast_precision_loss)]
 fn minhash_similarity(a: &[u64], b: &[u64]) -> f64 {
@@ -135,6 +148,7 @@ fn minhash_similarity(a: &[u64], b: &[u64]) -> f64 {
 /// Whether a shared-dictionary group has enough cross-column value dedup to justify combining.
 /// Groups below [`VALIDATE_CORPUS_THRESHOLD`] are always kept; larger ones need [`MIN_DEDUP_RATIO`] savings.
 #[allow(clippy::cast_precision_loss)]
+#[hotpath::measure]
 fn group_is_beneficial(group: &[StringProfile<'_>]) -> bool {
     let sum_individual: usize = group
         .iter()
@@ -157,6 +171,7 @@ fn group_is_beneficial(group: &[StringProfile<'_>]) -> bool {
     dedup_savings as f64 / sum_individual as f64 >= MIN_DEDUP_RATIO
 }
 
+#[hotpath::measure]
 fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProfile<'_>>> {
     if profiles.is_empty() {
         return Vec::new();

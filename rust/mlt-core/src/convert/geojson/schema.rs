@@ -13,8 +13,9 @@ use crate::{MltError, MltResult};
 ///
 /// `GeoJSON` properties are dynamically typed, so each column's kind is
 /// inferred from every value it holds with the MVT importer's rules: signed
-/// and unsigned integers widen to `I64`, and any other conflict falls back to
-/// `Str`, as does a column that is only ever `null`. Nested arrays and objects
+/// and unsigned integers widen to `I64`, integers mixed with floats widen to
+/// `F64`, and any other conflict falls back to `Str`, as does a column that is
+/// only ever `null`. Nested arrays and objects
 /// are rejected.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PropertySchema {

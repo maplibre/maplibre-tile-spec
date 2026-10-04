@@ -13,6 +13,7 @@
 use std::collections::BTreeMap;
 
 use crate::decoder::GeometryValues;
+use crate::encoder::geometry::coord_count;
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::optimizer::{LayerStats, Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict};
@@ -68,6 +69,10 @@ impl StagedLayer {
         } else {
             GeometryValues::default()
         };
+        geometry.reserve(
+            features.len(),
+            features.iter().map(|f| coord_count(f.geometry())).sum(),
+        );
         for f in &features {
             geometry.push_geom(f.geometry());
         }
@@ -103,7 +108,7 @@ impl StagedLayer {
                         shared_cols,
                         &property_names,
                         stats,
-                        &mut features,
+                        &features,
                     ));
                 }
                 SharedDictRole::Member(_) => {}
@@ -455,19 +460,18 @@ fn build_shared_dict(
     shared_dict_columns: &[usize],
     property_names: &[String],
     analysis: &LayerStats,
-    features: &mut [TileFeature],
+    features: &[TileFeature],
 ) -> StagedProperty {
     debug_assert_eq!(shared_dict_columns.first(), Some(&owner_col));
     let columns = shared_dict_columns.iter().copied().map(|col_idx| {
         let name = &property_names[col_idx];
         let suffix = name.strip_prefix(prefix).unwrap_or(name).to_owned();
-        let values: Vec<Option<String>> = features
-            .iter_mut()
-            .map(|f| match f.properties_mut().get_mut(col_idx) {
-                Some(PropValue::Str(s)) => s.take(),
+        let values = features
+            .iter()
+            .map(move |f| match f.properties().get(col_idx) {
+                Some(PropValue::Str(s)) => s.as_deref(),
                 _ => None,
-            })
-            .collect();
+            });
         let presence = analysis.properties[col_idx].presence;
         (suffix, values, presence)
     });

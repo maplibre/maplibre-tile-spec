@@ -104,9 +104,8 @@ impl PhysicalCodecs {
     }
 
     pub(crate) fn fastpfor(&mut self, kind: FastPForKind, values: &[u32]) -> MltResult<&[u8]> {
-        self.u8_tmp.clear();
+        self.u32_tmp.clear();
         if !values.is_empty() {
-            self.u32_tmp.clear();
             match kind {
                 FastPForKind::Block256Be => {
                     self.fastpfor256.encode(values, &mut self.u32_tmp)?;
@@ -118,9 +117,8 @@ impl PhysicalCodecs {
                 #[cfg(feature = "unstable-v2")]
                 FastPForKind::Block128Le => self.fastpfor128.encode(values, &mut self.u32_tmp)?,
             }
-            self.u8_tmp.extend_from_slice(cast_slice(&self.u32_tmp));
         }
-        Ok(&self.u8_tmp)
+        Ok(cast_slice(&self.u32_tmp))
     }
 
     /// Physically encode and write stream to the output.

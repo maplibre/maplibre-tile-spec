@@ -19,8 +19,9 @@ pub(crate) enum InferredKind {
 }
 
 impl InferredKind {
-    /// Merge with another kind: `I64`+`U64` widen to `I64`, `F32`+`F64` widen
-    /// to `F64`, and any other conflict falls back to `Str`.
+    /// Merge with another kind: `I64`+`U64` widen to `I64`, floats widen to
+    /// `F64`, integers mixed with floats widen to `F64`, and any other conflict
+    /// falls back to `Str`.
     pub fn merge(self, other: Self) -> Self {
         if self == Self::Unknown {
             return other;
@@ -28,9 +29,16 @@ impl InferredKind {
         if other == Self::Unknown || self == other {
             return self;
         }
+        #[expect(clippy::match_same_arms)]
         match (self, other) {
-            (Self::I64, Self::U64) | (Self::U64, Self::I64) => Self::I64,
-            (Self::F32, Self::F64) | (Self::F64, Self::F32) => Self::F64,
+            // Signed and unsigned integers share a signed column.
+            (Self::I64 | Self::U64, Self::I64 | Self::U64) => Self::I64,
+            // Every f32 is exactly representable as f64.
+            (Self::F32 | Self::F64, Self::F32 | Self::F64) => Self::F64,
+            // Integers mixed with floats are most likely whole-number values of a float column
+            // that the encoder wrote as integers, so the column stays a float.
+            (Self::I64 | Self::U64, Self::F32 | Self::F64)
+            | (Self::F32 | Self::F64, Self::I64 | Self::U64) => Self::F64,
             _ => Self::Str,
         }
     }
@@ -58,15 +66,25 @@ pub(crate) struct ColumnInference<'a> {
 impl<'a> ColumnInference<'a> {
     /// Record a value of `kind` in column `name`, returning the column's index.
     pub fn observe(&mut self, name: &'a str, kind: InferredKind) -> usize {
-        let idx = *self.index.entry(name).or_insert_with(|| {
+        let idx = self.column(name);
+        self.merge(idx, kind);
+        idx
+    }
+
+    /// The index of column `name`, adding it on first sight.
+    pub fn column(&mut self, name: &'a str) -> usize {
+        *self.index.entry(name).or_insert_with(|| {
             self.names.push(name.to_string());
             self.kinds.push(InferredKind::Unknown);
             self.names.len() - 1
-        });
+        })
+    }
+
+    /// Record a value of `kind` in the column at `idx`.
+    pub fn merge(&mut self, idx: usize, kind: InferredKind) {
         // One bounds check rather than one per index expression.
         let slot = &mut self.kinds[idx];
         *slot = slot.merge(kind);
-        idx
     }
 
     /// The column names and their resolved kinds, in first-seen order.

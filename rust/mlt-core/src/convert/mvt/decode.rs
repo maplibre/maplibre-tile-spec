@@ -2,8 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use fast_mvt::{MvtLayer, MvtLayerRef, MvtReaderRef, MvtValue, MvtValueRef};
+use fast_mvt::{MvtError, MvtLayer, MvtLayerRef, MvtReaderRef, MvtValue, MvtValueRef};
 use serde_json::Value;
+use usize_cast::IntoUsize as _;
 
 use crate::convert::infer::{ColumnInference, InferredKind};
 use crate::geojson::{Feature, FeatureCollection};
@@ -52,8 +53,9 @@ pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCol
 ///
 /// Each MVT layer becomes one [`TileLayer`].  Property column types are inferred
 /// from all features in the layer: the first non-null value seen for each column
-/// determines its type, with `I64`+`U64` widened to `I64` and `F32`+`F64` widened
-/// to `F64`; all other type conflicts fall back to `Str`.
+/// determines its type, with `I64`+`U64` widened to `I64`, and `F32`+`F64` or any
+/// integer+float mix widened to `F64` (integers beyond 2^53 lose precision); all
+/// other type conflicts fall back to `Str`.
 pub fn mvt_to_tile_layers(data: impl AsRef<[u8]>) -> MltResult<Vec<TileLayer>> {
     MvtReaderRef::new(data.as_ref())?
         .layers()
@@ -62,6 +64,7 @@ pub fn mvt_to_tile_layers(data: impl AsRef<[u8]>) -> MltResult<Vec<TileLayer>> {
 }
 
 /// Build a [`TileLayer`] straight from the borrowed reader.
+#[hotpath::measure]
 fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
     let name = layer.name();
     if name.is_empty() {
@@ -69,33 +72,47 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
     }
 
     // First pass: collect property names (insertion-ordered) and infer column types.
+    let keys = layer.keys();
+    let table: Vec<MvtValueRef<'_>> = layer.values().collect();
     let mut columns = ColumnInference::default();
-    // Each value with its column, so the second pass resolves no keys.
-    let mut values: Vec<(usize, MvtValueRef<'_>)> = Vec::new();
-    let mut feature_ends: Vec<usize> = Vec::with_capacity(layer.feature_count());
+    // The column of each key-table entry, so no property is looked up by name.
+    let mut key_cols: Vec<Option<usize>> = vec![None; keys.len()];
 
     for feat in layer.features() {
-        for prop in feat.properties() {
-            let (key, value) = prop?;
-            values.push((columns.observe(key, kind_of(value)), value));
+        for pair in feat.tags().chunks(2) {
+            let &[key_idx, value_idx] = pair else {
+                return Err(MvtError::InvalidTagsLength(pair.len()).into());
+            };
+            let (Some(&key), Some(slot)) = (
+                keys.get(key_idx.into_usize()),
+                key_cols.get_mut(key_idx.into_usize()),
+            ) else {
+                return Err(MvtError::InvalidKeyIndex(key_idx).into());
+            };
+            let Some(&value) = table.get(value_idx.into_usize()) else {
+                return Err(MvtError::InvalidValueIndex(value_idx).into());
+            };
+            let idx = *slot.get_or_insert_with(|| columns.column(key));
+            columns.merge(idx, kind_of(value));
         }
-        feature_ends.push(values.len());
     }
     let (col_names, col_kinds) = columns.finish();
 
     // Second pass: build TileFeature objects.
     let mut tile_features = Vec::with_capacity(layer.feature_count());
-    let mut start = 0;
-    for (feat, &end) in layer.features().zip(&feature_ends) {
+    for feat in layer.features() {
         // Start every slot with a typed null; fill in present values below.
         let mut properties: Vec<PropValue> =
             col_kinds.iter().map(|&k| PropValue::null(k)).collect();
-        for &(idx, value) in &values[start..end] {
+        let (pairs, _) = feat.tags().as_chunks::<2>();
+        for pair in pairs {
+            let value = table[pair[1].into_usize()];
             if !matches!(value, MvtValueRef::Null) {
+                let idx =
+                    key_cols[pair[0].into_usize()].expect("the first pass resolved every key");
                 properties[idx] = convert(col_kinds[idx], value.into_owned());
             }
         }
-        start = end;
         tile_features.push(TileFeature {
             id: feat.id(),
             geometry: feat.geometry()?,
@@ -202,6 +219,16 @@ fn convert(kind: PropKind, val: MvtValue) -> PropValue {
         (PropKind::F32, MvtValue::Float(f)) => PropValue::F32(Some(f)),
         (PropKind::F64, MvtValue::Double(f)) => PropValue::F64(Some(f)),
         (PropKind::F64, MvtValue::Float(f)) => PropValue::F64(Some(f64::from(f))),
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "integers in a float column are taken as floats"
+        )]
+        (PropKind::F64, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::F64(Some(i as f64)),
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "integers in a float column are taken as floats"
+        )]
+        (PropKind::F64, MvtValue::UInt(u)) => PropValue::F64(Some(u as f64)),
         (_, MvtValue::String(s)) => PropValue::Str(Some(s)),
         // A column that mixes types keeps every value as its text form.
         (_, MvtValue::Bool(b)) => PropValue::Str(Some(b.to_string())),
@@ -263,6 +290,27 @@ mod tests {
     #[case::double_then_float(
         vec![MvtValue::Double(2.5), MvtValue::Float(1.5)],
         vec![PropValue::F64(Some(2.5)), PropValue::F64(Some(1.5))],
+    )]
+    #[case::double_then_int(
+        vec![MvtValue::Double(2.5), MvtValue::Int(-3)],
+        vec![PropValue::F64(Some(2.5)), PropValue::F64(Some(-3.0))],
+    )]
+    #[case::sint_then_float(
+        vec![MvtValue::SInt(-3), MvtValue::Float(1.5)],
+        vec![PropValue::F64(Some(-3.0)), PropValue::F64(Some(1.5))],
+    )]
+    #[case::uint_then_float(
+        vec![MvtValue::UInt(7), MvtValue::Float(1.5)],
+        vec![PropValue::F64(Some(7.0)), PropValue::F64(Some(1.5))],
+    )]
+    #[case::unsigned_signed_then_double(
+        vec![MvtValue::UInt(u64::MAX), MvtValue::SInt(-1), MvtValue::Double(0.5)],
+        vec![
+            // u64::MAX rounds to 2^64.
+            PropValue::F64(Some(2f64.powi(64))),
+            PropValue::F64(Some(-1.0)),
+            PropValue::F64(Some(0.5)),
+        ],
     )]
     #[case::bool_only(
         vec![MvtValue::Bool(true), MvtValue::Bool(false)],

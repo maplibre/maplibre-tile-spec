@@ -79,6 +79,7 @@ thiserror.workspace = true
 union-find.workspace = true
 usize_cast.workspace = true
 wide.workspace = true
+xxhash-rust.workspace = true
 zigzag.workspace = true
 
 [dev-dependencies]
