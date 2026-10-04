@@ -15,7 +15,7 @@ MLT is natively supported by [MapLibre GL JS](https://maplibre.org/maplibre-gl-j
 
 MLT is mainly inspired by MVT, but has been redesigned from the ground up to improve the following areas:
 
-- **Improved compression ratio** - a planet of MLT v2 tiles is 4-7% smaller than gzipped MVT (10-19% with gzip on top), and its largest tiles are 1.5-2.3x smaller than uncompressed MVT ([Size](#size)), based on a column oriented layout with (custom) lightweight encodings
+- **Improved compression ratio** - a planet of MLT v2 tiles is 4-7% smaller than gzipped MVT (10-19% with gzip on top), and its largest tiles are 1.6-2.2x smaller than uncompressed MVT ([Size](#size)), based on a column oriented layout with (custom) lightweight encodings
 - **Better decoding performance** - fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
 - **Support for linear referencing and m-values** to efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)
 - **Support 3D coordinates**, i.e. elevation
@@ -40,12 +40,12 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | 99th percentile tile | 12.3 kB | 11.9 kB | 10.8 kB | 11.4 kB | 10.6 kB |
     | Largest tile | 485.9 kB | 473.1 kB | 450.8 kB | 473.9 kB | 449.9 kB |
 
-    The median tile among the largest 1% (from 16 kB as MVT) is this many times smaller:
+    The median tile among the largest 1% (from 18 kB as MVT) is this many times smaller:
 
     | | vs MVT | vs MVT + gzip |
     |---|---:|---:|
-    | MLT v1 | 1.48x | 1.03x |
-    | MLT v2 | 1.51x | 1.07x |
+    | MLT v1 | 1.58x | 1.05x |
+    | MLT v2 | 1.65x | 1.10x |
 
     Planet size with one `mlt convert` option added, relative to the same MLT version without it (no gzip, `-` where only v2 has the option):
 
@@ -75,12 +75,12 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | 99th percentile tile | 18.4 kB | 16.4 kB | 14.0 kB | 15.4 kB | 13.6 kB |
     | Largest tile | 727.9 kB | 570.5 kB | 497.6 kB | 550.3 kB | 486.1 kB |
 
-    The median tile among the largest 1% (from 30 kB as MVT) is this many times smaller:
+    The median tile among the largest 1% (from 31 kB as MVT) is this many times smaller:
 
     | | vs MVT | vs MVT + gzip |
     |---|---:|---:|
-    | MLT v1 | 2.12x | 1.22x |
-    | MLT v2 | 2.27x | 1.29x |
+    | MLT v1 | 2.13x | 1.21x |
+    | MLT v2 | 2.24x | 1.27x |
 
     Planet size with one `mlt convert` option added, relative to the same MLT version without it (no gzip, `-` where only v2 has the option):
 
