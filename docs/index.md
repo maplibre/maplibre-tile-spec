@@ -15,7 +15,15 @@ That makes tiles smaller, see [Size](#size), fast to decode with SIMD, and cheap
 
 --8<-- "diagrams/why-mlt.svg"
 
-[MLT v2](specification/v2.md) adds m-values, 3D coordinates and properties whose values are lists or maps.
+MVT limits a feature to 2D vertices and single-value properties.
+Elevation and per-vertex values like lane count are lost, and lists or maps get flattened into columns like `name:en` and `name:de`.
+[MLT v2](specification/v2.md) removes these limits:
+
+--8<-- "diagrams/v2-feature.svg"
+
+!!! tip "MLT 0x03"
+    MLT 0x03, a 3D extension that expands these capabilities, is in the requirements engineering stage.
+    Join the MapLibre [Slack](https://maplibre.org/community/) to learn more and share your ideas.
 
 ## Decoding speed
 
