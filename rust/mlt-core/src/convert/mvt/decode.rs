@@ -239,6 +239,7 @@ impl InferredType {
         if other == Self::Unknown || self == other {
             return self;
         }
+        #[expect(clippy::match_same_arms)]
         match (self, other) {
             // Signed and unsigned integers share a signed column.
             (Self::I64 | Self::U64, Self::I64 | Self::U64) => Self::I64,
