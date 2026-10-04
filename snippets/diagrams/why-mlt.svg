@@ -1,0 +1,46 @@
+<svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="Three columns stored with one encoding each: ids as delta and run-length, geometry as deltas, class as run-length" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">values</text>
+<text class="row" x="0" y="124">stored</text>
+<text class="muted small mid" x="218" y="14">id</text>
+<path class="bracket" d="M130 34V28H306V34"/>
+<rect class="f0" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="54">1</text>
+<rect class="f0" x="190" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="218" y="54">2</text>
+<rect class="f0" x="250" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="278" y="54">3</text>
+<path class="link" d="M218 72V108"/>
+<text class="muted small mid halo" x="218" y="90">delta + RLE</text>
+<rect class="f0" x="190" y="110" width="56" height="28" rx="3"/>
+<text class="cell" x="218" y="124">3×+1</text>
+<text class="muted small mid" x="410" y="14">geometry</text>
+<path class="bracket" d="M322 34V28H498V34"/>
+<rect class="f1" x="322" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="350" y="54">4096</text>
+<rect class="f1" x="382" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="410" y="54">4101</text>
+<rect class="f1" x="442" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="470" y="54">4107</text>
+<path class="link" d="M410 72V108"/>
+<text class="muted small mid halo" x="410" y="90">delta</text>
+<rect class="f1" x="350" y="110" width="56" height="28" rx="3"/>
+<text class="cell" x="378" y="124">4096</text>
+<rect class="f1" x="410" y="110" width="28" height="28" rx="3"/>
+<text class="cell" x="424" y="124">+5</text>
+<rect class="f1" x="442" y="110" width="28" height="28" rx="3"/>
+<text class="cell" x="456" y="124">+6</text>
+<text class="muted small mid" x="602" y="14">class</text>
+<path class="bracket" d="M514 34V28H690V34"/>
+<rect class="plain" x="514" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="542" y="54">road</text>
+<rect class="plain" x="574" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="602" y="54">road</text>
+<rect class="plain" x="634" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="662" y="54">rail</text>
+<path class="link" d="M602 72V108"/>
+<text class="muted small mid halo" x="602" y="90">RLE</text>
+<rect class="plain" x="544" y="110" width="56" height="28" rx="3"/>
+<text class="cell" x="572" y="124">2×road</text>
+<rect class="plain" x="604" y="110" width="56" height="28" rx="3"/>
+<text class="cell" x="632" y="124">1×rail</text>
+</svg>

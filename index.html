@@ -792,17 +792,56 @@
 <p>MLT (MapLibre Tile) is a vector tile format for map data. It stores the same content as an <a href="https://github.com/mapbox/vector-tile-spec">MVT</a> tile, layers of features with geometries and properties, in a column-oriented layout.
 MLT is natively supported by <a href="https://maplibre.org/maplibre-gl-js/">MapLibre GL JS</a> and <a href="https://maplibre.org/maplibre-native/">MapLibre Native</a>, and tiles can be served using the <a href="https://maplibre.org/martin/">Martin tile server</a>.</p>
 <h2 id="why-mlt">Why MLT<a class="headerlink" href="#why-mlt" title="Link to this section">&para;</a></h2>
-<p>MLT is mainly inspired by MVT, but has been redesigned from the ground up to improve the following areas:</p>
-<ul>
-<li><strong>Improved compression ratio</strong> - a planet of MLT v2 tiles is 4-7% smaller than gzipped MVT (10-19% with gzip on top), and its largest tiles are 1.6-2.2x smaller than uncompressed MVT (<a href="#size">Size</a>), based on a column oriented layout with (custom) lightweight encodings</li>
-<li><strong>Better decoding performance</strong> - fast lightweight encodings which can be used in combination with SIMD/vectorization instructions</li>
-<li><strong>Support for linear referencing and m-values</strong> to efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)</li>
-<li><strong>Support 3D coordinates</strong>, i.e. elevation</li>
-<li><strong>Support complex types</strong>, including nested properties, lists and maps</li>
-<li><strong>Improved processing performance</strong>: Based on an in-memory format that can be processed efficiently on the CPU and GPU and loaded directly into GPU buffers partially (like polygons in WebGL) or completely (in case of WebGPU compute shader usage) without additional processing</li>
-</ul>
-<p>The last three are not yet implemented.
-They are planned for <a href="specification/v2/">MLT v2</a>.</p>
+<p>MLT is mainly inspired by MVT, but has been redesigned from the ground up.
+It stores each column on its own, so each gets the lightweight encoding that fits it.
+That makes tiles smaller, see <a href="#size">Size</a>, fast to decode with SIMD, and cheap to load into GPU buffers.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="Three columns stored with one encoding each: ids as delta and run-length, geometry as deltas, class as run-length" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">values</text>
+<text class="row" x="0" y="124">stored</text>
+<text class="muted small mid" x="218" y="14">id</text>
+<path class="bracket" d="M130 34V28H306V34"/>
+<rect class="f0" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="54">1</text>
+<rect class="f0" x="190" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="218" y="54">2</text>
+<rect class="f0" x="250" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="278" y="54">3</text>
+<path class="link" d="M218 72V108"/>
+<text class="muted small mid halo" x="218" y="90">delta + RLE</text>
+<rect class="f0" x="190" y="110" width="56" height="28" rx="3"/>
+<text class="cell" x="218" y="124">3×+1</text>
+<text class="muted small mid" x="410" y="14">geometry</text>
+<path class="bracket" d="M322 34V28H498V34"/>
+<rect class="f1" x="322" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="350" y="54">4096</text>
+<rect class="f1" x="382" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="410" y="54">4101</text>
+<rect class="f1" x="442" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="470" y="54">4107</text>
+<path class="link" d="M410 72V108"/>
+<text class="muted small mid halo" x="410" y="90">delta</text>
+<rect class="f1" x="350" y="110" width="56" height="28" rx="3"/>
+<text class="cell" x="378" y="124">4096</text>
+<rect class="f1" x="410" y="110" width="28" height="28" rx="3"/>
+<text class="cell" x="424" y="124">+5</text>
+<rect class="f1" x="442" y="110" width="28" height="28" rx="3"/>
+<text class="cell" x="456" y="124">+6</text>
+<text class="muted small mid" x="602" y="14">class</text>
+<path class="bracket" d="M514 34V28H690V34"/>
+<rect class="plain" x="514" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="542" y="54">road</text>
+<rect class="plain" x="574" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="602" y="54">road</text>
+<rect class="plain" x="634" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="662" y="54">rail</text>
+<path class="link" d="M602 72V108"/>
+<text class="muted small mid halo" x="602" y="90">RLE</text>
+<rect class="plain" x="544" y="110" width="56" height="28" rx="3"/>
+<text class="cell" x="572" y="124">2×road</text>
+<rect class="plain" x="604" y="110" width="56" height="28" rx="3"/>
+<text class="cell" x="632" y="124">1×rail</text>
+</svg></p>
+<p><a href="specification/v2/">MLT v2</a> adds m-values, 3D coordinates and properties whose values are lists or maps.</p>
 <h2 id="size">Size<a class="headerlink" href="#size" title="Link to this section">&para;</a></h2>
 <p>Whole-planet archives, as a share of the same tiles stored as gzipped MVT.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">OpenMapTiles</label><label for="__tabbed_1_2">Protomaps</label></div>

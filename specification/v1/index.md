@@ -2,10 +2,6 @@
 
 This document specifies the byte layout of an MLT v1 layer. The data model it assumes, tiles, extents, layers, features, columns and streams, is described in [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>).
 
-Only implemented features are specified here. Complex and nested property types, logical types, linear referencing, vertex-scoped m-values and separate tileset metadata were designed for v1 but never implemented. They are being redesigned for [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>).
-
-Everything below is normative. All integers are `VarInt`-encoded unless stated otherwise. `VarInt` is [Protobuf's base 128 varint](<https://protobuf.dev/programming-guides/encoding/#varints>), least significant group first. Signed varints are ZigZag-encoded before being written.
-
 ## Tile Layout
 
 A tile is a concatenation of tagged layer records. There is no tile header. Layers are encoded independently and can be concatenated without re-encoding.

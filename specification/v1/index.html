@@ -1037,13 +1037,6 @@
 <h1 id="maplibre-tile-specification-v1">MapLibre Tile Specification v1<a class="headerlink" href="#maplibre-tile-specification-v1" title="Link to this section">&para;</a></h1>
 <p>This document specifies the byte layout of an MLT v1 layer.
 The data model it assumes, tiles, extents, layers, features, columns and streams, is described in <a href="../../overview/">Data Model</a>.</p>
-<p>Only implemented features are specified here.
-Complex and nested property types, logical types, linear referencing, vertex-scoped m-values and separate tileset metadata were designed for v1 but never implemented.
-They are being redesigned for <a href="../v2/">MLT v2</a>.</p>
-<p>Everything below is normative.
-All integers are <code>VarInt</code>-encoded unless stated otherwise.
-<code>VarInt</code> is <a href="https://protobuf.dev/programming-guides/encoding/#varints">Protobuf's base 128 varint</a>, least significant group first.
-Signed varints are ZigZag-encoded before being written.</p>
 <h2 id="tile-layout">Tile Layout<a class="headerlink" href="#tile-layout" title="Link to this section">&para;</a></h2>
 <p>A tile is a concatenation of tagged layer records.
 There is no tile header.
