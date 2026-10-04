@@ -23,6 +23,7 @@ unstable-v2 = ["mlt-core/unstable-v2", "dep:toml"]
 hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
 hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
 hotpath-mcp = ["hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
+hotpath-cloud = ["hotpath", "hotpath/hotpath-cloud"]
 
 [dependencies]
 anyhow.workspace = true
