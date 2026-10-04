@@ -1,21 +1,21 @@
-<svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="Protomaps basemap: MVT 55%, MVT + gzip 100%, MLT v1 27%, MLT v1 + gzip 55%, MLT v2 28%, MLT v2 + gzip 55% of the decode time of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
+<svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="Protomaps basemap: MVT 55%, MVT + gzip 100%, MLT v1 27%, MLT v1 + gzip 55%, MLT v2 27%, MLT v2 + gzip 55% of the decode time of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
 <path class="implicit" d="M570.0 4V214"/>
 <text class="row" x="0" y="19">MVT</text>
-<rect class="plain" x="130" y="8" width="242.7" height="22" rx="3"/>
-<text class="halo" x="380.7" y="19"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
+<rect class="plain" x="130" y="8" width="242.0" height="22" rx="3"/>
+<text class="halo" x="380.0" y="19"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
 <text class="row" x="0" y="53">MVT + gzip</text>
 <rect class="plain" x="130" y="42" width="440.0" height="22" rx="3"/>
 <text class="halo" x="578.0" y="53"><tspan class="bold">100%</tspan></text>
 <text class="row" x="0" y="87">MLT v1</text>
-<rect class="f0" x="130" y="76" width="118.5" height="22" rx="3"/>
-<text class="halo" x="256.5" y="87"><tspan class="bold">27%</tspan><tspan class="muted small"> 3.7x as fast</tspan></text>
+<rect class="f0" x="130" y="76" width="117.0" height="22" rx="3"/>
+<text class="halo" x="255.0" y="87"><tspan class="bold">27%</tspan><tspan class="muted small"> 3.8x as fast</tspan></text>
 <text class="row" x="0" y="121">MLT v1 + gzip</text>
-<rect class="f0" x="130" y="110" width="240.6" height="22" rx="3"/>
-<text class="halo" x="378.6" y="121"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
+<rect class="f0" x="130" y="110" width="240.3" height="22" rx="3"/>
+<text class="halo" x="378.3" y="121"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
 <text class="row" x="0" y="155">MLT v2</text>
-<rect class="f1" x="130" y="144" width="121.4" height="22" rx="3"/>
-<text class="halo" x="259.4" y="155"><tspan class="bold">28%</tspan><tspan class="muted small"> 3.6x as fast</tspan></text>
+<rect class="f1" x="130" y="144" width="119.9" height="22" rx="3"/>
+<text class="halo" x="257.9" y="155"><tspan class="bold">27%</tspan><tspan class="muted small"> 3.7x as fast</tspan></text>
 <text class="row" x="0" y="189">MLT v2 + gzip</text>
-<rect class="f1" x="130" y="178" width="241.9" height="22" rx="3"/>
-<text class="halo" x="379.9" y="189"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
+<rect class="f1" x="130" y="178" width="241.5" height="22" rx="3"/>
+<text class="halo" x="379.5" y="189"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
 </svg>
