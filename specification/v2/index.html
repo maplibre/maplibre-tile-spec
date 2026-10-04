@@ -99,7 +99,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tile-layout" class="md-skip">
+        <a href="#differences-from-v1" class="md-skip">
           Skip to content
         </a>
       
@@ -653,6 +653,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#differences-from-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Differences from v1
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tile-layout" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1094,111 +1105,66 @@ Where the two disagree, the implementation is authoritative.</p>
 <p>v2 uses the same data model as <a href="../v1/">v1</a>: tiles, layers, features, columns and streams as described in <a href="../../overview/">Data Model</a>.
 Only the byte layout differs.
 A v2 layer decodes into the same in-memory representation as a v1 layer.</p>
-<details class="info">
-<summary>Differences from v1</summary>
-<table>
-<thead>
-<tr>
-<th></th>
-<th>v1</th>
-<th>v2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Extent</td>
-<td><code>varint</code>, any non-zero value</td>
-<td>One nibble, a power of two in <code>64</code>-<code>2097152</code></td>
-</tr>
-<tr>
-<td>Stream role</td>
-<td><code>stream_type</code> byte per stream</td>
-<td>Implied by position</td>
-</tr>
-<tr>
-<td>Stream value count</td>
-<td><code>num_values</code> varint per stream</td>
-<td>Omitted when it equals the context count</td>
-</tr>
-<tr>
-<td>Stream byte length</td>
-<td><code>byte_length</code> varint per stream</td>
-<td>Omitted on a raw stream, whose count and element width give it</td>
-</tr>
-<tr>
-<td>Vertex stream count</td>
-<td>Words, except under Morton</td>
-<td><a href="#value-count_1">Vertices, under every encoding</a></td>
-</tr>
-<tr>
-<td>Geometry stream set</td>
-<td><code>stream_count</code> + a <code>stream_type</code> byte each</td>
-<td>One <code>GeoLayout</code> nibble in the layer header</td>
-</tr>
-<tr>
-<td>Geometry types</td>
-<td>A stream, always</td>
-<td>A <a href="#uniform-geometry-type">nibble</a> when every feature shares a type, a stream otherwise</td>
-</tr>
-<tr>
-<td>Triangle indices</td>
-<td>Count from the feature's first vertex</td>
-<td><a href="#tessellation">Count from the layer's first vertex</a></td>
-</tr>
-<tr>
-<td>Nullability</td>
-<td>Boolean-RLE <code>Present</code> stream</td>
-<td>A <a href="#presence-encodings">bitmap, RLE or indices</a>, shareable between columns</td>
-</tr>
-<tr>
-<td>8-bit integers</td>
-<td>Not implemented</td>
-<td><a href="#data-types"><code>Int8</code> and <code>UInt8</code> columns</a></td>
-</tr>
-<tr>
-<td>Column metadata</td>
-<td>All columns' metadata, then all columns' data</td>
-<td>Metadata and data adjacent per column</td>
-</tr>
-<tr>
-<td>RLE</td>
-<td>All runs, then all values, with <code>runs</code> in the header</td>
-<td>Interleaved <code>(run, value)</code> pairs, no run count</td>
-</tr>
-<tr>
-<td>Integer payloads</td>
-<td>None, VarInt, FastPFOR (256-value big-endian blocks)</td>
-<td>Adds bit packing. FastPFOR uses 128-value little-endian blocks</td>
-</tr>
-<tr>
-<td>Float payloads</td>
-<td>Raw IEEE 754 words</td>
-<td>Adds <a href="../../encodings/#alp">Framed, Exception-Free ALP</a> and float dictionaries</td>
-</tr>
-<tr>
-<td>String dictionaries</td>
-<td>Plain, FSST</td>
-<td>Adds <a href="../../encodings/#front-coding">front coding</a></td>
-</tr>
-<tr>
-<td>Vertex-scoped values</td>
-<td>Not implemented</td>
-<td><a href="#m-values">M-value columns</a></td>
-</tr>
-<tr>
-<td>Maps and lists</td>
-<td>Not implemented</td>
-<td><a href="#nested-properties">Shredded into one leaf column per path</a></td>
-</tr>
-<tr>
-<td>Z-Coordinates</td>
-<td>Not implemented</td>
-<td><a href="#z-coordinates">As an alternative in the vertex buffer</a></td>
-</tr>
-</tbody>
-</table>
-</details>
-<p>Encoders MUST select each encoding by comparing the stored size of each candidate.</p>
+<h2 id="differences-from-v1">Differences from v1<a class="headerlink" href="#differences-from-v1" title="Link to this section">&para;</a></h2>
+<p>v2 keeps v1's <a href="../../overview/">data model</a> and changes the byte layout.
+It adds features that MVT and v1 cannot express and makes tiles smaller.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="One v2 feature: a line whose vertices carry an elevation and a lane count, a ref property holding a list and a name property holding a map" xmlns="http://www.w3.org/2000/svg">
+<text class="bold mid" x="170" y="14">geometry</text>
+<path class="line" d="M40 120L170 70L300 105"/>
+<circle class="f1" cx="40" cy="120" r="5"/>
+<circle class="f1" cx="170" cy="70" r="5"/>
+<circle class="f1" cx="300" cy="105" r="5"/>
+<text class="small mid halo" x="40" y="100">z 3 m</text>
+<text class="muted small mid halo" x="40" y="140">lanes 2</text>
+<text class="small mid halo" x="170" y="50">z 8 m</text>
+<text class="muted small mid halo" x="170" y="90">lanes 3</text>
+<text class="small mid halo" x="300" y="85">z 5 m</text>
+<text class="muted small mid halo" x="300" y="125">lanes 2</text>
+<text class="bold mid" x="560" y="14">properties</text>
+<text class="row" x="370" y="54">ref</text>
+<rect class="f0" x="436" y="40" width="248" height="28" rx="3"/>
+<text class="cell" x="560" y="54">["A1", "E35"]</text>
+<text class="row" x="370" y="104">name</text>
+<rect class="f0" x="436" y="90" width="248" height="28" rx="3"/>
+<text class="cell" x="560" y="104">{en: "Bridge", de: "Brücke"}</text>
+</svg></p>
+<ul>
+<li><strong>Z-values.</strong> Every vertex can carry an elevation. See <a href="#z-coordinates">Z Coordinates</a>.</li>
+<li><strong>M-values.</strong> Every vertex can carry a measurement, such as a distance along a road or a timestamp per GPS fix. See <a href="#m-values">M-Values</a>.</li>
+<li><strong>Nested properties.</strong> Maps and lists stay maps and lists instead of being flattened into columns like <code>name:en</code> and <code>name:de</code>. See <a href="#nested-properties">Nested Properties</a>.</li>
+<li><strong>Smaller metadata.</strong> A stream needs one byte instead of four or more, since its role, value count and byte length are implied wherever they can be derived.</li>
+</ul>
+<p><svg class="mlt-diagram" viewBox="0 0 710 130" role="img" aria-label="Per-stream metadata: v1 writes a stream type, an encoding, a value count and a byte length; v2 writes one encoding byte and implies the rest" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="34">v1</text>
+<rect class="f0" x="130" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="180" y="34">stream_type</text>
+<rect class="f0" x="236" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="34">encoding</text>
+<rect class="f0" x="342" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="392" y="34">num_values</text>
+<rect class="f0" x="448" y="20" width="100" height="28" rx="3"/>
+<text class="cell" x="498" y="34">byte_length</text>
+<text class="muted small" x="566" y="34">per stream</text>
+<text class="row" x="0" y="94">v2</text>
+<rect class="implicit" x="130" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="180" y="94">by position</text>
+<rect class="f1" x="236" y="80" width="100" height="28" rx="3"/>
+<text class="cell" x="286" y="94">encoding</text>
+<rect class="implicit" x="342" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="392" y="94">implied</text>
+<rect class="implicit" x="448" y="80" width="100" height="28" rx="3"/>
+<text class="cell muted" x="498" y="94">implied</text>
+<text class="muted small" x="566" y="94">usually 1 byte</text>
+</svg></p>
+<ul>
+<li><strong>Extent in four bits.</strong> Powers of two from <code>64</code> to <code>2097152</code> fit in the layer header byte. See <a href="#extent">Extent</a>.</li>
+<li><strong>Uniform geometry type.</strong> A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See <a href="#uniform-geometry-type">Uniform Geometry Type</a>.</li>
+<li><strong>Cheaper nulls.</strong> The presence of a column is stored as a bitmap, RLE or index list, whichever is smallest, and can be shared between columns. See <a href="#presence-encodings">Presence Encodings</a>.</li>
+<li><strong>More encodings.</strong> Bit packing, <code>Int8</code> and <code>UInt8</code> columns, <a href="../../encodings/#alp">ALP</a> for floats, <a href="../../encodings/#front-coding">front coding</a> for strings and optional <a href="../../encodings/#rans">rANS</a> for vertices.</li>
+</ul>
+<p>Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT.
+Gzipped v2 is 10-18% smaller than gzipped MVT.
+See <a href="../../#size">Size</a> and <a href="../../#decoding-speed">Decoding speed</a>.</p>
 <h2 id="tile-layout">Tile Layout<a class="headerlink" href="#tile-layout" title="Link to this section">&para;</a></h2>
 <p>Unchanged from <a href="../v1/#tile-layout">v1</a>.
 A tile is a concatenation of tagged layer records.
