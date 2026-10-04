@@ -12,8 +12,8 @@
 //! `mlt` built with `unstable-v2`.
 
 mod clip;
+mod feature_id;
 mod project;
-mod properties;
 mod round;
 
 use std::fs;
@@ -26,12 +26,13 @@ use geojson::{Feature, FeatureCollection, GeoJson};
 use martin_tile_utils::MAX_ZOOM;
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::Geometry;
+use mlt_core::geojson::PropertySchema;
 use mlt_core::{Decoder, MltError, Parser, PropValue, TileLayer, ZStep};
 use rayon::prelude::*;
 
 use self::clip::Rect;
+use self::feature_id::feature_id;
 use self::project::{Dims, Geom, Projector, Vertex};
-use self::properties::Schema;
 use self::round::to_tile;
 use crate::convert::ContainerFormat;
 
@@ -67,7 +68,7 @@ const BUFFER: u32 = 64;
 /// What every tile's layer shares.
 struct LayerSpec {
     name: String,
-    schema: Schema,
+    schema: PropertySchema,
     /// The vertical grid of the layer: a step when the input has altitudes, or none.
     z_step: Option<ZStep>,
 }
@@ -126,7 +127,7 @@ pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
     };
 
     let features = read_features(input)?;
-    let schema = Schema::infer(&features)?;
+    let schema = PropertySchema::infer(features.iter().map(|f| f.properties.iter().flatten()))?;
     let z_step = args.z_step.map(ZStep::new).transpose()?;
     let mut projector = Projector::new(z_step);
     let mut sources = Vec::with_capacity(features.len());
@@ -142,11 +143,14 @@ pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
             continue;
         };
         sources.push(Source {
-            id: properties::feature_id(feature)
+            id: feature_id(feature)
                 .with_context(|| format!("reading the id of feature {index}"))?,
             geom: Arc::new(geom),
             bbox,
-            props: Arc::new(schema.values(feature)?),
+            props: Arc::new(match &feature.properties {
+                Some(properties) => schema.values(properties)?,
+                None => Vec::new(),
+            }),
         });
     }
     // The parsed tree is no longer needed; it would otherwise double peak memory while tiling.
@@ -408,8 +412,9 @@ fn encode_tile(layer: &LayerSpec, entries: Vec<Entry>) -> AnyResult<Vec<u8>> {
     }
     let keys = layer
         .schema
-        .columns
+        .names()
         .iter()
+        .zip(layer.schema.kinds())
         .map(|(name, kind)| builder.add_property(name.clone(), *kind))
         .collect::<Result<Vec<_>, _>>()?;
 

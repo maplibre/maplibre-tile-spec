@@ -1,12 +1,13 @@
 //! Decode MVT bytes into [`FeatureCollection`] or row-oriented [`TileLayer`]s.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use fast_mvt::{MvtLayer, MvtLayerRef, MvtReaderRef, MvtValue, MvtValueRef};
 use serde_json::Value;
 
+use crate::convert::infer::{ColumnInference, InferredKind};
 use crate::geojson::{Feature, FeatureCollection};
-use crate::tile::{PropValue, TileFeature, TileLayer};
+use crate::tile::{PropKind, PropValue, TileFeature, TileLayer};
 use crate::{MltError, MltResult};
 
 /// Parse MVT bytes into a list of layers, each holding its raw features.
@@ -68,9 +69,7 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
     }
 
     // First pass: collect property names (insertion-ordered) and infer column types.
-    let mut col_names: Vec<String> = Vec::new();
-    let mut col_index: HashMap<&str, usize> = HashMap::new();
-    let mut col_types: Vec<InferredType> = Vec::new();
+    let mut columns = ColumnInference::default();
     // Each value with its column, so the second pass resolves no keys.
     let mut values: Vec<(usize, MvtValueRef<'_>)> = Vec::new();
     let mut feature_ends: Vec<usize> = Vec::with_capacity(layer.feature_count());
@@ -78,39 +77,22 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
     for feat in layer.features() {
         for prop in feat.properties() {
             let (key, value) = prop?;
-            let idx = if let Some(&idx) = col_index.get(key) {
-                idx
-            } else {
-                let idx = col_names.len();
-                col_names.push(key.to_string());
-                col_index.insert(key, idx);
-                col_types.push(InferredType::Unknown);
-                idx
-            };
-            // One bounds check rather than one per index expression.
-            let slot = &mut col_types[idx];
-            *slot = slot.merge(InferredType::from_mvt(value));
-            values.push((idx, value));
+            values.push((columns.observe(key, kind_of(value)), value));
         }
         feature_ends.push(values.len());
     }
-
-    // Columns that were only ever null fall back to Str.
-    for t in &mut col_types {
-        if *t == InferredType::Unknown {
-            *t = InferredType::Str;
-        }
-    }
+    let (col_names, col_kinds) = columns.finish();
 
     // Second pass: build TileFeature objects.
     let mut tile_features = Vec::with_capacity(layer.feature_count());
     let mut start = 0;
     for (feat, &end) in layer.features().zip(&feature_ends) {
         // Start every slot with a typed null; fill in present values below.
-        let mut properties: Vec<PropValue> = col_types.iter().map(|t| t.typed_null()).collect();
+        let mut properties: Vec<PropValue> =
+            col_kinds.iter().map(|&k| PropValue::null(k)).collect();
         for &(idx, value) in &values[start..end] {
             if !matches!(value, MvtValueRef::Null) {
-                properties[idx] = col_types[idx].convert(value.into_owned());
+                properties[idx] = convert(col_kinds[idx], value.into_owned());
             }
         }
         start = end;
@@ -139,40 +121,26 @@ impl TryFrom<MvtLayer> for TileLayer {
         }
 
         // First pass: collect property names (insertion-ordered) and infer column types.
-        let mut col_names: Vec<String> = Vec::new();
-        let mut col_index: HashMap<String, usize> = HashMap::new();
-        let mut col_types: Vec<InferredType> = Vec::new();
-
+        let mut columns = ColumnInference::default();
+        // The column of each value in property order, so the second pass resolves no keys.
+        let mut value_columns: Vec<usize> = Vec::new();
         for feat in &layer.features {
             for (key, val) in &feat.properties {
-                let idx = *col_index.entry(key.clone()).or_insert_with(|| {
-                    let i = col_names.len();
-                    col_names.push(key.clone());
-                    col_types.push(InferredType::Unknown);
-                    i
-                });
-                let slot = &mut col_types[idx];
-                *slot = slot.merge(InferredType::from_mvt(as_value_ref(val)));
+                value_columns.push(columns.observe(key, kind_of(as_value_ref(val))));
             }
         }
-
-        // Columns that were only ever null fall back to Str.
-        for t in &mut col_types {
-            if *t == InferredType::Unknown {
-                *t = InferredType::Str;
-            }
-        }
+        let (col_names, col_kinds) = columns.finish();
 
         // Second pass: build TileFeature objects.
         let mut tile_features = Vec::with_capacity(layer.features.len());
+        let mut value_columns = value_columns.into_iter();
         for feat in layer.features {
             // Start every slot with a typed null; fill in present values below.
-            let mut properties: Vec<PropValue> = col_types.iter().map(|t| t.typed_null()).collect();
-            for (key, val) in feat.properties {
-                if let Some(&idx) = col_index.get(&key)
-                    && !matches!(val, MvtValue::Null)
-                {
-                    properties[idx] = col_types[idx].convert(val);
+            let mut properties: Vec<PropValue> =
+                col_kinds.iter().map(|&k| PropValue::null(k)).collect();
+            for ((_, val), idx) in feat.properties.into_iter().zip(&mut value_columns) {
+                if !matches!(val, MvtValue::Null) {
+                    properties[idx] = convert(col_kinds[idx], val);
                 }
             }
             tile_features.push(TileFeature {
@@ -206,88 +174,41 @@ fn as_value_ref(value: &MvtValue) -> MvtValueRef<'_> {
     }
 }
 
-/// Column type inferred from MVT property values across all features in a layer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum InferredType {
-    Unknown,
-    Bool,
-    I64,
-    U64,
-    F32,
-    F64,
-    Str,
+/// The column kind a single MVT value asks for.
+fn kind_of(val: MvtValueRef<'_>) -> InferredKind {
+    match val {
+        MvtValueRef::Bool(_) => InferredKind::Bool,
+        MvtValueRef::Int(_) | MvtValueRef::SInt(_) => InferredKind::I64,
+        MvtValueRef::UInt(_) => InferredKind::U64,
+        MvtValueRef::Float(_) => InferredKind::F32,
+        MvtValueRef::Double(_) => InferredKind::F64,
+        MvtValueRef::String(_) => InferredKind::Str,
+        MvtValueRef::Null => InferredKind::Unknown,
+    }
 }
 
-impl InferredType {
-    fn from_mvt(val: MvtValueRef<'_>) -> Self {
-        match val {
-            MvtValueRef::Bool(_) => Self::Bool,
-            MvtValueRef::Int(_) | MvtValueRef::SInt(_) => Self::I64,
-            MvtValueRef::UInt(_) => Self::U64,
-            MvtValueRef::Float(_) => Self::F32,
-            MvtValueRef::Double(_) => Self::F64,
-            MvtValueRef::String(_) => Self::Str,
-            MvtValueRef::Null => Self::Unknown,
+/// Convert an owned [`MvtValue`] into a [`PropValue`] of the column's kind.
+fn convert(kind: PropKind, val: MvtValue) -> PropValue {
+    match (kind, val) {
+        (_, MvtValue::Null) => PropValue::null(kind),
+        (PropKind::Bool, MvtValue::Bool(b)) => PropValue::Bool(Some(b)),
+        (PropKind::I64, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::I64(Some(i)),
+        (PropKind::I64, MvtValue::UInt(u)) if i64::try_from(u).is_ok() => {
+            // Value must be within 0..i64::MAX
+            #[expect(clippy::cast_possible_wrap, reason = "checked above")]
+            PropValue::I64(Some(u as i64))
         }
-    }
-
-    /// Merge with another type, widening when necessary.
-    fn merge(self, other: Self) -> Self {
-        if self == Self::Unknown {
-            return other;
-        }
-        if other == Self::Unknown || self == other {
-            return self;
-        }
-        if matches!(
-            (self, other),
-            (Self::I64, Self::U64) | (Self::U64, Self::I64)
-        ) {
-            return Self::I64;
-        }
-        if matches!(
-            (self, other),
-            (Self::F32, Self::F64) | (Self::F64, Self::F32)
-        ) {
-            return Self::F64;
-        }
-        Self::Str
-    }
-
-    fn typed_null(self) -> PropValue {
-        match self {
-            Self::Unknown | Self::Str => PropValue::Str(None),
-            Self::Bool => PropValue::Bool(None),
-            Self::I64 => PropValue::I64(None),
-            Self::U64 => PropValue::U64(None),
-            Self::F32 => PropValue::F32(None),
-            Self::F64 => PropValue::F64(None),
-        }
-    }
-
-    /// Convert an owned [`MvtValue`] into a [`PropValue`] matching this column type.
-    fn convert(self, val: MvtValue) -> PropValue {
-        match (self, val) {
-            (_, MvtValue::Null) => self.typed_null(),
-            (Self::Bool, MvtValue::Bool(b)) => PropValue::Bool(Some(b)),
-            (Self::I64, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::I64(Some(i)),
-            (Self::I64, MvtValue::UInt(u)) if i64::try_from(u).is_ok() => {
-                // Value must be within 0..i64::MAX
-                #[expect(clippy::cast_possible_wrap, reason = "checked above")]
-                PropValue::I64(Some(u as i64))
-            }
-            (Self::U64, MvtValue::UInt(u)) => PropValue::U64(Some(u)),
-            (Self::F32, MvtValue::Float(f)) => PropValue::F32(Some(f)),
-            (Self::F64, MvtValue::Double(f)) => PropValue::F64(Some(f)),
-            (Self::F64, MvtValue::Float(f)) => PropValue::F64(Some(f64::from(f))),
-            (_, MvtValue::String(s)) => PropValue::Str(Some(s)),
-            // A column that mixes types keeps every value as its text form.
-            (_, MvtValue::Bool(b)) => PropValue::Str(Some(b.to_string())),
-            (_, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::Str(Some(i.to_string())),
-            (_, MvtValue::UInt(u)) => PropValue::Str(Some(u.to_string())),
-            (_, MvtValue::Float(f)) => PropValue::Str(Some(f.to_string())),
-            (_, MvtValue::Double(f)) => PropValue::Str(Some(f.to_string())),
-        }
+        (PropKind::U64, MvtValue::UInt(u)) => PropValue::U64(Some(u)),
+        (PropKind::F32, MvtValue::Float(f)) => PropValue::F32(Some(f)),
+        (PropKind::F64, MvtValue::Double(f)) => PropValue::F64(Some(f)),
+        (PropKind::F64, MvtValue::Float(f)) => PropValue::F64(Some(f64::from(f))),
+        (_, MvtValue::String(s)) => PropValue::Str(Some(s)),
+        // A column that mixes types keeps every value as its text form.
+        (_, MvtValue::Bool(b)) => PropValue::Str(Some(b.to_string())),
+        (_, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::Str(Some(i.to_string())),
+        (_, MvtValue::UInt(u)) => PropValue::Str(Some(u.to_string())),
+        (_, MvtValue::Float(f)) => PropValue::Str(Some(f.to_string())),
+        (_, MvtValue::Double(f)) => PropValue::Str(Some(f.to_string())),
     }
 }
 
