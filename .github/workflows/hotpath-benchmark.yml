@@ -61,6 +61,7 @@ jobs:
         with:
           # The pull request's head commit, not the default merge commit.
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
       - uses: ./.github/actions/mlt-setup-rust
 
       - name: Cache benchmark tiles
@@ -90,5 +91,32 @@ jobs:
         with:
           name: hotpath-report
           path: report.json
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Head per-tile sizes
+        run: |
+          mkdir -p /tmp/size-metrics
+          just rust::compress-db-statistics /tmp/mlt-out /tmp/size-metrics/head_sizes.db
+
+      - name: Checkout base
+        run: git checkout ${{ github.event.pull_request.base.sha }}
+
+      - name: Base convert
+        working-directory: rust
+        run: cargo run -q --release -p mlt -- convert /tmp/benchmark-tiles/ /tmp/mlt-base-out/
+
+      - name: Base per-tile sizes
+        run: just rust::compress-db-statistics /tmp/mlt-base-out /tmp/size-metrics/base_sizes.db
+
+      - name: Save PR metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: echo "$PR_NUMBER" > /tmp/size-metrics/pr_number.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: size-metrics
+          path: /tmp/size-metrics/
           retention-days: 1
           if-no-files-found: error
