@@ -2,8 +2,7 @@
 //! `GeoJSON` file, runs the binary, and decodes the tiles it wrote back through
 //! `mlt-core` to check geometry (including z), properties, and tile placement.
 
-// GeoJSON input is only tiled in a v2 build, and hotpath appends its profile to
-// stderr, which no exact snapshot can survive.
+// hotpath appends its profile to stderr, which no exact snapshot can survive.
 #![cfg(not(feature = "hotpath"))]
 
 use std::fs;
