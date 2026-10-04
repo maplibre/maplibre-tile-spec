@@ -11,7 +11,8 @@
 //!   at a time and always returns one closed ring: the part outside is replaced
 //!   by the tile border, which is what a fill needs. A concave ring re-entering
 //!   the tile keeps a zero-width bridge along the edge instead of splitting, as
-//!   in `geojson-vt`; [`clip_geom`] drops polygons left with no area.
+//!   in `geojson-vt`; [`clip_geom`] drops polygons left with no area, counting
+//!   the area of a vertical polygon such as a wall.
 //! - Each ring of a polygon is clipped on its own, so a hole crossing the edge
 //!   shares the tile border with its exterior instead of becoming a notch in
 //!   it, again as in `geojson-vt`. Like the bridge, this is invalid as a simple
@@ -134,13 +135,11 @@ impl Edge {
 /// Clip a ring to `rect` with Sutherland-Hodgman. The input may or may not
 /// repeat its first vertex at the end; the output never does and is empty when
 /// fewer than three vertices remain.
-#[expect(
-    clippy::float_cmp,
-    reason = "a closing vertex is an exact repeat of the first, not a nearby one"
-)]
 pub(super) fn clip_ring(ring: &[Vertex], rect: &Rect) -> Vec<Vertex> {
+    // A closing vertex is an exact repeat of the first, z included: one only
+    // above or below it is a corner of a vertical ring.
     let open = match ring {
-        [first, .., last] if first.x == last.x && first.y == last.y => &ring[..ring.len() - 1],
+        [first, .., last] if first == last => &ring[..ring.len() - 1],
         _ => ring,
     };
     let mut out: Vec<Vertex> = open.to_vec();
@@ -176,8 +175,9 @@ pub(super) fn clip_ring(ring: &[Vertex], rect: &Rect) -> Vec<Vertex> {
     out
 }
 
-/// A clipped polygon keeping less than this fraction of the rectangle's area is
-/// treated as empty: below it lies only floating-point noise from the cuts.
+/// A clipped polygon keeping less than this fraction of the rectangle's area (or,
+/// for a wall, of the rectangle's width times its height) is treated as empty:
+/// below it lies only floating-point noise from the cuts.
 const EMPTY_AREA_FRACTION: f64 = 1e-9;
 
 /// Twice the unsigned area of an open ring, measured from the rectangle's corner
@@ -192,12 +192,51 @@ fn ring_area2(ring: &[Vertex], rect: &Rect) -> f64 {
     sum.abs()
 }
 
+/// Twice the area of an open ring on the vertical plane it stands in, measured
+/// from the rectangle's corner and the ring's lowest z as [`ring_area2`] does. It
+/// is the horizontal part of the ring's Newell normal, so it is meaningful for a
+/// ring with no area on the ground, like a wall, whose x/y share units and whose
+/// z is in grid units.
+fn vertical_area2(ring: &[Vertex], rect: &Rect, min_z: f64) -> f64 {
+    let (mut yz, mut zx) = (0.0, 0.0);
+    for (a, b) in ring.iter().zip(ring.iter().cycle().skip(1)) {
+        let (ax, ay, az) = (a.x - rect.min_x, a.y - rect.min_y, a.z - min_z);
+        let (bx, by, bz) = (b.x - rect.min_x, b.y - rect.min_y, b.z - min_z);
+        yz += ay * bz - by * az;
+        zx += az * bx - bz * ax;
+    }
+    yz.hypot(zx)
+}
+
+/// Whether a clipped polygon has no area left. One with area on the ground is
+/// measured there, net of its holes; one without, like a wall, is measured on
+/// the vertical plane it stands in, against the rectangle's width times its
+/// height. Either way, less than [`EMPTY_AREA_FRACTION`] of that is empty.
+fn is_empty_polygon(exterior: &[Vertex], holes: &[Vec<Vertex>], rect: &Rect) -> bool {
+    let (width, height) = (rect.max_x - rect.min_x, rect.max_y - rect.min_y);
+    let ground = 2.0 * width * height * EMPTY_AREA_FRACTION;
+    let exterior_area2 = ring_area2(exterior, rect);
+    if exterior_area2 > ground {
+        let holes_area2: f64 = holes.iter().map(|h| ring_area2(h, rect)).sum();
+        return exterior_area2 - holes_area2 <= ground;
+    }
+    let (min_z, max_z) = exterior
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), v| {
+            (lo.min(v.z), hi.max(v.z))
+        });
+    let vertical = 2.0 * width.max(height) * (max_z - min_z) * EMPTY_AREA_FRACTION;
+    let holes_area2: f64 = holes.iter().map(|h| vertical_area2(h, rect, min_z)).sum();
+    vertical_area2(exterior, rect, min_z) - holes_area2 <= vertical
+}
+
 /// Clip a whole geometry to `rect`, keeping the vertices' coordinate space.
 ///
 /// A `LineString` that leaves and re-enters becomes a `MultiLineString`; other
 /// multi-part types keep their type and drop the parts that vanish. A polygon
 /// is gone when its exterior vanishes or when its holes leave it no area, as
-/// happens to a rectangle lying entirely inside a hole; a hole that vanishes is
+/// happens to a rectangle lying entirely inside a hole (see [`is_empty_polygon`],
+/// which keeps a vertical polygon such as a wall); a hole that vanishes is
 /// dropped. Points are not cut: `owns` says which ones the tile keeps, so that
 /// a point on a shared edge goes to exactly one tile. `None` when nothing remains.
 pub(super) fn clip_geom(geom: &Geom, rect: &Rect, owns: impl Fn(&Vertex) -> bool) -> Option<Geom> {
@@ -211,10 +250,7 @@ pub(super) fn clip_geom(geom: &Geom, rect: &Rect, owns: impl Fn(&Vertex) -> bool
             .map(|r| clip_ring(r, rect))
             .filter(|r| !r.is_empty())
             .collect();
-        let area2 =
-            ring_area2(&exterior, rect) - holes.iter().map(|h| ring_area2(h, rect)).sum::<f64>();
-        let rect_area2 = 2.0 * (rect.max_x - rect.min_x) * (rect.max_y - rect.min_y);
-        if area2 <= rect_area2 * EMPTY_AREA_FRACTION {
+        if is_empty_polygon(&exterior, &holes, rect) {
             return None;
         }
         let mut out = Vec::with_capacity(holes.len() + 1);
@@ -477,6 +513,61 @@ mod tests {
             v(10.0, 8.0, 0.0),
         ]]);
         assert_eq!(clip_geom(&geom, &UNIT, inside_unit), None);
+    }
+
+    #[test]
+    fn a_sloped_polygon_only_touching_the_rect_edge_leaves_no_polygon() {
+        // On the plane z = 10y + 5(x - 10), so its part on the edge is a line.
+        let geom = Geom::Polygon(vec![vec![
+            v(10.0, 2.0, 20.0),
+            v(20.0, 2.0, 70.0),
+            v(20.0, 8.0, 130.0),
+            v(10.0, 8.0, 80.0),
+        ]]);
+        assert_eq!(clip_geom(&geom, &UNIT, inside_unit), None);
+    }
+
+    #[test]
+    fn a_wall_inside_the_rect_is_kept() {
+        let wall = vec![
+            v(2.0, 5.0, 0.0),
+            v(8.0, 5.0, 0.0),
+            v(8.0, 5.0, 50.0),
+            v(2.0, 5.0, 50.0),
+        ];
+        let geom = Geom::Polygon(vec![wall.clone()]);
+        assert_eq!(
+            clip_geom(&geom, &UNIT, inside_unit),
+            Some(Geom::Polygon(vec![wall]))
+        );
+    }
+
+    #[test]
+    fn a_wall_crossing_the_rect_is_cut_keeping_its_height() {
+        let geom = Geom::Polygon(vec![vec![
+            v(5.0, 5.0, 0.0),
+            v(15.0, 5.0, 0.0),
+            v(15.0, 5.0, 50.0),
+            v(5.0, 5.0, 50.0),
+        ]]);
+        let Some(Geom::Polygon(rings)) = clip_geom(&geom, &UNIT, inside_unit) else {
+            panic!("a polygon");
+        };
+        assert_parts(
+            &rings,
+            &[vec![
+                v(5.0, 5.0, 0.0),
+                v(10.0, 5.0, 0.0),
+                v(10.0, 5.0, 50.0),
+                v(5.0, 5.0, 50.0),
+            ]],
+        );
+    }
+
+    #[test]
+    fn a_vertical_line_inside_the_rect_is_kept() {
+        let line = [v(5.0, 5.0, 0.0), v(5.0, 5.0, 10.0)];
+        assert_eq!(clip_line(&line, &UNIT), vec![line.to_vec()]);
     }
 
     #[test]
