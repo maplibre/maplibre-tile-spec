@@ -72,7 +72,6 @@ integer-encoding.workspace = true
 num-traits.workspace = true
 num_enum.workspace = true
 probabilistic-collections.workspace = true
-xxhash-rust.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 strum.workspace = true
@@ -80,6 +79,7 @@ thiserror.workspace = true
 union-find.workspace = true
 usize_cast.workspace = true
 wide.workspace = true
+xxhash-rust.workspace = true
 zigzag.workspace = true
 
 [dev-dependencies]
