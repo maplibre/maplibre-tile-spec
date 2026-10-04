@@ -1,0 +1,66 @@
+name: hotpath relay
+
+on:
+  workflow_run:
+    workflows: ["hotpath benchmark"]
+    types: [completed]
+
+jobs:
+  relay:
+    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@773ede70e9894951f63005c862a8f527432db669 # v0.28.3
+    permissions:
+      actions: read # download the artifact of the benchmark run
+      id-token: write # authenticate the upload
+      pull-requests: read # find the pull request the run belongs to
+    with:
+      benchmark: mlt-convert
+      artifact_name: hotpath-report
+      report_file: report.json
+
+  size-diff:
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read # download the artifact of the benchmark run
+      contents: read
+      pull-requests: write # post the comment
+    env:
+      COMMENT_MARKER: '<!-- bench-comment:mlt-size-diff -->'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with: { tool: 'just' }
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v3.1.0-node20
+        with:
+          name: size-metrics
+          path: /tmp/metrics/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Compose comment
+        run: |
+          set -euo pipefail
+          {
+            echo "<details><summary>Per-tile encoded size diff</summary>"
+            echo
+            just rust::size-diff /tmp/metrics/base_sizes.db /tmp/metrics/head_sizes.db
+            echo
+            echo "</details>"
+            echo
+            echo "$COMMENT_MARKER"
+          } > /tmp/comment.md
+
+      - name: Post or update PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.event.workflow_run.repository.full_name }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(grep -E '^[0-9]+$' /tmp/metrics/pr_number.txt)
+          EXISTING=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate --jq ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" | head -n1)
+          if [ -n "$EXISTING" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING" -F body=@/tmp/comment.md
+          else
+            gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@/tmp/comment.md
+          fi

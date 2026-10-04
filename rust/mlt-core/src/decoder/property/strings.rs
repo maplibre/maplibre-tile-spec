@@ -414,7 +414,7 @@ fn to_absolute_lengths(
 ///
 /// A front-coded blob holds only suffixes, which are not valid UTF-8 on their own, so the
 /// conversion happens here rather than when the blob is read.
-fn rebuild_dictionary<'d, 'l>(
+pub(crate) fn rebuild_dictionary<'d, 'l>(
     dict: DictLayout,
     lengths: &'l [u32],
     data: &'d [u8],

@@ -1,4 +1,5 @@
 use js_sys::{Int32Array, Uint32Array};
+use mlt_core::wire::GeoLayout;
 use mlt_core::{GeometryValues, ZStep};
 use wasm_bindgen::prelude::*;
 
@@ -112,5 +113,121 @@ impl LayerGeometry {
             z,
             z_step: geom.z_step().map(ZStep::exponent),
         }
+    }
+}
+
+/// The z grid of a layer `decodeTile3D` can read, or why it cannot.
+///
+/// It needs z coordinates, and rings to walk: a tessellated layout is rejected,
+/// with or without its outlines, since `decodeTile3D` does not support tessellation.
+pub(crate) fn z_step_3d(geom: &GeometryValues, layout: Option<GeoLayout>) -> Result<ZStep, String> {
+    let Some(step) = geom.z_step() else {
+        return Err("has no z coordinates; decode the tile with decodeTile() instead".into());
+    };
+    match layout {
+        Some(layout @ (GeoLayout::TessPolygons | GeoLayout::TessPolygonsWithOutlines)) => {
+            let name: &str = layout.into();
+            Err(format!(
+                "uses the {name} geometry layout, which decodeTile3D does not support"
+            ))
+        }
+        _ => Ok(step),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mlt_core::encoder::{EncoderConfig, WireVersion};
+    use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
+    use mlt_core::wire::GeoLayout;
+    use mlt_core::{Decoder, GeometryValues, ParsedLayer, Parser, TileLayer, ZStep};
+
+    use super::z_step_3d;
+
+    fn coords(pts: &[(i32, i32)]) -> LineString<i32> {
+        LineString(pts.iter().map(|&(x, y)| Coord { x, y }).collect())
+    }
+
+    fn line() -> Geometry<i32> {
+        Geometry::LineString(coords(&[(1, 2), (3, 4)]))
+    }
+
+    /// A square, which stores 4 vertices.
+    fn square() -> Geometry<i32> {
+        Geometry::Polygon(Polygon::new(
+            coords(&[(0, 0), (10, 0), (10, 10), (0, 10), (0, 0)]),
+            vec![],
+        ))
+    }
+
+    fn v2() -> EncoderConfig {
+        EncoderConfig::default().with_wire_version(WireVersion::V02)
+    }
+
+    /// Encode `geom` as a v2 layer with `cfg`, its vertices on `z` when given, and decode it
+    /// back into the geometry and layout `decode_tile` holds.
+    fn decoded(
+        geom: Geometry<i32>,
+        z: Option<(ZStep, Vec<i32>)>,
+        cfg: EncoderConfig,
+    ) -> (GeometryValues, GeoLayout) {
+        let mut builder = TileLayer::builder("layer", 4096).unwrap();
+        if let Some((step, _)) = &z {
+            builder.set_z_step(*step).unwrap();
+        }
+        let mut feature = builder.feature(geom);
+        if let Some((_, z)) = z {
+            feature.z(z).unwrap();
+        }
+        feature.finish().unwrap();
+        let bytes = builder.finish().encode(cfg).unwrap();
+        let layer = Parser::default().parse_layers(&bytes).unwrap().remove(0);
+        let ParsedLayer::Tag02(layer) = layer.decode_all(&mut Decoder::default()).unwrap() else {
+            panic!("expected a v2 layer")
+        };
+        (
+            layer.layer().geometry_values().clone(),
+            layer.layout().geometry,
+        )
+    }
+
+    fn step() -> ZStep {
+        ZStep::new(-1).unwrap()
+    }
+
+    /// A 3D square on [`step`], encoded with `cfg`.
+    fn square_3d(cfg: EncoderConfig) -> (GeometryValues, GeoLayout) {
+        decoded(square(), Some((step(), vec![100_000; 4])), cfg)
+    }
+
+    #[test]
+    fn a_3d_layer_of_rings_reads_in_3d() {
+        let (geom, layout) = square_3d(v2());
+        assert_eq!(layout, GeoLayout::Polygons);
+        assert_eq!(z_step_3d(&geom, Some(layout)), Ok(step()));
+    }
+
+    #[test]
+    fn a_flat_layer_does_not_read_in_3d() {
+        let (geom, layout) = decoded(line(), None, v2());
+        let err = z_step_3d(&geom, Some(layout)).unwrap_err();
+        assert!(err.contains("no z coordinates"), "{err}");
+    }
+
+    #[test]
+    fn a_tessellated_3d_layer_with_outlines_is_rejected() {
+        let (geom, layout) = square_3d(v2().with_tessellation(true));
+        assert_eq!(layout, GeoLayout::TessPolygonsWithOutlines);
+        let err = z_step_3d(&geom, Some(layout)).unwrap_err();
+        assert!(err.contains("TessPolygonsWithOutlines"), "{err}");
+    }
+
+    #[test]
+    fn a_triangles_only_3d_layer_is_rejected() {
+        let cfg = v2().with_tessellation(true).with_triangles_only(true);
+        let (geom, layout) = square_3d(cfg);
+        assert_eq!(layout, GeoLayout::TessPolygons);
+        let err = z_step_3d(&geom, Some(layout)).unwrap_err();
+        assert!(err.contains("the TessPolygons geometry layout"), "{err}");
     }
 }

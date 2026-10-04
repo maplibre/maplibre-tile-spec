@@ -57,8 +57,8 @@ const BY_ID: Record<string, string> = {
   fastpfor: "encodings#fastpfor",
   "bit-packed": "encodings#bit-packing",
   // A string column's layout, from the extension bits.
-  "layout/plain": "encodings#string-layouts",
-  "layout/dict": "encodings#string-layouts",
+  "layout/plain": "encodings#plain-bytes",
+  "layout/dict": "encodings#string-dictionary",
   "layout/fsst": "encodings#fsst",
   "layout/fsst-dict": "encodings#fsst",
 };
