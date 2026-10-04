@@ -4,10 +4,7 @@ description: A column-oriented vector tile format for map data
 
 # MapLibre Tile Specification
 
---8<-- "live-spec-note"
-
-MLT (MapLibre Tile) is a vector tile format for map data.
-It stores the same content as an [MVT](https://github.com/mapbox/vector-tile-spec) tile, layers of features with geometries and properties, in a column-oriented layout.
+MLT (MapLibre Tile) is a vector tile format for map data. It stores the same content as an [MVT](https://github.com/mapbox/vector-tile-spec) tile, layers of features with geometries and properties, in a column-oriented layout.
 
 MLT is natively supported by [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/) and [MapLibre Native](https://maplibre.org/maplibre-native/), and tiles can be served using the [Martin tile server](https://maplibre.org/martin/).
 
@@ -105,6 +102,8 @@ Bytes of tile in the archive are only counted once.
 For re-encoding we use Zlib level 6 per tile, since this is the level both source archives were written with.
 
 ## Documentation
+
+--8<-- "live-spec-note"
 
 | Page | Contents |
 |---|---|
