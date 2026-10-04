@@ -40,7 +40,7 @@ use crate::convert::ContainerFormat;
 pub struct FromGeoJsonArgs {
     /// Input: a WGS84 `GeoJSON` file holding a `FeatureCollection`
     input: PathBuf,
-    /// Output: a directory for the `z/x/y.mlt` tile tree
+    /// Output: a directory for the `z/x/y.mlt` tile tree, which must not exist yet
     output: PathBuf,
     /// Lowest zoom level to tile into
     #[clap(long, value_name = "ZOOM", default_value_t = 0)]
@@ -109,6 +109,13 @@ pub fn from_geojson(args: &FromGeoJsonArgs) -> AnyResult<()> {
     if ContainerFormat::from_path(output) != ContainerFormat::Files {
         bail!(
             "from-geojson writes a directory of z/x/y.mlt tiles; archive output is not supported yet, got: {}",
+            output.display()
+        );
+    }
+    if output.exists() {
+        bail!(
+            "Output {} already exists; refusing to append. \
+             Delete it first or choose a different path.",
             output.display()
         );
     }

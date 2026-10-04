@@ -52,15 +52,20 @@ fn run_into(
     let input = dir.0.join(file_name);
     fs::write(&input, serde_json::to_vec(geojson).unwrap()).unwrap();
     let output = dir.0.join(out_name);
-    let out = Command::new(env!("CARGO_BIN_EXE_mlt"))
+    let out = mlt_from_geojson(&input, &output, args);
+    (dir, output, out)
+}
+
+/// Run `mlt from-geojson <input> <output> <args>`.
+fn mlt_from_geojson(input: &Path, output: &Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_mlt"))
         .arg("from-geojson")
-        .arg(&input)
-        .arg(&output)
+        .arg(input)
+        .arg(output)
         .args(args)
         .env_remove("RUST_BACKTRACE")
         .output()
-        .unwrap();
-    (dir, output, out)
+        .unwrap()
 }
 
 /// The stderr of `out`, with the temp dir it ran in shown as `[TMP]`.
@@ -505,6 +510,27 @@ fn an_archive_output_is_rejected() {
     assert!(!output.exists());
     let stderr = stderr_of(&dir, &out);
     insta::assert_snapshot!(stderr, @"Error: from-geojson writes a directory of z/x/y.mlt tiles; archive output is not supported yet, got: [TMP]/out.pmtiles");
+}
+
+#[test]
+fn an_existing_output_is_rejected_and_left_untouched() {
+    let geojson = collection(&[feature(
+        &json!({ "type": "Point", "coordinates": [0, 0] }),
+        &json!({}),
+    )]);
+    let (dir, output) = run(&geojson, &["--max-zoom", "0"]);
+    let before = fs::read(output.join("0/0/0.mlt")).unwrap();
+
+    let out = mlt_from_geojson(
+        &dir.0.join("input.geojson"),
+        &output,
+        &["--min-zoom", "1", "--max-zoom", "1"],
+    );
+    assert!(!out.status.success());
+    assert_eq!(mlt_files(&output), ["0/0/0.mlt"]);
+    assert_eq!(fs::read(output.join("0/0/0.mlt")).unwrap(), before);
+    let stderr = stderr_of(&dir, &out);
+    insta::assert_snapshot!(stderr, @"Error: Output [TMP]/out already exists; refusing to append. Delete it first or choose a different path.");
 }
 
 #[test]
