@@ -116,7 +116,7 @@ pub enum MltVersion {
     #[default]
     #[value(name = "1", alias = "v1")]
     V1,
-    /// Version 2 (unstable; not yet readable by `MapLibre` renderers)
+    /// Version 2 (experimental)
     #[value(name = "2", alias = "v2")]
     V2,
 }
