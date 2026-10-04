@@ -6,8 +6,7 @@ use std::fmt;
 
 use anyhow::{Context as _, Result as AnyResult, anyhow, bail, ensure};
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
-use mlt_core::{Decoder, Parser, PropValue, TileFeature, TileLayer};
-use mlt_core::{MValue, NestedValue};
+use mlt_core::{Decoder, MValue, NestedValue, Parser, PropValue, TileFeature, TileLayer};
 
 /// Decode `encoded`, hand it to `restore`, and require the result to hold what `source` does.
 ///
@@ -261,16 +260,14 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature) -> Row<'a> {
             values.insert((Role::Property, name.as_str()), value);
         }
     }
-    {
-        for (name, value) in layer.m_value_names().iter().zip(feature.m_values()) {
-            if let Some(value) = Value::of_m_value(value) {
-                values.insert((Role::MValue, name.as_str()), value);
-            }
+    for (name, value) in layer.m_value_names().iter().zip(feature.m_values()) {
+        if let Some(value) = Value::of_m_value(value) {
+            values.insert((Role::MValue, name.as_str()), value);
         }
-        for (name, value) in layer.nested_names().iter().zip(feature.nested()) {
-            if let Some(value) = Value::of_nested(value) {
-                values.insert((Role::Nested, name.as_str()), value);
-            }
+    }
+    for (name, value) in layer.nested_names().iter().zip(feature.nested()) {
+        if let Some(value) = Value::of_nested(value) {
+            values.insert((Role::Nested, name.as_str()), value);
         }
     }
     Row {

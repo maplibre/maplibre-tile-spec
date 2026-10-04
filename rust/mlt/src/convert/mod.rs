@@ -17,8 +17,7 @@ use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
-use mlt_core::encoder::WireVersion;
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, WireVersion};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
@@ -207,13 +206,9 @@ impl Reencoder {
         let layer = self.fields.apply(layer)?;
         let encoded = layer.encode(self.encoder)?;
         if let Some(source) = source {
-            verify::check_round_trip(&source, &encoded, |decoded| self.restore(decoded))?;
+            verify::check_round_trip(&source, &encoded, |decoded| self.fields.restore(decoded))?;
         }
         Ok(encoded)
-    }
-
-    fn restore(&self, layer: mlt_core::TileLayer) -> AnyResult<mlt_core::TileLayer> {
-        self.fields.restore(layer)
     }
 }
 
@@ -351,8 +346,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_id_sort(id_sort)
         .with_shared_dict(!args.no_shared_dict)
         .with_fastpfor(!args.no_fastpfor)
-        .with_fsst(!args.no_fsst);
-    let encoder = encoder
+        .with_fsst(!args.no_fsst)
         .with_wire_version(args.mlt_version.into())
         .with_float_alp(!args.no_alp)
         .with_float_dict(!args.no_float_dict)
@@ -377,42 +371,40 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let input_container = args.input_container();
     let output_container = args.output_container();
     let geojson_input = is_geojson(&args.input);
-    {
-        let geojson_only = [
-            ("--min-zoom", args.min_zoom.is_some()),
-            ("--max-zoom", args.max_zoom.is_some()),
-            ("--layer", args.layer.is_some()),
-            ("--z-step", args.z_step.is_some()),
-        ];
-        if geojson_input {
-            if args.max_zoom.is_none() {
-                bail!("tiling a GeoJSON input requires --max-zoom");
-            }
-            if args.to == TileFormat::Mvt {
-                bail!("--to mvt is not supported for a GeoJSON input; it is tiled into MLT");
-            }
-            if args.mlt_version != MltVersion::V2 {
-                bail!("tiling a GeoJSON input writes MLT version 2, so it needs --mlt-version 2");
-            }
-            if output_container != ContainerFormat::Files {
-                bail!(
-                    "a GeoJSON input is tiled into a directory of z/x/y.mlt tiles; archive output is not supported yet, got: {}",
-                    args.output.display()
-                );
-            }
-            if args.output.exists() {
-                bail!(
-                    "Output {} already exists; refusing to append. \
-                     Delete it first or choose a different path.",
-                    args.output.display()
-                );
-            }
-        } else if let Some((flag, _)) = geojson_only.iter().find(|(_, given)| *given) {
+    let geojson_only = [
+        ("--min-zoom", args.min_zoom.is_some()),
+        ("--max-zoom", args.max_zoom.is_some()),
+        ("--layer", args.layer.is_some()),
+        ("--z-step", args.z_step.is_some()),
+    ];
+    if geojson_input {
+        if args.max_zoom.is_none() {
+            bail!("tiling a GeoJSON input requires --max-zoom");
+        }
+        if args.to == TileFormat::Mvt {
+            bail!("--to mvt is not supported for a GeoJSON input; it is tiled into MLT");
+        }
+        if args.mlt_version != MltVersion::V2 {
+            bail!("tiling a GeoJSON input writes MLT version 2, so it needs --mlt-version 2");
+        }
+        if output_container != ContainerFormat::Files {
             bail!(
-                "{flag} tiles a GeoJSON input, but the input is not a .geojson file: {}",
-                args.input.display()
+                "a GeoJSON input is tiled into a directory of z/x/y.mlt tiles; archive output is not supported yet, got: {}",
+                args.output.display()
             );
         }
+        if args.output.exists() {
+            bail!(
+                "Output {} already exists; refusing to append. \
+                 Delete it first or choose a different path.",
+                args.output.display()
+            );
+        }
+    } else if let Some((flag, _)) = geojson_only.iter().find(|(_, given)| *given) {
+        bail!(
+            "{flag} tiles a GeoJSON input, but the input is not a .geojson file: {}",
+            args.input.display()
+        );
     }
     let filter = BboxFilter::new(&args.bbox)?;
     let has_archive_input =
@@ -471,7 +463,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             }
         }
     } else if geojson_input {
-        tile_geojson(args, &reencoder)
+        from_geojson::convert(args, &reencoder)
     } else {
         from_files::convert(&args.input, &args.output, &reencoder, args.to)
     };
@@ -481,11 +473,6 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         }
     }
     converted
-}
-
-/// Tiles a `GeoJSON` input into a directory of `z/x/y.mlt` tiles.
-fn tile_geojson(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()> {
-    from_geojson::convert(args, reencoder)
 }
 
 /// Converts an `.mbtiles` input, first extracting the requested boxes into a temporary

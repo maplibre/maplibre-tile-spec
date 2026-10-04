@@ -17,10 +17,9 @@ use mlt_core::wire::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::wire::{
     Analyze as _, BoolLogical, ColumnDecl, ColumnStorage, DictLayout, DictionaryType, FastPForKind,
     FloatLogical, IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
-    StreamMeta, StreamType, StringLayout, VertexLogical,
+    StreamMeta, StreamType, StringLayout, VertexLogical, XyzLogical,
 };
-use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser, PropKind};
-use mlt_core::{ZStep, wire::XyzLogical};
+use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser, PropKind, ZStep};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use size_format::SizeFormatterSI;
@@ -960,10 +959,6 @@ pub enum StatLogicalCodec {
 impl From<LogicalEncoding> for StatLogicalCodec {
     fn from(ld: LogicalEncoding) -> Self {
         use LogicalEncoding as LE;
-        #[expect(
-            clippy::match_same_arms,
-            reason = "the xyz arms are kept apart to explain why they report a 2D codec"
-        )]
         match ld {
             LE::Int(IntLogical::None)
             | LE::Bool(BoolLogical::None)
@@ -981,11 +976,11 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Vertex(VertexLogical::Rans) => Self::Rans,
             // z is the extension bit, not a codec: report the codec the triples use,
             // and leave the step to the `zStep` facet.
-            LE::Vertex(VertexLogical::Xyz(_, XyzLogical::None)) => Self::None,
-            LE::Vertex(VertexLogical::Xyz(_, XyzLogical::Delta)) => Self::Delta,
-            LE::Vertex(VertexLogical::Xyz(_, XyzLogical::ComponentwiseDelta)) => {
-                Self::ComponentwiseDelta
-            }
+            LE::Vertex(VertexLogical::Xyz(_, xyz)) => match xyz {
+                XyzLogical::None => Self::None,
+                XyzLogical::Delta => Self::Delta,
+                XyzLogical::ComponentwiseDelta => Self::ComponentwiseDelta,
+            },
         }
     }
 }
