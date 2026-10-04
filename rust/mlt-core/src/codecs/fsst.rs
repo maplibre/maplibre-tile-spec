@@ -38,43 +38,82 @@ pub fn decode_fsst_bytes(
     } = raw;
 
     let sym_lens = symbol_lengths.decode_ints::<u32>(dec)?;
-    let symbols = symbol_table.data;
-    let compressed = corpus.data;
-
-    // Split the symbol table into one slice per symbol up front, so the decode loop below is a
-    // single lookup per corpus byte.
-    let mut symbols_by_index = Vec::with_capacity(sym_lens.len());
-    let mut rest = symbols;
-    for &len in &sym_lens {
-        let Some((symbol, tail)) = rest.split_at_checked(len.into_usize()) else {
-            return Err(MltError::MalformedFsst(
-                "symbol lengths overrun the symbol table",
-            ));
-        };
-        symbols_by_index.push(symbol);
-        rest = tail;
-    }
-
-    let mut output = Vec::new();
-    let mut corpus_bytes = compressed.iter();
-    while let Some(&sym_idx) = corpus_bytes.next() {
-        if sym_idx == ESCAPE_MARKER {
-            let &escaped = corpus_bytes
-                .next()
-                .ok_or(MltError::MalformedFsst("corpus ends on an escape marker"))?;
-            output.push(escaped);
-        } else {
-            let Some(symbol) = symbols_by_index.get(usize::from(sym_idx)) else {
-                return Err(MltError::MalformedFsst(
-                    "corpus references a symbol the symbol table does not have",
-                ));
-            };
-            output.extend_from_slice(symbol);
-        }
-    }
+    let table = SymbolTable::new(&sym_lens, symbol_table.data)?;
+    let output = table.expand(corpus.data)?;
 
     dec.consume_items::<u8>(output.len())?;
     Ok((output, lengths.decode_ints::<u32>(dec)?))
+}
+
+/// Symbols are at most this long, so each one expands with a single fixed-width copy.
+const MAX_SYMBOL_LEN: usize = 8;
+
+/// Each symbol padded to [`MAX_SYMBOL_LEN`] bytes beside its real length, indexed by its code.
+struct SymbolTable {
+    words: [[u8; MAX_SYMBOL_LEN]; 256],
+    lens: [u8; 256],
+    count: usize,
+}
+
+impl SymbolTable {
+    fn new(sym_lens: &[u32], symbols: &[u8]) -> MltResult<Self> {
+        let mut table = Self {
+            words: [[0; MAX_SYMBOL_LEN]; 256],
+            lens: [0; 256],
+            count: sym_lens.len().min(usize::from(ESCAPE_MARKER)),
+        };
+        let mut rest = symbols;
+        for (index, &len) in sym_lens.iter().enumerate() {
+            let len = len.into_usize();
+            let Some((symbol, tail)) = rest.split_at_checked(len) else {
+                return Err(MltError::MalformedFsst(
+                    "symbol lengths overrun the symbol table",
+                ));
+            };
+            if len > MAX_SYMBOL_LEN {
+                return Err(MltError::MalformedFsst(
+                    "a symbol is longer than eight bytes",
+                ));
+            }
+            if index < table.count {
+                table.words[index][..len].copy_from_slice(symbol);
+                table.lens[index] =
+                    u8::try_from(len).expect("infallible: checked against MAX_SYMBOL_LEN above");
+            }
+            rest = tail;
+        }
+        Ok(table)
+    }
+
+    /// Expand a corpus of codes back into the bytes they stand for.
+    fn expand(&self, corpus: &[u8]) -> MltResult<Vec<u8>> {
+        // Every symbol is written as a full word, so the buffer keeps a word of slack past the output.
+        let mut output = vec![0; corpus.len() * 2 + MAX_SYMBOL_LEN];
+        let mut len = 0;
+        let mut codes = corpus.iter();
+        while let Some(&code) = codes.next() {
+            if output.len() - len < MAX_SYMBOL_LEN {
+                output.resize(output.len() * 2, 0);
+            }
+            if code == ESCAPE_MARKER {
+                output[len] = *codes
+                    .next()
+                    .ok_or(MltError::MalformedFsst("corpus ends on an escape marker"))?;
+                len += 1;
+            } else {
+                let code = usize::from(code);
+                if code >= self.count {
+                    return Err(MltError::MalformedFsst(
+                        "corpus references a symbol the symbol table does not have",
+                    ));
+                }
+                output[len..len + MAX_SYMBOL_LEN].copy_from_slice(&self.words[code]);
+                len += usize::from(self.lens[code]);
+            }
+        }
+        output.truncate(len);
+        Ok(output)
+    }
 }
 
 /// An FSST symbol table and the corpus it compresses.
@@ -356,6 +395,32 @@ mod tests {
             .expect("valid FSST data should decode");
         assert_eq!(corpus, "abz");
         assert_eq!(lengths, [3]);
+    }
+
+    #[test]
+    fn symbol_longer_than_eight_bytes() {
+        let err = decode_malformed(&[9], b"abcdefghi", &[9], &[0x00]);
+        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+    }
+
+    #[test]
+    fn eight_byte_symbol_ends_the_output() {
+        let blob = hand_built_blob(&[1, 8], b"abcdefghi", &[0x00, 0x01]);
+        let buffers = wire_streams(&blob, &[9]);
+        let (corpus, lengths) = decode_fsst(parse_streams(&buffers), &mut dec())
+            .expect("valid FSST data should decode");
+        assert_eq!(corpus, "abcdefghi");
+        assert_eq!(lengths, [9]);
+    }
+
+    #[test]
+    fn output_eight_times_the_corpus() {
+        let blob = hand_built_blob(&[8], b"abcdefgh", &[0x00; 100]);
+        let buffers = wire_streams(&blob, &[800]);
+        let (corpus, lengths) = decode_fsst(parse_streams(&buffers), &mut dec())
+            .expect("valid FSST data should decode");
+        assert_eq!(corpus, "abcdefgh".repeat(100));
+        assert_eq!(lengths, [800]);
     }
 
     #[test]
