@@ -399,12 +399,13 @@ fn features_too_small_for_the_zoom_write_no_tiles_and_say_so() {
     insta::assert_snapshot!(stderr, @"[TMP]/input.geojson: none of its 1 feature(s) spans a grid unit at zooms 0..=0, so no tile was written; raise --max-zoom");
 }
 
-/// 1000 points spread evenly over the four z1 tiles, each with a property key of
+/// 2000 points spread evenly over the four z1 tiles, each with a property key of
 /// its own. A decoder lays out every column for every feature, so the z0 tile
-/// holding all of them needs about 1000 x 1000 values and outgrows the default
-/// decoder budget, while each z1 tile holds a quarter of the features and fits.
+/// holding all of them needs about 2000 x 2000 values (~90 MiB) and outgrows the
+/// default decoder budget (64 MiB), while each z1 tile holds a quarter of the
+/// features and fits.
 fn too_heavy_at_z0() -> Value {
-    let features: Vec<Value> = (0..1000)
+    let features: Vec<Value> = (0..2000)
         .map(|i| {
             let lon = if i % 2 == 0 { -90 } else { 90 };
             let lat = if i % 4 < 2 { -45 } else { 45 };
