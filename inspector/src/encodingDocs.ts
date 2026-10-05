@@ -75,10 +75,10 @@ const same = (key: string) => ({ v1: key, v2: key });
  * the tag in hand simply shows no section, which is why v1 is thinner here.
  */
 const BY_LABEL: Record<string, Partial<Record<"v1" | "v2", string>>> = {
-  // The framing every layer starts with, which names no stream of its own.
-  layer: { v1: "v1#column-metadata", v2: "v2#tile-layout" },
-  size: { v1: "v1#column-metadata", v2: "v2#tile-layout" },
-  tag: { v1: "v1#column-metadata", v2: "v2#tile-layout" },
+  // The framing every layer starts with, shared by all tags and specified once in v1.
+  layer: same("v1#tile-layout"),
+  size: same("v1#tile-layout"),
+  tag: same("v1#tile-layout"),
   extent: { v1: "v1#column-metadata", v2: "v2#extent" },
   column: { v1: "v1#column-data", v2: "v2#columns" },
   column_schema: { v1: "v1#column-metadata" },
