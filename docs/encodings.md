@@ -453,7 +453,8 @@ Bits past `count` in the final byte are padding and MUST be ignored.
 
 ### Runs <span class="experimental"></span> {#bool-runs}
 
-Alternating run lengths as varints; the first counts `0` bits and can be `0`.
+Alternating run lengths as varints.
+The first counts the leading `0` bits and can be `0`.
 The lengths MUST sum to `count`.
 Runs is best for a bitfield that is set over contiguous blocks of values.
 
