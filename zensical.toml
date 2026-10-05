@@ -11,19 +11,15 @@ extra_javascript = [
   "https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js",
 ]
 nav = [
-  { "Introduction" = [
-    { "About MLT" = "index.md" },
-    { "Data Model" = "overview.md" },
-    { "Implementation Status" = "implementation-status.md" },
-  ] },
-  { "Specification" = [
-    { "Overview" = "specification/index.md" },
-    { "Tile Inspector" = "inspector/index.md" },
-    { "MLT v1" = "specification/v1.md" },
-    { "MLT v2 (experimental)" = "specification/v2.md" },
-    { "Encoding Algorithms" = "encodings.md" },
-    { "Implementation Guide" = "implementation-guide.md" },
-  ] },
+  { "About MLT" = "index.md" },
+  { "Data Model" = "overview.md" },
+  { "MLT v1" = "specification/v1.md" },
+  { "MLT v2 (experimental)" = "specification/v2.md" },
+  { "Encoding Algorithms" = "encodings.md" },
+  { "Implementation Guide" = "implementation-guide.md" },
+  { "Implementation Status" = "implementation-status.md" },
+  { "Benchmarks" = "benchmarks.md" },
+  { "Tile Inspector" = "inspector/index.md" },
 ]
 
 [project.theme]
@@ -37,8 +33,6 @@ features = [
   "navigation.instant.progress",
   "navigation.path",
   "navigation.tracking",
-  "navigation.tabs",
-  "navigation.tabs.sticky",
   "navigation.sections",
   "navigation.footer",
   "navigation.top",
@@ -149,9 +143,9 @@ The first byte of every tile names its wire format version: v1 is stable, v2 is 
   { "index.md" = "A column-oriented vector tile format for map data" },
   { "overview.md" = "The data model of tiles, layers, features, columns and streams" },
   { "implementation-status.md" = "Libraries, tools and datasets that support MLT" },
+  { "benchmarks.md" = "Decoding speed and tile size of MLT v1 and v2 compared with MVT" },
 ]
 Specification = [
-  { "specification/index.md" = "How the first byte of a tile selects its wire format version" },
   { "specification/v1.md" = "Byte layout of the stable MLT v1 wire format" },
   { "specification/v2.md" = "Byte layout of the experimental MLT v2 wire format" },
   { "encodings.md" = "Payload of every encoding a stream can name" },

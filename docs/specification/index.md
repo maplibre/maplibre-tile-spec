@@ -1,16 +1,11 @@
 ---
-description: How the first byte of a tile selects its wire format version
+description: Moved to the main page
+search:
+  exclude: true
 ---
 
-<h1>MapLibre Tile Specification</h1>
+<meta http-equiv="refresh" content="0; url=../">
 
---8<-- "live-spec-note"
+# MapLibre Tile Specification
 
-The wire format is versioned by the first byte of every tile.
-
-| Version | Page | Status |
-|---------|------|--------|
-| `0x01` | [MLT v1](v1.md) | Stable. |
-| `0x02` | [MLT v2](v2.md) | <span class="experimental"></span> Under development. |
-
-Both versions share the [data model](../overview.md) and the compression schemes in [Encoding Algorithms](../encodings.md).
+This page has moved to the [main page](../index.md#documentation).

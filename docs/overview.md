@@ -8,11 +8,11 @@ This page describes the MLT data model used in [MLT v1](specification/v1.md) and
 
 # Tiles
 
-MLT is a tiled format.
-A dataset is cut into a pyramid of square tiles, referenced as `z/x/y`.
-A map loads only the tiles currently on screen.
-Each tile is self-contained: nothing outside it is needed to decode it.
-This is the same tiling model MVT uses.
+MLT defines the structure of a single tile.
+As with MVT, the tile grid, map projection, and anything else outside one tile are out of its scope.
+Each tile is self-contained: nothing outside it is needed to decode it, though drawing it usually takes a separate [style](https://maplibre.org/maplibre-style-spec/).
+
+Typically, a dataset is cut into a pyramid of square tiles addressed as `z/x/y`, and a map loads only the tiles currently on screen.
 Tiles are commonly stored in [PMTiles](https://github.com/protomaps/PMTiles) or MBTiles archives and served over HTTP, for example by the [Martin tile server](https://maplibre.org/martin/).
 
 --8<-- "diagrams/tile-pyramid.svg"
@@ -123,7 +123,7 @@ Lightweight means cheap enough to decode at render time.
 Encodings cascade.
 Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta- or bit-packed like any other.
 
-Encoders choose encodings by sampling, since trying every combination is too expensive; see [Choosing an Encoding](implementation-guide.md#choosing-an-encoding).
+Encoders choose encodings by sampling, since trying every combination is too expensive; see [choosing an encoding](implementation-guide.md#choosing-an-encoding).
 The [encoding algorithms](encodings.md) page describes each scheme.
 The specifications say which streams may use which.
 

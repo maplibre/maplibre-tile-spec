@@ -18,19 +18,19 @@ This page defines what the bytes after the header mean.
 ## Integer Words
 
 Most of MLT is integers.
-Lengths, offsets, ids, dictionary codes, geometry topology and the vertex buffer are all streams of integer words, and so are the scaled integers of an [Framed, Exception-Free ALP](#alp) float column.
+Lengths, offsets, ids, dictionary codes, geometry topology and the vertex buffer are all streams of integer words, and so are the scaled integers of a [framed, exception-free ALP](#alp) float column.
 
 An integer stream is decoded in two steps.
 The **physical** encoding turns the payload bytes into a sequence of unsigned words.
 The **logical** encoding turns those words into the values.
-A stream of `Int64`, `UInt64` or `LongId` values has 64-bit words, and so does an [Framed, Exception-Free ALP](#alp) offset stream.
+A stream of `Int64`, `UInt64` or `LongId` values has 64-bit words, and so does a [framed, exception-free ALP](#alp) offset stream.
 Every other integer stream has 32-bit words.
 
 ```
 values = logical_decode(physical_decode(payload))
 ```
 
-A difference is signed even when the values are not, so every delta is [ZigZag](#zigzag)-encoded.
+A difference is signed even when the values are not, so every delta is [zigzag](#zigzag)-encoded.
 A plain or run-length encoded value is ZigZag-encoded only on a stream of a signed type.
 Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded.
 Delta arithmetic wraps at the word width.
@@ -74,7 +74,7 @@ For 64-bit values the shift is `63`.
 Each word is stored as it is, little-endian, 4 or 8 bytes per word.
 
 In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width give it.
-See [Byte Length](specification/v2.md#byte-length).
+See [byte length](specification/v2.md#byte-length).
 
 ### VarInt {#varint}
 
@@ -97,7 +97,7 @@ A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
     ```
 
 This is the unsigned varint of [Protocol Buffers](https://protobuf.dev/programming-guides/encoding/#varints) and the length prefix every MLT header uses.
-Signed values go through [ZigZag](#zigzag) first, where the logical encoding says so.
+Signed values go through [zigzag](#zigzag) first, where the logical encoding says so.
 
 ### Bit Packing <span class="experimental"></span> {#bit-packing}
 
@@ -106,7 +106,7 @@ Every word is stored in the same number of bits, the bit width of the largest va
 [View example](inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&at=codes){target=_blank .inspector-example} - dictionary codes `0` to `2`, each in two bits.
 
 v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`.
-It stands in for the whole physical step: the words come straight out of the packed bits, and only [ZigZag](#zigzag) on a signed stream is applied to them.
+It stands in for the whole physical step: the words come straight out of the packed bits, and only [zigzag](#zigzag) on a signed stream is applied to them.
 
 ```
 payload := [u8 width]                        1-32
@@ -268,7 +268,7 @@ A decoder MUST reject
 
 The tail is variable-byte encoded, with no count and no header.
 Each value is stored in 7-bit groups, least significant group first, and bit 7 of its **last** byte is set.
-This is the reverse of [VarInt](#varint), where bit 7 marks a byte that is followed by another.
+This is the reverse of [varint](#varint), where bit 7 marks a byte that is followed by another.
 
 A `u32` takes 1 to 5 bytes and the fifth carries the top 4 bits.
 A `u64` takes 1 to 10.
@@ -300,7 +300,7 @@ The last two are the tail.
 
 The same values as `u64` take 22 words, since the bitmap has two.
 
-In v2 a stream of 64-bit words, such as the offsets of an [Framed, Exception-Free ALP](#alp) column, uses the `u64` form.
+In v2 a stream of 64-bit words, such as the offsets of a [framed, exception-free ALP](#alp) column, uses the `u64` form.
 v1 has no 64-bit FastPFOR, so a v1 stream of 64-bit words cannot use it.
 
 ## Logical Encodings
@@ -310,13 +310,13 @@ The logical encoding is applied to the words the physical step produced.
 ### None {#logical-none}
 
 The words are the values.
-On a signed stream each word is [ZigZag](#zigzag)-decoded.
+On a signed stream each word is [zigzag](#zigzag)-decoded.
 
 ### Delta {#delta}
 
 Each word is the difference to the previous value.
 The first value's predecessor is `0`.
-Each difference is [ZigZag](#zigzag)-encoded before it becomes a word, whatever the stream's type.
+Each difference is [zigzag](#zigzag)-encoded before it becomes a word, whatever the stream's type.
 
 [View example](inspector/app/?fixture=0x02%2Fids_opt_delta.mlt&at=column%5B0%5D){target=_blank .inspector-example} - ids `100`, `101`, `105`, `106`, stored as the steps between them.
 
@@ -339,12 +339,12 @@ Delta suits monotonic sequences such as ids and offsets, whose differences are s
 
 ### Delta2 <span class="experimental"></span> {#delta2}
 
-Each item is the [Delta](#delta) of the deltas.
+Each item is the [delta](#delta) of the deltas.
 Both predecessors start at `0`, so the first two words are
 - `values[0]` and
 - `values[1] - 2 * values[0]`.
 
-Each second difference is [ZigZag](#zigzag)-encoded, and the arithmetic wraps at the stream's width.
+Each second difference is [zigzag](#zigzag)-encoded, and the arithmetic wraps at the stream's width.
 
 This means that encoding is:
 ```
@@ -372,7 +372,7 @@ Delta2 suits smooth sequences, such as a per-vertex elevation along a densely sa
 ### RLE {#rle}
 
 The values are stored as runs, each a `(run_length, value)` pair that expands to `run_length` copies of `value`.
-On a signed stream `value` is [ZigZag](#zigzag)-encoded.
+On a signed stream `value` is [zigzag](#zigzag)-encoded.
 Run lengths never are.
 
 [View example](inspector/app/?fixture=0x02%2Fmvalues_rle.mlt&at=m_value%5B0%5D){target=_blank .inspector-example} - five `5`s and three `7`s, as two runs.
@@ -589,7 +589,7 @@ $e$ is at most $18$ so that $v \cdot 10^e$ fits in an `i64`.
     ```
 
 The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints.
-See the [Framed, Exception-Free ALP example](specification/v2.md#examples) on the v2 page for the whole layer.
+See the [framed, exception-free ALP example](specification/v2.md#examples) on the v2 page for the whole layer.
 
 ### Float Dictionary <span class="experimental"></span> {#float-dictionary}
 
@@ -766,7 +766,7 @@ Its words are 32-bit and signed.
 
 Each coordinate is a delta to the same coordinate of the previous vertex.
 `x` and `y` keep separate predecessors, both starting at `0`.
-Each delta is [ZigZag](#zigzag)-encoded.
+Each delta is [zigzag](#zigzag)-encoded.
 
 [View example](inspector/app/?fixture=0x02%2Fline.mlt&at=vertices){target=_blank .inspector-example} - three vertices, each stored as its step from the one before.
 
@@ -782,7 +782,7 @@ deltas:   (100, 200), (5, 10), (-3, 5)
 words:    [200, 400, 10, 20, 5, 10]
 ```
 
-The v2 `Vertex` family also has a plain `Delta`, which is the integer [Delta](#delta) over the flat word sequence and does not separate the components.
+The v2 `Vertex` family also has a plain `Delta`, which is the integer [delta](#delta) over the flat word sequence and does not separate the components.
 
 ### Componentwise Delta2 <span class="experimental"></span> {#componentwise-delta2}
 
