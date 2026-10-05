@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="https://maplibre.org/favicon.ico">
-      <meta name="generator" content="zensical-0.0.67">
+      <meta name="generator" content="zensical-0.0.68">
     
     
       
@@ -32,12 +32,12 @@
       
         
       
-      <link rel="stylesheet" href="./assets/stylesheets/modern/main.4ae390e2.min.css">
+      <link rel="stylesheet" href="./assets/stylesheets/modern/main.595f2bf5.min.css">
       
         
           
         
-        <link rel="stylesheet" href="./assets/stylesheets/modern/palette.96d1a7e4.min.css">
+        <link rel="stylesheet" href="./assets/stylesheets/modern/palette.b27955a4.min.css">
       
       
 
@@ -93,14 +93,11 @@
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
-    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
     <div data-md-component="skip">
-      
-        
-        <a href="#maplibre-tile-specification" class="md-skip">
-          Skip to content
-        </a>
-      
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
     </div>
     <div data-md-component="announce">
       
@@ -111,7 +108,7 @@
 
   
 
-<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="" title="MapLibre Tile Specification" class="md-header__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
       
@@ -208,68 +205,13 @@
     </div>
   </nav>
   
-    
-      
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-  
-    
-  
-  
-    
-      
-    
-    
-    
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="" class="md-tabs__link">
-          
-  
-  Introduction
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-      
-    
-    
-    
-      <li class="md-tabs__item">
-        <a href="./specification/" class="md-tabs__link">
-          
-  
-  Specification
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ul>
-  </div>
-</nav>
-    
-  
 </header>
     
     <div class="md-container" data-md-component="container">
       
       
+        
+          
         
       
       <main class="md-main" data-md-component="main">
@@ -283,12 +225,10 @@
                     
 
 
-  
-
 
   
 
-<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="" title="MapLibre Tile Specification" class="md-nav__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
       
@@ -314,62 +254,6 @@
     
       
       
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Introduction
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="true">
-            <label class="md-nav__title" for="__nav_1">
-              <span class="md-nav__icon md-icon"></span>
-              
-  
-  Introduction
-
-            </label>
-            <ul class="md-nav__list" data-md-scrollfix>
-              
-                
-                  
   
   
     
@@ -445,28 +329,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decoding-speed" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Decoding speed
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#size" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Size
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#documentation" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -484,10 +346,9 @@
     </li>
   
 
-                
-              
-                
-                  
+    
+      
+      
   
   
   
@@ -511,150 +372,9 @@
     </li>
   
 
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./implementation-status/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Implementation Status
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-            </ul>
-          </nav>
-        
-      
-    </li>
-  
-
     
       
       
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Specification
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_2">
-              <span class="md-nav__icon md-icon"></span>
-              
-  
-  Specification
-
-            </label>
-            <ul class="md-nav__list" data-md-scrollfix>
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./specification/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Overview
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./inspector/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Tile Inspector
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
   
   
   
@@ -678,10 +398,9 @@
     </li>
   
 
-                
-              
-                
-                  
+    
+      
+      
   
   
   
@@ -705,10 +424,9 @@
     </li>
   
 
-                
-              
-                
-                  
+    
+      
+      
   
   
   
@@ -732,10 +450,9 @@
     </li>
   
 
-                
-              
-                
-                  
+    
+      
+      
   
   
   
@@ -759,12 +476,81 @@
     </li>
   
 
-                
-              
-            </ul>
-          </nav>
-        
+    
       
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./implementation-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Implementation Status
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Benchmarks
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./inspector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tile Inspector
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -784,9 +570,12 @@
 
 
 
+  
+
 
               
               <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
                 
                   
 
@@ -805,7 +594,10 @@ MLT is natively supported by <a href="https://maplibre.org/maplibre-gl-js/">MapL
 <h2 id="why-mlt">Why MLT<a class="headerlink" href="#why-mlt" title="Link to this section">&para;</a></h2>
 <p>MLT is redesigned from the ground up for efficiency.
 Each geometry and attribute is stored as a separate column, with compression optimized for its data type.
-This makes tiles smaller, see <a href="#size">Size</a>, fast to decode with SIMD, and efficient to load into GPU buffers.</p>
+This makes tiles smaller, fast to decode with SIMD, and efficient to load into GPU buffers.
+On whole-planet archives, <strong>uncompressed</strong> MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster.
+With gzip, v2 is 10-18% smaller than gzipped MVT.
+See <a href="benchmarks/">benchmarks</a> for details.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="Three columns stored with one encoding each: ids as delta and run-length, geometry as deltas, class as run-length" xmlns="http://www.w3.org/2000/svg">
 <text class="row" x="0" y="54">values</text>
 <text class="row" x="0" y="124">stored</text>
@@ -879,628 +671,9 @@ Elevation and per-vertex values like lane count are lost, and lists or maps get 
 One tile can mix them, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.</p>
 <div class="admonition tip">
 <p class="admonition-title">MLT 0x03</p>
-<p>A 3D extension to MLT will expand these capabilities, and is in the requirements engineering stage.
+<p>A <a href="https://github.com/maplibre/maplibre-tile-spec/discussions/1182">3D extension to MLT</a> will expand these capabilities, and is in the requirements engineering stage.
 Join the MapLibre <a href="https://maplibre.org/community/">Slack</a> to learn more and share your ideas.</p>
 </div>
-<h2 id="decoding-speed">Decoding speed<a class="headerlink" href="#decoding-speed" title="Link to this section">&para;</a></h2>
-<p>Time to decode every property and geometry of the same sampled tiles, as a share of the time for gzipped MVT.
-Tiles are sampled at up to 5,000 per zoom level timed as the best of 15 runs on one core of an AMD Ryzen 9 3900.
-MVT is read with <a href="https://crates.io/crates/fast-mvt">fast-mvt</a>, the fastest known MVT library, and MLT with <code>decode_all</code>,
-so no "unfair" gains from lazy per-attribute decoding. Performance depends on the specifics of the tile source.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">OpenMapTiles</label><label for="__tabbed_1_2">Protomaps</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<p><svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="OpenMapTiles: MVT 64%, MVT + gzip 100%, MLT v1 40%, MLT v1 + gzip 65%, MLT v2 44%, MLT v2 + gzip 68% of the decode time of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
-<path class="implicit" d="M570.0 4V214"/>
-<text class="row" x="0" y="19">MVT</text>
-<rect class="plain" x="130" y="8" width="281.2" height="22" rx="3"/>
-<text class="halo" x="419.2" y="19"><tspan class="bold">64%</tspan><tspan class="muted small"> 1.6x as fast</tspan></text>
-<text class="row" x="0" y="53">MVT + gzip</text>
-<rect class="plain" x="130" y="42" width="440.0" height="22" rx="3"/>
-<text class="halo" x="578.0" y="53"><tspan class="bold">100%</tspan></text>
-<text class="row" x="0" y="87">MLT v1</text>
-<rect class="f0" x="130" y="76" width="175.3" height="22" rx="3"/>
-<text class="halo" x="313.3" y="87"><tspan class="bold">40%</tspan><tspan class="muted small"> 2.5x as fast</tspan></text>
-<text class="row" x="0" y="121">MLT v1 + gzip</text>
-<rect class="f0" x="130" y="110" width="287.6" height="22" rx="3"/>
-<text class="halo" x="425.6" y="121"><tspan class="bold">65%</tspan><tspan class="muted small"> 1.5x as fast</tspan></text>
-<text class="row" x="0" y="155">MLT v2</text>
-<rect class="f1" x="130" y="144" width="194.2" height="22" rx="3"/>
-<text class="halo" x="332.2" y="155"><tspan class="bold">44%</tspan><tspan class="muted small"> 2.3x as fast</tspan></text>
-<text class="row" x="0" y="189">MLT v2 + gzip</text>
-<rect class="f1" x="130" y="178" width="298.0" height="22" rx="3"/>
-<text class="halo" x="436.0" y="189"><tspan class="bold">68%</tspan><tspan class="muted small"> 1.5x as fast</tspan></text>
-</svg></p>
-<table>
-<thead>
-<tr>
-<th>Decode time</th>
-<th style="text-align: right;">MVT</th>
-<th style="text-align: right;">MVT + gzip</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v1 + gzip</th>
-<th style="text-align: right;">MLT v2</th>
-<th style="text-align: right;">MLT v2 + gzip</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>All tiles</td>
-<td style="text-align: right;">64%</td>
-<td style="text-align: right;">100%</td>
-<td style="text-align: right;">40%</td>
-<td style="text-align: right;">65%</td>
-<td style="text-align: right;">44%</td>
-<td style="text-align: right;">68%</td>
-</tr>
-<tr>
-<td>Median tile</td>
-<td style="text-align: right;">40%</td>
-<td style="text-align: right;">100%</td>
-<td style="text-align: right;">52%</td>
-<td style="text-align: right;">117%</td>
-<td style="text-align: right;">55%</td>
-<td style="text-align: right;">115%</td>
-</tr>
-<tr>
-<td>Largest 1% of tiles</td>
-<td style="text-align: right;">70%</td>
-<td style="text-align: right;">100%</td>
-<td style="text-align: right;">26%</td>
-<td style="text-align: right;">42%</td>
-<td style="text-align: right;">28%</td>
-<td style="text-align: right;">43%</td>
-</tr>
-</tbody>
-</table>
-<p>Decode time with one <code>mlt convert</code> option added, relative to the same MLT version without it (<code>-</code> where only v2 has the option):</p>
-<table>
-<thead>
-<tr>
-<th>Added option</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--no-shared-dict</code></td>
-<td style="text-align: right;">+15%</td>
-<td style="text-align: right;">+27%</td>
-</tr>
-<tr>
-<td><code>--no-fastpfor</code></td>
-<td style="text-align: right;">+12%</td>
-<td style="text-align: right;">+11%</td>
-</tr>
-<tr>
-<td><code>--no-fsst</code></td>
-<td style="text-align: right;">-2%</td>
-<td style="text-align: right;">-3%</td>
-</tr>
-<tr>
-<td><code>--sort none</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--sort all</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--no-alp</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--no-float-dict</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--no-bitpacking</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--delta2</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--rans-vertices</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+16%</td>
-</tr>
-<tr>
-<td><code>--tessellate</code></td>
-<td style="text-align: right;">+27%</td>
-<td style="text-align: right;">+14%</td>
-</tr>
-<tr>
-<td><code>--tessellate --triangles-only</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+10%</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="tabbed-block">
-<p><svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="Protomaps basemap: MVT 55%, MVT + gzip 100%, MLT v1 27%, MLT v1 + gzip 55%, MLT v2 27%, MLT v2 + gzip 55% of the decode time of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
-<path class="implicit" d="M570.0 4V214"/>
-<text class="row" x="0" y="19">MVT</text>
-<rect class="plain" x="130" y="8" width="242.0" height="22" rx="3"/>
-<text class="halo" x="380.0" y="19"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
-<text class="row" x="0" y="53">MVT + gzip</text>
-<rect class="plain" x="130" y="42" width="440.0" height="22" rx="3"/>
-<text class="halo" x="578.0" y="53"><tspan class="bold">100%</tspan></text>
-<text class="row" x="0" y="87">MLT v1</text>
-<rect class="f0" x="130" y="76" width="117.0" height="22" rx="3"/>
-<text class="halo" x="255.0" y="87"><tspan class="bold">27%</tspan><tspan class="muted small"> 3.8x as fast</tspan></text>
-<text class="row" x="0" y="121">MLT v1 + gzip</text>
-<rect class="f0" x="130" y="110" width="240.3" height="22" rx="3"/>
-<text class="halo" x="378.3" y="121"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
-<text class="row" x="0" y="155">MLT v2</text>
-<rect class="f1" x="130" y="144" width="119.9" height="22" rx="3"/>
-<text class="halo" x="257.9" y="155"><tspan class="bold">27%</tspan><tspan class="muted small"> 3.7x as fast</tspan></text>
-<text class="row" x="0" y="189">MLT v2 + gzip</text>
-<rect class="f1" x="130" y="178" width="241.5" height="22" rx="3"/>
-<text class="halo" x="379.5" y="189"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
-</svg></p>
-<table>
-<thead>
-<tr>
-<th>Decode time</th>
-<th style="text-align: right;">MVT</th>
-<th style="text-align: right;">MVT + gzip</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v1 + gzip</th>
-<th style="text-align: right;">MLT v2</th>
-<th style="text-align: right;">MLT v2 + gzip</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>All tiles</td>
-<td style="text-align: right;">55%</td>
-<td style="text-align: right;">100%</td>
-<td style="text-align: right;">27%</td>
-<td style="text-align: right;">55%</td>
-<td style="text-align: right;">27%</td>
-<td style="text-align: right;">55%</td>
-</tr>
-<tr>
-<td>Median tile</td>
-<td style="text-align: right;">37%</td>
-<td style="text-align: right;">100%</td>
-<td style="text-align: right;">49%</td>
-<td style="text-align: right;">113%</td>
-<td style="text-align: right;">49%</td>
-<td style="text-align: right;">108%</td>
-</tr>
-<tr>
-<td>Largest 1% of tiles</td>
-<td style="text-align: right;">56%</td>
-<td style="text-align: right;">100%</td>
-<td style="text-align: right;">18%</td>
-<td style="text-align: right;">39%</td>
-<td style="text-align: right;">19%</td>
-<td style="text-align: right;">40%</td>
-</tr>
-</tbody>
-</table>
-<p>Decode time with one <code>mlt convert</code> option added, relative to the same MLT version without it (<code>-</code> where only v2 has the option):</p>
-<table>
-<thead>
-<tr>
-<th>Added option</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--no-shared-dict</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">+2%</td>
-</tr>
-<tr>
-<td><code>--no-fastpfor</code></td>
-<td style="text-align: right;">+15%</td>
-<td style="text-align: right;">+15%</td>
-</tr>
-<tr>
-<td><code>--no-fsst</code></td>
-<td style="text-align: right;">0%</td>
-<td style="text-align: right;">-1%</td>
-</tr>
-<tr>
-<td><code>--sort none</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--sort all</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--no-alp</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--no-float-dict</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--no-bitpacking</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--delta2</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--rans-vertices</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+88%</td>
-</tr>
-<tr>
-<td><code>--tessellate</code></td>
-<td style="text-align: right;">+145%</td>
-<td style="text-align: right;">+68%</td>
-</tr>
-<tr>
-<td><code>--tessellate --triangles-only</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+59%</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</div>
-<h2 id="size">Size<a class="headerlink" href="#size" title="Link to this section">&para;</a></h2>
-<p>Whole-planet archives, as a share of the same tiles stored as gzipped MVT.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">OpenMapTiles</label><label for="__tabbed_2_2">Protomaps</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<p><svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="OpenMapTiles: MVT 152%, MVT + gzip 100%, MLT v1 102%, MLT v1 + gzip 85%, MLT v2 92%, MLT v2 + gzip 82% of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
-<path class="implicit" d="M419.7 4V214"/>
-<text class="row" x="0" y="19">MVT</text>
-<rect class="plain" x="130" y="8" width="440.0" height="22" rx="3"/>
-<text class="halo" x="578.0" y="19"><tspan class="bold">152%</tspan><tspan class="muted small"> 76.7 GB</tspan></text>
-<text class="row" x="0" y="53">MVT + gzip</text>
-<rect class="plain" x="130" y="42" width="289.7" height="22" rx="3"/>
-<text class="halo" x="427.7" y="53"><tspan class="bold">100%</tspan><tspan class="muted small"> 50.5 GB</tspan></text>
-<text class="row" x="0" y="87">MLT v1</text>
-<rect class="f0" x="130" y="76" width="296.3" height="22" rx="3"/>
-<text class="halo" x="434.3" y="87"><tspan class="bold">102%</tspan><tspan class="muted small"> 51.7 GB</tspan></text>
-<text class="row" x="0" y="121">MLT v1 + gzip</text>
-<rect class="f0" x="130" y="110" width="247.2" height="22" rx="3"/>
-<text class="halo" x="385.2" y="121"><tspan class="bold">85%</tspan><tspan class="muted small"> 43.1 GB</tspan></text>
-<text class="row" x="0" y="155">MLT v2</text>
-<rect class="f1" x="130" y="144" width="268.0" height="22" rx="3"/>
-<text class="halo" x="406.0" y="155"><tspan class="bold">92%</tspan><tspan class="muted small"> 46.7 GB</tspan></text>
-<text class="row" x="0" y="189">MLT v2 + gzip</text>
-<rect class="f1" x="130" y="178" width="236.2" height="22" rx="3"/>
-<text class="halo" x="374.2" y="189"><tspan class="bold">82%</tspan><tspan class="muted small"> 41.2 GB</tspan></text>
-</svg></p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th style="text-align: right;">MVT + gzip</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v1 + gzip</th>
-<th style="text-align: right;">MLT v2</th>
-<th style="text-align: right;">MLT v2 + gzip</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Planet</td>
-<td style="text-align: right;">50.5 GB</td>
-<td style="text-align: right;">51.7 GB</td>
-<td style="text-align: right;">43.1 GB</td>
-<td style="text-align: right;">46.7 GB</td>
-<td style="text-align: right;">41.2 GB</td>
-</tr>
-<tr>
-<td>Median tile</td>
-<td style="text-align: right;">422 B</td>
-<td style="text-align: right;">524 B</td>
-<td style="text-align: right;">428 B</td>
-<td style="text-align: right;">442 B</td>
-<td style="text-align: right;">392 B</td>
-</tr>
-<tr>
-<td>99th percentile tile</td>
-<td style="text-align: right;">18.4 kB</td>
-<td style="text-align: right;">16.4 kB</td>
-<td style="text-align: right;">14.0 kB</td>
-<td style="text-align: right;">15.4 kB</td>
-<td style="text-align: right;">13.6 kB</td>
-</tr>
-<tr>
-<td>Largest tile</td>
-<td style="text-align: right;">727.9 kB</td>
-<td style="text-align: right;">570.5 kB</td>
-<td style="text-align: right;">497.6 kB</td>
-<td style="text-align: right;">550.3 kB</td>
-<td style="text-align: right;">486.1 kB</td>
-</tr>
-</tbody>
-</table>
-<p>The median tile among the largest 1% (from 31 kB as MVT) is this many times smaller:</p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th style="text-align: right;">vs MVT</th>
-<th style="text-align: right;">vs MVT + gzip</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MLT v1</td>
-<td style="text-align: right;">2.13x</td>
-<td style="text-align: right;">1.21x</td>
-</tr>
-<tr>
-<td>MLT v2</td>
-<td style="text-align: right;">2.24x</td>
-<td style="text-align: right;">1.27x</td>
-</tr>
-</tbody>
-</table>
-<p>Planet size with one <code>mlt convert</code> option added, relative to the same MLT version without it (no gzip, <code>-</code> where only v2 has the option):</p>
-<table>
-<thead>
-<tr>
-<th>Added option</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--no-shared-dict</code></td>
-<td style="text-align: right;">+25.4%</td>
-<td style="text-align: right;">+25.3%</td>
-</tr>
-<tr>
-<td><code>--no-fastpfor</code></td>
-<td style="text-align: right;">+2.6%</td>
-<td style="text-align: right;">+3.1%</td>
-</tr>
-<tr>
-<td><code>--no-fsst</code></td>
-<td style="text-align: right;">+0.7%</td>
-<td style="text-align: right;">+0.8%</td>
-</tr>
-<tr>
-<td><code>--sort none</code></td>
-<td style="text-align: right;">+0.2%</td>
-<td style="text-align: right;">+0.2%</td>
-</tr>
-<tr>
-<td><code>--sort all</code></td>
-<td style="text-align: right;">-0.4%</td>
-<td style="text-align: right;">-0.4%</td>
-</tr>
-<tr>
-<td><code>--no-alp</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+0.0%</td>
-</tr>
-<tr>
-<td><code>--no-float-dict</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+0.0%</td>
-</tr>
-<tr>
-<td><code>--no-bitpacking</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+0.7%</td>
-</tr>
-<tr>
-<td><code>--delta2</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">-0.5%</td>
-</tr>
-<tr>
-<td><code>--rans-vertices</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">-5.4%</td>
-</tr>
-<tr>
-<td><code>--tessellate</code></td>
-<td style="text-align: right;">+21.9%</td>
-<td style="text-align: right;">+24.9%</td>
-</tr>
-<tr>
-<td><code>--tessellate --triangles-only</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+23.2%</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="tabbed-block">
-<p><svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="Protomaps basemap: MVT 133%, MVT + gzip 100%, MLT v1 106%, MLT v1 + gzip 95%, MLT v2 96%, MLT v2 + gzip 90% of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
-<path class="implicit" d="M461.4 4V214"/>
-<text class="row" x="0" y="19">MVT</text>
-<rect class="plain" x="130" y="8" width="440.0" height="22" rx="3"/>
-<text class="halo" x="578.0" y="19"><tspan class="bold">133%</tspan><tspan class="muted small"> 183.5 GB</tspan></text>
-<text class="row" x="0" y="53">MVT + gzip</text>
-<rect class="plain" x="130" y="42" width="331.4" height="22" rx="3"/>
-<text class="halo" x="469.4" y="53"><tspan class="bold">100%</tspan><tspan class="muted small"> 138.2 GB</tspan></text>
-<text class="row" x="0" y="87">MLT v1</text>
-<rect class="f0" x="130" y="76" width="349.8" height="22" rx="3"/>
-<text class="halo" x="487.8" y="87"><tspan class="bold">106%</tspan><tspan class="muted small"> 145.9 GB</tspan></text>
-<text class="row" x="0" y="121">MLT v1 + gzip</text>
-<rect class="f0" x="130" y="110" width="314.5" height="22" rx="3"/>
-<text class="halo" x="452.5" y="121"><tspan class="bold">95%</tspan><tspan class="muted small"> 131.1 GB</tspan></text>
-<text class="row" x="0" y="155">MLT v2</text>
-<rect class="f1" x="130" y="144" width="319.1" height="22" rx="3"/>
-<text class="halo" x="457.1" y="155"><tspan class="bold">96%</tspan><tspan class="muted small"> 133.1 GB</tspan></text>
-<text class="row" x="0" y="189">MLT v2 + gzip</text>
-<rect class="f1" x="130" y="178" width="299.1" height="22" rx="3"/>
-<text class="halo" x="437.1" y="189"><tspan class="bold">90%</tspan><tspan class="muted small"> 124.7 GB</tspan></text>
-</svg></p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th style="text-align: right;">MVT + gzip</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v1 + gzip</th>
-<th style="text-align: right;">MLT v2</th>
-<th style="text-align: right;">MLT v2 + gzip</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Planet</td>
-<td style="text-align: right;">138.2 GB</td>
-<td style="text-align: right;">145.9 GB</td>
-<td style="text-align: right;">131.1 GB</td>
-<td style="text-align: right;">133.1 GB</td>
-<td style="text-align: right;">124.7 GB</td>
-</tr>
-<tr>
-<td>Median tile</td>
-<td style="text-align: right;">357 B</td>
-<td style="text-align: right;">415 B</td>
-<td style="text-align: right;">371 B</td>
-<td style="text-align: right;">350 B</td>
-<td style="text-align: right;">337 B</td>
-</tr>
-<tr>
-<td>99th percentile tile</td>
-<td style="text-align: right;">12.3 kB</td>
-<td style="text-align: right;">11.9 kB</td>
-<td style="text-align: right;">10.8 kB</td>
-<td style="text-align: right;">11.4 kB</td>
-<td style="text-align: right;">10.6 kB</td>
-</tr>
-<tr>
-<td>Largest tile</td>
-<td style="text-align: right;">485.9 kB</td>
-<td style="text-align: right;">473.1 kB</td>
-<td style="text-align: right;">450.8 kB</td>
-<td style="text-align: right;">473.9 kB</td>
-<td style="text-align: right;">449.9 kB</td>
-</tr>
-</tbody>
-</table>
-<p>The median tile among the largest 1% (from 18 kB as MVT) is this many times smaller:</p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th style="text-align: right;">vs MVT</th>
-<th style="text-align: right;">vs MVT + gzip</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MLT v1</td>
-<td style="text-align: right;">1.58x</td>
-<td style="text-align: right;">1.05x</td>
-</tr>
-<tr>
-<td>MLT v2</td>
-<td style="text-align: right;">1.65x</td>
-<td style="text-align: right;">1.10x</td>
-</tr>
-</tbody>
-</table>
-<p>Planet size with one <code>mlt convert</code> option added, relative to the same MLT version without it (no gzip, <code>-</code> where only v2 has the option):</p>
-<table>
-<thead>
-<tr>
-<th>Added option</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--no-shared-dict</code></td>
-<td style="text-align: right;">+0.8%</td>
-<td style="text-align: right;">+0.8%</td>
-</tr>
-<tr>
-<td><code>--no-fastpfor</code></td>
-<td style="text-align: right;">+2.9%</td>
-<td style="text-align: right;">+3.4%</td>
-</tr>
-<tr>
-<td><code>--no-fsst</code></td>
-<td style="text-align: right;">+0.2%</td>
-<td style="text-align: right;">+0.2%</td>
-</tr>
-<tr>
-<td><code>--sort none</code></td>
-<td style="text-align: right;">+0.1%</td>
-<td style="text-align: right;">+0.1%</td>
-</tr>
-<tr>
-<td><code>--sort all</code></td>
-<td style="text-align: right;">-0.1%</td>
-<td style="text-align: right;">-0.1%</td>
-</tr>
-<tr>
-<td><code>--no-alp</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+0.1%</td>
-</tr>
-<tr>
-<td><code>--no-float-dict</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+0.0%</td>
-</tr>
-<tr>
-<td><code>--no-bitpacking</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+0.3%</td>
-</tr>
-<tr>
-<td><code>--delta2</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">-0.6%</td>
-</tr>
-<tr>
-<td><code>--rans-vertices</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">-5.3%</td>
-</tr>
-<tr>
-<td><code>--tessellate</code></td>
-<td style="text-align: right;">+32.4%</td>
-<td style="text-align: right;">+35.8%</td>
-</tr>
-<tr>
-<td><code>--tessellate --triangles-only</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+33.5%</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</div>
-<p>The <a href="https://protomaps.com/">Protomaps</a> basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the <a href="https://openmaptiles.org/">OpenMapTiles</a> 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles).
-The <code>mlt convert</code> at <a href="https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88"><code>89ceaef3</code></a> was used.
-Bytes of tile in the archive are only counted once.
-For re-encoding we use Zlib level 6 per tile, since this is the level both source archives were written with.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Link to this section">&para;</a></h2>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1518,15 +691,15 @@ Stable features are those without experimental tags.</p>
 <tbody>
 <tr>
 <td><a href="overview/">Data Model</a></td>
-<td>Tiles, extents, layers, features, columns and streams.</td>
+<td>How tiles, frames, layers, features, columns and streams fit together. Start here.</td>
 </tr>
 <tr>
-<td><a href="specification/v1/">Specification v1</a></td>
-<td>The stable wire format.</td>
+<td><a href="specification/v1/">MLT v1</a></td>
+<td>The stable wire format: 2D features with scalar properties, compatible with MVT.</td>
 </tr>
 <tr>
-<td><a href="specification/v2/">Specification v2</a> <span class="experimental"></span></td>
-<td>The next wire format, under development.</td>
+<td><a href="specification/v2/">MLT v2</a> <span class="experimental"></span></td>
+<td>The next wire format: v1 content in a smaller layout, plus Z and M values and nested properties.</td>
 </tr>
 <tr>
 <td><a href="encodings/">Encoding Algorithms</a></td>
@@ -1539,6 +712,14 @@ Stable features are those without experimental tags.</p>
 <tr>
 <td><a href="implementation-status/">Implementation Status</a></td>
 <td>Tools, libraries and datasets that support MLT.</td>
+</tr>
+<tr>
+<td><a href="benchmarks/">Benchmarks</a></td>
+<td>Decoding speed and tile size compared with MVT.</td>
+</tr>
+<tr>
+<td><a href="inspector/">Tile Inspector</a></td>
+<td>Decode a tile in the browser and walk through its bytes.</td>
 </tr>
 </tbody>
 </table>
@@ -1688,7 +869,8 @@ Stable features are those without experimental tags.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+      
+<div class="md-progress" data-md-component="progress" role="progressbar" aria-label="Loading"></div>
     
     
     
@@ -1698,10 +880,10 @@ Stable features are those without experimental tags.</p>
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":".","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.tabs","navigation.tabs.sticky","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"./assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":".","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"./assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="./assets/javascripts/bundle.67a597eb.min.js"></script>
+      <script src="./assets/javascripts/bundle.3c842f4c.min.js"></script>
       
         <script src="./assets/mathjax.js"></script>
       

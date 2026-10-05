@@ -12,10 +12,10 @@ The first byte of every tile names its wire format version: v1 is stable, v2 is 
 - [About MLT](<https://maplibre.org/maplibre-tile-spec/index.md>): A column-oriented vector tile format for map data
 - [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>): The data model of tiles, layers, features, columns and streams
 - [Implementation Status](<https://maplibre.org/maplibre-tile-spec/implementation-status/index.md>): Libraries, tools and datasets that support MLT
+- [Benchmarks](<https://maplibre.org/maplibre-tile-spec/benchmarks/index.md>): Decoding speed and tile size of MLT v1 and v2 compared with MVT
 
 ## Specification
 
-- [Overview](<https://maplibre.org/maplibre-tile-spec/specification/index.md>): How the first byte of a tile selects its wire format version
 - [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>): Byte layout of the stable MLT v1 wire format
 - [MLT v2 (experimental)](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>): Byte layout of the experimental MLT v2 wire format
 - [Encoding Algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>): Payload of every encoding a stream can name

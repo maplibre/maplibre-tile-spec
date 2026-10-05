@@ -50,6 +50,21 @@
   fill: none;
   stroke: var(--md-default-fg-color--lightest);
 }
+.mlt-diagram .shadow {
+  fill: #000;
+  fill-opacity: 0.45;
+  filter: blur(4px);
+}
+[data-md-color-scheme="slate"] .mlt-diagram .shadow {
+  fill-opacity: 0.85;
+}
+.mlt-diagram .bg {
+  fill: var(--md-default-bg-color);
+  stroke: #000;
+  stroke-opacity: 0.35;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
 .mlt-diagram .sea {
   fill: var(--mlt-f0);
   fill-opacity: 0.15;

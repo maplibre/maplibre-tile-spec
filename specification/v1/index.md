@@ -1,6 +1,6 @@
 # MapLibre Tile Specification v1
 
-This document specifies the byte layout of an MLT v1 layer. The data model it assumes, tiles, extents, layers, features, columns and streams, is described in [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>).
+This document specifies the byte layout of an MLT v1 layer. The data model it assumes, tiles, extents, layers, features, columns and streams, is described on the [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) page.
 
 ## Tile Layout
 
@@ -85,7 +85,7 @@ Codes `5`-`9`, `12`-`15` and `31` are unassigned. A decoder MUST reject a column
 
 ### Column Data
 
-What follows in the data section depends on the column's type. Every `[stream]` below is one stream, laid out as described under [Streams](<#streams>).
+What follows in the data section depends on the column's type. Every `[stream]` below is one stream, laid out as described under [streams](<#streams>).
 
 | Column type | Data layout |
 | --- | --- |
@@ -93,7 +93,7 @@ What follows in the data section depends on the column's type. Every `[stream]` 
 | `Geometry` | `[varint stream_count]` `[types stream]` `[stream * (stream_count - 1)]` |
 | Scalar (`Bool` ... `Double`) | `[data stream]` |
 | `String` | `[varint stream_count]` `[stream * stream_count]` |
-| `SharedDict` | see [Shared Dictionary Columns](<#shared-dictionary-columns>) |
+| `SharedDict` | see [shared dictionary columns](<#shared-dictionary-columns>) |
 
 A nullable column prefixes its data with a `Present` stream, which is counted in `stream_count` where one is present.
 
@@ -164,7 +164,7 @@ The physical field (bits 1-0) says how the resulting integers are laid out in by
 
 RLE streams store all run lengths first, then all values, and carry `runs` and `num_rle_values` in the header.
 
-The algorithms themselves are specified in [Encoding Definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>).
+The algorithms themselves are specified in [encoding definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>).
 
 ## Property Columns
 
@@ -258,7 +258,7 @@ Depending on the geometry type, the following streams are used in addition to `G
 - **MultiLineString**: NumGeometries, NumParts (LineString), VertexBuffer
 - **MultiPolygon**: NumGeometries, NumParts (Polygon), NumRings (LinearRing), VertexBuffer
 
-When LineString and Polygon types are mixed in the same column, LineString vertex counts are stored in the NumRings stream (see [Length Stream Encoding Rules](<#length-stream-encoding-rules>) below).
+When LineString and Polygon types are mixed in the same column, LineString vertex counts are stored in the NumRings stream (see [length stream encoding rules](<#length-stream-encoding-rules>) below).
 
 An additional `VertexOffsets` stream is present when using Dictionary or Morton-Dictionary encoding. If geometries (mainly polygons) are pre-tessellated for direct GPU use, `NumTriangles` and `IndexBuffer` streams must be provided.
 
@@ -303,7 +303,7 @@ The streams listed above map to the following physical and logical stream types:
 
 | Physical Type | Logical Type | Specification Name | Content |
 | --- | --- | --- | --- |
-| `DATA` | `NONE` | GeometryType | Geometry type per feature (see [Geometry Types](<#geometry-types>)) |
+| `DATA` | `NONE` | GeometryType | Geometry type per feature (see [geometry types](<#geometry-types>)) |
 | `LENGTH` | `GEOMETRIES` | NumGeometries | Number of sub-geometries in Multi\* types |
 | `LENGTH` | `PARTS` | NumParts | Number of rings per polygon or lines per multi-linestring |
 | `LENGTH` | `RINGS` | NumRings | Number of vertices per ring or per linestring segment |
@@ -350,7 +350,7 @@ The encoding uses a **type threshold** to determine which geometries need explic
 | `part_offsets` (Rings stream present) | LineString | Polygon, MultiPoint, MultiLineString, MultiPolygon |
 | `part_offsets` (no Rings stream) | Point | LineString |
 
-**Rule**: If a geometry type's value is greater than the threshold type's value (see [Geometry Types](<#geometry-types>) table), store its length explicitly. Otherwise, the length is implicitly 1.
+**Rule**: If a geometry type's value is greater than the threshold type's value (see [geometry types](<#geometry-types>) table), store its length explicitly. Otherwise, the length is implicitly 1.
 
 **Example**: A column with `[Point, MultiPolygon, Polygon]` geometry types:
 
@@ -524,7 +524,7 @@ Decode:
   Polygon: vertices[4..8]    // from ring_offsets
 ```
 
-The integer and vertex encodings referenced above are specified in detail in the [Encoding Definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) document.
+The integer and vertex encodings referenced above are specified in detail in the [encoding definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) document.
 
 ## Examples
 

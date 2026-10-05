@@ -4,7 +4,9 @@ This page describes the MLT data model used in [MLT v1](<https://maplibre.org/ma
 
 # Tiles
 
-MLT is a tiled format. A dataset is cut into a pyramid of square tiles, referenced as `z/x/y`. A map loads only the tiles currently on screen. Each tile is self-contained: nothing outside it is needed to decode it. This is the same tiling model MVT uses. Tiles are commonly stored in [PMTiles](<https://github.com/protomaps/PMTiles>) or MBTiles archives and served over HTTP, for example by the [Martin tile server](<https://maplibre.org/martin/>).
+MLT defines the structure of a single tile. As with MVT, the tile grid, map projection, and anything else outside one tile are out of its scope. Each tile is self-contained: nothing outside it is needed to decode it, though drawing it usually takes a separate [style](<https://maplibre.org/maplibre-style-spec/>).
+
+Typically, a dataset is cut into a pyramid of square tiles addressed as `z/x/y`, and a map loads only the tiles currently on screen. Tiles are commonly stored in [PMTiles](<https://github.com/protomaps/PMTiles>) or MBTiles archives and served over HTTP, for example by the [Martin tile server](<https://maplibre.org/martin/>).
 
 # Frames
 
@@ -79,7 +81,7 @@ Every stream has its own lightweight encoding: delta, run-length, dictionary, bi
 
 Encodings cascade. Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta- or bit-packed like any other.
 
-Encoders choose encodings by sampling, since trying every combination is too expensive; see [Choosing an Encoding](<https://maplibre.org/maplibre-tile-spec/implementation-guide/#choosing-an-encoding>). The [encoding algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) page describes each scheme. The specifications say which streams may use which.
+Encoders choose encodings by sampling, since trying every combination is too expensive; see [choosing an encoding](<https://maplibre.org/maplibre-tile-spec/implementation-guide/#choosing-an-encoding>). The [encoding algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) page describes each scheme. The specifications say which streams may use which.
 
 Tiles are usually also gzip- or brotli-compressed in transit.
 

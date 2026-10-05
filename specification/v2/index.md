@@ -14,17 +14,17 @@
 
 v2 extends v1's [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) with Z and M values and nested properties, and adds a few minor restrictions. It also changes the byte layout to make tiles smaller.
 
-- **Z-values.** Every vertex can carry an elevation. See [Z Coordinates](<#z-coordinates>).
-- **M-values.** Every vertex can carry any number of values, such as road lane count and colors, or a timestamp per GPS fix. See [M-Values](<#m-values>).
-- **Nested properties.** Maps and lists stay maps and lists instead of being flattened into columns like `name:en` and `name:de`. See [Nested Properties](<#nested-properties>).
+- **Z-values.** Every vertex can carry an elevation. See [Z coordinates](<#z-coordinates>).
+- **M-values.** Every vertex can carry any number of values, such as road lane count and colors, or a timestamp per GPS fix. See [M-values](<#m-values>).
+- **Nested properties.** Maps and lists stay maps and lists instead of being flattened into columns like `name:en` and `name:de`. See [nested properties](<#nested-properties>).
 - **Smaller metadata.** A stream needs one byte instead of four or more, since its role, value count and byte length are implied wherever they can be derived.
 
-- **Extent in four bits.** Powers of two from `64` to `2097152` fit in the layer header byte. See [Extent](<#extent>).
-- **Uniform geometry type.** A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See [Uniform Geometry Type](<#uniform-geometry-type>).
-- **Cheaper nulls.** The presence of a column is stored as a bitmap, run list or sparse bitmap, whichever is smallest, and can be shared between columns. See [Presence Encodings](<#presence-encodings>).
+- **Extent in four bits.** Powers of two from `64` to `2097152` fit in the layer header byte. See [extent](<#extent>).
+- **Uniform geometry type.** A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See [uniform geometry type](<#uniform-geometry-type>).
+- **Cheaper nulls.** The presence of a column is stored as a bitmap, run list or sparse bitmap, whichever is smallest, and can be shared between columns. See [presence encodings](<#presence-encodings>).
 - **More encodings.** Bit packing, `Int8` and `UInt8` columns, [ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>) for floats, [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/#front-coding>) for strings and optional [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/#rans>) for vertices.
 
-Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT. Gzipped v2 is 10-18% smaller than gzipped MVT. See [Size](<https://maplibre.org/maplibre-tile-spec/#size>) and [Decoding speed](<https://maplibre.org/maplibre-tile-spec/#decoding-speed>).
+Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT. Gzipped v2 is 10-18% smaller than gzipped MVT. See [benchmarks](<https://maplibre.org/maplibre-tile-spec/benchmarks/index.md>).
 
 ## Tile Layout
 
@@ -55,7 +55,7 @@ body := [string name]                    non-empty, UTF-8, VarInt length prefix
 
 The body MUST end exactly at the layer's `size`. Trailing bytes are an error.
 
-`feature_count` is the default value count for every stream in the layer. See [Value Count](<#value-count>).
+`feature_count` is the default value count for every stream in the layer. See [value count](<#value-count>).
 
 ### Layer Header Byte
 
@@ -388,11 +388,11 @@ A name a second column repeats MUST be rejected, whichever kinds of column repea
 | `0x8` | `UInt64` |  |
 | `0x9` | `Float` | IEEE 754 binary32 |
 | `0xA` | `Double` | IEEE 754 binary64 |
-| `0xB` | `String` | Layout given by the leading stream, see [String Columns](<#string-columns>) |
-| `0xC` | `Struct` | A fixed set of named fields, see [Nested Properties](<#nested-properties>) |
-| `0xD` | `List` | A repeated value, see [Nested Properties](<#nested-properties>) |
-| `0xE` | `Map` | String keys chosen per value, see [Nested Properties](<#nested-properties>) |
-| `0xF` | Shared dictionary | See [Shared Dictionary Columns](<#shared-dictionary-columns>) |
+| `0xB` | `String` | Layout given by the leading stream, see [string columns](<#string-columns>) |
+| `0xC` | `Struct` | A fixed set of named fields, see [nested properties](<#nested-properties>) |
+| `0xD` | `List` | A repeated value, see [nested properties](<#nested-properties>) |
+| `0xE` | `Map` | String keys chosen per value, see [nested properties](<#nested-properties>) |
+| `0xF` | Shared dictionary | See [shared dictionary columns](<#shared-dictionary-columns>) |
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_mixed_np.mlt>) - seven of the data types in one layer.
 
@@ -769,7 +769,7 @@ For a stream of integer words, meaning the `Int`, `Str` and `Vertex` families an
 
 | Bits | Physical |
 | --- | --- |
-| `00` | None, without `byte_length`. Only on logical `None`, see [Byte Length](<#byte-length>) |
+| `00` | None, without `byte_length`. Only on logical `None`, see [byte length](<#byte-length>) |
 | `01` | None: fixed-width little-endian words |
 | `10` | VarInt |
 | `11` | SIMD-FastPFOR, 128-value little-endian blocks |
@@ -778,7 +778,7 @@ For a stream of opaque fixed-width elements, meaning raw `Float` values or a `By
 
 | Bits | Physical |
 | --- | --- |
-| `00` | Elements as they are, without `byte_length`. Only on logical `None`, and never on a blob, see [Byte Length](<#byte-length>) |
+| `00` | Elements as they are, without `byte_length`. Only on logical `None`, and never on a blob, see [byte length](<#byte-length>) |
 | `01` | Elements as they are |
 | `10`, `11` | Unassigned, MUST be rejected |
 
@@ -794,9 +794,9 @@ Parameters sit between `byte_length`, where written, and the payload:
 
 | Encoding | Parameters |
 | --- | --- |
-| Framed, Exception-Free ALP | `scale` (byte), `base` (ZigZag varint). See [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>). |
+| Framed, Exception-Free ALP | `scale` (byte), `base` (ZigZag varint). See [framed, exception-free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>). |
 | Morton | `bits` (varint), `shift` (varint). The grid the codes are laid on. |
-| Any, on a vertex stream with extension bit 0 set | `z_step` (byte). See [Z Coordinates](<#z-coordinates>). |
+| Any, on a vertex stream with extension bit 0 set | `z_step` (byte). See [Z coordinates](<#z-coordinates>). |
 
 ## Examples
 

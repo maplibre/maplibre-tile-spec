@@ -15,7 +15,7 @@ MLT (MapLibre Tile) is a vector tile format that extends [MVT](<https://github.c
 
 ## Why MLT
 
-MLT is redesigned from the ground up for efficiency. Each geometry and attribute is stored as a separate column, with compression optimized for its data type. This makes tiles smaller, see [Size](<#size>), fast to decode with SIMD, and efficient to load into GPU buffers.
+MLT is redesigned from the ground up for efficiency. Each geometry and attribute is stored as a separate column, with compression optimized for its data type. This makes tiles smaller, fast to decode with SIMD, and efficient to load into GPU buffers. On whole-planet archives, **uncompressed** MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster. With gzip, v2 is 10-18% smaller than gzipped MVT. See [benchmarks](<https://maplibre.org/maplibre-tile-spec/benchmarks/index.md>) for details.
 
 MVT limits a feature to 2D vertices and single-value properties. Elevation and per-vertex values like lane count are lost, and lists or maps get flattened into columns like `name:en` and `name:de`. [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) removes these limits; see [how v2 differs from v1](<https://maplibre.org/maplibre-tile-spec/specification/v2/#differences-from-v1>):
 
@@ -25,7 +25,181 @@ Each layer in a tile carries its own [format version](<https://maplibre.org/mapl
 >
 > **MLT 0x03**
 >
-> A 3D extension to MLT will expand these capabilities, and is in the requirements engineering stage. Join the MapLibre [Slack](<https://maplibre.org/community/>) to learn more and share your ideas.
+> A [3D extension to MLT](<https://github.com/maplibre/maplibre-tile-spec/discussions/1182>) will expand these capabilities, and is in the requirements engineering stage. Join the MapLibre [Slack](<https://maplibre.org/community/>) to learn more and share your ideas.
+
+## Documentation
+
+> [!NOTE]
+>
+> This is a live specification that evolves continuously. Features marked as are under active development and may change in future versions. Stable features are those without experimental tags.
+
+| Page | Contents |
+| --- | --- |
+| [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) | How tiles, frames, layers, features, columns and streams fit together. Start here. |
+| [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) | The stable wire format: 2D features with scalar properties, compatible with MVT. |
+| [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) | The next wire format: v1 content in a smaller layout, plus Z and M values and nested properties. |
+| [Encoding Algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) | The compression schemes used by both versions. |
+| [Implementation Guide](<https://maplibre.org/maplibre-tile-spec/implementation-guide/index.md>) | Choosing encodings and decoding into memory. |
+| [Implementation Status](<https://maplibre.org/maplibre-tile-spec/implementation-status/index.md>) | Tools, libraries and datasets that support MLT. |
+| [Benchmarks](<https://maplibre.org/maplibre-tile-spec/benchmarks/index.md>) | Decoding speed and tile size compared with MVT. |
+| [Tile Inspector](<https://maplibre.org/maplibre-tile-spec/inspector/index.md>) | Decode a tile in the browser and walk through its bytes. |
+
+# Overview
+
+This page describes the MLT data model used in [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) and [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) formats.
+
+# Tiles
+
+MLT defines the structure of a single tile. As with MVT, the tile grid, map projection, and anything else outside one tile are out of its scope. Each tile is self-contained: nothing outside it is needed to decode it, though drawing it usually takes a separate [style](<https://maplibre.org/maplibre-style-spec/>).
+
+Typically, a dataset is cut into a pyramid of square tiles addressed as `z/x/y`, and a map loads only the tiles currently on screen. Tiles are commonly stored in [PMTiles](<https://github.com/protomaps/PMTiles>) or MBTiles archives and served over HTTP, for example by the [Martin tile server](<https://maplibre.org/martin/>).
+
+# Frames
+
+An MLT tile is a sequence of frames, with no common header. Each frame starts with its byte size and a format version tag, followed by the body in that format. Once a format is finalized, its byte layout and capabilities do not change. New capabilities go into a new format with a new tag.
+
+A decoder that supports a tag MUST support every feature of that format. An encoder MUST produce valid data for its tag, but MAY choose not to use some encodings. A decoder skips a frame whose tag it does not know, so new formats can be added without breaking existing readers. One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds of data in future formats, such as 3D or non-visual data.
+
+| Tag | Format | Contents | Status |
+| --- | --- | --- | --- |
+| `0x01` | [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) | 2D features with scalar properties, compatible with MVT. | Stable. Implemented by every shipped encoder and decoder. |
+| `0x02` | [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) | v1 content in a smaller layout, plus per-vertex Z and M values and nested properties. | Under development. The wire format may change without notice. |
+
+# Geometry and extent
+
+Geometry in a tile lives on a flat, local grid, not in longitude and latitude. Each layer declares an `extent`, and vertices are signed integers where `(0, 0)` is the tile's top-left corner and `(extent, extent)` its bottom-right. As in MVT, `x` grows to the right and `y` grows down.
+
+A tile has no notion of where it is in the world. Only its `z/x/y` address, kept outside the tile, places it on the map. Tiles with identical content, such as open water or the inside of a large park, can therefore be stored once and reused at many addresses.
+
+Integer coordinates compress well, since neighboring vertices differ by small numbers. `4096` is the conventional extent and the encoder default. A larger extent gives more precision and costs more bytes. Coordinates MAY be negative or exceed `extent`. This lets geometry crossing a tile boundary keep its shape, so that lines and polygon edges meet across the seam instead of being clipped to it.
+
+# Layers and features
+
+In MLT v1 and v2, each frame is a layer, called a `FeatureTable` in the specification. A layer is a thematic group of data such as `water`, `roads` or `place_labels`, and is the unit a [MapLibre Style](<https://maplibre.org/maplibre-style-spec/>) targets. Layers are equivalent to layers in MVT.
+
+A feature has:
+
+- a geometry, typed by the OGC Simple Feature Access model, excluding `GeometryCollection`
+- an optional id
+- any number of properties
+
+Features in one layer share a single set of property columns and normally share one geometry type. Mixing geometry types in a layer is allowed, but one type per layer compresses better.
+
+> [!NOTE]
+>
+> The terms `column`, `field`, `attribute`, and `property` are used interchangeably in the specification.
+
+# Columns, not records
+
+MVT is record-oriented: it writes feature 1 whole, then feature 2 whole, each with its own tags and geometry commands. MLT is column-oriented: it writes every feature's `id`, then every feature's geometry, then every feature's `class`, and so on.
+
+The column layout has the following consequences:
+
+- **Compression.** A column of road classes is a few distinct strings repeated many times, which a dictionary collapses. A column of ascending ids is a constant delta. Neither pattern is visible when the values are spread across records.
+- **Decoding speed.** A column decodes with one loop over one buffer, which vectorizes. A record stream decodes with a branchy loop over mixed types.
+- **GPU upload.** Vertices are already contiguous, so they can be copied to a GPU buffer without gathering.
+- **Partial decoding.** A renderer that needs only the geometry and one property can skip the other columns.
+
+# Streams
+
+A column is split into several streams, each a contiguous run of same-typed values. This follows the [ORC](<https://orc.apache.org/specification/ORCv1/>) file format. Each stream carries its own metadata: value count, byte length and encoding.
+
+A nullable string column, for example, becomes:
+
+- a present stream, one bit per feature, saying which features have a value
+- a length stream, the byte length of each string
+- a data stream, the UTF-8 bytes
+
+MLT defines these stream kinds:
+
+| Stream | Holds |
+| --- | --- |
+| **Present** | One bit per feature: does this feature have a value? Omitted for a column that cannot be null. |
+| **Data** | The values themselves: booleans, integers, floats, strings, dictionary codes, or vertex coordinates. |
+| **Length** | Element counts for variable-sized values: string byte lengths, ring vertex counts, list sizes. |
+| **Offset** | Indices into another stream, used by dictionary encodings. |
+
+Each stream is encoded independently. Lengths are usually small and repetitive and run-length encode well. String bytes do not, but often dictionary-encode well.
+
+# Encodings
+
+Every stream has its own lightweight encoding: delta, run-length, dictionary, bit packing, FSST, and others. Lightweight means cheap enough to decode at render time.
+
+Encodings cascade. Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta- or bit-packed like any other.
+
+Encoders choose encodings by sampling, since trying every combination is too expensive; see [choosing an encoding](<https://maplibre.org/maplibre-tile-spec/implementation-guide/#choosing-an-encoding>). The [encoding algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) page describes each scheme. The specifications say which streams may use which.
+
+Tiles are usually also gzip- or brotli-compressed in transit.
+
+# Sorting
+
+Feature order is the encoder's choice. Sorting a layer by a low-cardinality property groups equal values into runs that RLE collapses. Sorting by spatial locality shortens vertex deltas.
+
+MLT does not fix an order. Encoders MAY reorder features. Applications that depend on source order must disable sorting or carry an explicit ordering property.
+
+# MVT compatibility
+
+MLT can represent the same common vector tile content as MVT, but it is not a byte-for-byte or schema-free replacement. The differences come from MVT's per-feature tag/value model versus MLT's per-layer column model:
+
+- **Property types are fixed per layer.** In MVT, the same key can technically reference values of different data types on different features in a layer. In MLT, one property name corresponds to one column, and that column has one declared type for the whole layer. MVT data with mixed types must therefore be normalized before or during conversion, for example by lossless numeric widening, coercing values to strings, dropping mismatched values, or rejecting the tile.
+- **Missing properties become typed nulls.** MVT normally represents a missing property by omitting the key/value tag from that feature; the MVT value union has no dedicated null type. MLT represents the union of layer properties as columns, so a feature that lacks a property stores a null in that column and the column is marked nullable. When converting MLT back to MVT, null property values should be omitted from the feature tags.
+- **A feature has at most one value per property column.** MVT tag streams can encode the same key more than once for a single feature, even though most MVT APIs expose properties as a map and collapse such duplicates. MLT has one cell per feature per column, so duplicate keys on one feature must be rejected, collapsed deterministically, or renamed before encoding.
+- **Feature order is not necessarily a stable round-trip property.** MVT stores features in wire order. MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
+- **Layer names must be non-empty.** The MVT protobuf schema marks the layer `name` field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty. The written MVT specification does not explicitly say that the required name cannot be an empty string. MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.
+- **A layer holds at most `2^31 - 1` features.** MVT sets no limit, but MLT stores the feature count as a signed 32-bit integer.
+- **MLT v2 restricts the extent.** MVT allows any positive extent, but MLT v2 accepts only powers of two from `64` to `2097152`. A layer with any other extent must be rescaled or stored as MLT v1.
+
+# Implementation Status
+
+## Integrations
+
+| Integration | Status |
+| --- | --- |
+| [MapLibre Native](<https://maplibre.org/projects/native/>) | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. PR: [\#3246](<https://github.com/maplibre/maplibre-native/pull/3246>). |
+| [MapLibre GL JS](<https://maplibre.org/projects/gl-js/>) | Supported since version 5.12.0. PR: [\#6570](<https://github.com/maplibre/maplibre-gl-js/pull/6570>). |
+| [Planetiler](<https://github.com/onthegomap/planetiler>) | Can generate tiles in MLT since version [0.10.0](<https://github.com/onthegomap/planetiler/releases/tag/v0.10.0>). |
+| [PMTiles](<https://github.com/protomaps/pmtiles>) | Can store MLT, see [PMTiles v3 spec - Tile Type](<https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#tile-type-tt>). |
+| [Martin tile server](<https://maplibre.org/martin/>) | Can detect and serve MLT since version [1.3.0](<https://github.com/maplibre/martin/releases/tag/martin-v1.3.0>). PR: [\#2512](<https://github.com/maplibre/martin/pull/2512>).<br>Can automatically convert between MLT and MVT depending on headers since [1.9.0](<https://github.com/maplibre/martin/releases/tag/martin-v1.9.0>). [docs](<https://maplibre.org/martin/using-guides/mlt/>) |
+| [QGIS plugin](<https://github.com/maplibre/maplibre-tile-spec/tree/main/qgis>) | Opens MLT files in QGIS via the Rust `mlt` parser. See [qgis/README.md](<https://github.com/maplibre/maplibre-tile-spec/blob/main/qgis/README.md>). |
+| [visgl/loaders.gl](<https://loaders.gl/docs/modules/mlt/formats/mlt>) and [module](<https://loaders.gl/docs/modules/mlt>) | Decodes MLT tilesets, supported since version 4.4 via pre-bundled mlt-decoder.cjs |
+
+## Implementations
+
+| Implementation | Language | Type | Notes |
+| --- | --- | --- | --- |
+| [maplibre-tile-spec/cpp](<https://github.com/maplibre/maplibre-tile-spec/tree/main/cpp>) | C++ | Decoder | Used by MapLibre Native |
+| [maplibre-tile-spec/js](<https://github.com/maplibre/maplibre-tile-spec/tree/main/ts>) | TypeScript | Decoder / Encoder | Used by MapLibre GL JS. The encoder is still experimental. |
+| [maplibre-tile-spec/java](<https://github.com/maplibre/maplibre-tile-spec/tree/main/java>) | Java | Encoder |  |
+| [maplibre-tile-spec/rust/mlt](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md>) | Rust | Decoder / Encoder | Includes bundled `mlt` CLI, TUI, and conversion tooling. |
+| [maplibre-tile-spec/rust/mlt-core](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md>) | Rust | Decoder / Encoder | Used in Martin. Includes bundled `mlt` CLI, TUI, and conversion tooling. |
+| [maplibre-tile-spec/rust/mlt-wasm](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm>) | Rust / WASM | Decoder | Uses `mlt-core` |
+| [maplibre-tile-spec/rust/mlt-py](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-py>) | Rust / [PyO3](<https://pyo3.rs/>). | Decoder / Encoder | Exposes `mlt-core` to the python communtiy via [PyO3](<https://pyo3.rs/>). |
+| [maplibre-tile-spec/rust/mlt-ffi](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-ffi>) | Rust / FFI | Decoder / Encoder | Foreign-function bindings for `mlt-core` to the java/kotlin, cpp and c community |
+
+## Ongoing work - tools adding MLT support
+
+| Tool | Status | Tracking issue | Dependency / notes |
+| --- | --- | --- | --- |
+| [felt/tippecanoe](<https://github.com/felt/tippecanoe>) | Landing soon? | https://github.com/felt/tippecanoe/issues/380 | Via C++ encoder |
+| [systemed/tilemaker](<https://github.com/systemed/tilemaker>) | Landing soon? | https://github.com/systemed/tilemaker/issues/856 | Via C++ encoder |
+| [georust/geozero](<https://github.com/georust/geozero>) | Tracking | https://github.com/georust/geozero/issues/227 | Awaiting Rust encoder |
+| [developmentseed/tipg](<https://github.com/developmentseed/tipg>) | Tracking | https://github.com/developmentseed/tipg/issues/248 | Awaiting hypothetical `ST_AsMLT` in PostGIS |
+| [versatiles-org/versatiles-rs](<https://github.com/versatiles-org/versatiles-rs>) | Tracking | https://github.com/versatiles-org/versatiles-rs/issues/111 and https://github.com/versatiles-org/versatiles-spec/issues/11 | Rust tiler |
+| [maptiler/tileserver-gl](<https://github.com/maptiler/tileserver-gl>) | Tracking | https://github.com/maptiler/tileserver-gl/issues/2194 | js + Go codebase |
+| NASA/CesiumGS renderers | Mention | https://github.com/NASA-AMMOS/3DTilesRendererJS/issues/982\#issuecomment-4467367202 and https://github.com/CesiumGS/cesium/issues/2132 | Minor feature requests in MVT threads |
+
+## Existing/Upcoming MLT datasets
+
+| Dataset | Endpoint / Link | Notes |
+| --- | --- | --- |
+| [maplibre/demotiles](<https://github.com/maplibre/demotiles>) | `demotiles.maplibre.org/tiles-mlt/plain/{z}/{x}/{y}.mlt` | Also available as TileJSON |
+| [Overture Maps](<https://github.com/OvertureMaps/overture-tiles/>) | https://github.com/OvertureMaps/overture-tiles/issues/50 | Consideration for switching to MLT |
+| [Shademap](<https://ted-piotrowski.github.io/mapbox-gl-shadow-simulator/examples/maplibre.html>) | `cfw.shademap.app/planet/{z}/{x}/{y}.mlt` and `cfw.shademap.app/buildings/{z}/{x}/{y}.mlt` | Buildings and planet layers |
+| [OpenRailwayMap-vector](<https://github.com/hiddewie/OpenRailwayMap-vector>) | https://github.com/hiddewie/OpenRailwayMap-vector/issues/919 | MLT support tracking issue |
+
+# Benchmarks
+
+Measured on whole-planet [OpenMapTiles](<https://openmaptiles.org/>) and [Protomaps](<https://protomaps.com/>) archives, described in [datasets](<#datasets>).
 
 ## Decoding speed
 
@@ -143,194 +317,15 @@ Planet size with one `mlt convert` option added, relative to the same MLT versio
 | `--tessellate` | \+32.4% | \+35.8% |
 | `--tessellate --triangles-only` | \- | \+33.5% |
 
+## Datasets
+
 The [Protomaps](<https://protomaps.com/>) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](<https://openmaptiles.org/>) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles). The `mlt convert` at [`89ceaef3`](<https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88>) was used. Bytes of tile in the archive are only counted once. For re-encoding we use Zlib level 6 per tile, since this is the level both source archives were written with.
-
-## Documentation
-
-> [!NOTE]
->
-> This is a live specification that evolves continuously. Features marked as are under active development and may change in future versions. Stable features are those without experimental tags.
-
-| Page | Contents |
-| --- | --- |
-| [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) | Tiles, extents, layers, features, columns and streams. |
-| [Specification v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) | The stable wire format. |
-| [Specification v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) | The next wire format, under development. |
-| [Encoding Algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) | The compression schemes used by both versions. |
-| [Implementation Guide](<https://maplibre.org/maplibre-tile-spec/implementation-guide/index.md>) | Choosing encodings and decoding into memory. |
-| [Implementation Status](<https://maplibre.org/maplibre-tile-spec/implementation-status/index.md>) | Tools, libraries and datasets that support MLT. |
-
-# Overview
-
-This page describes the MLT data model used in [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) and [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) formats.
-
-# Tiles
-
-MLT is a tiled format. A dataset is cut into a pyramid of square tiles, referenced as `z/x/y`. A map loads only the tiles currently on screen. Each tile is self-contained: nothing outside it is needed to decode it. This is the same tiling model MVT uses. Tiles are commonly stored in [PMTiles](<https://github.com/protomaps/PMTiles>) or MBTiles archives and served over HTTP, for example by the [Martin tile server](<https://maplibre.org/martin/>).
-
-# Frames
-
-An MLT tile is a sequence of frames, with no common header. Each frame starts with its byte size and a format version tag, followed by the body in that format. Once a format is finalized, its byte layout and capabilities do not change. New capabilities go into a new format with a new tag.
-
-A decoder that supports a tag MUST support every feature of that format. An encoder MUST produce valid data for its tag, but MAY choose not to use some encodings. A decoder skips a frame whose tag it does not know, so new formats can be added without breaking existing readers. One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds of data in future formats, such as 3D or non-visual data.
-
-| Tag | Format | Contents | Status |
-| --- | --- | --- | --- |
-| `0x01` | [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) | 2D features with scalar properties, compatible with MVT. | Stable. Implemented by every shipped encoder and decoder. |
-| `0x02` | [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) | v1 content in a smaller layout, plus per-vertex Z and M values and nested properties. | Under development. The wire format may change without notice. |
-
-# Geometry and extent
-
-Geometry in a tile lives on a flat, local grid, not in longitude and latitude. Each layer declares an `extent`, and vertices are signed integers where `(0, 0)` is the tile's top-left corner and `(extent, extent)` its bottom-right. As in MVT, `x` grows to the right and `y` grows down.
-
-A tile has no notion of where it is in the world. Only its `z/x/y` address, kept outside the tile, places it on the map. Tiles with identical content, such as open water or the inside of a large park, can therefore be stored once and reused at many addresses.
-
-Integer coordinates compress well, since neighboring vertices differ by small numbers. `4096` is the conventional extent and the encoder default. A larger extent gives more precision and costs more bytes. Coordinates MAY be negative or exceed `extent`. This lets geometry crossing a tile boundary keep its shape, so that lines and polygon edges meet across the seam instead of being clipped to it.
-
-# Layers and features
-
-In MLT v1 and v2, each frame is a layer, called a `FeatureTable` in the specification. A layer is a thematic group of data such as `water`, `roads` or `place_labels`, and is the unit a [MapLibre Style](<https://maplibre.org/maplibre-style-spec/>) targets. Layers are equivalent to layers in MVT.
-
-A feature has:
-
-- a geometry, typed by the OGC Simple Feature Access model, excluding `GeometryCollection`
-- an optional id
-- any number of properties
-
-Features in one layer share a single set of property columns and normally share one geometry type. Mixing geometry types in a layer is allowed, but one type per layer compresses better.
-
-> [!NOTE]
->
-> The terms `column`, `field`, `attribute`, and `property` are used interchangeably in the specification.
-
-# Columns, not records
-
-MVT is record-oriented: it writes feature 1 whole, then feature 2 whole, each with its own tags and geometry commands. MLT is column-oriented: it writes every feature's `id`, then every feature's geometry, then every feature's `class`, and so on.
-
-The column layout has the following consequences:
-
-- **Compression.** A column of road classes is a few distinct strings repeated many times, which a dictionary collapses. A column of ascending ids is a constant delta. Neither pattern is visible when the values are spread across records.
-- **Decoding speed.** A column decodes with one loop over one buffer, which vectorizes. A record stream decodes with a branchy loop over mixed types.
-- **GPU upload.** Vertices are already contiguous, so they can be copied to a GPU buffer without gathering.
-- **Partial decoding.** A renderer that needs only the geometry and one property can skip the other columns.
-
-# Streams
-
-A column is split into several streams, each a contiguous run of same-typed values. This follows the [ORC](<https://orc.apache.org/specification/ORCv1/>) file format. Each stream carries its own metadata: value count, byte length and encoding.
-
-A nullable string column, for example, becomes:
-
-- a present stream, one bit per feature, saying which features have a value
-- a length stream, the byte length of each string
-- a data stream, the UTF-8 bytes
-
-MLT defines these stream kinds:
-
-| Stream | Holds |
-| --- | --- |
-| **Present** | One bit per feature: does this feature have a value? Omitted for a column that cannot be null. |
-| **Data** | The values themselves: booleans, integers, floats, strings, dictionary codes, or vertex coordinates. |
-| **Length** | Element counts for variable-sized values: string byte lengths, ring vertex counts, list sizes. |
-| **Offset** | Indices into another stream, used by dictionary encodings. |
-
-Each stream is encoded independently. Lengths are usually small and repetitive and run-length encode well. String bytes do not, but often dictionary-encode well.
-
-# Encodings
-
-Every stream has its own lightweight encoding: delta, run-length, dictionary, bit packing, FSST, and others. Lightweight means cheap enough to decode at render time.
-
-Encodings cascade. Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta- or bit-packed like any other.
-
-Encoders choose encodings by sampling, since trying every combination is too expensive; see [Choosing an Encoding](<https://maplibre.org/maplibre-tile-spec/implementation-guide/#choosing-an-encoding>). The [encoding algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) page describes each scheme. The specifications say which streams may use which.
-
-Tiles are usually also gzip- or brotli-compressed in transit.
-
-# Sorting
-
-Feature order is the encoder's choice. Sorting a layer by a low-cardinality property groups equal values into runs that RLE collapses. Sorting by spatial locality shortens vertex deltas.
-
-MLT does not fix an order. Encoders MAY reorder features. Applications that depend on source order must disable sorting or carry an explicit ordering property.
-
-# MVT compatibility
-
-MLT can represent the same common vector tile content as MVT, but it is not a byte-for-byte or schema-free replacement. The differences come from MVT's per-feature tag/value model versus MLT's per-layer column model:
-
-- **Property types are fixed per layer.** In MVT, the same key can technically reference values of different data types on different features in a layer. In MLT, one property name corresponds to one column, and that column has one declared type for the whole layer. MVT data with mixed types must therefore be normalized before or during conversion, for example by lossless numeric widening, coercing values to strings, dropping mismatched values, or rejecting the tile.
-- **Missing properties become typed nulls.** MVT normally represents a missing property by omitting the key/value tag from that feature; the MVT value union has no dedicated null type. MLT represents the union of layer properties as columns, so a feature that lacks a property stores a null in that column and the column is marked nullable. When converting MLT back to MVT, null property values should be omitted from the feature tags.
-- **A feature has at most one value per property column.** MVT tag streams can encode the same key more than once for a single feature, even though most MVT APIs expose properties as a map and collapse such duplicates. MLT has one cell per feature per column, so duplicate keys on one feature must be rejected, collapsed deterministically, or renamed before encoding.
-- **Feature order is not necessarily a stable round-trip property.** MVT stores features in wire order. MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
-- **Layer names must be non-empty.** The MVT protobuf schema marks the layer `name` field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty. The written MVT specification does not explicitly say that the required name cannot be an empty string. MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.
-- **A layer holds at most `2^31 - 1` features.** MVT sets no limit, but MLT stores the feature count as a signed 32-bit integer.
-- **MLT v2 restricts the extent.** MVT allows any positive extent, but MLT v2 accepts only powers of two from `64` to `2097152`. A layer with any other extent must be rescaled or stored as MLT v1.
-
-# Implementation Status
-
-## Integrations
-
-| Integration | Status |
-| --- | --- |
-| [MapLibre Native](<https://maplibre.org/projects/native/>) | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. PR: [\#3246](<https://github.com/maplibre/maplibre-native/pull/3246>). |
-| [MapLibre GL JS](<https://maplibre.org/projects/gl-js/>) | Supported since version 5.12.0. PR: [\#6570](<https://github.com/maplibre/maplibre-gl-js/pull/6570>). |
-| [Planetiler](<https://github.com/onthegomap/planetiler>) | Can generate tiles in MLT since version [0.10.0](<https://github.com/onthegomap/planetiler/releases/tag/v0.10.0>). |
-| [PMTiles](<https://github.com/protomaps/pmtiles>) | Can store MLT, see [PMTiles v3 spec - Tile Type](<https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#tile-type-tt>). |
-| [Martin tile server](<https://maplibre.org/martin/>) | Can detect and serve MLT since version [1.3.0](<https://github.com/maplibre/martin/releases/tag/martin-v1.3.0>). PR: [\#2512](<https://github.com/maplibre/martin/pull/2512>).<br>Can automatically convert between MLT and MVT depending on headers since [1.9.0](<https://github.com/maplibre/martin/releases/tag/martin-v1.9.0>). [docs](<https://maplibre.org/martin/using-guides/mlt/>) |
-| [QGIS plugin](<https://github.com/maplibre/maplibre-tile-spec/tree/main/qgis>) | Opens MLT files in QGIS via the Rust `mlt` parser. See [qgis/README.md](<https://github.com/maplibre/maplibre-tile-spec/blob/main/qgis/README.md>). |
-| [visgl/loaders.gl](<https://loaders.gl/docs/modules/mlt/formats/mlt>) and [module](<https://loaders.gl/docs/modules/mlt>) | Decodes MLT tilesets, supported since version 4.4 via pre-bundled mlt-decoder.cjs |
-
-## Implementations
-
-| Implementation | Language | Type | Notes |
-| --- | --- | --- | --- |
-| [maplibre-tile-spec/cpp](<https://github.com/maplibre/maplibre-tile-spec/tree/main/cpp>) | C++ | Decoder | Used by MapLibre Native |
-| [maplibre-tile-spec/js](<https://github.com/maplibre/maplibre-tile-spec/tree/main/ts>) | TypeScript | Decoder / Encoder | Used by MapLibre GL JS. The encoder is still experimental. |
-| [maplibre-tile-spec/java](<https://github.com/maplibre/maplibre-tile-spec/tree/main/java>) | Java | Encoder |  |
-| [maplibre-tile-spec/rust/mlt](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md>) | Rust | Decoder / Encoder | Includes bundled `mlt` CLI, TUI, and conversion tooling. |
-| [maplibre-tile-spec/rust/mlt-core](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md>) | Rust | Decoder / Encoder | Used in Martin. Includes bundled `mlt` CLI, TUI, and conversion tooling. |
-| [maplibre-tile-spec/rust/mlt-wasm](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm>) | Rust / WASM | Decoder | Uses `mlt-core` |
-| [maplibre-tile-spec/rust/mlt-py](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-py>) | Rust / [PyO3](<https://pyo3.rs/>). | Decoder / Encoder | Exposes `mlt-core` to the python communtiy via [PyO3](<https://pyo3.rs/>). |
-| [maplibre-tile-spec/rust/mlt-ffi](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-ffi>) | Rust / FFI | Decoder / Encoder | Foreign-function bindings for `mlt-core` to the java/kotlin, cpp and c community |
-
-## Ongoing work - tools adding MLT support
-
-| Tool | Status | Tracking issue | Dependency / notes |
-| --- | --- | --- | --- |
-| [felt/tippecanoe](<https://github.com/felt/tippecanoe>) | Landing soon? | https://github.com/felt/tippecanoe/issues/380 | Via C++ encoder |
-| [systemed/tilemaker](<https://github.com/systemed/tilemaker>) | Landing soon? | https://github.com/systemed/tilemaker/issues/856 | Via C++ encoder |
-| [georust/geozero](<https://github.com/georust/geozero>) | Tracking | https://github.com/georust/geozero/issues/227 | Awaiting Rust encoder |
-| [developmentseed/tipg](<https://github.com/developmentseed/tipg>) | Tracking | https://github.com/developmentseed/tipg/issues/248 | Awaiting hypothetical `ST_AsMLT` in PostGIS |
-| [versatiles-org/versatiles-rs](<https://github.com/versatiles-org/versatiles-rs>) | Tracking | https://github.com/versatiles-org/versatiles-rs/issues/111 and https://github.com/versatiles-org/versatiles-spec/issues/11 | Rust tiler |
-| [maptiler/tileserver-gl](<https://github.com/maptiler/tileserver-gl>) | Tracking | https://github.com/maptiler/tileserver-gl/issues/2194 | js + Go codebase |
-| NASA/CesiumGS renderers | Mention | https://github.com/NASA-AMMOS/3DTilesRendererJS/issues/982\#issuecomment-4467367202 and https://github.com/CesiumGS/cesium/issues/2132 | Minor feature requests in MVT threads |
-
-## Existing/Upcoming MLT datasets
-
-| Dataset | Endpoint / Link | Notes |
-| --- | --- | --- |
-| [maplibre/demotiles](<https://github.com/maplibre/demotiles>) | `demotiles.maplibre.org/tiles-mlt/plain/{z}/{x}/{y}.mlt` | Also available as TileJSON |
-| [Overture Maps](<https://github.com/OvertureMaps/overture-tiles/>) | https://github.com/OvertureMaps/overture-tiles/issues/50 | Consideration for switching to MLT |
-| [Shademap](<https://ted-piotrowski.github.io/mapbox-gl-shadow-simulator/examples/maplibre.html>) | `cfw.shademap.app/planet/{z}/{x}/{y}.mlt` and `cfw.shademap.app/buildings/{z}/{x}/{y}.mlt` | Buildings and planet layers |
-| [OpenRailwayMap-vector](<https://github.com/hiddewie/OpenRailwayMap-vector>) | https://github.com/hiddewie/OpenRailwayMap-vector/issues/919 | MLT support tracking issue |
 
 # Specification
 
-# MapLibre Tile Specification
-
-> [!NOTE]
->
-> This is a live specification that evolves continuously. Features marked as are under active development and may change in future versions. Stable features are those without experimental tags.
-
-The wire format is versioned by the first byte of every tile.
-
-| Version | Page | Status |
-| --- | --- | --- |
-| `0x01` | [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) | Stable. |
-| `0x02` | [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) | Under development. |
-
-Both versions share the [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) and the compression schemes in [Encoding Algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>).
-
 # MapLibre Tile Specification v1
 
-This document specifies the byte layout of an MLT v1 layer. The data model it assumes, tiles, extents, layers, features, columns and streams, is described in [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>).
+This document specifies the byte layout of an MLT v1 layer. The data model it assumes, tiles, extents, layers, features, columns and streams, is described on the [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) page.
 
 ## Tile Layout
 
@@ -415,7 +410,7 @@ Codes `5`-`9`, `12`-`15` and `31` are unassigned. A decoder MUST reject a column
 
 ### Column Data
 
-What follows in the data section depends on the column's type. Every `[stream]` below is one stream, laid out as described under [Streams](<#streams>).
+What follows in the data section depends on the column's type. Every `[stream]` below is one stream, laid out as described under [streams](<#streams>).
 
 | Column type | Data layout |
 | --- | --- |
@@ -423,7 +418,7 @@ What follows in the data section depends on the column's type. Every `[stream]` 
 | `Geometry` | `[varint stream_count]` `[types stream]` `[stream * (stream_count - 1)]` |
 | Scalar (`Bool` ... `Double`) | `[data stream]` |
 | `String` | `[varint stream_count]` `[stream * stream_count]` |
-| `SharedDict` | see [Shared Dictionary Columns](<#shared-dictionary-columns>) |
+| `SharedDict` | see [shared dictionary columns](<#shared-dictionary-columns>) |
 
 A nullable column prefixes its data with a `Present` stream, which is counted in `stream_count` where one is present.
 
@@ -494,7 +489,7 @@ The physical field (bits 1-0) says how the resulting integers are laid out in by
 
 RLE streams store all run lengths first, then all values, and carry `runs` and `num_rle_values` in the header.
 
-The algorithms themselves are specified in [Encoding Definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>).
+The algorithms themselves are specified in [encoding definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>).
 
 ## Property Columns
 
@@ -588,7 +583,7 @@ Depending on the geometry type, the following streams are used in addition to `G
 - **MultiLineString**: NumGeometries, NumParts (LineString), VertexBuffer
 - **MultiPolygon**: NumGeometries, NumParts (Polygon), NumRings (LinearRing), VertexBuffer
 
-When LineString and Polygon types are mixed in the same column, LineString vertex counts are stored in the NumRings stream (see [Length Stream Encoding Rules](<#length-stream-encoding-rules>) below).
+When LineString and Polygon types are mixed in the same column, LineString vertex counts are stored in the NumRings stream (see [length stream encoding rules](<#length-stream-encoding-rules>) below).
 
 An additional `VertexOffsets` stream is present when using Dictionary or Morton-Dictionary encoding. If geometries (mainly polygons) are pre-tessellated for direct GPU use, `NumTriangles` and `IndexBuffer` streams must be provided.
 
@@ -633,7 +628,7 @@ The streams listed above map to the following physical and logical stream types:
 
 | Physical Type | Logical Type | Specification Name | Content |
 | --- | --- | --- | --- |
-| `DATA` | `NONE` | GeometryType | Geometry type per feature (see [Geometry Types](<#geometry-types>)) |
+| `DATA` | `NONE` | GeometryType | Geometry type per feature (see [geometry types](<#geometry-types>)) |
 | `LENGTH` | `GEOMETRIES` | NumGeometries | Number of sub-geometries in Multi\* types |
 | `LENGTH` | `PARTS` | NumParts | Number of rings per polygon or lines per multi-linestring |
 | `LENGTH` | `RINGS` | NumRings | Number of vertices per ring or per linestring segment |
@@ -680,7 +675,7 @@ The encoding uses a **type threshold** to determine which geometries need explic
 | `part_offsets` (Rings stream present) | LineString | Polygon, MultiPoint, MultiLineString, MultiPolygon |
 | `part_offsets` (no Rings stream) | Point | LineString |
 
-**Rule**: If a geometry type's value is greater than the threshold type's value (see [Geometry Types](<#geometry-types>) table), store its length explicitly. Otherwise, the length is implicitly 1.
+**Rule**: If a geometry type's value is greater than the threshold type's value (see [geometry types](<#geometry-types>) table), store its length explicitly. Otherwise, the length is implicitly 1.
 
 **Example**: A column with `[Point, MultiPolygon, Polygon]` geometry types:
 
@@ -854,7 +849,7 @@ Decode:
   Polygon: vertices[4..8]    // from ring_offsets
 ```
 
-The integer and vertex encodings referenced above are specified in detail in the [Encoding Definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) document.
+The integer and vertex encodings referenced above are specified in detail in the [encoding definitions](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) document.
 
 ## Examples
 
@@ -1243,17 +1238,17 @@ mlt hexdump path/to/tile.mlt
 
 v2 extends v1's [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) with Z and M values and nested properties, and adds a few minor restrictions. It also changes the byte layout to make tiles smaller.
 
-- **Z-values.** Every vertex can carry an elevation. See [Z Coordinates](<#z-coordinates>).
-- **M-values.** Every vertex can carry any number of values, such as road lane count and colors, or a timestamp per GPS fix. See [M-Values](<#m-values>).
-- **Nested properties.** Maps and lists stay maps and lists instead of being flattened into columns like `name:en` and `name:de`. See [Nested Properties](<#nested-properties>).
+- **Z-values.** Every vertex can carry an elevation. See [Z coordinates](<#z-coordinates>).
+- **M-values.** Every vertex can carry any number of values, such as road lane count and colors, or a timestamp per GPS fix. See [M-values](<#m-values>).
+- **Nested properties.** Maps and lists stay maps and lists instead of being flattened into columns like `name:en` and `name:de`. See [nested properties](<#nested-properties>).
 - **Smaller metadata.** A stream needs one byte instead of four or more, since its role, value count and byte length are implied wherever they can be derived.
 
-- **Extent in four bits.** Powers of two from `64` to `2097152` fit in the layer header byte. See [Extent](<#extent>).
-- **Uniform geometry type.** A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See [Uniform Geometry Type](<#uniform-geometry-type>).
-- **Cheaper nulls.** The presence of a column is stored as a bitmap, run list or sparse bitmap, whichever is smallest, and can be shared between columns. See [Presence Encodings](<#presence-encodings>).
+- **Extent in four bits.** Powers of two from `64` to `2097152` fit in the layer header byte. See [extent](<#extent>).
+- **Uniform geometry type.** A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See [uniform geometry type](<#uniform-geometry-type>).
+- **Cheaper nulls.** The presence of a column is stored as a bitmap, run list or sparse bitmap, whichever is smallest, and can be shared between columns. See [presence encodings](<#presence-encodings>).
 - **More encodings.** Bit packing, `Int8` and `UInt8` columns, [ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>) for floats, [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/#front-coding>) for strings and optional [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/#rans>) for vertices.
 
-Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT. Gzipped v2 is 10-18% smaller than gzipped MVT. See [Size](<https://maplibre.org/maplibre-tile-spec/#size>) and [Decoding speed](<https://maplibre.org/maplibre-tile-spec/#decoding-speed>).
+Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT. Gzipped v2 is 10-18% smaller than gzipped MVT. See [benchmarks](<https://maplibre.org/maplibre-tile-spec/benchmarks/index.md>).
 
 ## Tile Layout
 
@@ -1284,7 +1279,7 @@ body := [string name]                    non-empty, UTF-8, VarInt length prefix
 
 The body MUST end exactly at the layer's `size`. Trailing bytes are an error.
 
-`feature_count` is the default value count for every stream in the layer. See [Value Count](<#value-count>).
+`feature_count` is the default value count for every stream in the layer. See [value count](<#value-count>).
 
 ### Layer Header Byte
 
@@ -1617,11 +1612,11 @@ A name a second column repeats MUST be rejected, whichever kinds of column repea
 | `0x8` | `UInt64` |  |
 | `0x9` | `Float` | IEEE 754 binary32 |
 | `0xA` | `Double` | IEEE 754 binary64 |
-| `0xB` | `String` | Layout given by the leading stream, see [String Columns](<#string-columns>) |
-| `0xC` | `Struct` | A fixed set of named fields, see [Nested Properties](<#nested-properties>) |
-| `0xD` | `List` | A repeated value, see [Nested Properties](<#nested-properties>) |
-| `0xE` | `Map` | String keys chosen per value, see [Nested Properties](<#nested-properties>) |
-| `0xF` | Shared dictionary | See [Shared Dictionary Columns](<#shared-dictionary-columns>) |
+| `0xB` | `String` | Layout given by the leading stream, see [string columns](<#string-columns>) |
+| `0xC` | `Struct` | A fixed set of named fields, see [nested properties](<#nested-properties>) |
+| `0xD` | `List` | A repeated value, see [nested properties](<#nested-properties>) |
+| `0xE` | `Map` | String keys chosen per value, see [nested properties](<#nested-properties>) |
+| `0xF` | Shared dictionary | See [shared dictionary columns](<#shared-dictionary-columns>) |
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_mixed_np.mlt>) - seven of the data types in one layer.
 
@@ -1998,7 +1993,7 @@ For a stream of integer words, meaning the `Int`, `Str` and `Vertex` families an
 
 | Bits | Physical |
 | --- | --- |
-| `00` | None, without `byte_length`. Only on logical `None`, see [Byte Length](<#byte-length>) |
+| `00` | None, without `byte_length`. Only on logical `None`, see [byte length](<#byte-length>) |
 | `01` | None: fixed-width little-endian words |
 | `10` | VarInt |
 | `11` | SIMD-FastPFOR, 128-value little-endian blocks |
@@ -2007,7 +2002,7 @@ For a stream of opaque fixed-width elements, meaning raw `Float` values or a `By
 
 | Bits | Physical |
 | --- | --- |
-| `00` | Elements as they are, without `byte_length`. Only on logical `None`, and never on a blob, see [Byte Length](<#byte-length>) |
+| `00` | Elements as they are, without `byte_length`. Only on logical `None`, and never on a blob, see [byte length](<#byte-length>) |
 | `01` | Elements as they are |
 | `10`, `11` | Unassigned, MUST be rejected |
 
@@ -2023,9 +2018,9 @@ Parameters sit between `byte_length`, where written, and the payload:
 
 | Encoding | Parameters |
 | --- | --- |
-| Framed, Exception-Free ALP | `scale` (byte), `base` (ZigZag varint). See [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>). |
+| Framed, Exception-Free ALP | `scale` (byte), `base` (ZigZag varint). See [framed, exception-free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>). |
 | Morton | `bits` (varint), `shift` (varint). The grid the codes are laid on. |
-| Any, on a vertex stream with extension bit 0 set | `z_step` (byte). See [Z Coordinates](<#z-coordinates>). |
+| Any, on a vertex stream with extension bit 0 set | `z_step` (byte). See [Z coordinates](<#z-coordinates>). |
 
 ## Examples
 
@@ -2767,15 +2762,15 @@ This page defines the payload of every encoding an MLT stream can name. Which st
 
 ## Integer Words
 
-Most of MLT is integers. Lengths, offsets, ids, dictionary codes, geometry topology and the vertex buffer are all streams of integer words, and so are the scaled integers of an [Framed, Exception-Free ALP](<#alp>) float column.
+Most of MLT is integers. Lengths, offsets, ids, dictionary codes, geometry topology and the vertex buffer are all streams of integer words, and so are the scaled integers of a [framed, exception-free ALP](<#alp>) float column.
 
-An integer stream is decoded in two steps. The **physical** encoding turns the payload bytes into a sequence of unsigned words. The **logical** encoding turns those words into the values. A stream of `Int64`, `UInt64` or `LongId` values has 64-bit words, and so does an [Framed, Exception-Free ALP](<#alp>) offset stream. Every other integer stream has 32-bit words.
+An integer stream is decoded in two steps. The **physical** encoding turns the payload bytes into a sequence of unsigned words. The **logical** encoding turns those words into the values. A stream of `Int64`, `UInt64` or `LongId` values has 64-bit words, and so does a [framed, exception-free ALP](<#alp>) offset stream. Every other integer stream has 32-bit words.
 
 ```text
 values = logical_decode(physical_decode(payload))
 ```
 
-A difference is signed even when the values are not, so every delta is [ZigZag](<#zigzag>)-encoded. A plain or run-length encoded value is ZigZag-encoded only on a stream of a signed type. Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded. Delta arithmetic wraps at the word width.
+A difference is signed even when the values are not, so every delta is [zigzag](<#zigzag>)-encoded. A plain or run-length encoded value is ZigZag-encoded only on a stream of a signed type. Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded. Delta arithmetic wraps at the word width.
 
 The steps each logical encoding takes:
 
@@ -2806,7 +2801,7 @@ For 64-bit values the shift is `63`.
 
 Each word is stored as it is, little-endian, 4 or 8 bytes per word.
 
-In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width give it. See [Byte Length](<https://maplibre.org/maplibre-tile-spec/specification/v2/#byte-length>).
+In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width give it. See [byte length](<https://maplibre.org/maplibre-tile-spec/specification/v2/#byte-length>).
 
 ### VarInt
 
@@ -2820,7 +2815,7 @@ Each word is stored in 7-bit groups, least significant group first. Bit 7 of eac
     -> bytes:              0xAC,    0x02
 ```
 
-This is the unsigned varint of [Protocol Buffers](<https://protobuf.dev/programming-guides/encoding/#varints>) and the length prefix every MLT header uses. Signed values go through [ZigZag](<#zigzag>) first, where the logical encoding says so.
+This is the unsigned varint of [Protocol Buffers](<https://protobuf.dev/programming-guides/encoding/#varints>) and the length prefix every MLT header uses. Signed values go through [zigzag](<#zigzag>) first, where the logical encoding says so.
 
 ### Bit Packing
 
@@ -2828,7 +2823,7 @@ Every word is stored in the same number of bits, the bit width of the largest va
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - dictionary codes `0` to `2`, each in two bits.
 
-v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`. It stands in for the whole physical step: the words come straight out of the packed bits, and only [ZigZag](<#zigzag>) on a signed stream is applied to them.
+v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`. It stands in for the whole physical step: the words come straight out of the packed bits, and only [zigzag](<#zigzag>) on a signed stream is applied to them.
 
 ```text
 payload := [u8 width]                        1-32
@@ -2936,7 +2931,7 @@ Because every lane has the same bit offsets, one shift, one mask and one or move
 
 #### Tail
 
-The tail is variable-byte encoded, with no count and no header. Each value is stored in 7-bit groups, least significant group first, and bit 7 of its **last** byte is set. This is the reverse of [VarInt](<#varint>), where bit 7 marks a byte that is followed by another.
+The tail is variable-byte encoded, with no count and no header. Each value is stored in 7-bit groups, least significant group first, and bit 7 of its **last** byte is set. This is the reverse of [varint](<#varint>), where bit 7 marks a byte that is followed by another.
 
 A `u32` takes 1 to 5 bytes and the fifth carries the top 4 bits. A `u64` takes 1 to 10. The bytes are padded with `0x00` to a multiple of 4. A padding byte has bit 7 clear, so it never ends a value, and a decoder discards the unfinished value at the end. A decoder reads until the payload ends, and the number of values it read MUST be the stream's value count minus `block_values`.
 
@@ -2956,7 +2951,7 @@ Take 130 `u32` values, `i mod 8` for `i` from `0`, except `300` at `5`, `20` at 
 
 The same values as `u64` take 22 words, since the bitmap has two.
 
-In v2 a stream of 64-bit words, such as the offsets of an [Framed, Exception-Free ALP](<#alp>) column, uses the `u64` form. v1 has no 64-bit FastPFOR, so a v1 stream of 64-bit words cannot use it.
+In v2 a stream of 64-bit words, such as the offsets of a [framed, exception-free ALP](<#alp>) column, uses the `u64` form. v1 has no 64-bit FastPFOR, so a v1 stream of 64-bit words cannot use it.
 
 ## Logical Encodings
 
@@ -2964,11 +2959,11 @@ The logical encoding is applied to the words the physical step produced.
 
 ### None
 
-The words are the values. On a signed stream each word is [ZigZag](<#zigzag>)-decoded.
+The words are the values. On a signed stream each word is [zigzag](<#zigzag>)-decoded.
 
 ### Delta
 
-Each word is the difference to the previous value. The first value's predecessor is `0`. Each difference is [ZigZag](<#zigzag>)-encoded before it becomes a word, whatever the stream's type.
+Each word is the difference to the previous value. The first value's predecessor is `0`. Each difference is [zigzag](<#zigzag>)-encoded before it becomes a word, whatever the stream's type.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_opt_delta.mlt&amp;at=column%5B0%5D>) - ids `100`, `101`, `105`, `106`, stored as the steps between them.
 
@@ -2991,9 +2986,9 @@ Delta suits monotonic sequences such as ids and offsets, whose differences are s
 
 ### Delta2
 
-Each item is the [Delta](<#delta>) of the deltas. Both predecessors start at `0`, so the first two words are - `values[0]` and - `values[1] - 2 * values[0]`.
+Each item is the [delta](<#delta>) of the deltas. Both predecessors start at `0`, so the first two words are - `values[0]` and - `values[1] - 2 * values[0]`.
 
-Each second difference is [ZigZag](<#zigzag>)-encoded, and the arithmetic wraps at the stream's width.
+Each second difference is [zigzag](<#zigzag>)-encoded, and the arithmetic wraps at the stream's width.
 
 This means that encoding is:
 
@@ -3024,7 +3019,7 @@ Delta2 suits smooth sequences, such as a per-vertex elevation along a densely sa
 
 ### RLE
 
-The values are stored as runs, each a `(run_length, value)` pair that expands to `run_length` copies of `value`. On a signed stream `value` is [ZigZag](<#zigzag>)-encoded. Run lengths never are.
+The values are stored as runs, each a `(run_length, value)` pair that expands to `run_length` copies of `value`. On a signed stream `value` is [zigzag](<#zigzag>)-encoded. Run lengths never are.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fmvalues_rle.mlt&amp;at=m_value%5B0%5D>) - five `5`s and three `7`s, as two runs.
 
@@ -3177,7 +3172,7 @@ e = 2, f = 0:  i = [-75, 25, 150, -225]
 base = -225:   offsets = [150, 250, 375, 0]
 ```
 
-The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints. See the [Framed, Exception-Free ALP example](<https://maplibre.org/maplibre-tile-spec/specification/v2/#examples>) on the v2 page for the whole layer.
+The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints. See the [framed, exception-free ALP example](<https://maplibre.org/maplibre-tile-spec/specification/v2/#examples>) on the v2 page for the whole layer.
 
 ### Float Dictionary
 
@@ -3306,7 +3301,7 @@ The vertex buffer holds \\(x\\) and \\(y\\) interleaved: \\(\[x\_0, y\_0, x\_1, 
 
 ### Componentwise Delta
 
-Each coordinate is a delta to the same coordinate of the previous vertex. `x` and `y` keep separate predecessors, both starting at `0`. Each delta is [ZigZag](<#zigzag>)-encoded.
+Each coordinate is a delta to the same coordinate of the previous vertex. `x` and `y` keep separate predecessors, both starting at `0`. Each delta is [zigzag](<#zigzag>)-encoded.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fline.mlt&amp;at=vertices>) - three vertices, each stored as its step from the one before.
 
@@ -3322,7 +3317,7 @@ deltas:   (100, 200), (5, 10), (-3, 5)
 words:    [200, 400, 10, 20, 5, 10]
 ```
 
-The v2 `Vertex` family also has a plain `Delta`, which is the integer [Delta](<#delta>) over the flat word sequence and does not separate the components.
+The v2 `Vertex` family also has a plain `Delta`, which is the integer [delta](<#delta>) over the flat word sequence and does not separate the components.
 
 ### Componentwise Delta2
 
