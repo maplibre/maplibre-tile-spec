@@ -164,13 +164,21 @@ ci-build-release target artifact_name:
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
-    cargo build --release --target {{target}} --package mlt --bin mlt
+    rustup component add llvm-tools-preview
+    {{just}} rust::pgo-build {{target}}
     cd target/{{target}}/release
     if [ -f mlt.exe ]; then
         7z a ../../../../{{artifact_name}} mlt.exe
     else
         tar -czf ../../../../{{artifact_name}} mlt
     fi
+
+# Build the release `mlt` binary for a target this machine can run, with profile-guided optimization trained on the test fixtures
+pgo-build target: (just 'cargo-install' 'cargo-pgo')
+    cargo pgo clean
+    cargo pgo build -- --target {{target}} --package mlt --bin mlt
+    scripts/pgo-train.sh target/{{target}}/release/mlt ../test/fixtures
+    cargo pgo optimize build -- --target {{target}} --package mlt --bin mlt
 
 # Output version and tag for GITHUB_OUTPUT (append with >> $GITHUB_OUTPUT)
 ci-get-release-info package='mlt':
