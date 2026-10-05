@@ -452,7 +452,6 @@ Bits past `count` in the final byte are padding and MUST be ignored.
     byte:   0b0010_1101 = 0x2D
     ```
 
-
 ### Runs <span class="experimental"></span> {#bool-runs}
 
 Alternating run lengths as varints, the first counting `0` bits and possibly being `0`.
