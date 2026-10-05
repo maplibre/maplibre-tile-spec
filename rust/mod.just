@@ -177,8 +177,27 @@ ci-build-release target artifact_name:
 pgo-build target: (just 'cargo-install' 'cargo-pgo')
     cargo pgo clean
     cargo pgo build -- --target {{target}} --package mlt --bin mlt
-    scripts/pgo-train.sh target/{{target}}/release/mlt ../test/fixtures
+    {{just}} rust::pgo-train target/{{target}}/release/mlt ../test/fixtures
     cargo pgo optimize build -- --target {{target}} --package mlt --bin mlt
+
+# Run the instrumented `mlt` over the test fixtures so `cargo pgo optimize` has a profile to read
+pgo-train mlt fixtures:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    for corpus in amazon amazon_here bing omt simple; do
+        for version in 1 2; do
+            "{{mlt}}" convert "{{fixtures}}/$corpus" "$work/v$version/$corpus" --mlt-version "$version"
+        done
+        "{{mlt}}" convert "$work/v2/$corpus" "$work/mvt/$corpus" --to mvt
+    done
+    "{{mlt}}" convert "{{fixtures}}/omt.max1.mbtiles" "$work/omt.mbtiles" --mlt-version 2
+    "{{mlt}}" ls "$work/v1" > /dev/null
+    "{{mlt}}" ls "$work/v2" > /dev/null
+    find "$work/v1" "$work/v2" -name '*.mlt' | while read -r tile; do
+        "{{mlt}}" decode "$tile" > /dev/null
+    done
 
 # Output version and tag for GITHUB_OUTPUT (append with >> $GITHUB_OUTPUT)
 ci-get-release-info package='mlt':
