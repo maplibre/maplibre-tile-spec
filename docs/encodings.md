@@ -105,7 +105,6 @@ Every word is stored in the same number of bits, the bit width of the largest va
 
 [View example](inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&at=codes){target=_blank .inspector-example} - dictionary codes `0` to `2`, each in two bits.
 
-In v2, bit packing is a logical encoding, and the stream's physical field MUST be `0`.
 It stands in for the whole physical step: the words come straight out of the packed bits, and only [zigzag](#zigzag) on a signed stream is applied to them.
 
 ```
