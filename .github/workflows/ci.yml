@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
+      rust-release: ${{ steps.filter.outputs.rust-release }}
       java: ${{ steps.filter.outputs.java }}
       ts: ${{ steps.filter.outputs.ts }}
       cpp: ${{ steps.filter.outputs.cpp }}
@@ -32,6 +33,12 @@ jobs:
               - '.github/**'
               - 'rust/**'
               - 'test/**'
+            rust-release:
+              - 'justfile'
+              - 'rust/mod.just'
+              - '.github/workflows/rust.yml'
+              - 'rust/Cargo.*'
+              - 'rust/mlt/**'
             java:
               - 'justfile'
               - 'java/mod.just'
@@ -67,6 +74,7 @@ jobs:
     uses: ./.github/workflows/rust.yml
     with:
       run-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      build-release: ${{ needs.changes.outputs.rust-release == 'true' }}
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
     secrets: inherit
     permissions: { contents: write, id-token: write, code-quality: write, pull-requests: read }

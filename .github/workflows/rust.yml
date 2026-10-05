@@ -6,6 +6,10 @@ on:
       run-release:
         type: boolean
         default: false
+      build-release:
+        description: Build the release binaries on a pull request, because it changes how they are built.
+        type: boolean
+        default: false
       run-heavy:
         description: Run the expensive artifact/fuzz jobs. Off for pull requests that are not on top of their stack.
         type: boolean
@@ -163,7 +167,7 @@ jobs:
       - run: just -v assert-git-is-clean
 
   build-release-binaries:
-    if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-plz-') }}
+    if: ${{ github.event_name != 'pull_request' || inputs.build-release || startsWith(github.head_ref, 'release-plz-') }}
     name: Build release binaries for ${{ matrix.target }}
     strategy:
       fail-fast: false
