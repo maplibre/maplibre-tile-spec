@@ -28,7 +28,6 @@
 //! the data is interleaved `(run, value)` pairs and the expanded count comes
 //! from the count context.
 //!
-//! Not yet implemented (rejected with [`MltError::NotImplemented`]): RLE over a bool or float column.
 
 use std::io;
 
@@ -37,6 +36,7 @@ use num_enum::TryFromPrimitive;
 use strum::IntoEnumIterator as _;
 use usize_cast::IntoUsize as _;
 
+use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     Alp, AlpScale, BoolLogical, DataType02, DictLayout, DictionaryType, FastPForKind, FloatLogical,
@@ -89,6 +89,8 @@ pub(crate) enum Logical {
     Delta2,
     CwDelta2,
     Rans,
+    Runs,
+    Sparse,
 }
 
 /// How a string column lays its streams out, named by the extension bits of its leading stream.
@@ -179,7 +181,7 @@ impl Family {
                 L::BitPacked,
                 L::Delta2,
             ],
-            Self::Bool => &[L::None, L::Rle],
+            Self::Bool => &[L::None, L::Runs, L::Sparse],
             Self::Float(_) => &[L::None, L::Rle, L::Alp, L::Dict],
             Self::Vertex => &[
                 L::None,
@@ -411,23 +413,16 @@ pub(crate) enum LogicalInt {
     Delta2(PhysicalInt),
 }
 
-/// Logical encoding of a bool column's data stream.
+/// Logical encoding of a bool column's data stream, which is the way a presence bitfield is coded.
+/// The physical field is reserved, since every coding delimits itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum LogicalBool {
-    /// A raw packed bitmap, one bit per value.
-    None(PhysicalBits),
-    /// Numbered so the family matches the format, but not yet readable.
-    // TODO(v2): decide what RLE over a bool column means - v1's is a byte-RLE compressed
-    //           bitmap, while every other v2 RLE is varint `(run, value)` pairs.
-    Rle,
-}
+pub(crate) struct LogicalBool(pub(crate) PresenceCoding);
 
 /// Logical encoding of a float column's data stream.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LogicalFloat {
     /// Fixed-width little-endian values, one per element.
     None(PhysicalBits),
-    Rle,
     /// Framed, Exception-Free ALP.
     /// The physical field codes the scaled integers, not the column's element layout.
     // TODO(v2): extension bit 1 = an exception count varint and exception stream follow.
@@ -528,6 +523,12 @@ fn no_extension(enc_byte: u8) -> MltResult<()> {
     }
 }
 
+/// Read a bool stream's logical field, whose physical field is reserved.
+fn logical_bool(enc_byte: u8, coding: PresenceCoding) -> MltResult<LogicalBool> {
+    no_physical(enc_byte)?;
+    Ok(LogicalBool(coding))
+}
+
 /// Read an integer stream's logical field, in the terms the integer and string families share.
 fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<LogicalInt> {
     Ok(match logical {
@@ -552,7 +553,9 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
         | Logical::Dict
         | Logical::FrontCoded
         | Logical::CwDelta2
-        | Logical::Rans => unreachable_member(family, logical),
+        | Logical::Rans
+        | Logical::Runs
+        | Logical::Sparse => unreachable_member(family, logical),
     })
 }
 
@@ -592,16 +595,17 @@ impl Encoding02 {
                     | Logical::BitPacked
                     | Logical::Delta2
                     | Logical::CwDelta2
-                    | Logical::Rans => unreachable_member(family, logical),
+                    | Logical::Rans
+                    | Logical::Runs
+                    | Logical::Sparse => unreachable_member(family, logical),
                 })
             }
             Family::Bool => Self::Bool(match logical {
-                Logical::None => LogicalBool::None(physical_bits(enc_byte)?),
-                Logical::Rle => {
-                    no_physical(enc_byte)?;
-                    LogicalBool::Rle
-                }
-                Logical::Delta
+                Logical::None => logical_bool(enc_byte, PresenceCoding::Bitmap)?,
+                Logical::Runs => logical_bool(enc_byte, PresenceCoding::Runs)?,
+                Logical::Sparse => logical_bool(enc_byte, PresenceCoding::Sparse)?,
+                Logical::Rle
+                | Logical::Delta
                 | Logical::CwDelta
                 | Logical::DeltaRle
                 | Logical::Morton
@@ -615,10 +619,7 @@ impl Encoding02 {
             }),
             Family::Float(_) => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
-                Logical::Rle => {
-                    no_physical(enc_byte)?;
-                    LogicalFloat::Rle
-                }
+                Logical::Rle => return Err(MltError::ParsingEncodingByte(enc_byte)),
                 Logical::Alp => LogicalFloat::Alp(physical_int(enc_byte)?),
                 Logical::Dict => LogicalFloat::Dict(physical_int(enc_byte)?),
                 Logical::Delta
@@ -629,7 +630,9 @@ impl Encoding02 {
                 | Logical::BitPacked
                 | Logical::Delta2
                 | Logical::CwDelta2
-                | Logical::Rans => unreachable_member(family, logical),
+                | Logical::Rans
+                | Logical::Runs
+                | Logical::Sparse => unreachable_member(family, logical),
             }),
             Family::Vertex if enc_byte & EXTENSION_MASK == XYZ => Self::Xyz(match logical {
                 Logical::None => LogicalXyz::None(raw_int(enc_byte)?),
@@ -645,7 +648,9 @@ impl Encoding02 {
                 | Logical::Dict
                 | Logical::FrontCoded
                 | Logical::BitPacked
-                | Logical::Delta2 => unreachable_member(family, logical),
+                | Logical::Delta2
+                | Logical::Runs
+                | Logical::Sparse => unreachable_member(family, logical),
             }),
             Family::Vertex => Self::Vertex(match logical {
                 _ if enc_byte & EXTENSION_MASK != 0 => {
@@ -666,7 +671,9 @@ impl Encoding02 {
                 | Logical::Dict
                 | Logical::FrontCoded
                 | Logical::BitPacked
-                | Logical::Delta2 => unreachable_member(family, logical),
+                | Logical::Delta2
+                | Logical::Runs
+                | Logical::Sparse => unreachable_member(family, logical),
             }),
         })
     }
@@ -677,7 +684,7 @@ impl Encoding02 {
             Self::Str(logical, _) => Self::Int(logical).logical(),
             Self::Bytes(LogicalBytes::None)
             | Self::Int(LogicalInt::None(_))
-            | Self::Bool(LogicalBool::None(_))
+            | Self::Bool(LogicalBool(PresenceCoding::Bitmap))
             | Self::Float(LogicalFloat::None(_))
             | Self::Vertex(LogicalVertex::None(_))
             | Self::Xyz(LogicalXyz::None(_)) => Logical::None,
@@ -689,9 +696,9 @@ impl Encoding02 {
             }
             Self::Int(LogicalInt::Delta2(_)) => Logical::Delta2,
             Self::Vertex(LogicalVertex::CwDelta2(_)) => Logical::CwDelta2,
-            Self::Int(LogicalInt::Rle)
-            | Self::Bool(LogicalBool::Rle)
-            | Self::Float(LogicalFloat::Rle) => Logical::Rle,
+            Self::Bool(LogicalBool(PresenceCoding::Runs)) => Logical::Runs,
+            Self::Bool(LogicalBool(PresenceCoding::Sparse)) => Logical::Sparse,
+            Self::Int(LogicalInt::Rle) => Logical::Rle,
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
             Self::Int(LogicalInt::BitPacked) => Logical::BitPacked,
             Self::Vertex(LogicalVertex::Morton(_)) => Logical::Morton,
@@ -718,14 +725,13 @@ impl Encoding02 {
                 | LogicalVertex::Morton(p),
             )
             | Self::Xyz(LogicalXyz::Delta(p) | LogicalXyz::CwDelta(p)) => p.into(),
-            Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => p.into(),
+            Self::Float(LogicalFloat::None(p)) => p.into(),
             Self::Bytes(LogicalBytes::None | LogicalBytes::FrontCoded) => {
                 PhysicalBits::WithLen.into()
             }
             Self::Int(LogicalInt::BitPacked) => "BitPacked",
             Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
-            | Self::Bool(LogicalBool::Rle)
-            | Self::Float(LogicalFloat::Rle)
+            | Self::Bool(_)
             | Self::Vertex(LogicalVertex::Rans) => "implied",
         }
     }
@@ -758,15 +764,11 @@ impl Encoding02 {
             Self::Int(LogicalInt::None(raw))
             | Self::Vertex(LogicalVertex::None(raw))
             | Self::Xyz(LogicalXyz::None(raw)) => raw == RawInt::NoneNoLen,
-            Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => {
-                p == PhysicalBits::NoLen
+            Self::Float(LogicalFloat::None(p)) => p == PhysicalBits::NoLen,
+            Self::Bool(_) => true,
+            Self::Int(_) | Self::Float(_) | Self::Vertex(_) | Self::Xyz(_) | Self::Bytes(_) => {
+                false
             }
-            Self::Int(_)
-            | Self::Bool(_)
-            | Self::Float(_)
-            | Self::Vertex(_)
-            | Self::Xyz(_)
-            | Self::Bytes(_) => false,
         }
     }
 
@@ -829,21 +831,14 @@ impl Encoding02 {
                 LogicalEncoding::Int(IntLogical::None),
                 PhysicalEncoding::BitPacked,
             ),
-            // Either physical pattern is the elements as they are, differing only in the header.
-            Self::Bool(LogicalBool::None(_)) => IntEncoding::new(
-                LogicalEncoding::Bool(BoolLogical::None),
+            Self::Bool(LogicalBool(coding)) => IntEncoding::new(
+                LogicalEncoding::Bool(BoolLogical::from(coding)),
                 PhysicalEncoding::None,
             ),
             Self::Float(LogicalFloat::None(_)) => IntEncoding::new(
                 LogicalEncoding::Float(FloatLogical::None),
                 PhysicalEncoding::None,
             ),
-            Self::Bool(LogicalBool::Rle) => {
-                return Err(MltError::NotImplemented("v2 RLE over a bool column"));
-            }
-            Self::Float(LogicalFloat::Rle) => {
-                return Err(MltError::NotImplemented("v2 RLE over a float column"));
-            }
             Self::Float(LogicalFloat::Alp(p)) => {
                 let (after, scale) = parse_u8(input)?;
                 let (after, base) = parse_varint::<i64>(after)?;
@@ -959,7 +954,7 @@ fn wire_fields(
             }
             (Family::Bool | Family::Float(_) | Family::Bytes, _) => {
                 Err(MltError::UnsupportedPhysicalEncoding(
-                    "v2 bool, float and blob streams store their elements as they are",
+                    "v2 float and blob streams store their elements as they are",
                 ))
             }
             _ => physical_int_field(encoding.physical),
@@ -985,7 +980,6 @@ fn wire_fields(
 
     Ok(match encoding.logical {
         LE::Int(IL::None)
-        | LE::Bool(BL::None)
         | LE::Float(FL::None)
         | LE::Vertex(VL::None | VL::Xyz(_, XyzLogical::None)) => {
             match (encoding.physical, family.raw_byte_length(num_words)?) {
@@ -1039,6 +1033,22 @@ fn wire_fields(
         // Codes and scaled integers are integer streams, whatever the column's type is.
         LE::Float(FL::Dict) => with_length(Logical::Dict, physical_int_field(encoding.physical)?),
         LE::Float(FL::Alp(_)) => with_length(Logical::Alp, physical_int_field(encoding.physical)?),
+        LE::Bool(coding @ (BL::None | BL::Runs | BL::Sparse)) => {
+            if encoding.physical != PhysicalEncoding::None {
+                return Err(MltError::UnsupportedPhysicalEncoding(
+                    "v2 bool streams, which every coding delimits itself",
+                ));
+            }
+            WireFields {
+                logical: match coding {
+                    BL::Runs => Logical::Runs,
+                    BL::Sparse => Logical::Sparse,
+                    BL::None | BL::ByteRle(_) => Logical::None,
+                },
+                physical_bits: NO_LEN,
+                writes_length: false,
+            }
+        }
         LE::Bool(BL::ByteRle(_)) => {
             return Err(MltError::UnsupportedLogicalEncoding(
                 encoding.logical,
@@ -1104,7 +1114,11 @@ pub(crate) fn parse_stream<'a>(
                 }
             },
         };
-        if encoding.omits_byte_length() {
+        if let Encoding02::Bool(LogicalBool(coding)) = encoding {
+            // A bool stream's payload delimits itself, so scanning it is the only way to know its length.
+            let (_, payload) = presence_coding::split(input, num_values, coding)?;
+            (input, num_values, u32::try_from(payload.len())?)
+        } else if encoding.omits_byte_length() {
             let byte_length = family
                 .raw_byte_length(num_words(num_values)?)?
                 .ok_or(MltError::ParsingEncodingByte(enc_byte))?;
@@ -1193,12 +1207,25 @@ pub(crate) fn omits_byte_length(family: Family, enc_byte: u8) -> bool {
     Encoding02::parse(family, enc_byte).is_ok_and(Encoding02::omits_byte_length)
 }
 
-/// Whether `enc_byte` names a raw packed bitmap, the `Bool` family's logical `None` over either raw physical pattern.
-pub(crate) fn is_packed_bitmap(enc_byte: u8) -> bool {
-    matches!(
-        Encoding02::parse(Family::Bool, enc_byte),
-        Ok(Encoding02::Bool(LogicalBool::None(_)))
-    )
+/// The byte a shared bitfield leads with: a `Bool`-family encoding byte, which needs no count.
+pub(crate) fn shared_coding_byte(coding: PresenceCoding) -> u8 {
+    (coding as u8) << LOGICAL_SHIFT
+}
+
+/// The coding a shared bitfield's leading byte names, or [`None`] if it names none.
+pub(crate) fn shared_coding(byte: u8) -> Option<PresenceCoding> {
+    if byte & HAS_EXPLICIT_COUNT != 0 {
+        return None;
+    }
+    bool_coding(byte)
+}
+
+/// The coding a `Bool`-family encoding byte names, or [`None`] if it names none.
+pub(crate) fn bool_coding(enc_byte: u8) -> Option<PresenceCoding> {
+    match Encoding02::parse(Family::Bool, enc_byte) {
+        Ok(Encoding02::Bool(LogicalBool(coding))) => Some(coding),
+        _ => None,
+    }
 }
 
 /// Name an encoding byte's logical and physical fields in `family`'s terms, for tooling that annotates a byte.
@@ -1287,7 +1314,8 @@ mod tests {
     #[case::int_rle(INT_FAMILY, Logical::Rle, 0b010)]
     #[case::int_delta_rle(INT_FAMILY, Logical::DeltaRle, 0b011)]
     #[case::bool_none(Family::Bool, Logical::None, 0b000)]
-    #[case::bool_rle(Family::Bool, Logical::Rle, 0b001)]
+    #[case::bool_runs(Family::Bool, Logical::Runs, 0b001)]
+    #[case::bool_sparse(Family::Bool, Logical::Sparse, 0b010)]
     #[case::float_none(FLOAT_FAMILY, Logical::None, 0b000)]
     #[case::float_rle(FLOAT_FAMILY, Logical::Rle, 0b001)]
     #[case::float_alp(FLOAT_FAMILY, Logical::Alp, 0b010)]
@@ -1637,6 +1665,8 @@ mod tests {
     )]
     #[case::bitmap(boolean(BoolLogical::None, PE::None, 9), BOOL, &[0b1010_1010, 1], &[0b1000_0000, 9])]
     #[case::bitmap_of_no_bits(boolean(BoolLogical::None, PE::None, 0), BOOL, &[], &[0b1000_0000, 0])]
+    #[case::runs(boolean(BoolLogical::Runs, PE::None, 9), BOOL, &[0, 9], &[0b1001_0000, 9])]
+    #[case::sparse(boolean(BoolLogical::Sparse, PE::None, 9), BOOL, &[0b10, 1], &[0b1010_0000, 9])]
     #[case::vertex_pairs(
         vertex(VertexLogical::None, PE::None, 2),
         VERTEX,
@@ -1674,6 +1704,19 @@ mod tests {
         assert_eq!(parsed.meta.encoding, meta.encoding);
         assert_eq!(parsed.meta.num_values, meta.num_values);
         assert_eq!(parsed.data, payload);
+    }
+
+    #[rstest]
+    #[case::unassigned_code(0b0011_0000)]
+    #[case::physical_field(0b0000_0100)]
+    #[case::extension_bits(0b0000_0001)]
+    fn parse_rejects_a_bool_encoding_byte_that_names_no_coding(#[case] enc_byte: u8) {
+        let buf = [enc_byte, 0];
+        let err = parse_stream(&buf, BOOL, Count02::Implied(0), &mut parser()).unwrap_err();
+        assert!(
+            matches!(err, MltError::ParsingEncodingByte(b) if b == enc_byte),
+            "{err:?}"
+        );
     }
 
     #[rstest]
@@ -1743,7 +1786,6 @@ mod tests {
         24,
         12
     )]
-    #[case::bitmap(boolean(BoolLogical::None, PE::None, 9), Family::Bool, 9, 2)]
     #[case::vertex_pairs(vertex(VertexLogical::None, PE::None, 3), Family::Vertex, 12, 24)]
     fn write_rejects_a_raw_payload_that_is_not_its_count_of_elements(
         #[case] meta: StreamMeta,
@@ -1816,13 +1858,14 @@ mod tests {
         );
     }
 
-    #[rstest]
-    #[case::float_rle(FLOAT, 0b0001_0000)]
-    #[case::bool_rle(BOOL, 0b0001_0000)]
-    fn parse_rejects_unimplemented_encoding(#[case] ctx: StreamCtx02, #[case] enc_byte: u8) {
-        let buf = [enc_byte, 0];
-        let err = parse_stream(&buf, ctx, Count02::Implied(0), &mut parser()).unwrap_err();
-        assert!(matches!(err, MltError::NotImplemented(_)), "{err:?}");
+    #[test]
+    fn parse_rejects_the_unassigned_float_code() {
+        let buf = [0b0001_0000, 0];
+        let err = parse_stream(&buf, FLOAT, Count02::Implied(0), &mut parser()).unwrap_err();
+        assert!(
+            matches!(err, MltError::ParsingEncodingByte(0b0001_0000)),
+            "{err:?}"
+        );
     }
 
     #[rstest]
@@ -1857,7 +1900,7 @@ mod tests {
     }
 
     #[test]
-    fn logical_code_one_is_delta_for_ints_and_rle_for_floats() {
+    fn logical_code_one_is_delta_for_ints_and_unassigned_for_floats() {
         let buf = [0b0001_1000, 0];
         let (_, as_int) = parse_stream(&buf, INT, Count02::Implied(0), &mut parser()).unwrap();
         assert_eq!(
@@ -1867,10 +1910,7 @@ mod tests {
         let buf = [0b0001_0000, 0];
         let as_float = parse_stream(&buf, FLOAT, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(
-            matches!(
-                as_float,
-                MltError::NotImplemented("v2 RLE over a float column")
-            ),
+            matches!(as_float, MltError::ParsingEncodingByte(0b0001_0000)),
             "{as_float:?}"
         );
     }

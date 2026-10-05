@@ -217,11 +217,6 @@ pub enum MltError {
         actual: u32,
     },
     #[cfg(feature = "unstable-v2")]
-    #[error(
-        "nested node {name} must write its presence as a raw bitmap of one bit per value: encoding byte 0x{byte:02X}"
-    )]
-    NestedPresenceEncoding { name: String, byte: u8 },
-    #[cfg(feature = "unstable-v2")]
     #[error("a nested lengths stream holds {len} lengths, so it has no row {row}")]
     NestedRowOutOfRange { row: usize, len: usize },
     #[cfg(feature = "unstable-v2")]
@@ -290,10 +285,10 @@ pub enum MltError {
     RleRunLenInvalid(i128),
     #[error("presence runs overflow the {0} features they cover")]
     PresenceRunOverflow(u32),
-    #[error("presence names {0} present features out of {1}")]
-    PresenceRunShort(u32, u32),
-    #[error("presence indices are not strictly increasing within {0} features")]
-    PresenceIndexOrder(u32),
+    #[error("sparse presence summary names bytes past the bitmap of {0} features")]
+    PresenceSparseSummary(u32),
+    #[error("sparse presence stores a zero byte within {0} features")]
+    PresenceSparseByte(u32),
     #[error("unknown presence coding byte: 0x{0:02X}")]
     PresenceCodingByte(u8),
 

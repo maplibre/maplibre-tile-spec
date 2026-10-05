@@ -53,7 +53,9 @@ use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::nested::parse_nested;
 use crate::decoder::stream::header02;
-use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02};
+use crate::decoder::stream::header02::{
+    Count02, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02, shared_coding,
+};
 use crate::decoder::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
     DictionaryType, FloatLogical, GeoLayout, GeoTypes, Id, IdWidth02, IndexBase, Layer01, Layer02,
@@ -669,7 +671,7 @@ fn parse_shared_presence<'a>(
         let coding = if layout.shared_coded {
             let byte;
             (input, byte) = parse_u8(input)?;
-            PresenceCoding::from_byte(byte).ok_or(MltError::PresenceCodingByte(byte))?
+            shared_coding(byte).ok_or(MltError::PresenceCodingByte(byte))?
         } else {
             PresenceCoding::Bitmap
         };

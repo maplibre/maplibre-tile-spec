@@ -6,6 +6,8 @@ use bitvec::view::BitView as _;
 use usize_cast::IntoUsize as _;
 
 use crate::codecs::bytes::{PhysicalWord, debug_assert_length, decode_bytes_to_words};
+#[cfg(feature = "unstable-v2")]
+use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::{parse_varint_vec, parse_varint_vec_all};
 #[cfg(feature = "unstable-v2")]
@@ -23,13 +25,11 @@ use crate::{Decoder, MltError, MltResult};
 impl<'a> RawStream<'a> {
     /// Decode a boolean stream (presence or bool data) into a packed bitvector.
     ///
-    /// Both wire formats store one bit per value in an LSB-first packed bitmap;
-    /// they differ only in how that bitmap is framed, which the logical encoding
-    /// distinguishes:
+    /// The logical encoding names how the bits are stored:
     /// - tag `0x01` (`logical = Rle`): byte-RLE compressed bitmap, decompressed
     ///   into an owned `BitVec`.
-    /// - tag `0x02` (`logical = None`): raw bitmap, borrowed straight from the tile
-    ///   bytes - the same representation as a v2 presence bitfield.
+    /// - `logical = None`: raw bitmap, borrowed straight from the tile bytes.
+    /// - tag `0x02` (`logical = Runs` or `Sparse`): the presence codings, built into an owned `BitVec`.
     ///
     /// The result is always exactly `num_values` bits.
     pub(crate) fn decode_bitvec(self, dec: &mut Decoder) -> MltResult<Cow<'a, BitSlice<u8, Lsb0>>> {
@@ -49,7 +49,16 @@ impl<'a> RawStream<'a> {
                 fail_if_invalid_stream_size(self.data.len(), num_bytes)?;
                 Ok(Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values]))
             }
-            LogicalEncoding::Bool(BoolLogical::None)
+            #[cfg(feature = "unstable-v2")]
+            LogicalEncoding::Bool(logical @ (BoolLogical::Runs | BoolLogical::Sparse)) => {
+                let coding = PresenceCoding::of_logical(logical)
+                    .expect("runs and sparse are presence codings");
+                let (rest, bits) =
+                    presence_coding::read(self.data, self.meta.num_values, coding, dec)?;
+                fail_if_invalid_stream_size(self.data.len() - rest.len(), self.data.len())?;
+                Ok(bits)
+            }
+            LogicalEncoding::Bool(_)
             | LogicalEncoding::Int(_)
             | LogicalEncoding::Float(_)
             | LogicalEncoding::Vertex(_) => {

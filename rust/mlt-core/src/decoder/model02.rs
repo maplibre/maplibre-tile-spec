@@ -425,7 +425,7 @@ impl Presence02 {
         match nibble {
             Self::ALL_PRESENT => Some(Self::AllPresent),
             _ if nibble < Self::SHARED_BASE => {
-                PresenceCoding::from_byte(nibble >> 4).map(Self::Inline)
+                PresenceCoding::from_code((nibble >> 4) - 1).map(Self::Inline)
             }
             _ => {
                 let index = (nibble - Self::SHARED_BASE) >> 4;
@@ -444,7 +444,7 @@ impl Presence02 {
     fn to_nibble(self) -> u8 {
         match self {
             Self::AllPresent => Self::ALL_PRESENT,
-            Self::Inline(coding) => (coding as u8) << 4,
+            Self::Inline(coding) => (coding as u8 + 1) << 4,
             Self::Shared(index) => {
                 debug_assert!(index < LayerLayout::MAX_SHARED_PRESENCE);
                 Self::SHARED_BASE + (index << 4)
@@ -1106,9 +1106,9 @@ mod tests {
         DataType02::F64
     )]
     #[case::runs(0b0010_0101, Presence02::Inline(PresenceCoding::Runs), DataType02::I32)]
-    #[case::indices(
+    #[case::sparse(
         0b0011_1010,
-        Presence02::Inline(PresenceCoding::Indices),
+        Presence02::Inline(PresenceCoding::Sparse),
         DataType02::F64
     )]
     #[case::str(0b0000_1011, Presence02::AllPresent, DataType02::Str)]

@@ -6,18 +6,16 @@ use std::ops::Range;
 
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
-use bitvec::view::BitView as _;
 use usize_cast::IntoUsize as _;
 
+use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::root02::{ColumnValues, parse_column_values, parse_strings};
 use crate::decoder::stream::header02;
-use crate::decoder::stream::header02::{
-    Count02, HAS_EXPLICIT_COUNT, StreamCtx02, is_packed_bitmap,
-};
+use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, StreamCtx02};
 use crate::decoder::{
-    BoolLogical, Interior02, LogicalEncoding, MValues, NodeKind02, NodePresence, NodeType02,
-    ParsedStrings, PhysicalEncoding, RawPresence, RawStream, RawStrings,
+    Interior02, LogicalEncoding, MValues, NodeKind02, NodePresence, NodeType02, ParsedStrings,
+    RawPresence, RawStream, RawStrings,
 };
 use crate::tile::{MAX_NESTED_DEPTH, NestedKind, NestedValue, PropValue};
 use crate::utils::{parse_string, parse_u8};
@@ -416,7 +414,6 @@ fn parse_node<'a>(
     let (input, presence) = match typ.presence {
         NodePresence::AllPresent => (input, None),
         NodePresence::Stream => {
-            require_bitmap_presence(input, &path)?;
             require_explicit_count(input, &path, node_count)?;
             let (input, stream) =
                 header02::parse_stream(input, StreamCtx02::NestedPresence, node_count, parser)?;
@@ -617,7 +614,6 @@ pub(crate) fn parse_row_shapes<'a>(
     parser: &mut Parser,
 ) -> MltRefResult<'a, RowShapes> {
     require_explicit_count(input, path, Count02::Explicit)?;
-    require_bitmap_presence(input, path)?;
     let (input, table) = header02::parse_stream(
         input,
         StreamCtx02::NestedShapeTable,
@@ -678,43 +674,22 @@ fn require_explicit_count(input: &[u8], path: &str, count: Count02) -> MltResult
     Ok(())
 }
 
-/// Reject a presence stream that is not the raw bitmap the format writes one as.
-/// Its encoding byte must name the `Bool` family's logical `None`, with or without a byte length.
-fn require_bitmap_presence(input: &[u8], path: &str) -> MltResult<()> {
-    let (_, enc_byte) = parse_u8(input)?;
-    if !is_packed_bitmap(enc_byte) {
-        return Err(MltError::NestedPresenceEncoding {
-            name: path.to_string(),
-            byte: enc_byte,
-        });
-    }
-    Ok(())
-}
-
 /// How many values a presence stream marks present, read straight off its payload.
-/// A raw packed bitmap needs no decode pass and no budget of its own.
+/// Every coding is counted without building the bits, so it needs no budget of its own.
 pub(crate) fn presence_popcount(stream: &RawStream<'_>) -> MltResult<u32> {
     let encoding = stream.meta.encoding;
-    if encoding.logical != LogicalEncoding::Bool(BoolLogical::None) {
+    let LogicalEncoding::Bool(logical) = encoding.logical else {
         return Err(MltError::UnsupportedLogicalEncoding(
             encoding.logical,
-            "a nested presence stream, which is a raw packed bitmap",
+            "a nested presence stream, which is a bool stream",
         ));
-    }
-    if encoding.physical != PhysicalEncoding::None {
-        return Err(MltError::UnsupportedPhysicalEncodingForType(
-            encoding.physical,
-            "a nested presence stream, which is a raw packed bitmap",
-        ));
-    }
-    let count = stream.meta.num_values.into_usize();
-    let bytes = stream
-        .data
-        .get(..count.div_ceil(8))
-        .ok_or(MltError::UnableToTake(stream.meta.num_values))?;
-    Ok(u32::try_from(
-        bytes.view_bits::<Lsb0>()[..count].count_ones(),
-    )?)
+    };
+    let coding =
+        PresenceCoding::of_logical(logical).ok_or(MltError::UnsupportedLogicalEncoding(
+            encoding.logical,
+            "a nested presence stream, which is a bool stream",
+        ))?;
+    presence_coding::popcount(stream.data, stream.meta.num_values, coding)
 }
 
 // ── Decoded form ──────────────────────────────────────────────────────────────

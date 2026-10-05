@@ -228,6 +228,10 @@ pub enum IntLogical {
 pub enum BoolLogical {
     /// A raw packed bitmap, one bit per value.
     None,
+    /// Alternating run lengths, which only the tag `0x02` codec reads or writes.
+    Runs,
+    /// A bitmap of the bitmap's non-zero bytes and then those bytes, which only the tag `0x02` codec reads or writes.
+    Sparse,
     /// A byte-RLE compressed bitmap.
     /// Its run parameters come from the stream's context rather than from its header.
     ByteRle(RleMeta),
@@ -592,6 +596,8 @@ impl Display for LogicalEncoding {
                 "bool",
                 match b {
                     BoolLogical::None => "none",
+                    BoolLogical::Runs => "runs",
+                    BoolLogical::Sparse => "sparse",
                     BoolLogical::ByteRle(_) => "byte-rle",
                 },
             ),

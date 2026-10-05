@@ -1764,14 +1764,15 @@ fn mask_of(len: usize, present: impl Fn(usize) -> bool) -> String {
 ///
 /// The three compete by size on every column, so a mask is what picks the coding:
 /// scattered bits over few features favor the bitmap, one block of present features
-/// favors runs, and a handful of present features spread over many favors indices.
+/// favors runs, and scattered bytes of alternating bits among empty ones favor the
+/// sparse bitmap.
 ///
 /// v2 only: v1 has one way of storing presence and nothing here would vary it.
 fn generate_presence_codings(w: &mut SynthWriter) {
     let e = E::varint();
 
-    // Eight features, every other one present. Runs would take a varint each and
-    // indices four, where the whole bitmap is one byte.
+    // Eight features, every other one present. Runs would take a varint each,
+    // where the whole bitmap is one byte.
     let scattered = mask_of(8, |i| i % 2 == 0);
     masked_points(&scattered)
         .no_v1()
@@ -1785,12 +1786,13 @@ fn generate_presence_codings(w: &mut SynthWriter) {
         .add_prop(e, P::opt_u32("val", masked(&block)))
         .write(w, "presence_runs");
 
-    // Two present features in three hundred: two gaps against a 38-byte bitmap.
-    let sparse = mask_of(300, |i| i == 100 || i == 250);
-    masked_points(&sparse)
+    // Twenty alternating bytes among two hundred and forty empty ones: a 30-byte summary
+    // and twenty bytes against a 240-byte bitmap, with runs far larger still.
+    let clustered = mask_of(1920, |i| (i / 8) % 12 == 5 && i % 2 == 0);
+    masked_points(&clustered)
         .no_v1()
-        .add_prop(e, P::opt_u32("val", masked(&sparse)))
-        .write(w, "presence_indices");
+        .add_prop(e, P::opt_u32("val", masked(&clustered)))
+        .write(w, "presence_sparse");
 
     // All three in one layer, which is what a column-by-column choice is for:
     // a layer's columns do not agree on how their nulls are shaped.
@@ -1801,16 +1803,33 @@ fn generate_presence_codings(w: &mut SynthWriter) {
             P::opt_u32("bitmap", masked(&mask_of(200, |i| i % 2 == 0))),
         )
         .add_prop(e, P::opt_u32("runs", masked(&block)))
-        .add_prop(e, P::opt_u32("indices", masked(&mask_of(200, |i| i == 77))))
+        .add_prop(
+            e,
+            P::opt_u32(
+                "sparse",
+                masked(&mask_of(200, |i| (i / 8) % 12 == 5 && i % 2 == 0)),
+            ),
+        )
         .add_prop(e, P::u32("always", vec![7; block.len()]))
         .write(w, "presence_mixed");
+
+    // A boolean column's values are a bitfield like any other, so they pick a coding the same way.
+    let bools = |mask: &str| mask.bytes().map(|b| b != b'-').collect::<Vec<bool>>();
+    masked_points(&block)
+        .no_v1()
+        .add_prop(e, P::bool("flag", bools(&block)))
+        .write(w, "bool_runs");
+    masked_points(&clustered)
+        .no_v1()
+        .add_prop(e, P::bool("flag", bools(&clustered)))
+        .write(w, "bool_sparse");
 
     // The same three codings again, this time on shared fields, which name their
     // coding in a byte of their own rather than in a column's nibble.
     for (name, mask) in [
         ("presence_shared_bitmap", &scattered),
         ("presence_shared_runs", &block),
-        ("presence_shared_indices", &sparse),
+        ("presence_shared_sparse", &clustered),
     ] {
         masked_points(mask)
             .no_v1()
