@@ -19,9 +19,6 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 fn cfg_v1() -> EncoderConfig {
     // sorting because sort trials could otherwise pick different winners per format.
     EncoderConfig::default()
-        .with_spatial_morton_sort(false)
-        .with_spatial_hilbert_sort(false)
-        .with_id_sort(false)
 }
 
 fn cfg_v2() -> EncoderConfig {

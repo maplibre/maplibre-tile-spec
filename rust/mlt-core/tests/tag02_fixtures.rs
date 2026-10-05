@@ -20,11 +20,7 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 }
 
 fn cfg(version: WireVersion) -> EncoderConfig {
-    EncoderConfig::default()
-        .with_spatial_morton_sort(false)
-        .with_spatial_hilbert_sort(false)
-        .with_id_sort(false)
-        .with_wire_version(version)
+    EncoderConfig::default().with_wire_version(version)
 }
 
 #[expect(clippy::wildcard_enum_match_arm, reason = "Layer is non_exhaustive")]

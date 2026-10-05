@@ -8,11 +8,7 @@ use mlt_core::test_helpers::{dec, parser};
 use mlt_core::{MValue, NestedKind, NestedValue, PropKind, PropValue, TileLayer};
 
 fn cfg_v2() -> EncoderConfig {
-    EncoderConfig::default()
-        .with_spatial_morton_sort(false)
-        .with_spatial_hilbert_sort(false)
-        .with_id_sort(false)
-        .with_wire_version(WireVersion::V02)
+    EncoderConfig::default().with_wire_version(WireVersion::V02)
 }
 
 fn line(from: i32) -> Geometry<i32> {

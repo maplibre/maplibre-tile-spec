@@ -67,7 +67,7 @@ def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     Decode an MLT binary blob and return `GeoJSON` as a string.
     """
 
-def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "auto", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True, z_step: typing.Optional[builtins.int] = None) -> bytes:
+def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "none", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True, z_step: typing.Optional[builtins.int] = None) -> bytes:
     r"""
     Encode a `GeoJSON` `FeatureCollection` into MLT bytes.
 
@@ -76,9 +76,10 @@ def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name:
     Geometry is in tile-local coordinate space (no projection).
 
     `tessellate` generates triangulation data for polygons and multi-polygons.
-    `sort` chooses which feature ordering(s) the encoder trials.
-    `all` tries every ordering; `auto` tries a subset with a good speed/size tradeoff.
-    A named curve (`morton`/`hilbert`/`id`) tries just that one; `none` keeps input order.
+    `sort` chooses which feature ordering(s) the encoder trials against the input order.
+    `none` keeps the input order, which is the draw order and the label priority.
+    `all` tries every ordering; `auto` trades size against encode time, and may get smarter between releases.
+    A named curve (`morton`/`hilbert`/`id`) tries just that one.
     `shared_dict` allows grouping strings into shared dictionaries.
     `fsst` allows FSST string compression.
     `fastpfor` allows `FastPFOR` integer compression.
@@ -87,7 +88,7 @@ def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name:
     See the module docs.
     """
 
-def encode_mvt(data: bytes, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "auto", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True) -> bytes:
+def encode_mvt(data: bytes, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "none", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True) -> bytes:
     r"""
     Encode an entire MVT tile to MLT using default encoding options.
 
@@ -95,9 +96,10 @@ def encode_mvt(data: bytes, *, tessellate: builtins.bool = False, sort: typing.L
 
     Options:
     `tessellate` generates triangulation data for polygons and multi-polygons.
-    `sort` chooses which feature ordering(s) the encoder trials.
-    `all` tries every ordering; `auto` tries a subset with a good speed/size tradeoff.
-    A named curve (`morton`/`hilbert`/`id`) tries just that one; `none` keeps input order.
+    `sort` chooses which feature ordering(s) the encoder trials against the input order.
+    `none` keeps the input order, which is the draw order and the label priority.
+    `all` tries every ordering; `auto` trades size against encode time, and may get smarter between releases.
+    A named curve (`morton`/`hilbert`/`id`) tries just that one.
     `shared_dict` allows grouping strings into shared dictionaries.
     `fsst` allows FSST string compression.
     `fastpfor` allows `FastPFOR` integer compression.

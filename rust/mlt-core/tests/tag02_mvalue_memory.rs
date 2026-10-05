@@ -31,11 +31,7 @@ fn absent_columns_tile() -> Vec<u8> {
             )
         })
         .collect();
-    let cfg = EncoderConfig::default()
-        .with_spatial_morton_sort(false)
-        .with_spatial_hilbert_sort(false)
-        .with_id_sort(false)
-        .with_wire_version(WireVersion::V02);
+    let cfg = EncoderConfig::default().with_wire_version(WireVersion::V02);
     StagedLayer::with_m_values(
         "test_layer",
         4096,

@@ -28,8 +28,7 @@ struct MltEncoderOptions;
 class MltEncoderOptions {
 public:
     /**
-     * Create encoder options with the default configuration (all
-     * optimisations enabled except tessellation).
+     * Create encoder options with the default configuration (no sorting and no tessellation).
      */
     inline static std::unique_ptr<MltEncoderOptions> new_();
 
