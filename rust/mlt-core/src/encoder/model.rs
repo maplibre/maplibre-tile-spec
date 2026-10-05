@@ -492,7 +492,7 @@ impl Default for EncoderConfig {
             #[cfg(feature = "unstable-v2")]
             allow_row_shapes: false,
             #[cfg(feature = "unstable-v2")]
-            allow_packed_dict_codes: false,
+            allow_packed_dict_codes: true,
             #[cfg(feature = "unstable-v2")]
             allow_triangles_only: false,
             #[cfg(feature = "unstable-v2")]
