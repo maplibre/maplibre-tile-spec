@@ -452,14 +452,12 @@ Bits past `count` in the final byte are padding and MUST be ignored.
     byte:   0b0010_1101 = 0x2D
     ```
 
-v2 stores every presence bitfield and boolean column as a bitmap, [runs](#bool-runs) or [sparse](#bool-sparse), whichever is smallest; see [Presence Encodings](specification/v2.md#presence-encodings).
-A bitfield can be shared between columns; see [Shared Presence Fields](specification/v2.md#shared-presence-fields).
 
 ### Runs <span class="experimental"></span> {#bool-runs}
 
 Alternating run lengths as varints, the first counting `0` bits and possibly being `0`.
 The lengths MUST sum to `count`.
-Runs suits a bitfield that is set over one block of values.
+Runs is best for a bitfield that is set over continguious blocks of values
 
 ```
 values:  [0, 0, 1, 1, 1, 0]
@@ -471,7 +469,7 @@ payload: 02 03 01              2 zeros, 3 ones, 1 zero
 A summary bitmap with one bit per byte of the [bitmap](#bitmap), set where that byte is not zero, followed by the non-zero bytes in order.
 The summary is `ceil(ceil(count / 8) / 8)` bytes, and its bits past the last bitmap byte MUST be `0`.
 A stored byte MUST NOT be `0`.
-Sparse suits a bitfield whose set bits sit in a few bytes of a long run of zero ones.
+Sparse is best for a bitfield whose set bits are very sparse and don't clump.
 
 ```
 bitmap:  00 2D 00              24 values
