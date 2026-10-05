@@ -16,6 +16,11 @@
   color: inherit;
 }
 
+/* Pages using h1 for sections get h2-style spacing, so a heading sits closer to its own content */
+.md-typeset h1 ~ h1 {
+  margin: 1.6em 0 0.64em;
+}
+
 .inline-attribution {
   font-size: smaller;
 }

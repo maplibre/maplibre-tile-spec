@@ -4,32 +4,36 @@ description: A column-oriented vector tile format for map data
 
 # MapLibre Tile Specification
 
-MLT (MapLibre Tile) is a vector tile format for map data. It stores the same content as an [MVT](https://github.com/mapbox/vector-tile-spec) tile, layers of features with geometries and properties, in a column-oriented layout.
+MLT (MapLibre Tile) is a vector tile format that extends [MVT](https://github.com/mapbox/vector-tile-spec), storing geometries and attributes as separate columns for improved compression and richer data support.
 MLT is natively supported by [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/) and [MapLibre Native](https://maplibre.org/maplibre-native/), and tiles can be served using the [Martin tile server](https://maplibre.org/martin/).
 
 ## Why MLT
 
-MLT is mainly inspired by MVT, but has been redesigned from the ground up.
-It stores each column on its own, so each gets the lightweight encoding that fits it.
-That makes tiles smaller, see [Size](#size), fast to decode with SIMD, and cheap to load into GPU buffers.
+MLT is redesigned from the ground up for efficiency.
+Each geometry and attribute is stored as a separate column, with compression optimized for its data type.
+This makes tiles smaller, see [Size](#size), fast to decode with SIMD, and efficient to load into GPU buffers.
 
 --8<-- "diagrams/why-mlt.svg"
 
 MVT limits a feature to 2D vertices and single-value properties.
 Elevation and per-vertex values like lane count are lost, and lists or maps get flattened into columns like `name:en` and `name:de`.
-[MLT v2](specification/v2.md) removes these limits:
+[MLT v2](specification/v2.md) removes these limits; see [how v2 differs from v1](specification/v2.md#differences-from-v1):
 
 --8<-- "diagrams/v2-feature.svg"
 
+Each layer in a tile carries its own [format version](overview.md#frames), so new formats can be added without breaking existing readers.
+One tile can mix them, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.
+
 !!! tip "MLT 0x03"
-    MLT 0x03, a 3D extension that expands these capabilities, is in the requirements engineering stage.
+    A 3D extension to MLT will expand these capabilities, and is in the requirements engineering stage.
     Join the MapLibre [Slack](https://maplibre.org/community/) to learn more and share your ideas.
 
 ## Decoding speed
 
 Time to decode every property and geometry of the same sampled tiles, as a share of the time for gzipped MVT.
 Tiles are sampled at up to 5,000 per zoom level timed as the best of 15 runs on one core of an AMD Ryzen 9 3900.
-MVT is read with [fast-mvt](https://crates.io/crates/fast-mvt) (the fastest known MVT library) and MLT with `decode_all` (so no "unfair" gains from being lazy).
+MVT is read with [fast-mvt](https://crates.io/crates/fast-mvt), the fastest known MVT library, and MLT with `decode_all`,
+so no "unfair" gains from lazy per-attribute decoding. Performance depends on the specifics of the tile source.
 
 === "OpenMapTiles"
 
