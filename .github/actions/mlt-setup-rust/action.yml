@@ -18,7 +18,16 @@ runs:
   steps:
 
     - uses: taiki-e/install-action@v2
-      with: { tool: 'just,cargo-binstall,cargo-hack,cargo-nextest,fd-find,cargo-insta,cargo-sort,git-delta' }
+      with: { tool: 'just,cargo-binstall,cargo-hack,cargo-nextest,cargo-insta,cargo-sort' }
+
+    # install-action has no manifest for fd, and binstall's guess at its release archive
+    # misses, so it falls back to QuickInstall; name the release asset instead.
+    - name: Install fd from its GitHub release
+      shell: bash
+      run: >-
+        cargo binstall --no-confirm --no-track --disable-telemetry --strategies crate-meta-data fd-find
+        --pkg-url '{ repo }/releases/download/v{ version }/fd-v{ version }-{ target }{ archive-suffix }'
+        --bin-dir 'fd-v{ version }-{ target }/{ bin }{ binary-ext }'
 
     # Install the requested toolchain (stable, nightly, or msrv)
     - if: ${{ inputs.toolchain == 'stable' }}
