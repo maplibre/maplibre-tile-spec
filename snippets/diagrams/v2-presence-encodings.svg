@@ -1,4 +1,4 @@
-<svg class="mlt-diagram" viewBox="0 0 710 220" role="img" aria-label="Six present values among 32, at 10 to 15, stored as a bitmap in 4 bytes, as runs of 10 absent, 6 present and 16 absent in 3 bytes, and as a count and indices in 7 bytes" xmlns="http://www.w3.org/2000/svg">
+<svg class="mlt-diagram" viewBox="0 0 710 220" role="img" aria-label="Six present values among 32, at 10 to 15, stored as a bitmap in 4 bytes, as runs of 10 absent, 6 present and 16 absent in 3 bytes, and as a summary byte and one stored byte in 2 bytes" xmlns="http://www.w3.org/2000/svg">
 <text class="muted small mid" x="138" y="12">0</text>
 <text class="muted small mid" x="318" y="12">10</text>
 <text class="muted small mid" x="408" y="12">15</text>
@@ -77,7 +77,7 @@
 <text class="cell" x="489" y="82">00</text>
 <rect class="plain" x="562" y="68" width="142" height="28" rx="3"/>
 <text class="cell" x="633" y="82">00</text>
-<text class="row" x="0" y="122">Runs<tspan class="t1"> 3 B</tspan></text>
+<text class="row" x="0" y="122">Runs<tspan class="muted"> 3 B</tspan></text>
 <rect class="plain" x="130" y="108" width="178" height="28" rx="3"/>
 <text class="cell" x="219" y="122">0A</text>
 <text class="muted small mid" x="219" y="150">10 absent</text>
@@ -87,26 +87,11 @@
 <rect class="plain" x="418" y="108" width="286" height="28" rx="3"/>
 <text class="cell" x="561" y="122">10</text>
 <text class="muted small mid" x="561" y="150">16 absent</text>
-<text class="row" x="0" y="182">Indices<tspan class="muted"> 7 B</tspan></text>
-<rect class="plain" x="130" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="152" y="182">06</text>
-<text class="muted small mid" x="152" y="210">count</text>
-<rect class="f1" x="178" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="200" y="182">0A</text>
-<text class="muted small mid" x="200" y="210">-> 10</text>
-<rect class="f1" x="226" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="248" y="182">00</text>
-<text class="muted small mid" x="248" y="210">-> 11</text>
-<rect class="f1" x="274" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="296" y="182">00</text>
-<text class="muted small mid" x="296" y="210">-> 12</text>
-<rect class="f1" x="322" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="344" y="182">00</text>
-<text class="muted small mid" x="344" y="210">-> 13</text>
-<rect class="f1" x="370" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="392" y="182">00</text>
-<text class="muted small mid" x="392" y="210">-> 14</text>
-<rect class="f1" x="418" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="440" y="182">00</text>
-<text class="muted small mid" x="440" y="210">-> 15</text>
+<text class="row" x="0" y="182">Sparse<tspan class="t1"> 2 B</tspan></text>
+<rect class="plain" x="130" y="168" width="142" height="28" rx="3"/>
+<text class="cell" x="201" y="182">02</text>
+<text class="muted small mid" x="201" y="210">byte 1 is non-zero</text>
+<rect class="f1" x="274" y="168" width="142" height="28" rx="3"/>
+<text class="cell" x="345" y="182">FC</text>
+<text class="muted small mid" x="345" y="210">byte 1</text>
 </svg>

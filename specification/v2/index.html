@@ -947,6 +947,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#bool-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Bool Streams
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#physical-field" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1156,7 +1167,7 @@ It also changes the byte layout to make tiles smaller.</p>
 <ul>
 <li><strong>Extent in four bits.</strong> Powers of two from <code>64</code> to <code>2097152</code> fit in the layer header byte. See <a href="#extent">Extent</a>.</li>
 <li><strong>Uniform geometry type.</strong> A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See <a href="#uniform-geometry-type">Uniform Geometry Type</a>.</li>
-<li><strong>Cheaper nulls.</strong> The presence of a column is stored as a bitmap, RLE or index list, whichever is smallest, and can be shared between columns. See <a href="#presence-encodings">Presence Encodings</a>.</li>
+<li><strong>Cheaper nulls.</strong> The presence of a column is stored as a bitmap, run list or sparse bitmap, whichever is smallest, and can be shared between columns. See <a href="#presence-encodings">Presence Encodings</a>.</li>
 <li><strong>More encodings.</strong> Bit packing, <code>Int8</code> and <code>UInt8</code> columns, <a href="../../encodings/#alp">ALP</a> for floats, <a href="../../encodings/#front-coding">front coding</a> for strings and optional <a href="../../encodings/#rans">rANS</a> for vertices.</li>
 </ul>
 <p>Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT.
@@ -1388,6 +1399,8 @@ MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> 
 <h3 id="presence-encodings">Presence Encodings<a class="headerlink" href="#presence-encodings" title="Link to this section">&para;</a></h3>
 <p>A presence field says which of <code>N</code> values are present.
 <code>N</code> is <code>feature_count</code> for a column, and the parent's value count for a <a href="#node-presence-nibble">nested node</a>.</p>
+<p>The same three encodings store every field of one bit per value: a presence field, a boolean column's data stream and a nested node's presence stream.
+Their codes are the members of the <code>Bool</code> <a href="#families">family</a>.</p>
 <table>
 <thead>
 <tr>
@@ -1398,28 +1411,28 @@ MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> 
 </thead>
 <tbody>
 <tr>
-<td style="text-align: right;"><code>1</code></td>
+<td style="text-align: right;"><code>0</code></td>
 <td><code>Bitmap</code></td>
 <td><code>ceil(N / 8)</code> bytes, LSB-first: bit <code>i % 8</code> of byte <code>i / 8</code> is value <code>i</code>. Bits past <code>N</code> in the final byte are padding and MUST be ignored.</td>
 </tr>
 <tr>
-<td style="text-align: right;"><code>2</code></td>
+<td style="text-align: right;"><code>1</code></td>
 <td><code>Runs</code></td>
 <td>Alternating varint run lengths. The first run counts absent values and MAY be <code>0</code>. The lengths MUST sum to <code>N</code>.</td>
 </tr>
 <tr>
-<td style="text-align: right;"><code>3</code></td>
-<td><code>Indices</code></td>
-<td>A varint count <code>K</code>, then <code>K</code> varints: the index of the first present value, then the gap less one to each next one.</td>
+<td style="text-align: right;"><code>2</code></td>
+<td><code>Sparse</code></td>
+<td>A summary bitmap of <code>ceil(B / 8)</code> bytes, where <code>B = ceil(N / 8)</code>, then the non-zero bytes of the <code>Bitmap</code> form in order. Summary bit <code>i</code>, LSB-first, is set when byte <code>i</code> of the <code>Bitmap</code> form is non-zero.</td>
 </tr>
 </tbody>
 </table>
-<p><code>Runs</code> and <code>Indices</code> are self-delimiting, so no length is stored for either.
-<code>Indices</code> also carries the present count directly, where the other two are counted by the reader.</p>
+<p><code>Runs</code> and <code>Sparse</code> are self-delimiting, so no length is stored for either.
+<code>Sparse</code> reads its summary, takes the population count <code>k</code> of it, then takes <code>k</code> bytes.</p>
 <p>A bitmap costs <code>ceil(N / 8)</code> bytes whatever it holds, so it is the smallest form only while <code>N</code> is small or the present values are scattered.
 A column present over one run of features, or on a handful of them, carries far less than that, and the other two encodings charge for what it carries rather than for <code>N</code>.</p>
 <p>Six present values among <code>N = 32</code>, at <code>10</code> to <code>15</code>:</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 220" role="img" aria-label="Six present values among 32, at 10 to 15, stored as a bitmap in 4 bytes, as runs of 10 absent, 6 present and 16 absent in 3 bytes, and as a count and indices in 7 bytes" xmlns="http://www.w3.org/2000/svg">
+<p><svg class="mlt-diagram" viewBox="0 0 710 220" role="img" aria-label="Six present values among 32, at 10 to 15, stored as a bitmap in 4 bytes, as runs of 10 absent, 6 present and 16 absent in 3 bytes, and as a summary byte and one stored byte in 2 bytes" xmlns="http://www.w3.org/2000/svg">
 <text class="muted small mid" x="138" y="12">0</text>
 <text class="muted small mid" x="318" y="12">10</text>
 <text class="muted small mid" x="408" y="12">15</text>
@@ -1498,7 +1511,7 @@ A column present over one run of features, or on a handful of them, carries far 
 <text class="cell" x="489" y="82">00</text>
 <rect class="plain" x="562" y="68" width="142" height="28" rx="3"/>
 <text class="cell" x="633" y="82">00</text>
-<text class="row" x="0" y="122">Runs<tspan class="t1"> 3 B</tspan></text>
+<text class="row" x="0" y="122">Runs<tspan class="muted"> 3 B</tspan></text>
 <rect class="plain" x="130" y="108" width="178" height="28" rx="3"/>
 <text class="cell" x="219" y="122">0A</text>
 <text class="muted small mid" x="219" y="150">10 absent</text>
@@ -1508,41 +1521,29 @@ A column present over one run of features, or on a handful of them, carries far 
 <rect class="plain" x="418" y="108" width="286" height="28" rx="3"/>
 <text class="cell" x="561" y="122">10</text>
 <text class="muted small mid" x="561" y="150">16 absent</text>
-<text class="row" x="0" y="182">Indices<tspan class="muted"> 7 B</tspan></text>
-<rect class="plain" x="130" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="152" y="182">06</text>
-<text class="muted small mid" x="152" y="210">count</text>
-<rect class="f1" x="178" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="200" y="182">0A</text>
-<text class="muted small mid" x="200" y="210">-&gt; 10</text>
-<rect class="f1" x="226" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="248" y="182">00</text>
-<text class="muted small mid" x="248" y="210">-&gt; 11</text>
-<rect class="f1" x="274" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="296" y="182">00</text>
-<text class="muted small mid" x="296" y="210">-&gt; 12</text>
-<rect class="f1" x="322" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="344" y="182">00</text>
-<text class="muted small mid" x="344" y="210">-&gt; 13</text>
-<rect class="f1" x="370" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="392" y="182">00</text>
-<text class="muted small mid" x="392" y="210">-&gt; 14</text>
-<rect class="f1" x="418" y="168" width="44" height="28" rx="3"/>
-<text class="cell" x="440" y="182">00</text>
-<text class="muted small mid" x="440" y="210">-&gt; 15</text>
+<text class="row" x="0" y="182">Sparse<tspan class="t1"> 2 B</tspan></text>
+<rect class="plain" x="130" y="168" width="142" height="28" rx="3"/>
+<text class="cell" x="201" y="182">02</text>
+<text class="muted small mid" x="201" y="210">byte 1 is non-zero</text>
+<rect class="f1" x="274" y="168" width="142" height="28" rx="3"/>
+<text class="cell" x="345" y="182">FC</text>
+<text class="muted small mid" x="345" y="210">byte 1</text>
 </svg></p>
 <p>Encoders MUST write whichever of the three stores the field smallest, breaking a tie toward the lowest code.
-Decoders MUST reject run lengths that do not sum to <code>N</code>, a <code>K</code> greater than <code>N</code>, and indices that do not strictly increase or that reach <code>N</code>.</p>
+This holds for a boolean column's data stream and a nested node's presence stream as for a presence field.
+Decoders MUST reject run lengths that do not sum to <code>N</code>, a <code>Sparse</code> summary bit set at or past <code>B</code>, and a stored <code>Sparse</code> byte that is <code>0</code>.
+Bits past <code>N</code> in the last <code>Sparse</code> byte are padding and MUST be ignored, as for <code>Bitmap</code>.</p>
 <h3 id="shared-presence-fields">Shared Presence Fields<a class="headerlink" href="#shared-presence-fields" title="Link to this section">&para;</a></h3>
 <p>Several columns MAY reference the same presence field.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_sp.mlt&amp;at=shared_presence" target="_blank">View example</a> - two columns referencing one shared field.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>shared_presence := [u8 encoding] only when the layout byte's encoding flag is set; 1, 2 or 3, see Presence Encodings
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>shared_presence := [u8 encoding] only when the layout byte's encoding flag is set; a Bool encoding byte, see below
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                   [payload]     per that encoding, self-delimiting
 </span></code></pre></div>
 <p>The <code>n</code> shared fields follow the layout byte back to back, in index order.
 A shared field has no presence nibble to carry its encoding.
 Without the layout byte's encoding flag every shared field is a <code>Bitmap</code>, and no byte naming it is stored.
-With it, every shared field leads with the byte naming its encoding.</p>
+With it, every shared field leads with the byte naming its encoding.
+That byte is the <a href="#encoding-byte">encoding byte</a> of a <code>Bool</code> stream, so the code sits in bits 6-4 and every other bit MUST be <code>0</code>: <code>0x00</code>, <code>0x10</code> or <code>0x20</code>.</p>
 <p>Encoders MUST pick each shared field's encoding as for an inline one.
 Encoders MUST set the encoding flag only when some shared field's encoding is not <code>Bitmap</code>.</p>
 <p>A column references a shared field through its <a href="#presence-nibble">presence nibble</a>.
@@ -2672,7 +2673,7 @@ There is no geometry code, since the geometry column is not a counted column.</p
 </tr>
 <tr>
 <td style="text-align: right;"><code>1</code>-<code>3</code></td>
-<td>An inline presence field, in the <a href="#presence-encodings">encoding</a> the nibble names, follows the type byte and the name, if any.</td>
+<td>An inline presence field, in the <a href="#presence-encodings">encoding</a> whose code is <code>nibble - 1</code>, follows the type byte and the name, if any.</td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>4</code>-<code>10</code></td>
@@ -3679,8 +3680,8 @@ The low nibble MUST be <code>0xC</code>, <code>0xD</code> or <code>0xE</code>; a
 </table>
 <p>A node below the root cannot use the layer's shared fields.
 Those are <code>feature_count</code> bits long, and only the root of a nested column runs over features.</p>
-<p>A presence stream is a <code>Bool</code>-family stream of logical <code>None</code> over physical <code>00</code> or <code>01</code>, one bit per value the parent hands the node, LSB-first.
-It is a stream rather than the bare field a column writes, because under a <a href="#list-nodes"><code>List</code></a> or a <a href="#map-nodes"><code>Map</code></a> the number of bits is not known until the lengths have been decoded, and the stream header lets a decoder step over it either way.</p>
+<p>A presence stream is a <a href="#bool-streams"><code>Bool</code> stream</a>, one bit per value the parent hands the node.
+It is a stream rather than the bare field a column writes, because under a <a href="#list-nodes"><code>List</code></a> or a <a href="#map-nodes"><code>Map</code></a> the number of bits is not known until the lengths have been decoded, and the encoding byte can carry that count.</p>
 <h4 id="counts">Counts<a class="headerlink" href="#counts" title="Link to this section">&para;</a></h4>
 <p>Each node is handed a number of values by its parent, its <strong>parent count</strong>:</p>
 <table>
@@ -4171,7 +4172,7 @@ A tessellated layer that needs m-values uses <code>0xD</code>.</p>
 <h2 id="streams">Streams<a class="headerlink" href="#streams" title="Link to this section">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>stream := [u8 encoding_byte]
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>          [varint num_values]   only when bit 7 of the encoding byte is set
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>          [varint byte_length]  unless logical `None` over physical `00`, see Byte Length
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>          [varint byte_length]  unless a Bool stream or logical `None` over physical `00`, see Byte Length
 </span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>          [parameters]          per the logical encoding and extension bits, see Parameters
 </span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>          [u8 payload[byte_length]]
 </span></code></pre></div>
@@ -4259,7 +4260,8 @@ Bit 7 MUST be <code>1</code> on the streams a <a href="#counts">nested node</a> 
 The number of <code>(run, value)</code> pairs is not stored.
 A decoder reads pairs until <code>byte_length</code> is exhausted.</p>
 <h4 id="byte-length">Byte Length<a class="headerlink" href="#byte-length" title="Link to this section">&para;</a></h4>
-<p><code>byte_length</code> is present unless the stream is logical <code>None</code> over <a href="#physical-field">physical</a> <code>00</code>.
+<p><code>byte_length</code> is present unless the stream is a <a href="#bool-streams"><code>Bool</code> stream</a> or logical <code>None</code> over <a href="#physical-field">physical</a> <code>00</code>.
+A <code>Bool</code> stream's payload delimits itself, so it never writes one.
 On logical <code>None</code> the payload is the elements as they are, so that pattern says the length follows from the value count and the element width the stream's type fixes:</p>
 <table>
 <thead>
@@ -4292,10 +4294,6 @@ On logical <code>None</code> the payload is the elements as they are, so that pa
 <tr>
 <td>A <code>Double</code> column's values</td>
 <td><code>num_values * 8</code></td>
-</tr>
-<tr>
-<td>A <code>Bool</code> bitmap</td>
-<td><code>ceil(num_values / 8)</code></td>
 </tr>
 </tbody>
 </table>
@@ -4343,9 +4341,9 @@ Each family numbers its own members from <code>0</code>.</p>
 <tr>
 <td><strong>Bool</strong></td>
 <td>A boolean column's data stream, a nested node's presence stream</td>
-<td>None</td>
-<td>RLE†</td>
-<td></td>
+<td>Bitmap</td>
+<td>Runs</td>
+<td>Sparse</td>
 <td></td>
 <td></td>
 <td></td>
@@ -4354,7 +4352,7 @@ Each family numbers its own members from <code>0</code>.</p>
 <td><strong>Float</strong></td>
 <td>A float or double column's data stream</td>
 <td>None</td>
-<td>RLE†</td>
+<td></td>
 <td><a href="../../encodings/#alp">Framed, Exception-Free ALP</a></td>
 <td>Dict</td>
 <td></td>
@@ -4382,12 +4380,14 @@ Each family numbers its own members from <code>0</code>.</p>
 </tr>
 </tbody>
 </table>
-<p>† Reserved but not implemented.
-A decoder MUST reject it.
-The payload format of RLE over booleans is not yet decided.</p>
 <p>The <code>Str</code> family has the same members as <code>Int</code>.
 It differs only in the use of the extension bits.
 A code not listed for the stream's family MUST be rejected.</p>
+<h3 id="bool-streams">Bool Streams<a class="headerlink" href="#bool-streams" title="Link to this section">&para;</a></h3>
+<p>A <code>Bool</code> stream holds one bit per value, in the <a href="#presence-encodings">encoding</a> its logical field names.
+Its value count is its <a href="#value-count">implied count</a>, or the explicit one when bit 7 is set, and it is the <code>N</code> of the encoding.
+Its physical field and extension bits MUST be <code>0</code>.
+No <code>byte_length</code> exists.</p>
 <h3 id="physical-field">Physical Field<a class="headerlink" href="#physical-field" title="Link to this section">&para;</a></h3>
 <p>For a stream of integer words, meaning the <code>Int</code>, <code>Str</code> and <code>Vertex</code> families and the code or scaled-integer stream of a <code>Float</code> <code>Dict</code> or <code>Alp</code> encoding:</p>
 <table>
@@ -4416,7 +4416,7 @@ A code not listed for the stream's family MUST be rejected.</p>
 </tr>
 </tbody>
 </table>
-<p>For a stream of opaque fixed-width elements, meaning a <code>Bool</code> bitmap, raw <code>Float</code> values or a <code>Bytes</code> blob:</p>
+<p>For a stream of opaque fixed-width elements, meaning raw <code>Float</code> values or a <code>Bytes</code> blob:</p>
 <table>
 <thead>
 <tr>
@@ -4439,7 +4439,7 @@ A code not listed for the stream's family MUST be rejected.</p>
 </tr>
 </tbody>
 </table>
-<p><code>RLE</code>, <code>DeltaRLE</code>, <code>BitPacked</code> and <code>rANS</code> define their own physical layout.
+<p><code>RLE</code>, <code>DeltaRLE</code>, <code>BitPacked</code>, <code>rANS</code> and every <code>Bool</code> encoding define their own physical layout.
 The physical field MUST be <code>0</code> for them.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -4924,7 +4924,7 @@ The extension bits of the leading stream give the layout.</p>
 <div class="tabbed-block">
 <p>A <code>Struct</code> column of two fields, one of them null on some features.
 The field names are written once, in the tree.
-The nullable field's presence stream is a raw bitmap, so its header carries no byte length.</p>
+The nullable field's presence stream is a bitmap, so its header carries no byte length.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>00000000                                                                     | layer[0] "layer1" (58 B)
 </span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>00000000  39                                                9                |   size: 57 (varint) - tag + body
 </span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
@@ -4984,10 +4984,10 @@ The nullable field's presence stream is a raw bitmap, so its header carries no b
 </span><span id="__span-22-57"><a id="__codelineno-22-57" name="__codelineno-22-57" href="#__codelineno-22-57"></a>                                                                             |         └ bits 3-0 = 0101 -&gt; data type = I32
 </span><span id="__span-22-58"><a id="__codelineno-22-58" name="__codelineno-22-58" href="#__codelineno-22-58"></a>0000002f  04 72 61 6e 6b                                    .rank            |       name: "rank"
 </span><span id="__span-22-59"><a id="__codelineno-22-59" name="__codelineno-22-59" href="#__codelineno-22-59"></a>00000034                                                                     |       present (2 B)
-</span><span id="__span-22-60"><a id="__codelineno-22-60" name="__codelineno-22-60" href="#__codelineno-22-60"></a>00000034  00                                                .                |         encoding: 0x00 logical=None physical=NoLen
+</span><span id="__span-22-60"><a id="__codelineno-22-60" name="__codelineno-22-60" href="#__codelineno-22-60"></a>00000034  00                                                .                |         encoding: 0x00 logical=None physical=implied
 </span><span id="__span-22-61"><a id="__codelineno-22-61" name="__codelineno-22-61" href="#__codelineno-22-61"></a>                                                                             |           └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 3 values from context
 </span><span id="__span-22-62"><a id="__codelineno-22-62" name="__codelineno-22-62" href="#__codelineno-22-62"></a>                                                                             |           └ bits 6-4 = 000 -&gt; logical = None, numbered for bool column
-</span><span id="__span-22-63"><a id="__codelineno-22-63" name="__codelineno-22-63" href="#__codelineno-22-63"></a>                                                                             |           └ bits 3-2 = 00 -&gt; physical = NoLen
+</span><span id="__span-22-63"><a id="__codelineno-22-63" name="__codelineno-22-63" href="#__codelineno-22-63"></a>                                                                             |           └ bits 3-2 = 00 -&gt; physical = implied
 </span><span id="__span-22-64"><a id="__codelineno-22-64" name="__codelineno-22-64" href="#__codelineno-22-64"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-22-65"><a id="__codelineno-22-65" name="__codelineno-22-65" href="#__codelineno-22-65"></a>00000035  05                                                .                |         data [Present Bool(None)/None, 3 values, 1 B]
 </span><span id="__span-22-66"><a id="__codelineno-22-66" name="__codelineno-22-66" href="#__codelineno-22-66"></a>                                                                             |           decoded: 3 present-bits: 101
