@@ -484,6 +484,9 @@ test-features: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-
         --workspace --exclude mlt-core --exclude-no-default-features --exclude-all-features
     cargo nextest run --all-targets -p mlt-core --no-default-features --features __private
     cargo nextest run --all-targets -p mlt-core --no-default-features --features __private-v2
+    # mlt's only features are hotpath ones, which compile out its `not(hotpath)` test files,
+    # and `--exclude-no-default-features` above skips its default build, so run that here
+    cargo nextest run --all-targets -p mlt
 
 # Test documentation generation
 # Doc-tests stay on `cargo test`, the only runner that executes them
