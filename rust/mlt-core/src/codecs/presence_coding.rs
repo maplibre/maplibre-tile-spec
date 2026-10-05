@@ -5,8 +5,10 @@
 //! of features, or on a handful of them, carries far less information than that, and the
 //! other two codings charge for the information rather than for the feature count.
 //!
-//! [`Runs`](PresenceCoding::Runs) and [`Indices`](PresenceCoding::Indices) are
-//! self-delimiting, so nothing in the wire format writes a length for them.
+//! [`Sparse`](PresenceCoding::Sparse) is a bitmap of the bitmap's non-zero bytes followed by
+//! those bytes, so a column pays for the bytes it uses and one bit per eight others.
+//!
+//! [`Runs`](PresenceCoding::Runs) and [`Sparse`](PresenceCoding::Sparse) are self-delimiting, so nothing in the wire format writes a length for them.
 
 use std::borrow::Cow;
 
@@ -17,7 +19,7 @@ use bitvec::view::BitView as _;
 use integer_encoding::VarIntWriter as _;
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{PresenceIndexOrder, PresenceRunOverflow, PresenceRunShort};
+use crate::MltError::{PresenceRunOverflow, PresenceSparseByte, PresenceSparseSummary};
 use crate::codecs::varint::parse_varint;
 use crate::utils::take;
 use crate::{MltRefResult, MltResult};
@@ -50,14 +52,14 @@ pub enum PresenceCoding {
     /// Alternating varint run lengths. The first run counts absent features and may be
     /// `0`; the lengths sum to `N`.
     Runs = 2,
-    /// A varint count, then that many varints: the first present index, then the gap less
-    /// one to each next one.
-    Indices = 3,
+    /// A bitmap with one bit per byte of the plain bitmap, set where that byte is not
+    /// zero, followed by the non-zero bytes in order.
+    Sparse = 3,
 }
 
 impl PresenceCoding {
     /// Every coding, in the order a tie between them is broken.
-    pub(crate) const ALL: [Self; 3] = [Self::Bitmap, Self::Runs, Self::Indices];
+    pub(crate) const ALL: [Self; 3] = [Self::Bitmap, Self::Runs, Self::Sparse];
 
     /// The coding a byte names, or [`None`] for one this version has no meaning for.
     #[must_use]
@@ -65,7 +67,7 @@ impl PresenceCoding {
         match byte {
             1 => Some(Self::Bitmap),
             2 => Some(Self::Runs),
-            3 => Some(Self::Indices),
+            3 => Some(Self::Sparse),
             _ => None,
         }
     }
@@ -110,19 +112,17 @@ pub(crate) fn write(out: &mut Vec<u8>, bits: &[bool], coding: PresenceCoding) {
                 out.write_varint(len).expect("writing to a Vec cannot fail");
             }
         }
-        PresenceCoding::Indices => {
-            let count = bits.iter().filter(|&&b| b).count() as u64;
-            out.write_varint(count)
-                .expect("writing to a Vec cannot fail");
-            let mut prev: Option<usize> = None;
-            for (i, _) in bits.iter().enumerate().filter(|&(_, &b)| b) {
-                let gap = match prev {
-                    None => i as u64,
-                    Some(p) => (i - p - 1) as u64,
-                };
-                out.write_varint(gap).expect("writing to a Vec cannot fail");
-                prev = Some(i);
+        PresenceCoding::Sparse => {
+            let mut plain = Vec::new();
+            write(&mut plain, bits, PresenceCoding::Bitmap);
+            let start = out.len();
+            out.resize(start + plain.len().div_ceil(8), 0);
+            for (i, &byte) in plain.iter().enumerate() {
+                if byte != 0 {
+                    out[start + i / 8] |= 1 << (i % 8);
+                }
             }
+            out.extend(plain.iter().filter(|&&b| b != 0));
         }
     }
 }
@@ -141,19 +141,9 @@ pub(crate) fn size(bits: &[bool], coding: PresenceCoding) -> usize {
     match coding {
         PresenceCoding::Bitmap => bits.len().div_ceil(8),
         PresenceCoding::Runs => runs(bits).map(|(_, len)| varint_len(len)).sum(),
-        PresenceCoding::Indices => {
-            let mut total = 0;
-            let mut prev: Option<usize> = None;
-            let mut count = 0u64;
-            for (i, _) in bits.iter().enumerate().filter(|&(_, &b)| b) {
-                count += 1;
-                total += varint_len(match prev {
-                    None => i as u64,
-                    Some(p) => (i - p - 1) as u64,
-                });
-                prev = Some(i);
-            }
-            varint_len(count) + total
+        PresenceCoding::Sparse => {
+            let non_zero = bits.chunks(8).filter(|c| c.iter().any(|&b| b)).count();
+            bits.len().div_ceil(8).div_ceil(8) + non_zero
         }
     }
 }
@@ -186,6 +176,28 @@ pub(crate) fn read<'a>(
             let (input, bytes) = take(input, count.div_ceil(8))?;
             Ok((input, Cow::Borrowed(&bytes.view_bits::<Lsb0>()[..n])))
         }
+        PresenceCoding::Sparse => {
+            let bytes = n.div_ceil(8);
+            let (input, summary) = take(input, count.div_ceil(8).div_ceil(8))?;
+            let summary = summary.view_bits::<Lsb0>();
+            if summary[bytes..].any() {
+                return Err(PresenceSparseSummary(count));
+            }
+            let (input, stored) = take(input, u32::try_from(summary.count_ones())?)?;
+            budget.reserve_bits(count)?;
+            let mut plain = vec![0u8; bytes];
+            let mut stored = stored.iter();
+            for at in summary[..bytes].iter_ones() {
+                let byte = *stored.next().expect("one stored byte per set summary bit");
+                if byte == 0 {
+                    return Err(PresenceSparseByte(count));
+                }
+                plain[at] = byte;
+            }
+            let mut bits = BitVec::<u8, Lsb0>::from_vec(plain);
+            bits.truncate(n);
+            Ok((input, Cow::Owned(bits)))
+        }
         PresenceCoding::Runs => {
             budget.reserve_bits(count)?;
             let mut bits = BitVec::<u8, Lsb0>::repeat(false, n);
@@ -208,31 +220,6 @@ pub(crate) fn read<'a>(
             }
             // `at` can only leave the loop equal to `n`, but a mask that ends early would
             // have run out of input first, which `parse_varint` reports.
-            Ok((input, Cow::Owned(bits)))
-        }
-        PresenceCoding::Indices => {
-            let (mut input, len) = parse_varint::<u32>(input)?;
-            if len > count {
-                return Err(PresenceRunShort(len, count));
-            }
-            budget.reserve_bits(count)?;
-            let mut bits = BitVec::<u8, Lsb0>::repeat(false, n);
-            let mut prev: Option<usize> = None;
-            for _ in 0..len {
-                let gap: u32;
-                (input, gap) = parse_varint(input)?;
-                let at = match prev {
-                    None => Some(gap.into_usize()),
-                    // Gaps are stored less one, so this is the next index after `p`.
-                    Some(p) => p
-                        .checked_add(gap.into_usize())
-                        .and_then(|v| v.checked_add(1)),
-                }
-                .filter(|&at| at < n)
-                .ok_or(PresenceIndexOrder(count))?;
-                bits.set(at, true);
-                prev = Some(at);
-            }
             Ok((input, Cow::Owned(bits)))
         }
     }
@@ -263,12 +250,18 @@ mod tests {
             vec![false; 9],
             // one contiguous present block, which Runs is for
             (0..100).map(|i| (20..60).contains(&i)).collect(),
-            // a single present feature far in, which Indices is for
+            // a single present feature far in
             (0..1000).map(|i| i == 777).collect(),
             // alternating, the worst case for both, where Bitmap wins
             (0..64).map(|i| i % 2 == 0).collect(),
             // ends on a present run, so the trailing run is written
             (0..17).map(|i| i > 12).collect(),
+            // scattered bits in a few bytes of a long mask, which Sparse is for
+            (0..4096)
+                .map(|i| matches!(i, 5 | 6 | 1000 | 3000))
+                .collect(),
+            // a bitmap whose summary ends mid-byte
+            (0..70).map(|i| i % 13 == 0).collect(),
         ]
     }
 
@@ -295,6 +288,33 @@ mod tests {
     }
 
     #[test]
+    fn sparse_beats_every_other_coding_on_clustered_scatter() {
+        let bits: Vec<bool> = (0..1920).map(|i| (i / 8) % 12 == 5 && i % 2 == 0).collect();
+        assert_eq!(smallest(&bits), PresenceCoding::Sparse);
+    }
+
+    #[test]
+    fn a_sparse_summary_past_the_bitmap_is_rejected() {
+        assert!(matches!(
+            read(&[0b10, 1], 8, PresenceCoding::Sparse, &mut Unmetered),
+            Err(PresenceSparseSummary(8))
+        ));
+    }
+
+    #[test]
+    fn a_stored_zero_byte_is_rejected() {
+        assert!(matches!(
+            read(&[0b1, 0], 8, PresenceCoding::Sparse, &mut Unmetered),
+            Err(PresenceSparseByte(8))
+        ));
+    }
+
+    #[test]
+    fn a_missing_sparse_byte_is_rejected() {
+        assert!(read(&[0b1], 8, PresenceCoding::Sparse, &mut Unmetered).is_err());
+    }
+
+    #[test]
     fn a_tie_goes_to_the_lowest_code() {
         // Every coding costs one byte here, so the bitmap has to win.
         assert_eq!(smallest(&[true]), PresenceCoding::Bitmap);
@@ -305,12 +325,6 @@ mod tests {
         let bits: Vec<bool> = (0..4096).map(|i| (100..200).contains(&i)).collect();
         assert_eq!(smallest(&bits), PresenceCoding::Runs);
         assert!(size(&bits, PresenceCoding::Runs) < size(&bits, PresenceCoding::Bitmap));
-    }
-
-    #[test]
-    fn indices_beat_a_bitmap_on_a_sparse_mask() {
-        let bits: Vec<bool> = (0..4096).map(|i| i % 1000 == 0).collect();
-        assert_eq!(smallest(&bits), PresenceCoding::Indices);
     }
 
     #[test]
@@ -340,14 +354,6 @@ mod tests {
         assert_eq!(named, [1, 2, 3]);
     }
 
-    #[test]
-    fn an_index_past_the_end_is_rejected() {
-        let mut buf = Vec::new();
-        buf.write_varint(1u64).unwrap();
-        buf.write_varint(99u64).unwrap();
-        assert!(read(&buf, 8, PresenceCoding::Indices, &mut Unmetered).is_err());
-    }
-
     /// Counts the bits a reader was asked to build, standing in for a real budget.
     struct Counted(u32);
     impl PresenceBudget for Counted {
@@ -359,7 +365,6 @@ mod tests {
 
     #[rstest::rstest]
     #[case::runs(PresenceCoding::Runs)]
-    #[case::indices(PresenceCoding::Indices)]
     fn a_tiny_payload_cannot_ask_for_a_huge_allocation_unmetered(#[case] coding: PresenceCoding) {
         // Two bytes naming four billion features: the budget has to hear about it
         // before anything is allocated, or a tile of nothing OOMs the reader.
@@ -372,6 +377,14 @@ mod tests {
             u32::MAX,
             "{coding:?} allocated without charging the budget"
         );
+    }
+
+    #[test]
+    fn a_sparse_summary_is_charged_to_the_budget_before_the_bitmap_is_built() {
+        let mut budget = Counted(0);
+        let summary = [0u8; 64];
+        let (rest, bits) = read(&summary, 4096, PresenceCoding::Sparse, &mut budget).unwrap();
+        assert_eq!((rest.len(), bits.len(), budget.0), (0, 4096, 4096));
     }
 
     struct Refused;
@@ -387,7 +400,7 @@ mod tests {
 
     #[rstest::rstest]
     #[case::runs(PresenceCoding::Runs)]
-    #[case::indices(PresenceCoding::Indices)]
+    #[case::sparse(PresenceCoding::Sparse)]
     fn a_refused_budget_is_an_error(#[case] coding: PresenceCoding) {
         assert!(matches!(
             read(&[0], 8, coding, &mut Refused),
@@ -401,28 +414,5 @@ mod tests {
             read(&[0], 9, PresenceCoding::Bitmap, &mut Unmetered),
             Err(crate::MltError::UnableToTake(2))
         ));
-    }
-
-    #[test]
-    fn a_missing_index_count_is_rejected() {
-        assert!(matches!(
-            read(&[], 8, PresenceCoding::Indices, &mut Unmetered),
-            Err(crate::MltError::BufferUnderflow(1, 0))
-        ));
-    }
-
-    #[test]
-    fn a_missing_index_is_rejected() {
-        assert!(matches!(
-            read(&[2, 0], 8, PresenceCoding::Indices, &mut Unmetered),
-            Err(crate::MltError::BufferUnderflow(1, 0))
-        ));
-    }
-
-    #[test]
-    fn more_indices_than_features_is_rejected() {
-        let mut buf = Vec::new();
-        buf.write_varint(9u64).unwrap();
-        assert!(read(&buf, 8, PresenceCoding::Indices, &mut Unmetered).is_err());
     }
 }

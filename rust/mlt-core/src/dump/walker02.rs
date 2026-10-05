@@ -773,7 +773,7 @@ impl<'a> Walker<'a> {
         coding: PresenceCoding,
         label: &str,
     ) -> MltResult<(&'a [u8], BitVec<u8, Lsb0>)> {
-        // Runs and indices are self-delimiting, so the span is whatever reading took.
+        // Runs and sparse presence are self-delimiting, so the span is whatever reading took.
         let (rest, bits) = presence_coding::read(input, feature_count, coding, &mut self.parser)?;
         let taken = input.len() - rest.len();
         let bytes = &input[..taken];
@@ -791,7 +791,7 @@ impl<'a> Walker<'a> {
                 ),
                 hint: match coding {
                     PresenceCoding::Bitmap => DecodeHint::PackedBits,
-                    other @ (PresenceCoding::Runs | PresenceCoding::Indices) => {
+                    other @ (PresenceCoding::Runs | PresenceCoding::Sparse) => {
                         DecodeHint::PresenceCoded(other)
                     }
                 },

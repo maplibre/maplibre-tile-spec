@@ -627,7 +627,8 @@
         "_extent": 64,
         "_layer": "layer1",
         "always": 7,
-        "bitmap": 40
+        "bitmap": 40,
+        "sparse": 40
       },
       "geometry": {
         "type": "Point",
@@ -658,7 +659,8 @@
         "_extent": 64,
         "_layer": "layer1",
         "always": 7,
-        "bitmap": 42
+        "bitmap": 42,
+        "sparse": 42
       },
       "geometry": {
         "type": "Point",
@@ -689,7 +691,8 @@
         "_extent": 64,
         "_layer": "layer1",
         "always": 7,
-        "bitmap": 44
+        "bitmap": 44,
+        "sparse": 44
       },
       "geometry": {
         "type": "Point",
@@ -720,7 +723,8 @@
         "_extent": 64,
         "_layer": "layer1",
         "always": 7,
-        "bitmap": 46
+        "bitmap": 46,
+        "sparse": 46
       },
       "geometry": {
         "type": "Point",
@@ -1228,7 +1232,6 @@
         "_extent": 64,
         "_layer": "layer1",
         "always": 7,
-        "indices": 77,
         "runs": 77
       },
       "geometry": {
@@ -2203,7 +2206,8 @@
         "_layer": "layer1",
         "always": 7,
         "bitmap": 136,
-        "runs": 136
+        "runs": 136,
+        "sparse": 136
       },
       "geometry": {
         "type": "Point",
@@ -2236,7 +2240,8 @@
         "_layer": "layer1",
         "always": 7,
         "bitmap": 138,
-        "runs": 138
+        "runs": 138,
+        "sparse": 138
       },
       "geometry": {
         "type": "Point",
@@ -2269,7 +2274,8 @@
         "_layer": "layer1",
         "always": 7,
         "bitmap": 140,
-        "runs": 140
+        "runs": 140,
+        "sparse": 140
       },
       "geometry": {
         "type": "Point",
@@ -2302,7 +2308,8 @@
         "_layer": "layer1",
         "always": 7,
         "bitmap": 142,
-        "runs": 142
+        "runs": 142,
+        "sparse": 142
       },
       "geometry": {
         "type": "Point",

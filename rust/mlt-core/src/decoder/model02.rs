@@ -1106,9 +1106,9 @@ mod tests {
         DataType02::F64
     )]
     #[case::runs(0b0010_0101, Presence02::Inline(PresenceCoding::Runs), DataType02::I32)]
-    #[case::indices(
+    #[case::sparse(
         0b0011_1010,
-        Presence02::Inline(PresenceCoding::Indices),
+        Presence02::Inline(PresenceCoding::Sparse),
         DataType02::F64
     )]
     #[case::str(0b0000_1011, Presence02::AllPresent, DataType02::Str)]
