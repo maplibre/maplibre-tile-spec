@@ -48,7 +48,7 @@ indicatif = "0.18"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
 js-sys = "0.3"
-martin-tile-utils = "0.7"
+martin-tile-utils = "0.8"
 mbtiles = { version = "0.20", default-features = false, features = ["transcode"] }
 mimalloc = "0.1.52"
 minicov = "0.3.9"
