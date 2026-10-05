@@ -126,7 +126,8 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
 function compareId(mltFeature: Feature, mvtFeature: VectorTileFeature, idWithinMaxSafeInteger: boolean) {
     if (!mvtFeature.id) {
         /* Java MVT library in the MVT converter decodes zero for undefined ids */
-        assert.ok(mltFeature.id === 0 || mltFeature.id === null || mltFeature.id === 0n);
+        /* The Rust encoder writes no id column when the MVT has none, which decodes to undefined */
+        assert.ok(mltFeature.id === 0 || mltFeature.id === null || mltFeature.id === undefined || mltFeature.id === 0n);
     } else {
         const mltFeatureId = mltFeature.id;
         /* For const and sequence vectors the decoder can return bigint compared to the vector-tile-js library */

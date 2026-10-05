@@ -38,11 +38,10 @@ dev: install assert-wasm-built build-mlt
     npm run dev
 
 # Re-encode the real-world tiles from their MVT sources with every size feature on
-regenerate-production: build-mlt
-    rm -rf ../test/production
+regenerate-expected: build-mlt
     for dir in amazon amazon_here bing omt simple; do \
-      ../rust/target/release/mlt convert --mlt-version 1 --sort all --verify ../test/fixtures/$dir ../test/production/0x01/$dir; \
-      ../rust/target/release/mlt convert --mlt-version 2 --sort all --delta2 --packed-dict-codes --rans-vertices --verify ../test/fixtures/$dir ../test/production/0x02/$dir; \
+      ../rust/target/release/mlt convert --mlt-version 1 --sort none --verify ../test/fixtures/$dir ../test/expected/0x01/$dir; \
+      ../rust/target/release/mlt convert --mlt-version 2 --sort none --delta2 --packed-dict-codes --rans-vertices --verify ../test/fixtures/$dir ../test/expected/0x02/$dir; \
     done
 
 # Reformat code
