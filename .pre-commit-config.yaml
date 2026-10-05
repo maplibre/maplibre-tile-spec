@@ -37,14 +37,14 @@ repos:
         exclude: '\.snap$' # insta snapshots assert trailing whitespace
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v23.1.0
+    rev: v23.1.2
     hooks:
       - id: clang-format
         types: [ c++ ]
         args: ["-style=file:.clang-format"]
 
   - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
-    rev: v1.7.12.24
+    rev: v1.7.12.25
     hooks:
       - id: actionlint
         additional_dependencies: [ shellcheck-py ]
@@ -60,12 +60,12 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/keith/pre-commit-buildifier
-    rev: 8.5.1.3
+    rev: 10.1.0
     hooks:
       - id: buildifier
 
   - repo: https://github.com/biomejs/pre-commit
-    rev: v2.5.14
+    rev: v2.5.15
     hooks:
       - id: biome-check
         args: [--unsafe]
