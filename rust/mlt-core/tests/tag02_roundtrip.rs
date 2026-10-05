@@ -1817,8 +1817,11 @@ mod bit_packing {
     #[test]
     fn packed_dictionary_codes_round_trip_and_shrink_the_column() {
         let l = wide_dict_layer();
-        let plain = l.clone().encode(cfg_v2()).unwrap();
-        let packed = l.encode(cfg_v2().with_packed_dict_codes(true)).unwrap();
+        let plain = l
+            .clone()
+            .encode(cfg_v2().with_packed_dict_codes(false))
+            .unwrap();
+        let packed = l.encode(cfg_v2()).unwrap();
         assert!(
             packed.len() < plain.len(),
             "{} vs {}",

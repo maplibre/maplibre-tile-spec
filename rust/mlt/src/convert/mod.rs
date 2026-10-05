@@ -306,9 +306,9 @@ struct V2EncoderArgs {
     /// Disable float dictionary encoding
     #[clap(long)]
     no_float_dict: bool,
-    /// Store dictionary codes bit-packed when that beats a varint each
+    /// Disable bit-packed dictionary codes, leaving a varint each
     #[clap(long)]
-    packed_dict_codes: bool,
+    no_bitpacking: bool,
     /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
     #[clap(long, requires = "tessellate")]
     triangles_only: bool,
@@ -369,7 +369,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_wire_version(args.mlt_version.into())
         .with_float_alp(!v2.no_alp)
         .with_float_dict(!v2.no_float_dict)
-        .with_packed_dict_codes(v2.packed_dict_codes)
+        .with_packed_dict_codes(!v2.no_bitpacking)
         .with_triangles_only(v2.triangles_only)
         .with_delta2(v2.delta2)
         .with_rans_vertices(v2.rans_vertices);
@@ -886,7 +886,7 @@ mod tests {
         for flags in [
             &["--no-alp"][..],
             &["--no-float-dict"],
-            &["--packed-dict-codes"],
+            &["--no-bitpacking"],
             &["--tessellate", "--triangles-only"],
             &["--delta2"],
             &["--rans-vertices"],
