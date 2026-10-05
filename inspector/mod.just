@@ -15,7 +15,7 @@ assert-wasm-built:
 # Build the mlt CLI the fixture index reads geometry and encoding facets from
 [private]
 build-mlt:
-    cargo build --release --manifest-path ../rust/Cargo.toml --package mlt --features unstable-v2
+    cargo build --release --manifest-path ../rust/Cargo.toml --package mlt
 
 # Update the committed vitest inline snapshots, which `test` only verifies
 bless: install build-mlt

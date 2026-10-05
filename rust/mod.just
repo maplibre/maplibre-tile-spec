@@ -29,7 +29,7 @@ bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-h
     # snapshot; hotpath stays off because several of mlt's test files are gated on not(hotpath)
     cargo hack insta test --test-runner nextest --dnd --accept --unreferenced=delete \
         --all-targets --ignore-unknown-features \
-        --features __private-v2,arbitrary,unstable-v2 \
+        --features __private-v2,arbitrary \
         --package mlt-core --package mlt \
         {{args}}
     {{just}} rust::wasm-bless
@@ -388,7 +388,7 @@ _build-ffi-lib:
 
 # Build the release `mlt` binary that the hexdump recipes shell out to, once per run
 _build-mlt-release:
-    cargo build --bin mlt --release --features unstable-v2
+    cargo build --bin mlt --release
 
 # Run the C FFI round-trip test (builds cdylib, compiles + runs test)
 test-ffi-c: _build-ffi-lib
@@ -448,7 +448,6 @@ sync-pyo3-version:
 sync-docs-hexdumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo build -p mlt -F unstable-v2
     for dump in ../docs/snippets/0x0*/*.mlt.hexdump; do
         fixture="../test/synthetic/$(basename "$(dirname "$dump")")/$(basename "$dump" .hexdump)"
         target/release/mlt hexdump "$fixture" > "$dump"
@@ -485,6 +484,9 @@ test-features: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-
         --workspace --exclude mlt-core --exclude-no-default-features --exclude-all-features
     cargo nextest run --all-targets -p mlt-core --no-default-features --features __private
     cargo nextest run --all-targets -p mlt-core --no-default-features --features __private-v2
+    # mlt's only features are hotpath ones, which compile out its `not(hotpath)` test files,
+    # and `--exclude-no-default-features` above skips its default build, so run that here
+    cargo nextest run --all-targets -p mlt
 
 # Test documentation generation
 # Doc-tests stay on `cargo test`, the only runner that executes them

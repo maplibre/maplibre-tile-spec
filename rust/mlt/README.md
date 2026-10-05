@@ -18,6 +18,9 @@ Convert an MVT archive or files to MLT:
 mlt convert input.mvt.pmtiles output.mlt.pmtiles
 ```
 
+`--mlt-version 2` writes the v2 format instead of v1, the default.
+v2 is unstable and `MapLibre` renderers cannot read it yet.
+
 The conversion summary reports unique, decompressed tile payloads as such:
 
 ```text
@@ -44,17 +47,17 @@ It needs an `.mbtiles` or `.pmtiles` input, the only ones that record where each
 Give `convert` a WGS84 `GeoJSON` `FeatureCollection` to tile it into a `z/x/y.mlt` directory
 as a single layer named after the file. `--max-zoom` is required, and `--min-zoom` and
 `--layer` are optional; the encoder options above apply as to any other input. This writes
-the v2 format, so it needs a binary built with `--features unstable-v2`:
+the v2 format, so it needs `--mlt-version 2`:
 
 ```bash
-mlt convert buildings.geojson tiles --max-zoom 14
+mlt convert buildings.geojson tiles --mlt-version 2 --max-zoom 14
 ```
 
 Positions with an altitude (`[lon, lat, alt]`) become z coordinates on a `--z-step` grid,
 a power of ten in metres from `-3` (1 mm) to `4` (10 km):
 
 ```bash
-mlt convert power_lines.geojson tiles --max-zoom 14 --z-step -1
+mlt convert power_lines.geojson tiles --mlt-version 2 --max-zoom 14 --z-step -1
 ```
 
 ### Visualizer

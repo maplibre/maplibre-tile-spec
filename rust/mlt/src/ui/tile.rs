@@ -165,10 +165,9 @@ fn layer_triangles(layers: &[ParsedLayer<'_>]) -> anyhow::Result<Vec<Option<Tess
     for layer in layers {
         let layer = match layer {
             ParsedLayer::Tag01(l) => l,
-            #[cfg(feature = "unstable-v2")]
             ParsedLayer::Tag02(l) => l.layer(),
             // Unknown, and any tag a later version adds
-            _ => continue,
+            ParsedLayer::Unknown(_) | _ => continue,
         };
         let values = layer.geometry_values();
         let (Some(offsets), Some(indices)) = (values.triangle_offsets(), values.index_buffer())

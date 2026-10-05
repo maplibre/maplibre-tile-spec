@@ -8,8 +8,7 @@
 //! [`ZStep`] for all its vertices.
 //!
 //! Altitudes become MLT z coordinates on a `--z-step` grid. Only the v2 wire
-//! format holds them, so this path always writes v2 and exists only in an
-//! `mlt` built with `unstable-v2`.
+//! format holds them, so this path always writes v2 and needs `--mlt-version 2`.
 
 mod clip;
 mod feature_id;

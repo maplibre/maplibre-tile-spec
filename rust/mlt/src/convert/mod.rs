@@ -1,9 +1,7 @@
 mod bbox;
 mod common;
-#[cfg(feature = "unstable-v2")]
 pub mod fields;
 mod from_files;
-#[cfg(feature = "unstable-v2")]
 mod from_geojson;
 mod from_mbtiles;
 mod from_pmtiles;
@@ -11,7 +9,6 @@ pub mod verify;
 
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
-#[cfg(feature = "unstable-v2")]
 use std::sync::Arc;
 
 use anyhow::{Result as AnyResult, bail};
@@ -20,16 +17,13 @@ use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
-#[cfg(feature = "unstable-v2")]
-use mlt_core::encoder::WireVersion;
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, WireVersion};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
 use tilejson::Bounds;
 
 use crate::convert::bbox::BboxFilter;
-#[cfg(feature = "unstable-v2")]
 use crate::convert::fields::FieldConfig;
 use crate::convert::from_mbtiles::BboxExtract;
 
@@ -116,27 +110,21 @@ impl TileFormat {
 }
 
 /// Which MLT wire format version `convert` writes.
-///
-/// Defaults to the newest version the binary was built with.
 #[derive(Clone, Copy, Default, ValueEnum, PartialEq, Eq)]
 pub enum MltVersion {
     /// Version 1
-    #[cfg_attr(not(feature = "unstable-v2"), default)]
+    #[default]
     #[value(name = "1", alias = "v1")]
     V1,
-    /// Version 2
-    #[cfg(feature = "unstable-v2")]
-    #[cfg_attr(feature = "unstable-v2", default)]
+    /// Version 2 (experimental)
     #[value(name = "2", alias = "v2")]
     V2,
 }
 
-#[cfg(feature = "unstable-v2")]
 impl From<MltVersion> for WireVersion {
     fn from(version: MltVersion) -> Self {
         match version {
             MltVersion::V1 => Self::V01,
-            #[cfg(feature = "unstable-v2")]
             MltVersion::V2 => Self::V02,
         }
     }
@@ -206,7 +194,6 @@ fn update_mlt_pmtiles_metadata(
 #[derive(Clone, Default)]
 pub(crate) struct Reencoder {
     encoder: EncoderConfig,
-    #[cfg(feature = "unstable-v2")]
     fields: Arc<FieldConfig>,
     /// Decode every encoded layer and require it to match its input.
     verify: bool,
@@ -216,28 +203,12 @@ impl Reencoder {
     #[hotpath::measure]
     fn encode(&self, layer: mlt_core::TileLayer) -> AnyResult<Vec<u8>> {
         let source = self.verify.then(|| layer.clone());
-        #[cfg(feature = "unstable-v2")]
         let layer = self.fields.apply(layer)?;
         let encoded = layer.encode(self.encoder)?;
         if let Some(source) = source {
-            verify::check_round_trip(&source, &encoded, |decoded| self.restore(decoded))?;
+            verify::check_round_trip(&source, &encoded, |decoded| self.fields.restore(decoded))?;
         }
         Ok(encoded)
-    }
-
-    #[cfg_attr(
-        not(feature = "unstable-v2"),
-        expect(
-            clippy::unnecessary_wraps,
-            clippy::unused_self,
-            reason = "only v2 parses fields"
-        )
-    )]
-    fn restore(&self, layer: mlt_core::TileLayer) -> AnyResult<mlt_core::TileLayer> {
-        #[cfg(feature = "unstable-v2")]
-        return self.fields.restore(layer);
-        #[cfg(not(feature = "unstable-v2"))]
-        Ok(layer)
     }
 }
 
@@ -270,26 +241,6 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
-    /// Disable Framed, Exception-Free ALP float encoding, storing floats as decimal-scaled integers
-    #[cfg(feature = "unstable-v2")]
-    #[clap(long)]
-    no_alp: bool,
-    /// Disable float dictionary encoding
-    #[cfg(feature = "unstable-v2")]
-    #[clap(long)]
-    no_float_dict: bool,
-    /// Store dictionary codes bit-packed when that beats a varint each
-    #[cfg(feature = "unstable-v2")]
-    #[clap(long)]
-    packed_dict_codes: bool,
-    /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
-    #[cfg(feature = "unstable-v2")]
-    #[clap(long, requires = "tessellate")]
-    triangles_only: bool,
-    /// Let integer and vertex streams store the deltas of their deltas when that is shorter
-    #[cfg(feature = "unstable-v2")]
-    #[clap(long)]
-    delta2: bool,
     /// Decode every encoded layer and fail unless it matches the input, parsed fields formatted back
     #[clap(long)]
     verify: bool,
@@ -300,24 +251,13 @@ pub struct ConvertArgs {
     /// `running-sum` stores each value after the first as its difference from the one before.
     /// `into` is `list` (the default) or `m-value`, which needs one value per vertex.
     /// A string that would not format back to itself fails the conversion.
-    #[cfg(feature = "unstable-v2")]
     #[clap(long, value_name = "FILE")]
     fields: Option<PathBuf>,
-    /// Store vertex streams rANS-coded when that beats componentwise delta
-    #[cfg(feature = "unstable-v2")]
-    #[clap(long)]
-    rans_vertices: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
     /// MLT wire format version to write
-    #[cfg_attr(
-        not(feature = "unstable-v2"),
-        doc = "",
-        doc = "Version 2 requires building with `--features unstable-v2`."
-    )]
-    #[cfg_attr(not(feature = "unstable-v2"), clap(long, default_value = "1"))]
-    #[cfg_attr(feature = "unstable-v2", clap(long, default_value = "2"))]
+    #[clap(long, default_value = "1")]
     mlt_version: MltVersion,
     /// Outer compression for tile payloads
     #[clap(long, value_enum, default_value = "none")]
@@ -330,21 +270,17 @@ pub struct ConvertArgs {
     #[clap(long, value_name = "BBOX", allow_hyphen_values = true)]
     bbox: Vec<Bounds>,
     /// Lowest zoom level to tile a `GeoJSON` input into (default: 0)
-    #[cfg(feature = "unstable-v2")]
     #[clap(long, value_name = "ZOOM", help_heading = "GeoJSON input")]
     min_zoom: Option<u8>,
     /// Highest zoom level to tile a `GeoJSON` input into (required)
-    #[cfg(feature = "unstable-v2")]
     #[clap(long, value_name = "ZOOM", help_heading = "GeoJSON input")]
     max_zoom: Option<u8>,
     /// MLT layer name of a `GeoJSON` input (default: the input file stem)
-    #[cfg(feature = "unstable-v2")]
     #[clap(long, value_name = "NAME", help_heading = "GeoJSON input")]
     layer: Option<String>,
     /// Power of ten of the z grid's step in metres (-3..=4) for `GeoJSON` positions with an altitude
     ///
     /// Required when the positions carry an altitude, and rejected when they do not.
-    #[cfg(feature = "unstable-v2")]
     #[clap(
         long,
         value_name = "EXPONENT",
@@ -352,6 +288,36 @@ pub struct ConvertArgs {
         help_heading = "GeoJSON input"
     )]
     z_step: Option<i8>,
+    #[command(flatten)]
+    v2: V2EncoderArgs,
+}
+
+/// Encoder options that only MLT version 2 can express, which the encoder ignores under v1.
+#[derive(Args, Default, PartialEq, Eq)]
+#[command(next_help_heading = "MLT version 2 options (need `--mlt-version 2`)")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each bool is an independent CLI on/off flag, not a state machine"
+)]
+struct V2EncoderArgs {
+    /// Disable Framed, Exception-Free ALP float encoding, storing floats as decimal-scaled integers
+    #[clap(long)]
+    no_alp: bool,
+    /// Disable float dictionary encoding
+    #[clap(long)]
+    no_float_dict: bool,
+    /// Store dictionary codes bit-packed when that beats a varint each
+    #[clap(long)]
+    packed_dict_codes: bool,
+    /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
+    #[clap(long, requires = "tessellate")]
+    triangles_only: bool,
+    /// Let integer and vertex streams store the deltas of their deltas when that is shorter
+    #[clap(long)]
+    delta2: bool,
+    /// Store vertex streams rANS-coded when that beats componentwise delta
+    #[clap(long)]
+    rans_vertices: bool,
 }
 
 /// Whether `path` names a `GeoJSON` file, which `convert` tiles rather than re-encodes.
@@ -371,15 +337,20 @@ impl ConvertArgs {
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
-    #[cfg(feature = "unstable-v2")]
-    if args.verify && args.triangles_only {
+    // The encoder ignores these under v1, which would silently write a tile without them.
+    if args.mlt_version != MltVersion::V2 && args.v2 != V2EncoderArgs::default() {
+        bail!(
+            "the MLT version 2 options in --help only apply to MLT version 2, so they need --mlt-version 2"
+        );
+    }
+    let v2 = &args.v2;
+    if args.verify && v2.triangles_only {
         bail!("--verify compares polygon outlines, which --triangles-only drops");
     }
     if args.to == TileFormat::Mvt {
         if args.verify {
             bail!("--verify checks MLT encoding, so it needs --to mlt");
         }
-        #[cfg(feature = "unstable-v2")]
         if args.fields.is_some() {
             bail!("--fields parses fields into MLT columns, so it needs --to mlt");
         }
@@ -394,26 +365,22 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_id_sort(id_sort)
         .with_shared_dict(!args.no_shared_dict)
         .with_fastpfor(!args.no_fastpfor)
-        .with_fsst(!args.no_fsst);
-    #[cfg(feature = "unstable-v2")]
-    let encoder = encoder
+        .with_fsst(!args.no_fsst)
         .with_wire_version(args.mlt_version.into())
-        .with_float_alp(!args.no_alp)
-        .with_float_dict(!args.no_float_dict)
-        .with_packed_dict_codes(args.packed_dict_codes)
-        .with_triangles_only(args.triangles_only)
-        .with_delta2(args.delta2)
-        .with_rans_vertices(args.rans_vertices);
+        .with_float_alp(!v2.no_alp)
+        .with_float_dict(!v2.no_float_dict)
+        .with_packed_dict_codes(v2.packed_dict_codes)
+        .with_triangles_only(v2.triangles_only)
+        .with_delta2(v2.delta2)
+        .with_rans_vertices(v2.rans_vertices);
     let reencoder = Reencoder {
         encoder,
-        #[cfg(feature = "unstable-v2")]
         fields: Arc::new(match &args.fields {
             Some(path) => FieldConfig::load(path)?,
             None => FieldConfig::default(),
         }),
         verify: args.verify,
     };
-    #[cfg(feature = "unstable-v2")]
     if !reencoder.fields.is_empty() && args.mlt_version != MltVersion::V2 {
         bail!(
             "--fields parses fields into m-values and nested columns, which need --mlt-version 2"
@@ -423,49 +390,40 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let input_container = args.input_container();
     let output_container = args.output_container();
     let geojson_input = is_geojson(&args.input);
-    #[cfg(not(feature = "unstable-v2"))]
+    let geojson_only = [
+        ("--min-zoom", args.min_zoom.is_some()),
+        ("--max-zoom", args.max_zoom.is_some()),
+        ("--layer", args.layer.is_some()),
+        ("--z-step", args.z_step.is_some()),
+    ];
     if geojson_input {
-        bail!(
-            "tiling a GeoJSON input writes MLT version 2, which requires building with `--features unstable-v2`"
-        );
-    }
-    #[cfg(feature = "unstable-v2")]
-    {
-        let geojson_only = [
-            ("--min-zoom", args.min_zoom.is_some()),
-            ("--max-zoom", args.max_zoom.is_some()),
-            ("--layer", args.layer.is_some()),
-            ("--z-step", args.z_step.is_some()),
-        ];
-        if geojson_input {
-            if args.max_zoom.is_none() {
-                bail!("tiling a GeoJSON input requires --max-zoom");
-            }
-            if args.to == TileFormat::Mvt {
-                bail!("--to mvt is not supported for a GeoJSON input; it is tiled into MLT");
-            }
-            if args.mlt_version != MltVersion::V2 {
-                bail!("tiling a GeoJSON input writes MLT version 2, so it needs --mlt-version 2");
-            }
-            if output_container != ContainerFormat::Files {
-                bail!(
-                    "a GeoJSON input is tiled into a directory of z/x/y.mlt tiles; archive output is not supported yet, got: {}",
-                    args.output.display()
-                );
-            }
-            if args.output.exists() {
-                bail!(
-                    "Output {} already exists; refusing to append. \
-                     Delete it first or choose a different path.",
-                    args.output.display()
-                );
-            }
-        } else if let Some((flag, _)) = geojson_only.iter().find(|(_, given)| *given) {
+        if args.max_zoom.is_none() {
+            bail!("tiling a GeoJSON input requires --max-zoom");
+        }
+        if args.to == TileFormat::Mvt {
+            bail!("--to mvt is not supported for a GeoJSON input; it is tiled into MLT");
+        }
+        if args.mlt_version != MltVersion::V2 {
+            bail!("tiling a GeoJSON input writes MLT version 2, so it needs --mlt-version 2");
+        }
+        if output_container != ContainerFormat::Files {
             bail!(
-                "{flag} tiles a GeoJSON input, but the input is not a .geojson file: {}",
-                args.input.display()
+                "a GeoJSON input is tiled into a directory of z/x/y.mlt tiles; archive output is not supported yet, got: {}",
+                args.output.display()
             );
         }
+        if args.output.exists() {
+            bail!(
+                "Output {} already exists; refusing to append. \
+                 Delete it first or choose a different path.",
+                args.output.display()
+            );
+        }
+    } else if let Some((flag, _)) = geojson_only.iter().find(|(_, given)| *given) {
+        bail!(
+            "{flag} tiles a GeoJSON input, but the input is not a .geojson file: {}",
+            args.input.display()
+        );
     }
     let filter = BboxFilter::new(&args.bbox)?;
     let has_archive_input =
@@ -524,29 +482,16 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             }
         }
     } else if geojson_input {
-        tile_geojson(args, &reencoder)
+        from_geojson::convert(args, &reencoder)
     } else {
         from_files::convert(&args.input, &args.output, &reencoder, args.to)
     };
-    #[cfg(feature = "unstable-v2")]
     if converted.is_ok() {
         for name in reencoder.fields.unused() {
             eprintln!("warning: --fields names {name}, which no converted tile holds");
         }
     }
     converted
-}
-
-/// Tiles a `GeoJSON` input into a directory of `z/x/y.mlt` tiles.
-#[cfg(feature = "unstable-v2")]
-fn tile_geojson(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()> {
-    from_geojson::convert(args, reencoder)
-}
-
-/// Without `unstable-v2`, [`convert`] rejects a `GeoJSON` input before reaching here.
-#[cfg(not(feature = "unstable-v2"))]
-fn tile_geojson(_args: &ConvertArgs, _reencoder: &Reencoder) -> AnyResult<()> {
-    unreachable!("a GeoJSON input is rejected above without `unstable-v2`")
 }
 
 /// Converts an `.mbtiles` input, first extracting the requested boxes into a temporary
@@ -749,13 +694,11 @@ mod tests {
         })
     }
 
-    #[cfg(feature = "unstable-v2")]
     const OMT_TILE: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../test/fixtures/omt/0_0_0.mvt"
     );
 
-    #[cfg(feature = "unstable-v2")]
     fn round_trip(mvt: Vec<u8>, version: WireVersion, to: TileFormat) -> Vec<u8> {
         let reencoder = Reencoder {
             encoder: EncoderConfig::default().with_wire_version(version),
@@ -766,7 +709,6 @@ mod tests {
     }
 
     /// Feature order is a per-version encoder choice, so only the layers themselves compare.
-    #[cfg(feature = "unstable-v2")]
     fn layer_shape(mvt: Vec<u8>) -> Vec<(String, usize)> {
         mvt_to_tile_layers(mvt)
             .unwrap()
@@ -775,7 +717,6 @@ mod tests {
             .collect()
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn converting_a_v2_tile_back_to_mvt_keeps_every_layer() {
         let mvt = fs::read(OMT_TILE).unwrap();
@@ -783,7 +724,6 @@ mod tests {
         assert_eq!(layer_shape(back), layer_shape(mvt));
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn re_encoding_a_v2_tile_keeps_every_layer() {
         let mvt = fs::read(OMT_TILE).unwrap();
@@ -862,7 +802,12 @@ mod tests {
         assert!(TileFormat::from_path(Path::new("tile")) == TileFormat::Mlt);
     }
 
-    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn convert_writes_mlt_v1_unless_told_otherwise() {
+        assert!(parse_args(&["src", "dst"]).mlt_version == MltVersion::V1);
+        assert!(parse_args(&["--mlt-version", "2", "src", "dst"]).mlt_version == MltVersion::V2);
+    }
+
     #[test]
     fn mlt_version_maps_to_the_wire_version() {
         assert_eq!(WireVersion::from(MltVersion::V1), WireVersion::V01);
@@ -921,10 +866,11 @@ mod tests {
         insta::assert_snapshot!(err.to_string(), @"--verify checks MLT encoding, so it needs --to mlt");
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn verifying_triangles_only_is_rejected() {
         let err = convert(&parse_args(&[
+            "--mlt-version",
+            "2",
             "--verify",
             "--tessellate",
             "--triangles-only",
@@ -935,7 +881,27 @@ mod tests {
         insta::assert_snapshot!(err.to_string(), @"--verify compares polygon outlines, which --triangles-only drops");
     }
 
-    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn a_v2_only_encoder_option_without_v2_is_rejected() {
+        for flags in [
+            &["--no-alp"][..],
+            &["--no-float-dict"],
+            &["--packed-dict-codes"],
+            &["--tessellate", "--triangles-only"],
+            &["--delta2"],
+            &["--rans-vertices"],
+        ] {
+            let mut argv = flags.to_vec();
+            argv.extend(["src", "dst"]);
+            let err = convert(&parse_args(&argv)).unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                "the MLT version 2 options in --help only apply to MLT version 2, so they need --mlt-version 2",
+                "{flags:?}"
+            );
+        }
+    }
+
     #[test]
     fn a_fields_file_for_a_conversion_to_mvt_is_rejected() {
         let err = convert(&parse_args(&[
@@ -948,6 +914,12 @@ mod tests {
         ]))
         .unwrap_err();
         insta::assert_snapshot!(err.to_string(), @"--fields parses fields into MLT columns, so it needs --to mlt");
+    }
+
+    #[test]
+    fn tiling_a_geojson_input_without_v2_is_rejected() {
+        let err = convert(&parse_args(&["--max-zoom", "0", "in.geojson", "out"])).unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"tiling a GeoJSON input writes MLT version 2, so it needs --mlt-version 2");
     }
 
     #[test]
@@ -1047,27 +1019,28 @@ mod tests {
         verify_omt_conversion(&[]);
     }
 
-    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn an_omt_archive_decodes_back_to_its_input_through_v2() {
+        verify_omt_conversion(&["--mlt-version", "2"]);
+    }
+
     #[test]
     fn an_omt_archive_decodes_back_to_its_input_through_v2_delta2() {
         verify_omt_conversion(&["--mlt-version", "2", "--delta2"]);
     }
 
-    #[cfg(feature = "unstable-v2")]
     fn field_config(toml: &str) -> TempPath {
         let config = TempPath::new(".toml");
         fs::write(&config.0, toml).unwrap();
         config
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn an_omt_archive_decodes_back_to_its_input_through_a_fields_file() {
         let config = field_config("[layers.water]\nclass = { split = \"-\", kind = \"str\" }\n");
-        verify_omt_conversion(&["--fields", path_arg(&config.0)]);
+        verify_omt_conversion(&["--mlt-version", "2", "--fields", path_arg(&config.0)]);
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn an_mbtiles_tile_that_fails_its_fields_file_fails_the_conversion() {
         let input =
@@ -1076,6 +1049,8 @@ mod tests {
         let output = TempPath::new(".mbtiles");
 
         let err = convert(&parse_args(&[
+            "--mlt-version",
+            "2",
             "--fields",
             path_arg(&config.0),
             path_arg(&input),
@@ -1094,7 +1069,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn a_fields_file_without_v2_is_rejected() {
         let config = field_config("[layers.water]\nclass = { split = \",\", kind = \"str\" }\n");

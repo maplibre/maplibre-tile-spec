@@ -19,7 +19,6 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 [features]
-unstable-v2 = ["mlt-core/unstable-v2", "dep:geojson", "dep:toml"]
 hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
 hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
 hotpath-mcp = ["hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
@@ -33,7 +32,7 @@ crossbeam-channel.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
 futures.workspace = true
-geojson = { workspace = true, optional = true }
+geojson.workspace = true
 glob.workspace = true
 globset.workspace = true
 hotpath.workspace = true
@@ -41,7 +40,7 @@ indicatif.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
 mimalloc.workspace = true
-mlt-core.workspace = true
+mlt-core = { workspace = true, features = ["unstable-v2"] }
 moka.workspace = true
 pmtiles.workspace = true
 ratatui.workspace = true
@@ -55,7 +54,7 @@ tabled.workspace = true
 thousands.workspace = true
 tilejson.workspace = true
 tokio.workspace = true
-toml = { workspace = true, optional = true }
+toml.workspace = true
 usize_cast.workspace = true
 walkdir.workspace = true
 xxhash-rust.workspace = true

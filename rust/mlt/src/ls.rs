@@ -17,11 +17,9 @@ use mlt_core::wire::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::wire::{
     Analyze as _, BoolLogical, ColumnDecl, ColumnStorage, DictLayout, DictionaryType, FastPForKind,
     FloatLogical, IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
-    StreamMeta, StreamType, StringLayout, VertexLogical,
+    StreamMeta, StreamType, StringLayout, VertexLogical, XyzLogical,
 };
-use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser, PropKind};
-#[cfg(feature = "unstable-v2")]
-use mlt_core::{ZStep, wire::XyzLogical};
+use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser, PropKind, ZStep};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use size_format::SizeFormatterSI;
@@ -172,13 +170,7 @@ fn stream_token(stream: StreamType) -> &'static str {
             LengthType::Triangles => "length[triangles]",
             LengthType::Symbol => "length[symbol]",
             LengthType::Dictionary => "length[dictionary]",
-            #[cfg(feature = "unstable-v2")]
             LengthType::Nested => "length[nested]",
-            // `mlt-core` resolves its features separately, so it may hand this
-            // build a nested length stream the match above cannot name.
-            #[cfg(not(feature = "unstable-v2"))]
-            #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
-            _ => "length[nested]",
         },
     }
 }
@@ -186,34 +178,14 @@ fn stream_token(stream: StreamType) -> &'static str {
 /// `None` for a stream that names no physical encoding, which JSON spells as `null`
 /// rather than as an empty string that would read as a value of its own.
 fn physical_token(physical: PhysicalEncoding) -> Option<&'static str> {
-    // `mlt-core` may carry v2-only encodings this build has no name for,
-    // since its features are resolved separately from this crate's.
-    #[cfg_attr(
-        not(feature = "unstable-v2"),
-        expect(
-            clippy::wildcard_enum_match_arm,
-            reason = "v2 encodings exist only when mlt-core has them"
-        )
-    )]
     let token = match physical {
         PhysicalEncoding::None => return None,
         PhysicalEncoding::FastPFor(kind) => match kind {
             FastPForKind::Block256Be => "fastpfor[256be]",
-            #[cfg(feature = "unstable-v2")]
             FastPForKind::Block128Le => "fastpfor[128le]",
-            #[cfg(not(feature = "unstable-v2"))]
-            #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
-            _ => "fastpfor[128le]",
         },
         PhysicalEncoding::VarInt => "varint",
-        #[cfg(feature = "unstable-v2")]
         PhysicalEncoding::BitPacked => "bit-packed",
-        #[cfg(not(feature = "unstable-v2"))]
-        #[allow(
-            unreachable_patterns,
-            reason = "reachable only when mlt-core has v2, but this crate doesn't"
-        )]
-        _ => "unknown",
     };
     Some(token)
 }
@@ -235,7 +207,6 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
     })
 }
 
-#[cfg(feature = "unstable-v2")]
 fn z_step_token(step: ZStep) -> &'static str {
     match step.exponent() {
         -3 => "1mm",
@@ -316,15 +287,10 @@ fn string_layout_token(layout: StringLayout) -> &'static str {
 fn dict_layout_token(layout: DictLayout) -> &'static str {
     match layout {
         DictLayout::Plain => "plain",
-        #[cfg(feature = "unstable-v2")]
         DictLayout::FrontCoded => "front-coded",
-        #[cfg(not(feature = "unstable-v2"))]
-        #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
-        _ => "front-coded",
     }
 }
 
-#[cfg(feature = "unstable-v2")]
 fn geom_layout_token(layout: mlt_core::wire::GeoLayout) -> &'static str {
     use mlt_core::wire::GeoLayout as G;
     match layout {
@@ -453,7 +419,6 @@ impl Facets {
         }
     }
 
-    #[cfg(feature = "unstable-v2")]
     fn add_z(&mut self, logical: LogicalEncoding) {
         if let LogicalEncoding::Vertex(VertexLogical::Xyz(step, _)) = logical {
             self.z_step.insert(z_step_token(step));
@@ -847,7 +812,6 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
                 l.for_each_column_decl(&mut |decl| facets.add_decl(decl));
                 facets.extent.insert(l.extent().get().to_string());
             }
-            #[cfg(feature = "unstable-v2")]
             Layer::Tag02(l) => {
                 l.for_each_stream(&mut |stream_meta| {
                     stream_count += 1;
@@ -863,7 +827,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
                     .insert(geom_layout_token(l.layout().geometry));
             }
             // Unknown, and any tag a later version adds
-            _ => {}
+            Layer::Unknown(_) | _ => {}
         }
     }
 
@@ -878,9 +842,8 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
     for layer in &layers {
         let layer01 = match layer {
             ParsedLayer::Tag01(l) => l,
-            #[cfg(feature = "unstable-v2")]
             ParsedLayer::Tag02(l) => l.layer(),
-            _ => continue,
+            ParsedLayer::Unknown(_) | _ => continue,
         };
         data_size += layer01.collect_statistic(DecodedDataSize);
         meta_size += layer01.collect_statistic(DecodedMetaSize);
@@ -892,7 +855,6 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
             content.insert(property.kind().into());
         }
         // an m-value column's type counts the same as a property column's
-        #[cfg(feature = "unstable-v2")]
         if let ParsedLayer::Tag02(layer02) = layer {
             for column in layer02.m_values() {
                 content.insert("m-values");
@@ -997,15 +959,6 @@ pub enum StatLogicalCodec {
 impl From<LogicalEncoding> for StatLogicalCodec {
     fn from(ld: LogicalEncoding) -> Self {
         use LogicalEncoding as LE;
-        // `mlt-core` may carry v2-only encodings this build has no name for,
-        // since its features are resolved separately from this crate's.
-        #[cfg_attr(
-            not(feature = "unstable-v2"),
-            allow(
-                clippy::wildcard_enum_match_arm,
-                reason = "v2 encodings exist only when mlt-core has them"
-            )
-        )]
         match ld {
             LE::Int(IntLogical::None)
             | LE::Bool(BoolLogical::None)
@@ -1023,18 +976,11 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Vertex(VertexLogical::Rans) => Self::Rans,
             // z is the extension bit, not a codec: report the codec the triples use,
             // and leave the step to the `zStep` facet.
-            #[cfg(feature = "unstable-v2")]
-            LE::Vertex(VertexLogical::Xyz(_, XyzLogical::None)) => Self::None,
-            #[cfg(feature = "unstable-v2")]
-            LE::Vertex(VertexLogical::Xyz(_, XyzLogical::Delta)) => Self::Delta,
-            #[cfg(feature = "unstable-v2")]
-            LE::Vertex(VertexLogical::Xyz(_, XyzLogical::ComponentwiseDelta)) => {
-                Self::ComponentwiseDelta
-            }
-            // Without the feature a v2 layer is skipped before its streams are read.
-            #[cfg(not(feature = "unstable-v2"))]
-            #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
-            _ => Self::None,
+            LE::Vertex(VertexLogical::Xyz(_, xyz)) => match xyz {
+                XyzLogical::None => Self::None,
+                XyzLogical::Delta => Self::Delta,
+                XyzLogical::ComponentwiseDelta => Self::ComponentwiseDelta,
+            },
         }
     }
 }
@@ -1391,7 +1337,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable-v2")]
     #[test]
     fn an_xyz_vertex_stream_lists_its_logical_encoding() {
         let path =
