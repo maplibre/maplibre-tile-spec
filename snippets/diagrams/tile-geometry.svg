@@ -1,0 +1,16 @@
+<svg class="mlt-diagram" viewBox="0 0 710 256" role="img" aria-label="A tile's local grid: (0, 0) is the top-left corner and (4095, 4095) the bottom-right, x grows right and y grows down. A polygon, a line and a point sit on the grid, and the line continues past the right edge into the buffer" xmlns="http://www.w3.org/2000/svg">
+<text class="muted mid" x="355" y="25">x →</text>
+<text class="muted" x="254" y="130" text-anchor="end">y ↓</text>
+<rect class="implicit" x="265" y="40" width="180" height="180"/>
+<text class="small" x="254" y="40" text-anchor="end">(0, 0)</text>
+<text class="small" x="456" y="40">(4095, 0)</text>
+<text class="small" x="254" y="220" text-anchor="end">(0, 4095)</text>
+<text class="small" x="456" y="220">(4095, 4095)</text>
+<path class="f1" d="M290 70L355 62L375 110L335 140L295 120Z"/>
+<text class="small mid" x="332" y="100">polygon</text>
+<path class="line" d="M277 205L345 178L410 188L459 158"/>
+<text class="small mid" x="372" y="200">line</text>
+<circle class="dot" cx="410" cy="82" r="4"/>
+<text class="small mid" x="410" y="68">point</text>
+<text class="muted small mid" x="355" y="248">dashed: visible area defined by extent</text>
+</svg>

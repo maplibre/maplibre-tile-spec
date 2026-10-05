@@ -800,12 +800,12 @@
 
 
 <h1 id="maplibre-tile-specification">MapLibre Tile Specification<a class="headerlink" href="#maplibre-tile-specification" title="Link to this section">&para;</a></h1>
-<p>MLT (MapLibre Tile) is a vector tile format for map data. It stores the same content as an <a href="https://github.com/mapbox/vector-tile-spec">MVT</a> tile, layers of features with geometries and properties, in a column-oriented layout.
+<p>MLT (MapLibre Tile) is a vector tile format that extends <a href="https://github.com/mapbox/vector-tile-spec">MVT</a>, storing geometries and attributes as separate columns for improved compression and richer data support.
 MLT is natively supported by <a href="https://maplibre.org/maplibre-gl-js/">MapLibre GL JS</a> and <a href="https://maplibre.org/maplibre-native/">MapLibre Native</a>, and tiles can be served using the <a href="https://maplibre.org/martin/">Martin tile server</a>.</p>
 <h2 id="why-mlt">Why MLT<a class="headerlink" href="#why-mlt" title="Link to this section">&para;</a></h2>
-<p>MLT is mainly inspired by MVT, but has been redesigned from the ground up.
-It stores each column on its own, so each gets the lightweight encoding that fits it.
-That makes tiles smaller, see <a href="#size">Size</a>, fast to decode with SIMD, and cheap to load into GPU buffers.</p>
+<p>MLT is redesigned from the ground up for efficiency.
+Each geometry and attribute is stored as a separate column, with compression optimized for its data type.
+This makes tiles smaller, see <a href="#size">Size</a>, fast to decode with SIMD, and efficient to load into GPU buffers.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="Three columns stored with one encoding each: ids as delta and run-length, geometry as deltas, class as run-length" xmlns="http://www.w3.org/2000/svg">
 <text class="row" x="0" y="54">values</text>
 <text class="row" x="0" y="124">stored</text>
@@ -854,7 +854,7 @@ That makes tiles smaller, see <a href="#size">Size</a>, fast to decode with SIMD
 </svg></p>
 <p>MVT limits a feature to 2D vertices and single-value properties.
 Elevation and per-vertex values like lane count are lost, and lists or maps get flattened into columns like <code>name:en</code> and <code>name:de</code>.
-<a href="specification/v2/">MLT v2</a> removes these limits:</p>
+<a href="specification/v2/">MLT v2</a> removes these limits; see <a href="specification/v2/#differences-from-v1">how v2 differs from v1</a>:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="One v2 feature: a line whose vertices carry an elevation and a lane count, a ref property holding a list and a name property holding a map" xmlns="http://www.w3.org/2000/svg">
 <text class="bold mid" x="170" y="14">geometry</text>
 <path class="line" d="M40 120L170 70L300 105"/>
@@ -875,15 +875,18 @@ Elevation and per-vertex values like lane count are lost, and lists or maps get 
 <rect class="f0" x="436" y="90" width="248" height="28" rx="3"/>
 <text class="cell" x="560" y="104">{en: "Bridge", de: "Brücke"}</text>
 </svg></p>
+<p>Each layer in a tile carries its own <a href="overview/#frames">format version</a>, so new formats can be added without breaking existing readers.
+One tile can mix them, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.</p>
 <div class="admonition tip">
 <p class="admonition-title">MLT 0x03</p>
-<p>MLT 0x03, a 3D extension that expands these capabilities, is in the requirements engineering stage.
+<p>A 3D extension to MLT will expand these capabilities, and is in the requirements engineering stage.
 Join the MapLibre <a href="https://maplibre.org/community/">Slack</a> to learn more and share your ideas.</p>
 </div>
 <h2 id="decoding-speed">Decoding speed<a class="headerlink" href="#decoding-speed" title="Link to this section">&para;</a></h2>
 <p>Time to decode every property and geometry of the same sampled tiles, as a share of the time for gzipped MVT.
 Tiles are sampled at up to 5,000 per zoom level timed as the best of 15 runs on one core of an AMD Ryzen 9 3900.
-MVT is read with <a href="https://crates.io/crates/fast-mvt">fast-mvt</a> (the fastest known MVT library) and MLT with <code>decode_all</code> (so no "unfair" gains from being lazy).</p>
+MVT is read with <a href="https://crates.io/crates/fast-mvt">fast-mvt</a>, the fastest known MVT library, and MLT with <code>decode_all</code>,
+so no "unfair" gains from lazy per-attribute decoding. Performance depends on the specifics of the tile source.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">OpenMapTiles</label><label for="__tabbed_1_2">Protomaps</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">

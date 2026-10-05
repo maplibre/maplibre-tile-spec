@@ -1102,12 +1102,9 @@ Do not store v2 tiles in a cache that cannot be invalidated, and do not ship a v
 This page describes that implementation.
 Where the two disagree, the implementation is authoritative.</p>
 </div>
-<p>v2 uses the same data model as <a href="../v1/">v1</a>: tiles, layers, features, columns and streams as described in <a href="../../overview/">Data Model</a>.
-Only the byte layout differs.
-A v2 layer decodes into the same in-memory representation as a v1 layer.</p>
 <h2 id="differences-from-v1">Differences from v1<a class="headerlink" href="#differences-from-v1" title="Link to this section">&para;</a></h2>
-<p>v2 keeps v1's <a href="../../overview/">data model</a> and changes the byte layout.
-It adds features that MVT and v1 cannot express and makes tiles smaller.</p>
+<p>v2 extends v1's <a href="../../overview/">data model</a> with Z and M values and nested properties, and adds a few minor restrictions.
+It also changes the byte layout to make tiles smaller.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="One v2 feature: a line whose vertices carry an elevation and a lane count, a ref property holding a list and a name property holding a map" xmlns="http://www.w3.org/2000/svg">
 <text class="bold mid" x="170" y="14">geometry</text>
 <path class="line" d="M40 120L170 70L300 105"/>
@@ -1130,7 +1127,7 @@ It adds features that MVT and v1 cannot express and makes tiles smaller.</p>
 </svg></p>
 <ul>
 <li><strong>Z-values.</strong> Every vertex can carry an elevation. See <a href="#z-coordinates">Z Coordinates</a>.</li>
-<li><strong>M-values.</strong> Every vertex can carry a measurement, such as a distance along a road or a timestamp per GPS fix. See <a href="#m-values">M-Values</a>.</li>
+<li><strong>M-values.</strong> Every vertex can carry any number of values, such as road lane count and colors, or a timestamp per GPS fix. See <a href="#m-values">M-Values</a>.</li>
 <li><strong>Nested properties.</strong> Maps and lists stay maps and lists instead of being flattened into columns like <code>name:en</code> and <code>name:de</code>. See <a href="#nested-properties">Nested Properties</a>.</li>
 <li><strong>Smaller metadata.</strong> A stream needs one byte instead of four or more, since its role, value count and byte length are implied wherever they can be derived.</li>
 </ul>

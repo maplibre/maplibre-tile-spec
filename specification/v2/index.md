@@ -10,14 +10,12 @@
 >
 > v2 is implemented in the Rust `mlt-core` crate behind the `unstable-v2` cargo feature. This page describes that implementation. Where the two disagree, the implementation is authoritative.
 
-v2 uses the same data model as [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>): tiles, layers, features, columns and streams as described in [Data Model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>). Only the byte layout differs. A v2 layer decodes into the same in-memory representation as a v1 layer.
-
 ## Differences from v1
 
-v2 keeps v1's [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) and changes the byte layout. It adds features that MVT and v1 cannot express and makes tiles smaller.
+v2 extends v1's [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) with Z and M values and nested properties, and adds a few minor restrictions. It also changes the byte layout to make tiles smaller.
 
 - **Z-values.** Every vertex can carry an elevation. See [Z Coordinates](<#z-coordinates>).
-- **M-values.** Every vertex can carry a measurement, such as a distance along a road or a timestamp per GPS fix. See [M-Values](<#m-values>).
+- **M-values.** Every vertex can carry any number of values, such as road lane count and colors, or a timestamp per GPS fix. See [M-Values](<#m-values>).
 - **Nested properties.** Maps and lists stay maps and lists instead of being flattened into columns like `name:en` and `name:de`. See [Nested Properties](<#nested-properties>).
 - **Smaller metadata.** A stream needs one byte instead of four or more, since its role, value count and byte length are implied wherever they can be derived.
 
