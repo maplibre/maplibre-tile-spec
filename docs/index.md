@@ -9,9 +9,9 @@ MLT is natively supported by [MapLibre GL JS](https://maplibre.org/maplibre-gl-j
 
 ## Why MLT
 
-MLT is redesigned from the ground up for efficiency.
+MLT was redesigned from the ground up for efficiency.
 Each geometry and attribute is stored as a separate column, with compression optimized for its data type.
-This makes tiles smaller, fast to decode with SIMD, and efficient to load into GPU buffers.
+This makes tiles smaller, faster to decode with SIMD, and cheaper to load into GPU buffers.
 On whole-planet archives, **uncompressed** MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster.
 With gzip, v2 is 10-18% smaller than gzipped MVT.
 See [benchmarks](benchmarks.md) for details.
@@ -19,16 +19,16 @@ See [benchmarks](benchmarks.md) for details.
 --8<-- "diagrams/why-mlt.svg"
 
 MVT limits a feature to 2D vertices and single-value properties.
-Elevation and per-vertex values like lane count are lost, and lists or maps get flattened into columns like `name:en` and `name:de`.
+Elevation and per-vertex values like lane count are lost, and lists or maps are flattened into columns like `name:en` and `name:de`.
 [MLT v2](specification/v2.md) removes these limits; see [how v2 differs from v1](specification/v2.md#differences-from-v1):
 
 --8<-- "diagrams/v2-feature.svg"
 
 Each layer in a tile carries its own [format version](overview.md#frames), so new formats can be added without breaking existing readers.
-One tile can mix them, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.
+One tile can mix formats, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.
 
 !!! tip "MLT 0x03"
-    A [3D extension to MLT](https://github.com/maplibre/maplibre-tile-spec/discussions/1182) will expand these capabilities, and is in the requirements engineering stage.
+    A [3D extension to MLT](https://github.com/maplibre/maplibre-tile-spec/discussions/1182) will expand these capabilities and is in the requirements engineering stage.
     Join the MapLibre [Slack](https://maplibre.org/community/) to learn more and share your ideas.
 
 ## Documentation
