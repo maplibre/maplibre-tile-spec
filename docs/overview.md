@@ -4,40 +4,63 @@ description: The data model of tiles, layers, features, columns and streams
 
 <h1>Overview</h1>
 
-This page describes the MLT data model.
-The byte layout is in the [v1 specification](specification/v1.md) and the [v2 specification](specification/v2.md).
+This page describes the MLT data model used in [MLT v1](specification/v1.md) and [MLT v2](specification/v2.md) formats.
 
 # Tiles
 
 MLT is a tiled format.
-A dataset is cut into a pyramid of square tiles, one per `z/x/y` address.
-A client fetches the tiles covering the current viewport at the current zoom.
+A dataset is cut into a pyramid of square tiles, referenced as `z/x/y`.
+A map loads only the tiles currently on screen.
 Each tile is self-contained: nothing outside it is needed to decode it.
-
 This is the same tiling model MVT uses.
 Tiles are commonly stored in [PMTiles](https://github.com/protomaps/PMTiles) or MBTiles archives and served over HTTP, for example by the [Martin tile server](https://maplibre.org/martin/).
 
-# Extents
+--8<-- "diagrams/tile-pyramid.svg"
 
-Coordinates inside a tile are not longitude and latitude.
-Each tile declares an `extent`, and geometry coordinates are signed integers on the `0..=extent` grid, relative to the tile's own corner.
-The client maps the grid onto the screen using the tile's `z/x/y` address.
+
+# Frames
+
+An MLT tile is a sequence of frames, with no common header.
+Each frame starts with its byte size and a format version tag, followed by the body in that format.
+Once a format is finalized, its byte layout and capabilities do not change.
+New capabilities go into a new format with a new tag.
+
+A decoder that supports a tag MUST support every feature of that format.
+An encoder MUST produce valid data for its tag, but MAY choose not to use some encodings.
+A decoder skips a frame whose tag it does not know, so new formats can be added without breaking existing readers.
+One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds of data in future formats, such as 3D or non-visual data.
+
+--8<-- "diagrams/tile-frames.svg"
+
+| Tag | Format | Contents | Status |
+|---|---|---|---|
+| `0x01` | [MLT v1](specification/v1.md) | 2D features with scalar properties, compatible with MVT. | Stable. Implemented by every shipped encoder and decoder. |
+| `0x02` | [MLT v2](specification/v2.md) | v1 content in a smaller layout, plus per-vertex Z and M values and nested properties. | <span class="experimental"></span> Under development. The wire format may change without notice. |
+
+# Geometry and extent
+
+Geometry in a tile lives on a flat, local grid, not in longitude and latitude.
+Each layer declares an `extent`, and vertices are signed integers where `(0, 0)` is the tile's top-left corner and `(extent, extent)` its bottom-right.
+As in MVT, `x` grows to the right and `y` grows down.
+
+--8<-- "diagrams/tile-geometry.svg"
+
+A tile has no notion of where it is in the world.
+Only its `z/x/y` address, kept outside the tile, places it on the map.
+Tiles with identical content, such as open water or the inside of a large park, can therefore be stored once and reused at many addresses.
 
 Integer coordinates compress well, since neighboring vertices differ by small numbers.
-
 `4096` is the conventional extent and the encoder default.
 A larger extent gives more precision and costs more bytes.
-
 Coordinates MAY be negative or exceed `extent`.
 This lets geometry crossing a tile boundary keep its shape, so that lines and polygon edges meet across the seam instead of being clipped to it.
 
 # Layers and features
 
-A tile is a sequence of layers, called `FeatureTable`s in the specification.
-A layer is a thematic group of data such as `water`, `roads` or `place_labels`, and is the unit a [MapLibre Style](https://maplibre.org/maplibre-style-spec/) targets.
+In MLT v1 and v2, each frame is a layer, called a `FeatureTable` in the specification.
+A layer is a thematic group of data such as `water`, `roads` or `place_labels`,
+and is the unit a [MapLibre Style](https://maplibre.org/maplibre-style-spec/) targets.
 Layers are equivalent to layers in MVT.
-
-Each layer holds up to `2^31 - 1` features, so that a feature count fits a signed 32-bit integer.
 
 A feature has:
 
@@ -49,7 +72,7 @@ Features in one layer share a single set of property columns and normally share 
 Mixing geometry types in a layer is allowed, but one type per layer compresses better.
 
 !!! NOTE
-    The terms `column`, `field`, and `property` are used interchangeably in the specification.
+    The terms `column`, `field`, `attribute`, and `property` are used interchangeably in the specification.
 
 # Columns, not records
 
@@ -139,18 +162,8 @@ The differences come from MVT's per-feature tag/value model versus MLT's per-lay
   The MVT protobuf schema marks the layer `name` field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty.
   The written MVT specification does not explicitly say that the required name cannot be an empty string.
   MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.
-
-# Format versions
-
-Every layer in a tile is prefixed with a one-byte tag naming the format of its body.
-A decoder skips a layer whose tag it does not know.
-Versions can therefore be mixed in one tile, and a new version does not break old readers.
-
---8<-- "live-spec-note"
-
-| Tag | Version | Status |
-|---|---|---|
-| `0x01` | [MLT v1](specification/v1.md) | Stable. Implemented by every shipped encoder and decoder. |
-| `0x02` | [MLT v2](specification/v2.md) | <span class="experimental"></span> Under development. The wire format may change without notice. |
-
-v2 uses the v1 data model described above and changes only the byte layout.
+- **A layer holds at most `2^31 - 1` features.**
+  MVT sets no limit, but MLT stores the feature count as a signed 32-bit integer.
+- **MLT v2 restricts the extent.**
+  MVT allows any positive extent, but MLT v2 accepts only powers of two from `64` to `2097152`.
+  A layer with any other extent must be rescaled or stored as MLT v1.

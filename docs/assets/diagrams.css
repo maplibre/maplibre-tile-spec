@@ -50,6 +50,22 @@
   fill: none;
   stroke: var(--md-default-fg-color--lightest);
 }
+.mlt-diagram .sea {
+  fill: var(--mlt-f0);
+  fill-opacity: 0.15;
+}
+.mlt-diagram .land {
+  fill: var(--md-default-fg-color--lighter);
+  fill-rule: evenodd;
+  stroke: var(--md-default-fg-color--light);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+}
+.mlt-diagram .grid {
+  fill: none;
+  stroke: var(--md-default-fg-color--lighter);
+  stroke-width: 0.75;
+}
 .mlt-diagram .implicit {
   fill: none;
   stroke: var(--md-default-fg-color--light);

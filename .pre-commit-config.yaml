@@ -90,15 +90,15 @@ repos:
       - id: fix-unicode-dashes-single
         name: fold unicode dashes to single ASCII hyphen
         # texthooks' fix-unicode-dashes maps em-dash to "--"; we want single "-".
-        # exclude self so the bracket pattern below is not eaten by its own hook.
-        exclude: "^\\.pre-commit-config\\.yaml$"
+        # exclude self so the bracket pattern below is not eaten by its own hook, and SVGs whose labels use these glyphs.
+        exclude: "^\\.pre-commit-config\\.yaml$|\\.svg$"
         entry: sed -i 's/[‐‑‒–—―⁃−﹘﹣－]/-/g'
         language: system
         types: [text]
       - id: fix-unicode-arrows
         name: fold unicode arrows to ASCII
-        # exclude self so the arrows in this entry are not eaten by its own hook.
-        exclude: "^\\.pre-commit-config\\.yaml$"
+        # exclude self so the arrows in this entry are not eaten by its own hook, and SVGs whose labels use arrows.
+        exclude: "^\\.pre-commit-config\\.yaml$|\\.svg$"
         entry: sed -i -e 's/↔/<->/g' -e 's/⇔/<=>/g' -e 's/→/->/g' -e 's/←/<-/g' -e 's/⇒/=>/g' -e 's/⇐/<=/g' -e 's/↦/|->/g'
         language: system
         types: [text]
