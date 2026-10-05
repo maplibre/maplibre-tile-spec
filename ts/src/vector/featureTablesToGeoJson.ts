@@ -1,6 +1,5 @@
 import { GEOMETRY_TYPE } from "./geometry/geometryType";
-import { classifyRings } from "./geometry/classifyRings";
-import type { Geometry } from "./geometry/geometryVector";
+import type { CoordinatesArray, Geometry } from "./geometry/geometryVector";
 import type FeatureTable from "./featureTable";
 
 /**
@@ -35,11 +34,17 @@ export function featureTablesToFeatureCollection(featureTables: FeatureTable[]):
 }
 
 /**
- * Converts one decoded geometry to GeoJSON. Multi-polygons need their flat ring list grouped back
- * into polygons, which {@link classifyRings} does from the winding order.
+ * Converts one decoded geometry to GeoJSON. A multi-polygon is built from its rings as the tile
+ * groups them, not from the flat ring list, since MLT does not constrain ring winding.
  */
 export function getGeometry(geometry: Geometry): GeoJSON.Geometry {
-    const coords = geometry.coordinates.map((ring) => ring.map((p) => [p.x, p.y]));
+    if (geometry.type === GEOMETRY_TYPE.MULTIPOLYGON) {
+        if (!geometry.polygons) {
+            throw new Error("MultiPolygon geometry has no polygon grouping");
+        }
+        return { type: "MultiPolygon", coordinates: geometry.polygons.map(toPositions) };
+    }
+    const coords = toPositions(geometry.coordinates);
     switch (geometry.type) {
         case GEOMETRY_TYPE.POINT:
             return { type: "Point", coordinates: coords[0][0] };
@@ -51,8 +56,6 @@ export function getGeometry(geometry: Geometry): GeoJSON.Geometry {
             return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
         case GEOMETRY_TYPE.MULTILINESTRING:
             return { type: "MultiLineString", coordinates: coords };
-        case GEOMETRY_TYPE.MULTIPOLYGON:
-            return { type: "MultiPolygon", coordinates: classifyRings(coords) };
         default:
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }
@@ -72,4 +75,8 @@ function safeNumber<T>(val: bigint | T): unknown {
         return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, safeNumber(v)]));
     }
     return val;
+}
+
+function toPositions(rings: CoordinatesArray): number[][][] {
+    return rings.map((ring) => ring.map((p) => [p.x, p.y]));
 }

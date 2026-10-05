@@ -1,4 +1,4 @@
-import { convertGeometryVector } from "./geometryVectorConverter";
+import { decodeGeometryVector } from "./geometryVectorConverter";
 import { decodeZOrderCurve } from "./zOrderCurve";
 import type Point from "@mapbox/point-geometry";
 import type { GEOMETRY_TYPE } from "./geometryType";
@@ -8,9 +8,23 @@ import type { TopologyVector } from "../../vector/geometry/topologyVector";
 export type CoordinatesArray = Array<Array<Point>>;
 
 export type Geometry = {
+    /** The rings as a flat list, as in MVT: a multi-polygon's rings are not grouped by polygon. */
     coordinates: CoordinatesArray;
     type: GEOMETRY_TYPE;
+    /**
+     * For a multi-polygon only, its rings grouped by polygon as the tile encodes them, each
+     * polygon's exterior first. Unlike grouping by winding order, this holds for any ring winding.
+     */
+    polygons?: CoordinatesArray[];
 };
+
+/** The geometries of a vector, one entry per feature in each array. */
+export interface DecodedGeometries {
+    /** Each feature's rings as a flat list, as `getGeometries()` returns them. */
+    coordinates: CoordinatesArray[];
+    /** A multi-polygon's rings grouped by polygon, or `undefined` for any other geometry type. */
+    polygons: (CoordinatesArray[] | undefined)[];
+}
 
 export interface MortonSettings {
     numBits: number;
@@ -73,7 +87,12 @@ export abstract class GeometryVector {
     }
 
     getGeometries(): CoordinatesArray[] {
-        return convertGeometryVector(this);
+        return this.decodeGeometries().coordinates;
+    }
+
+    /** Like `getGeometries()`, and also keeps each multi-polygon's rings grouped by polygon. */
+    decodeGeometries(): DecodedGeometries {
+        return decodeGeometryVector(this);
     }
 
     get mortonSettings(): MortonSettings | undefined {

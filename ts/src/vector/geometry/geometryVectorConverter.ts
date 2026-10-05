@@ -1,11 +1,16 @@
-import type { GeometryVector, MortonSettings, CoordinatesArray } from "./geometryVector";
+import type { GeometryVector, MortonSettings, CoordinatesArray, DecodedGeometries } from "./geometryVector";
 import { decodeZOrderCurve } from "./zOrderCurve";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
 import Point from "@mapbox/point-geometry";
 
-export function convertGeometryVector(geometryVector: GeometryVector): CoordinatesArray[] {
+/**
+ * Converts every geometry of the vector, and also keeps each multi-polygon's rings grouped by
+ * polygon as the part offsets define them.
+ */
+export function decodeGeometryVector(geometryVector: GeometryVector): DecodedGeometries {
     const geometries: CoordinatesArray[] = new Array(geometryVector.numGeometries);
+    const polygonsByGeometry: (CoordinatesArray[] | undefined)[] = new Array(geometryVector.numGeometries);
     let partOffsetCounter = 1;
     let ringOffsetsCounter = 1;
     let geometryOffsetsCounter = 1;
@@ -252,6 +257,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                         }
                         polygons[j] = [shell].concat(rings);
                     }
+                    polygonsByGeometry[geometryCounter] = polygons;
                     geometries[geometryCounter++] = polygons.flat();
                 }
                 break;
@@ -260,7 +266,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
         }
     }
 
-    return geometries;
+    return { coordinates: geometries, polygons: polygonsByGeometry };
 }
 
 function decodeDictionaryEncodedVertices(

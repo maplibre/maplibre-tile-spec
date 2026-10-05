@@ -1,6 +1,6 @@
 import Point from "@mapbox/point-geometry";
 import { describe, it, expect } from "vitest";
-import { convertGeometryVector } from "./geometryVectorConverter";
+import { decodeGeometryVector } from "./geometryVectorConverter";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
 import { encodeZOrderCurve } from "../../encoding/zOrderCurveEncoder";
@@ -31,7 +31,7 @@ describe("POINT - sequential vertex buffer (no vertexOffsets)", () => {
         const x = 5;
         const y = 7;
         const gv = encodePointGeometryVector(x, y);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
 
         expect(result).toHaveLength(1);
         expect(result[0]).toEqual([[new Point(x, y)]]);
@@ -39,7 +39,7 @@ describe("POINT - sequential vertex buffer (no vertexOffsets)", () => {
 
     it("creates multiple points sequentially", () => {
         const gv = encodePointsGeometryVector([1, 2, 3, 4]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
 
         expect(result[0]).toEqual([[new Point(1, 2)]]);
         expect(result[1]).toEqual([[new Point(3, 4)]]);
@@ -52,7 +52,7 @@ describe("POINT - VEC_2 dictionary encoded", () => {
         const x = 42;
         const y = 55;
         const gv = encodePointGeometryVectorWithOffset(x, y);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
 
         expect(result[0]).toEqual([[new Point(x, y)]]);
     });
@@ -64,7 +64,7 @@ describe("POINT - Morton dictionary encoded", () => {
         const y = 7;
 
         const gv = encodePointGeometryVectorWithMortonEncoding(x, y);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
 
         expect(result[0]).toEqual([[new Point(x, y)]]);
     });
@@ -89,7 +89,7 @@ describe("POINT - Morton dictionary encoded", () => {
             settings,
         );
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toEqual([[new Point(x, y)]]);
     });
 });
@@ -101,7 +101,7 @@ describe("MULTIPOINT - sequential vertex buffer", () => {
             [3, 4],
             [5, 6],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
 
         expect(result[0]).toEqual([[new Point(1, 2)], [new Point(3, 4)], [new Point(5, 6)]]);
     });
@@ -123,7 +123,7 @@ describe("MULTIPOINT - VEC_2 dictionary encoded", () => {
             new Int32Array([10, 20, 99, 99, 30, 40]),
         );
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
 
         expect(result[0]).toEqual([[new Point(10, 20)], [new Point(30, 40)]]);
     });
@@ -147,7 +147,7 @@ describe("MULTIPOINT - Morton dictionary encoded", () => {
             settings,
         );
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
 
         expect(result).toEqual([
             [[new Point(3, 7)], [new Point(8, 2)]],
@@ -163,7 +163,7 @@ describe("LINESTRING - sequential vertex buffer, no polygon context", () => {
             [1, 1],
             [2, 2],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
 
         expect(result[0]).toEqual([[new Point(0, 0), new Point(1, 1), new Point(2, 2)]]);
     });
@@ -184,7 +184,7 @@ describe("LINESTRING - sequential vertex buffer, polygon context (uses ringOffse
             containsPolygonGeometry: () => true,
         } as any as GeometryVector;
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toEqual([[new Point(1, 2), new Point(3, 4)]]);
     });
 });
@@ -206,7 +206,7 @@ describe("LINESTRING - VEC_2 dictionary encoded", () => {
             containsPolygonGeometry: () => false,
         } as any as GeometryVector;
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toEqual([[new Point(5, 10), new Point(15, 20)]]);
     });
 });
@@ -219,7 +219,7 @@ describe("LINESTRING - Morton dictionary encoded", () => {
             [5, 6],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toEqual([[new Point(1, 2), new Point(3, 4), new Point(5, 6)]]);
     });
 });
@@ -235,7 +235,7 @@ describe("POLYGON - sequential vertex buffer, no holes", () => {
             ],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         const shell = result[0][0];
         expect(shell).toHaveLength(5); // 4 + closed
         expect(shell[0]).toEqual(shell[4]);
@@ -257,7 +257,7 @@ describe("POLYGON - sequential vertex buffer, with hole", () => {
             ],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(2);
         expect(result[0][0]).toHaveLength(4); // shell has 3 points + 1 (closing point)
         expect(result[0][1]).toHaveLength(4); // hole has 3 points + 1 (closing point)
@@ -274,7 +274,7 @@ describe("POLYGON - VEC_2 dictionary encoded, no holes", () => {
             ],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         const shell = result[0][0];
         expect(shell).toHaveLength(4); // closed
         expect(shell[0]).toEqual(shell[3]);
@@ -296,7 +296,7 @@ describe("POLYGON - VEC_2 dictionary encoded, with hole", () => {
             ],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(2);
         expect(result[0][0]).toHaveLength(4); // shell has 3 points + 1 (closing point)
         expect(result[0][1]).toHaveLength(4); // hole has 3 points + 1 (closing point)
@@ -312,7 +312,7 @@ describe("POLYGON - Morton dictionary encoded, no holes", () => {
                 [0, 5],
             ],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         const shell = result[0][0];
         expect(shell).toHaveLength(4);
         expect(shell[0]).toEqual(new Point(0, 0));
@@ -336,7 +336,7 @@ describe("POLYGON - Morton dictionary encoded, with hole", () => {
                 [1, 3],
             ],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(2);
         expect(result[0][0]).toHaveLength(4); // shell has 3 points + 1 (closing point)
         expect(result[0][1]).toHaveLength(4); // hole has 3 points + 1 (closing point)
@@ -360,7 +360,7 @@ describe("MULTILINESTRING - sequential vertex buffer, no polygon context", () =>
                 [6, 6],
             ],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(3);
         expect(result[0][0]).toEqual([new Point(0, 0), new Point(1, 1)]);
         expect(result[0][1]).toEqual([new Point(2, 2), new Point(3, 3), new Point(4, 4)]);
@@ -380,7 +380,7 @@ describe("MULTILINESTRING - VEC_2 dictionary encoded", () => {
                 [6, 7],
             ],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(2);
         expect(result[0][0]).toEqual([new Point(0, 1), new Point(2, 3)]);
         expect(result[0][1]).toEqual([new Point(4, 5), new Point(6, 7)]);
@@ -396,7 +396,7 @@ describe("MULTILINESTRING - Morton dictionary encoded", () => {
             ],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0][0]).toEqual([new Point(1, 2), new Point(3, 4)]);
     });
 });
@@ -427,7 +427,7 @@ describe("MULTIPOLYGON - sequential vertex buffer, no holes", () => {
             ],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(3);
         expect(result[0][0]).toHaveLength(4); // closed shell
         expect(result[0][1]).toHaveLength(4); // closed shell
@@ -471,13 +471,59 @@ describe("MULTIPOLYGON - sequential vertex buffer, with holes", () => {
             ],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(5);
         expect(result[0][0]).toHaveLength(4);
         expect(result[0][1]).toHaveLength(4);
         expect(result[0][2]).toHaveLength(4);
         expect(result[0][3]).toHaveLength(4);
         expect(result[0][4]).toHaveLength(4);
+    });
+});
+
+describe("MULTIPOLYGON - polygon grouping", () => {
+    it("groups each multi-polygon's rings by polygon from the part offsets", () => {
+        const gv = encodeMultiPolygonGeometryVector([
+            [
+                [
+                    [0, 0],
+                    [10, 0],
+                    [0, 10],
+                ],
+                [
+                    [1, 1],
+                    [3, 1],
+                    [1, 3],
+                ],
+            ],
+            [
+                [
+                    [5, 5],
+                    [25, 5],
+                    [5, 25],
+                ],
+            ],
+        ]);
+
+        const { coordinates, polygons } = decodeGeometryVector(gv);
+        expect(polygons[0]).toHaveLength(2);
+        expect(polygons[0][0]).toHaveLength(2);
+        expect(polygons[0][1]).toHaveLength(1);
+        expect(polygons[0][0][1][0]).toEqual(new Point(1, 1));
+        expect(polygons[0][1][0][0]).toEqual(new Point(5, 5));
+        expect(polygons[0].flat()).toEqual(coordinates[0]);
+    });
+
+    it("leaves polygons undefined for other geometry types", () => {
+        const gv = encodePolygonGeometryVector([
+            [
+                [0, 0],
+                [10, 0],
+                [0, 10],
+            ],
+        ]);
+
+        expect(decodeGeometryVector(gv).polygons[0]).toBeUndefined();
     });
 });
 
@@ -499,7 +545,7 @@ describe("MULTIPOLYGON - VEC_2 dictionary encoded, no holes", () => {
                 ],
             ],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(2);
         expect(result[0][0]).toHaveLength(4); // closed
     });
@@ -521,7 +567,7 @@ describe("MULTIPOLYGON - VEC_2 dictionary encoded, with holes", () => {
                 ],
             ],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(2);
     });
 
@@ -549,7 +595,7 @@ describe("MULTIPOLYGON - VEC_2 dictionary encoded, with holes", () => {
             ],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(3);
         expect(result[0][0]).toEqual([
             new Point(0, 0),
@@ -574,7 +620,7 @@ describe("MULTIPOLYGON - Morton dictionary encoded, no holes", () => {
                 ],
             ],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         const shell = result[0][0];
         expect(shell).toHaveLength(4); // closed
         expect(shell[0]).toEqual(new Point(0, 0));
@@ -598,7 +644,7 @@ describe("MULTIPOLYGON - Morton dictionary encoded, with holes", () => {
                 ],
             ],
         ]);
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(2);
     });
 
@@ -626,7 +672,7 @@ describe("MULTIPOLYGON - Morton dictionary encoded, with holes", () => {
             ],
         ]);
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toHaveLength(3);
         expect(result[0][0]).toEqual([
             new Point(0, 0),
@@ -689,7 +735,7 @@ describe("Vector with multiple geometries of different types", () => {
             ]),
         );
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result).toHaveLength(5);
         expect(result[0]).toEqual([[new Point(1, 2)]]);
         expect(result[1]).toEqual([[new Point(3, 4)], [new Point(5, 6)]]);
@@ -715,7 +761,7 @@ describe("Error handling", () => {
             containsPolygonGeometry: () => false,
         } as unknown as GeometryVector;
 
-        expect(() => convertGeometryVector(gv)).toThrow(
+        expect(() => decodeGeometryVector(gv).coordinates).toThrow(
             "The specified geometry type (999) is currently not supported.",
         );
     });
@@ -728,7 +774,7 @@ describe("Edge cases", () => {
             topologyVector: {},
             containsPolygonGeometry: () => false,
         } as unknown as GeometryVector;
-        expect(convertGeometryVector(gv)).toHaveLength(0);
+        expect(decodeGeometryVector(gv).coordinates).toHaveLength(0);
     });
 
     it("treats vertexOffsets with length 0 as absent (sequential buffer path)", () => {
@@ -745,7 +791,7 @@ describe("Edge cases", () => {
             new Int32Array([3, 9]),
         );
 
-        const result = convertGeometryVector(gv);
+        const result = decodeGeometryVector(gv).coordinates;
         expect(result[0]).toEqual([[new Point(3, 9)]]);
     });
 });
