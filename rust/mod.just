@@ -165,7 +165,10 @@ ci-build-release target artifact_name:
     set -euo pipefail
     rustup target add {{target}}
     rustup component add llvm-tools-preview
-    {{just}} rust::pgo-build {{target}}
+    case "{{target}}" in
+        *-apple-darwin) cargo build --release --target {{target}} --package mlt --bin mlt ;;
+        *) {{just}} rust::pgo-build {{target}} ;;
+    esac
     cd target/{{target}}/release
     if [ -f mlt.exe ]; then
         7z a ../../../../{{artifact_name}} mlt.exe
