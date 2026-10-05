@@ -1885,6 +1885,15 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fea08cd9a9b44bff59a678e2c140e25c90e0a5cf69032b546622ca4b29fdce6"
+dependencies = [
+ "hotpath-macros 0.27.0",
+]
+
+[[package]]
+name = "hotpath"
 version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92f8d56370b4cf47b04cf873315d2d0a226a3766ca74f5131521b7aa8bc3d41f"
@@ -1939,6 +1948,12 @@ name = "hotpath-macros"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "846bde0d9600d98434e1aac376977d7718bfe3d2f5312a041b7c59a6a466c51a"
+
+[[package]]
+name = "hotpath-macros"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc192b9ee12373854f13fd22ca359a2225e2c11d584999d61d8384ee589d06ef"
 
 [[package]]
 name = "hotpath-macros"
@@ -2649,6 +2664,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "martin-tile-utils"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03e40bcc0e29bfb0ecdce7d003ebb03669fd19a7a7a8c59e660d4112171d7ca2"
+dependencies = [
+ "brotli",
+ "bytes",
+ "flate2",
+ "hotpath 0.27.0",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.21",
+ "zstd",
+]
+
+[[package]]
 name = "matchit"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2677,7 +2709,7 @@ dependencies = [
  "futures",
  "hotpath 0.25.1",
  "itertools 0.15.0",
- "martin-tile-utils",
+ "martin-tile-utils 0.7.8",
  "md5",
  "moka",
  "num_cpus",
@@ -2814,7 +2846,7 @@ dependencies = [
  "hotpath 0.28.4",
  "indicatif",
  "insta",
- "martin-tile-utils",
+ "martin-tile-utils 0.8.1",
  "mbtiles",
  "mimalloc",
  "mlt-core",
