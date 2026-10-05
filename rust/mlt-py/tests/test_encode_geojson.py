@@ -178,7 +178,7 @@ def test_tessellate_polygon_returns_bytes():
     assert isinstance(blob, bytes)
 
 
-@pytest.mark.parametrize("sort", ["auto", "morton", "hilbert", "id", "none"])
+@pytest.mark.parametrize("sort", ["none", "auto", "all", "morton", "hilbert", "id"])
 def test_sort_modes_return_bytes(sort):
     blob = mlt.encode_geojson(_fc([_feature(POLYGON, id=1)]), "l", sort=sort)
     assert isinstance(blob, bytes)

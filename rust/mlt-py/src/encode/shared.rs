@@ -24,13 +24,14 @@ pub(crate) fn encoder_config(
 ) -> PyResult<EncoderConfig> {
     let (morton, hilbert, id) = match sort {
         "all" => (true, true, true),
-        "auto" | "morton" => (true, false, false),
+        "auto" => (false, true, true),
+        "morton" => (true, false, false),
         "hilbert" => (false, true, false),
         "id" => (false, false, true),
         "none" => (false, false, false),
         other => {
             return Err(val_err(format!(
-                "invalid 'sort' {other:?}; expected one of: auto, morton, hilbert, id, none"
+                "invalid 'sort' {other:?}; expected one of: none, auto, all, morton, hilbert, id"
             )));
         }
     };

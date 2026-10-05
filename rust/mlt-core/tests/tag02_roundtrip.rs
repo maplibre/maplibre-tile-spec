@@ -19,9 +19,6 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 fn cfg_v1() -> EncoderConfig {
     // sorting because sort trials could otherwise pick different winners per format.
     EncoderConfig::default()
-        .with_spatial_morton_sort(false)
-        .with_spatial_hilbert_sort(false)
-        .with_id_sort(false)
 }
 
 fn cfg_v2() -> EncoderConfig {
@@ -1817,8 +1814,11 @@ mod bit_packing {
     #[test]
     fn packed_dictionary_codes_round_trip_and_shrink_the_column() {
         let l = wide_dict_layer();
-        let plain = l.clone().encode(cfg_v2()).unwrap();
-        let packed = l.encode(cfg_v2().with_packed_dict_codes(true)).unwrap();
+        let plain = l
+            .clone()
+            .encode(cfg_v2().with_packed_dict_codes(false))
+            .unwrap();
+        let packed = l.encode(cfg_v2()).unwrap();
         assert!(
             packed.len() < plain.len(),
             "{} vs {}",
