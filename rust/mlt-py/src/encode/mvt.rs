@@ -15,15 +15,16 @@ use super::shared::encoder_config;
 ///
 /// Options:
 /// `tessellate` generates triangulation data for polygons and multi-polygons.
-/// `sort` chooses which feature ordering(s) the encoder trials.
-/// `all` tries every ordering; `auto` tries a subset with a good speed/size tradeoff.
-/// A named curve (`morton`/`hilbert`/`id`) tries just that one; `none` keeps input order.
+/// `sort` chooses which feature ordering(s) the encoder trials against the input order.
+/// `none` keeps the input order, which is the draw order and the label priority.
+/// `all` tries every ordering; `auto` trades size against encode time, and may get smarter between releases.
+/// A named curve (`morton`/`hilbert`/`id`) tries just that one.
 /// `shared_dict` allows grouping strings into shared dictionaries.
 /// `fsst` allows FSST string compression.
 /// `fastpfor` allows `FastPFOR` integer compression.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(signature = (data, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
+#[pyo3(signature = (data, *, tessellate=false, sort="none", shared_dict=true, fsst=true, fastpfor=true))]
 #[expect(clippy::fn_params_excessive_bools, reason = "python API ideom")]
 pub fn encode_mvt(
     py: Python<'_>,

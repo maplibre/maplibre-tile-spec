@@ -245,7 +245,7 @@ async fn convert_mbtiles_to_pmtiles(
         .stream_tiles(&mut conn)
         .filter_map(|r| async move {
             match r {
-                Ok((coord, Some(data))) => TileCoord::new(coord.z, coord.x, coord.y)
+                Ok((coord, Some(data))) => TileCoord::new(coord.z(), coord.x(), coord.y())
                     .ok()
                     .map(|c| (c, data)),
                 Ok((_, None)) => None,

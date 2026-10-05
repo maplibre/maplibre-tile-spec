@@ -56,7 +56,7 @@ so no "unfair" gains from lazy per-attribute decoding. Performance depends on th
     | `--sort all` | +1% | +1% |
     | `--no-alp` | - | 0% |
     | `--no-float-dict` | - | 0% |
-    | `--packed-dict-codes` | - | -1% |
+    | `--no-bitpacking` | - | +1% |
     | `--delta2` | - | 0% |
     | `--rans-vertices` | - | +16% |
     | `--tessellate` | +27% | +14% |
@@ -83,7 +83,7 @@ so no "unfair" gains from lazy per-attribute decoding. Performance depends on th
     | `--sort all` | +1% | +1% |
     | `--no-alp` | - | 0% |
     | `--no-float-dict` | - | 0% |
-    | `--packed-dict-codes` | - | 0% |
+    | `--no-bitpacking` | - | 0% |
     | `--delta2` | - | +1% |
     | `--rans-vertices` | - | +88% |
     | `--tessellate` | +145% | +68% |
@@ -123,7 +123,7 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | `--sort all` | -0.4% | -0.4% |
     | `--no-alp` | - | +0.0% |
     | `--no-float-dict` | - | +0.0% |
-    | `--packed-dict-codes` | - | -0.7% |
+    | `--no-bitpacking` | - | +0.7% |
     | `--delta2` | - | -0.5% |
     | `--rans-vertices` | - | -5.4% |
     | `--tessellate` | +21.9% | +24.9% |
@@ -158,7 +158,7 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
     | `--sort all` | -0.1% | -0.1% |
     | `--no-alp` | - | +0.1% |
     | `--no-float-dict` | - | +0.0% |
-    | `--packed-dict-codes` | - | -0.3% |
+    | `--no-bitpacking` | - | +0.3% |
     | `--delta2` | - | -0.6% |
     | `--rans-vertices` | - | -5.3% |
     | `--tessellate` | +32.4% | +35.8% |

@@ -26,8 +26,6 @@ struct Stream {
 fn cfg_rans() -> EncoderConfig {
     EncoderConfig::default()
         .with_wire_version(WireVersion::V02)
-        .with_spatial_hilbert_sort(false)
-        .with_id_sort(false)
         .with_float_alp(true)
         .with_float_dict(true)
         .with_rans_vertices(true)

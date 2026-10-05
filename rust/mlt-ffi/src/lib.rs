@@ -56,8 +56,7 @@ mod ffi {
     pub struct MltEncoderOptions(EncoderConfig);
 
     impl MltEncoderOptions {
-        /// Create encoder options with the default configuration (all
-        /// optimisations enabled except tessellation).
+        /// Create encoder options with the default configuration (no sorting and no tessellation).
         #[diplomat::attr(auto, constructor)]
         pub fn new() -> Box<MltEncoderOptions> {
             Box::new(MltEncoderOptions(EncoderConfig::default()))

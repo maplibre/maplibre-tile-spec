@@ -132,22 +132,21 @@ impl From<MltVersion> for WireVersion {
 
 #[derive(Clone, Default, ValueEnum)]
 enum SortMode {
-    /// Try no-sort and Morton sort, keep the smaller (default).
-    ///
-    /// Morton wins ~8% of layers and captures nearly all the spatial gain.
-    /// Hilbert and feature-ID sort each win <1% of layers, at double the encode work.
+    /// Keep the source order, which is the draw order and the label priority
     #[default]
+    None,
+    /// Trade size against encode time, and may get smarter between releases
+    ///
+    /// Currently tries Hilbert and feature-ID sort.
     Auto,
-    /// Try every sort strategy (no-sort, Morton, Hilbert, feature-ID) and keep the smallest.
+    /// Try every sort strategy (Morton, Hilbert, feature-ID) and keep the smallest.
     /// Slowest, for marginally smaller output.
     All,
-    /// Do not reorder features (original order only)
-    None,
-    /// Only try Z-order (Morton) curve sort
+    /// Try Z-order (Morton) curve sort
     Morton,
-    /// Only try Hilbert curve sort
+    /// Try Hilbert curve sort
     Hilbert,
-    /// Only try feature-ID ascending sort
+    /// Try feature-ID ascending sort
     Id,
 }
 
@@ -226,8 +225,8 @@ pub struct ConvertArgs {
     /// Add tessellation
     #[clap(short, long)]
     tessellate: bool,
-    /// Sort strategy to try when re-encoding (encoder keeps the smallest result)
-    #[clap(long, default_value = "auto")]
+    /// Feature orders to try when re-encoding, each against the source order, keeping the smallest
+    #[clap(long, default_value = "none")]
     sort: SortMode,
     /// Schema type for the output `.mbtiles` file; defaults to the input file's schema
     #[clap(long)]
@@ -306,9 +305,9 @@ struct V2EncoderArgs {
     /// Disable float dictionary encoding
     #[clap(long)]
     no_float_dict: bool,
-    /// Store dictionary codes bit-packed when that beats a varint each
+    /// Disable bit-packed dictionary codes, leaving a varint each
     #[clap(long)]
-    packed_dict_codes: bool,
+    no_bitpacking: bool,
     /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
     #[clap(long, requires = "tessellate")]
     triangles_only: bool,
@@ -355,9 +354,12 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             bail!("--fields parses fields into MLT columns, so it needs --to mlt");
         }
     }
-    let morton = matches!(args.sort, SortMode::All | SortMode::Auto | SortMode::Morton);
-    let hilbert = matches!(args.sort, SortMode::All | SortMode::Hilbert);
-    let id_sort = matches!(args.sort, SortMode::All | SortMode::Id);
+    let morton = matches!(args.sort, SortMode::All | SortMode::Morton);
+    let hilbert = matches!(
+        args.sort,
+        SortMode::All | SortMode::Auto | SortMode::Hilbert
+    );
+    let id_sort = matches!(args.sort, SortMode::All | SortMode::Auto | SortMode::Id);
     let encoder = EncoderConfig::default()
         .with_tessellation(args.tessellate)
         .with_spatial_morton_sort(morton)
@@ -369,7 +371,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_wire_version(args.mlt_version.into())
         .with_float_alp(!v2.no_alp)
         .with_float_dict(!v2.no_float_dict)
-        .with_packed_dict_codes(v2.packed_dict_codes)
+        .with_packed_dict_codes(!v2.no_bitpacking)
         .with_triangles_only(v2.triangles_only)
         .with_delta2(v2.delta2)
         .with_rans_vertices(v2.rans_vertices);
@@ -886,7 +888,7 @@ mod tests {
         for flags in [
             &["--no-alp"][..],
             &["--no-float-dict"],
-            &["--packed-dict-codes"],
+            &["--no-bitpacking"],
             &["--tessellate", "--triangles-only"],
             &["--delta2"],
             &["--rans-vertices"],

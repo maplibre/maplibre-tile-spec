@@ -22,11 +22,7 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 }
 
 fn cfg_v2() -> EncoderConfig {
-    EncoderConfig::default()
-        .with_spatial_morton_sort(false)
-        .with_spatial_hilbert_sort(false)
-        .with_id_sort(false)
-        .with_wire_version(WireVersion::V02)
+    EncoderConfig::default().with_wire_version(WireVersion::V02)
 }
 
 fn decode(bytes: &[u8]) -> TileLayer {

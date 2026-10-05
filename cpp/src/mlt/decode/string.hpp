@@ -136,7 +136,7 @@ public:
             decodeDictionary(dictionaryLengthStream, *data, dictionaryViews);
             // retain the decoded dictionary data instead of the original raw data
             dictionaryStream.swap(data);
-        } else if (!dictionaryLengthStream.empty() && !dictionaryStream->empty()) {
+        } else if (!dictionaryLengthStream.empty()) {
             decodeDictionary(dictionaryLengthStream, *dictionaryStream, dictionaryViews);
         } else {
             throw std::runtime_error("Expected streams missing in shared dictionary decoding");
