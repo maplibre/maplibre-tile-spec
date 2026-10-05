@@ -137,16 +137,18 @@ pub(crate) fn write(out: &mut Vec<u8>, bits: &[bool], coding: PresenceCoding) {
             }
         }
         PresenceCoding::Sparse => {
-            let mut plain = Vec::new();
-            write(&mut plain, bits, PresenceCoding::Bitmap);
-            let start = out.len();
-            out.resize(start + plain.len().div_ceil(8), 0);
-            for (i, &byte) in plain.iter().enumerate() {
+            let summary = out.len();
+            out.resize(summary + bits.len().div_ceil(8).div_ceil(8), 0);
+            for (i, chunk) in bits.chunks(8).enumerate() {
+                let byte = chunk
+                    .iter()
+                    .enumerate()
+                    .fold(0u8, |acc, (j, &on)| acc | u8::from(on) << j);
                 if byte != 0 {
-                    out[start + i / 8] |= 1 << (i % 8);
+                    out[summary + i / 8] |= 1 << (i % 8);
+                    out.push(byte);
                 }
             }
-            out.extend(plain.iter().filter(|&&b| b != 0));
         }
     }
 }
