@@ -74,7 +74,7 @@ function readFacets(
  * Every corpus the picker offers: the prefix its keys carry, and where the tiles are,
  * relative to `test/synthetic` which the `fixtures` symlink points at.
  * The synthetic sets are disjoint rather than re-encodings of one another; the rest are
- * real-world tiles the Java encoder wrote into `test/expected`.
+ * real-world tiles, which the Java encoder wrote into `test/expected` and `mlt convert` re-encoded in place.
  */
 export const FIXTURE_SOURCES: { directory: string; from: string }[] = [
   { directory: "0x01", from: "0x01" },
@@ -85,6 +85,11 @@ export const FIXTURE_SOURCES: { directory: string; from: string }[] = [
   { directory: "0x01-bing", from: "../expected/0x01/bing" },
   { directory: "0x01-amazon", from: "../expected/0x01/amazon" },
   { directory: "0x01-amazon_here", from: "../expected/0x01/amazon_here" },
+  { directory: "0x02-amazon", from: "../expected/0x02/amazon" },
+  { directory: "0x02-amazon_here", from: "../expected/0x02/amazon_here" },
+  { directory: "0x02-bing", from: "../expected/0x02/bing" },
+  { directory: "0x02-omt", from: "../expected/0x02/omt" },
+  { directory: "0x02-simple", from: "../expected/0x02/simple" },
   { directory: "0x01-osm", from: "../fixtures/osm" },
 ];
 
