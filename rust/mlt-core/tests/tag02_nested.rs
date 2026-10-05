@@ -869,25 +869,21 @@ fn a_root_holding_fewer_values_than_its_column_is_rejected() {
 }
 
 #[test]
-fn a_node_presence_stream_that_is_not_a_raw_bitmap_is_rejected() {
+fn a_node_present_on_one_block_of_rows_writes_its_presence_in_runs() {
     let kind = map_kind(&[("a", leaf(PropKind::I32)), ("b", leaf(PropKind::I32))]);
-    let values = vec![
-        entries(&[("a", i32_value(1)), ("b", i32_value(2))]),
-        entries(&[("a", i32_value(3))]),
-    ];
-    let layer = nested_layer(kind, &two_points(), &values);
-    let mut bytes = layer.encode(cfg_v2()).expect("encode");
+    let geometries: Vec<_> = (0..200).map(|i| point(i, i)).collect();
+    let values: Vec<_> = (0..200)
+        .map(|i| {
+            if (50..150).contains(&i) {
+                entries(&[("a", i32_value(i)), ("b", i32_value(i))])
+            } else {
+                entries(&[("a", i32_value(i))])
+            }
+        })
+        .collect();
+    let bytes = assert_round_trips_as_v2(&nested_layer(kind, &geometries, &values));
     let (offset, _) = region(&bytes, "encoding", encoding_index(&bytes, "present"));
-    bytes[offset] = (bytes[offset] & 0b1000_0000) | 0b0001_0000;
-    let patched = bytes[offset];
-    assert!(
-        matches!(
-            decode_err(&bytes),
-            MltError::NestedPresenceEncoding { ref name, byte } if name == "n.b" && byte == patched
-        ),
-        "{:?}",
-        decode_err(&bytes)
-    );
+    assert_eq!(bytes[offset] & 0b0111_0000, 0b0001_0000);
 }
 
 fn shape_labels(bytes: &[u8]) -> Vec<String> {

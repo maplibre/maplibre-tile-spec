@@ -217,11 +217,6 @@ pub enum MltError {
         actual: u32,
     },
     #[cfg(feature = "unstable-v2")]
-    #[error(
-        "nested node {name} must write its presence as a raw bitmap of one bit per value: encoding byte 0x{byte:02X}"
-    )]
-    NestedPresenceEncoding { name: String, byte: u8 },
-    #[cfg(feature = "unstable-v2")]
     #[error("a nested lengths stream holds {len} lengths, so it has no row {row}")]
     NestedRowOutOfRange { row: usize, len: usize },
     #[cfg(feature = "unstable-v2")]

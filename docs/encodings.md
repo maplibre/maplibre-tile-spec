@@ -452,7 +452,7 @@ Bits past `count` in the final byte are padding and MUST be ignored.
     byte:   0b0010_1101 = 0x2D
     ```
 
-v2 stores every presence bitfield and boolean column as a raw bitmap.
+v2 stores every presence bitfield and boolean column as a bitmap, or in whichever of two smaller forms suits its bits; see [Presence Encodings](specification/v2.md#presence-encodings).
 A bitmap can be shared between columns; see [Shared Presence Fields](specification/v2.md#shared-presence-fields).
 
 ### Boolean RLE {#boolean-rle}

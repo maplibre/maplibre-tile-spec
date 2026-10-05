@@ -17,7 +17,7 @@ use crate::decoder::nested::{
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
     Count02, EXTENSION_MASK, Family, HAS_EXPLICIT_COUNT, LOGICAL_MASK, PHYSICAL_MASK, StrLayout,
-    StreamCtx02, XYZ, describe_encoding,
+    StreamCtx02, XYZ, describe_encoding, shared_coding,
 };
 use crate::decoder::{
     AlpScale, Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02,
@@ -70,12 +70,12 @@ impl<'a> Walker<'a> {
                 let coding = if layout.shared_coded {
                     let byte;
                     (input, byte) = self.field(input, "coding", parse_u8, |b| {
-                        Some(match PresenceCoding::from_byte(*b) {
+                        Some(match shared_coding(*b) {
                             Some(c) => format!("0x{b:02X} {c:?}"),
                             None => format!("0x{b:02X} unknown"),
                         })
                     })?;
-                    PresenceCoding::from_byte(byte).ok_or(MltError::PresenceCodingByte(byte))?
+                    shared_coding(byte).ok_or(MltError::PresenceCodingByte(byte))?
                 } else {
                     PresenceCoding::Bitmap
                 };

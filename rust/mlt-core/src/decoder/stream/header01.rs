@@ -322,6 +322,12 @@ pub(crate) fn write_stream_meta<W: io::Write>(
                 "v1, which has no rANS vertex coding",
             ));
         }
+        LE::Bool(BL::Runs | BL::Sparse) => {
+            return Err(UnsupportedLogicalEncoding(
+                meta.encoding.logical,
+                "v1, whose bool streams are bitmaps or byte-RLE",
+            ));
+        }
     };
     writer.write_u8(encoding_byte(logical, meta.encoding.physical)?)?;
     writer.write_varint(meta.num_words()?)?;
@@ -371,6 +377,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         #[cfg(feature = "unstable-v2")]
         LE::Vertex(VL::Xyz(..)) => {}
         LE::Int(IL::Delta2) | LE::Vertex(VL::ComponentwiseDelta2 | VL::Rans) => {}
+        LE::Bool(BL::Runs | BL::Sparse) => {}
     }
     Ok(())
 }

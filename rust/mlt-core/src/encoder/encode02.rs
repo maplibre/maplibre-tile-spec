@@ -21,7 +21,9 @@ use std::collections::HashMap;
 use integer_encoding::VarIntWriter as _;
 
 use crate::codecs::presence_coding::{self, PresenceCoding};
-use crate::decoder::stream::header02::{Count02, Family, StreamCtx02, WordWidth};
+use crate::decoder::stream::header02::{
+    Count02, Family, StreamCtx02, WordWidth, shared_coding_byte,
+};
 use crate::decoder::{
     BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, LayerHeader02,
     LayerLayout, LengthType, LogicalEncoding, NodeKind02, NodePresence, NodeType02,
@@ -135,7 +137,7 @@ impl SharedPresence {
         let data = enc.data_mut();
         for (mask, &coding) in self.masks.iter().zip(&self.codings) {
             if coded {
-                data.push(coding as u8);
+                data.push(shared_coding_byte(coding));
             }
             presence_coding::write(data, mask, coding);
         }
@@ -212,18 +214,6 @@ fn column_masks<'a>(
 pub(crate) fn write_inline_presence(data: &mut Vec<u8>, nibble: Presence02, bits: &[bool]) {
     if let Presence02::Inline(coding) = nibble {
         presence_coding::write(data, bits, coding);
-    }
-}
-
-/// Append `bits` as `ceil(len/8)` LSB-first packed bytes - the layout v2 uses for
-/// bool column data.
-pub(crate) fn write_presence_bits(data: &mut Vec<u8>, bits: &[bool]) {
-    let start = data.len();
-    data.resize(start + bits.len().div_ceil(8), 0);
-    for (i, &bit) in bits.iter().enumerate() {
-        if bit {
-            data[start + i / 8] |= 1 << (i % 8);
-        }
     }
 }
 
@@ -351,26 +341,23 @@ where
     result
 }
 
-/// Write a boolean data stream as a raw LSB-first packed bitfield - one bit per
-/// value, `ceil(len/8)` bytes, framed as a `logical=None` / `physical=None`
-/// stream. This mirrors how v2 presence bitfields are stored and is up to 8×
-/// smaller than one byte per value; [`crate::decoder::RawStream::decode_bools`] reads it back
-/// via the same bitmap unpacker as v1's byte-RLE bools.
+/// Write a boolean data stream in the smallest presence coding, the way a shared field is.
 fn write_bool_bitfield(enc: &mut Encoder, values: &[bool]) -> MltResult<()> {
     write_bool_stream02(enc, values, StreamType::Data(DictionaryType::None))
 }
 
-/// Write `values` as a raw LSB-first packed bitfield in the role `stream_type` names.
+/// Write `values` in the smallest presence coding, in the role `stream_type` names.
 fn write_bool_stream02(
     enc: &mut Encoder,
     values: &[bool],
     stream_type: StreamType,
 ) -> MltResult<()> {
-    let mut packed = Vec::with_capacity(values.len().div_ceil(8));
-    write_presence_bits(&mut packed, values);
+    let coding = presence_coding::smallest(values);
+    let mut packed = Vec::with_capacity(presence_coding::size(values, coding));
+    presence_coding::write(&mut packed, values, coding);
     let meta = StreamMeta::new2(
         stream_type,
-        LogicalEncoding::Bool(BoolLogical::None),
+        LogicalEncoding::Bool(BoolLogical::from(coding)),
         PhysicalEncoding::None,
         values.len(),
     )?;

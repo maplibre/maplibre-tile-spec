@@ -19,8 +19,9 @@ use bitvec::view::BitView as _;
 use integer_encoding::VarIntWriter as _;
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{PresenceRunOverflow, PresenceSparseByte, PresenceSparseSummary};
+use crate::MltError::{self, PresenceRunOverflow, PresenceSparseByte, PresenceSparseSummary};
 use crate::codecs::varint::parse_varint;
+use crate::decoder::BoolLogical;
 use crate::utils::take;
 use crate::{MltRefResult, MltResult};
 
@@ -41,34 +42,57 @@ impl PresenceBudget for Unmetered {
     }
 }
 
-/// How a presence bitfield is stored, named by the presence nibble of a column type byte
-/// and by the coding byte of a shared bitfield.
+/// How a bitfield is stored, numbered as the `Bool` stream family numbers its logical field.
+/// A presence nibble names one as `code + 1`, and a shared bitfield's coding byte holds the code in the logical field of an encoding byte.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 #[repr(u8)]
 pub enum PresenceCoding {
     /// `ceil(N/8)` bytes, LSB-first. Bits past `N` are padding and are ignored.
-    Bitmap = 1,
+    Bitmap = 0,
     /// Alternating varint run lengths. The first run counts absent features and may be
     /// `0`; the lengths sum to `N`.
-    Runs = 2,
+    Runs = 1,
     /// A bitmap with one bit per byte of the plain bitmap, set where that byte is not
     /// zero, followed by the non-zero bytes in order.
-    Sparse = 3,
+    Sparse = 2,
 }
 
 impl PresenceCoding {
     /// Every coding, in the order a tie between them is broken.
     pub(crate) const ALL: [Self; 3] = [Self::Bitmap, Self::Runs, Self::Sparse];
 
-    /// The coding a byte names, or [`None`] for one this version has no meaning for.
+    /// The coding a `Bool` stream's logical field numbers `code`, or [`None`] for one this version has no meaning for.
     #[must_use]
-    pub(crate) fn from_byte(byte: u8) -> Option<Self> {
-        match byte {
-            1 => Some(Self::Bitmap),
-            2 => Some(Self::Runs),
-            3 => Some(Self::Sparse),
+    pub(crate) fn from_code(code: u8) -> Option<Self> {
+        match code {
+            0 => Some(Self::Bitmap),
+            1 => Some(Self::Runs),
+            2 => Some(Self::Sparse),
             _ => None,
+        }
+    }
+}
+
+impl From<PresenceCoding> for BoolLogical {
+    fn from(coding: PresenceCoding) -> Self {
+        match coding {
+            PresenceCoding::Bitmap => Self::None,
+            PresenceCoding::Runs => Self::Runs,
+            PresenceCoding::Sparse => Self::Sparse,
+        }
+    }
+}
+
+impl PresenceCoding {
+    /// The coding a bool stream's logical encoding names, or [`None`] for v1's byte-RLE.
+    #[must_use]
+    pub(crate) fn of_logical(logical: BoolLogical) -> Option<Self> {
+        match logical {
+            BoolLogical::None => Some(Self::Bitmap),
+            BoolLogical::Runs => Some(Self::Runs),
+            BoolLogical::Sparse => Some(Self::Sparse),
+            BoolLogical::ByteRle(_) => None,
         }
     }
 }
@@ -225,6 +249,87 @@ pub(crate) fn read<'a>(
     }
 }
 
+/// Split off the bytes `count` bits take in `coding`, without building them.
+///
+/// Every coding delimits itself, so this is how a reader finds where a stream's payload ends.
+pub(crate) fn split(input: &[u8], count: u32, coding: PresenceCoding) -> MltRefResult<'_, &[u8]> {
+    let n = count.into_usize();
+    let len = match coding {
+        PresenceCoding::Bitmap => n.div_ceil(8),
+        PresenceCoding::Sparse => {
+            let summary = n.div_ceil(8).div_ceil(8);
+            let head = input.get(..summary).ok_or(MltError::UnableToTake(count))?;
+            summary + head.view_bits::<Lsb0>().count_ones()
+        }
+        PresenceCoding::Runs => {
+            let mut rest = input;
+            let mut at = 0usize;
+            while at < n {
+                let len: u64;
+                (rest, len) = parse_varint(rest)?;
+                at = usize::try_from(len)
+                    .ok()
+                    .and_then(|len| at.checked_add(len))
+                    .filter(|&end| end <= n)
+                    .ok_or(PresenceRunOverflow(count))?;
+            }
+            input.len() - rest.len()
+        }
+    };
+    let (rest, payload) = take(input, u32::try_from(len)?)?;
+    Ok((rest, payload))
+}
+
+/// How many of `count` bits `payload` marks present, without building them.
+///
+/// `payload` is exactly what [`split`] returned for `count` and `coding`.
+pub(crate) fn popcount(payload: &[u8], count: u32, coding: PresenceCoding) -> MltResult<u32> {
+    let n = count.into_usize();
+    let bits = match coding {
+        PresenceCoding::Bitmap => payload
+            .get(..n.div_ceil(8))
+            .ok_or(MltError::UnableToTake(count))?
+            .view_bits::<Lsb0>()[..n]
+            .count_ones(),
+        PresenceCoding::Sparse => {
+            let bytes = n.div_ceil(8);
+            let summary = bytes.div_ceil(8);
+            let stored = payload
+                .get(summary..)
+                .ok_or(MltError::UnableToTake(count))?;
+            let mut stored = stored.iter();
+            let mut total = 0usize;
+            for at in payload.view_bits::<Lsb0>()[..bytes].iter_ones() {
+                let byte = *stored.next().ok_or(MltError::UnableToTake(count))?;
+                let valid = (n - at * 8).min(8);
+                total += (byte & (u8::MAX >> (8 - valid))).count_ones() as usize;
+            }
+            total
+        }
+        PresenceCoding::Runs => {
+            let mut rest = payload;
+            let mut at = 0usize;
+            let mut present = false;
+            let mut total = 0usize;
+            while at < n {
+                let len: u64;
+                (rest, len) = parse_varint(rest)?;
+                let len = usize::try_from(len).map_err(|_| PresenceRunOverflow(count))?;
+                at = at
+                    .checked_add(len)
+                    .filter(|&end| end <= n)
+                    .ok_or(PresenceRunOverflow(count))?;
+                if present {
+                    total += len;
+                }
+                present = !present;
+            }
+            total
+        }
+    };
+    Ok(u32::try_from(bits)?)
+}
+
 /// Read `bits` back out of whatever [`write`] put in, for a round-trip check.
 #[cfg(test)]
 pub(crate) fn round_trip(bits: &[bool], coding: PresenceCoding) -> Vec<bool> {
@@ -347,11 +452,62 @@ mod tests {
     }
 
     #[test]
-    fn only_the_three_coding_bytes_name_a_coding() {
+    fn only_codes_zero_to_two_name_a_coding() {
         let named: Vec<u8> = (0..=u8::MAX)
-            .filter(|&b| PresenceCoding::from_byte(b).is_some())
+            .filter(|&c| PresenceCoding::from_code(c).is_some())
             .collect();
-        assert_eq!(named, [1, 2, 3]);
+        assert_eq!(named, [0, 1, 2]);
+    }
+
+    #[test]
+    fn split_takes_exactly_what_write_made() {
+        for bits in cases() {
+            for coding in PresenceCoding::ALL {
+                let mut buf = Vec::new();
+                write(&mut buf, &bits, coding);
+                buf.extend([0xAA, 0xBB]);
+                let count = u32::try_from(bits.len()).unwrap();
+                let (rest, payload) = split(&buf, count, coding).unwrap();
+                assert_eq!(rest, [0xAA, 0xBB], "{coding:?} on {bits:?}");
+                assert_eq!(payload.len(), size(&bits, coding), "{coding:?} on {bits:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn popcount_agrees_with_read() {
+        for bits in cases() {
+            for coding in PresenceCoding::ALL {
+                let mut buf = Vec::new();
+                write(&mut buf, &bits, coding);
+                let count = u32::try_from(bits.len()).unwrap();
+                let expected = u32::try_from(bits.iter().filter(|&&b| b).count()).unwrap();
+                assert_eq!(
+                    popcount(&buf, count, coding).unwrap(),
+                    expected,
+                    "{coding:?} on {bits:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn popcount_ignores_padding_bits_past_the_count() {
+        assert_eq!(
+            popcount(&[0b1111_1111], 3, PresenceCoding::Bitmap).unwrap(),
+            3
+        );
+        assert_eq!(
+            popcount(&[0b1, 0b1111_1111], 3, PresenceCoding::Sparse).unwrap(),
+            3
+        );
+    }
+
+    #[test]
+    fn split_rejects_a_truncated_payload() {
+        assert!(split(&[0b11, 1], 16, PresenceCoding::Sparse).is_err());
+        assert!(split(&[1], 16, PresenceCoding::Bitmap).is_err());
+        assert!(split(&[3], 16, PresenceCoding::Runs).is_err());
     }
 
     /// Counts the bits a reader was asked to build, standing in for a real budget.
@@ -390,7 +546,7 @@ mod tests {
     struct Refused;
     impl PresenceBudget for Refused {
         fn reserve_bits(&mut self, count: u32) -> MltResult<()> {
-            Err(crate::MltError::MemoryLimitExceeded {
+            Err(MltError::MemoryLimitExceeded {
                 limit: 0,
                 used: 0,
                 requested: count,
@@ -404,7 +560,7 @@ mod tests {
     fn a_refused_budget_is_an_error(#[case] coding: PresenceCoding) {
         assert!(matches!(
             read(&[0], 8, coding, &mut Refused),
-            Err(crate::MltError::MemoryLimitExceeded { requested: 8, .. })
+            Err(MltError::MemoryLimitExceeded { requested: 8, .. })
         ));
     }
 
@@ -412,7 +568,7 @@ mod tests {
     fn a_short_bitmap_is_rejected() {
         assert!(matches!(
             read(&[0], 9, PresenceCoding::Bitmap, &mut Unmetered),
-            Err(crate::MltError::UnableToTake(2))
+            Err(MltError::UnableToTake(2))
         ));
     }
 }

@@ -1813,6 +1813,17 @@ fn generate_presence_codings(w: &mut SynthWriter) {
         .add_prop(e, P::u32("always", vec![7; block.len()]))
         .write(w, "presence_mixed");
 
+    // A boolean column's values are a bitfield like any other, so they pick a coding the same way.
+    let bools = |mask: &str| mask.bytes().map(|b| b != b'-').collect::<Vec<bool>>();
+    masked_points(&block)
+        .no_v1()
+        .add_prop(e, P::bool("flag", bools(&block)))
+        .write(w, "bool_runs");
+    masked_points(&clustered)
+        .no_v1()
+        .add_prop(e, P::bool("flag", bools(&clustered)))
+        .write(w, "bool_sparse");
+
     // The same three codings again, this time on shared fields, which name their
     // coding in a byte of their own rather than in a column's nibble.
     for (name, mask) in [

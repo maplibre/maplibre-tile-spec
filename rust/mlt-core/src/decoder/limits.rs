@@ -181,6 +181,15 @@ impl crate::codecs::presence_coding::PresenceBudget for Parser {
     }
 }
 
+/// A bitfield that is not a bitmap is built rather than borrowed, so a `Bool` stream charges
+/// what it builds to the decoder before it allocates it.
+#[cfg(feature = "unstable-v2")]
+impl crate::codecs::presence_coding::PresenceBudget for Decoder {
+    fn reserve_bits(&mut self, count: u32) -> MltResult<()> {
+        self.consume(count.div_ceil(8))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MemBudget {
     /// Hard ceiling: total decoded bytes may not exceed this value.

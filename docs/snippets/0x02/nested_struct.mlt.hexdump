@@ -57,10 +57,10 @@
                                                                              |         └ bits 3-0 = 0101 -> data type = I32
 0000002f  04 72 61 6e 6b                                    .rank            |       name: "rank"
 00000034                                                                     |       present (2 B)
-00000034  00                                                .                |         encoding: 0x00 logical=None physical=NoLen
+00000034  00                                                .                |         encoding: 0x00 logical=None physical=implied
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
                                                                              |           └ bits 6-4 = 000 -> logical = None, numbered for bool column
-                                                                             |           └ bits 3-2 = 00 -> physical = NoLen
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 00000035  05                                                .                |         data [Present Bool(None)/None, 3 values, 1 B]
                                                                              |           decoded: 3 present-bits: 101
