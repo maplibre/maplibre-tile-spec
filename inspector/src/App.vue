@@ -620,7 +620,7 @@ header .popout {
 }
 .empty h1 {
   font: 600 1.5rem / 1.2 var(--font);
-  margin: 0;
+  margin: 0 0 0.8rem;
 }
 .loading {
   display: flex;

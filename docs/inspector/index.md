@@ -19,12 +19,18 @@ description: Decode a tile in the browser and walk through its bytes
     border-radius: 10px;
     background: var(--md-default-bg-color);
   }
-  /* A loaded tile wants the height the page heading was taking. */
-  body.inspector-loaded .md-content__inner > h1 { display: none; }
+  /* The app names itself, so the page heading would only repeat it. */
+  .md-content__inner > h1 { display: none; }
+  /* With no heading or prose, the frame sits close to the header and sidebar. */
+  .md-main__inner { margin-top: 0.4rem; }
+  .md-content__inner { padding-top: 0; }
+  .md-content__inner::before { display: none; }
+  .md-footer { display: none; }
+  .md-content__inner,
+  [dir="ltr"] .md-sidebar--primary:not([hidden]) ~ .md-content > .md-content__inner { margin-left: 0.4rem; }
   /* Tall enough for the app's floor, the page stops scrolling and the frame takes whatever the title leaves. */
   @media (min-height: 44rem) {
     body { height: 100dvh; }
-    .md-footer { display: none; }
     .md-container, .md-main, .md-content { display: flex; flex-direction: column; min-height: 0; }
     .md-main__inner, .md-content, .md-content__inner { flex: 1; min-height: 0; }
     .md-main__inner { width: 100%; }
@@ -45,14 +51,11 @@ description: Decode a tile in the browser and walk through its bytes
     // only the frame can act on, so it is handed over before the frame settles on a URL.
     if (location.search) embed.src = "app/index.html" + location.search;
 
-    // The app reports whether it is on its home screen; once a tile is open the page heading
-    // is just a band of chrome above it, so it steps out of the way. Its deep link comes with,
-    // so this page's address bar names the tile on screen and a reload keeps it.
+    // The app reports its deep link, so this page's address bar names the tile on screen and a reload keeps it.
     addEventListener("message", (event) => {
       if (event.origin !== location.origin || event.source !== embed.contentWindow) return;
       const state = event.data?.mltInspector;
       if (!state) return;
-      document.body.classList.toggle("inspector-loaded", state.loaded === true);
       if (typeof state.search === "string")
         history.replaceState(null, "", location.pathname + state.search + location.hash);
     });
