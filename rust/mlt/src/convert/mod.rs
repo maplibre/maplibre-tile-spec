@@ -241,21 +241,6 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
-    /// Disable Framed, Exception-Free ALP float encoding, storing floats as decimal-scaled integers (needs `--mlt-version 2`)
-    #[clap(long)]
-    no_alp: bool,
-    /// Disable float dictionary encoding (needs `--mlt-version 2`)
-    #[clap(long)]
-    no_float_dict: bool,
-    /// Store dictionary codes bit-packed when that beats a varint each (needs `--mlt-version 2`)
-    #[clap(long)]
-    packed_dict_codes: bool,
-    /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines (needs `--mlt-version 2`)
-    #[clap(long, requires = "tessellate")]
-    triangles_only: bool,
-    /// Let integer and vertex streams store the deltas of their deltas when that is shorter (needs `--mlt-version 2`)
-    #[clap(long)]
-    delta2: bool,
     /// Decode every encoded layer and fail unless it matches the input, parsed fields formatted back
     #[clap(long)]
     verify: bool,
@@ -268,9 +253,6 @@ pub struct ConvertArgs {
     /// A string that would not format back to itself fails the conversion.
     #[clap(long, value_name = "FILE")]
     fields: Option<PathBuf>,
-    /// Store vertex streams rANS-coded when that beats componentwise delta (needs `--mlt-version 2`)
-    #[clap(long)]
-    rans_vertices: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -306,6 +288,36 @@ pub struct ConvertArgs {
         help_heading = "GeoJSON input"
     )]
     z_step: Option<i8>,
+    #[command(flatten)]
+    v2: V2EncoderArgs,
+}
+
+/// Encoder options that only MLT version 2 can express, which the encoder ignores under v1.
+#[derive(Args, Default, PartialEq, Eq)]
+#[command(next_help_heading = "MLT version 2 options (need `--mlt-version 2`)")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each bool is an independent CLI on/off flag, not a state machine"
+)]
+struct V2EncoderArgs {
+    /// Disable Framed, Exception-Free ALP float encoding, storing floats as decimal-scaled integers
+    #[clap(long)]
+    no_alp: bool,
+    /// Disable float dictionary encoding
+    #[clap(long)]
+    no_float_dict: bool,
+    /// Store dictionary codes bit-packed when that beats a varint each
+    #[clap(long)]
+    packed_dict_codes: bool,
+    /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
+    #[clap(long, requires = "tessellate")]
+    triangles_only: bool,
+    /// Let integer and vertex streams store the deltas of their deltas when that is shorter
+    #[clap(long)]
+    delta2: bool,
+    /// Store vertex streams rANS-coded when that beats componentwise delta
+    #[clap(long)]
+    rans_vertices: bool,
 }
 
 /// Whether `path` names a `GeoJSON` file, which `convert` tiles rather than re-encodes.
@@ -326,20 +338,13 @@ impl ConvertArgs {
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     // The encoder ignores these under v1, which would silently write a tile without them.
-    let v2_only = [
-        ("--no-alp", args.no_alp),
-        ("--no-float-dict", args.no_float_dict),
-        ("--packed-dict-codes", args.packed_dict_codes),
-        ("--triangles-only", args.triangles_only),
-        ("--delta2", args.delta2),
-        ("--rans-vertices", args.rans_vertices),
-    ];
-    if args.mlt_version != MltVersion::V2
-        && let Some((flag, _)) = v2_only.iter().find(|(_, given)| *given)
-    {
-        bail!("{flag} only applies to MLT version 2, so it needs --mlt-version 2");
+    if args.mlt_version != MltVersion::V2 && args.v2 != V2EncoderArgs::default() {
+        bail!(
+            "the MLT version 2 options in --help only apply to MLT version 2, so they need --mlt-version 2"
+        );
     }
-    if args.verify && args.triangles_only {
+    let v2 = &args.v2;
+    if args.verify && v2.triangles_only {
         bail!("--verify compares polygon outlines, which --triangles-only drops");
     }
     if args.to == TileFormat::Mvt {
@@ -362,12 +367,12 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_fastpfor(!args.no_fastpfor)
         .with_fsst(!args.no_fsst)
         .with_wire_version(args.mlt_version.into())
-        .with_float_alp(!args.no_alp)
-        .with_float_dict(!args.no_float_dict)
-        .with_packed_dict_codes(args.packed_dict_codes)
-        .with_triangles_only(args.triangles_only)
-        .with_delta2(args.delta2)
-        .with_rans_vertices(args.rans_vertices);
+        .with_float_alp(!v2.no_alp)
+        .with_float_dict(!v2.no_float_dict)
+        .with_packed_dict_codes(v2.packed_dict_codes)
+        .with_triangles_only(v2.triangles_only)
+        .with_delta2(v2.delta2)
+        .with_rans_vertices(v2.rans_vertices);
     let reencoder = Reencoder {
         encoder,
         fields: Arc::new(match &args.fields {
@@ -886,13 +891,13 @@ mod tests {
             &["--delta2"],
             &["--rans-vertices"],
         ] {
-            let flag = flags.last().unwrap();
             let mut argv = flags.to_vec();
             argv.extend(["src", "dst"]);
             let err = convert(&parse_args(&argv)).unwrap_err();
             assert_eq!(
                 err.to_string(),
-                format!("{flag} only applies to MLT version 2, so it needs --mlt-version 2")
+                "the MLT version 2 options in --help only apply to MLT version 2, so they need --mlt-version 2",
+                "{flags:?}"
             );
         }
     }
