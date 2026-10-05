@@ -241,19 +241,19 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
-    /// Disable Framed, Exception-Free ALP float encoding, storing floats as decimal-scaled integers
+    /// Disable Framed, Exception-Free ALP float encoding, storing floats as decimal-scaled integers (needs `--mlt-version 2`)
     #[clap(long)]
     no_alp: bool,
-    /// Disable float dictionary encoding
+    /// Disable float dictionary encoding (needs `--mlt-version 2`)
     #[clap(long)]
     no_float_dict: bool,
-    /// Store dictionary codes bit-packed when that beats a varint each
+    /// Store dictionary codes bit-packed when that beats a varint each (needs `--mlt-version 2`)
     #[clap(long)]
     packed_dict_codes: bool,
-    /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
+    /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines (needs `--mlt-version 2`)
     #[clap(long, requires = "tessellate")]
     triangles_only: bool,
-    /// Let integer and vertex streams store the deltas of their deltas when that is shorter
+    /// Let integer and vertex streams store the deltas of their deltas when that is shorter (needs `--mlt-version 2`)
     #[clap(long)]
     delta2: bool,
     /// Decode every encoded layer and fail unless it matches the input, parsed fields formatted back
@@ -268,7 +268,7 @@ pub struct ConvertArgs {
     /// A string that would not format back to itself fails the conversion.
     #[clap(long, value_name = "FILE")]
     fields: Option<PathBuf>,
-    /// Store vertex streams rANS-coded when that beats componentwise delta
+    /// Store vertex streams rANS-coded when that beats componentwise delta (needs `--mlt-version 2`)
     #[clap(long)]
     rans_vertices: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
@@ -325,6 +325,20 @@ impl ConvertArgs {
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
+    // The encoder ignores these under v1, which would silently write a tile without them.
+    let v2_only = [
+        ("--no-alp", args.no_alp),
+        ("--no-float-dict", args.no_float_dict),
+        ("--packed-dict-codes", args.packed_dict_codes),
+        ("--triangles-only", args.triangles_only),
+        ("--delta2", args.delta2),
+        ("--rans-vertices", args.rans_vertices),
+    ];
+    if args.mlt_version != MltVersion::V2
+        && let Some((flag, _)) = v2_only.iter().find(|(_, given)| *given)
+    {
+        bail!("{flag} only applies to MLT version 2, so it needs --mlt-version 2");
+    }
     if args.verify && args.triangles_only {
         bail!("--verify compares polygon outlines, which --triangles-only drops");
     }
@@ -850,6 +864,8 @@ mod tests {
     #[test]
     fn verifying_triangles_only_is_rejected() {
         let err = convert(&parse_args(&[
+            "--mlt-version",
+            "2",
             "--verify",
             "--tessellate",
             "--triangles-only",
@@ -858,6 +874,27 @@ mod tests {
         ]))
         .unwrap_err();
         insta::assert_snapshot!(err.to_string(), @"--verify compares polygon outlines, which --triangles-only drops");
+    }
+
+    #[test]
+    fn a_v2_only_encoder_option_without_v2_is_rejected() {
+        for flags in [
+            &["--no-alp"][..],
+            &["--no-float-dict"],
+            &["--packed-dict-codes"],
+            &["--tessellate", "--triangles-only"],
+            &["--delta2"],
+            &["--rans-vertices"],
+        ] {
+            let flag = flags.last().unwrap();
+            let mut argv = flags.to_vec();
+            argv.extend(["src", "dst"]);
+            let err = convert(&parse_args(&argv)).unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                format!("{flag} only applies to MLT version 2, so it needs --mlt-version 2")
+            );
+        }
     }
 
     #[test]
