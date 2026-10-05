@@ -478,9 +478,9 @@ impl Default for EncoderConfig {
             #[cfg(feature = "unstable-v2")]
             wire_version: WireVersion::V01,
             tessellate: false,
-            attempt_spatial_morton_sort: true,
-            attempt_spatial_hilbert_sort: true,
-            attempt_id_sort: true,
+            attempt_spatial_morton_sort: false,
+            attempt_spatial_hilbert_sort: false,
+            attempt_id_sort: false,
             allow_fsst: true,
             allow_fastpfor: true,
             allow_shared_dict: true,

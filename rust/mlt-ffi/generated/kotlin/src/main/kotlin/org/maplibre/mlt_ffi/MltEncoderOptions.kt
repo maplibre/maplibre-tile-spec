@@ -83,8 +83,7 @@ class MltEncoderOptions internal constructor(
         internal val libClass: Class<MltEncoderOptionsLib> = MltEncoderOptionsLib::class.java
         internal val lib: MltEncoderOptionsLib = Native.load("mlt_ffi", libClass)
 
-        /** Create encoder options with the default configuration (all
-         *optimisations enabled except tessellation).
+        /** Create encoder options with the default configuration (no sorting and no tessellation).
          */
         @JvmStatic
         fun new_(): MltEncoderOptions {

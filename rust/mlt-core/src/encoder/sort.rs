@@ -105,44 +105,6 @@ fn first_vertex(geom: &Geometry<i32>) -> Option<Coord<i32>> {
     }
 }
 
-/// Return `true` if a spatial sort is likely to reduce compressed size.
-///
-/// The heuristic: if the vertex bounding box spans more than
-/// `SPATIAL_HELP_COVERAGE` of the layer's tile extent on **both** axes, the
-/// features are too spread-out for locality clustering to help, so spatial
-/// sorting is skipped.
-pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer) -> bool {
-    const SPATIAL_HELP_COVERAGE: f64 = 0.8;
-
-    let extent = f64::from(layer.extent().get());
-    if extent <= 0.0 || layer.features().is_empty() {
-        return true;
-    }
-
-    let (min_x, max_x, min_y, max_y) = layer
-        .features()
-        .iter()
-        .filter_map(|f| first_vertex(f.geometry()))
-        .fold(
-            (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
-            |(min_x, max_x, min_y, max_y), Coord::<i32> { x, y }| {
-                (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
-            },
-        );
-
-    if min_x > max_x || min_y > max_y {
-        return true;
-    }
-
-    let range_x = f64::from(max_x) - f64::from(min_x);
-    let range_y = f64::from(max_y) - f64::from(min_y);
-
-    let spread_x = range_x / extent;
-    let spread_y = range_y / extent;
-
-    !(spread_x > SPATIAL_HELP_COVERAGE && spread_y > SPATIAL_HELP_COVERAGE)
-}
-
 #[cfg(test)]
 mod tests {
     use geo_types::{
@@ -151,7 +113,6 @@ mod tests {
     };
     use rstest::rstest;
 
-    use super::spatial_sort_likely_to_help;
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry};
     use crate::encoder::model::CurveParams;
     use crate::encoder::{
@@ -428,6 +389,54 @@ mod tests {
         tile
     }
 
+    fn encode_decode(tile: TileLayer, cfg: EncoderConfig) -> TileLayer {
+        let buf = tile.encode(cfg).expect("encode failed");
+        let layer = assert_empty(Layer::from_bytes(&buf, &mut parser()));
+        into_layer01(layer)
+            .into_tile(&mut dec())
+            .expect("decode failed")
+    }
+
+    fn scattered_points(count: u32) -> Vec<Geometry<i32>> {
+        (0..count)
+            .map(|i| {
+                let x = i32::try_from(i.wrapping_mul(2_654_435_761) % 4096).unwrap();
+                let y = i32::try_from(i.wrapping_mul(40_503) % 4096).unwrap();
+                pt(x, y)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn default_config_keeps_the_source_order() {
+        let geoms = scattered_points(600);
+        let ids: Vec<Option<u64>> = (0..600).rev().map(Some).collect();
+        let decoded = encode_decode(build_tile_layer(&geoms, &ids), EncoderConfig::default());
+
+        let decoded_ids: Vec<Option<u64>> =
+            decoded.features().iter().map(TileFeature::id).collect();
+        assert_eq!(decoded_ids, ids);
+    }
+
+    #[test]
+    fn hilbert_sort_reaches_a_layer_spread_over_the_whole_extent() {
+        let geoms = scattered_points(600);
+        let ids = vec![None; geoms.len()];
+        let mut expected = build_tile_layer(&geoms, &ids);
+        let params = expected.curve_params();
+        expected.sort(SortStrategy::SpatialHilbert, params);
+
+        let decoded = encode_decode(
+            build_tile_layer(&geoms, &ids),
+            EncoderConfig::default().with_spatial_hilbert_sort(true),
+        );
+
+        assert_eq!(
+            vertices_from_source(&decoded),
+            vertices_from_source(&expected)
+        );
+    }
+
     /// Rebuild a flat vertex buffer from the feature geometries in source order.
     fn vertices_from_source(source: &TileLayer) -> Vec<i32> {
         let mut geom = GeometryValues::default();
@@ -559,34 +568,6 @@ mod tests {
         assert_eq!(sorted, ids);
     }
 
-    fn points_help_spatial_sort(coords: &[(i32, i32)]) -> bool {
-        let geoms: Vec<Geometry<i32>> = coords.iter().map(|&(x, y)| pt(x, y)).collect();
-        let ids = vec![None; geoms.len()];
-        spatial_sort_likely_to_help(&build_tile_layer(&geoms, &ids))
-    }
-
-    #[rstest]
-    #[case::no_features(&[], true)]
-    #[case::one_feature(&[(100, 100)], true)]
-    #[case::clustered(&[(0, 0), (100, 100)], true)]
-    #[case::spread_on_x_only(&[(0, 0), (4000, 100)], true)]
-    #[case::spread_on_both_axes(&[(0, 0), (4000, 4000)], false)]
-    #[case::spread_on_y_only(&[(0, 0), (100, 4000)], true)]
-    #[case::exactly_at_the_coverage_limit(&[(0, 0), (3276, 3276)], true)]
-    #[case::just_past_the_coverage_limit(&[(0, 0), (3277, 3277)], false)]
-    #[case::wider_than_the_extent(&[(-9000, -9000), (9000, 9000)], false)]
-    #[case::wider_than_i32(&[(i32::MIN, i32::MIN), (i32::MAX, i32::MAX)], false)]
-    fn spatial_sort_help_heuristic(#[case] coords: &[(i32, i32)], #[case] expected: bool) {
-        assert_eq!(points_help_spatial_sort(coords), expected);
-    }
-
-    #[test]
-    fn vertexless_features_keep_the_spatial_sort() {
-        let geoms = [GeoGeom::LineString(LineString(vec![]))];
-        let layer = build_tile_layer(&geoms, &[None]);
-        assert!(spatial_sort_likely_to_help(&layer));
-    }
-
     #[test]
     fn curve_params_of_a_vertexless_layer_is_the_degenerate_grid() {
         let layer = build_tile_layer(&[GeoGeom::LineString(LineString(vec![]))], &[None]);
@@ -667,16 +648,5 @@ mod tests {
                 Some(8)
             ]
         );
-    }
-
-    #[test]
-    fn the_spatial_sort_heuristic_ignores_features_without_a_vertex() {
-        let geoms = [
-            pt(0, 0),
-            GeoGeom::LineString(LineString(vec![])),
-            pt(4000, 4000),
-        ];
-        let layer = build_tile_layer(&geoms, &[None, None, None]);
-        assert!(!spatial_sort_likely_to_help(&layer));
     }
 }

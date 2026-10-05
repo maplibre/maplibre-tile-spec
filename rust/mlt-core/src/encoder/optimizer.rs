@@ -5,12 +5,10 @@ use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
 use crate::encoder::model::{CurveParams, StagedLayer};
-use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, SortStrategy, encode01, spatial_sort_likely_to_help,
-};
+use crate::encoder::{Codecs, Encoder, EncoderConfig, SortStrategy, encode01};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::{WireVersion, encode02};
-use crate::tile::{PropKind, TileLayer};
+use crate::tile::{PropKind, TileFeature, TileLayer};
 use crate::{MltError, MltResult, PropValue};
 
 impl StagedLayer {
@@ -85,10 +83,6 @@ fn seed_curve_caches(enc: &mut Encoder, curve_params: CurveParams) {
     enc.morton_cache = Morton::new(curve_params.bits, curve_params.shift).ok();
 }
 
-/// Feature-count threshold above which the spatial trial is subject to the
-/// bounding-box pruning heuristic.
-const SORT_TRIAL_THRESHOLD: usize = 512;
-
 impl TileLayer {
     /// Encode a [`TileLayer`] to bytes, automatically optimizing all encoding choices.
     ///
@@ -112,19 +106,14 @@ impl TileLayer {
         }
 
         let mut sort_by = vec![SortStrategy::Unsorted];
-        let try_spatial_sort =
-            cfg.attempt_spatial_morton_sort() || cfg.attempt_spatial_hilbert_sort();
-        if try_spatial_sort
-            && (self.feature_count() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(&self))
-        {
-            if cfg.attempt_spatial_morton_sort() {
-                sort_by.push(SortStrategy::SpatialMorton);
-            }
-            if cfg.attempt_spatial_hilbert_sort() {
-                sort_by.push(SortStrategy::SpatialHilbert);
-            }
+        if cfg.attempt_spatial_morton_sort() {
+            sort_by.push(SortStrategy::SpatialMorton);
         }
-        if cfg.attempt_id_sort() {
+        if cfg.attempt_spatial_hilbert_sort() {
+            sort_by.push(SortStrategy::SpatialHilbert);
+        }
+        // A stable sort of ascending (or absent) IDs is the source order.
+        if cfg.attempt_id_sort() && !self.features().is_sorted_by_key(TileFeature::id) {
             sort_by.push(SortStrategy::Id);
         }
 
