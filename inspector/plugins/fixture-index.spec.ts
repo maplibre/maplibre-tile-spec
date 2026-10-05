@@ -26,7 +26,7 @@ describe("indexFixtures", () => {
         "0x01-osm": 1,
         "0x01-rust": 194,
         "0x01-simple": 6,
-        "0x02": 606,
+        "0x02": 608,
         "0x02-amazon": 11,
         "0x02-amazon_here": 5,
         "0x02-bing": 17,
