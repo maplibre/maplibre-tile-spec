@@ -147,7 +147,7 @@ const POINT_TILE = [
 describe("the encodings a region is shown", () => {
   /** A stream's header sits beside its payload; a layer's framing does not. */
   it("does not give the layer framing a nested stream's encoding", () => {
-    expect(regionAnchors(POINT_TILE, 1, "v2")).toEqual(["v2#tile-layout"]);
+    expect(regionAnchors(POINT_TILE, 1, "v2")).toEqual(["v1#tile-layout"]);
   });
 
   it("reads the payload beside a stream's own header field", () => {

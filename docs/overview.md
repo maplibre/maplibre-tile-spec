@@ -159,9 +159,8 @@ The differences come from MVT's per-feature tag/value model versus MLT's per-lay
   MVT stores features in wire order.
   MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
 - **Layer names must be non-empty.**
-  The MVT protobuf schema marks the layer `name` field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty.
-  The written MVT specification does not explicitly say that the required name cannot be an empty string.
-  MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.
+  MLT always requires a non-empty layer name, and a layer without one MUST be rejected.
+  MVT leaves this unclear: its protobuf schema marks `name` as required, but the written specification never says it cannot be an empty string, although some Mapbox tooling rejects empty names.
 - **A layer holds at most `2^31 - 1` features.**
   MVT sets no limit, but MLT stores the feature count as a signed 32-bit integer.
 - **MLT v2 restricts the extent.**
