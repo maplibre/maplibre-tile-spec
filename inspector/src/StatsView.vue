@@ -9,6 +9,7 @@ import {
   type Category,
   type GeoStat,
   geoStat,
+  type LayerStat,
   tileStat,
 } from "./tileStats.ts";
 
@@ -54,6 +55,14 @@ function geoOf(name: string | null): GeoStat | null {
 
 function perUnit(bytes: number, count: number | null): string | null {
   return count === null || count === 0 ? null : `${(bytes / count).toFixed(1)}`;
+}
+
+function vertices(layer: LayerStat): number | null {
+  return geoOf(layer.name)?.vertices ?? null;
+}
+
+function vertexCost(layer: LayerStat): string | null {
+  return perUnit(layer.bytes.geometry, vertices(layer));
 }
 
 const types = computed(() => [...(geo.value?.whole.types ?? [])]);
@@ -153,17 +162,12 @@ const widest = computed(() =>
             </span>
           </dd>
         </template>
-        <template v-if="geoOf(layer.name)">
+        <template v-if="vertices(layer) !== null">
           <dt>vertices</dt>
           <dd>
-            {{ geoOf(layer.name)?.vertices }}
-            <span
-              v-if="perUnit(layer.bytes.geometry, geoOf(layer.name)?.vertices ?? null)"
-              class="muted"
-            >
-              {{
-                perUnit(layer.bytes.geometry, geoOf(layer.name)?.vertices ?? null)
-              }}
+            {{ vertices(layer) }}
+            <span v-if="vertexCost(layer)" class="muted">
+              {{ vertexCost(layer) }}
               B each
             </span>
           </dd>
