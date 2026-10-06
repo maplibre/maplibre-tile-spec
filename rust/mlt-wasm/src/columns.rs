@@ -22,16 +22,28 @@ use wasm_bindgen::prelude::*;
 
 use crate::to_js_err;
 
-/// Decode every layer of `data` into its columns, in wire order.
+/// Decode the layers of `data` into their columns, in wire order: every layer, or with
+/// `names`, only those with one of these names. A layer left out is never decoded.
 ///
 /// v2 layers are skipped unless the crate is built with the `unstable-v2` feature.
 #[wasm_bindgen(js_name = decodeTileColumns)]
-pub fn decode_tile_columns(data: &[u8]) -> Result<Array, JsError> {
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "wasm-bindgen hands a JS array over only as an owned Vec"
+)]
+pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Array, JsError> {
     let mut parser = Parser::default();
     let raw_layers = parser.parse_layers(data).map_err(|e| to_js_err(&e))?;
     let mut dec = Decoder::default();
     let layers = Array::new();
     for raw_layer in raw_layers {
+        if let Some(names) = &names
+            && !raw_layer
+                .name()
+                .is_some_and(|name| names.iter().any(|n| n == name))
+        {
+            continue;
+        }
         #[cfg(not(feature = "unstable-v2"))]
         if !matches!(raw_layer, mlt_core::Layer::Tag01(_)) {
             continue;

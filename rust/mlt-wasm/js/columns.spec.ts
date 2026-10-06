@@ -167,3 +167,47 @@ function mValues(
     column.type === "bool" ? value === 1 : value,
   );
 }
+
+describe("the layers option", () => {
+  // A tile is a sequence of layer frames, so fixtures concatenate into a multi-layer tile.
+  const tile = concat(
+    fixture("0x01/fpf_align_1"),
+    fixture("0x02/z_point"),
+    fixture("0x01/fpf_align_2"),
+    fixture("0x02/z_point"),
+  );
+  const names = (options?: { layers: string[] }) =>
+    decodeTileColumns(tile, options).layers.map((layer) => layer.name);
+
+  it("decodes every layer when left out", () => {
+    expect(names()).toEqual(["a", "layer1", "aa", "layer1"]);
+  });
+
+  it("keeps the named layers in wire order, each one with a listed name", () => {
+    expect(names({ layers: ["aa", "layer1"] })).toEqual([
+      "layer1",
+      "aa",
+      "layer1",
+    ]);
+  });
+
+  it("decodes nothing for an empty list or a name the tile lacks", () => {
+    expect(names({ layers: [] })).toEqual([]);
+    expect(names({ layers: ["missing"] })).toEqual([]);
+  });
+
+  it("decodes a kept layer as it does alone", () => {
+    const [layer] = decodeTileColumns(tile, { layers: ["aa"] }).layers;
+    expect(layer).toEqual(onlyLayer("0x01/fpf_align_2"));
+  });
+});
+
+function concat(...parts: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}

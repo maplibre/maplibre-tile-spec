@@ -14,6 +14,7 @@ export type {
 } from "./annotate";
 export { annotateTile } from "./annotate";
 export {
+  type DecodeTileColumnsOptions,
   decodeTileColumns,
   isPresent,
   type MltColumn,

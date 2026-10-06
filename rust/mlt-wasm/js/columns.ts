@@ -105,9 +105,21 @@ export interface MltColumnTile {
   readonly layers: readonly MltColumnLayer[];
 }
 
-/** Decode every layer of a tile into typed arrays. */
-export function decodeTileColumns(data: Uint8Array): MltColumnTile {
-  return { layers: wasmDecodeTileColumns(data) as MltColumnLayer[] };
+export interface DecodeTileColumnsOptions {
+  /**
+   * Decode only the layers with one of these names, every one that has it. The other
+   * layers are skipped without being decoded. Every layer is decoded when left out.
+   */
+  readonly layers?: readonly string[];
+}
+
+/** Decode the layers of a tile into typed arrays. */
+export function decodeTileColumns(
+  data: Uint8Array,
+  options: DecodeTileColumnsOptions = {},
+): MltColumnTile {
+  const names = options.layers === undefined ? undefined : [...options.layers];
+  return { layers: wasmDecodeTileColumns(data, names) as MltColumnLayer[] };
 }
 
 /** Whether entry `index` of `column` holds a value. */

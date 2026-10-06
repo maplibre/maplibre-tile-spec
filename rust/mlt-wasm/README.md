@@ -80,6 +80,9 @@ for (const layer of decodeTileColumns(data).layers) {
 }
 ```
 
+`decodeTileColumns(data, { layers: ['roads', 'water'] })` decodes only the layers with those names,
+every one that has it, since layer names need not be unique. The other layers are skipped undecoded.
+
 Each column is `{ name, type, values, present? }`. `present` is a bitmap with one bit per
 feature, LSB-first, left out when every feature has a value. `bool` comes as `0`/`1`, and
 64-bit integers, ids included, as `Float64Array`, so values above `Number.MAX_SAFE_INTEGER`
