@@ -162,7 +162,10 @@ const widest = computed(() =>
               class="muted"
             >
               {{
-                perUnit(layer.bytes.geometry, geoOf(layer.name)?.vertices ?? null)
+                perUnit(
+                  layer.bytes.geometry,
+                  geoOf(layer.name)?.vertices ?? null,
+                )
               }}
               B each
             </span>
