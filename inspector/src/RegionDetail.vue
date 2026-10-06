@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import { blobChips, blobHidden, blobNote, blobRaw, runs } from "./blob.ts";
+import { formatBytes } from "./bytes.ts";
 import EncodingDocs from "./EncodingDocs.vue";
 import { regionAnchors, specPage } from "./encodingDocs.ts";
 import { hex2, hexOffset, regionPath } from "./hex.ts";
@@ -135,7 +136,7 @@ const span = computed(() => {
   if (!at) return "";
   const last = at.offset + at.len - 1;
   const bufLen = props.tree.bufLen;
-  return `${hexOffset(at.offset, bufLen)} ... ${hexOffset(last, bufLen)} (${at.len} B)`;
+  return `${hexOffset(at.offset, bufLen)} ... ${hexOffset(last, bufLen)} (${formatBytes(at.len)})`;
 });
 
 const byte = computed(() =>
@@ -178,8 +179,10 @@ const anchors = computed(() =>
         <template v-if="blob">
           <dt>stream</dt>
           <dd>{{ blob.streamType }}</dd>
-          <dt>encoding</dt>
-          <dd>{{ blob.logical }} / {{ blob.physical }}</dd>
+          <dt>logical</dt>
+          <dd>{{ blob.logical }}</dd>
+          <dt>physical</dt>
+          <dd>{{ blob.physical }}</dd>
           <template v-if="!countedBelow">
             <dt>values</dt>
             <dd>{{ blob.numValues }}</dd>

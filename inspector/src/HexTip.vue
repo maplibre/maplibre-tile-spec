@@ -3,6 +3,7 @@ import { useElementSize, useWindowSize } from "@vueuse/core";
 import { computed, ref } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import { blobChips, blobNote } from "./blob.ts";
+import { formatBytes } from "./bytes.ts";
 import EncodingDocs from "./EncodingDocs.vue";
 import { regionAnchors, specPage } from "./encodingDocs.ts";
 import { hexOffset, type Pointer, regionDotPath, tipPlacement } from "./hex.ts";
@@ -54,7 +55,7 @@ const note = computed(() =>
 /** Where the bytes are, and what they hold, which read as one line rather than two. */
 const span = computed(() => {
   if (!region.value) return "";
-  const where = `${region.value.len} B at ${hexOffset(region.value.offset, props.tree.bufLen)}`;
+  const where = `${formatBytes(region.value.len)} at ${hexOffset(region.value.offset, props.tree.bufLen)}`;
   return note.value === "" ? where : `${where}, ${note.value}`;
 });
 

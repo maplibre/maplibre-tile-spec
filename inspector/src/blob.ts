@@ -1,6 +1,7 @@
 /** How a decoded blob reads, shared by the detail pane and the hover tip. */
 
 import type { DecodedBlob } from "./annotate.ts";
+import { formatBytes } from "./bytes.ts";
 
 /** The values of a blob, one chip each, with text cut to `maxChars`. */
 export function blobChips(blob: DecodedBlob, maxChars: number): string[] {
@@ -17,7 +18,7 @@ export function blobChips(blob: DecodedBlob, maxChars: number): string[] {
     case "text":
       return [[...blob.value].slice(0, maxChars).join("")];
     case "binary":
-      return [`${blob.len} binary bytes`];
+      return [formatBytes(blob.len)];
     case "error":
       return [blob.message];
   }

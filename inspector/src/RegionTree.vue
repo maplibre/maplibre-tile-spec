@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import type { DumpTree, Region } from "./annotate.ts";
+import { formatBytes } from "./bytes.ts";
 import { ancestors, bandTint, UNANNOTATED } from "./hex.ts";
 
 const props = defineProps<{
@@ -254,7 +255,7 @@ defineExpose({ reveal });
           @dblclick="expand(node)"
         >
           <span class="name">{{ node.region.label }}</span>
-          <span class="size">{{ node.region.len }} B</span>
+          <span class="size">{{ formatBytes(node.region.len) }}</span>
         </button>
       </div>
     </div>
