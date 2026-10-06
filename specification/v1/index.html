@@ -849,17 +849,47 @@
 <p>This document specifies the byte layout of an MLT v1 layer.
 The data model it assumes, tiles, extents, layers, features, columns and streams, is described on the <a href="../../overview/">data model</a> page.</p>
 <h2 id="tile-layout">Tile Layout<a class="headerlink" href="#tile-layout" title="Link to this section">&para;</a></h2>
-<p>A tile is a concatenation of tagged layer records.
-There is no tile header.
-Layers are encoded independently and can be concatenated without re-encoding.</p>
+<p>The tile layout is shared by every format and is not part of v1 itself; see <a href="../../overview/#frames">frames</a>.
+It is repeated here with the details a v1 decoder needs.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 100" role="img" aria-label="A tile holding three frames, each a size, a format tag and a body: an MLT v1 layer, an MLT v2 layer, and a future format that older readers skip" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">tile</text>
+<text class="muted small mid" x="168.0" y="14">MLT v1</text>
+<path class="bracket" d="M60 34V28H276V34"/>
+<rect class="plain" x="60" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="82.0" y="54">size</text>
+<rect class="f0" x="108" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="130.0" y="54">0x01</text>
+<rect class="f1" x="156" y="40" width="120" height="28" rx="3"/>
+<text class="cell" x="216.0" y="54">roads layer</text>
+<text class="muted small mid" x="386.0" y="14">MLT v2</text>
+<path class="bracket" d="M288 34V28H484V34"/>
+<rect class="plain" x="288" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="310.0" y="54">size</text>
+<rect class="f0" x="336" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="358.0" y="54">0x02</text>
+<rect class="f1" x="384" y="40" width="100" height="28" rx="3"/>
+<text class="cell" x="434.0" y="54">water layer</text>
+<text class="muted small mid" x="593.0" y="14">future format</text>
+<path class="bracket" d="M496 34V28H690V34"/>
+<rect class="plain" x="496" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="518.0" y="54">size</text>
+<rect class="f0" x="544" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="566.0" y="54">0x??</text>
+<rect class="implicit" x="592" y="40" width="98" height="28" rx="3"/>
+<text class="cell muted" x="641.0" y="54">any data</text>
+<text class="muted small mid" x="593.0" y="86">skipped if the tag is unknown</text>
+</svg></p>
+<p>A tile is a concatenation of frames, with no tile header.
+A v1 frame is one layer, with <code>tag = 0x01</code>.
+Layers are encoded independently, so they can be concatenated without re-encoding.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x01%2Fpoint.mlt&amp;at=size" target="_blank">View example</a> - a single <code>Point</code> and the layer around it.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>tile   := layer*
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>layer  := [varint size] [u8 tag] [u8 body[size - 1]]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>tile   := frame*
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>frame  := [varint size] [u8 tag] [u8 body[size - 1]]
 </span></code></pre></div>
 <ul>
-<li><code>size</code> counts the <code>tag</code> byte plus the body, so the next layer starts <code>size</code> bytes after the <code>size</code> varint.</li>
-<li><code>tag</code> names the format the body is written in. <code>0x01</code> is the format specified on this page.</li>
-<li>A decoder MUST skip a layer whose <code>tag</code> it does not recognize, using <code>size</code> to find the next one.</li>
+<li><code>size</code> counts the <code>tag</code> byte plus the body, so the next frame starts <code>size</code> bytes after the <code>size</code> varint.</li>
+<li><code>tag</code> names the format the body is written in.</li>
+<li>A decoder MUST skip a frame whose <code>tag</code> it does not recognize, using <code>size</code> to find the next one.</li>
 </ul>
 <p>A decoder MUST NOT assume layer names are unique or ordered.</p>
 <h2 id="layer-body">Layer Body<a class="headerlink" href="#layer-body" title="Link to this section">&para;</a></h2>

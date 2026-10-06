@@ -1,9 +1,5 @@
 # MapLibre Tile Specification v2
 
-> [!NOTE]
->
-> This is a live specification that evolves continuously. Features marked as are under active development and may change in future versions. Stable features are those without experimental tags.
-
 > [!WARNING]
 >
 > **MLT v2 is experimental.** The layout on this page can change without a version bump, and no compatibility is promised between releases. Do not store v2 tiles in a cache that cannot be invalidated, and do not ship a v2 decoder that cannot be updated.
@@ -28,16 +24,9 @@ Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% sm
 
 ## Tile Layout
 
-Unchanged from [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#tile-layout>). A tile is a concatenation of tagged layer records. A v2 layer has `tag = 0x02`.
+Unchanged from [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#tile-layout>), except that a v2 frame has `tag = 0x02`. A tile MAY contain both v1 and v2 layers.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=size>) - a single `Point` and the layer around it.
-
-```text
-tile   := layer*
-layer  := [varint size] [u8 tag] [u8 body[size - 1]]
-```
-
-A tile MAY contain both v1 and v2 layers. A decoder MUST skip a layer whose tag it does not know.
 
 ## Layer Body
 

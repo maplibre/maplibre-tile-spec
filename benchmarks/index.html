@@ -502,28 +502,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#decoding-speed" class="md-nav__link">
+  <a href="#method" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Decoding speed
+        Method
       </span>
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#size" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Size
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
+    <nav class="md-nav" aria-label="Method">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#datasets" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -531,6 +521,11 @@
       </span>
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -601,16 +596,26 @@
   
 
 
+<style>
+  /* One dataset switch for the whole page, kept in view while its tables scroll by. */
+  .md-typeset .tabbed-set > .tabbed-labels {
+    position: sticky;
+    top: 2.4rem;
+    z-index: 2;
+    background-color: var(--md-default-bg-color);
+    transition: top 250ms;
+  }
+  body:has(.md-header[hidden]) .md-typeset .tabbed-set > .tabbed-labels { top: 0; }
+</style>
+
 <h1 id="benchmarks">Benchmarks<a class="headerlink" href="#benchmarks" title="Link to this section">&para;</a></h1>
-<p>Measured on whole-planet <a href="https://openmaptiles.org/">OpenMapTiles</a> and <a href="https://protomaps.com/">Protomaps</a> archives, described in <a href="#datasets">datasets</a>.</p>
-<h2 id="decoding-speed">Decoding speed<a class="headerlink" href="#decoding-speed" title="Link to this section">&para;</a></h2>
-<p>Time to decode every property and geometry of the same sampled tiles, as a share of the time for gzipped MVT.
-Tiles are sampled at up to 5,000 per zoom level timed as the best of 15 runs on one core of an AMD Ryzen 9 3900.
-MVT is read with <a href="https://crates.io/crates/fast-mvt">fast-mvt</a>, the fastest known MVT library, and MLT with <code>decode_all</code>,
-so no "unfair" gains from lazy per-attribute decoding. Performance depends on the specifics of the tile source.</p>
+<p>MLT v1 and v2 compared with MVT on whole-planet archives.
+Pick a dataset below; the <a href="#method">method</a> applies to all of them.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">OpenMapTiles</label><label for="__tabbed_1_2">Protomaps</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
+<h4 id="decoding-speed">Decoding speed<a class="headerlink" href="#decoding-speed" title="Link to this section">&para;</a></h4>
+<p>Time to decode every property and geometry, as a share of the time for gzipped MVT.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="OpenMapTiles: MVT 64%, MVT + gzip 100%, MLT v1 40%, MLT v1 + gzip 65%, MLT v2 44%, MLT v2 + gzip 68% of the decode time of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
 <path class="implicit" d="M570.0 4V214"/>
 <text class="row" x="0" y="19">MVT</text>
@@ -674,223 +679,8 @@ so no "unfair" gains from lazy per-attribute decoding. Performance depends on th
 </tr>
 </tbody>
 </table>
-<p>Decode time with one <code>mlt convert</code> option added, relative to the same MLT version without it (<code>-</code> where only v2 has the option):</p>
-<table>
-<thead>
-<tr>
-<th>Added option</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--no-shared-dict</code></td>
-<td style="text-align: right;">+15%</td>
-<td style="text-align: right;">+27%</td>
-</tr>
-<tr>
-<td><code>--no-fastpfor</code></td>
-<td style="text-align: right;">+12%</td>
-<td style="text-align: right;">+11%</td>
-</tr>
-<tr>
-<td><code>--no-fsst</code></td>
-<td style="text-align: right;">-2%</td>
-<td style="text-align: right;">-3%</td>
-</tr>
-<tr>
-<td><code>--sort none</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--sort all</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--no-alp</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--no-float-dict</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--no-bitpacking</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--delta2</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--rans-vertices</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+16%</td>
-</tr>
-<tr>
-<td><code>--tessellate</code></td>
-<td style="text-align: right;">+27%</td>
-<td style="text-align: right;">+14%</td>
-</tr>
-<tr>
-<td><code>--tessellate --triangles-only</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+10%</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="tabbed-block">
-<p><svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="Protomaps basemap: MVT 55%, MVT + gzip 100%, MLT v1 27%, MLT v1 + gzip 55%, MLT v2 27%, MLT v2 + gzip 55% of the decode time of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
-<path class="implicit" d="M570.0 4V214"/>
-<text class="row" x="0" y="19">MVT</text>
-<rect class="plain" x="130" y="8" width="242.0" height="22" rx="3"/>
-<text class="halo" x="380.0" y="19"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
-<text class="row" x="0" y="53">MVT + gzip</text>
-<rect class="plain" x="130" y="42" width="440.0" height="22" rx="3"/>
-<text class="halo" x="578.0" y="53"><tspan class="bold">100%</tspan></text>
-<text class="row" x="0" y="87">MLT v1</text>
-<rect class="f0" x="130" y="76" width="117.0" height="22" rx="3"/>
-<text class="halo" x="255.0" y="87"><tspan class="bold">27%</tspan><tspan class="muted small"> 3.8x as fast</tspan></text>
-<text class="row" x="0" y="121">MLT v1 + gzip</text>
-<rect class="f0" x="130" y="110" width="240.3" height="22" rx="3"/>
-<text class="halo" x="378.3" y="121"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
-<text class="row" x="0" y="155">MLT v2</text>
-<rect class="f1" x="130" y="144" width="119.9" height="22" rx="3"/>
-<text class="halo" x="257.9" y="155"><tspan class="bold">27%</tspan><tspan class="muted small"> 3.7x as fast</tspan></text>
-<text class="row" x="0" y="189">MLT v2 + gzip</text>
-<rect class="f1" x="130" y="178" width="241.5" height="22" rx="3"/>
-<text class="halo" x="379.5" y="189"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
-</svg></p>
-<table>
-<thead>
-<tr>
-<th>Decode time</th>
-<th style="text-align: right;">MVT</th>
-<th style="text-align: right;">MVT + gzip</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v1 + gzip</th>
-<th style="text-align: right;">MLT v2</th>
-<th style="text-align: right;">MLT v2 + gzip</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>All tiles</td>
-<td style="text-align: right;">55%</td>
-<td style="text-align: right;">100%</td>
-<td style="text-align: right;">27%</td>
-<td style="text-align: right;">55%</td>
-<td style="text-align: right;">27%</td>
-<td style="text-align: right;">55%</td>
-</tr>
-<tr>
-<td>Median tile</td>
-<td style="text-align: right;">37%</td>
-<td style="text-align: right;">100%</td>
-<td style="text-align: right;">49%</td>
-<td style="text-align: right;">113%</td>
-<td style="text-align: right;">49%</td>
-<td style="text-align: right;">108%</td>
-</tr>
-<tr>
-<td>Largest 1% of tiles</td>
-<td style="text-align: right;">56%</td>
-<td style="text-align: right;">100%</td>
-<td style="text-align: right;">18%</td>
-<td style="text-align: right;">39%</td>
-<td style="text-align: right;">19%</td>
-<td style="text-align: right;">40%</td>
-</tr>
-</tbody>
-</table>
-<p>Decode time with one <code>mlt convert</code> option added, relative to the same MLT version without it (<code>-</code> where only v2 has the option):</p>
-<table>
-<thead>
-<tr>
-<th>Added option</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--no-shared-dict</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">+2%</td>
-</tr>
-<tr>
-<td><code>--no-fastpfor</code></td>
-<td style="text-align: right;">+15%</td>
-<td style="text-align: right;">+15%</td>
-</tr>
-<tr>
-<td><code>--no-fsst</code></td>
-<td style="text-align: right;">0%</td>
-<td style="text-align: right;">-1%</td>
-</tr>
-<tr>
-<td><code>--sort none</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--sort all</code></td>
-<td style="text-align: right;">+1%</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--no-alp</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--no-float-dict</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--no-bitpacking</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
-<td><code>--delta2</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
-<td><code>--rans-vertices</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+88%</td>
-</tr>
-<tr>
-<td><code>--tessellate</code></td>
-<td style="text-align: right;">+145%</td>
-<td style="text-align: right;">+68%</td>
-</tr>
-<tr>
-<td><code>--tessellate --triangles-only</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+59%</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</div>
-<h2 id="size">Size<a class="headerlink" href="#size" title="Link to this section">&para;</a></h2>
-<p>Whole-planet archives, as a share of the same tiles stored as gzipped MVT.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">OpenMapTiles</label><label for="__tabbed_2_2">Protomaps</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
+<h4 id="size">Size<a class="headerlink" href="#size" title="Link to this section">&para;</a></h4>
+<p>Whole-planet archive size, as a share of gzipped MVT.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="OpenMapTiles: MVT 152%, MVT + gzip 100%, MLT v1 102%, MLT v1 + gzip 85%, MLT v2 92%, MLT v2 + gzip 82% of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
 <path class="implicit" d="M419.7 4V214"/>
 <text class="row" x="0" y="19">MVT</text>
@@ -958,7 +748,8 @@ so no "unfair" gains from lazy per-attribute decoding. Performance depends on th
 </tr>
 </tbody>
 </table>
-<p>The median tile among the largest 1% (from 31 kB as MVT) is this many times smaller:</p>
+<p>Large tiles gain the most.
+The median of the largest 1% of tiles is 31 kB as MVT, and MLT stores it this many times smaller:</p>
 <table>
 <thead>
 <tr>
@@ -980,13 +771,17 @@ so no "unfair" gains from lazy per-attribute decoding. Performance depends on th
 </tr>
 </tbody>
 </table>
-<p>Planet size with one <code>mlt convert</code> option added, relative to the same MLT version without it (no gzip, <code>-</code> where only v2 has the option):</p>
+<h4 id="encoder-options">Encoder options<a class="headerlink" href="#encoder-options" title="Link to this section">&para;</a></h4>
+<p>Planet size and decode time with one <code>mlt convert</code> option added, relative to the same MLT version without it.
+Size is measured without gzip, and <code>-</code> marks an option only v2 has.</p>
 <table>
 <thead>
 <tr>
 <th>Added option</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v2</th>
+<th style="text-align: right;">Size v1</th>
+<th style="text-align: right;">Size v2</th>
+<th style="text-align: right;">Decode v1</th>
+<th style="text-align: right;">Decode v2</th>
 </tr>
 </thead>
 <tbody>
@@ -994,66 +789,157 @@ so no "unfair" gains from lazy per-attribute decoding. Performance depends on th
 <td><code>--no-shared-dict</code></td>
 <td style="text-align: right;">+25.4%</td>
 <td style="text-align: right;">+25.3%</td>
+<td style="text-align: right;">+15%</td>
+<td style="text-align: right;">+27%</td>
 </tr>
 <tr>
 <td><code>--no-fastpfor</code></td>
 <td style="text-align: right;">+2.6%</td>
 <td style="text-align: right;">+3.1%</td>
+<td style="text-align: right;">+12%</td>
+<td style="text-align: right;">+11%</td>
 </tr>
 <tr>
 <td><code>--no-fsst</code></td>
 <td style="text-align: right;">+0.7%</td>
 <td style="text-align: right;">+0.8%</td>
+<td style="text-align: right;">-2%</td>
+<td style="text-align: right;">-3%</td>
 </tr>
 <tr>
 <td><code>--sort none</code></td>
 <td style="text-align: right;">+0.2%</td>
 <td style="text-align: right;">+0.2%</td>
+<td style="text-align: right;">+1%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
 <td><code>--sort all</code></td>
 <td style="text-align: right;">-0.4%</td>
 <td style="text-align: right;">-0.4%</td>
+<td style="text-align: right;">+1%</td>
+<td style="text-align: right;">+1%</td>
 </tr>
 <tr>
 <td><code>--no-alp</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+0.0%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
 <td><code>--no-float-dict</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+0.0%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
 <td><code>--no-bitpacking</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+0.7%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">+1%</td>
 </tr>
 <tr>
 <td><code>--delta2</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">-0.5%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
 <td><code>--rans-vertices</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">-5.4%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">+16%</td>
 </tr>
 <tr>
 <td><code>--tessellate</code></td>
 <td style="text-align: right;">+21.9%</td>
 <td style="text-align: right;">+24.9%</td>
+<td style="text-align: right;">+27%</td>
+<td style="text-align: right;">+14%</td>
 </tr>
 <tr>
 <td><code>--tessellate --triangles-only</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+23.2%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">+10%</td>
 </tr>
 </tbody>
 </table>
 </div>
 <div class="tabbed-block">
+<h4 id="decoding-speed_1">Decoding speed<a class="headerlink" href="#decoding-speed_1" title="Link to this section">&para;</a></h4>
+<p>Time to decode every property and geometry, as a share of the time for gzipped MVT.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="Protomaps basemap: MVT 55%, MVT + gzip 100%, MLT v1 27%, MLT v1 + gzip 55%, MLT v2 27%, MLT v2 + gzip 55% of the decode time of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
+<path class="implicit" d="M570.0 4V214"/>
+<text class="row" x="0" y="19">MVT</text>
+<rect class="plain" x="130" y="8" width="242.0" height="22" rx="3"/>
+<text class="halo" x="380.0" y="19"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
+<text class="row" x="0" y="53">MVT + gzip</text>
+<rect class="plain" x="130" y="42" width="440.0" height="22" rx="3"/>
+<text class="halo" x="578.0" y="53"><tspan class="bold">100%</tspan></text>
+<text class="row" x="0" y="87">MLT v1</text>
+<rect class="f0" x="130" y="76" width="117.0" height="22" rx="3"/>
+<text class="halo" x="255.0" y="87"><tspan class="bold">27%</tspan><tspan class="muted small"> 3.8x as fast</tspan></text>
+<text class="row" x="0" y="121">MLT v1 + gzip</text>
+<rect class="f0" x="130" y="110" width="240.3" height="22" rx="3"/>
+<text class="halo" x="378.3" y="121"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
+<text class="row" x="0" y="155">MLT v2</text>
+<rect class="f1" x="130" y="144" width="119.9" height="22" rx="3"/>
+<text class="halo" x="257.9" y="155"><tspan class="bold">27%</tspan><tspan class="muted small"> 3.7x as fast</tspan></text>
+<text class="row" x="0" y="189">MLT v2 + gzip</text>
+<rect class="f1" x="130" y="178" width="241.5" height="22" rx="3"/>
+<text class="halo" x="379.5" y="189"><tspan class="bold">55%</tspan><tspan class="muted small"> 1.8x as fast</tspan></text>
+</svg></p>
+<table>
+<thead>
+<tr>
+<th>Decode time</th>
+<th style="text-align: right;">MVT</th>
+<th style="text-align: right;">MVT + gzip</th>
+<th style="text-align: right;">MLT v1</th>
+<th style="text-align: right;">MLT v1 + gzip</th>
+<th style="text-align: right;">MLT v2</th>
+<th style="text-align: right;">MLT v2 + gzip</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All tiles</td>
+<td style="text-align: right;">55%</td>
+<td style="text-align: right;">100%</td>
+<td style="text-align: right;">27%</td>
+<td style="text-align: right;">55%</td>
+<td style="text-align: right;">27%</td>
+<td style="text-align: right;">55%</td>
+</tr>
+<tr>
+<td>Median tile</td>
+<td style="text-align: right;">37%</td>
+<td style="text-align: right;">100%</td>
+<td style="text-align: right;">49%</td>
+<td style="text-align: right;">113%</td>
+<td style="text-align: right;">49%</td>
+<td style="text-align: right;">108%</td>
+</tr>
+<tr>
+<td>Largest 1% of tiles</td>
+<td style="text-align: right;">56%</td>
+<td style="text-align: right;">100%</td>
+<td style="text-align: right;">18%</td>
+<td style="text-align: right;">39%</td>
+<td style="text-align: right;">19%</td>
+<td style="text-align: right;">40%</td>
+</tr>
+</tbody>
+</table>
+<h4 id="size_1">Size<a class="headerlink" href="#size_1" title="Link to this section">&para;</a></h4>
+<p>Whole-planet archive size, as a share of gzipped MVT.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 216" role="img" aria-label="Protomaps basemap: MVT 133%, MVT + gzip 100%, MLT v1 106%, MLT v1 + gzip 95%, MLT v2 96%, MLT v2 + gzip 90% of gzipped MVT" xmlns="http://www.w3.org/2000/svg">
 <path class="implicit" d="M461.4 4V214"/>
 <text class="row" x="0" y="19">MVT</text>
@@ -1121,7 +1007,8 @@ so no "unfair" gains from lazy per-attribute decoding. Performance depends on th
 </tr>
 </tbody>
 </table>
-<p>The median tile among the largest 1% (from 18 kB as MVT) is this many times smaller:</p>
+<p>Large tiles gain the most.
+The median of the largest 1% of tiles is 18 kB as MVT, and MLT stores it this many times smaller:</p>
 <table>
 <thead>
 <tr>
@@ -1143,13 +1030,17 @@ so no "unfair" gains from lazy per-attribute decoding. Performance depends on th
 </tr>
 </tbody>
 </table>
-<p>Planet size with one <code>mlt convert</code> option added, relative to the same MLT version without it (no gzip, <code>-</code> where only v2 has the option):</p>
+<h4 id="encoder-options_1">Encoder options<a class="headerlink" href="#encoder-options_1" title="Link to this section">&para;</a></h4>
+<p>Planet size and decode time with one <code>mlt convert</code> option added, relative to the same MLT version without it.
+Size is measured without gzip, and <code>-</code> marks an option only v2 has.</p>
 <table>
 <thead>
 <tr>
 <th>Added option</th>
-<th style="text-align: right;">MLT v1</th>
-<th style="text-align: right;">MLT v2</th>
+<th style="text-align: right;">Size v1</th>
+<th style="text-align: right;">Size v2</th>
+<th style="text-align: right;">Decode v1</th>
+<th style="text-align: right;">Decode v2</th>
 </tr>
 </thead>
 <tbody>
@@ -1157,72 +1048,100 @@ so no "unfair" gains from lazy per-attribute decoding. Performance depends on th
 <td><code>--no-shared-dict</code></td>
 <td style="text-align: right;">+0.8%</td>
 <td style="text-align: right;">+0.8%</td>
+<td style="text-align: right;">+1%</td>
+<td style="text-align: right;">+2%</td>
 </tr>
 <tr>
 <td><code>--no-fastpfor</code></td>
 <td style="text-align: right;">+2.9%</td>
 <td style="text-align: right;">+3.4%</td>
+<td style="text-align: right;">+15%</td>
+<td style="text-align: right;">+15%</td>
 </tr>
 <tr>
 <td><code>--no-fsst</code></td>
 <td style="text-align: right;">+0.2%</td>
 <td style="text-align: right;">+0.2%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">-1%</td>
 </tr>
 <tr>
 <td><code>--sort none</code></td>
 <td style="text-align: right;">+0.1%</td>
 <td style="text-align: right;">+0.1%</td>
+<td style="text-align: right;">+1%</td>
+<td style="text-align: right;">+1%</td>
 </tr>
 <tr>
 <td><code>--sort all</code></td>
 <td style="text-align: right;">-0.1%</td>
 <td style="text-align: right;">-0.1%</td>
+<td style="text-align: right;">+1%</td>
+<td style="text-align: right;">+1%</td>
 </tr>
 <tr>
 <td><code>--no-alp</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+0.1%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
 <td><code>--no-float-dict</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+0.0%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
 <td><code>--no-bitpacking</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+0.3%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
 <td><code>--delta2</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">-0.6%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">+1%</td>
 </tr>
 <tr>
 <td><code>--rans-vertices</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">-5.3%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">+88%</td>
 </tr>
 <tr>
 <td><code>--tessellate</code></td>
 <td style="text-align: right;">+32.4%</td>
 <td style="text-align: right;">+35.8%</td>
+<td style="text-align: right;">+145%</td>
+<td style="text-align: right;">+68%</td>
 </tr>
 <tr>
 <td><code>--tessellate --triangles-only</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+33.5%</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">+59%</td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
 </div>
-<h2 id="datasets">Datasets<a class="headerlink" href="#datasets" title="Link to this section">&para;</a></h2>
+<h2 id="method">Method<a class="headerlink" href="#method" title="Link to this section">&para;</a></h2>
+<p>Decoding is timed on the same tiles sampled from each archive, up to 5,000 per zoom level, as the best of 15 runs on one core of an AMD Ryzen 9 3900.
+MVT is read with <a href="https://crates.io/crates/fast-mvt">fast-mvt</a>, the fastest known MVT library, and MLT with <code>decode_all</code>, so no "unfair" gains from lazy per-attribute decoding.
+Performance depends on the specifics of the tile source.</p>
+<p>Sizes cover whole archives, and bytes of a tile stored more than once in an archive are counted once.
+Gzip is Zlib level 6 per tile, the level both source archives were written with.</p>
+<h3 id="datasets">Datasets<a class="headerlink" href="#datasets" title="Link to this section">&para;</a></h3>
 <p>The <a href="https://protomaps.com/">Protomaps</a> basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the <a href="https://openmaptiles.org/">OpenMapTiles</a> 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles).
-The <code>mlt convert</code> at <a href="https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88"><code>89ceaef3</code></a> was used.
-Bytes of tile in the archive are only counted once.
-For re-encoding we use Zlib level 6 per tile, since this is the level both source archives were written with.</p>
+The <code>mlt convert</code> at <a href="https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88"><code>89ceaef3</code></a> was used.</p>
 
 
 

@@ -4,18 +4,20 @@ This document specifies the byte layout of an MLT v1 layer. The data model it as
 
 ## Tile Layout
 
-A tile is a concatenation of tagged layer records. There is no tile header. Layers are encoded independently and can be concatenated without re-encoding.
+The tile layout is shared by every format and is not part of v1 itself; see [frames](<https://maplibre.org/maplibre-tile-spec/overview/#frames>). It is repeated here with the details a v1 decoder needs.
+
+A tile is a concatenation of frames, with no tile header. A v1 frame is one layer, with `tag = 0x01`. Layers are encoded independently, so they can be concatenated without re-encoding.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fpoint.mlt&amp;at=size>) - a single `Point` and the layer around it.
 
 ```text
-tile   := layer*
-layer  := [varint size] [u8 tag] [u8 body[size - 1]]
+tile   := frame*
+frame  := [varint size] [u8 tag] [u8 body[size - 1]]
 ```
 
-- `size` counts the `tag` byte plus the body, so the next layer starts `size` bytes after the `size` varint.
-- `tag` names the format the body is written in. `0x01` is the format specified on this page.
-- A decoder MUST skip a layer whose `tag` it does not recognize, using `size` to find the next one.
+- `size` counts the `tag` byte plus the body, so the next frame starts `size` bytes after the `size` varint.
+- `tag` names the format the body is written in.
+- A decoder MUST skip a frame whose `tag` it does not recognize, using `size` to find the next one.
 
 A decoder MUST NOT assume layer names are unique or ordered.
 

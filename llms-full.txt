@@ -145,7 +145,7 @@ MLT can represent the same common vector tile content as MVT, but it is not a by
 - **Missing properties become typed nulls.** MVT normally represents a missing property by omitting the key/value tag from that feature; the MVT value union has no dedicated null type. MLT represents the union of layer properties as columns, so a feature that lacks a property stores a null in that column and the column is marked nullable. When converting MLT back to MVT, null property values should be omitted from the feature tags.
 - **A feature has at most one value per property column.** MVT tag streams can encode the same key more than once for a single feature, even though most MVT APIs expose properties as a map and collapse such duplicates. MLT has one cell per feature per column, so duplicate keys on one feature must be rejected, collapsed deterministically, or renamed before encoding.
 - **Feature order is not necessarily a stable round-trip property.** MVT stores features in wire order. MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
-- **Layer names must be non-empty.** The MVT protobuf schema marks the layer `name` field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty. The written MVT specification does not explicitly say that the required name cannot be an empty string. MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.
+- **Layer names must be non-empty.** MLT always requires a non-empty layer name, and a layer without one MUST be rejected. MVT leaves this unclear: its protobuf schema marks `name` as required, but the written specification never says it cannot be an empty string, although some Mapbox tooling rejects empty names.
 - **A layer holds at most `2^31 - 1` features.** MVT sets no limit, but MLT stores the feature count as a signed 32-bit integer.
 - **MLT v2 restricts the extent.** MVT allows any positive extent, but MLT v2 accepts only powers of two from `64` to `2097152`. A layer with any other extent must be rescaled or stored as MLT v1.
 
@@ -199,11 +199,11 @@ MLT can represent the same common vector tile content as MVT, but it is not a by
 
 # Benchmarks
 
-Measured on whole-planet [OpenMapTiles](<https://openmaptiles.org/>) and [Protomaps](<https://protomaps.com/>) archives, described in [datasets](<#datasets>).
+MLT v1 and v2 compared with MVT on whole-planet archives. Pick a dataset below; the [method](<#method>) applies to all of them.
 
-## Decoding speed
+#### Decoding speed
 
-Time to decode every property and geometry of the same sampled tiles, as a share of the time for gzipped MVT. Tiles are sampled at up to 5,000 per zoom level timed as the best of 15 runs on one core of an AMD Ryzen 9 3900. MVT is read with [fast-mvt](<https://crates.io/crates/fast-mvt>), the fastest known MVT library, and MLT with `decode_all`, so no "unfair" gains from lazy per-attribute decoding. Performance depends on the specifics of the tile source.
+Time to decode every property and geometry, as a share of the time for gzipped MVT.
 
 | Decode time | MVT | MVT + gzip | MLT v1 | MLT v1 + gzip | MLT v2 | MLT v2 + gzip |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -211,49 +211,9 @@ Time to decode every property and geometry of the same sampled tiles, as a share
 | Median tile | 40% | 100% | 52% | 117% | 55% | 115% |
 | Largest 1% of tiles | 70% | 100% | 26% | 42% | 28% | 43% |
 
-Decode time with one `mlt convert` option added, relative to the same MLT version without it (`-` where only v2 has the option):
+#### Size
 
-| Added option | MLT v1 | MLT v2 |
-| --- | ---: | ---: |
-| `--no-shared-dict` | \+15% | \+27% |
-| `--no-fastpfor` | \+12% | \+11% |
-| `--no-fsst` | \-2% | \-3% |
-| `--sort none` | \+1% | 0% |
-| `--sort all` | \+1% | \+1% |
-| `--no-alp` | \- | 0% |
-| `--no-float-dict` | \- | 0% |
-| `--no-bitpacking` | \- | \+1% |
-| `--delta2` | \- | 0% |
-| `--rans-vertices` | \- | \+16% |
-| `--tessellate` | \+27% | \+14% |
-| `--tessellate --triangles-only` | \- | \+10% |
-
-| Decode time | MVT | MVT + gzip | MLT v1 | MLT v1 + gzip | MLT v2 | MLT v2 + gzip |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| All tiles | 55% | 100% | 27% | 55% | 27% | 55% |
-| Median tile | 37% | 100% | 49% | 113% | 49% | 108% |
-| Largest 1% of tiles | 56% | 100% | 18% | 39% | 19% | 40% |
-
-Decode time with one `mlt convert` option added, relative to the same MLT version without it (`-` where only v2 has the option):
-
-| Added option | MLT v1 | MLT v2 |
-| --- | ---: | ---: |
-| `--no-shared-dict` | \+1% | \+2% |
-| `--no-fastpfor` | \+15% | \+15% |
-| `--no-fsst` | 0% | \-1% |
-| `--sort none` | \+1% | \+1% |
-| `--sort all` | \+1% | \+1% |
-| `--no-alp` | \- | 0% |
-| `--no-float-dict` | \- | 0% |
-| `--no-bitpacking` | \- | 0% |
-| `--delta2` | \- | \+1% |
-| `--rans-vertices` | \- | \+88% |
-| `--tessellate` | \+145% | \+68% |
-| `--tessellate --triangles-only` | \- | \+59% |
-
-## Size
-
-Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
+Whole-planet archive size, as a share of gzipped MVT.
 
 |  | MVT + gzip | MLT v1 | MLT v1 + gzip | MLT v2 | MLT v2 + gzip |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -262,29 +222,45 @@ Whole-planet archives, as a share of the same tiles stored as gzipped MVT.
 | 99th percentile tile | 18.4 kB | 16.4 kB | 14.0 kB | 15.4 kB | 13.6 kB |
 | Largest tile | 727.9 kB | 570.5 kB | 497.6 kB | 550.3 kB | 486.1 kB |
 
-The median tile among the largest 1% (from 31 kB as MVT) is this many times smaller:
+Large tiles gain the most. The median of the largest 1% of tiles is 31 kB as MVT, and MLT stores it this many times smaller:
 
 |  | vs MVT | vs MVT + gzip |
 | --- | ---: | ---: |
 | MLT v1 | 2.13x | 1.21x |
 | MLT v2 | 2.24x | 1.27x |
 
-Planet size with one `mlt convert` option added, relative to the same MLT version without it (no gzip, `-` where only v2 has the option):
+#### Encoder options
 
-| Added option | MLT v1 | MLT v2 |
-| --- | ---: | ---: |
-| `--no-shared-dict` | \+25.4% | \+25.3% |
-| `--no-fastpfor` | \+2.6% | \+3.1% |
-| `--no-fsst` | \+0.7% | \+0.8% |
-| `--sort none` | \+0.2% | \+0.2% |
-| `--sort all` | \-0.4% | \-0.4% |
-| `--no-alp` | \- | \+0.0% |
-| `--no-float-dict` | \- | \+0.0% |
-| `--no-bitpacking` | \- | \+0.7% |
-| `--delta2` | \- | \-0.5% |
-| `--rans-vertices` | \- | \-5.4% |
-| `--tessellate` | \+21.9% | \+24.9% |
-| `--tessellate --triangles-only` | \- | \+23.2% |
+Planet size and decode time with one `mlt convert` option added, relative to the same MLT version without it. Size is measured without gzip, and `-` marks an option only v2 has.
+
+| Added option | Size v1 | Size v2 | Decode v1 | Decode v2 |
+| --- | ---: | ---: | ---: | ---: |
+| `--no-shared-dict` | \+25.4% | \+25.3% | \+15% | \+27% |
+| `--no-fastpfor` | \+2.6% | \+3.1% | \+12% | \+11% |
+| `--no-fsst` | \+0.7% | \+0.8% | \-2% | \-3% |
+| `--sort none` | \+0.2% | \+0.2% | \+1% | 0% |
+| `--sort all` | \-0.4% | \-0.4% | \+1% | \+1% |
+| `--no-alp` | \- | \+0.0% | \- | 0% |
+| `--no-float-dict` | \- | \+0.0% | \- | 0% |
+| `--no-bitpacking` | \- | \+0.7% | \- | \+1% |
+| `--delta2` | \- | \-0.5% | \- | 0% |
+| `--rans-vertices` | \- | \-5.4% | \- | \+16% |
+| `--tessellate` | \+21.9% | \+24.9% | \+27% | \+14% |
+| `--tessellate --triangles-only` | \- | \+23.2% | \- | \+10% |
+
+#### Decoding speed
+
+Time to decode every property and geometry, as a share of the time for gzipped MVT.
+
+| Decode time | MVT | MVT + gzip | MLT v1 | MLT v1 + gzip | MLT v2 | MLT v2 + gzip |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| All tiles | 55% | 100% | 27% | 55% | 27% | 55% |
+| Median tile | 37% | 100% | 49% | 113% | 49% | 108% |
+| Largest 1% of tiles | 56% | 100% | 18% | 39% | 19% | 40% |
+
+#### Size
+
+Whole-planet archive size, as a share of gzipped MVT.
 
 |  | MVT + gzip | MLT v1 | MLT v1 + gzip | MLT v2 | MLT v2 + gzip |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -293,33 +269,41 @@ Planet size with one `mlt convert` option added, relative to the same MLT versio
 | 99th percentile tile | 12.3 kB | 11.9 kB | 10.8 kB | 11.4 kB | 10.6 kB |
 | Largest tile | 485.9 kB | 473.1 kB | 450.8 kB | 473.9 kB | 449.9 kB |
 
-The median tile among the largest 1% (from 18 kB as MVT) is this many times smaller:
+Large tiles gain the most. The median of the largest 1% of tiles is 18 kB as MVT, and MLT stores it this many times smaller:
 
 |  | vs MVT | vs MVT + gzip |
 | --- | ---: | ---: |
 | MLT v1 | 1.58x | 1.05x |
 | MLT v2 | 1.65x | 1.10x |
 
-Planet size with one `mlt convert` option added, relative to the same MLT version without it (no gzip, `-` where only v2 has the option):
+#### Encoder options
 
-| Added option | MLT v1 | MLT v2 |
-| --- | ---: | ---: |
-| `--no-shared-dict` | \+0.8% | \+0.8% |
-| `--no-fastpfor` | \+2.9% | \+3.4% |
-| `--no-fsst` | \+0.2% | \+0.2% |
-| `--sort none` | \+0.1% | \+0.1% |
-| `--sort all` | \-0.1% | \-0.1% |
-| `--no-alp` | \- | \+0.1% |
-| `--no-float-dict` | \- | \+0.0% |
-| `--no-bitpacking` | \- | \+0.3% |
-| `--delta2` | \- | \-0.6% |
-| `--rans-vertices` | \- | \-5.3% |
-| `--tessellate` | \+32.4% | \+35.8% |
-| `--tessellate --triangles-only` | \- | \+33.5% |
+Planet size and decode time with one `mlt convert` option added, relative to the same MLT version without it. Size is measured without gzip, and `-` marks an option only v2 has.
 
-## Datasets
+| Added option | Size v1 | Size v2 | Decode v1 | Decode v2 |
+| --- | ---: | ---: | ---: | ---: |
+| `--no-shared-dict` | \+0.8% | \+0.8% | \+1% | \+2% |
+| `--no-fastpfor` | \+2.9% | \+3.4% | \+15% | \+15% |
+| `--no-fsst` | \+0.2% | \+0.2% | 0% | \-1% |
+| `--sort none` | \+0.1% | \+0.1% | \+1% | \+1% |
+| `--sort all` | \-0.1% | \-0.1% | \+1% | \+1% |
+| `--no-alp` | \- | \+0.1% | \- | 0% |
+| `--no-float-dict` | \- | \+0.0% | \- | 0% |
+| `--no-bitpacking` | \- | \+0.3% | \- | 0% |
+| `--delta2` | \- | \-0.6% | \- | \+1% |
+| `--rans-vertices` | \- | \-5.3% | \- | \+88% |
+| `--tessellate` | \+32.4% | \+35.8% | \+145% | \+68% |
+| `--tessellate --triangles-only` | \- | \+33.5% | \- | \+59% |
 
-The [Protomaps](<https://protomaps.com/>) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](<https://openmaptiles.org/>) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles). The `mlt convert` at [`89ceaef3`](<https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88>) was used. Bytes of tile in the archive are only counted once. For re-encoding we use Zlib level 6 per tile, since this is the level both source archives were written with.
+## Method
+
+Decoding is timed on the same tiles sampled from each archive, up to 5,000 per zoom level, as the best of 15 runs on one core of an AMD Ryzen 9 3900. MVT is read with [fast-mvt](<https://crates.io/crates/fast-mvt>), the fastest known MVT library, and MLT with `decode_all`, so no "unfair" gains from lazy per-attribute decoding. Performance depends on the specifics of the tile source.
+
+Sizes cover whole archives, and bytes of a tile stored more than once in an archive are counted once. Gzip is Zlib level 6 per tile, the level both source archives were written with.
+
+### Datasets
+
+The [Protomaps](<https://protomaps.com/>) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](<https://openmaptiles.org/>) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles). The `mlt convert` at [`89ceaef3`](<https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88>) was used.
 
 # Specification
 
@@ -329,18 +313,20 @@ This document specifies the byte layout of an MLT v1 layer. The data model it as
 
 ## Tile Layout
 
-A tile is a concatenation of tagged layer records. There is no tile header. Layers are encoded independently and can be concatenated without re-encoding.
+The tile layout is shared by every format and is not part of v1 itself; see [frames](<https://maplibre.org/maplibre-tile-spec/overview/#frames>). It is repeated here with the details a v1 decoder needs.
+
+A tile is a concatenation of frames, with no tile header. A v1 frame is one layer, with `tag = 0x01`. Layers are encoded independently, so they can be concatenated without re-encoding.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fpoint.mlt&amp;at=size>) - a single `Point` and the layer around it.
 
 ```text
-tile   := layer*
-layer  := [varint size] [u8 tag] [u8 body[size - 1]]
+tile   := frame*
+frame  := [varint size] [u8 tag] [u8 body[size - 1]]
 ```
 
-- `size` counts the `tag` byte plus the body, so the next layer starts `size` bytes after the `size` varint.
-- `tag` names the format the body is written in. `0x01` is the format specified on this page.
-- A decoder MUST skip a layer whose `tag` it does not recognize, using `size` to find the next one.
+- `size` counts the `tag` byte plus the body, so the next frame starts `size` bytes after the `size` varint.
+- `tag` names the format the body is written in.
+- A decoder MUST skip a frame whose `tag` it does not recognize, using `size` to find the next one.
 
 A decoder MUST NOT assume layer names are unique or ordered.
 
@@ -1224,10 +1210,6 @@ mlt hexdump path/to/tile.mlt
 
 # MapLibre Tile Specification v2
 
-> [!NOTE]
->
-> This is a live specification that evolves continuously. Features marked as are under active development and may change in future versions. Stable features are those without experimental tags.
-
 > [!WARNING]
 >
 > **MLT v2 is experimental.** The layout on this page can change without a version bump, and no compatibility is promised between releases. Do not store v2 tiles in a cache that cannot be invalidated, and do not ship a v2 decoder that cannot be updated.
@@ -1252,16 +1234,9 @@ Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% sm
 
 ## Tile Layout
 
-Unchanged from [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#tile-layout>). A tile is a concatenation of tagged layer records. A v2 layer has `tag = 0x02`.
+Unchanged from [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#tile-layout>), except that a v2 frame has `tag = 0x02`. A tile MAY contain both v1 and v2 layers.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=size>) - a single `Point` and the layer around it.
-
-```text
-tile   := layer*
-layer  := [varint size] [u8 tag] [u8 body[size - 1]]
-```
-
-A tile MAY contain both v1 and v2 layers. A decoder MUST skip a layer whose tag it does not know.
 
 ## Layer Body
 
