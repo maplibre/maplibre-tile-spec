@@ -26,23 +26,18 @@ function square(min: number, size: number, clockwise: boolean): number[][] {
 // MLT does not constrain ring winding, so the grouping must come from the encoded topology, not be
 // guessed from the winding order.
 describe("featureTablesToFeatureCollection - MultiPolygon", () => {
-    it.each([
-        {
-            name: "keeps a hole wound like its exterior inside its polygon",
-            holeClockwise: false,
-            secondClockwise: false,
-        },
-        {
-            name: "keeps an exterior wound like the previous hole as a new polygon",
-            holeClockwise: true,
-            secondClockwise: true,
-        },
-    ])("$name", ({ holeClockwise, secondClockwise }) => {
+    it("keeps a hole wound like its exterior inside its polygon", () => {
         const geometry: FeatureGeometry = {
             type: "MultiPolygon",
-            coordinates: [[square(0, 10, false), square(2, 2, holeClockwise)], [square(20, 10, secondClockwise)]],
+            coordinates: [[square(0, 10, false), square(2, 2, true)], [square(20, 10, true)]],
         };
-
         expect(toGeoJsonGeometry(geometry)).toEqual(geometry);
-    });
+    })
+    it("keeps an exterior wound like the previous hole as a new polygon", () => {
+        const geometry: FeatureGeometry = {
+            type: "MultiPolygon",
+            coordinates: [[square(0, 10, false), square(2, 2, false)], [square(20, 10, false)]],
+        };
+        expect(toGeoJsonGeometry(geometry)).toEqual(geometry);
+    })
 });
