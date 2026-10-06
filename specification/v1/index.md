@@ -1,6 +1,6 @@
 # MapLibre Tile Specification v1
 
-This document specifies the byte layout of an MLT v1 layer. The data model it assumes, tiles, extents, layers, features, columns and streams, is described on the [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) page.
+This document specifies the byte layout of an MLT v1 layer. The data model it assumes (tiles, extents, layers, features, columns and streams) is described on the [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) page.
 
 ## Tile Layout
 
@@ -41,7 +41,7 @@ string := [varint length] [u8 bytes[length]]
 
 `name` MUST NOT be empty.
 
-`extent` defines the coordinate space size for the tile's geometry and MUST NOT be zero. Geometry coordinates are signed integers in vector-tile grid coordinates, typically near the `0..=extent` range but not restricted to it. Values MAY be negative or exceed `extent` for geometry that crosses tile boundaries. Encoders MAY default to `4096` when a user does not specify the extent.
+`extent` defines the size of the coordinate space for the tile's geometry and MUST NOT be zero. Geometry coordinates are signed integers in vector-tile grid coordinates, typically near the `0..=extent` range but not restricted to it. Values MAY be negative or exceed `extent` for geometry that crosses tile boundaries. Encoders MAY default to `4096` when a user does not specify the extent.
 
 Metadata and data are in two separate sections, both in `column_count` order.
 
@@ -97,11 +97,11 @@ What follows in the data section depends on the column's type. Every `[stream]` 
 | `String` | `[varint stream_count]` `[stream * stream_count]` |
 | `SharedDict` | see [shared dictionary columns](<#shared-dictionary-columns>) |
 
-A nullable column prefixes its data with a `Present` stream, which is counted in `stream_count` where one is present.
+A nullable column prefixes its data with a `Present` stream, which is counted in `stream_count` when the column has one.
 
 ## Streams
 
-A logical column is separated into several physical `streams` (sub-columns), inspired by the ORC file format. These streams are stored contiguously. A stream is a sequence of values of a known length in a continuous memory chunk, all sharing the same type.
+A logical column is split into several physical `streams` (sub-columns), a design inspired by the ORC file format. These streams are stored contiguously. A stream is a sequence of values of a known length, all of the same type, stored in one contiguous chunk of memory.
 
 Each stream is a header followed by its payload:
 
@@ -125,7 +125,7 @@ A `Present` stream is always boolean and derives its RLE parameters from `num_va
 
 ### Stream Types
 
-The `stream_type` byte names what role the stream plays. The high nibble is the category and the low nibble is a category-specific subtype.
+The `stream_type` byte names the role the stream plays. The high nibble is the category and the low nibble is a category-specific subtype.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fprops_shared_dict_one_child_fsst.mlt>) - all four categories, across nine subtypes.
 
@@ -138,10 +138,10 @@ The `stream_type` byte names what role the stream plays. The high nibble is the 
 
 What each category holds:
 
-- **Present**: enables efficient encoding of sparse columns by indicating value presence via a bit flag. Omitted when the column is not nullable.
-- **Data**: the actual column data - `boolean`, `int`, `float` or `string` values, dictionary entries, or geometry coordinates. For fixed-size data types this is the only required stream besides the optional `Present` stream.
-- **Length**: the number of elements for variable-sized data types like strings or rings.
-- **Offset**: offsets into a data stream when using dictionary encoding, for strings or vertices.
+- **Present**: bit flags that mark which values are present, for efficient encoding of sparse columns. Omitted when the column is not nullable.
+- **Data**: the actual column data - `boolean`, `int`, `float` or `string` values, dictionary entries, or geometry coordinates. For fixed-size data types, this is the only stream apart from the optional `Present` stream.
+- **Length**: the number of elements for variable-sized data types such as strings or rings.
+- **Offset**: offsets into a data stream, used by dictionary encoding of strings or vertices.
 
 ### Encoding Byte
 
@@ -172,13 +172,13 @@ The algorithms themselves are specified in [encoding definitions](<https://mapli
 
 ### ID Column
 
-An `id` column is not mandatory. If included, it should be `UInt64` or narrower (`UInt32` if possible) for MVT compatibility. A narrower type enables the use of efficient encodings like SIMD-FastPFOR.
+An `id` column is optional. An encoder SHOULD write `Id` rather than `LongId` when every id fits in 32 bits, since the narrower type allows efficient encodings such as SIMD-FastPFOR.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fid.mlt&amp;at=column%5B0%5D>) - a 32-bit `Id` column.
 
 ### Scalar Columns
 
-Boolean, integer and floating-point columns are a `Present` stream when nullable, then one data stream. Boolean data streams are bit-packed, one bit per present value; float and double data streams hold fixed-width IEEE 754 words.
+Boolean, integer and floating-point columns store a `Present` stream when nullable, followed by one data stream. Boolean data streams are bit-packed, one bit per present value; float and double data streams hold fixed-width IEEE 754 words.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fprop_i32.mlt&amp;at=column%5B1%5D>) - an `i32` column and its presence stream.
 
@@ -197,7 +197,7 @@ A string column declares how many streams follow, and the number of streams dete
 
 A nullable column's `Present` stream precedes these and is counted in `stream_count`.
 
-In the plain layout the `Length` stream holds the byte length of each present value and the `Data` stream holds their UTF-8 bytes back to back. In a dictionary layout the `Offset/String` stream holds one dictionary index per present value, and the `Length` and `Data` streams describe the distinct values. FSST layouts compress the value bytes with a symbol table; see [FSST](<https://maplibre.org/maplibre-tile-spec/encodings/#fsst>).
+In the plain layout, the `Length` stream holds the byte length of each present value and the `Data` stream holds their UTF-8 bytes back to back. In a dictionary layout, the `Offset/String` stream holds one dictionary index per present value, and the `Length` and `Data` streams describe the distinct values. FSST layouts compress the value bytes with a symbol table; see [FSST](<https://maplibre.org/maplibre-tile-spec/encodings/#fsst>).
 
 The offset stream comes last in the 5-stream layout and before the data stream in the 3-stream layout. An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity `[0, 1, 2, ...]` as its offsets.
 
@@ -224,7 +224,7 @@ child       := [varint stream_count]
 
 > [!NOTE]
 >
-> Some tiles in the wild were written with `stream_count` one too high, by an encoder bug since fixed. Decoders SHOULD accept `expected + 1` as well so those files still parse.
+> Some tiles in the wild have a `stream_count` that is one too high, due to an encoder bug that has since been fixed. Decoders SHOULD accept `expected + 1` as well so those files still parse.
 
 Each child's own `stream_count` is `1`, plus `1` when it is nullable.
 
@@ -234,11 +234,11 @@ The same two columns, stored with each kind of dictionary, then in byte order:
 
 ## Geometry Column
 
-The geometry column uses a Structure of Arrays (SoA) layout (data-oriented design). The `x`, `y` coordinates are stored interleaved in a `VertexBuffer` for efficient CPU processing and direct copying to GPU buffers.
+The geometry column uses a data-oriented Structure of Arrays (SoA) layout. The `x` and `y` coordinates are stored interleaved in a `VertexBuffer` for efficient CPU processing and direct copying to GPU buffers.
 
-The geometry information is separated into different streams, partly inspired by the [geoarrow](<https://github.com/geoarrow/geoarrow>) specification. This separation enables better compression optimization and faster processing. Pre-tessellated polygon meshes can also be stored directly to avoid runtime triangulation.
+Geometry is split into separate streams, partly inspired by the [GeoArrow](<https://github.com/geoarrow/geoarrow>) specification. This separation improves compression and speeds up processing. Pre-tessellated polygon meshes can also be stored directly to avoid runtime triangulation.
 
-A geometry column can consist of the following streams:
+A geometry column can contain the following streams:
 
 | Stream Name | Data Type | Encoding | Mandatory |
 | --- | :---: | --- | :---: |
@@ -262,13 +262,13 @@ Depending on the geometry type, the following streams are used in addition to `G
 
 When LineString and Polygon types are mixed in the same column, LineString vertex counts are stored in the NumRings stream (see [length stream encoding rules](<#length-stream-encoding-rules>) below).
 
-An additional `VertexOffsets` stream is present when using Dictionary or Morton-Dictionary encoding. If geometries (mainly polygons) are pre-tessellated for direct GPU use, `NumTriangles` and `IndexBuffer` streams must be provided.
+An additional `VertexOffsets` stream is present when the vertices use Dictionary or Morton-Dictionary encoding. If geometries (mainly polygons) are pre-tessellated for direct GPU use, the `NumTriangles` and `IndexBuffer` streams MUST be present.
 
 ### Geometry Types
 
 Six geometry types are supported, encoded as unsigned integers:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=meta>) - all six kinds in one layer.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=meta>) - all six types in one layer.
 
 | Value | Type | Description |
 | --- | --- | --- |
@@ -299,11 +299,11 @@ geometry_column := [varint stream_count]
                    [stream * (stream_count - 1)]   topology, tessellation and vertex streams
 ```
 
-The streams after the types stream are identified by their `stream_type`, not their position. Each appears at most once.
+The streams after the types stream are identified by their `stream_type`, not by their position. Each appears at most once.
 
-The streams listed above map to the following physical and logical stream types:
+The streams listed above map to the following stream categories and subtypes:
 
-| Physical Type | Logical Type | Specification Name | Content |
+| Category | Subtype | Specification Name | Content |
 | --- | --- | --- | --- |
 | `DATA` | `NONE` | GeometryType | Geometry type per feature (see [geometry types](<#geometry-types>)) |
 | `LENGTH` | `GEOMETRIES` | NumGeometries | Number of sub-geometries in Multi\* types |
@@ -327,7 +327,7 @@ A `Polygon` with a hole, then a `MultiPolygon` of a polygon with a hole and a tr
 
 #### Which Streams Are Present
 
-The streams included depend on the geometry types in the column:
+Which streams are present depends on the geometry types in the column:
 
 | Geometry Type | Geometries | Parts | Rings |
 | --- | :---: | :---: | :---: |
@@ -338,23 +338,23 @@ The streams included depend on the geometry types in the column:
 | Polygon | \- | ✓ | ✓ |
 | MultiPolygon | ✓ | ✓ | ✓ |
 
-\*LineString and MultiLineString parts are stored in the Rings stream when Polygons are also present in the same column.
+\*When Polygons are also present in the column, LineString and MultiLineString vertex counts are stored in the NumRings stream instead of NumParts.
 
 #### Length Stream Encoding Rules
 
-Length values are stored only for geometry types that need them. The key insight is that **simple types have an implicit count of 1**, while **Multi\* types store their sub-geometry counts explicitly**.
+Length values are stored only where an item can hold more than one entry. In NumGeometries, **simple types have an implicit count of 1**, while **Multi\* types store their counts explicitly**. Deeper streams store a length for each polygon (its ring count) and each ring or line string (its vertex count).
 
-The encoding uses a **type threshold** to determine which geometries need explicit lengths:
+The topmost length stream present uses a **type threshold** to decide which geometries need explicit lengths:
 
-| Stream | Threshold | Types Needing Explicit Length |
+| Topmost stream | Threshold | Types needing an explicit length |
 | --- | --- | --- |
-| `geometry_offsets` | Polygon | MultiPoint, MultiLineString, MultiPolygon |
-| `part_offsets` (Rings stream present) | LineString | Polygon, MultiPoint, MultiLineString, MultiPolygon |
-| `part_offsets` (no Rings stream) | Point | LineString |
+| NumGeometries | Polygon | MultiPoint, MultiLineString, MultiPolygon |
+| NumParts, with NumRings present | LineString | Polygon |
+| NumParts, without NumRings | Point | LineString |
 
-**Rule**: If a geometry type's value is greater than the threshold type's value (see [geometry types](<#geometry-types>) table), store its length explicitly. Otherwise, the length is implicitly 1.
+A geometry whose type value is greater than the threshold type's value (see the [geometry types](<#geometry-types>) table) stores its length explicitly. Otherwise, its length is implicitly 1.
 
-**Example**: A column with `[Point, MultiPolygon, Polygon]` geometry types:
+For example, a column with `[Point, MultiPolygon, Polygon]` geometry types:
 
 ```text
 Encoded geometries lengths: [3]     // Only MultiPolygon needs explicit count
@@ -391,7 +391,7 @@ Vertices are stored as interleaved (x, y) coordinate pairs using **componentwise
 
 #### Dictionary Encoding (Optional)
 
-When vertices repeat frequently, a dictionary encoding may be used:
+When vertices repeat frequently, a dictionary encoding MAY be used:
 
 The vertex dictionary is sorted by [Hilbert curve](<https://en.wikipedia.org/wiki/Hilbert_curve>) index for spatial locality. The `OFFSET/VERTEX` stream contains indices into this dictionary.
 
@@ -414,18 +414,18 @@ Morton encoding enables efficient spatial clustering and range queries.
 
 ### Integer Stream Encoding
 
-Topology streams (lengths, offsets) use adaptive encoding selected for minimal size. All integer encodings use [variable-length quantity (varint)](<https://en.wikipedia.org/wiki/Variable-length_quantity>) as the base encoding:
+Topology streams (lengths and offsets) use an encoding chosen to minimize size. Each uses one of the logical combinations from the [encoding byte](<#encoding-byte>), laid out in bytes by any of its physical encodings: fixed-width words, SIMD-FastPFOR or [varint](<https://en.wikipedia.org/wiki/Variable-length_quantity>).
 
 | Logical Encoding | Format | Best For |
 | --- | --- | --- |
-| None | Plain varints | Random values |
-| Delta | Delta + zigzag + varint | Monotonic sequences |
+| None | Values as they are | Random values |
+| Delta | ZigZag deltas | Monotonic sequences |
 | RLE | Run-length encoded | Repeated values |
 | DeltaRLE | Delta + RLE | Constant increments |
 
 #### RLE Format
 
-[Run-length encoding](<https://en.wikipedia.org/wiki/Run-length_encoding>) stores runs followed by values:
+[Run-length encoding](<https://en.wikipedia.org/wiki/Run-length_encoding>) stores all run lengths, followed by all values:
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fids_rle.mlt&amp;at=column%5B0%5D>) - four equal ids as one run: the run length `4`, then the value `103`.
 
@@ -436,7 +436,7 @@ Values: [5, 3]
 Output: [3, 4, 5, 3]  // runs concatenated with values
 ```
 
-Stream metadata includes `runs` and `num_rle_values` counts for decoding.
+The stream header carries the `runs` and `num_rle_values` counts needed for decoding.
 
 ### Tessellation Data (Optional)
 
@@ -505,13 +505,13 @@ Decode:
 
 ### Mixed Geometry Columns
 
-A single column can contain mixed geometry types. The decoding logic handles this by:
+A single column can mix geometry types. A decoder handles this by:
 
 1. Reading geometry types to determine which length streams to expect
 2. Iterating through features, applying type-specific offset rules
-3. Using implicit length=1 for simple types (Point, LineString, Polygon) and reading explicit lengths for Multi\* types
+3. Applying the [length stream encoding rules](<#length-stream-encoding-rules>): the type threshold in the topmost length stream, and explicit counts in the streams below it
 
-**Example**: `[Point, LineString, Polygon]` in one column:
+For example, `[Point, LineString, Polygon]` in one column:
 
 ```text
 Streams:
@@ -530,7 +530,7 @@ The integer and vertex encodings referenced above are specified in detail in the
 
 ## Examples
 
-Every fixture under `test/synthetic/0x01/` has an annotated hexdump and the `.json` a decoder MUST produce from it. The annotations are generated from the tiles.
+Every fixture under `test/synthetic/0x01/` has an annotated hexdump and the `.json` output a decoder MUST produce from it. The annotations are generated from the tiles.
 
 The same annotation can be produced for any tile with the [`mlt` CLI](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md>):
 

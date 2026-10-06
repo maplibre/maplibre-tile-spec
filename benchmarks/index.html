@@ -749,7 +749,7 @@ Pick a dataset below; the <a href="#method">method</a> applies to all of them.</
 </tbody>
 </table>
 <p>Large tiles gain the most.
-The median of the largest 1% of tiles is 31 kB as MVT, and MLT stores it this many times smaller:</p>
+The median of the largest 1% of tiles is 31 kB as MVT, and MLT shrinks it by these factors:</p>
 <table>
 <thead>
 <tr>
@@ -1008,7 +1008,7 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 </tbody>
 </table>
 <p>Large tiles gain the most.
-The median of the largest 1% of tiles is 18 kB as MVT, and MLT stores it this many times smaller:</p>
+The median of the largest 1% of tiles is 18 kB as MVT, and MLT shrinks it by these factors:</p>
 <table>
 <thead>
 <tr>
@@ -1135,13 +1135,13 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 </div>
 <h2 id="method">Method<a class="headerlink" href="#method" title="Link to this section">&para;</a></h2>
 <p>Decoding is timed on the same tiles sampled from each archive, up to 5,000 per zoom level, as the best of 15 runs on one core of an AMD Ryzen 9 3900.
-MVT is read with <a href="https://crates.io/crates/fast-mvt">fast-mvt</a>, the fastest known MVT library, and MLT with <code>decode_all</code>, so no "unfair" gains from lazy per-attribute decoding.
+MVT is read with <a href="https://crates.io/crates/fast-mvt">fast-mvt</a>, the fastest known MVT library, and MLT with <code>decode_all</code>, so MLT gets no "unfair" gain from lazy per-attribute decoding.
 Performance depends on the specifics of the tile source.</p>
 <p>Sizes cover whole archives, and bytes of a tile stored more than once in an archive are counted once.
-Gzip is Zlib level 6 per tile, the level both source archives were written with.</p>
+Gzip uses zlib level 6 per tile, the level both source archives were written with.</p>
 <h3 id="datasets">Datasets<a class="headerlink" href="#datasets" title="Link to this section">&para;</a></h3>
 <p>The <a href="https://protomaps.com/">Protomaps</a> basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the <a href="https://openmaptiles.org/">OpenMapTiles</a> 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles).
-The <code>mlt convert</code> at <a href="https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88"><code>89ceaef3</code></a> was used.</p>
+Tiles were converted with <code>mlt convert</code> at commit <a href="https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88"><code>89ceaef3</code></a>.</p>
 
 
 

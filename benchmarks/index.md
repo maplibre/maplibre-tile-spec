@@ -23,7 +23,7 @@ Whole-planet archive size, as a share of gzipped MVT.
 | 99th percentile tile | 18.4 kB | 16.4 kB | 14.0 kB | 15.4 kB | 13.6 kB |
 | Largest tile | 727.9 kB | 570.5 kB | 497.6 kB | 550.3 kB | 486.1 kB |
 
-Large tiles gain the most. The median of the largest 1% of tiles is 31 kB as MVT, and MLT stores it this many times smaller:
+Large tiles gain the most. The median of the largest 1% of tiles is 31 kB as MVT, and MLT shrinks it by these factors:
 
 |  | vs MVT | vs MVT + gzip |
 | --- | ---: | ---: |
@@ -70,7 +70,7 @@ Whole-planet archive size, as a share of gzipped MVT.
 | 99th percentile tile | 12.3 kB | 11.9 kB | 10.8 kB | 11.4 kB | 10.6 kB |
 | Largest tile | 485.9 kB | 473.1 kB | 450.8 kB | 473.9 kB | 449.9 kB |
 
-Large tiles gain the most. The median of the largest 1% of tiles is 18 kB as MVT, and MLT stores it this many times smaller:
+Large tiles gain the most. The median of the largest 1% of tiles is 18 kB as MVT, and MLT shrinks it by these factors:
 
 |  | vs MVT | vs MVT + gzip |
 | --- | ---: | ---: |
@@ -98,10 +98,10 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 
 ## Method
 
-Decoding is timed on the same tiles sampled from each archive, up to 5,000 per zoom level, as the best of 15 runs on one core of an AMD Ryzen 9 3900. MVT is read with [fast-mvt](<https://crates.io/crates/fast-mvt>), the fastest known MVT library, and MLT with `decode_all`, so no "unfair" gains from lazy per-attribute decoding. Performance depends on the specifics of the tile source.
+Decoding is timed on the same tiles sampled from each archive, up to 5,000 per zoom level, as the best of 15 runs on one core of an AMD Ryzen 9 3900. MVT is read with [fast-mvt](<https://crates.io/crates/fast-mvt>), the fastest known MVT library, and MLT with `decode_all`, so MLT gets no "unfair" gain from lazy per-attribute decoding. Performance depends on the specifics of the tile source.
 
-Sizes cover whole archives, and bytes of a tile stored more than once in an archive are counted once. Gzip is Zlib level 6 per tile, the level both source archives were written with.
+Sizes cover whole archives, and bytes of a tile stored more than once in an archive are counted once. Gzip uses zlib level 6 per tile, the level both source archives were written with.
 
 ### Datasets
 
-The [Protomaps](<https://protomaps.com/>) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](<https://openmaptiles.org/>) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles). The `mlt convert` at [`89ceaef3`](<https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88>) was used.
+The [Protomaps](<https://protomaps.com/>) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](<https://openmaptiles.org/>) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles). Tiles were converted with `mlt convert` at commit [`89ceaef3`](<https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88>).

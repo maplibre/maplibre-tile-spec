@@ -68,29 +68,32 @@ v2 stores only power-of-two extents, so the nibble holds `log2(extent) - 6`:
 | --- | --- | --- | --- | --- |
 | Extent | \\(2^6 = 64\\) | \\(2^7 = 128\\) | ... | \\(2^{21} = 2097152\\) |
 
-Every code is assigned, so no extent nibble is rejected. An encoder given an extent v2 cannot code MUST reject the layer rather than round it.
+Every code is assigned, so no extent nibble is rejected. An encoder given an extent v2 cannot encode MUST reject the layer rather than round it.
 
 #### Uniform Geometry Type
 
 | Code | Meaning |
 | ---: | --- |
 | `0x0` | The [geometry section](<#geometry-section>) leads with a types stream |
-| `0x1`-`0x6` | No geometry stream since every feature has one [geometry type](<#geometry-types>) `code - 1` |
+| `0x1`-`0x6` | No types stream, since every feature has [geometry type](<#geometry-types>) `code - 1` |
 | `0x7` | Reserved, MUST be rejected |
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=header>) - every feature is a `Point`, so no types stream is written.
 
-To optimize for the common case of uniform geometries per layer, we allow skipping to write the respective metadata. MUST agree with the topology the [geometry layout](<#geometry-layout>) declares.
+To optimize for the common case of a layer with a single geometry type, the types stream can be omitted. The uniform geometry type MUST agree with the topology the [geometry layout](<#geometry-layout>) declares.
 
 ### Column Counts
 
-We have two kinds of columns, so we need to know how many columns of each type there are.
+A layer has two kinds of columns, so it stores how many of each it has.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fmvalues_sp_prop.mlt&amp;at=column_counts>) - one property column and one m-value column, counted apart.
 
 `column_count` is the number of ids and properties, not counting geometry or m-values. `m_value_count` is the number of [m-value columns](<#m-values>).
 
-To optimize the transfer size, if the header byte's m-value bit - is `0`, `column_counts` is `column_count` as a plain varint and `m_value_count` is `0`. - is `1`, `column_counts` is the Morton code of both counts as a varint. Bit `i` of `column_count` sits at bit `2i` and bit `i` of `m_value_count` at bit `2i + 1`. A layer with up to 15 counted columns and up to 7 m-value columns fits both counts in one byte. `m_value_count` MUST be non-zero when the bit is set, so a code whose odd bits are all clear MUST be rejected.
+To optimize transfer size, if the header byte's m-value bit:
+
+- is `0`, `column_counts` is `column_count` as a plain varint and `m_value_count` is `0`.
+- is `1`, `column_counts` is the Morton code of both counts as a varint. Bit `i` of `column_count` sits at bit `2i` and bit `i` of `m_value_count` at bit `2i + 1`. A layer with up to 15 counted columns and up to 7 m-value columns fits both counts in one byte. `m_value_count` MUST be non-zero when the bit is set, so a code whose odd bits are all clear MUST be rejected.
 
 Five counted columns and two m-value columns:
 
@@ -108,7 +111,7 @@ A set encoding flag with a count of `0` MUST be rejected.
 
 A presence field says which of `N` values are present. `N` is `feature_count` for a column, and the parent's value count for a [nested node](<#node-presence-nibble>).
 
-The same three encodings store every field of one bit per value: a presence field, a boolean column's data stream and a nested node's presence stream. Their codes are the members of the `Bool` [family](<#families>).
+The same three encodings store every one-bit-per-value field: a presence field, a boolean column's data stream and a nested node's presence stream. Their codes are the members of the `Bool` [family](<#families>).
 
 | Code | Encoding | Payload |
 | ---: | --- | --- |
@@ -118,11 +121,11 @@ The same three encodings store every field of one bit per value: a presence fiel
 
 `Runs` and `Sparse` are self-delimiting, so no length is stored for either. `Sparse` reads its summary, takes the population count `k` of it, then takes `k` bytes.
 
-A bitmap costs `ceil(N / 8)` bytes whatever it holds, so it is the smallest form only while `N` is small or the present values are scattered. A column present over one run of features, or on a handful of them, carries far less than that, and the other two encodings charge for what it carries rather than for `N`.
+A bitmap costs `ceil(N / 8)` bytes whatever it holds, so it is the smallest form only while `N` is small or the present values are scattered. A column present over one run of features, or on only a handful of them, needs much less. `Runs` grows with the number of runs. `Sparse` stores a summary of `ceil(N / 64)` bytes plus one byte for each bitmap byte that holds a present value, so for a very sparse column its size is mostly the summary.
 
 Six present values among `N = 32`, at `10` to `15`:
 
-Encoders MUST write whichever of the three stores the field smallest, breaking a tie toward the lowest code. This holds for a boolean column's data stream and a nested node's presence stream as for a presence field. Decoders MUST reject run lengths that do not sum to `N`, a `Sparse` summary bit set at or past `B`, and a stored `Sparse` byte that is `0`. Bits past `N` in the last `Sparse` byte are padding and MUST be ignored, as for `Bitmap`.
+Encoders MUST write whichever of the three encodings stores the field smallest, breaking a tie toward the lowest code. This also applies to a boolean column's data stream and a nested node's presence stream. Decoders MUST reject run lengths that do not sum to `N`, a `Sparse` summary bit set at or past `B`, and a stored `Sparse` byte that is `0`. Bits past `N` in the last `Sparse` byte are padding and MUST be ignored, as for `Bitmap`.
 
 ### Shared Presence Fields
 
@@ -135,7 +138,7 @@ shared_presence := [u8 encoding] only when the layout byte's encoding flag is se
                    [payload]     per that encoding, self-delimiting
 ```
 
-The `n` shared fields follow the layout byte back to back, in index order. A shared field has no presence nibble to carry its encoding. Without the layout byte's encoding flag every shared field is a `Bitmap`, and no byte naming it is stored. With it, every shared field leads with the byte naming its encoding. That byte is the [encoding byte](<#encoding-byte>) of a `Bool` stream, so the code sits in bits 6-4 and every other bit MUST be `0`: `0x00`, `0x10` or `0x20`.
+The `n` shared fields follow the layout byte back to back, in index order. A shared field has no presence nibble to carry its encoding. Without the layout byte's encoding flag, every shared field is a `Bitmap`, and no byte naming it is stored. With it, every shared field leads with the byte naming its encoding. That byte is the [encoding byte](<#encoding-byte>) of a `Bool` stream, so the code sits in bits 6-4 and every other bit MUST be `0`: `0x00`, `0x10` or `0x20`.
 
 Encoders MUST pick each shared field's encoding as for an inline one. Encoders MUST set the encoding flag only when some shared field's encoding is not `Bitmap`.
 
@@ -169,7 +172,7 @@ Streams appear in exactly this order. Each stream's role is given by its positio
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types>) - all six kinds in one layer, so the types stream carries each.
 
-The types stream holds one of these per feature. A layer whose features all share one writes the [uniform geometry type](<#uniform-geometry-type>) nibble instead.
+The types stream holds one of these per feature. A layer whose features all share one type writes the [uniform geometry type](<#uniform-geometry-type>) nibble instead.
 
 ### Geometry Layout
 
@@ -229,7 +232,7 @@ A feature's triangles are one contiguous run of the index buffer. Feature `i` st
 
 A tessellated layer either stores only the triangles (`0xC`) or keeps the outlines next to them (`0xD`).
 
-A `Polygon` triangle, then a `MultiPolygon` of a polygon with a hole and a second triangle, from [`mix_2_poly_mpoly_tes`](<#examples>).
+A `Polygon` triangle, then a `MultiPolygon` of a polygon with a hole and a second triangle, from [`mix_2_poly_mpoly_tes`](<#examples>):
 
 | Vertex | `0` | `1` | `2` | `3` | `4` | `5` | `6` | `7` | `8` | `9` | `10` | `11` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -281,7 +284,7 @@ A layer needs `0xD` to stroke its polygon outlines, to hold anything but polygon
 
 ### Z Coordinates
 
-A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. The two variants are differentiated by bit 0 of its [encoding byte](<#encoding-byte>)'s extension field being `1`. A `z_step` byte is the stream's [parameter](<#parameters>). `byte_length` does not count it.
+A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of the extension field of its [encoding byte](<#encoding-byte>) is `1` for triples and `0` for pairs. A `z_step` byte is the stream's [parameter](<#parameters>). `byte_length` does not count it.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_point.mlt&amp;at=vertices>) - a point 12 m up, its `z` one word after `x` and `y`.
 
@@ -295,7 +298,7 @@ A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. The two 
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices>) - a polygon with a hole at a `z_step` of `2`, one unit per decimeter.
 
-`z` is a signed 32-bit word like `x` and `y`, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m. Negative `z` is similarly possible.
+`z` is a signed 32-bit word like `x` and `y`, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m. Like `x` and `y`, `z` can be negative.
 
 The stream holds `3 * num_values` words for `num_values` vertices, with `x`, `y` and `z` interleaved.
 
@@ -305,9 +308,9 @@ Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, wi
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices>) - all six geometry types, each vertex an interleaved triple.
 
-The vertex stream is indexed, so (\\(x\_1, y\_1, z\_1, x\_2, y\_2, z\_2, ..., x\_i, y\_i, z\_i\\)) has the index \\(i\\):
+The vertex stream is indexed, so (\\(x\_1, y\_1, z\_1, x\_2, y\_2, z\_2, ..., x\_i, y\_i, z\_i\\)) has index \\(i\\):
 
-- Under a dictionary layout, the vertex stream holds the distinct triples and the vertex offsets pointing to them. Two vertices share an entry only when their `x`, `y` and `z` are identical. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict>) - five points in four entries: a repeat at the same height shares one, a new height does not.
+- Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them. Two vertices share an entry only when their `x`, `y` and `z` are identical. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict>) - five points in four entries: a repeat at the same height shares one, a new height does not.
 - Under a tessellated layout, the index buffer names triples. A `TessPolygons` feature holds the `z` of each triangle corner, in index buffer order. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_poly_hole_tri.mlt&amp;at=tri_indexes>) - a polygon with a hole, cut into six triangles over six `(x, y, z)` vertices.
 - An [m-value](<#m-values>) runs over the same vertex sequence it does without `z`. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_mvalues.mlt&amp;at=vertices>) - a line whose three vertices carry both a `z` and an m-value.
 
@@ -319,13 +322,13 @@ A decoder that renders in 2D MAY read `x` and `y` and step over `z`.
 >
 > `z = 0` sits at the base of [Terrain-RGB](<https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-rgb-v1/>), the default encoding of a MapLibre `raster-dem` source. No offset is needed to compare a `z` with the terrain under it.
 >
-> Elevation data is in decimal meters. This means a power-of-ten step can be represented exactly. `12.34 m` is `z = 1001234` at 1 cm, where a \\(2^{-7}\\) m grid would read it back as `12.34375 m`. At 1 dm, `z` is Terrain-RGB's `R * 65536 + G * 256 + B`.
+> Elevation data is in decimal meters. A power-of-ten step represents such values exactly. `12.34 m` is `z = 1001234` at 1 cm, where a \\(2^{-7}\\) m grid would read it back as `12.34375 m`. At 1 dm, `z` is Terrain-RGB's `R * 65536 + G * 256 + B`.
 
 > [!NOTE]
 >
 > **Why interleaved**
 >
-> Because one vertex is three adjacent words, a decoded vertex buffer can direct-to-GPU without having to index into another stream to match the z value. A layer without `z` is not impacted due to the extension bit mechanism.
+> Because each vertex is three adjacent words, a decoded vertex buffer can go directly to a GPU, with no lookup into another stream to find its `z`. A layer without `z` is unaffected, since the extension bit marks which vertex streams carry it.
 
 ## Attribute Columns
 
@@ -342,7 +345,7 @@ An inline presence field is written in the [encoding](<#presence-encodings>) its
 
 ### Column Names
 
-A layer has one namespace of column names, so a name identifies exactly one column of it and a style expression such as `["get", "foo"]` resolves to that column:
+A layer has one namespace of column names, so a name identifies exactly one column, and a style expression such as `["get", "foo"]` resolves to that column:
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_sp_id.mlt&amp;at=column%5B0%5D>) - an id, which has no name, beside a named `u32` column.
 
@@ -353,7 +356,7 @@ A layer has one namespace of column names, so a name identifies exactly one colu
 | A [nested column](<#nested-properties>) | Its name field |
 | An [m-value column](<#m-values>) | Its name field |
 
-A name a second column repeats MUST be rejected, whichever kinds of column repeat it, and an encoder MUST NOT write such a layer. An `Id` or `LongId` column has no name field, and the geometry column is not a counted column, so neither takes a name. A shared dictionary group's own name is a prefix rather than a column name, and MAY repeat one. A [struct](<#struct-nodes>) field name and a [map](<#map-nodes>) key name a value inside their column, not a column, and are unique only where their own sections say.
+A name repeated by a second column MUST be rejected, whatever kinds of column repeat it, and an encoder MUST NOT write such a layer. An `Id` or `LongId` column has no name field, and the geometry column is not a counted column, so neither takes a name. A shared dictionary group's own name is a prefix rather than a column name, and MAY repeat one. A [struct](<#struct-nodes>) field name and a [map](<#map-nodes>) key name a value inside their column, not a column, and are unique only where their own sections say.
 
 ### Column Type Byte
 
@@ -400,7 +403,7 @@ A layer MUST contain at most one `Id` or `LongId` column.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=present>) - an optional column, so the nibble names an inline bitmap.
 
-The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those for the two that are not.
+The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those columns for the other two encodings.
 
 A shared reference at or past the count in the layout byte MUST be rejected.
 
@@ -435,7 +438,7 @@ The same column in each layout, then in byte order:
 
 ### Shared Dictionary Columns
 
-Data type `0xF` introduces a dictionary followed by the columns that index into it. Its high nibble gives the dictionary kind instead of a presence:
+Data type `0xF` introduces a dictionary followed by the columns that index into it. Its high nibble gives the dictionary kind instead of presence:
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D>) - child columns reading one dictionary.
 
@@ -468,13 +471,13 @@ Front coding of the dictionary is given by the encoding byte of the last corpus 
 
 ### Nested Properties
 
-A property whose value is a map or a list, nestable.
+A nested property has a map or a list as its value, and these can nest.
 
 v2 shreds a nested value the way [ORC](<https://orc.apache.org/specification/ORCv1/>) does. The column is a tree of nodes. Every leaf of the tree holds one flat stream set, encoded exactly as a [column](<#columns>) of its data type. The structure lives in the presence and length streams of the interior nodes, never beside the values. A key that every feature shares is written once, in the tree, rather than once per feature.
 
 `obj` from [`nested_struct`](<#examples>), `rank` missing on feature 1:
 
-The tree is written depth first, each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.
+The tree is written depth first, with each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.
 
 ```text
 nested_column := [u8 column_type]        presence nibble over 0xC, 0xD or 0xE
@@ -521,7 +524,7 @@ Each node is handed a number of values by its parent, its **parent count**:
 | A list element | The sum of the list node's lengths |
 | A map key or map value | The sum of the map node's lengths |
 
-A node's **present count** is its parent count under nibble `0`, and its presence stream's population count otherwise. That is what its data streams hold one value each of.
+A node's **present count** is its parent count under nibble `0`, and its presence stream's population count otherwise. Its data streams hold that many values.
 
 A nullable list of `{id, tag}` structs, `tag` nullable, over a present, an empty, a null and a present list:
 
@@ -534,7 +537,7 @@ A node's streams take their [implied count](<#value-count>) from this context, e
 | The [presence stream](<#node-presence-nibble>) | Every node that has one, the first `List` or `Map` included |
 | The leading data stream | Every leaf |
 
-A `List` or a `Map` writes a count on its own lengths and presence streams even where its parent count would imply one, so that reading a node's header never depends on what sat above the node. An encoder SHOULD set bit 7 on every other stream that can carry one, and a decoder MUST accept a count wherever one is written. The streams after a string stream set's leading one read as they do in a [string column](<#string-columns>). A byte blob is the exception it always is: bit 7 MUST be `0` and its count stays `byte_length`.
+A `List` or a `Map` writes a count on its own lengths and presence streams even where its parent count would imply one, so that reading a node's header never depends on what sat above the node. An encoder SHOULD set bit 7 on every other stream that can carry one, and a decoder MUST accept a count wherever one is written. The streams after a string stream set's leading one read as they do in a [string column](<#string-columns>). A byte blob is, as always, the exception: bit 7 MUST be `0` and its count stays `byte_length`.
 
 A decoder that has decoded both a lengths stream and the counts below it MUST reject a disagreement.
 
@@ -570,13 +573,16 @@ list_body := [lengths stream]            Int family, one length per present list
              body
 ```
 
-The lengths stream holds element counts, not offsets, as the geometry section's do.
+The lengths stream holds element counts, not offsets, as the geometry section's lengths streams do.
 
 `items` from [`nested_list_struct`](<#examples>), a list of `{id, tag}` structs:
 
 The element node has no name.
 
-A list that is null and a list that is empty are different: a null list has its presence bit clear and no length, an empty list has its presence bit set and a length of `0`.
+A list that is null and a list that is empty are different:
+
+- a null list has its presence bit clear and no length
+- an empty list has its presence bit set and a length of `0`.
 
 #### Map Nodes
 
@@ -592,7 +598,7 @@ map_body := [lengths stream]             Int family, one length per present map
             body
 ```
 
-The keys are the streams a [string column](<#string-columns>) holds, laid out per the extension bits of the leading one, holding one key per entry of every present map. They carry no node type byte and no presence: a key is neither null nor of any other type, so neither is representable. The value node has no name.
+The keys are the streams a [string column](<#string-columns>) holds, laid out per the extension bits of the leading one, holding one key per entry of every present map. They carry no node type byte and no presence stream. A key is always a string and never null, so there is nothing for either to express. The value node has no name.
 
 `tags` from [`nested_map_str`](<#examples>), a map of strings:
 
@@ -602,7 +608,7 @@ The first three `tags` of [`nested_map_shapes`](<#examples>), both ways:
 
 #### Leaf Nodes
 
-`0x2`-`0xB`. A leaf holds exactly the data streams a [column](<#columns>) of the same data type holds: one stream for a boolean or integer, one or two for a float, and the set its leading stream's extension bits name for a string. It reads them against its own count, and is otherwise the same column.
+`0x2`-`0xB`. A leaf holds exactly the data streams a [column](<#columns>) of the same data type holds: one stream for a boolean or integer, one or two for a float, and the set its leading stream's extension bits name for a string. It reads them against its own count, and is otherwise identical to such a column.
 
 #### Where Nested Columns May Appear
 
@@ -639,7 +645,7 @@ An m-value column reads the same [column type byte](<#column-type-byte>), the sa
 
 #### Data Types in M-Value Columns
 
-`Bool` through `String`, codes `0x2`-`0xB`, carry exactly the streams they carry as a property column. `0x0`, `0x1` and `0xC`-`0xF` are reserved and MUST be rejected. A vertex carries a measurement, not a structure.
+`Bool` through `String`, codes `0x2`-`0xB`, carry exactly the streams they carry in a property column. `0x0`, `0x1` and `0xC`-`0xF` are reserved and MUST be rejected. A vertex carries a measurement, not a structure.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fmvalues.mlt>) - an `i32` and a `u32` m-value column.
 
@@ -657,13 +663,13 @@ An m-value column holds one value per vertex of that run, in the same order.
 
 #### Nulls
 
-M-value columns are nullable, but they are at the feature level, not the vertex level. This means a single vertex cannot be null. A feature's m-value can be null though.
+M-value columns are nullable at the feature level, not the vertex level. A single vertex's m-value cannot be null. A whole feature's m-values can be null.
 
 #### Value Count
 
-A column's value count is the sum of `vertex_count(f)` over the features whose presence bit is set, which is every feature under presence nibble `0`.
+An m-value column's value count is the sum of `vertex_count(f)` over the features whose presence bit is set, which is every feature under presence nibble `0`.
 
-That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count. An m-value column's leading data stream MUST set bit 7 of its [encoding byte](<#encoding-byte>) and write the count explicitly. The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one. An encoder SHOULD write an explicit count on every stream that can carry one, since none of those counts are implied here. A byte blob is the exception. Bit 7 MUST be `0` on it and its count stays `byte_length`, as on any other column. A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.
+That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count. An m-value column's leading data stream MUST set bit 7 of its [encoding byte](<#encoding-byte>) and write the count explicitly. The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one. An encoder SHOULD write an explicit count on every stream that can carry one, since none of those counts are implied here. A byte blob is the exception. Bit 7 MUST be `0`, and its count stays `byte_length`, as on any other column. A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.
 
 Values are one flat sequence across feature boundaries. Delta encoding and RLE run through them without a break at each feature.
 
@@ -697,7 +703,7 @@ stream := [u8 encoding_byte]
 | 7 | An explicit `num_values` varint follows |
 | 6-4 | Logical encoding, numbered within the stream's [family](<#families>) |
 | 3-2 | [Physical encoding](<#physical-field>), interpreted per logical encoding |
-| 1-0 | Extension.<br>For string collums leading stream, this is the layout.<br>For a vertex streams, bit 0 being set means [`(x, y, z)`](<#z-coordinates>) instead of `(x, y)`.<br>MUST be `0` on every other stream. |
+| 1-0 | Extension.<br>For a string column's leading stream, this is the layout.<br>For a vertex stream, bit 0 set means [`(x, y, z)`](<#z-coordinates>) instead of `(x, y)`.<br>MUST be `0` on every other stream. |
 
 The vertex stream of `z_mvalues`:
 
@@ -720,7 +726,7 @@ For an RLE stream the value count is the decoded element count. The number of `(
 
 #### Byte Length
 
-`byte_length` is present unless the stream is a [`Bool` stream](<#bool-streams>) or logical `None` over [physical](<#physical-field>) `00`. A `Bool` stream's payload delimits itself, so it never writes one. On logical `None` the payload is the elements as they are, so that pattern says the length follows from the value count and the element width the stream's type fixes:
+`byte_length` is present unless the stream is a [`Bool` stream](<#bool-streams>) or logical `None` over [physical](<#physical-field>) `00`. A `Bool` stream's payload delimits itself, so it never writes one. On logical `None` the payload is the raw elements, so with that pattern the length follows from the value count and the element width fixed by the stream's type:
 
 | Stream | `byte_length` |
 | --- | --- |
@@ -750,7 +756,7 @@ The `Str` family has the same members as `Int`. It differs only in the use of th
 
 ### Bool Streams
 
-A `Bool` stream holds one bit per value, in the [encoding](<#presence-encodings>) its logical field names. Its value count is its [implied count](<#value-count>), or the explicit one when bit 7 is set, and it is the `N` of the encoding. Its physical field and extension bits MUST be `0`. No `byte_length` exists.
+A `Bool` stream holds one bit per value, in the [encoding](<#presence-encodings>) its logical field names. Its value count is its [implied count](<#value-count>), or the explicit one when bit 7 is set, and it is the `N` of the encoding. Its physical field and extension bits MUST be `0`. It has no `byte_length`.
 
 ### Physical Field
 
@@ -789,7 +795,7 @@ Parameters sit between `byte_length`, where written, and the payload:
 
 ## Examples
 
-Every fixture under `test/synthetic/0x02/` can be annotated as a hexdump below. If you are building a decoder, you must produce the same `.json` snapshot for validation.
+Every fixture under `test/synthetic/0x02/` can be annotated as a hexdump below. A decoder MUST produce the matching `.json` snapshot from each one.
 
 The same annotation can be produced for any tile with the [`mlt` CLI](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md>):
 

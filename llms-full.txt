@@ -15,17 +15,22 @@ MLT (MapLibre Tile) is a vector tile format that extends [MVT](<https://github.c
 
 ## Why MLT
 
-MLT is redesigned from the ground up for efficiency. Each geometry and attribute is stored as a separate column, with compression optimized for its data type. This makes tiles smaller, fast to decode with SIMD, and efficient to load into GPU buffers. On whole-planet archives, **uncompressed** MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster. With gzip, v2 is 10-18% smaller than gzipped MVT. See [benchmarks](<https://maplibre.org/maplibre-tile-spec/benchmarks/index.md>) for details.
+MLT was redesigned from the ground up, so tiles are both more efficient and more capable than MVT:
 
-MVT limits a feature to 2D vertices and single-value properties. Elevation and per-vertex values like lane count are lost, and lists or maps get flattened into columns like `name:en` and `name:de`. [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) removes these limits; see [how v2 differs from v1](<https://maplibre.org/maplibre-tile-spec/specification/v2/#differences-from-v1>):
+- **Smaller and faster.** On whole-planet tilesets, **uncompressed** MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster. With gzip, v2 is 10-18% smaller than gzipped MVT. See [benchmarks](<https://maplibre.org/maplibre-tile-spec/benchmarks/index.md>) for details.
+- **Richer data.** MLT v2 adds per-vertex elevation and values, and keeps lists and maps as nested properties, none of which MVT can store. Each layer carries its own format version, so new kinds of data can be added later.
 
-Each layer in a tile carries its own [format version](<https://maplibre.org/maplibre-tile-spec/overview/#frames>), so new formats can be added without breaking existing readers. One tile can mix them, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.
+Each geometry and attribute is stored as a separate column, with compression optimized for its data type. This makes tiles smaller, faster to decode with SIMD, and cheaper to load into GPU buffers.
+
+MVT limits a feature to 2D vertices and single-value properties. Elevation and per-vertex values like lane count are lost, and lists or maps are flattened into columns like `name:en` and `name:de`. [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) removes these limits; see [how v2 differs from v1](<https://maplibre.org/maplibre-tile-spec/specification/v2/#differences-from-v1>):
+
+Each layer in a tile carries its own [format version](<https://maplibre.org/maplibre-tile-spec/overview/#frames>), so new formats can be added without breaking existing readers. One tile can mix formats, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.
 
 > [!TIP]
 >
 > **MLT 0x03**
 >
-> A [3D extension to MLT](<https://github.com/maplibre/maplibre-tile-spec/discussions/1182>) will expand these capabilities, and is in the requirements engineering stage. Join the MapLibre [Slack](<https://maplibre.org/community/>) to learn more and share your ideas.
+> A [3D extension to MLT](<https://github.com/maplibre/maplibre-tile-spec/discussions/1182>) will expand these capabilities and is in the requirements engineering stage. Join the MapLibre [Slack](<https://maplibre.org/community/>) to learn more and share your ideas.
 
 ## Documentation
 
@@ -46,7 +51,7 @@ Each layer in a tile carries its own [format version](<https://maplibre.org/mapl
 
 # Overview
 
-This page describes the MLT data model used in [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) and [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) formats.
+This page describes the MLT data model used by the [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) and [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) formats.
 
 # Tiles
 
@@ -71,7 +76,7 @@ Geometry in a tile lives on a flat, local grid, not in longitude and latitude. E
 
 A tile has no notion of where it is in the world. Only its `z/x/y` address, kept outside the tile, places it on the map. Tiles with identical content, such as open water or the inside of a large park, can therefore be stored once and reused at many addresses.
 
-Integer coordinates compress well, since neighboring vertices differ by small numbers. `4096` is the conventional extent and the encoder default. A larger extent gives more precision and costs more bytes. Coordinates MAY be negative or exceed `extent`. This lets geometry crossing a tile boundary keep its shape, so that lines and polygon edges meet across the seam instead of being clipped to it.
+Integer coordinates compress well, since neighboring vertices differ by small numbers. `4096` is the conventional extent and the encoder default. A larger extent gives more precision but costs more bytes. Coordinates MAY be negative or exceed `extent`. This lets geometry crossing a tile boundary keep its shape, so that lines and polygon edges meet across the seam instead of being clipped to it.
 
 # Layers and features
 
@@ -95,7 +100,7 @@ MVT is record-oriented: it writes feature 1 whole, then feature 2 whole, each wi
 
 The column layout has the following consequences:
 
-- **Compression.** A column of road classes is a few distinct strings repeated many times, which a dictionary collapses. A column of ascending ids is a constant delta. Neither pattern is visible when the values are spread across records.
+- **Compression.** A column of road classes is a few distinct strings repeated many times, which a dictionary collapses. A column of sequential ids has a constant delta. Neither pattern is visible when the values are spread across records.
 - **Decoding speed.** A column decodes with one loop over one buffer, which vectorizes. A record stream decodes with a branchy loop over mixed types.
 - **GPU upload.** Vertices are already contiguous, so they can be copied to a GPU buffer without gathering.
 - **Partial decoding.** A renderer that needs only the geometry and one property can skip the other columns.
@@ -119,15 +124,15 @@ MLT defines these stream kinds:
 | **Length** | Element counts for variable-sized values: string byte lengths, ring vertex counts, list sizes. |
 | **Offset** | Indices into another stream, used by dictionary encodings. |
 
-Each stream is encoded independently. Lengths are usually small and repetitive and run-length encode well. String bytes do not, but often dictionary-encode well.
+Each stream is encoded independently. Lengths are usually small and repetitive, so they run-length encode well. String bytes do not, but strings often dictionary-encode well.
 
 # Encodings
 
 Every stream has its own lightweight encoding: delta, run-length, dictionary, bit packing, FSST, and others. Lightweight means cheap enough to decode at render time.
 
-Encodings cascade. Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta- or bit-packed like any other.
+Encodings cascade. Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta-encoded or bit-packed like any other.
 
-Encoders choose encodings by sampling, since trying every combination is too expensive; see [choosing an encoding](<https://maplibre.org/maplibre-tile-spec/implementation-guide/#choosing-an-encoding>). The [encoding algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) page describes each scheme. The specifications say which streams may use which.
+Encoders choose encodings by sampling, since trying every combination is too expensive; see [choosing an encoding](<https://maplibre.org/maplibre-tile-spec/implementation-guide/#choosing-an-encoding>). The [encoding algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) page describes each scheme. The specifications say which encodings each stream may use.
 
 Tiles are usually also gzip- or brotli-compressed in transit.
 
@@ -145,7 +150,7 @@ MLT can represent the same common vector tile content as MVT, but it is not a by
 - **Missing properties become typed nulls.** MVT normally represents a missing property by omitting the key/value tag from that feature; the MVT value union has no dedicated null type. MLT represents the union of layer properties as columns, so a feature that lacks a property stores a null in that column and the column is marked nullable. When converting MLT back to MVT, null property values should be omitted from the feature tags.
 - **A feature has at most one value per property column.** MVT tag streams can encode the same key more than once for a single feature, even though most MVT APIs expose properties as a map and collapse such duplicates. MLT has one cell per feature per column, so duplicate keys on one feature must be rejected, collapsed deterministically, or renamed before encoding.
 - **Feature order is not necessarily a stable round-trip property.** MVT stores features in wire order. MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
-- **Layer names must be non-empty.** MLT always requires a non-empty layer name, and a layer without one MUST be rejected. MVT leaves this unclear: its protobuf schema marks `name` as required, but the written specification never says it cannot be an empty string, although some Mapbox tooling rejects empty names.
+- **Layer names must be non-empty.** MLT always requires a non-empty layer name, and a layer without one MUST be rejected. MVT leaves this unclear: its protobuf schema marks `name` as required, but the written specification never says it cannot be an empty string. Some Mapbox tooling rejects empty names.
 - **A layer holds at most `2^31 - 1` features.** MVT sets no limit, but MLT stores the feature count as a signed 32-bit integer.
 - **MLT v2 restricts the extent.** MVT allows any positive extent, but MLT v2 accepts only powers of two from `64` to `2097152`. A layer with any other extent must be rescaled or stored as MLT v1.
 
@@ -155,37 +160,37 @@ MLT can represent the same common vector tile content as MVT, but it is not a by
 
 | Integration | Status |
 | --- | --- |
-| [MapLibre Native](<https://maplibre.org/projects/native/>) | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. PR: [\#3246](<https://github.com/maplibre/maplibre-native/pull/3246>). |
+| [MapLibre Native](<https://maplibre.org/projects/native/>) | Supported since MapLibre Android 12.1.0 and MapLibre iOS 6.2.0. PR: [\#3246](<https://github.com/maplibre/maplibre-native/pull/3246>). |
 | [MapLibre GL JS](<https://maplibre.org/projects/gl-js/>) | Supported since version 5.12.0. PR: [\#6570](<https://github.com/maplibre/maplibre-gl-js/pull/6570>). |
 | [Planetiler](<https://github.com/onthegomap/planetiler>) | Can generate tiles in MLT since version [0.10.0](<https://github.com/onthegomap/planetiler/releases/tag/v0.10.0>). |
-| [PMTiles](<https://github.com/protomaps/pmtiles>) | Can store MLT, see [PMTiles v3 spec - Tile Type](<https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#tile-type-tt>). |
-| [Martin tile server](<https://maplibre.org/martin/>) | Can detect and serve MLT since version [1.3.0](<https://github.com/maplibre/martin/releases/tag/martin-v1.3.0>). PR: [\#2512](<https://github.com/maplibre/martin/pull/2512>).<br>Can automatically convert between MLT and MVT depending on headers since [1.9.0](<https://github.com/maplibre/martin/releases/tag/martin-v1.9.0>). [docs](<https://maplibre.org/martin/using-guides/mlt/>) |
+| [PMTiles](<https://github.com/protomaps/pmtiles>) | Can store MLT; see [PMTiles v3 spec - Tile Type](<https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#tile-type-tt>). |
+| [Martin tile server](<https://maplibre.org/martin/>) | Can detect and serve MLT since version [1.3.0](<https://github.com/maplibre/martin/releases/tag/martin-v1.3.0>). PR: [\#2512](<https://github.com/maplibre/martin/pull/2512>).<br>Can automatically convert between MLT and MVT depending on headers since version [1.9.0](<https://github.com/maplibre/martin/releases/tag/martin-v1.9.0>). See the [docs](<https://maplibre.org/martin/using-guides/mlt/>). |
 | [QGIS plugin](<https://github.com/maplibre/maplibre-tile-spec/tree/main/qgis>) | Opens MLT files in QGIS via the Rust `mlt` parser. See [qgis/README.md](<https://github.com/maplibre/maplibre-tile-spec/blob/main/qgis/README.md>). |
-| [visgl/loaders.gl](<https://loaders.gl/docs/modules/mlt/formats/mlt>) and [module](<https://loaders.gl/docs/modules/mlt>) | Decodes MLT tilesets, supported since version 4.4 via pre-bundled mlt-decoder.cjs |
+| [visgl/loaders.gl](<https://loaders.gl/docs/modules/mlt/formats/mlt>) and [module](<https://loaders.gl/docs/modules/mlt>) | Decodes MLT tilesets. Supported since version 4.4 via the pre-bundled `mlt-decoder.cjs`. |
 
 ## Implementations
 
 | Implementation | Language | Type | Notes |
 | --- | --- | --- | --- |
 | [maplibre-tile-spec/cpp](<https://github.com/maplibre/maplibre-tile-spec/tree/main/cpp>) | C++ | Decoder | Used by MapLibre Native |
-| [maplibre-tile-spec/js](<https://github.com/maplibre/maplibre-tile-spec/tree/main/ts>) | TypeScript | Decoder / Encoder | Used by MapLibre GL JS. The encoder is still experimental. |
+| [maplibre-tile-spec/ts](<https://github.com/maplibre/maplibre-tile-spec/tree/main/ts>) | TypeScript | Decoder / Encoder | Used by MapLibre GL JS. The encoder is still experimental. |
 | [maplibre-tile-spec/java](<https://github.com/maplibre/maplibre-tile-spec/tree/main/java>) | Java | Encoder |  |
-| [maplibre-tile-spec/rust/mlt](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md>) | Rust | Decoder / Encoder | Includes bundled `mlt` CLI, TUI, and conversion tooling. |
-| [maplibre-tile-spec/rust/mlt-core](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md>) | Rust | Decoder / Encoder | Used in Martin. Includes bundled `mlt` CLI, TUI, and conversion tooling. |
+| [maplibre-tile-spec/rust/mlt](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md>) | Rust | Decoder / Encoder | The `mlt` CLI and TUI for inspecting and converting tiles, built on `mlt-core`. |
+| [maplibre-tile-spec/rust/mlt-core](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md>) | Rust | Decoder / Encoder | The core library. Used in Martin. |
 | [maplibre-tile-spec/rust/mlt-wasm](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm>) | Rust / WASM | Decoder | Uses `mlt-core` |
-| [maplibre-tile-spec/rust/mlt-py](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-py>) | Rust / [PyO3](<https://pyo3.rs/>). | Decoder / Encoder | Exposes `mlt-core` to the python communtiy via [PyO3](<https://pyo3.rs/>). |
-| [maplibre-tile-spec/rust/mlt-ffi](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-ffi>) | Rust / FFI | Decoder / Encoder | Foreign-function bindings for `mlt-core` to the java/kotlin, cpp and c community |
+| [maplibre-tile-spec/rust/mlt-py](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-py>) | Rust / [PyO3](<https://pyo3.rs/>) | Decoder / Encoder | Exposes `mlt-core` to Python via [PyO3](<https://pyo3.rs/>). |
+| [maplibre-tile-spec/rust/mlt-ffi](<https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-ffi>) | Rust / FFI | Decoder / Encoder | Foreign-function bindings for `mlt-core`, for Java/Kotlin, C++, and C. |
 
 ## Ongoing work - tools adding MLT support
 
 | Tool | Status | Tracking issue | Dependency / notes |
 | --- | --- | --- | --- |
-| [felt/tippecanoe](<https://github.com/felt/tippecanoe>) | Landing soon? | https://github.com/felt/tippecanoe/issues/380 | Via C++ encoder |
-| [systemed/tilemaker](<https://github.com/systemed/tilemaker>) | Landing soon? | https://github.com/systemed/tilemaker/issues/856 | Via C++ encoder |
+| [felt/tippecanoe](<https://github.com/felt/tippecanoe>) | Landing soon? | https://github.com/felt/tippecanoe/issues/380 | Via the C++ encoder |
+| [systemed/tilemaker](<https://github.com/systemed/tilemaker>) | Landing soon? | https://github.com/systemed/tilemaker/issues/856 | Via the C++ encoder |
 | [georust/geozero](<https://github.com/georust/geozero>) | Tracking | https://github.com/georust/geozero/issues/227 | Awaiting Rust encoder |
 | [developmentseed/tipg](<https://github.com/developmentseed/tipg>) | Tracking | https://github.com/developmentseed/tipg/issues/248 | Awaiting hypothetical `ST_AsMLT` in PostGIS |
 | [versatiles-org/versatiles-rs](<https://github.com/versatiles-org/versatiles-rs>) | Tracking | https://github.com/versatiles-org/versatiles-rs/issues/111 and https://github.com/versatiles-org/versatiles-spec/issues/11 | Rust tiler |
-| [maptiler/tileserver-gl](<https://github.com/maptiler/tileserver-gl>) | Tracking | https://github.com/maptiler/tileserver-gl/issues/2194 | js + Go codebase |
+| [maptiler/tileserver-gl](<https://github.com/maptiler/tileserver-gl>) | Tracking | https://github.com/maptiler/tileserver-gl/issues/2194 | JS + Go codebase |
 | NASA/CesiumGS renderers | Mention | https://github.com/NASA-AMMOS/3DTilesRendererJS/issues/982\#issuecomment-4467367202 and https://github.com/CesiumGS/cesium/issues/2132 | Minor feature requests in MVT threads |
 
 ## Existing/Upcoming MLT datasets
@@ -193,7 +198,7 @@ MLT can represent the same common vector tile content as MVT, but it is not a by
 | Dataset | Endpoint / Link | Notes |
 | --- | --- | --- |
 | [maplibre/demotiles](<https://github.com/maplibre/demotiles>) | `demotiles.maplibre.org/tiles-mlt/plain/{z}/{x}/{y}.mlt` | Also available as TileJSON |
-| [Overture Maps](<https://github.com/OvertureMaps/overture-tiles/>) | https://github.com/OvertureMaps/overture-tiles/issues/50 | Consideration for switching to MLT |
+| [Overture Maps](<https://github.com/OvertureMaps/overture-tiles/>) | https://github.com/OvertureMaps/overture-tiles/issues/50 | Considering a switch to MLT |
 | [Shademap](<https://ted-piotrowski.github.io/mapbox-gl-shadow-simulator/examples/maplibre.html>) | `cfw.shademap.app/planet/{z}/{x}/{y}.mlt` and `cfw.shademap.app/buildings/{z}/{x}/{y}.mlt` | Buildings and planet layers |
 | [OpenRailwayMap-vector](<https://github.com/hiddewie/OpenRailwayMap-vector>) | https://github.com/hiddewie/OpenRailwayMap-vector/issues/919 | MLT support tracking issue |
 
@@ -222,7 +227,7 @@ Whole-planet archive size, as a share of gzipped MVT.
 | 99th percentile tile | 18.4 kB | 16.4 kB | 14.0 kB | 15.4 kB | 13.6 kB |
 | Largest tile | 727.9 kB | 570.5 kB | 497.6 kB | 550.3 kB | 486.1 kB |
 
-Large tiles gain the most. The median of the largest 1% of tiles is 31 kB as MVT, and MLT stores it this many times smaller:
+Large tiles gain the most. The median of the largest 1% of tiles is 31 kB as MVT, and MLT shrinks it by these factors:
 
 |  | vs MVT | vs MVT + gzip |
 | --- | ---: | ---: |
@@ -269,7 +274,7 @@ Whole-planet archive size, as a share of gzipped MVT.
 | 99th percentile tile | 12.3 kB | 11.9 kB | 10.8 kB | 11.4 kB | 10.6 kB |
 | Largest tile | 485.9 kB | 473.1 kB | 450.8 kB | 473.9 kB | 449.9 kB |
 
-Large tiles gain the most. The median of the largest 1% of tiles is 18 kB as MVT, and MLT stores it this many times smaller:
+Large tiles gain the most. The median of the largest 1% of tiles is 18 kB as MVT, and MLT shrinks it by these factors:
 
 |  | vs MVT | vs MVT + gzip |
 | --- | ---: | ---: |
@@ -297,19 +302,19 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 
 ## Method
 
-Decoding is timed on the same tiles sampled from each archive, up to 5,000 per zoom level, as the best of 15 runs on one core of an AMD Ryzen 9 3900. MVT is read with [fast-mvt](<https://crates.io/crates/fast-mvt>), the fastest known MVT library, and MLT with `decode_all`, so no "unfair" gains from lazy per-attribute decoding. Performance depends on the specifics of the tile source.
+Decoding is timed on the same tiles sampled from each archive, up to 5,000 per zoom level, as the best of 15 runs on one core of an AMD Ryzen 9 3900. MVT is read with [fast-mvt](<https://crates.io/crates/fast-mvt>), the fastest known MVT library, and MLT with `decode_all`, so MLT gets no "unfair" gain from lazy per-attribute decoding. Performance depends on the specifics of the tile source.
 
-Sizes cover whole archives, and bytes of a tile stored more than once in an archive are counted once. Gzip is Zlib level 6 per tile, the level both source archives were written with.
+Sizes cover whole archives, and bytes of a tile stored more than once in an archive are counted once. Gzip uses zlib level 6 per tile, the level both source archives were written with.
 
 ### Datasets
 
-The [Protomaps](<https://protomaps.com/>) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](<https://openmaptiles.org/>) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles). The `mlt convert` at [`89ceaef3`](<https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88>) was used.
+The [Protomaps](<https://protomaps.com/>) basemap build of 2026-10-02 (z0-15, 136 M distinct tiles) and the [OpenMapTiles](<https://openmaptiles.org/>) 3.11 planet by MapTiler of 2020-02-10 (z0-14, 34 M distinct tiles). Tiles were converted with `mlt convert` at commit [`89ceaef3`](<https://github.com/maplibre/maplibre-tile-spec/commit/89ceaef3c49a06c8e0c253c40d8500c38b60fd88>).
 
 # Specification
 
 # MapLibre Tile Specification v1
 
-This document specifies the byte layout of an MLT v1 layer. The data model it assumes, tiles, extents, layers, features, columns and streams, is described on the [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) page.
+This document specifies the byte layout of an MLT v1 layer. The data model it assumes (tiles, extents, layers, features, columns and streams) is described on the [data model](<https://maplibre.org/maplibre-tile-spec/overview/index.md>) page.
 
 ## Tile Layout
 
@@ -350,7 +355,7 @@ string := [varint length] [u8 bytes[length]]
 
 `name` MUST NOT be empty.
 
-`extent` defines the coordinate space size for the tile's geometry and MUST NOT be zero. Geometry coordinates are signed integers in vector-tile grid coordinates, typically near the `0..=extent` range but not restricted to it. Values MAY be negative or exceed `extent` for geometry that crosses tile boundaries. Encoders MAY default to `4096` when a user does not specify the extent.
+`extent` defines the size of the coordinate space for the tile's geometry and MUST NOT be zero. Geometry coordinates are signed integers in vector-tile grid coordinates, typically near the `0..=extent` range but not restricted to it. Values MAY be negative or exceed `extent` for geometry that crosses tile boundaries. Encoders MAY default to `4096` when a user does not specify the extent.
 
 Metadata and data are in two separate sections, both in `column_count` order.
 
@@ -406,11 +411,11 @@ What follows in the data section depends on the column's type. Every `[stream]` 
 | `String` | `[varint stream_count]` `[stream * stream_count]` |
 | `SharedDict` | see [shared dictionary columns](<#shared-dictionary-columns>) |
 
-A nullable column prefixes its data with a `Present` stream, which is counted in `stream_count` where one is present.
+A nullable column prefixes its data with a `Present` stream, which is counted in `stream_count` when the column has one.
 
 ## Streams
 
-A logical column is separated into several physical `streams` (sub-columns), inspired by the ORC file format. These streams are stored contiguously. A stream is a sequence of values of a known length in a continuous memory chunk, all sharing the same type.
+A logical column is split into several physical `streams` (sub-columns), a design inspired by the ORC file format. These streams are stored contiguously. A stream is a sequence of values of a known length, all of the same type, stored in one contiguous chunk of memory.
 
 Each stream is a header followed by its payload:
 
@@ -434,7 +439,7 @@ A `Present` stream is always boolean and derives its RLE parameters from `num_va
 
 ### Stream Types
 
-The `stream_type` byte names what role the stream plays. The high nibble is the category and the low nibble is a category-specific subtype.
+The `stream_type` byte names the role the stream plays. The high nibble is the category and the low nibble is a category-specific subtype.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fprops_shared_dict_one_child_fsst.mlt>) - all four categories, across nine subtypes.
 
@@ -447,10 +452,10 @@ The `stream_type` byte names what role the stream plays. The high nibble is the 
 
 What each category holds:
 
-- **Present**: enables efficient encoding of sparse columns by indicating value presence via a bit flag. Omitted when the column is not nullable.
-- **Data**: the actual column data - `boolean`, `int`, `float` or `string` values, dictionary entries, or geometry coordinates. For fixed-size data types this is the only required stream besides the optional `Present` stream.
-- **Length**: the number of elements for variable-sized data types like strings or rings.
-- **Offset**: offsets into a data stream when using dictionary encoding, for strings or vertices.
+- **Present**: bit flags that mark which values are present, for efficient encoding of sparse columns. Omitted when the column is not nullable.
+- **Data**: the actual column data - `boolean`, `int`, `float` or `string` values, dictionary entries, or geometry coordinates. For fixed-size data types, this is the only stream apart from the optional `Present` stream.
+- **Length**: the number of elements for variable-sized data types such as strings or rings.
+- **Offset**: offsets into a data stream, used by dictionary encoding of strings or vertices.
 
 ### Encoding Byte
 
@@ -481,13 +486,13 @@ The algorithms themselves are specified in [encoding definitions](<https://mapli
 
 ### ID Column
 
-An `id` column is not mandatory. If included, it should be `UInt64` or narrower (`UInt32` if possible) for MVT compatibility. A narrower type enables the use of efficient encodings like SIMD-FastPFOR.
+An `id` column is optional. An encoder SHOULD write `Id` rather than `LongId` when every id fits in 32 bits, since the narrower type allows efficient encodings such as SIMD-FastPFOR.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fid.mlt&amp;at=column%5B0%5D>) - a 32-bit `Id` column.
 
 ### Scalar Columns
 
-Boolean, integer and floating-point columns are a `Present` stream when nullable, then one data stream. Boolean data streams are bit-packed, one bit per present value; float and double data streams hold fixed-width IEEE 754 words.
+Boolean, integer and floating-point columns store a `Present` stream when nullable, followed by one data stream. Boolean data streams are bit-packed, one bit per present value; float and double data streams hold fixed-width IEEE 754 words.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fprop_i32.mlt&amp;at=column%5B1%5D>) - an `i32` column and its presence stream.
 
@@ -506,7 +511,7 @@ A string column declares how many streams follow, and the number of streams dete
 
 A nullable column's `Present` stream precedes these and is counted in `stream_count`.
 
-In the plain layout the `Length` stream holds the byte length of each present value and the `Data` stream holds their UTF-8 bytes back to back. In a dictionary layout the `Offset/String` stream holds one dictionary index per present value, and the `Length` and `Data` streams describe the distinct values. FSST layouts compress the value bytes with a symbol table; see [FSST](<https://maplibre.org/maplibre-tile-spec/encodings/#fsst>).
+In the plain layout, the `Length` stream holds the byte length of each present value and the `Data` stream holds their UTF-8 bytes back to back. In a dictionary layout, the `Offset/String` stream holds one dictionary index per present value, and the `Length` and `Data` streams describe the distinct values. FSST layouts compress the value bytes with a symbol table; see [FSST](<https://maplibre.org/maplibre-tile-spec/encodings/#fsst>).
 
 The offset stream comes last in the 5-stream layout and before the data stream in the 3-stream layout. An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity `[0, 1, 2, ...]` as its offsets.
 
@@ -533,7 +538,7 @@ child       := [varint stream_count]
 
 > [!NOTE]
 >
-> Some tiles in the wild were written with `stream_count` one too high, by an encoder bug since fixed. Decoders SHOULD accept `expected + 1` as well so those files still parse.
+> Some tiles in the wild have a `stream_count` that is one too high, due to an encoder bug that has since been fixed. Decoders SHOULD accept `expected + 1` as well so those files still parse.
 
 Each child's own `stream_count` is `1`, plus `1` when it is nullable.
 
@@ -543,11 +548,11 @@ The same two columns, stored with each kind of dictionary, then in byte order:
 
 ## Geometry Column
 
-The geometry column uses a Structure of Arrays (SoA) layout (data-oriented design). The `x`, `y` coordinates are stored interleaved in a `VertexBuffer` for efficient CPU processing and direct copying to GPU buffers.
+The geometry column uses a data-oriented Structure of Arrays (SoA) layout. The `x` and `y` coordinates are stored interleaved in a `VertexBuffer` for efficient CPU processing and direct copying to GPU buffers.
 
-The geometry information is separated into different streams, partly inspired by the [geoarrow](<https://github.com/geoarrow/geoarrow>) specification. This separation enables better compression optimization and faster processing. Pre-tessellated polygon meshes can also be stored directly to avoid runtime triangulation.
+Geometry is split into separate streams, partly inspired by the [GeoArrow](<https://github.com/geoarrow/geoarrow>) specification. This separation improves compression and speeds up processing. Pre-tessellated polygon meshes can also be stored directly to avoid runtime triangulation.
 
-A geometry column can consist of the following streams:
+A geometry column can contain the following streams:
 
 | Stream Name | Data Type | Encoding | Mandatory |
 | --- | :---: | --- | :---: |
@@ -571,13 +576,13 @@ Depending on the geometry type, the following streams are used in addition to `G
 
 When LineString and Polygon types are mixed in the same column, LineString vertex counts are stored in the NumRings stream (see [length stream encoding rules](<#length-stream-encoding-rules>) below).
 
-An additional `VertexOffsets` stream is present when using Dictionary or Morton-Dictionary encoding. If geometries (mainly polygons) are pre-tessellated for direct GPU use, `NumTriangles` and `IndexBuffer` streams must be provided.
+An additional `VertexOffsets` stream is present when the vertices use Dictionary or Morton-Dictionary encoding. If geometries (mainly polygons) are pre-tessellated for direct GPU use, the `NumTriangles` and `IndexBuffer` streams MUST be present.
 
 ### Geometry Types
 
 Six geometry types are supported, encoded as unsigned integers:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=meta>) - all six kinds in one layer.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=meta>) - all six types in one layer.
 
 | Value | Type | Description |
 | --- | --- | --- |
@@ -608,11 +613,11 @@ geometry_column := [varint stream_count]
                    [stream * (stream_count - 1)]   topology, tessellation and vertex streams
 ```
 
-The streams after the types stream are identified by their `stream_type`, not their position. Each appears at most once.
+The streams after the types stream are identified by their `stream_type`, not by their position. Each appears at most once.
 
-The streams listed above map to the following physical and logical stream types:
+The streams listed above map to the following stream categories and subtypes:
 
-| Physical Type | Logical Type | Specification Name | Content |
+| Category | Subtype | Specification Name | Content |
 | --- | --- | --- | --- |
 | `DATA` | `NONE` | GeometryType | Geometry type per feature (see [geometry types](<#geometry-types>)) |
 | `LENGTH` | `GEOMETRIES` | NumGeometries | Number of sub-geometries in Multi\* types |
@@ -636,7 +641,7 @@ A `Polygon` with a hole, then a `MultiPolygon` of a polygon with a hole and a tr
 
 #### Which Streams Are Present
 
-The streams included depend on the geometry types in the column:
+Which streams are present depends on the geometry types in the column:
 
 | Geometry Type | Geometries | Parts | Rings |
 | --- | :---: | :---: | :---: |
@@ -647,23 +652,23 @@ The streams included depend on the geometry types in the column:
 | Polygon | \- | ✓ | ✓ |
 | MultiPolygon | ✓ | ✓ | ✓ |
 
-\*LineString and MultiLineString parts are stored in the Rings stream when Polygons are also present in the same column.
+\*When Polygons are also present in the column, LineString and MultiLineString vertex counts are stored in the NumRings stream instead of NumParts.
 
 #### Length Stream Encoding Rules
 
-Length values are stored only for geometry types that need them. The key insight is that **simple types have an implicit count of 1**, while **Multi\* types store their sub-geometry counts explicitly**.
+Length values are stored only where an item can hold more than one entry. In NumGeometries, **simple types have an implicit count of 1**, while **Multi\* types store their counts explicitly**. Deeper streams store a length for each polygon (its ring count) and each ring or line string (its vertex count).
 
-The encoding uses a **type threshold** to determine which geometries need explicit lengths:
+The topmost length stream present uses a **type threshold** to decide which geometries need explicit lengths:
 
-| Stream | Threshold | Types Needing Explicit Length |
+| Topmost stream | Threshold | Types needing an explicit length |
 | --- | --- | --- |
-| `geometry_offsets` | Polygon | MultiPoint, MultiLineString, MultiPolygon |
-| `part_offsets` (Rings stream present) | LineString | Polygon, MultiPoint, MultiLineString, MultiPolygon |
-| `part_offsets` (no Rings stream) | Point | LineString |
+| NumGeometries | Polygon | MultiPoint, MultiLineString, MultiPolygon |
+| NumParts, with NumRings present | LineString | Polygon |
+| NumParts, without NumRings | Point | LineString |
 
-**Rule**: If a geometry type's value is greater than the threshold type's value (see [geometry types](<#geometry-types>) table), store its length explicitly. Otherwise, the length is implicitly 1.
+A geometry whose type value is greater than the threshold type's value (see the [geometry types](<#geometry-types>) table) stores its length explicitly. Otherwise, its length is implicitly 1.
 
-**Example**: A column with `[Point, MultiPolygon, Polygon]` geometry types:
+For example, a column with `[Point, MultiPolygon, Polygon]` geometry types:
 
 ```text
 Encoded geometries lengths: [3]     // Only MultiPolygon needs explicit count
@@ -700,7 +705,7 @@ Vertices are stored as interleaved (x, y) coordinate pairs using **componentwise
 
 #### Dictionary Encoding (Optional)
 
-When vertices repeat frequently, a dictionary encoding may be used:
+When vertices repeat frequently, a dictionary encoding MAY be used:
 
 The vertex dictionary is sorted by [Hilbert curve](<https://en.wikipedia.org/wiki/Hilbert_curve>) index for spatial locality. The `OFFSET/VERTEX` stream contains indices into this dictionary.
 
@@ -723,18 +728,18 @@ Morton encoding enables efficient spatial clustering and range queries.
 
 ### Integer Stream Encoding
 
-Topology streams (lengths, offsets) use adaptive encoding selected for minimal size. All integer encodings use [variable-length quantity (varint)](<https://en.wikipedia.org/wiki/Variable-length_quantity>) as the base encoding:
+Topology streams (lengths and offsets) use an encoding chosen to minimize size. Each uses one of the logical combinations from the [encoding byte](<#encoding-byte>), laid out in bytes by any of its physical encodings: fixed-width words, SIMD-FastPFOR or [varint](<https://en.wikipedia.org/wiki/Variable-length_quantity>).
 
 | Logical Encoding | Format | Best For |
 | --- | --- | --- |
-| None | Plain varints | Random values |
-| Delta | Delta + zigzag + varint | Monotonic sequences |
+| None | Values as they are | Random values |
+| Delta | ZigZag deltas | Monotonic sequences |
 | RLE | Run-length encoded | Repeated values |
 | DeltaRLE | Delta + RLE | Constant increments |
 
 #### RLE Format
 
-[Run-length encoding](<https://en.wikipedia.org/wiki/Run-length_encoding>) stores runs followed by values:
+[Run-length encoding](<https://en.wikipedia.org/wiki/Run-length_encoding>) stores all run lengths, followed by all values:
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fids_rle.mlt&amp;at=column%5B0%5D>) - four equal ids as one run: the run length `4`, then the value `103`.
 
@@ -745,7 +750,7 @@ Values: [5, 3]
 Output: [3, 4, 5, 3]  // runs concatenated with values
 ```
 
-Stream metadata includes `runs` and `num_rle_values` counts for decoding.
+The stream header carries the `runs` and `num_rle_values` counts needed for decoding.
 
 ### Tessellation Data (Optional)
 
@@ -814,13 +819,13 @@ Decode:
 
 ### Mixed Geometry Columns
 
-A single column can contain mixed geometry types. The decoding logic handles this by:
+A single column can mix geometry types. A decoder handles this by:
 
 1. Reading geometry types to determine which length streams to expect
 2. Iterating through features, applying type-specific offset rules
-3. Using implicit length=1 for simple types (Point, LineString, Polygon) and reading explicit lengths for Multi\* types
+3. Applying the [length stream encoding rules](<#length-stream-encoding-rules>): the type threshold in the topmost length stream, and explicit counts in the streams below it
 
-**Example**: `[Point, LineString, Polygon]` in one column:
+For example, `[Point, LineString, Polygon]` in one column:
 
 ```text
 Streams:
@@ -839,7 +844,7 @@ The integer and vertex encodings referenced above are specified in detail in the
 
 ## Examples
 
-Every fixture under `test/synthetic/0x01/` has an annotated hexdump and the `.json` a decoder MUST produce from it. The annotations are generated from the tiles.
+Every fixture under `test/synthetic/0x01/` has an annotated hexdump and the `.json` output a decoder MUST produce from it. The annotations are generated from the tiles.
 
 The same annotation can be produced for any tile with the [`mlt` CLI](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md>):
 
@@ -1278,29 +1283,32 @@ v2 stores only power-of-two extents, so the nibble holds `log2(extent) - 6`:
 | --- | --- | --- | --- | --- |
 | Extent | \\(2^6 = 64\\) | \\(2^7 = 128\\) | ... | \\(2^{21} = 2097152\\) |
 
-Every code is assigned, so no extent nibble is rejected. An encoder given an extent v2 cannot code MUST reject the layer rather than round it.
+Every code is assigned, so no extent nibble is rejected. An encoder given an extent v2 cannot encode MUST reject the layer rather than round it.
 
 #### Uniform Geometry Type
 
 | Code | Meaning |
 | ---: | --- |
 | `0x0` | The [geometry section](<#geometry-section>) leads with a types stream |
-| `0x1`-`0x6` | No geometry stream since every feature has one [geometry type](<#geometry-types>) `code - 1` |
+| `0x1`-`0x6` | No types stream, since every feature has [geometry type](<#geometry-types>) `code - 1` |
 | `0x7` | Reserved, MUST be rejected |
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=header>) - every feature is a `Point`, so no types stream is written.
 
-To optimize for the common case of uniform geometries per layer, we allow skipping to write the respective metadata. MUST agree with the topology the [geometry layout](<#geometry-layout>) declares.
+To optimize for the common case of a layer with a single geometry type, the types stream can be omitted. The uniform geometry type MUST agree with the topology the [geometry layout](<#geometry-layout>) declares.
 
 ### Column Counts
 
-We have two kinds of columns, so we need to know how many columns of each type there are.
+A layer has two kinds of columns, so it stores how many of each it has.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fmvalues_sp_prop.mlt&amp;at=column_counts>) - one property column and one m-value column, counted apart.
 
 `column_count` is the number of ids and properties, not counting geometry or m-values. `m_value_count` is the number of [m-value columns](<#m-values>).
 
-To optimize the transfer size, if the header byte's m-value bit - is `0`, `column_counts` is `column_count` as a plain varint and `m_value_count` is `0`. - is `1`, `column_counts` is the Morton code of both counts as a varint. Bit `i` of `column_count` sits at bit `2i` and bit `i` of `m_value_count` at bit `2i + 1`. A layer with up to 15 counted columns and up to 7 m-value columns fits both counts in one byte. `m_value_count` MUST be non-zero when the bit is set, so a code whose odd bits are all clear MUST be rejected.
+To optimize transfer size, if the header byte's m-value bit:
+
+- is `0`, `column_counts` is `column_count` as a plain varint and `m_value_count` is `0`.
+- is `1`, `column_counts` is the Morton code of both counts as a varint. Bit `i` of `column_count` sits at bit `2i` and bit `i` of `m_value_count` at bit `2i + 1`. A layer with up to 15 counted columns and up to 7 m-value columns fits both counts in one byte. `m_value_count` MUST be non-zero when the bit is set, so a code whose odd bits are all clear MUST be rejected.
 
 Five counted columns and two m-value columns:
 
@@ -1318,7 +1326,7 @@ A set encoding flag with a count of `0` MUST be rejected.
 
 A presence field says which of `N` values are present. `N` is `feature_count` for a column, and the parent's value count for a [nested node](<#node-presence-nibble>).
 
-The same three encodings store every field of one bit per value: a presence field, a boolean column's data stream and a nested node's presence stream. Their codes are the members of the `Bool` [family](<#families>).
+The same three encodings store every one-bit-per-value field: a presence field, a boolean column's data stream and a nested node's presence stream. Their codes are the members of the `Bool` [family](<#families>).
 
 | Code | Encoding | Payload |
 | ---: | --- | --- |
@@ -1328,11 +1336,11 @@ The same three encodings store every field of one bit per value: a presence fiel
 
 `Runs` and `Sparse` are self-delimiting, so no length is stored for either. `Sparse` reads its summary, takes the population count `k` of it, then takes `k` bytes.
 
-A bitmap costs `ceil(N / 8)` bytes whatever it holds, so it is the smallest form only while `N` is small or the present values are scattered. A column present over one run of features, or on a handful of them, carries far less than that, and the other two encodings charge for what it carries rather than for `N`.
+A bitmap costs `ceil(N / 8)` bytes whatever it holds, so it is the smallest form only while `N` is small or the present values are scattered. A column present over one run of features, or on only a handful of them, needs much less. `Runs` grows with the number of runs. `Sparse` stores a summary of `ceil(N / 64)` bytes plus one byte for each bitmap byte that holds a present value, so for a very sparse column its size is mostly the summary.
 
 Six present values among `N = 32`, at `10` to `15`:
 
-Encoders MUST write whichever of the three stores the field smallest, breaking a tie toward the lowest code. This holds for a boolean column's data stream and a nested node's presence stream as for a presence field. Decoders MUST reject run lengths that do not sum to `N`, a `Sparse` summary bit set at or past `B`, and a stored `Sparse` byte that is `0`. Bits past `N` in the last `Sparse` byte are padding and MUST be ignored, as for `Bitmap`.
+Encoders MUST write whichever of the three encodings stores the field smallest, breaking a tie toward the lowest code. This also applies to a boolean column's data stream and a nested node's presence stream. Decoders MUST reject run lengths that do not sum to `N`, a `Sparse` summary bit set at or past `B`, and a stored `Sparse` byte that is `0`. Bits past `N` in the last `Sparse` byte are padding and MUST be ignored, as for `Bitmap`.
 
 ### Shared Presence Fields
 
@@ -1345,7 +1353,7 @@ shared_presence := [u8 encoding] only when the layout byte's encoding flag is se
                    [payload]     per that encoding, self-delimiting
 ```
 
-The `n` shared fields follow the layout byte back to back, in index order. A shared field has no presence nibble to carry its encoding. Without the layout byte's encoding flag every shared field is a `Bitmap`, and no byte naming it is stored. With it, every shared field leads with the byte naming its encoding. That byte is the [encoding byte](<#encoding-byte>) of a `Bool` stream, so the code sits in bits 6-4 and every other bit MUST be `0`: `0x00`, `0x10` or `0x20`.
+The `n` shared fields follow the layout byte back to back, in index order. A shared field has no presence nibble to carry its encoding. Without the layout byte's encoding flag, every shared field is a `Bitmap`, and no byte naming it is stored. With it, every shared field leads with the byte naming its encoding. That byte is the [encoding byte](<#encoding-byte>) of a `Bool` stream, so the code sits in bits 6-4 and every other bit MUST be `0`: `0x00`, `0x10` or `0x20`.
 
 Encoders MUST pick each shared field's encoding as for an inline one. Encoders MUST set the encoding flag only when some shared field's encoding is not `Bitmap`.
 
@@ -1379,7 +1387,7 @@ Streams appear in exactly this order. Each stream's role is given by its positio
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types>) - all six kinds in one layer, so the types stream carries each.
 
-The types stream holds one of these per feature. A layer whose features all share one writes the [uniform geometry type](<#uniform-geometry-type>) nibble instead.
+The types stream holds one of these per feature. A layer whose features all share one type writes the [uniform geometry type](<#uniform-geometry-type>) nibble instead.
 
 ### Geometry Layout
 
@@ -1439,7 +1447,7 @@ A feature's triangles are one contiguous run of the index buffer. Feature `i` st
 
 A tessellated layer either stores only the triangles (`0xC`) or keeps the outlines next to them (`0xD`).
 
-A `Polygon` triangle, then a `MultiPolygon` of a polygon with a hole and a second triangle, from [`mix_2_poly_mpoly_tes`](<#examples>).
+A `Polygon` triangle, then a `MultiPolygon` of a polygon with a hole and a second triangle, from [`mix_2_poly_mpoly_tes`](<#examples>):
 
 | Vertex | `0` | `1` | `2` | `3` | `4` | `5` | `6` | `7` | `8` | `9` | `10` | `11` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1491,7 +1499,7 @@ A layer needs `0xD` to stroke its polygon outlines, to hold anything but polygon
 
 ### Z Coordinates
 
-A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. The two variants are differentiated by bit 0 of its [encoding byte](<#encoding-byte>)'s extension field being `1`. A `z_step` byte is the stream's [parameter](<#parameters>). `byte_length` does not count it.
+A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of the extension field of its [encoding byte](<#encoding-byte>) is `1` for triples and `0` for pairs. A `z_step` byte is the stream's [parameter](<#parameters>). `byte_length` does not count it.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_point.mlt&amp;at=vertices>) - a point 12 m up, its `z` one word after `x` and `y`.
 
@@ -1505,7 +1513,7 @@ A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. The two 
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices>) - a polygon with a hole at a `z_step` of `2`, one unit per decimeter.
 
-`z` is a signed 32-bit word like `x` and `y`, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m. Negative `z` is similarly possible.
+`z` is a signed 32-bit word like `x` and `y`, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m. Like `x` and `y`, `z` can be negative.
 
 The stream holds `3 * num_values` words for `num_values` vertices, with `x`, `y` and `z` interleaved.
 
@@ -1515,9 +1523,9 @@ Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, wi
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices>) - all six geometry types, each vertex an interleaved triple.
 
-The vertex stream is indexed, so (\\(x\_1, y\_1, z\_1, x\_2, y\_2, z\_2, ..., x\_i, y\_i, z\_i\\)) has the index \\(i\\):
+The vertex stream is indexed, so (\\(x\_1, y\_1, z\_1, x\_2, y\_2, z\_2, ..., x\_i, y\_i, z\_i\\)) has index \\(i\\):
 
-- Under a dictionary layout, the vertex stream holds the distinct triples and the vertex offsets pointing to them. Two vertices share an entry only when their `x`, `y` and `z` are identical. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict>) - five points in four entries: a repeat at the same height shares one, a new height does not.
+- Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them. Two vertices share an entry only when their `x`, `y` and `z` are identical. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict>) - five points in four entries: a repeat at the same height shares one, a new height does not.
 - Under a tessellated layout, the index buffer names triples. A `TessPolygons` feature holds the `z` of each triangle corner, in index buffer order. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_poly_hole_tri.mlt&amp;at=tri_indexes>) - a polygon with a hole, cut into six triangles over six `(x, y, z)` vertices.
 - An [m-value](<#m-values>) runs over the same vertex sequence it does without `z`. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_mvalues.mlt&amp;at=vertices>) - a line whose three vertices carry both a `z` and an m-value.
 
@@ -1529,13 +1537,13 @@ A decoder that renders in 2D MAY read `x` and `y` and step over `z`.
 >
 > `z = 0` sits at the base of [Terrain-RGB](<https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-rgb-v1/>), the default encoding of a MapLibre `raster-dem` source. No offset is needed to compare a `z` with the terrain under it.
 >
-> Elevation data is in decimal meters. This means a power-of-ten step can be represented exactly. `12.34 m` is `z = 1001234` at 1 cm, where a \\(2^{-7}\\) m grid would read it back as `12.34375 m`. At 1 dm, `z` is Terrain-RGB's `R * 65536 + G * 256 + B`.
+> Elevation data is in decimal meters. A power-of-ten step represents such values exactly. `12.34 m` is `z = 1001234` at 1 cm, where a \\(2^{-7}\\) m grid would read it back as `12.34375 m`. At 1 dm, `z` is Terrain-RGB's `R * 65536 + G * 256 + B`.
 
 > [!NOTE]
 >
 > **Why interleaved**
 >
-> Because one vertex is three adjacent words, a decoded vertex buffer can direct-to-GPU without having to index into another stream to match the z value. A layer without `z` is not impacted due to the extension bit mechanism.
+> Because each vertex is three adjacent words, a decoded vertex buffer can go directly to a GPU, with no lookup into another stream to find its `z`. A layer without `z` is unaffected, since the extension bit marks which vertex streams carry it.
 
 ## Attribute Columns
 
@@ -1552,7 +1560,7 @@ An inline presence field is written in the [encoding](<#presence-encodings>) its
 
 ### Column Names
 
-A layer has one namespace of column names, so a name identifies exactly one column of it and a style expression such as `["get", "foo"]` resolves to that column:
+A layer has one namespace of column names, so a name identifies exactly one column, and a style expression such as `["get", "foo"]` resolves to that column:
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_sp_id.mlt&amp;at=column%5B0%5D>) - an id, which has no name, beside a named `u32` column.
 
@@ -1563,7 +1571,7 @@ A layer has one namespace of column names, so a name identifies exactly one colu
 | A [nested column](<#nested-properties>) | Its name field |
 | An [m-value column](<#m-values>) | Its name field |
 
-A name a second column repeats MUST be rejected, whichever kinds of column repeat it, and an encoder MUST NOT write such a layer. An `Id` or `LongId` column has no name field, and the geometry column is not a counted column, so neither takes a name. A shared dictionary group's own name is a prefix rather than a column name, and MAY repeat one. A [struct](<#struct-nodes>) field name and a [map](<#map-nodes>) key name a value inside their column, not a column, and are unique only where their own sections say.
+A name repeated by a second column MUST be rejected, whatever kinds of column repeat it, and an encoder MUST NOT write such a layer. An `Id` or `LongId` column has no name field, and the geometry column is not a counted column, so neither takes a name. A shared dictionary group's own name is a prefix rather than a column name, and MAY repeat one. A [struct](<#struct-nodes>) field name and a [map](<#map-nodes>) key name a value inside their column, not a column, and are unique only where their own sections say.
 
 ### Column Type Byte
 
@@ -1610,7 +1618,7 @@ A layer MUST contain at most one `Id` or `LongId` column.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=present>) - an optional column, so the nibble names an inline bitmap.
 
-The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those for the two that are not.
+The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those columns for the other two encodings.
 
 A shared reference at or past the count in the layout byte MUST be rejected.
 
@@ -1645,7 +1653,7 @@ The same column in each layout, then in byte order:
 
 ### Shared Dictionary Columns
 
-Data type `0xF` introduces a dictionary followed by the columns that index into it. Its high nibble gives the dictionary kind instead of a presence:
+Data type `0xF` introduces a dictionary followed by the columns that index into it. Its high nibble gives the dictionary kind instead of presence:
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D>) - child columns reading one dictionary.
 
@@ -1678,13 +1686,13 @@ Front coding of the dictionary is given by the encoding byte of the last corpus 
 
 ### Nested Properties
 
-A property whose value is a map or a list, nestable.
+A nested property has a map or a list as its value, and these can nest.
 
 v2 shreds a nested value the way [ORC](<https://orc.apache.org/specification/ORCv1/>) does. The column is a tree of nodes. Every leaf of the tree holds one flat stream set, encoded exactly as a [column](<#columns>) of its data type. The structure lives in the presence and length streams of the interior nodes, never beside the values. A key that every feature shares is written once, in the tree, rather than once per feature.
 
 `obj` from [`nested_struct`](<#examples>), `rank` missing on feature 1:
 
-The tree is written depth first, each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.
+The tree is written depth first, with each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.
 
 ```text
 nested_column := [u8 column_type]        presence nibble over 0xC, 0xD or 0xE
@@ -1731,7 +1739,7 @@ Each node is handed a number of values by its parent, its **parent count**:
 | A list element | The sum of the list node's lengths |
 | A map key or map value | The sum of the map node's lengths |
 
-A node's **present count** is its parent count under nibble `0`, and its presence stream's population count otherwise. That is what its data streams hold one value each of.
+A node's **present count** is its parent count under nibble `0`, and its presence stream's population count otherwise. Its data streams hold that many values.
 
 A nullable list of `{id, tag}` structs, `tag` nullable, over a present, an empty, a null and a present list:
 
@@ -1744,7 +1752,7 @@ A node's streams take their [implied count](<#value-count>) from this context, e
 | The [presence stream](<#node-presence-nibble>) | Every node that has one, the first `List` or `Map` included |
 | The leading data stream | Every leaf |
 
-A `List` or a `Map` writes a count on its own lengths and presence streams even where its parent count would imply one, so that reading a node's header never depends on what sat above the node. An encoder SHOULD set bit 7 on every other stream that can carry one, and a decoder MUST accept a count wherever one is written. The streams after a string stream set's leading one read as they do in a [string column](<#string-columns>). A byte blob is the exception it always is: bit 7 MUST be `0` and its count stays `byte_length`.
+A `List` or a `Map` writes a count on its own lengths and presence streams even where its parent count would imply one, so that reading a node's header never depends on what sat above the node. An encoder SHOULD set bit 7 on every other stream that can carry one, and a decoder MUST accept a count wherever one is written. The streams after a string stream set's leading one read as they do in a [string column](<#string-columns>). A byte blob is, as always, the exception: bit 7 MUST be `0` and its count stays `byte_length`.
 
 A decoder that has decoded both a lengths stream and the counts below it MUST reject a disagreement.
 
@@ -1780,13 +1788,16 @@ list_body := [lengths stream]            Int family, one length per present list
              body
 ```
 
-The lengths stream holds element counts, not offsets, as the geometry section's do.
+The lengths stream holds element counts, not offsets, as the geometry section's lengths streams do.
 
 `items` from [`nested_list_struct`](<#examples>), a list of `{id, tag}` structs:
 
 The element node has no name.
 
-A list that is null and a list that is empty are different: a null list has its presence bit clear and no length, an empty list has its presence bit set and a length of `0`.
+A list that is null and a list that is empty are different:
+
+- a null list has its presence bit clear and no length
+- an empty list has its presence bit set and a length of `0`.
 
 #### Map Nodes
 
@@ -1802,7 +1813,7 @@ map_body := [lengths stream]             Int family, one length per present map
             body
 ```
 
-The keys are the streams a [string column](<#string-columns>) holds, laid out per the extension bits of the leading one, holding one key per entry of every present map. They carry no node type byte and no presence: a key is neither null nor of any other type, so neither is representable. The value node has no name.
+The keys are the streams a [string column](<#string-columns>) holds, laid out per the extension bits of the leading one, holding one key per entry of every present map. They carry no node type byte and no presence stream. A key is always a string and never null, so there is nothing for either to express. The value node has no name.
 
 `tags` from [`nested_map_str`](<#examples>), a map of strings:
 
@@ -1812,7 +1823,7 @@ The first three `tags` of [`nested_map_shapes`](<#examples>), both ways:
 
 #### Leaf Nodes
 
-`0x2`-`0xB`. A leaf holds exactly the data streams a [column](<#columns>) of the same data type holds: one stream for a boolean or integer, one or two for a float, and the set its leading stream's extension bits name for a string. It reads them against its own count, and is otherwise the same column.
+`0x2`-`0xB`. A leaf holds exactly the data streams a [column](<#columns>) of the same data type holds: one stream for a boolean or integer, one or two for a float, and the set its leading stream's extension bits name for a string. It reads them against its own count, and is otherwise identical to such a column.
 
 #### Where Nested Columns May Appear
 
@@ -1849,7 +1860,7 @@ An m-value column reads the same [column type byte](<#column-type-byte>), the sa
 
 #### Data Types in M-Value Columns
 
-`Bool` through `String`, codes `0x2`-`0xB`, carry exactly the streams they carry as a property column. `0x0`, `0x1` and `0xC`-`0xF` are reserved and MUST be rejected. A vertex carries a measurement, not a structure.
+`Bool` through `String`, codes `0x2`-`0xB`, carry exactly the streams they carry in a property column. `0x0`, `0x1` and `0xC`-`0xF` are reserved and MUST be rejected. A vertex carries a measurement, not a structure.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fmvalues.mlt>) - an `i32` and a `u32` m-value column.
 
@@ -1867,13 +1878,13 @@ An m-value column holds one value per vertex of that run, in the same order.
 
 #### Nulls
 
-M-value columns are nullable, but they are at the feature level, not the vertex level. This means a single vertex cannot be null. A feature's m-value can be null though.
+M-value columns are nullable at the feature level, not the vertex level. A single vertex's m-value cannot be null. A whole feature's m-values can be null.
 
 #### Value Count
 
-A column's value count is the sum of `vertex_count(f)` over the features whose presence bit is set, which is every feature under presence nibble `0`.
+An m-value column's value count is the sum of `vertex_count(f)` over the features whose presence bit is set, which is every feature under presence nibble `0`.
 
-That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count. An m-value column's leading data stream MUST set bit 7 of its [encoding byte](<#encoding-byte>) and write the count explicitly. The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one. An encoder SHOULD write an explicit count on every stream that can carry one, since none of those counts are implied here. A byte blob is the exception. Bit 7 MUST be `0` on it and its count stays `byte_length`, as on any other column. A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.
+That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count. An m-value column's leading data stream MUST set bit 7 of its [encoding byte](<#encoding-byte>) and write the count explicitly. The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one. An encoder SHOULD write an explicit count on every stream that can carry one, since none of those counts are implied here. A byte blob is the exception. Bit 7 MUST be `0`, and its count stays `byte_length`, as on any other column. A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.
 
 Values are one flat sequence across feature boundaries. Delta encoding and RLE run through them without a break at each feature.
 
@@ -1907,7 +1918,7 @@ stream := [u8 encoding_byte]
 | 7 | An explicit `num_values` varint follows |
 | 6-4 | Logical encoding, numbered within the stream's [family](<#families>) |
 | 3-2 | [Physical encoding](<#physical-field>), interpreted per logical encoding |
-| 1-0 | Extension.<br>For string collums leading stream, this is the layout.<br>For a vertex streams, bit 0 being set means [`(x, y, z)`](<#z-coordinates>) instead of `(x, y)`.<br>MUST be `0` on every other stream. |
+| 1-0 | Extension.<br>For a string column's leading stream, this is the layout.<br>For a vertex stream, bit 0 set means [`(x, y, z)`](<#z-coordinates>) instead of `(x, y)`.<br>MUST be `0` on every other stream. |
 
 The vertex stream of `z_mvalues`:
 
@@ -1930,7 +1941,7 @@ For an RLE stream the value count is the decoded element count. The number of `(
 
 #### Byte Length
 
-`byte_length` is present unless the stream is a [`Bool` stream](<#bool-streams>) or logical `None` over [physical](<#physical-field>) `00`. A `Bool` stream's payload delimits itself, so it never writes one. On logical `None` the payload is the elements as they are, so that pattern says the length follows from the value count and the element width the stream's type fixes:
+`byte_length` is present unless the stream is a [`Bool` stream](<#bool-streams>) or logical `None` over [physical](<#physical-field>) `00`. A `Bool` stream's payload delimits itself, so it never writes one. On logical `None` the payload is the raw elements, so with that pattern the length follows from the value count and the element width fixed by the stream's type:
 
 | Stream | `byte_length` |
 | --- | --- |
@@ -1960,7 +1971,7 @@ The `Str` family has the same members as `Int`. It differs only in the use of th
 
 ### Bool Streams
 
-A `Bool` stream holds one bit per value, in the [encoding](<#presence-encodings>) its logical field names. Its value count is its [implied count](<#value-count>), or the explicit one when bit 7 is set, and it is the `N` of the encoding. Its physical field and extension bits MUST be `0`. No `byte_length` exists.
+A `Bool` stream holds one bit per value, in the [encoding](<#presence-encodings>) its logical field names. Its value count is its [implied count](<#value-count>), or the explicit one when bit 7 is set, and it is the `N` of the encoding. Its physical field and extension bits MUST be `0`. It has no `byte_length`.
 
 ### Physical Field
 
@@ -1999,7 +2010,7 @@ Parameters sit between `byte_length`, where written, and the payload:
 
 ## Examples
 
-Every fixture under `test/synthetic/0x02/` can be annotated as a hexdump below. If you are building a decoder, you must produce the same `.json` snapshot for validation.
+Every fixture under `test/synthetic/0x02/` can be annotated as a hexdump below. A decoder MUST produce the matching `.json` snapshot from each one.
 
 The same annotation can be produced for any tile with the [`mlt` CLI](<https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md>):
 
@@ -2733,7 +2744,7 @@ This page defines the payload of every encoding an MLT stream can name. Which st
 >
 > **Experimental encodings**
 >
-> Encodings marked exist only in [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>). Streams are called by their [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#string-columns>) names throughout.
+> Encodings marked exist only in [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>). Streams are referred to by their [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#string-columns>) names throughout.
 
 ## Integer Words
 
@@ -2745,7 +2756,7 @@ An integer stream is decoded in two steps. The **physical** encoding turns the p
 values = logical_decode(physical_decode(payload))
 ```
 
-A difference is signed even when the values are not, so every delta is [zigzag](<#zigzag>)-encoded. A plain or run-length encoded value is ZigZag-encoded only on a stream of a signed type. Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded. Delta arithmetic wraps at the word width.
+A difference is signed even when the values are not, so every delta is [zigzag](<#zigzag>)-encoded. A plain or run-length-encoded value is ZigZag-encoded only on a stream of a signed type. Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded. Delta arithmetic wraps at the word width.
 
 The steps each logical encoding takes:
 
@@ -2776,13 +2787,13 @@ For 64-bit values the shift is `63`.
 
 Each word is stored as it is, little-endian, 4 or 8 bytes per word.
 
-In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width give it. See [byte length](<https://maplibre.org/maplibre-tile-spec/specification/v2/#byte-length>).
+In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width determine it. See [byte length](<https://maplibre.org/maplibre-tile-spec/specification/v2/#byte-length>).
 
 ### VarInt
 
 Each word is stored in 7-bit groups, least significant group first. Bit 7 of each byte is set when another byte follows. A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&amp;at=column%5B0%5D>) - four `9000`s, two bytes each, the first with bit 7 set.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&amp;at=column%5B0%5D>) - four `9000`s, two bytes each, the first byte of each with bit 7 set.
 
 ```text
 300 = 0b0000_0001_0010_1100
@@ -2798,14 +2809,14 @@ Every word is stored in the same number of bits, the bit width of the largest va
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - dictionary codes `0` to `2`, each in two bits.
 
-v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`. It stands in for the whole physical step: the words come straight out of the packed bits, and only [zigzag](<#zigzag>) on a signed stream is applied to them.
+Bit packing stands in for the whole physical step: the words come straight out of the packed bits, and only [zigzag](<#zigzag>) on a signed stream is applied to them.
 
 ```text
 payload := [u8 width]                        1-32
            [u8 packed[ceil(count * width / 8)]]
 ```
 
-Words are laid LSB-first end to end, so word `i` occupies bits `i * width` to `i * width + width - 1` of the byte run. Bits past the last word in the final byte are padding. Encoders write them as `0` and decoders MUST ignore them. `width` MUST be `1` to `32`. An empty or all-zero stream has `width = 1`. A payload whose length is not exactly `1 + ceil(count * width / 8)` MUST be rejected.
+Words are laid out LSB-first, end to end, so word `i` occupies bits `i * width` to `i * width + width - 1` of the byte run. Bits past the last word in the final byte are padding. Encoders write them as `0` and decoders MUST ignore them. `width` MUST be `1` to `32`. An empty or all-zero stream has `width = 1`. A payload whose length is not exactly `1 + ceil(count * width / 8)` MUST be rejected.
 
 ```text
 values: [5, 1, 7, 0]           width = 3
@@ -2819,7 +2830,7 @@ Bit packing beats varint when the values are of similar magnitude, since varint 
 
 ### FastPFOR
 
-A block codec that stores each block of words at the bit width most of them need, and patches the few words that need more from separate exception arrays. Unlike [bit packing](<#bit-packing>) it is not sensitive to a handful of outliers. It is from [Lemire and Boytsov, *Decoding billions of integers per second through vectorization*](<https://arxiv.org/pdf/1209.2137.pdf>).
+A block codec that stores each block of words at the bit width most of them need, and patches the few words that need more from separate exception arrays. Unlike [bit packing](<#bit-packing>), it is not sensitive to a handful of outliers. It is described by [Lemire and Boytsov, *Decoding billions of integers per second through vectorization*](<https://arxiv.org/pdf/1209.2137.pdf>).
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_fpf.mlt&amp;at=column%5B0%5D>) - an id stream in the v2 `128le` variant.
 
@@ -2832,7 +2843,7 @@ v1 and v2 use different variants:
 | Word byte order | big-endian | little-endian |
 | Value width | 32 bits | 32 and 64 bits |
 
-The payload is whole 32-bit words, whatever the width of the values:
+The payload consists of whole 32-bit words, whatever the width of the values:
 
 ```text
 payload := [u32 block_values]          values in whole blocks, a multiple of 128
@@ -2844,7 +2855,7 @@ payload := [u32 block_values]          values in whole blocks, a multiple of 128
 
 #### Pages
 
-A page holds up to `65536` values, which is `512` blocks. Every page but the last is full. Exceptions are collected per page, so that blocks share one set of exception arrays.
+A page holds up to `65536` values, which is `512` blocks. Every page but the last is full. Exceptions are collected per page, so that the blocks of a page share one set of exception arrays.
 
 ```text
 page := [u32 meta_offset]              words from this word to meta_size, 1 + the packed words
@@ -2865,9 +2876,9 @@ block_meta := [u8 width]               0-32 for u32, 0-64 for u64
                 [u8 position; exceptions]
 ```
 
-`width` is the bit width the block is packed at. A value that needs more is an **exception**: its low `width` bits stay in the block, and its high bits go to an exception array. `position` is the index of the exception in the block, `0` to `127`, and encoders write them in ascending order.
+`width` is the bit width the block is packed at. A value that needs more is an **exception**: its low `width` bits stay in the block, and its high bits go to an exception array. `position` is the index of the exception in the block, `0` to `127`, and encoders write the positions in ascending order.
 
-An exception array exists for each width `k` from `2` to the value width, and bit `k - 1` of the bitmap says whether it does. Array `k` holds the high bits of every exception in the page with `max_width - width = k`, in block order and then position order.
+An exception array can exist for each width `k` from `2` to the value width, and bit `k - 1` of the bitmap says whether it does. Array `k` holds the high bits of every exception in the page with `max_width - width = k`, in block order and then position order.
 
 ```text
 exception_array := [u32 count]
@@ -2885,7 +2896,7 @@ for each position p:
     otherwise:   value[p] |= next value of array[index] << width
 ```
 
-Arrays are split by `k` so that each packs at its exact width and no exception stores its own. An exception that is a single bit wider than the block has no array: its high part can only be `1`. Every array has its own read position, which starts at its first value on each page.
+Arrays are split by `k` so that each packs at its exact width and no exception stores its own width. An exception that is a single bit wider than the block has no array: its high part can only be `1`. Every array has its own read position, which starts at its first value on each page.
 
 A decoder MUST reject - a `width` or `max_width` above the value width, - a `max_width` that is not above `width` where there are exceptions, - a `position` of `128` or more, - an exception without a value left in its array, - an array with more than `65536` values, - and a payload that ends inside a page.
 
@@ -2900,19 +2911,19 @@ Value `i` belongs to lane `i mod lanes` and row `i / lanes`. Each lane is packed
 
 A `width` of `0` takes no words, and every value is `0`.
 
-Because every lane has the same bit offsets, one shift, one mask and one or move `lanes` values at once, and no value crosses lanes. A decoder without vector instructions loops over the lanes and reads the same bytes.
+Because every lane has the same bit offsets, one shift, one mask and one OR move `lanes` values at once, and no value crosses lanes. A decoder without vector instructions loops over the lanes and reads the same bytes.
 
-32 values at `k` bits each are one continuous LSB-first bit stream of `k` words: value `j` occupies bits `j * k` to `j * k + k - 1`, with bit `i` of the stream being bit `i mod 32` of word `i / 32`. v1 packs every block this way, 32 values at a time. v2 uses it only for the remainder of an exception array. A `u64` value of up to `64` bits crosses word boundaries as any other.
+32 values at `k` bits each are one continuous LSB-first bit stream of `k` words: value `j` occupies bits `j * k` to `j * k + k - 1`, with bit `i` of the stream being bit `i mod 32` of word `i / 32`. v1 packs every block this way, 32 values at a time. v2 uses it only for the remainder of an exception array. A `u64` value of up to `64` bits crosses word boundaries like any other.
 
 #### Tail
 
 The tail is variable-byte encoded, with no count and no header. Each value is stored in 7-bit groups, least significant group first, and bit 7 of its **last** byte is set. This is the reverse of [varint](<#varint>), where bit 7 marks a byte that is followed by another.
 
-A `u32` takes 1 to 5 bytes and the fifth carries the top 4 bits. A `u64` takes 1 to 10. The bytes are padded with `0x00` to a multiple of 4. A padding byte has bit 7 clear, so it never ends a value, and a decoder discards the unfinished value at the end. A decoder reads until the payload ends, and the number of values it read MUST be the stream's value count minus `block_values`.
+A `u32` takes 1 to 5 bytes, and the fifth carries the top 4 bits. A `u64` takes 1 to 10. The bytes are padded with `0x00` to a multiple of 4. A padding byte has bit 7 clear, so it never ends a value, and a decoder discards the unfinished value at the end. A decoder reads until the payload ends, and the number of values it read MUST be the stream's value count minus `block_values`.
 
 #### Choosing the width
 
-The width is the encoder's choice, and any width that decodes to the values is valid. The reference encoder counts the values of a block by bit length, and tries each `width` below the widest value's `max_width`. With `e` values wider than `width`, it costs
+The width is the encoder's choice, and any width that decodes to the values is valid. The reference encoder counts the values of a block by bit length and tries each `width` below the widest value's `max_width`. With `e` values wider than `width`, it costs
 
 ```text
 128 * width + e * 8 + e * (max_width - width) + 8        bits
@@ -2938,7 +2949,7 @@ The words are the values. On a signed stream each word is [zigzag](<#zigzag>)-de
 
 ### Delta
 
-Each word is the difference to the previous value. The first value's predecessor is `0`. Each difference is [zigzag](<#zigzag>)-encoded before it becomes a word, whatever the stream's type.
+Each word is the difference from the previous value. The first value's predecessor is `0`. Each difference is [zigzag](<#zigzag>)-encoded before it becomes a word, whatever the stream's type.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_opt_delta.mlt&amp;at=column%5B0%5D>) - ids `100`, `101`, `105`, `106`, stored as the steps between them.
 
@@ -2961,11 +2972,11 @@ Delta suits monotonic sequences such as ids and offsets, whose differences are s
 
 ### Delta2
 
-Each item is the [delta](<#delta>) of the deltas. Both predecessors start at `0`, so the first two words are - `values[0]` and - `values[1] - 2 * values[0]`.
+Each word is the [delta](<#delta>) of the deltas. Both predecessors start at `0`, so the first two words are - `values[0]` and - `values[1] - 2 * values[0]`.
 
-Each second difference is [zigzag](<#zigzag>)-encoded, and the arithmetic wraps at the stream's width.
+Each second difference is [zigzag](<#zigzag>)-encoded, and the arithmetic wraps at the word width.
 
-This means that encoding is:
+Encoding is:
 
 ```text
 delta[i]  = values[i] - values[i - 1]      values[-1] = 0
@@ -3019,7 +3030,7 @@ In both versions the decoded element count is known before the payload is read. 
 
 ### Delta-RLE
 
-[Delta](<#delta>) followed by [RLE](<#rle>). The deltas are ZigZag-encoded, and it is those unsigned words that are run-length encoded. Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-sum.
+[Delta](<#delta>) followed by [RLE](<#rle>). The deltas are ZigZag-encoded, and those unsigned words are run-length encoded. Decoding undoes both steps in reverse order: expand the runs, then undo ZigZag and prefix-sum.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_delta_rle.mlt&amp;at=column%5B0%5D>) - four equal ids: one step of `103`, then a run of three `0`s.
 
@@ -3049,7 +3060,7 @@ byte:   0b0010_1101 = 0x2D
 
 ### Runs
 
-Alternating run lengths as varints, the first counting `0` bits and possibly being `0`. The lengths MUST sum to `count`. Runs is best for a bitfield that is set over continguious blocks of values
+Alternating run lengths as varints. The first counts the leading `0` bits and can be `0`. The lengths MUST sum to `count`. Runs is best for a bitfield that is set over contiguous blocks of values.
 
 ```text
 values:  [0, 0, 1, 1, 1, 0]
@@ -3058,7 +3069,7 @@ payload: 02 03 01              2 zeros, 3 ones, 1 zero
 
 ### Sparse
 
-A summary bitmap with one bit per byte of the [bitmap](<#bitmap>), set where that byte is not zero, followed by the non-zero bytes in order. The summary is `ceil(ceil(count / 8) / 8)` bytes, and its bits past the last bitmap byte MUST be `0`. A stored byte MUST NOT be `0`. Sparse is best for a bitfield whose set bits are very sparse and don't clump.
+A summary bitmap with one bit per byte of the [bitmap](<#bitmap>), set where that byte is not zero, followed by the non-zero bytes in order. The summary is `ceil(ceil(count / 8) / 8)` bytes, and its bits past the last bitmap byte MUST be `0`. A stored byte MUST NOT be `0`. Sparse is best for a bitfield whose set bits are rare and do not clump.
 
 ```text
 bitmap:  00 2D 00              24 values
@@ -3068,7 +3079,7 @@ payload: 02 2D
 
 ### Boolean RLE
 
-v1 compresses the [bitmap](<#bitmap>) with the byte-level run-length encoding of [ORC](<https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding>). The payload is a sequence of runs, each a control byte and what it names:
+v1 compresses the [bitmap](<#bitmap>) with the byte-level run-length encoding of [ORC](<https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding>). The payload is a sequence of runs, each a control byte followed by the bytes it describes.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fids_opt.mlt&amp;at=present>) - five ids, one of them missing, as byte runs.
 
@@ -3113,7 +3124,7 @@ The parameters are two values in the stream header:
 | `scale` | One byte packing \\(e\\) and \\(f\\) as \\(\\frac{e(e+1)}{2} + f\\), from \\(0\\) to \\(189\\) |
 | `base` | Frame of reference: the smallest scaled integer in the column, ZigZag varint |
 
-`scale` numbers only the valid pairs, row by row. One 4-bit nibble each would be simpler, but cannot hold \\(e = 18\\). Two 5-bit fields would not fit a byte, while the \\(190\\) valid pairs up to \\((e, f) = (18, 18)\\) do. A `scale` above \\(189\\) MUST be rejected.
+`scale` numbers only the valid pairs, row by row. A 4-bit nibble for each of \\(e\\) and \\(f\\) would be simpler but cannot hold \\(e = 18\\). Two 5-bit fields would not fit in a byte, while the \\(190\\) valid pairs up to \\((e, f) = (18, 18)\\) do. A `scale` above \\(189\\) MUST be rejected.
 
 To decode, \\(e\\) is the largest integer with \\(\\frac{e(e+1)}{2} \\le \\mathit{scale}\\), and \\(f\\) is what remains:
 
@@ -3121,13 +3132,13 @@ To decode, \\(e\\) is the largest integer with \\(\\frac{e(e+1)}{2} \\le \\mathi
 
 The square root is exact enough in double precision for every valid `scale`.
 
-The payload holds unsigned offsets from `base`, so the smallest is `0` and every value is non-negative. The offsets are an ordinary unsigned integer stream and carry their own physical encoding. Its words are 64-bit.
+The payload holds unsigned offsets from `base`, so the smallest is `0` and every value is non-negative. The offsets are an ordinary unsigned integer stream and carry their own physical encoding. The stream's words are 64-bit.
 
 **Decoding**: \\(i = \\mathit{base} + \\mathit{offset}\\), in 64-bit integer arithmetic, then \\(v = i \\cdot 10^f \\cdot 10^{-e}\\), with \\(10^{-e}\\) the nearest double and not an exact division.
 
 The sum MUST be formed as an integer before the conversion. A column spanning \\(\[-2, 2^{53} - 1\]\\) has an offset of \\(2^{53} + 1\\), which a double cannot hold.
 
-\\(e\\) and \\(f\\) are stored separately instead of a single \\(10^{e - f}\\). Scaling up by \\(10^e\\) and then down by \\(10^f\\) rounds twice, and some values are only exactly representable with \\(f \> 0\\).
+\\(e\\) and \\(f\\) are stored separately instead of as a single \\(10^{e - f}\\). Scaling up by \\(10^e\\) and then down by \\(10^f\\) rounds twice, and some values are only exactly representable with \\(f \> 0\\).
 
 > [!IMPORTANT]
 >
@@ -3139,7 +3150,7 @@ The sum MUST be formed as an integer before the conversion. A column spanning \\
 
 > [!NOTE]
 >
-> The reference Rust encoder currently only emits scaled integers with \\(|i| \\le 2^{53} - 1\\), where consecutive doubles are at most \\(1\\) apart. Beyond that, floating-point scaling can land on a neighboring integer that still passes its own round-trip check. This is a limitation of that implementation, not of the format.
+> The reference Rust encoder currently emits only scaled integers with \\(|i| \\le 2^{53} - 1\\), where consecutive doubles are at most \\(1\\) apart. Beyond that, floating-point scaling can land on a neighboring integer that still passes its own round-trip check. This is a limitation of that implementation, not of the format.
 
 ```text
 values:  [-0.75, 0.25, 1.5, -2.25]
@@ -3147,7 +3158,7 @@ e = 2, f = 0:  i = [-75, 25, 150, -225]
 base = -225:   offsets = [150, 250, 375, 0]
 ```
 
-The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints. See the [framed, exception-free ALP example](<https://maplibre.org/maplibre-tile-spec/specification/v2/#examples>) on the v2 page for the whole layer.
+The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload stores the four offsets as varints. See the [framed, exception-free ALP example](<https://maplibre.org/maplibre-tile-spec/specification/v2/#examples>) on the v2 page for the whole layer.
 
 ### Float Dictionary
 
@@ -3210,11 +3221,11 @@ lengths:  [0, 11, 2, 11, 6, 10]
 blob:     "Main Street" " North" "ple Avenue"
 ```
 
-Front coding can be combined with [FSST](<#fsst>). The corpus is front-encoded first and then FSST-compressed. An encoder SHOULD compare the stored size of each combination.
+Front coding can be combined with [FSST](<#fsst>). The corpus is front-coded first and then FSST-compressed. An encoder SHOULD compare the stored size of each combination.
 
 ### FSST
 
-Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes. Unlike a dictionary it compresses strings that merely share substrings, such as localized country names. It supports random access to one value once its lengths are known, since every code is one byte.
+Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes. Unlike a dictionary, it compresses strings that merely share substrings, such as localized country names. It decodes quickly, since every code is one byte.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_fsst_dict_np.mlt&amp;at=column%5B0%5D>) - a symbol table and the codes into it.
 
@@ -3244,7 +3255,7 @@ values:       ["abcd", "abz"]        Lengths = [4, 3]
 corpus bytes: 00 01 00 FF 7A         ab cd ab <esc> z
 ```
 
-The algorithm that trains the table is described by [Boncz, Neumann and Leis, *FSST: Fast Random Access String Compression*](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>). Different implementations train different tables for the same input. A decoder reads the table from the stream, so that only matters when comparing the output of two encoders.
+The algorithm that trains the table is described by [Boncz, Neumann and Leis, *FSST: Fast Random Access String Compression*](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>). Different implementations train different tables for the same input. A decoder reads the table from the stream, so this only matters when comparing the output of two encoders.
 
 ### Dictionary
 
@@ -3321,7 +3332,7 @@ An offset at or past the dictionary's vertex count MUST be rejected.
 
 #### Hilbert Order
 
-Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short. The order is not part of the format. A decoder resolves vertices through `VertexOffsets` and never depends on it.
+Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short. The order is not part of the format. A decoder resolves vertices through `VertexOffsets` and never depends on the order.
 
 The reference encoders use the curve of the [`hilbert_2d`](<https://crates.io/crates/hilbert_2d>) crate's `Hilbert` variant on a \\(2^{\\mathit{bits}} \\times 2^{\\mathit{bits}}\\) grid. `shift` and `bits` are derived as for [Morton](<#morton>) below, and each shifted coordinate is masked to 16 bits before it is placed on the grid. Two vertices with the same curve key are one dictionary entry.
 
@@ -3329,7 +3340,7 @@ The reference encoders use the curve of the [`hilbert_2d`](<https://crates.io/cr
 
 A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer. Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas. Only a `VertexDict` stream uses it.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices as Morton codes, delta encoded.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices as Morton codes, delta-encoded.
 
 The parameters are two varints in the stream header:
 
@@ -3342,7 +3353,7 @@ The parameters are two varints in the stream header:
 
 Encoders derive both from the whole layer's vertices. `shift` is `-min` when the smallest coordinate `min` on either axis is negative, else `0`. `bits` is the bit width of `max + shift`, the largest shifted coordinate.
 
-Encoding is two steps. Shift both coordinates, then interleave them: bit `i` of `sx` goes to bit `2i` of the code, and bit `i` of `sy` to bit `2i + 1`.
+Encoding takes two steps. Shift both coordinates, then interleave them: bit `i` of `sx` goes to bit `2i` of the code, and bit `i` of `sy` to bit `2i + 1`.
 
 ```rust
 fn encode(x: i32, y: i32, bits: u32, shift: u32) -> u32 {
@@ -3407,7 +3418,7 @@ let sx = compact(code);
 let sy = compact(code >> 1);
 ```
 
-The codes are stored as an integer stream of unsigned 32-bit words. The stream holds the first code, then each code's difference to the previous one. v1 names this `MortonDelta`, v2 names it `Morton` in the `Vertex` family. There is no plain or RLE Morton encoding.
+The codes are stored as an integer stream of unsigned 32-bit words. The stream holds the first code, then each code's difference from the previous one. v1 names this `MortonDelta`; v2 names it `Morton` in the `Vertex` family. There is no plain or RLE Morton encoding.
 
 The deltas are plain differences, not ZigZag-encoded. The dictionary is sorted ascending by code, so every difference is non-negative.
 
@@ -3418,14 +3429,14 @@ words:      [27, 3, 15]
 
 ### rANS
 
-We can entropy-code the [componentwise deltas](<#componentwise-delta>) of a plain layout's vertex stream. A `VertexDict` stream MUST NOT use it.
+rANS entropy-codes the [componentwise deltas](<#componentwise-delta>) of a plain layout's vertex stream. A `VertexDict` stream MUST NOT use it.
 
 Each delta is split in two:
 
 - a **symbol**, which says roughly how large the delta is and its sign, and is coded with [rANS](<https://arxiv.org/abs/1311.2540>) so that frequent symbols take fewer bits,
 - the delta's low **raw bits**, which are close to random and stored as they are.
 
-The symbol frequencies are counted per **context**, so a delta is coded with a table of deltas like it. The tables travel in the payload.
+The symbol frequencies are counted per **context**, so each delta is coded with a table built from similar deltas. The tables travel in the payload.
 
 To decode, a decoder:
 
@@ -3493,15 +3504,15 @@ Decoding from \\(x \\ge 2^{16}\\) leaves \\(x \\ge \\mathit{freq}(s) \\cdot 2^{1
 
 #### Runs
 
-The first vertex of a ring, part or geometry jumps from wherever the previous one ended, and its delta is much larger than the others. Such a vertex is encoded in contexts of its own.
+The first vertex of a ring, part or geometry jumps from the last vertex of the one before it, so its delta is much larger than the others. Such a vertex is encoded in contexts of its own.
 
 A run is the vertex range - of each ring, else - of each part, else - of each geometry, taken from the deepest offset level the geometry section has.
 
-A layer with none of the three levels has one run per vertex. A vertex starts a run when it is the first of one. The runs MUST cover exactly the stream's `num_values` vertices. Because of this, the stream is decoded after the topology streams.
+A layer with none of the three levels has one run per vertex. A vertex starts a run when it is the first of one. The runs MUST cover exactly the stream's `num_values` vertices. Because the runs come from the topology, the stream is decoded after the topology streams.
 
 #### Symbols
 
-Each delta is the wrapping 32-bit difference to the same coordinate of the previous vertex, as in componentwise delta, without ZigZag.
+Each delta is the wrapping 32-bit difference from the same coordinate of the previous vertex, as in componentwise delta, without ZigZag.
 
 The symbol keeps the bit length `len` of the magnitude and the `d` bits after its leading one. `d` is the stream's mantissa depth, `0` to `2`. The leading one is implied by `len`. The remaining low bits are the raw bits. This is the same split a float makes into exponent, mantissa and dropped precision.
 
@@ -3586,7 +3597,7 @@ table := [1 bit present]
 
 A table of precision `0` has no frequencies on the wire. Its only symbol is `max_symbol`, with frequency `1`.
 
-The frequencies MUST sum to `2^precision`, the frequency of `max_symbol` MUST be non-zero, and a symbol with a non-zero frequency MUST be one some delta maps to at the stream's depth.
+The frequencies MUST sum to `2^precision`, the frequency of `max_symbol` MUST be non-zero, and a symbol with a non-zero frequency MUST be one that some delta maps to at the stream's depth.
 
 #### Lanes
 
@@ -3608,7 +3619,7 @@ for i in 0..vertex_count:
     output x_prev, y_prev
 ```
 
-A decoder MUST reject a symbol from a context without a table, a lane that does not end on state `2^16` with every word read, and raw bits whose byte length is not exactly the one the raw bits read need.
+A decoder MUST reject a symbol from a context without a table, a lane that does not end on state `2^16` with every word read, and raw bits whose byte length is not exactly the number of bytes the raw bit reads need.
 
 #### Encoding
 
@@ -3654,18 +3665,18 @@ An encoder SHOULD pick the depth and precisions that make the stream shortest, a
 
 ---
 
-This page is guidance for building an encoder or a decoder. The wire format is defined by the [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) specifications, not here.
+This page gives guidance for building an encoder or a decoder. The wire format is defined by the [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) specifications, not here.
 
 ## Choosing an Encoding
 
 Encodings cascade: the integer codes produced by dictionary encoding are themselves compressed with an integer encoding. A brute-force search over every combination is too costly. Use the selection strategy from the [BTRBlocks](<https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf>) paper:
 
 - Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).
-- Use a sampling-based algorithm: randomly select parts of the data totaling \~1% of the full dataset and apply the candidate encodings from step 1. Choose the scheme that produces the smallest output.
+- Use a sampling-based algorithm: randomly select parts of the data totaling \~1% of the full dataset and apply the candidate encodings left after the first step. Choose the scheme that produces the smallest output.
 
 Compare stored bytes, not an estimate. Do not assume a later gzip pass changes which candidate wins.
 
-The v1 encoding pool was selected on compression ratio and decoding speed over OpenMapTiles and Bing Maps tilesets:
+The v1 encoding pool was selected for compression ratio and decoding speed on the OpenMapTiles and Bing Maps tilesets:
 
 | Data Type | Logical Level Technique | Physical Level Technique |
 | --- | --- | --- |
@@ -3675,21 +3686,21 @@ The v1 encoding pool was selected on compression ratio and decoding speed over O
 | String | Plain, Dictionary, [FSST](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>), FSST Dictionary |  |
 | Geometry | Plain, Dictionary, Morton-Dictionary |  |
 
-SIMD-FastPFOR usually gives smaller output and faster decoding than VarInt. VarInt is simpler, and can come out smaller once a heavyweight compressor like gzip runs over the tile.
+SIMD-FastPFOR usually gives smaller output and faster decoding than Varint. Varint is simpler and can come out smaller once a heavyweight compressor like gzip runs over the tile.
 
 ### Sort Order
 
-The column the features are sorted by can shrink a layer considerably, since sorting lengthens runs and shrinks deltas. Testing every column of every layer is too costly, so the same sampling applies.
+Choosing which column to sort features by can shrink a layer considerably, since sorting lengthens runs and shrinks deltas. Testing every column of every layer is too costly, so the same sampling applies.
 
 ## In-Memory Format
 
-The record-oriented, array-of-structures in-memory model used by libraries processing Mapbox Vector Tiles incurs considerable overhead. This includes creating many small objects (increasing memory allocation load) and placing additional strain on garbage collectors in browsers.
+The record-oriented, array-of-structures in-memory model used by libraries that process Mapbox Vector Tiles incurs considerable overhead. It comes from creating many small objects, which increases memory allocation load and strains garbage collectors in browsers.
 
 MLT uses a columnar memory layout (data-oriented design) for its in-memory format to overcome these issues. This approach improves cache utilization for subsequent data access and enables the use of fast SIMD instructions. The MLT in-memory format incorporates ideas from analytical in-memory formats like Apache Arrow, Velox, and the DuckDB execution format, tailored for visualization use cases. It is also designed for future parallel processing on the GPU within compute shaders.
 
 The main design goals are:
 
-- Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.
+- Define a platform-agnostic representation to avoid costly materialization, especially for strings.
 - Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.
 - Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).
 - Provide compressed data structures that can be processed directly without full decoding.
@@ -3707,7 +3718,7 @@ Data is stored in contiguous memory buffers called **vectors**, accompanied by m
 
 Using a compressed vector where possible makes the conversion from storage to in-memory format essentially a zero-copy operation.
 
-Following Apache Arrow's approach and the [Intel performance guide](<https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html>), decoders should allocate memory on addresses aligned to a 64-byte multiple (where possible).
+Following Apache Arrow's approach and the [Intel performance guide](<https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html>), decoders should allocate memory at 64-byte-aligned addresses where possible.
 
 > [!NOTE]
 >

@@ -1080,7 +1080,7 @@ See <a href="#value-count">value count</a>.</p>
 </tbody>
 </table>
 <p>Every code is assigned, so no extent nibble is rejected.
-An encoder given an extent v2 cannot code MUST reject the layer rather than round it.</p>
+An encoder given an extent v2 cannot encode MUST reject the layer rather than round it.</p>
 <h4 id="uniform-geometry-type">Uniform Geometry Type<a class="headerlink" href="#uniform-geometry-type" title="Link to this section">&para;</a></h4>
 <table>
 <thead>
@@ -1096,7 +1096,7 @@ An encoder given an extent v2 cannot code MUST reject the layer rather than roun
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x1</code>-<code>0x6</code></td>
-<td>No geometry stream since every feature has one <a href="#geometry-types">geometry type</a> <code>code - 1</code></td>
+<td>No types stream, since every feature has <a href="#geometry-types">geometry type</a> <code>code - 1</code></td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0x7</code></td>
@@ -1105,19 +1105,21 @@ An encoder given an extent v2 cannot code MUST reject the layer rather than roun
 </tbody>
 </table>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=header" target="_blank">View example</a> - every feature is a <code>Point</code>, so no types stream is written.</p>
-<p>To optimize for the common case of uniform geometries per layer, we allow skipping to write the respective metadata.
-MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> declares.</p>
+<p>To optimize for the common case of a layer with a single geometry type, the types stream can be omitted.
+The uniform geometry type MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> declares.</p>
 <h3 id="column-counts">Column Counts<a class="headerlink" href="#column-counts" title="Link to this section">&para;</a></h3>
-<p>We have two kinds of columns, so we need to know how many columns of each type there are.</p>
+<p>A layer has two kinds of columns, so it stores how many of each it has.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmvalues_sp_prop.mlt&amp;at=column_counts" target="_blank">View example</a> - one property column and one m-value column, counted apart.</p>
 <p><code>column_count</code> is the number of ids and properties, not counting geometry or m-values.
 <code>m_value_count</code> is the number of <a href="#m-values">m-value columns</a>.</p>
-<p>To optimize the transfer size, if the header byte's m-value bit
-- is <code>0</code>, <code>column_counts</code> is <code>column_count</code> as a plain varint and <code>m_value_count</code> is <code>0</code>.
-- is <code>1</code>, <code>column_counts</code> is the Morton code of both counts as a varint.
+<p>To optimize transfer size, if the header byte's m-value bit:</p>
+<ul>
+<li>is <code>0</code>, <code>column_counts</code> is <code>column_count</code> as a plain varint and <code>m_value_count</code> is <code>0</code>.</li>
+<li>is <code>1</code>, <code>column_counts</code> is the Morton code of both counts as a varint.
   Bit <code>i</code> of <code>column_count</code> sits at bit <code>2i</code> and bit <code>i</code> of <code>m_value_count</code> at bit <code>2i + 1</code>.
   A layer with up to 15 counted columns and up to 7 m-value columns fits both counts in one byte.
-  <code>m_value_count</code> MUST be non-zero when the bit is set, so a code whose odd bits are all clear MUST be rejected.</p>
+  <code>m_value_count</code> MUST be non-zero when the bit is set, so a code whose odd bits are all clear MUST be rejected.</li>
+</ul>
 <p>Five counted columns and two m-value columns:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 180" role="img" aria-label="Five columns and two m-value columns: bit i of column_count lands on bit 2i and bit i of m_value_count on bit 2i + 1, giving 19" xmlns="http://www.w3.org/2000/svg">
 <text class="muted small" x="0" y="12">bit</text>
@@ -1198,7 +1200,7 @@ MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> 
 <h3 id="presence-encodings">Presence Encodings<a class="headerlink" href="#presence-encodings" title="Link to this section">&para;</a></h3>
 <p>A presence field says which of <code>N</code> values are present.
 <code>N</code> is <code>feature_count</code> for a column, and the parent's value count for a <a href="#node-presence-nibble">nested node</a>.</p>
-<p>The same three encodings store every field of one bit per value: a presence field, a boolean column's data stream and a nested node's presence stream.
+<p>The same three encodings store every one-bit-per-value field: a presence field, a boolean column's data stream and a nested node's presence stream.
 Their codes are the members of the <code>Bool</code> <a href="#families">family</a>.</p>
 <table>
 <thead>
@@ -1229,7 +1231,9 @@ Their codes are the members of the <code>Bool</code> <a href="#families">family<
 <p><code>Runs</code> and <code>Sparse</code> are self-delimiting, so no length is stored for either.
 <code>Sparse</code> reads its summary, takes the population count <code>k</code> of it, then takes <code>k</code> bytes.</p>
 <p>A bitmap costs <code>ceil(N / 8)</code> bytes whatever it holds, so it is the smallest form only while <code>N</code> is small or the present values are scattered.
-A column present over one run of features, or on a handful of them, carries far less than that, and the other two encodings charge for what it carries rather than for <code>N</code>.</p>
+A column present over one run of features, or on only a handful of them, needs much less.
+<code>Runs</code> grows with the number of runs.
+<code>Sparse</code> stores a summary of <code>ceil(N / 64)</code> bytes plus one byte for each bitmap byte that holds a present value, so for a very sparse column its size is mostly the summary.</p>
 <p>Six present values among <code>N = 32</code>, at <code>10</code> to <code>15</code>:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 220" role="img" aria-label="Six present values among 32, at 10 to 15, stored as a bitmap in 4 bytes, as runs of 10 absent, 6 present and 16 absent in 3 bytes, and as a summary byte and one stored byte in 2 bytes" xmlns="http://www.w3.org/2000/svg">
 <text class="muted small mid" x="138" y="12">0</text>
@@ -1328,8 +1332,8 @@ A column present over one run of features, or on a handful of them, carries far 
 <text class="cell" x="345" y="182">FC</text>
 <text class="muted small mid" x="345" y="210">byte 1</text>
 </svg></p>
-<p>Encoders MUST write whichever of the three stores the field smallest, breaking a tie toward the lowest code.
-This holds for a boolean column's data stream and a nested node's presence stream as for a presence field.
+<p>Encoders MUST write whichever of the three encodings stores the field smallest, breaking a tie toward the lowest code.
+This also applies to a boolean column's data stream and a nested node's presence stream.
 Decoders MUST reject run lengths that do not sum to <code>N</code>, a <code>Sparse</code> summary bit set at or past <code>B</code>, and a stored <code>Sparse</code> byte that is <code>0</code>.
 Bits past <code>N</code> in the last <code>Sparse</code> byte are padding and MUST be ignored, as for <code>Bitmap</code>.</p>
 <h3 id="shared-presence-fields">Shared Presence Fields<a class="headerlink" href="#shared-presence-fields" title="Link to this section">&para;</a></h3>
@@ -1340,7 +1344,7 @@ Bits past <code>N</code> in the last <code>Sparse</code> byte are padding and MU
 </span></code></pre></div>
 <p>The <code>n</code> shared fields follow the layout byte back to back, in index order.
 A shared field has no presence nibble to carry its encoding.
-Without the layout byte's encoding flag every shared field is a <code>Bitmap</code>, and no byte naming it is stored.
+Without the layout byte's encoding flag, every shared field is a <code>Bitmap</code>, and no byte naming it is stored.
 With it, every shared field leads with the byte naming its encoding.
 That byte is the <a href="#encoding-byte">encoding byte</a> of a <code>Bool</code> stream, so the code sits in bits 6-4 and every other bit MUST be <code>0</code>: <code>0x00</code>, <code>0x10</code> or <code>0x20</code>.</p>
 <p>Encoders MUST pick each shared field's encoding as for an inline one.
@@ -1429,7 +1433,7 @@ Each stream's role is given by its position.</p>
 </table>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types" target="_blank">View example</a> - all six kinds in one layer, so the types stream carries each.</p>
 <p>The types stream holds one of these per feature.
-A layer whose features all share one writes the <a href="#uniform-geometry-type">uniform geometry type</a> nibble instead.</p>
+A layer whose features all share one type writes the <a href="#uniform-geometry-type">uniform geometry type</a> nibble instead.</p>
 <h3 id="geometry-layout">Geometry Layout<a class="headerlink" href="#geometry-layout" title="Link to this section">&para;</a></h3>
 <p>The low nibble of the layer layout byte:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fpoly.mlt&amp;at=layout" target="_blank">View example</a> - the <code>Polygons</code> layout: part and ring lengths, no vertex offsets.</p>
@@ -1668,7 +1672,7 @@ An index MUST name a vertex of the layer.</p>
 <p>A feature's triangles are one contiguous run of the index buffer.
 Feature <code>i</code> starts at three times the sum of the triangle lengths before it, and spans three times its own length.</p>
 <p>A tessellated layer either stores only the triangles (<code>0xC</code>) or keeps the outlines next to them (<code>0xD</code>).</p>
-<p>A <code>Polygon</code> triangle, then a <code>MultiPolygon</code> of a polygon with a hole and a second triangle, from <a href="#examples"><code>mix_2_poly_mpoly_tes</code></a>.</p>
+<p>A <code>Polygon</code> triangle, then a <code>MultiPolygon</code> of a polygon with a hole and a second triangle, from <a href="#examples"><code>mix_2_poly_mpoly_tes</code></a>:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Triangles</label><label for="__tabbed_1_2">Streams</label><label for="__tabbed_1_3">v1 and v2</label><label for="__tabbed_1_4">Values</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -2191,7 +2195,7 @@ A feature that is not a polygon stores no triangle count and owns no run of the 
 </div>
 <h3 id="z-coordinates">Z Coordinates<a class="headerlink" href="#z-coordinates" title="Link to this section">&para;</a></h3>
 <p>A vertex stream MAY hold <code>(x, y, z)</code> triples instead of <code>(x, y)</code> pairs.
-The two variants are differentiated by bit 0 of its <a href="#encoding-byte">encoding byte</a>'s extension field being <code>1</code>.
+Bit 0 of the extension field of its <a href="#encoding-byte">encoding byte</a> is <code>1</code> for triples and <code>0</code> for pairs.
 A <code>z_step</code> byte is the stream's <a href="#parameters">parameter</a>.
 <code>byte_length</code> does not count it.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_point.mlt&amp;at=vertices" target="_blank">View example</a> - a point 12 m up, its <code>z</code> one word after <code>x</code> and <code>y</code>.</p>
@@ -2229,7 +2233,7 @@ A <code>z_step</code> byte is the stream's <a href="#parameters">parameter</a>.
 <p><code>8</code>-<code>255</code> are unassigned and MUST be rejected.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices" target="_blank">View example</a> - a polygon with a hole at a <code>z_step</code> of <code>2</code>, one unit per decimeter.</p>
 <p><code>z</code> is a signed 32-bit word like <code>x</code> and <code>y</code>, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m.
-Negative <code>z</code> is similarly possible.</p>
+Like <code>x</code> and <code>y</code>, <code>z</code> can be negative.</p>
 <p>The stream holds <code>3 * num_values</code> words for <code>num_values</code> vertices, with <code>x</code>, <code>y</code> and <code>z</code> interleaved.</p>
 <p><code>z_mvalues</code> at a <code>z_step</code> of 1 dm:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 124" role="img" aria-label="z_mvalues: three vertices, each x, y and z in adjacent words; at a z_step of 1 dm the z values are 3 m, 5 m and 8 m" xmlns="http://www.w3.org/2000/svg">
@@ -2274,9 +2278,9 @@ A Morton code spans only <code>x</code> and <code>y</code>, so a vertex stream w
 <code>Componentwise Delta2</code> is defined only over pairs, so a vertex stream with bit 0 set and logical <code>Componentwise Delta2</code> MUST be rejected.
 Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices" target="_blank">View example</a> - all six geometry types, each vertex an interleaved triple.</p>
-<p>The vertex stream is indexed, so (<span class="arithmatex">\(x_1, y_1, z_1, x_2, y_2, z_2, ..., x_i, y_i, z_i\)</span>) has the index <span class="arithmatex">\(i\)</span>:</p>
+<p>The vertex stream is indexed, so (<span class="arithmatex">\(x_1, y_1, z_1, x_2, y_2, z_2, ..., x_i, y_i, z_i\)</span>) has index <span class="arithmatex">\(i\)</span>:</p>
 <ul>
-<li>Under a dictionary layout, the vertex stream holds the distinct triples and the vertex offsets pointing to them.
+<li>Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them.
   Two vertices share an entry only when their <code>x</code>, <code>y</code> and <code>z</code> are identical.
   <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict" target="_blank">View example</a> - five points in four entries: a repeat at the same height shares one, a new height does not.</li>
 <li>Under a tessellated layout, the index buffer names triples.
@@ -2291,14 +2295,14 @@ Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
 <p><code>z = 0</code> sits at the base of <a href="https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-rgb-v1/">Terrain-RGB</a>, the default encoding of a MapLibre <code>raster-dem</code> source.
 No offset is needed to compare a <code>z</code> with the terrain under it.</p>
 <p>Elevation data is in decimal meters.
-This means a power-of-ten step can be represented exactly.
+A power-of-ten step represents such values exactly.
 <code>12.34 m</code> is <code>z = 1001234</code> at 1 cm, where a <span class="arithmatex">\(2^{-7}\)</span> m grid would read it back as <code>12.34375 m</code>.
 At 1 dm, <code>z</code> is Terrain-RGB's <code>R * 65536 + G * 256 + B</code>.</p>
 </details>
 <details class="question">
 <summary>Why interleaved</summary>
-<p>Because one vertex is three adjacent words, a decoded vertex buffer can direct-to-GPU without having to index into another stream to match the z value.
-A layer without <code>z</code> is not impacted due to the extension bit mechanism.</p>
+<p>Because each vertex is three adjacent words, a decoded vertex buffer can go directly to a GPU, with no lookup into another stream to find its <code>z</code>.
+A layer without <code>z</code> is unaffected, since the extension bit marks which vertex streams carry it.</p>
 </details>
 <h2 id="columns">Attribute Columns<a class="headerlink" href="#columns" title="Link to this section">&para;</a></h2>
 <p><code>column_count</code> columns follow the geometry section.</p>
@@ -2309,7 +2313,7 @@ A layer without <code>z</code> is not impacted due to the extension bit mechanis
 </span></code></pre></div>
 <p>An inline presence field is written in the <a href="#presence-encodings">encoding</a> its nibble names.</p>
 <h3 id="column-names">Column Names<a class="headerlink" href="#column-names" title="Link to this section">&para;</a></h3>
-<p>A layer has one namespace of column names, so a name identifies exactly one column of it and a style expression such as <code>["get", "foo"]</code> resolves to that column:</p>
+<p>A layer has one namespace of column names, so a name identifies exactly one column, and a style expression such as <code>["get", "foo"]</code> resolves to that column:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_sp_id.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - an id, which has no name, beside a named <code>u32</code> column.</p>
 <table>
 <thead>
@@ -2337,7 +2341,7 @@ A layer without <code>z</code> is not impacted due to the extension bit mechanis
 </tr>
 </tbody>
 </table>
-<p>A name a second column repeats MUST be rejected, whichever kinds of column repeat it, and an encoder MUST NOT write such a layer.
+<p>A name repeated by a second column MUST be rejected, whatever kinds of column repeat it, and an encoder MUST NOT write such a layer.
 An <code>Id</code> or <code>LongId</code> column has no name field, and the geometry column is not a counted column, so neither takes a name.
 A shared dictionary group's own name is a prefix rather than a column name, and MAY repeat one.
 A <a href="#struct-nodes">struct</a> field name and a <a href="#map-nodes">map</a> key name a value inside their column, not a column, and are unique only where their own sections say.</p>
@@ -2485,7 +2489,7 @@ There is no geometry code, since the geometry column is not a counted column.</p
 </tbody>
 </table>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=present" target="_blank">View example</a> - an optional column, so the nibble names an inline bitmap.</p>
-<p>The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those for the two that are not.</p>
+<p>The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those columns for the other two encodings.</p>
 <p>A shared reference at or past the count in the layout byte MUST be rejected.</p>
 <p>The presence nibble determines the column's value count: <code>feature_count</code> for nibble <code>0</code>, otherwise the number of present values the field names.</p>
 <h3 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h3>
@@ -2923,7 +2927,7 @@ When the <code>DictValues</code> or <code>Corpus</code> stream's encoding byte n
 </div>
 <h3 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h3>
 <p>Data type <code>0xF</code> introduces a dictionary followed by the columns that index into it.
-Its high nibble gives the dictionary kind instead of a presence:</p>
+Its high nibble gives the dictionary kind instead of presence:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - child columns reading one dictionary.</p>
 <table>
 <thead>
@@ -3318,7 +3322,7 @@ Its high nibble gives the dictionary kind instead of a presence:</p>
 <p>Each child has its own presence nibble and MAY reference any of the layer's shared fields.</p>
 <p>Front coding of the dictionary is given by the encoding byte of the last corpus stream, as for a lone string column.</p>
 <h3 id="nested-properties">Nested Properties<a class="headerlink" href="#nested-properties" title="Link to this section">&para;</a></h3>
-<p>A property whose value is a map or a list, nestable.</p>
+<p>A nested property has a map or a list as its value, and these can nest.</p>
 <p>v2 shreds a nested value the way <a href="https://orc.apache.org/specification/ORCv1/">ORC</a> does.
 The column is a tree of nodes.
 Every leaf of the tree holds one flat stream set, encoded exactly as a <a href="#columns">column</a> of its data type.
@@ -3364,7 +3368,7 @@ A key that every feature shares is written once, in the tree, rather than once p
 <text class="muted small" x="594" y="134">3 presence bits</text>
 <text class="muted small" x="594" y="174">2 Int32 values</text>
 </svg></p>
-<p>The tree is written depth first, each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.</p>
+<p>The tree is written depth first, with each node's streams where the node sits, following v2's rule that a column's metadata and its data are adjacent.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>nested_column := [u8 column_type]        presence nibble over 0xC, 0xD or 0xE
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>                 [string name]
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>                 [presence field]        only when the presence nibble names an encoding
@@ -3510,7 +3514,7 @@ It is a stream rather than the bare field a column writes, because under a <a hr
 </tbody>
 </table>
 <p>A node's <strong>present count</strong> is its parent count under nibble <code>0</code>, and its presence stream's population count otherwise.
-That is what its data streams hold one value each of.</p>
+Its data streams hold that many values.</p>
 <p>A nullable list of <code>{id, tag}</code> structs, <code>tag</code> nullable, over a present, an empty, a null and a present list:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 236" role="img" aria-label="A nullable list of id and tag structs over four features: present, empty, null, present. Presence 1 1 0 1, lengths 2 0 1, three ids, three tag presence bits, two tags" xmlns="http://www.w3.org/2000/svg">
 <text class="row" x="0" y="54">items</text>
@@ -3597,7 +3601,7 @@ There, as in an <a href="#m-values">m-value column</a>, bit 7 of the <a href="#e
 <p>A <code>List</code> or a <code>Map</code> writes a count on its own lengths and presence streams even where its parent count would imply one, so that reading a node's header never depends on what sat above the node.
 An encoder SHOULD set bit 7 on every other stream that can carry one, and a decoder MUST accept a count wherever one is written.
 The streams after a string stream set's leading one read as they do in a <a href="#string-columns">string column</a>.
-A byte blob is the exception it always is: bit 7 MUST be <code>0</code> and its count stays <code>byte_length</code>.</p>
+A byte blob is, as always, the exception: bit 7 MUST be <code>0</code> and its count stays <code>byte_length</code>.</p>
 <p>A decoder that has decoded both a lengths stream and the counts below it MUST reject a disagreement.</p>
 <p>A nested column MUST NOT nest more than 8 levels deep, counting the root as the first.</p>
 <h4 id="struct-nodes">Struct Nodes<a class="headerlink" href="#struct-nodes" title="Link to this section">&para;</a></h4>
@@ -3621,7 +3625,7 @@ A field present on every value of its struct stores no presence at all, which is
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>             [presence stream]           only when the node presence nibble is 1
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>             body
 </span></code></pre></div>
-<p>The lengths stream holds element counts, not offsets, as the geometry section's do.</p>
+<p>The lengths stream holds element counts, not offsets, as the geometry section's lengths streams do.</p>
 <p><code>items</code> from <a href="#examples"><code>nested_list_struct</code></a>, a list of <code>{id, tag}</code> structs:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="The items column of nested_list_struct: list lengths 2 and 1, then one id and one tag leaf value per list element" xmlns="http://www.w3.org/2000/svg">
 <text class="t0 bold mid" x="233.0" y="14">feature 0</text>
@@ -3652,7 +3656,11 @@ A field present on every value of its struct stores no presence at all, which is
 <text class="muted small" x="486" y="134">3 String values</text>
 </svg></p>
 <p>The element node has no name.</p>
-<p>A list that is null and a list that is empty are different: a null list has its presence bit clear and no length, an empty list has its presence bit set and a length of <code>0</code>.</p>
+<p>A list that is null and a list that is empty are different:</p>
+<ul>
+<li>a null list has its presence bit clear and no length</li>
+<li>an empty list has its presence bit set and a length of <code>0</code>.</li>
+</ul>
 <h4 id="map-nodes">Map Nodes<a class="headerlink" href="#map-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xE</code>. String keys chosen per value, over one value type.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fnested_map_str.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a map with string values.</p>
@@ -3663,7 +3671,8 @@ A field present on every value of its struct stores no presence at all, which is
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>            body
 </span></code></pre></div>
 <p>The keys are the streams a <a href="#string-columns">string column</a> holds, laid out per the extension bits of the leading one, holding one key per entry of every present map.
-They carry no node type byte and no presence: a key is neither null nor of any other type, so neither is representable.
+They carry no node type byte and no presence stream.
+A key is always a string and never null, so there is nothing for either to express.
 The value node has no name.</p>
 <p><code>tags</code> from <a href="#examples"><code>nested_map_str</code></a>, a map of strings:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 156" role="img" aria-label="tags of nested_map_str: map lengths 2 and 2, then one key and one value per entry" xmlns="http://www.w3.org/2000/svg">
@@ -3793,7 +3802,7 @@ A value whose keys hold different types is only a <code>Struct</code>.</p>
 </svg></p>
 <h4 id="leaf-nodes">Leaf Nodes<a class="headerlink" href="#leaf-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0x2</code>-<code>0xB</code>. A leaf holds exactly the data streams a <a href="#columns">column</a> of the same data type holds: one stream for a boolean or integer, one or two for a float, and the set its leading stream's extension bits name for a string.
-It reads them against its own count, and is otherwise the same column.</p>
+It reads them against its own count, and is otherwise identical to such a column.</p>
 <h4 id="where-nested-columns-may-appear">Where Nested Columns May Appear<a class="headerlink" href="#where-nested-columns-may-appear" title="Link to this section">&para;</a></h4>
 <table>
 <thead>
@@ -3843,7 +3852,7 @@ Only its value count differs.
 Its name comes from the layer's one namespace of <a href="#column-names">column names</a>, which the counted columns share.
 An m-value column is not counted in <code>column_count</code>.</p>
 <h4 id="data-types-in-m-value-columns">Data Types in M-Value Columns<a class="headerlink" href="#data-types-in-m-value-columns" title="Link to this section">&para;</a></h4>
-<p><code>Bool</code> through <code>String</code>, codes <code>0x2</code>-<code>0xB</code>, carry exactly the streams they carry as a property column.
+<p><code>Bool</code> through <code>String</code>, codes <code>0x2</code>-<code>0xB</code>, carry exactly the streams they carry in a property column.
 <code>0x0</code>, <code>0x1</code> and <code>0xC</code>-<code>0xF</code> are reserved and MUST be rejected.
 A vertex carries a measurement, not a structure.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt" target="_blank">View example</a> - an <code>i32</code> and a <code>u32</code> m-value column.</p>
@@ -3923,16 +3932,17 @@ Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> ver
 <li>Under <code>TessPolygonsWithOutlines</code> the sequence is the outline vertices, which the index buffer indexes into.</li>
 </ul>
 <h4 id="nulls">Nulls<a class="headerlink" href="#nulls" title="Link to this section">&para;</a></h4>
-<p>M-value columns are nullable, but they are at the feature level, not the vertex level.
-This means a single vertex cannot be null.
-A feature's m-value can be null though.</p>
+<p>M-value columns are nullable at the feature level, not the vertex level.
+A single vertex's m-value cannot be null.
+A whole feature's m-values can be null.</p>
 <h4 id="value-count">Value Count<a class="headerlink" href="#value-count" title="Link to this section">&para;</a></h4>
-<p>A column's value count is the sum of <code>vertex_count(f)</code> over the features whose presence bit is set, which is every feature under presence nibble <code>0</code>.</p>
+<p>An m-value column's value count is the sum of <code>vertex_count(f)</code> over the features whose presence bit is set, which is every feature under presence nibble <code>0</code>.</p>
 <p>That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count.
 An m-value column's leading data stream MUST set bit 7 of its <a href="#encoding-byte">encoding byte</a> and write the count explicitly.
 The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one.
 An encoder SHOULD write an explicit count on every stream that can carry one, since none of those counts are implied here.
-A byte blob is the exception. Bit 7 MUST be <code>0</code> on it and its count stays <code>byte_length</code>, as on any other column.
+A byte blob is the exception.
+Bit 7 MUST be <code>0</code>, and its count stays <code>byte_length</code>, as on any other column.
 A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.</p>
 <p>Values are one flat sequence across feature boundaries.
 Delta encoding and RLE run through them without a break at each feature.</p>
@@ -3998,7 +4008,7 @@ A tessellated layer that needs m-values uses <code>0xD</code>.</p>
 </tr>
 <tr>
 <td>1-0</td>
-<td>Extension.<br>For string collums leading stream, this is the layout.<br>For a vertex streams, bit 0 being set means <a href="#z-coordinates"><code>(x, y, z)</code></a> instead of <code>(x, y)</code>.<br>MUST be <code>0</code> on every other stream.</td>
+<td>Extension.<br>For a string column's leading stream, this is the layout.<br>For a vertex stream, bit 0 set means <a href="#z-coordinates"><code>(x, y, z)</code></a> instead of <code>(x, y)</code>.<br>MUST be <code>0</code> on every other stream.</td>
 </tr>
 </tbody>
 </table>
@@ -4061,7 +4071,7 @@ A decoder reads pairs until <code>byte_length</code> is exhausted.</p>
 <h4 id="byte-length">Byte Length<a class="headerlink" href="#byte-length" title="Link to this section">&para;</a></h4>
 <p><code>byte_length</code> is present unless the stream is a <a href="#bool-streams"><code>Bool</code> stream</a> or logical <code>None</code> over <a href="#physical-field">physical</a> <code>00</code>.
 A <code>Bool</code> stream's payload delimits itself, so it never writes one.
-On logical <code>None</code> the payload is the elements as they are, so that pattern says the length follows from the value count and the element width the stream's type fixes:</p>
+On logical <code>None</code> the payload is the raw elements, so with that pattern the length follows from the value count and the element width fixed by the stream's type:</p>
 <table>
 <thead>
 <tr>
@@ -4186,7 +4196,7 @@ A code not listed for the stream's family MUST be rejected.</p>
 <p>A <code>Bool</code> stream holds one bit per value, in the <a href="#presence-encodings">encoding</a> its logical field names.
 Its value count is its <a href="#value-count">implied count</a>, or the explicit one when bit 7 is set, and it is the <code>N</code> of the encoding.
 Its physical field and extension bits MUST be <code>0</code>.
-No <code>byte_length</code> exists.</p>
+It has no <code>byte_length</code>.</p>
 <h3 id="physical-field">Physical Field<a class="headerlink" href="#physical-field" title="Link to this section">&para;</a></h3>
 <p>For a stream of integer words, meaning the <code>Int</code>, <code>Str</code> and <code>Vertex</code> families and the code or scaled-integer stream of a <code>Float</code> <code>Dict</code> or <code>Alp</code> encoding:</p>
 <table>
@@ -4272,7 +4282,7 @@ A decoder MUST select the variant by the layer tag.</p>
 </table>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this section">&para;</a></h2>
 <p>Every fixture under <code>test/synthetic/0x02/</code> can be annotated as a hexdump below.
-If you are building a decoder, you must produce the same <code>.json</code> snapshot for validation.</p>
+A decoder MUST produce the matching <code>.json</code> snapshot from each one.</p>
 <p>The same annotation can be produced for any tile with the <a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md"><code>mlt</code> CLI</a>:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>mlt<span class="w"> </span>hexdump<span class="w"> </span>path/to/tile.mlt
 </span></code></pre></div>

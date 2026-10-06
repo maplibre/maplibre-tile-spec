@@ -2,18 +2,18 @@
 
 ---
 
-This page is guidance for building an encoder or a decoder. The wire format is defined by the [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) specifications, not here.
+This page gives guidance for building an encoder or a decoder. The wire format is defined by the [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) specifications, not here.
 
 ## Choosing an Encoding
 
 Encodings cascade: the integer codes produced by dictionary encoding are themselves compressed with an integer encoding. A brute-force search over every combination is too costly. Use the selection strategy from the [BTRBlocks](<https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf>) paper:
 
 - Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).
-- Use a sampling-based algorithm: randomly select parts of the data totaling \~1% of the full dataset and apply the candidate encodings from step 1. Choose the scheme that produces the smallest output.
+- Use a sampling-based algorithm: randomly select parts of the data totaling \~1% of the full dataset and apply the candidate encodings left after the first step. Choose the scheme that produces the smallest output.
 
 Compare stored bytes, not an estimate. Do not assume a later gzip pass changes which candidate wins.
 
-The v1 encoding pool was selected on compression ratio and decoding speed over OpenMapTiles and Bing Maps tilesets:
+The v1 encoding pool was selected for compression ratio and decoding speed on the OpenMapTiles and Bing Maps tilesets:
 
 | Data Type | Logical Level Technique | Physical Level Technique |
 | --- | --- | --- |
@@ -23,21 +23,21 @@ The v1 encoding pool was selected on compression ratio and decoding speed over O
 | String | Plain, Dictionary, [FSST](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>), FSST Dictionary |  |
 | Geometry | Plain, Dictionary, Morton-Dictionary |  |
 
-SIMD-FastPFOR usually gives smaller output and faster decoding than VarInt. VarInt is simpler, and can come out smaller once a heavyweight compressor like gzip runs over the tile.
+SIMD-FastPFOR usually gives smaller output and faster decoding than Varint. Varint is simpler and can come out smaller once a heavyweight compressor like gzip runs over the tile.
 
 ### Sort Order
 
-The column the features are sorted by can shrink a layer considerably, since sorting lengthens runs and shrinks deltas. Testing every column of every layer is too costly, so the same sampling applies.
+Choosing which column to sort features by can shrink a layer considerably, since sorting lengthens runs and shrinks deltas. Testing every column of every layer is too costly, so the same sampling applies.
 
 ## In-Memory Format
 
-The record-oriented, array-of-structures in-memory model used by libraries processing Mapbox Vector Tiles incurs considerable overhead. This includes creating many small objects (increasing memory allocation load) and placing additional strain on garbage collectors in browsers.
+The record-oriented, array-of-structures in-memory model used by libraries that process Mapbox Vector Tiles incurs considerable overhead. It comes from creating many small objects, which increases memory allocation load and strains garbage collectors in browsers.
 
 MLT uses a columnar memory layout (data-oriented design) for its in-memory format to overcome these issues. This approach improves cache utilization for subsequent data access and enables the use of fast SIMD instructions. The MLT in-memory format incorporates ideas from analytical in-memory formats like Apache Arrow, Velox, and the DuckDB execution format, tailored for visualization use cases. It is also designed for future parallel processing on the GPU within compute shaders.
 
 The main design goals are:
 
-- Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.
+- Define a platform-agnostic representation to avoid costly materialization, especially for strings.
 - Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.
 - Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).
 - Provide compressed data structures that can be processed directly without full decoding.
@@ -55,7 +55,7 @@ Data is stored in contiguous memory buffers called **vectors**, accompanied by m
 
 Using a compressed vector where possible makes the conversion from storage to in-memory format essentially a zero-copy operation.
 
-Following Apache Arrow's approach and the [Intel performance guide](<https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html>), decoders should allocate memory on addresses aligned to a 64-byte multiple (where possible).
+Following Apache Arrow's approach and the [Intel performance guide](<https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html>), decoders should allocate memory at 64-byte-aligned addresses where possible.
 
 > [!NOTE]
 >

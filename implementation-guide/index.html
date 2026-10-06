@@ -606,7 +606,7 @@
 <h1>Implementation Guide</h1>
 
 <hr />
-<p>This page is guidance for building an encoder or a decoder.
+<p>This page gives guidance for building an encoder or a decoder.
 The wire format is defined by the <a href="../specification/v1/">v1</a> and <a href="../specification/v2/">v2</a> specifications, not here.</p>
 <h2 id="choosing-an-encoding">Choosing an Encoding<a class="headerlink" href="#choosing-an-encoding" title="Link to this section">&para;</a></h2>
 <p>Encodings cascade: the integer codes produced by dictionary encoding are themselves compressed with an integer encoding.
@@ -614,12 +614,12 @@ A brute-force search over every combination is too costly.
 Use the selection strategy from the <a href="https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf">BTRBlocks</a> paper:</p>
 <ul>
 <li>Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).</li>
-<li>Use a sampling-based algorithm: randomly select parts of the data totaling ~1% of the full dataset and apply the candidate encodings from step 1.
+<li>Use a sampling-based algorithm: randomly select parts of the data totaling ~1% of the full dataset and apply the candidate encodings left after the first step.
   Choose the scheme that produces the smallest output.</li>
 </ul>
 <p>Compare stored bytes, not an estimate.
 Do not assume a later gzip pass changes which candidate wins.</p>
-<p>The v1 encoding pool was selected on compression ratio and decoding speed over OpenMapTiles and Bing Maps tilesets:</p>
+<p>The v1 encoding pool was selected for compression ratio and decoding speed on the OpenMapTiles and Bing Maps tilesets:</p>
 <table>
 <thead>
 <tr>
@@ -656,21 +656,21 @@ Do not assume a later gzip pass changes which candidate wins.</p>
 </tr>
 </tbody>
 </table>
-<p>SIMD-FastPFOR usually gives smaller output and faster decoding than VarInt.
-VarInt is simpler, and can come out smaller once a heavyweight compressor like gzip runs over the tile.</p>
+<p>SIMD-FastPFOR usually gives smaller output and faster decoding than Varint.
+Varint is simpler and can come out smaller once a heavyweight compressor like gzip runs over the tile.</p>
 <h3 id="sort-order">Sort Order<a class="headerlink" href="#sort-order" title="Link to this section">&para;</a></h3>
-<p>The column the features are sorted by can shrink a layer considerably, since sorting lengthens runs and shrinks deltas.
+<p>Choosing which column to sort features by can shrink a layer considerably, since sorting lengthens runs and shrinks deltas.
 Testing every column of every layer is too costly, so the same sampling applies.</p>
 <h2 id="in-memory-format">In-Memory Format<a class="headerlink" href="#in-memory-format" title="Link to this section">&para;</a></h2>
-<p>The record-oriented, array-of-structures in-memory model used by libraries processing Mapbox Vector Tiles incurs considerable overhead.
-This includes creating many small objects (increasing memory allocation load) and placing additional strain on garbage collectors in browsers.</p>
+<p>The record-oriented, array-of-structures in-memory model used by libraries that process Mapbox Vector Tiles incurs considerable overhead.
+It comes from creating many small objects, which increases memory allocation load and strains garbage collectors in browsers.</p>
 <p>MLT uses a columnar memory layout (data-oriented design) for its in-memory format to overcome these issues.
 This approach improves cache utilization for subsequent data access and enables the use of fast SIMD instructions.
 The MLT in-memory format incorporates ideas from analytical in-memory formats like Apache Arrow, Velox, and the DuckDB execution format, tailored for visualization use cases.
 It is also designed for future parallel processing on the GPU within compute shaders.</p>
 <p>The main design goals are:</p>
 <ul>
-<li>Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.</li>
+<li>Define a platform-agnostic representation to avoid costly materialization, especially for strings.</li>
 <li>Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.</li>
 <li>Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).</li>
 <li>Provide compressed data structures that can be processed directly without full decoding.</li>
@@ -689,7 +689,7 @@ The supported vector types are:</p>
 <li><a href="https://arrow.apache.org/docs/format/Columnar.html#run-end-encoded-layout">Run-End Encoded (REE) Vectors</a></li>
 </ul>
 <p>Using a compressed vector where possible makes the conversion from storage to in-memory format essentially a zero-copy operation.</p>
-<p>Following Apache Arrow's approach and the <a href="https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html">Intel performance guide</a>, decoders should allocate memory on addresses aligned to a 64-byte multiple (where possible).</p>
+<p>Following Apache Arrow's approach and the <a href="https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html">Intel performance guide</a>, decoders should allocate memory at 64-byte-aligned addresses where possible.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Further evaluation is needed to determine if <a href="https://arxiv.org/pdf/2306.15374.pdf">recent research</a> can enable random access on delta-encoded values.</p>

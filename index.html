@@ -592,12 +592,16 @@
 <p>MLT (MapLibre Tile) is a vector tile format that extends <a href="https://github.com/mapbox/vector-tile-spec">MVT</a>, storing geometries and attributes as separate columns for improved compression and richer data support.
 MLT is natively supported by <a href="https://maplibre.org/maplibre-gl-js/">MapLibre GL JS</a> and <a href="https://maplibre.org/maplibre-native/">MapLibre Native</a>, and tiles can be served using the <a href="https://maplibre.org/martin/">Martin tile server</a>.</p>
 <h2 id="why-mlt">Why MLT<a class="headerlink" href="#why-mlt" title="Link to this section">&para;</a></h2>
-<p>MLT is redesigned from the ground up for efficiency.
-Each geometry and attribute is stored as a separate column, with compression optimized for its data type.
-This makes tiles smaller, fast to decode with SIMD, and efficient to load into GPU buffers.
-On whole-planet archives, <strong>uncompressed</strong> MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster.
-With gzip, v2 is 10-18% smaller than gzipped MVT.
-See <a href="benchmarks/">benchmarks</a> for details.</p>
+<p>MLT was redesigned from the ground up, so tiles are both more efficient and more capable than MVT:</p>
+<ul>
+<li><strong>Smaller and faster.</strong> On whole-planet tilesets, <strong>uncompressed</strong> MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster.
+  With gzip, v2 is 10-18% smaller than gzipped MVT.
+  See <a href="benchmarks/">benchmarks</a> for details.</li>
+<li><strong>Richer data.</strong> MLT v2 adds per-vertex elevation and values, and keeps lists and maps as nested properties, none of which MVT can store.
+  Each layer carries its own format version, so new kinds of data can be added later.</li>
+</ul>
+<p>Each geometry and attribute is stored as a separate column, with compression optimized for its data type.
+This makes tiles smaller, faster to decode with SIMD, and cheaper to load into GPU buffers.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="Three columns stored with one encoding each: ids as delta and run-length, geometry as deltas, class as run-length" xmlns="http://www.w3.org/2000/svg">
 <text class="row" x="0" y="54">values</text>
 <text class="row" x="0" y="124">stored</text>
@@ -645,7 +649,7 @@ See <a href="benchmarks/">benchmarks</a> for details.</p>
 <text class="cell" x="632" y="124">1×rail</text>
 </svg></p>
 <p>MVT limits a feature to 2D vertices and single-value properties.
-Elevation and per-vertex values like lane count are lost, and lists or maps get flattened into columns like <code>name:en</code> and <code>name:de</code>.
+Elevation and per-vertex values like lane count are lost, and lists or maps are flattened into columns like <code>name:en</code> and <code>name:de</code>.
 <a href="specification/v2/">MLT v2</a> removes these limits; see <a href="specification/v2/#differences-from-v1">how v2 differs from v1</a>:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="One v2 feature: a line whose vertices carry an elevation and a lane count, a ref property holding a list and a name property holding a map" xmlns="http://www.w3.org/2000/svg">
 <text class="bold mid" x="170" y="14">geometry</text>
@@ -668,10 +672,10 @@ Elevation and per-vertex values like lane count are lost, and lists or maps get 
 <text class="cell" x="560" y="104">{en: "Bridge", de: "Brücke"}</text>
 </svg></p>
 <p>Each layer in a tile carries its own <a href="overview/#frames">format version</a>, so new formats can be added without breaking existing readers.
-One tile can mix them, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.</p>
+One tile can mix formats, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.</p>
 <div class="admonition tip">
 <p class="admonition-title">MLT 0x03</p>
-<p>A <a href="https://github.com/maplibre/maplibre-tile-spec/discussions/1182">3D extension to MLT</a> will expand these capabilities, and is in the requirements engineering stage.
+<p>A <a href="https://github.com/maplibre/maplibre-tile-spec/discussions/1182">3D extension to MLT</a> will expand these capabilities and is in the requirements engineering stage.
 Join the MapLibre <a href="https://maplibre.org/community/">Slack</a> to learn more and share your ideas.</p>
 </div>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Link to this section">&para;</a></h2>

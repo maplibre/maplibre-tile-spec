@@ -8,7 +8,7 @@ This page defines the payload of every encoding an MLT stream can name. Which st
 >
 > **Experimental encodings**
 >
-> Encodings marked exist only in [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>). Streams are called by their [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#string-columns>) names throughout.
+> Encodings marked exist only in [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>). Streams are referred to by their [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#string-columns>) names throughout.
 
 ## Integer Words
 
@@ -20,7 +20,7 @@ An integer stream is decoded in two steps. The **physical** encoding turns the p
 values = logical_decode(physical_decode(payload))
 ```
 
-A difference is signed even when the values are not, so every delta is [zigzag](<#zigzag>)-encoded. A plain or run-length encoded value is ZigZag-encoded only on a stream of a signed type. Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded. Delta arithmetic wraps at the word width.
+A difference is signed even when the values are not, so every delta is [zigzag](<#zigzag>)-encoded. A plain or run-length-encoded value is ZigZag-encoded only on a stream of a signed type. Run lengths, dictionary codes, lengths and offsets are never ZigZag-encoded. Delta arithmetic wraps at the word width.
 
 The steps each logical encoding takes:
 
@@ -51,13 +51,13 @@ For 64-bit values the shift is `63`.
 
 Each word is stored as it is, little-endian, 4 or 8 bytes per word.
 
-In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width give it. See [byte length](<https://maplibre.org/maplibre-tile-spec/specification/v2/#byte-length>).
+In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width determine it. See [byte length](<https://maplibre.org/maplibre-tile-spec/specification/v2/#byte-length>).
 
 ### VarInt
 
 Each word is stored in 7-bit groups, least significant group first. Bit 7 of each byte is set when another byte follows. A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&amp;at=column%5B0%5D>) - four `9000`s, two bytes each, the first with bit 7 set.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&amp;at=column%5B0%5D>) - four `9000`s, two bytes each, the first byte of each with bit 7 set.
 
 ```text
 300 = 0b0000_0001_0010_1100
@@ -73,14 +73,14 @@ Every word is stored in the same number of bits, the bit width of the largest va
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - dictionary codes `0` to `2`, each in two bits.
 
-v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`. It stands in for the whole physical step: the words come straight out of the packed bits, and only [zigzag](<#zigzag>) on a signed stream is applied to them.
+Bit packing stands in for the whole physical step: the words come straight out of the packed bits, and only [zigzag](<#zigzag>) on a signed stream is applied to them.
 
 ```text
 payload := [u8 width]                        1-32
            [u8 packed[ceil(count * width / 8)]]
 ```
 
-Words are laid LSB-first end to end, so word `i` occupies bits `i * width` to `i * width + width - 1` of the byte run. Bits past the last word in the final byte are padding. Encoders write them as `0` and decoders MUST ignore them. `width` MUST be `1` to `32`. An empty or all-zero stream has `width = 1`. A payload whose length is not exactly `1 + ceil(count * width / 8)` MUST be rejected.
+Words are laid out LSB-first, end to end, so word `i` occupies bits `i * width` to `i * width + width - 1` of the byte run. Bits past the last word in the final byte are padding. Encoders write them as `0` and decoders MUST ignore them. `width` MUST be `1` to `32`. An empty or all-zero stream has `width = 1`. A payload whose length is not exactly `1 + ceil(count * width / 8)` MUST be rejected.
 
 ```text
 values: [5, 1, 7, 0]           width = 3
@@ -94,7 +94,7 @@ Bit packing beats varint when the values are of similar magnitude, since varint 
 
 ### FastPFOR
 
-A block codec that stores each block of words at the bit width most of them need, and patches the few words that need more from separate exception arrays. Unlike [bit packing](<#bit-packing>) it is not sensitive to a handful of outliers. It is from [Lemire and Boytsov, *Decoding billions of integers per second through vectorization*](<https://arxiv.org/pdf/1209.2137.pdf>).
+A block codec that stores each block of words at the bit width most of them need, and patches the few words that need more from separate exception arrays. Unlike [bit packing](<#bit-packing>), it is not sensitive to a handful of outliers. It is described by [Lemire and Boytsov, *Decoding billions of integers per second through vectorization*](<https://arxiv.org/pdf/1209.2137.pdf>).
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_fpf.mlt&amp;at=column%5B0%5D>) - an id stream in the v2 `128le` variant.
 
@@ -107,7 +107,7 @@ v1 and v2 use different variants:
 | Word byte order | big-endian | little-endian |
 | Value width | 32 bits | 32 and 64 bits |
 
-The payload is whole 32-bit words, whatever the width of the values:
+The payload consists of whole 32-bit words, whatever the width of the values:
 
 ```text
 payload := [u32 block_values]          values in whole blocks, a multiple of 128
@@ -119,7 +119,7 @@ payload := [u32 block_values]          values in whole blocks, a multiple of 128
 
 #### Pages
 
-A page holds up to `65536` values, which is `512` blocks. Every page but the last is full. Exceptions are collected per page, so that blocks share one set of exception arrays.
+A page holds up to `65536` values, which is `512` blocks. Every page but the last is full. Exceptions are collected per page, so that the blocks of a page share one set of exception arrays.
 
 ```text
 page := [u32 meta_offset]              words from this word to meta_size, 1 + the packed words
@@ -140,9 +140,9 @@ block_meta := [u8 width]               0-32 for u32, 0-64 for u64
                 [u8 position; exceptions]
 ```
 
-`width` is the bit width the block is packed at. A value that needs more is an **exception**: its low `width` bits stay in the block, and its high bits go to an exception array. `position` is the index of the exception in the block, `0` to `127`, and encoders write them in ascending order.
+`width` is the bit width the block is packed at. A value that needs more is an **exception**: its low `width` bits stay in the block, and its high bits go to an exception array. `position` is the index of the exception in the block, `0` to `127`, and encoders write the positions in ascending order.
 
-An exception array exists for each width `k` from `2` to the value width, and bit `k - 1` of the bitmap says whether it does. Array `k` holds the high bits of every exception in the page with `max_width - width = k`, in block order and then position order.
+An exception array can exist for each width `k` from `2` to the value width, and bit `k - 1` of the bitmap says whether it does. Array `k` holds the high bits of every exception in the page with `max_width - width = k`, in block order and then position order.
 
 ```text
 exception_array := [u32 count]
@@ -160,7 +160,7 @@ for each position p:
     otherwise:   value[p] |= next value of array[index] << width
 ```
 
-Arrays are split by `k` so that each packs at its exact width and no exception stores its own. An exception that is a single bit wider than the block has no array: its high part can only be `1`. Every array has its own read position, which starts at its first value on each page.
+Arrays are split by `k` so that each packs at its exact width and no exception stores its own width. An exception that is a single bit wider than the block has no array: its high part can only be `1`. Every array has its own read position, which starts at its first value on each page.
 
 A decoder MUST reject - a `width` or `max_width` above the value width, - a `max_width` that is not above `width` where there are exceptions, - a `position` of `128` or more, - an exception without a value left in its array, - an array with more than `65536` values, - and a payload that ends inside a page.
 
@@ -175,19 +175,19 @@ Value `i` belongs to lane `i mod lanes` and row `i / lanes`. Each lane is packed
 
 A `width` of `0` takes no words, and every value is `0`.
 
-Because every lane has the same bit offsets, one shift, one mask and one or move `lanes` values at once, and no value crosses lanes. A decoder without vector instructions loops over the lanes and reads the same bytes.
+Because every lane has the same bit offsets, one shift, one mask and one OR move `lanes` values at once, and no value crosses lanes. A decoder without vector instructions loops over the lanes and reads the same bytes.
 
-32 values at `k` bits each are one continuous LSB-first bit stream of `k` words: value `j` occupies bits `j * k` to `j * k + k - 1`, with bit `i` of the stream being bit `i mod 32` of word `i / 32`. v1 packs every block this way, 32 values at a time. v2 uses it only for the remainder of an exception array. A `u64` value of up to `64` bits crosses word boundaries as any other.
+32 values at `k` bits each are one continuous LSB-first bit stream of `k` words: value `j` occupies bits `j * k` to `j * k + k - 1`, with bit `i` of the stream being bit `i mod 32` of word `i / 32`. v1 packs every block this way, 32 values at a time. v2 uses it only for the remainder of an exception array. A `u64` value of up to `64` bits crosses word boundaries like any other.
 
 #### Tail
 
 The tail is variable-byte encoded, with no count and no header. Each value is stored in 7-bit groups, least significant group first, and bit 7 of its **last** byte is set. This is the reverse of [varint](<#varint>), where bit 7 marks a byte that is followed by another.
 
-A `u32` takes 1 to 5 bytes and the fifth carries the top 4 bits. A `u64` takes 1 to 10. The bytes are padded with `0x00` to a multiple of 4. A padding byte has bit 7 clear, so it never ends a value, and a decoder discards the unfinished value at the end. A decoder reads until the payload ends, and the number of values it read MUST be the stream's value count minus `block_values`.
+A `u32` takes 1 to 5 bytes, and the fifth carries the top 4 bits. A `u64` takes 1 to 10. The bytes are padded with `0x00` to a multiple of 4. A padding byte has bit 7 clear, so it never ends a value, and a decoder discards the unfinished value at the end. A decoder reads until the payload ends, and the number of values it read MUST be the stream's value count minus `block_values`.
 
 #### Choosing the width
 
-The width is the encoder's choice, and any width that decodes to the values is valid. The reference encoder counts the values of a block by bit length, and tries each `width` below the widest value's `max_width`. With `e` values wider than `width`, it costs
+The width is the encoder's choice, and any width that decodes to the values is valid. The reference encoder counts the values of a block by bit length and tries each `width` below the widest value's `max_width`. With `e` values wider than `width`, it costs
 
 ```text
 128 * width + e * 8 + e * (max_width - width) + 8        bits
@@ -213,7 +213,7 @@ The words are the values. On a signed stream each word is [zigzag](<#zigzag>)-de
 
 ### Delta
 
-Each word is the difference to the previous value. The first value's predecessor is `0`. Each difference is [zigzag](<#zigzag>)-encoded before it becomes a word, whatever the stream's type.
+Each word is the difference from the previous value. The first value's predecessor is `0`. Each difference is [zigzag](<#zigzag>)-encoded before it becomes a word, whatever the stream's type.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_opt_delta.mlt&amp;at=column%5B0%5D>) - ids `100`, `101`, `105`, `106`, stored as the steps between them.
 
@@ -236,11 +236,11 @@ Delta suits monotonic sequences such as ids and offsets, whose differences are s
 
 ### Delta2
 
-Each item is the [delta](<#delta>) of the deltas. Both predecessors start at `0`, so the first two words are - `values[0]` and - `values[1] - 2 * values[0]`.
+Each word is the [delta](<#delta>) of the deltas. Both predecessors start at `0`, so the first two words are - `values[0]` and - `values[1] - 2 * values[0]`.
 
-Each second difference is [zigzag](<#zigzag>)-encoded, and the arithmetic wraps at the stream's width.
+Each second difference is [zigzag](<#zigzag>)-encoded, and the arithmetic wraps at the word width.
 
-This means that encoding is:
+Encoding is:
 
 ```text
 delta[i]  = values[i] - values[i - 1]      values[-1] = 0
@@ -294,7 +294,7 @@ In both versions the decoded element count is known before the payload is read. 
 
 ### Delta-RLE
 
-[Delta](<#delta>) followed by [RLE](<#rle>). The deltas are ZigZag-encoded, and it is those unsigned words that are run-length encoded. Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-sum.
+[Delta](<#delta>) followed by [RLE](<#rle>). The deltas are ZigZag-encoded, and those unsigned words are run-length encoded. Decoding undoes both steps in reverse order: expand the runs, then undo ZigZag and prefix-sum.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_delta_rle.mlt&amp;at=column%5B0%5D>) - four equal ids: one step of `103`, then a run of three `0`s.
 
@@ -324,7 +324,7 @@ byte:   0b0010_1101 = 0x2D
 
 ### Runs
 
-Alternating run lengths as varints, the first counting `0` bits and possibly being `0`. The lengths MUST sum to `count`. Runs is best for a bitfield that is set over continguious blocks of values
+Alternating run lengths as varints. The first counts the leading `0` bits and can be `0`. The lengths MUST sum to `count`. Runs is best for a bitfield that is set over contiguous blocks of values.
 
 ```text
 values:  [0, 0, 1, 1, 1, 0]
@@ -333,7 +333,7 @@ payload: 02 03 01              2 zeros, 3 ones, 1 zero
 
 ### Sparse
 
-A summary bitmap with one bit per byte of the [bitmap](<#bitmap>), set where that byte is not zero, followed by the non-zero bytes in order. The summary is `ceil(ceil(count / 8) / 8)` bytes, and its bits past the last bitmap byte MUST be `0`. A stored byte MUST NOT be `0`. Sparse is best for a bitfield whose set bits are very sparse and don't clump.
+A summary bitmap with one bit per byte of the [bitmap](<#bitmap>), set where that byte is not zero, followed by the non-zero bytes in order. The summary is `ceil(ceil(count / 8) / 8)` bytes, and its bits past the last bitmap byte MUST be `0`. A stored byte MUST NOT be `0`. Sparse is best for a bitfield whose set bits are rare and do not clump.
 
 ```text
 bitmap:  00 2D 00              24 values
@@ -343,7 +343,7 @@ payload: 02 2D
 
 ### Boolean RLE
 
-v1 compresses the [bitmap](<#bitmap>) with the byte-level run-length encoding of [ORC](<https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding>). The payload is a sequence of runs, each a control byte and what it names:
+v1 compresses the [bitmap](<#bitmap>) with the byte-level run-length encoding of [ORC](<https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding>). The payload is a sequence of runs, each a control byte followed by the bytes it describes.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fids_opt.mlt&amp;at=present>) - five ids, one of them missing, as byte runs.
 
@@ -388,7 +388,7 @@ The parameters are two values in the stream header:
 | `scale` | One byte packing \\(e\\) and \\(f\\) as \\(\\frac{e(e+1)}{2} + f\\), from \\(0\\) to \\(189\\) |
 | `base` | Frame of reference: the smallest scaled integer in the column, ZigZag varint |
 
-`scale` numbers only the valid pairs, row by row. One 4-bit nibble each would be simpler, but cannot hold \\(e = 18\\). Two 5-bit fields would not fit a byte, while the \\(190\\) valid pairs up to \\((e, f) = (18, 18)\\) do. A `scale` above \\(189\\) MUST be rejected.
+`scale` numbers only the valid pairs, row by row. A 4-bit nibble for each of \\(e\\) and \\(f\\) would be simpler but cannot hold \\(e = 18\\). Two 5-bit fields would not fit in a byte, while the \\(190\\) valid pairs up to \\((e, f) = (18, 18)\\) do. A `scale` above \\(189\\) MUST be rejected.
 
 To decode, \\(e\\) is the largest integer with \\(\\frac{e(e+1)}{2} \\le \\mathit{scale}\\), and \\(f\\) is what remains:
 
@@ -396,13 +396,13 @@ To decode, \\(e\\) is the largest integer with \\(\\frac{e(e+1)}{2} \\le \\mathi
 
 The square root is exact enough in double precision for every valid `scale`.
 
-The payload holds unsigned offsets from `base`, so the smallest is `0` and every value is non-negative. The offsets are an ordinary unsigned integer stream and carry their own physical encoding. Its words are 64-bit.
+The payload holds unsigned offsets from `base`, so the smallest is `0` and every value is non-negative. The offsets are an ordinary unsigned integer stream and carry their own physical encoding. The stream's words are 64-bit.
 
 **Decoding**: \\(i = \\mathit{base} + \\mathit{offset}\\), in 64-bit integer arithmetic, then \\(v = i \\cdot 10^f \\cdot 10^{-e}\\), with \\(10^{-e}\\) the nearest double and not an exact division.
 
 The sum MUST be formed as an integer before the conversion. A column spanning \\(\[-2, 2^{53} - 1\]\\) has an offset of \\(2^{53} + 1\\), which a double cannot hold.
 
-\\(e\\) and \\(f\\) are stored separately instead of a single \\(10^{e - f}\\). Scaling up by \\(10^e\\) and then down by \\(10^f\\) rounds twice, and some values are only exactly representable with \\(f \> 0\\).
+\\(e\\) and \\(f\\) are stored separately instead of as a single \\(10^{e - f}\\). Scaling up by \\(10^e\\) and then down by \\(10^f\\) rounds twice, and some values are only exactly representable with \\(f \> 0\\).
 
 > [!IMPORTANT]
 >
@@ -414,7 +414,7 @@ The sum MUST be formed as an integer before the conversion. A column spanning \\
 
 > [!NOTE]
 >
-> The reference Rust encoder currently only emits scaled integers with \\(|i| \\le 2^{53} - 1\\), where consecutive doubles are at most \\(1\\) apart. Beyond that, floating-point scaling can land on a neighboring integer that still passes its own round-trip check. This is a limitation of that implementation, not of the format.
+> The reference Rust encoder currently emits only scaled integers with \\(|i| \\le 2^{53} - 1\\), where consecutive doubles are at most \\(1\\) apart. Beyond that, floating-point scaling can land on a neighboring integer that still passes its own round-trip check. This is a limitation of that implementation, not of the format.
 
 ```text
 values:  [-0.75, 0.25, 1.5, -2.25]
@@ -422,7 +422,7 @@ e = 2, f = 0:  i = [-75, 25, 150, -225]
 base = -225:   offsets = [150, 250, 375, 0]
 ```
 
-The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints. See the [framed, exception-free ALP example](<https://maplibre.org/maplibre-tile-spec/specification/v2/#examples>) on the v2 page for the whole layer.
+The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload stores the four offsets as varints. See the [framed, exception-free ALP example](<https://maplibre.org/maplibre-tile-spec/specification/v2/#examples>) on the v2 page for the whole layer.
 
 ### Float Dictionary
 
@@ -485,11 +485,11 @@ lengths:  [0, 11, 2, 11, 6, 10]
 blob:     "Main Street" " North" "ple Avenue"
 ```
 
-Front coding can be combined with [FSST](<#fsst>). The corpus is front-encoded first and then FSST-compressed. An encoder SHOULD compare the stored size of each combination.
+Front coding can be combined with [FSST](<#fsst>). The corpus is front-coded first and then FSST-compressed. An encoder SHOULD compare the stored size of each combination.
 
 ### FSST
 
-Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes. Unlike a dictionary it compresses strings that merely share substrings, such as localized country names. It supports random access to one value once its lengths are known, since every code is one byte.
+Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes. Unlike a dictionary, it compresses strings that merely share substrings, such as localized country names. It decodes quickly, since every code is one byte.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_fsst_dict_np.mlt&amp;at=column%5B0%5D>) - a symbol table and the codes into it.
 
@@ -519,7 +519,7 @@ values:       ["abcd", "abz"]        Lengths = [4, 3]
 corpus bytes: 00 01 00 FF 7A         ab cd ab <esc> z
 ```
 
-The algorithm that trains the table is described by [Boncz, Neumann and Leis, *FSST: Fast Random Access String Compression*](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>). Different implementations train different tables for the same input. A decoder reads the table from the stream, so that only matters when comparing the output of two encoders.
+The algorithm that trains the table is described by [Boncz, Neumann and Leis, *FSST: Fast Random Access String Compression*](<https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf>). Different implementations train different tables for the same input. A decoder reads the table from the stream, so this only matters when comparing the output of two encoders.
 
 ### Dictionary
 
@@ -596,7 +596,7 @@ An offset at or past the dictionary's vertex count MUST be rejected.
 
 #### Hilbert Order
 
-Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short. The order is not part of the format. A decoder resolves vertices through `VertexOffsets` and never depends on it.
+Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short. The order is not part of the format. A decoder resolves vertices through `VertexOffsets` and never depends on the order.
 
 The reference encoders use the curve of the [`hilbert_2d`](<https://crates.io/crates/hilbert_2d>) crate's `Hilbert` variant on a \\(2^{\\mathit{bits}} \\times 2^{\\mathit{bits}}\\) grid. `shift` and `bits` are derived as for [Morton](<#morton>) below, and each shifted coordinate is masked to 16 bits before it is placed on the grid. Two vertices with the same curve key are one dictionary entry.
 
@@ -604,7 +604,7 @@ The reference encoders use the curve of the [`hilbert_2d`](<https://crates.io/cr
 
 A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer. Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas. Only a `VertexDict` stream uses it.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices as Morton codes, delta encoded.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices as Morton codes, delta-encoded.
 
 The parameters are two varints in the stream header:
 
@@ -617,7 +617,7 @@ The parameters are two varints in the stream header:
 
 Encoders derive both from the whole layer's vertices. `shift` is `-min` when the smallest coordinate `min` on either axis is negative, else `0`. `bits` is the bit width of `max + shift`, the largest shifted coordinate.
 
-Encoding is two steps. Shift both coordinates, then interleave them: bit `i` of `sx` goes to bit `2i` of the code, and bit `i` of `sy` to bit `2i + 1`.
+Encoding takes two steps. Shift both coordinates, then interleave them: bit `i` of `sx` goes to bit `2i` of the code, and bit `i` of `sy` to bit `2i + 1`.
 
 ```rust
 fn encode(x: i32, y: i32, bits: u32, shift: u32) -> u32 {
@@ -682,7 +682,7 @@ let sx = compact(code);
 let sy = compact(code >> 1);
 ```
 
-The codes are stored as an integer stream of unsigned 32-bit words. The stream holds the first code, then each code's difference to the previous one. v1 names this `MortonDelta`, v2 names it `Morton` in the `Vertex` family. There is no plain or RLE Morton encoding.
+The codes are stored as an integer stream of unsigned 32-bit words. The stream holds the first code, then each code's difference from the previous one. v1 names this `MortonDelta`; v2 names it `Morton` in the `Vertex` family. There is no plain or RLE Morton encoding.
 
 The deltas are plain differences, not ZigZag-encoded. The dictionary is sorted ascending by code, so every difference is non-negative.
 
@@ -693,14 +693,14 @@ words:      [27, 3, 15]
 
 ### rANS
 
-We can entropy-code the [componentwise deltas](<#componentwise-delta>) of a plain layout's vertex stream. A `VertexDict` stream MUST NOT use it.
+rANS entropy-codes the [componentwise deltas](<#componentwise-delta>) of a plain layout's vertex stream. A `VertexDict` stream MUST NOT use it.
 
 Each delta is split in two:
 
 - a **symbol**, which says roughly how large the delta is and its sign, and is coded with [rANS](<https://arxiv.org/abs/1311.2540>) so that frequent symbols take fewer bits,
 - the delta's low **raw bits**, which are close to random and stored as they are.
 
-The symbol frequencies are counted per **context**, so a delta is coded with a table of deltas like it. The tables travel in the payload.
+The symbol frequencies are counted per **context**, so each delta is coded with a table built from similar deltas. The tables travel in the payload.
 
 To decode, a decoder:
 
@@ -768,15 +768,15 @@ Decoding from \\(x \\ge 2^{16}\\) leaves \\(x \\ge \\mathit{freq}(s) \\cdot 2^{1
 
 #### Runs
 
-The first vertex of a ring, part or geometry jumps from wherever the previous one ended, and its delta is much larger than the others. Such a vertex is encoded in contexts of its own.
+The first vertex of a ring, part or geometry jumps from the last vertex of the one before it, so its delta is much larger than the others. Such a vertex is encoded in contexts of its own.
 
 A run is the vertex range - of each ring, else - of each part, else - of each geometry, taken from the deepest offset level the geometry section has.
 
-A layer with none of the three levels has one run per vertex. A vertex starts a run when it is the first of one. The runs MUST cover exactly the stream's `num_values` vertices. Because of this, the stream is decoded after the topology streams.
+A layer with none of the three levels has one run per vertex. A vertex starts a run when it is the first of one. The runs MUST cover exactly the stream's `num_values` vertices. Because the runs come from the topology, the stream is decoded after the topology streams.
 
 #### Symbols
 
-Each delta is the wrapping 32-bit difference to the same coordinate of the previous vertex, as in componentwise delta, without ZigZag.
+Each delta is the wrapping 32-bit difference from the same coordinate of the previous vertex, as in componentwise delta, without ZigZag.
 
 The symbol keeps the bit length `len` of the magnitude and the `d` bits after its leading one. `d` is the stream's mantissa depth, `0` to `2`. The leading one is implied by `len`. The remaining low bits are the raw bits. This is the same split a float makes into exponent, mantissa and dropped precision.
 
@@ -861,7 +861,7 @@ table := [1 bit present]
 
 A table of precision `0` has no frequencies on the wire. Its only symbol is `max_symbol`, with frequency `1`.
 
-The frequencies MUST sum to `2^precision`, the frequency of `max_symbol` MUST be non-zero, and a symbol with a non-zero frequency MUST be one some delta maps to at the stream's depth.
+The frequencies MUST sum to `2^precision`, the frequency of `max_symbol` MUST be non-zero, and a symbol with a non-zero frequency MUST be one that some delta maps to at the stream's depth.
 
 #### Lanes
 
@@ -883,7 +883,7 @@ for i in 0..vertex_count:
     output x_prev, y_prev
 ```
 
-A decoder MUST reject a symbol from a context without a table, a lane that does not end on state `2^16` with every word read, and raw bits whose byte length is not exactly the one the raw bits read need.
+A decoder MUST reject a symbol from a context without a table, a lane that does not end on state `2^16` with every word read, and raw bits whose byte length is not exactly the number of bytes the raw bit reads need.
 
 #### Encoding
 
