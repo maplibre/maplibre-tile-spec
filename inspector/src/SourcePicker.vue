@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useFileDialog } from "@vueuse/core";
 import { computed, ref } from "vue";
+import { formatBytes } from "./bytes.ts";
 import {
   type AxisRow,
   type AxisValue,
@@ -484,7 +485,7 @@ function fetchUrl() {
             @click="choose(fixtureKey(entry))"
           >
             <span class="name">{{ fixtureKey(entry) }}</span>
-            <span class="bytes">{{ entry.bytes }} B</span>
+            <span class="bytes">{{ formatBytes(entry.bytes) }}</span>
           </button>
           <p v-if="listed.length === 0" class="none"
             >No fixture matches that filter.</p
