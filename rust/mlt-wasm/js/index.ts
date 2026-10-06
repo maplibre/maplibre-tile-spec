@@ -25,15 +25,26 @@ export {
   type MltGeometryColumns,
   type MltGeometryColumns2D,
   type MltGeometryColumns3D,
+  MltGeometryType,
   type MltNamedColumn,
 } from "./columns";
+export {
+  toElevation,
+  featureGeometry,
+  type MltFeatureGeometry,
+  type MltLineGeometry,
+  type MltPointGeometry,
+  type MltPolygonGeometry,
+  type MltPolygonRings,
+  type MltVertexRun,
+  toLngLat,
+} from "./featureGeometry";
 export { tileGeoJson } from "./geojson";
 export {
   decodeTile,
   decodeTile3D,
   type MltFeature,
   type MltFeature3D,
-  MltGeometryType,
   type MltLayer,
   type MltLayer3D,
   type MltTile,

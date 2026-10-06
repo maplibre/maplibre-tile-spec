@@ -1,5 +1,15 @@
 import { wasmDecodeTileColumns } from "./wasm";
 
+/** Mirrors `GeometryType` in mlt-core - preserves the single vs multi distinction that MVT collapses. */
+export enum MltGeometryType {
+  Point = 0,
+  LineString = 1,
+  Polygon = 2,
+  MultiPoint = 3,
+  MultiLineString = 4,
+  MultiPolygon = 5,
+}
+
 /**
  * The array each column type comes as, one value per feature (per vertex for an m-value column).
  *

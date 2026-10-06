@@ -88,6 +88,28 @@ feature, LSB-first, left out when every feature has a value. `bool` comes as `0`
 64-bit integers, ids included, as `Float64Array`, so values above `Number.MAX_SAFE_INTEGER`
 lose precision.
 
+### Features
+
+`featureGeometry(layer, i)` reads feature `i` of a column layer without knowing the offset levels.
+Its points, lines and polygon rings are views of the layer's vertices, still in tile coordinates,
+and a polygon's rings come ready for earcut. A tessellated layer's triangles come per feature,
+counted from the feature's own vertices.
+
+```ts
+import { featureGeometry, toLngLat } from '@maplibre/mlt-wasm';
+
+const g = featureGeometry(layer, i);
+if (g.kind === 'polygon') {
+    for (const { vertices, holeIndices } of g.polygons) {
+        const triangles = earcut(vertices, holeIndices, layer.geometry.dimension);
+    }
+}
+// longitude, latitude (and metres): same layout as the vertices it is given
+const lngLat = toLngLat(g.vertices, layer, { z, x, y });
+```
+
+`toElevation(z, zStep)` converts one z to metres, exactly as `mlt-core` does.
+
 ### 3D
 
 `decodeTile3D` reads a tile whose every layer has z coordinates. Its features have the same

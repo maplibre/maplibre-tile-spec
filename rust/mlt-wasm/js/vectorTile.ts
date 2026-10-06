@@ -9,8 +9,15 @@ import {
   isPresent,
   type MltColumn,
   type MltColumnLayer,
+  MltGeometryType,
   type MltNamedColumn,
 } from "./columns";
+import {
+  featureGeometry,
+  isTrianglesOnly,
+  type MltFeatureGeometry,
+  type MltPolygonRings,
+} from "./featureGeometry";
 
 // ---------------------------------------------------------------------------
 // Geometry type enums
@@ -21,16 +28,6 @@ const POINT = 1;
 const LINESTRING = 2;
 const POLYGON = 3;
 
-/** Mirrors `GeometryType` in mlt-core - preserves the single vs multi distinction that MVT collapses. */
-export enum MltGeometryType {
-  Point = 0,
-  LineString = 1,
-  Polygon = 2,
-  MultiPoint = 3,
-  MultiLineString = 4,
-  MultiPolygon = 5,
-}
-
 /**
  * A vertex in 3D, as stored: `x` and `y` in tile coordinates, then `z` on the layer's
  * `zStep` grid, which is `-10000 + z * 10 ** zStep` metres.
@@ -38,230 +35,63 @@ export enum MltGeometryType {
 export type Position3D = [x: number, y: number, z: number];
 
 // ---------------------------------------------------------------------------
-// loadGeometry
+// Geometry
 // ---------------------------------------------------------------------------
 
 /** Builds the value a geometry holds for the vertex at index `i`. */
 type VertexOf<T> = (i: number) => T;
 
-/** Reads vertices `start..end` into an array of `length` values; slots past them are left for the caller. */
-function readVertices<T>(
-  vertex: VertexOf<T>,
-  start: number,
-  end: number,
-  length: number,
-): T[] {
-  const values: T[] = new Array(length) as T[];
-  for (let i = start; i < end; i++) {
-    values[i - start] = vertex(i);
-  }
-  return values;
+/**
+ * Reads `count` vertices from `first`. With `close`, the first is appended again, as
+ * @mapbox/vector-tile closes rings; it is built anew, so callers that mutate vertices in
+ * place don't move it twice.
+ */
+function readRun<T>(vertex: VertexOf<T>, first: number, count: number, close: boolean): T[] {
+  if (count === 0) return [];
+  const run = new Array(close ? count + 1 : count) as T[];
+  for (let k = 0; k < count; k++) run[k] = vertex(first + k);
+  if (close) run[count] = vertex(first);
+  return run;
 }
 
-function lineString<T>(vertex: VertexOf<T>, start: number, end: number): T[] {
-  return readVertices(vertex, start, end, end - start);
+/** A polygon's rings, each closed: the shell, then its holes. */
+function polygonRings<T>(polygon: MltPolygonRings, dimension: number, vertex: VertexOf<T>): T[][] {
+  const starts = [0, ...polygon.holeIndices, polygon.vertices.length / dimension];
+  return starts
+    .slice(1)
+    .map((end, k) => readRun(vertex, polygon.firstVertex + starts[k], end - starts[k], true));
 }
 
 /**
- * MLT stores a ring without its closing vertex; this appends it, as @mapbox/vector-tile does.
- * The closing vertex is built anew from the first, so callers that mutate vertices in place don't move it twice.
+ * A feature's geometry as @mapbox/vector-tile's rings: a ring of one per point, one per line,
+ * and every polygon ring closed. A `TessPolygons` feature stores triangles without outlines,
+ * so each triangle is a polygon of its own: its corners in index buffer order, closed.
  */
-function closedRing<T>(vertex: VertexOf<T>, start: number, end: number): T[] {
-  if (end === start) return [];
-  if (end < start) {
-    throw new Error(`polygon ring at vertex ${start} ends before it starts`);
-  }
-  const n = end - start;
-  const ring = readVertices(vertex, start, end, n + 1);
-  ring[n] = vertex(start);
-  return ring;
-}
-
-function loadGeometry<T>(
-  mvtType: number,
-  featureIdx: number,
-  geomOffsets: Uint32Array,
-  partOffsets: Uint32Array,
-  ringOffsets: Uint32Array,
-  vertex: VertexOf<T>,
-): T[][] {
-  const hasGeomOffsets = geomOffsets.length > 0;
-  const hasPartOffsets = partOffsets.length > 0;
-  const hasRingOffsets = ringOffsets.length > 0;
-
-  if (mvtType === POINT) {
-    if (!hasGeomOffsets) {
-      // Mixed-type layers may have part/ring indirection even for points.
-      let idx = featureIdx;
-      if (hasPartOffsets) idx = partOffsets[idx];
-      if (hasRingOffsets) idx = ringOffsets[idx];
-      return [[vertex(idx)]];
-    } else {
-      const gStart = geomOffsets[featureIdx];
-      const gEnd = geomOffsets[featureIdx + 1];
-      const rings: T[][] = new Array(gEnd - gStart) as T[][];
-      for (let g = gStart; g < gEnd; g++) {
-        let idx = g;
-        if (hasPartOffsets) idx = partOffsets[idx];
-        if (hasRingOffsets) idx = ringOffsets[idx];
-        rings[g - gStart] = [vertex(idx)];
+function featureRings<T>(g: MltFeatureGeometry, dimension: number, vertex: VertexOf<T>): T[][] {
+  switch (g.kind) {
+    case "point":
+      return readRun(vertex, g.firstVertex, g.vertices.length / dimension, false).map((p) => [p]);
+    case "line":
+      return g.lines.map((line) =>
+        readRun(vertex, line.firstVertex, line.vertices.length / dimension, false),
+      );
+    case "polygon": {
+      if (g.polygons.length > 0 || g.triangles === undefined) {
+        return g.polygons.flatMap((polygon) => polygonRings(polygon, dimension, vertex));
+      }
+      const corner = (t: number) => vertex(g.firstVertex + (g.triangles as Uint32Array)[t]);
+      const rings: T[][] = [];
+      for (let t = 0; t < g.triangles.length; t += 3) {
+        rings.push([corner(t), corner(t + 1), corner(t + 2), corner(t)]);
       }
       return rings;
     }
   }
-
-  if (mvtType === LINESTRING) {
-    if (!hasGeomOffsets) {
-      let start: number;
-      let end: number;
-      if (hasRingOffsets) {
-        const partIdx = partOffsets[featureIdx];
-        start = ringOffsets[partIdx];
-        end = ringOffsets[partIdx + 1];
-      } else {
-        start = partOffsets[featureIdx];
-        end = partOffsets[featureIdx + 1];
-      }
-      return [lineString(vertex, start, end)];
-    } else {
-      const gStart = geomOffsets[featureIdx];
-      const gEnd = geomOffsets[featureIdx + 1];
-      const result: T[][] = new Array(gEnd - gStart) as T[][];
-      for (let g = gStart; g < gEnd; g++) {
-        let start: number;
-        let end: number;
-        if (hasRingOffsets) {
-          const partIdx = partOffsets[g];
-          start = ringOffsets[partIdx];
-          end = ringOffsets[partIdx + 1];
-        } else {
-          start = partOffsets[g];
-          end = partOffsets[g + 1];
-        }
-        result[g - gStart] = lineString(vertex, start, end);
-      }
-      return result;
-    }
-  }
-
-  if (mvtType === POLYGON) {
-    if (!hasGeomOffsets) {
-      const partStart = partOffsets[featureIdx];
-      const partEnd = partOffsets[featureIdx + 1];
-      const rings: T[][] = new Array(partEnd - partStart) as T[][];
-      for (let r = partStart; r < partEnd; r++) {
-        rings[r - partStart] = closedRing(
-          vertex,
-          ringOffsets[r],
-          ringOffsets[r + 1],
-        );
-      }
-      return rings;
-    } else {
-      // Flat ring list matching MVT convention - use loadPolygons() for grouped output.
-      const gStart = geomOffsets[featureIdx];
-      const gEnd = geomOffsets[featureIdx + 1];
-      const result: T[][] = [];
-      for (let g = gStart; g < gEnd; g++) {
-        const partStart = partOffsets[g];
-        const partEnd = partOffsets[g + 1];
-        for (let r = partStart; r < partEnd; r++) {
-          result.push(closedRing(vertex, ringOffsets[r], ringOffsets[r + 1]));
-        }
-      }
-      return result;
-    }
-  }
-
-  return [];
-}
-
-/** Returns the feature's vertex span, since every layout stores a feature's vertices contiguously. */
-function vertexRange(
-  featureIdx: number,
-  geomOffsets: Uint32Array,
-  partOffsets: Uint32Array,
-  ringOffsets: Uint32Array,
-): [number, number] {
-  let start = featureIdx;
-  let end = featureIdx + 1;
-  for (const offsets of [geomOffsets, partOffsets, ringOffsets]) {
-    if (offsets.length > 0) [start, end] = [offsets[start], offsets[end]];
-  }
-  return [start, end];
-}
-
-/** Returns rings grouped by polygon using offset arrays instead of winding-order heuristics. */
-function loadPolygons<T>(
-  featureIdx: number,
-  geomOffsets: Uint32Array,
-  partOffsets: Uint32Array,
-  ringOffsets: Uint32Array,
-  vertex: VertexOf<T>,
-): T[][][] {
-  if (geomOffsets.length === 0) {
-    const partStart = partOffsets[featureIdx];
-    const partEnd = partOffsets[featureIdx + 1];
-    const rings: T[][] = new Array(partEnd - partStart) as T[][];
-    for (let r = partStart; r < partEnd; r++) {
-      rings[r - partStart] = closedRing(
-        vertex,
-        ringOffsets[r],
-        ringOffsets[r + 1],
-      );
-    }
-    return [rings];
-  }
-
-  const gStart = geomOffsets[featureIdx];
-  const gEnd = geomOffsets[featureIdx + 1];
-  const polygons: T[][][] = new Array(gEnd - gStart) as T[][][];
-  for (let g = gStart; g < gEnd; g++) {
-    const partStart = partOffsets[g];
-    const partEnd = partOffsets[g + 1];
-    const rings: T[][] = new Array(partEnd - partStart) as T[][];
-    for (let r = partStart; r < partEnd; r++) {
-      rings[r - partStart] = closedRing(
-        vertex,
-        ringOffsets[r],
-        ringOffsets[r + 1],
-      );
-    }
-    polygons[g - gStart] = rings;
-  }
-  return polygons;
-}
-
-/**
- * A `TessPolygons` layer stores triangles without outlines, so each triangle is a polygon of
- * its own: its three corners in index buffer order, closed by repeating the first.
- */
-function triangleRings<T>(
-  featureIdx: number,
-  triangleOffsets: Uint32Array,
-  indexBuffer: Uint32Array,
-  vertex: VertexOf<T>,
-): T[][] {
-  const start = triangleOffsets[featureIdx];
-  const end = triangleOffsets[featureIdx + 1];
-  const rings: T[][] = new Array(end - start) as T[][];
-  for (let t = start; t < end; t++) {
-    const a = indexBuffer[t * 3];
-    rings[t - start] = [
-      vertex(a),
-      vertex(indexBuffer[t * 3 + 1]),
-      vertex(indexBuffer[t * 3 + 2]),
-      vertex(a),
-    ];
-  }
-  return rings;
 }
 
 // ---------------------------------------------------------------------------
 // Shared per-layer state
 // ---------------------------------------------------------------------------
-
-const EMPTY = new Uint32Array(0);
 
 /** MVT type (1/2/3) of each `MltGeometryType`. */
 const MVT_TYPES = [
@@ -275,44 +105,30 @@ const MVT_TYPES = [
 
 /** Everything a layer's features read, taken from its decoded columns. */
 interface LayerData {
+  readonly layer: MltColumnLayer;
   readonly extent: number;
   readonly mltTypes: Uint8Array;
   readonly ids: MltColumn<Float64Array> | undefined;
-  /** Absent offset levels are zero-length, so the walkers branch on `.length`. */
-  readonly geomOffsets: Uint32Array;
-  readonly partOffsets: Uint32Array;
-  readonly ringOffsets: Uint32Array;
   readonly verts: Int32Array;
   /** Words per vertex in `verts`: `2`, or `3` when z is interleaved. */
   readonly stride: 2 | 3;
   readonly zStep: number | undefined;
-  /** Set for a `TessPolygons` layer, which has triangles and no outlines to walk. */
-  readonly triangles:
-    | { readonly offsets: Uint32Array; readonly indices: Uint32Array }
-    | undefined;
+  /** A `TessPolygons` layer, which has triangles and no outlines to walk. */
+  readonly trianglesOnly: boolean;
   readonly properties: readonly MltNamedColumn[];
 }
 
 function readLayer(layer: MltColumnLayer): LayerData {
   const geom = layer.geometry;
-  const { triangleOffsets, indexBuffer } = geom;
-  const trianglesOnly =
-    triangleOffsets !== undefined &&
-    indexBuffer !== undefined &&
-    geom.partOffsets === undefined;
   return {
+    layer,
     extent: layer.extent,
     mltTypes: geom.types,
     ids: layer.ids,
-    geomOffsets: geom.geometryOffsets ?? EMPTY,
-    partOffsets: geom.partOffsets ?? EMPTY,
-    ringOffsets: geom.ringOffsets ?? EMPTY,
     verts: geom.vertices,
     stride: geom.dimension,
     zStep: geom.zStep,
-    triangles: trianglesOnly
-      ? { offsets: triangleOffsets, indices: indexBuffer }
-      : undefined,
+    trianglesOnly: isTrianglesOnly(geom),
     properties: layer.properties,
   };
 }
@@ -347,8 +163,7 @@ abstract class FeatureBase<V> {
    * whichever type it was stored as, since its outlines are not stored.
    */
   get mltType(): MltGeometryType {
-    if (this._layer.triangles !== undefined)
-      return MltGeometryType.MultiPolygon;
+    if (this._layer.trianglesOnly) return MltGeometryType.MultiPolygon;
     return this._layer.mltTypes[this._featureIdx] as MltGeometryType;
   }
 
@@ -375,39 +190,23 @@ abstract class FeatureBase<V> {
   /** Builds the value this feature's geometry holds for vertex `i`. */
   protected abstract vertex(): VertexOf<V>;
 
-  protected rings(): V[][] {
-    const { geomOffsets, partOffsets, ringOffsets, triangles } = this._layer;
-    if (triangles !== undefined) {
-      return triangleRings(
-        this._featureIdx,
-        triangles.offsets,
-        triangles.indices,
-        this.vertex(),
-      );
-    }
-    return loadGeometry(
-      this.type,
-      this._featureIdx,
-      geomOffsets,
-      partOffsets,
-      ringOffsets,
-      this.vertex(),
-    );
+  protected geometry(): MltFeatureGeometry {
+    return featureGeometry(this._layer.layer, this._featureIdx);
   }
 
+  protected rings(): V[][] {
+    return featureRings(this.geometry(), this._layer.stride, this.vertex());
+  }
+
+  /** Rings grouped by polygon; a triangle of a `TessPolygons` feature is a polygon of its own. */
   protected polygons(): V[][][] {
-    if (this._layer.triangles !== undefined) {
-      return this.rings().map((ring) => [ring]);
+    const g = this.geometry();
+    if (g.kind !== "polygon" || g.polygons.length === 0) {
+      const rings = featureRings(g, this._layer.stride, this.vertex());
+      return g.kind === "polygon" ? rings.map((ring) => [ring]) : [rings];
     }
-    if (this.type !== POLYGON) return [this.rings()];
-    const { geomOffsets, partOffsets, ringOffsets } = this._layer;
-    return loadPolygons(
-      this._featureIdx,
-      geomOffsets,
-      partOffsets,
-      ringOffsets,
-      this.vertex(),
-    );
+    const vertex = this.vertex();
+    return g.polygons.map((polygon) => polygonRings(polygon, this._layer.stride, vertex));
   }
 }
 
@@ -429,24 +228,13 @@ export class MltFeature
    * A `TessPolygons` feature has the z of each triangle corner, in index buffer order.
    */
   loadZ(): number[] {
-    const { verts, stride, geomOffsets, partOffsets, ringOffsets, triangles } =
-      this._layer;
-    if (stride !== 3) return [];
-    const z = (i: number) => verts[i * 3 + 2];
-    if (triangles !== undefined) {
-      const start = triangles.offsets[this._featureIdx] * 3;
-      const end = triangles.offsets[this._featureIdx + 1] * 3;
-      return Array.from(triangles.indices.subarray(start, end), z);
+    if (this._layer.stride !== 3) return [];
+    const g = this.geometry();
+    const z = (i: number) => g.vertices[i * 3 + 2];
+    if (g.kind === "polygon" && this._layer.trianglesOnly) {
+      return Array.from(g.triangles ?? [], z);
     }
-    const [start, end] = vertexRange(
-      this._featureIdx,
-      geomOffsets,
-      partOffsets,
-      ringOffsets,
-    );
-    const values = new Array<number>(end - start);
-    for (let i = start; i < end; i++) values[i - start] = z(i);
-    return values;
+    return Array.from({ length: g.vertices.length / 3 }, (_, i) => z(i));
   }
 
   /** Returns rings grouped by polygon - avoids the lossy winding-order heuristic in MVT's classifyRings. */
@@ -539,7 +327,7 @@ export class MltLayer3D extends LayerBase {
       );
     }
     if (indexBuffer !== undefined) {
-      const layout = this._data.triangles
+      const layout = this._data.trianglesOnly
         ? "TessPolygons"
         : "TessPolygonsWithOutlines";
       throw new Error(

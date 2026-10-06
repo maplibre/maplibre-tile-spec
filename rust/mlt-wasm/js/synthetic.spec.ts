@@ -8,12 +8,8 @@ import {
   getTestCases,
   writeActualOutput,
 } from "../../../test/synthetic/synthetic-test-utils";
-import {
-  decodeTile,
-  type MltFeature,
-  MltGeometryType,
-  type MltLayer,
-} from "./vectorTile";
+import { MltGeometryType } from "./columns";
+import { decodeTile, type MltFeature, type MltLayer } from "./vectorTile";
 
 const V2_GAPS: [RegExp, string][] = [
   [/^(z_)?mvalues(?!_all_null$)/, "the vector-tile API has no m-value columns"],
