@@ -16,7 +16,7 @@ const bare: DeepLink = {
   filters: [],
   query: "",
   geo: true,
-  stats: false,
+  stats: true,
 };
 
 describe("the filter parameter", () => {
@@ -162,14 +162,14 @@ describe("a link that names its region", () => {
 });
 
 describe("the statistics panel", () => {
-  it("is hidden unless the link says otherwise", () => {
-    expect(readDeepLink("").stats).toBe(false);
+  it("is shown unless the link says otherwise", () => {
+    expect(readDeepLink("").stats).toBe(true);
   });
 
-  it("writes only the on state", () => {
-    const shown = { ...bare, stats: true };
+  it("writes only the off state", () => {
+    const hidden = { ...bare, stats: false };
     expect(deepLinkSearch(bare)).toBe("");
-    expect(deepLinkSearch(shown)).toBe("?stats=1");
-    expect(readDeepLink("?stats=1").stats).toBe(true);
+    expect(deepLinkSearch(hidden)).toBe("?stats=0");
+    expect(readDeepLink("?stats=0").stats).toBe(false);
   });
 });
