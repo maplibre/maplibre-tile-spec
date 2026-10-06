@@ -9,12 +9,16 @@ MLT is natively supported by [MapLibre GL JS](https://maplibre.org/maplibre-gl-j
 
 ## Why MLT
 
-MLT was redesigned from the ground up for efficiency.
+MLT was redesigned from the ground up, so tiles are both more efficient and more capable than MVT:
+
+- **Smaller and faster.** On whole-planet tilesets, **uncompressed** MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster.
+  With gzip, v2 is 10-18% smaller than gzipped MVT.
+  See [benchmarks](benchmarks.md) for details.
+- **Richer data.** MLT v2 adds per-vertex elevation and values, and keeps lists and maps as nested properties, none of which MVT can store.
+  Each layer carries its own format version, so new kinds of data can be added later.
+
 Each geometry and attribute is stored as a separate column, with compression optimized for its data type.
 This makes tiles smaller, faster to decode with SIMD, and cheaper to load into GPU buffers.
-On whole-planet archives, **uncompressed** MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster.
-With gzip, v2 is 10-18% smaller than gzipped MVT.
-See [benchmarks](benchmarks.md) for details.
 
 --8<-- "diagrams/why-mlt.svg"
 
