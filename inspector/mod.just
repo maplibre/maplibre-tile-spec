@@ -41,7 +41,7 @@ dev: install assert-wasm-built build-mlt
 regenerate-expected: build-mlt
     for dir in amazon amazon_here bing omt simple; do \
       ../rust/target/release/mlt convert --mlt-version 1 --sort none --verify ../test/fixtures/$dir ../test/expected/0x01/$dir; \
-      ../rust/target/release/mlt convert --mlt-version 2 --sort none --delta2 --packed-dict-codes --rans-vertices --verify ../test/fixtures/$dir ../test/expected/0x02/$dir; \
+      ../rust/target/release/mlt convert --mlt-version 2 --sort none --delta2 --rans-vertices --verify ../test/fixtures/$dir ../test/expected/0x02/$dir; \
     done
 
 # Reformat code
