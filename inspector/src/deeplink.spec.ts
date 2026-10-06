@@ -16,6 +16,7 @@ const bare: DeepLink = {
   filters: [],
   query: "",
   geo: true,
+  stats: false,
 };
 
 describe("the filter parameter", () => {
@@ -157,5 +158,18 @@ describe("a link that names its region", () => {
     expect(deepLinkSearch({ ...bare, at: "tri_lengths", region: 8 })).toBe(
       "?region=8",
     );
+  });
+});
+
+describe("the statistics panel", () => {
+  it("is hidden unless the link says otherwise", () => {
+    expect(readDeepLink("").stats).toBe(false);
+  });
+
+  it("writes only the on state", () => {
+    const shown = { ...bare, stats: true };
+    expect(deepLinkSearch(bare)).toBe("");
+    expect(deepLinkSearch(shown)).toBe("?stats=1");
+    expect(readDeepLink("?stats=1").stats).toBe(true);
   });
 });

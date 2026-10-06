@@ -18,6 +18,7 @@ import {
 } from "./hex.ts";
 import RegionDetail from "./RegionDetail.vue";
 import RegionTree from "./RegionTree.vue";
+import StatsView from "./StatsView.vue";
 
 const props = defineProps<{
   tree: DumpTree;
@@ -163,6 +164,16 @@ const scopeLayer = computed(() => {
   const at = /^layer\[(\d+)\]/.exec(regions[top].label);
   return at === null ? null : (names[Number(at[1])] ?? null);
 });
+/** Index among the tree's layers of the one the pointer is over, for the statistics to light. */
+const hoveredLayer = computed(() => {
+  const index = hovered.value;
+  if (index === null) return null;
+  const regions = props.tree.regions;
+  const top = ancestors(regions, index)[0] ?? index;
+  if (!regions[top].label.startsWith("layer[")) return null;
+  return regions.slice(0, top).filter((r) => r.depth === 0 && r.container)
+    .length;
+});
 const owners = computed(() => byteOwners(props.tree));
 /** Shared by the map and the tree, so a row and its bytes take the same tint from one walk. */
 const bands = computed(() =>
@@ -264,7 +275,7 @@ onMounted(() => {
           @pick="select($event, false)"
         />
         <hr
-          v-if="view.geo"
+          v-if="view.geo || view.stats"
           class="gutter row"
           aria-orientation="horizontal"
           aria-label="Resize the geometry panel"
@@ -275,12 +286,23 @@ onMounted(() => {
           @pointerdown.prevent="dragGeo"
           @keydown="onGutterKey($event, 'geo')"
         >
-        <GeometryView
-          v-if="view.geo"
+        <div
+          v-if="view.geo || view.stats"
+          class="lower"
           :style="{ flexBasis: `${geoShare}%` }"
-          :tile="props.tile ?? null"
-          :layer="scopeLayer"
-        />
+        >
+          <GeometryView
+            v-if="view.geo"
+            :tile="props.tile ?? null"
+            :layer="scopeLayer"
+          />
+          <StatsView
+            v-if="view.stats"
+            :tree="props.tree"
+            :tile="props.tile ?? null"
+            :active="hoveredLayer"
+          />
+        </div>
       </section>
       <hr
         class="gutter col"
@@ -387,6 +409,14 @@ onMounted(() => {
   background-clip: padding-box;
   margin: -3px 0;
   z-index: 1;
+}
+.lower {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.lower > * {
+  flex: 1 1 0;
 }
 .left {
   display: flex;

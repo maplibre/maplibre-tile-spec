@@ -86,7 +86,7 @@ h4:hover .edit,
   visibility: visible;
 }
 .edit:hover {
-  color: var(--accent);
+  color: var(--accent-rule);
 }
 .prose {
   /* What the diagram rules read their theme from, on the site, answered from this one. */
@@ -130,6 +130,6 @@ h4:hover .edit,
   text-align: left;
 }
 .prose :deep(a) {
-  color: var(--accent);
+  color: var(--accent-rule);
 }
 </style>

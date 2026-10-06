@@ -53,6 +53,12 @@ jobs:
               - 'test/synthetic/**'
               - 'rust/mlt/**'
               - 'rust/mlt-core/**'
+            expected:
+              - '.github/workflows/autofix.yml'
+              - 'inspector/mod.just'
+              - 'test/fixtures/**'
+              - 'rust/mlt/**'
+              - 'rust/mlt-core/**'
 
       - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with: { tool: 'just' }
@@ -66,7 +72,7 @@ jobs:
 
       # Rust
       # Also installs just and cargo-sort, so it has to come before the Rust fixups.
-      - if: steps.filter.outputs.rust == 'true' || steps.filter.outputs.hexdumps == 'true'
+      - if: steps.filter.outputs.rust == 'true' || steps.filter.outputs.hexdumps == 'true' || steps.filter.outputs.expected == 'true'
         uses: ./.github/actions/mlt-setup-rust
       - name: Format Cargo.toml
         if: steps.filter.outputs.rust == 'true'
@@ -83,6 +89,10 @@ jobs:
       - name: Regenerate docs hexdump snippets from the synthetic fixtures
         if: steps.filter.outputs.hexdumps == 'true'
         run: just rust::sync-docs-hexdumps
+
+      - name: Re-encode the real-world tiles in test/expected
+        if: steps.filter.outputs.expected == 'true'
+        run: just inspector::regenerate-expected
 
       - name: Install clang-format and ktlint
         if: steps.filter.outputs.ffi == 'true'

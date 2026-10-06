@@ -66,9 +66,7 @@ describe("blobChips", () => {
   });
 
   it("measures binary data instead of printing it", () => {
-    expect(blobChips({ kind: "binary", len: 17 }, 8)).toEqual([
-      "17 binary bytes",
-    ]);
+    expect(blobChips({ kind: "binary", len: 17 }, 8)).toEqual(["17 B"]);
   });
 
   it("carries a decode failure through as its message", () => {

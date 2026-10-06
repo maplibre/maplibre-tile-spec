@@ -26,6 +26,8 @@ export interface DeepLink {
   query: string;
   /** Whether the geometry panel is drawn. Only the off state is written down. */
   geo: boolean;
+  /** Whether the statistics panel is drawn. Only the on state is written down. */
+  stats: boolean;
 }
 
 const knownAxes = new Set(AXES.map((a) => a.key));
@@ -47,6 +49,7 @@ export function readDeepLink(search: string): DeepLink {
     query: params.get("q") ?? "",
     // Shown unless the link says otherwise, so a bare URL opens the whole app.
     geo: params.get("geo") !== "0",
+    stats: params.get("stats") === "1",
   };
 }
 
@@ -60,6 +63,7 @@ export function deepLinkSearch(link: DeepLink): string {
   for (const picked of link.filters) params.append("f", picked);
   if (link.query !== "") params.set("q", link.query);
   if (!link.geo) params.set("geo", "0");
+  if (link.stats) params.set("stats", "1");
   const search = params.toString();
   return search === "" ? "" : `?${search}`;
 }
