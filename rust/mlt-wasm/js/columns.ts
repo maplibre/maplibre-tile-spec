@@ -1,32 +1,28 @@
 import { wasmDecodeTileColumns } from "./wasm";
 
-/** The type a property or m-value column was stored as. */
-export type MltColumnType =
-  | "bool"
-  | "i8"
-  | "u8"
-  | "i32"
-  | "u32"
-  | "i64"
-  | "u64"
-  | "f32"
-  | "f64"
-  | "string";
-
 /**
- * One value per feature (per vertex for an m-value column).
+ * The array each column type comes as, one value per feature (per vertex for an m-value column).
  *
  * `bool` comes as `0`/`1` in a `Uint8Array`. `i64` and `u64` come as `Float64Array`, so values
  * above `Number.MAX_SAFE_INTEGER` lose precision.
  */
-export type MltColumnValues =
-  | Uint8Array
-  | Int8Array
-  | Int32Array
-  | Uint32Array
-  | Float32Array
-  | Float64Array
-  | string[];
+interface MltColumnValuesByType {
+  bool: Uint8Array;
+  i8: Int8Array;
+  u8: Uint8Array;
+  i32: Int32Array;
+  u32: Uint32Array;
+  i64: Float64Array;
+  u64: Float64Array;
+  f32: Float32Array;
+  f64: Float64Array;
+  string: string[];
+}
+
+/** The type a property or m-value column was stored as. */
+export type MltColumnType = keyof MltColumnValuesByType;
+
+export type MltColumnValues = MltColumnValuesByType[MltColumnType];
 
 /**
  * A slot whose feature has no value holds `0` or `""`; `present` says which slots those are.
@@ -37,11 +33,13 @@ export interface MltColumn<V extends MltColumnValues = MltColumnValues> {
   readonly present?: Uint8Array;
 }
 
-/** A property or m-value column. */
-export interface MltNamedColumn extends MltColumn {
-  readonly name: string;
-  readonly type: MltColumnType;
-}
+/** A property or m-value column. Checking `type` narrows `values` to its array. */
+export type MltNamedColumn = {
+  [T in MltColumnType]: MltColumn<MltColumnValuesByType[T]> & {
+    readonly name: string;
+    readonly type: T;
+  };
+}[MltColumnType];
 
 /**
  * A layer's geometry as decoded, 2D or 3D by `dimension`.
@@ -118,7 +116,8 @@ export function decodeTileColumns(
   data: Uint8Array,
   options: DecodeTileColumnsOptions = {},
 ): MltColumnTile {
-  const names = options.layers === undefined ? undefined : [...options.layers];
+  // wasm-bindgen copies the array into Rust, so it never sees the caller's readonly one.
+  const names = options.layers as string[] | undefined;
   return { layers: wasmDecodeTileColumns(data, names) as MltColumnLayer[] };
 }
 
