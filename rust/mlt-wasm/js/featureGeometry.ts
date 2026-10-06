@@ -94,12 +94,18 @@ function view(geometry: MltGeometryColumns, start: number, end: number): Int32Ar
   return geometry.vertices.subarray(start * geometry.dimension, end * geometry.dimension);
 }
 
-/** The triangle corners of polygon feature `index` as layer vertex indices, if tessellated. */
-function featureCorners(geometry: MltGeometryColumns, index: number): Uint32Array | undefined {
+/**
+ * The triangle corners of polygon feature `index` of a tessellated layer, as layer vertex
+ * indices. Throws when the layer's `triangleOffsets` stop before the feature.
+ */
+function featureCorners(geometry: MltGeometryColumns, index: number): Uint32Array {
   const { indexBuffer, triangleOffsets } = geometry;
-  if (indexBuffer === undefined || triangleOffsets === undefined) return undefined;
   const ordinal = polygonOrdinal(geometry, index);
-  return indexBuffer.subarray(triangleOffsets[ordinal] * 3, triangleOffsets[ordinal + 1] * 3);
+  const [t0, t1] = [triangleOffsets?.[ordinal], triangleOffsets?.[ordinal + 1]];
+  if (indexBuffer === undefined || t0 === undefined || t1 === undefined) {
+    throw new Error(`the layer's triangles do not cover polygon ${ordinal}, feature ${index}`);
+  }
+  return indexBuffer.subarray(t0 * 3, t1 * 3);
 }
 
 /** `corners` counted from `v0`. Throws on a corner outside `v0..v1`. */
@@ -128,7 +134,7 @@ export function featureGeometry(layer: MltColumnLayer, index: number): MltFeatur
 
   if (isTrianglesOnly(geometry)) {
     // No outlines say which vertices are whose: a feature's are the span its triangles use.
-    const corners = featureCorners(geometry, index) ?? new Uint32Array(0);
+    const corners = featureCorners(geometry, index);
     let [v0, v1] = corners.length > 0 ? [corners[0], corners[0] + 1] : [0, 0];
     for (const corner of corners) {
       if (corner < v0) v0 = corner;
@@ -172,8 +178,10 @@ export function featureGeometry(layer: MltColumnLayer, index: number): MltFeatur
         for (let ring = r0 + 1; ring < r1; ring++) holeIndices.push(rings[ring] - a);
         polygons.push({ vertices: view(geometry, a, b), firstVertex: a, holeIndices });
       }
-      const corners = featureCorners(geometry, index);
-      const triangles = corners && rebase(corners, v0, v1, index);
+      const triangles =
+        geometry.indexBuffer === undefined
+          ? undefined
+          : rebase(featureCorners(geometry, index), v0, v1, index);
       return { kind: "polygon", type, vertices, firstVertex: v0, polygons, triangles };
     }
     default:

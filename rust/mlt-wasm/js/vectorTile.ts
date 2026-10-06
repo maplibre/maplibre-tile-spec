@@ -346,13 +346,21 @@ export class MltLayer3D extends LayerBase {
 // Entry points
 // ---------------------------------------------------------------------------
 
-/** Decode `data` and wrap each of its layers in `Layer`, keyed by layer name. */
+/**
+ * Decode `data` and wrap each of its layers in `Layer`, keyed by layer name.
+ *
+ * Throws when two layers share a name, since a record can hold only one of them;
+ * `decodeTileColumns` returns every layer.
+ */
 function decodeLayers<L>(
   data: Uint8Array,
   Layer: new (layer: MltColumnLayer) => L,
 ): Record<string, L> {
   const layers: Record<string, L> = {};
   for (const layer of decodeTileColumns(data).layers) {
+    if (Object.hasOwn(layers, layer.name)) {
+      throw new Error(`the tile has two layers named "${layer.name}"; decodeTileColumns keeps both`);
+    }
     layers[layer.name] = new Layer(layer);
   }
   return layers;

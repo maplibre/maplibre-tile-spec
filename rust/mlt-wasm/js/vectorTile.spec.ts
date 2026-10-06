@@ -63,3 +63,17 @@ describe("polygon rings are closed", () => {
     expect(ring[3]).not.toBe(ring[0]);
   });
 });
+
+describe("layers keyed by name", () => {
+  it("rejects a tile whose layers share a name, rather than keeping one", async () => {
+    // A tile is a sequence of layer frames, so a fixture twice over is a tile of two layers.
+    const point = new Uint8Array(
+      await readFile(new URL("../../../test/synthetic/0x01/point.mlt", import.meta.url)),
+    );
+    const twice = new Uint8Array(point.length * 2);
+    twice.set(point);
+    twice.set(point, point.length);
+    expect(Object.keys(decodeTile(point).layers)).toHaveLength(1);
+    expect(() => decodeTile(twice)).toThrow(/two layers named/);
+  });
+});

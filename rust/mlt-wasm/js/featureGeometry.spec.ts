@@ -113,6 +113,20 @@ describe("featureGeometry", () => {
     expect(() => featureGeometry(layer, 1)).toThrow(RangeError);
     expect(() => featureGeometry(layer, -1)).toThrow(RangeError);
   });
+
+  it("rejects triangles whose offsets stop before the feature", () => {
+    for (const name of ["0x02/z_poly_hole_tri", "0x02/z_poly_hole_tes"]) {
+      const layer = onlyLayer(name);
+      const { triangleOffsets } = layer.geometry;
+      if (triangleOffsets === undefined) throw new Error(`${name} has no triangle offsets`);
+      const cut = (offsets: Uint32Array | undefined): MltColumnLayer => ({
+        ...layer,
+        geometry: { ...layer.geometry, triangleOffsets: offsets },
+      });
+      expect(() => featureGeometry(cut(triangleOffsets.subarray(0, 1)), 0)).toThrow(/do not cover polygon 0/);
+      expect(() => featureGeometry(cut(undefined), 0)).toThrow(/do not cover polygon 0/);
+    }
+  });
 });
 
 describe("toElevation", () => {
