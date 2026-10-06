@@ -99,6 +99,10 @@ zstd.workspace = true
 workspace = true
 
 [[test]]
+name = "columnar_access"
+required-features = ["unstable-v2"]
+
+[[test]]
 name = "geojson"
 required-features = ["__private"]
 

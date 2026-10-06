@@ -13,7 +13,8 @@ mlt-wasm/
 │   ├── index.ts       # package entry point
 │   ├── wasm.ts        # the one module that imports pkg/
 │   ├── annotate.ts    # annotated-dump wire contract
-│   └── vectorTile.ts  # VectorTileLike wrapper
+│   ├── columns.ts     # typed-array layers, as decoded
+│   └── vectorTile.ts  # VectorTileLike wrapper over columns.ts
 ├── pkg/               # wasm-pack output (gitignored)
 ├── dist/              # tsc output (gitignored)
 ├── Cargo.toml
@@ -36,7 +37,8 @@ npm run build:wasm
 npm run build:ts
 ```
 
-`decodeTile` skips v2 layers unless the wasm is built with the `unstable-v2` feature, as `npm run build:test` does.
+The `unstable-v2` feature is on by default, so v2 layers decode. Building with
+`--no-default-features` skips them.
 
 ## Usage
 
@@ -51,11 +53,37 @@ for (const [name, layer] of Object.entries(tile.layers)) {
         const feature = layer.feature(i);
         console.log(feature.type);           // 1 | 2 | 3
         console.log(feature.id);             // number | undefined
-        console.log(feature.properties);     // fetched lazily from WASM
+        console.log(feature.properties);     // read from the decoded columns
         console.log(feature.loadGeometry()); // Point[][]
     }
 }
 ```
+
+### Columns
+
+`decodeTileColumns` hands each layer over as the typed arrays it decodes to, for consumers that
+build their own buffers, such as a renderer. Nothing per feature crosses the WASM boundary.
+
+```ts
+import { decodeTileColumns, isPresent } from '@maplibre/mlt-wasm';
+
+for (const layer of decodeTileColumns(data).layers) {
+    const { dimension, vertices, zStep } = layer.geometry;
+    // vertices: Int32Array of (x, y) pairs, or (x, y, z) triples when dimension is 3
+    // geometryOffsets, partOffsets, ringOffsets: cumulative offsets, left out when not needed
+    // triangleOffsets, indexBuffer: present on tessellated layers
+    for (const column of layer.properties) {
+        // column.values has one slot per feature; a slot without a value holds 0 or ""
+        const has0 = isPresent(column, 0);
+    }
+    // layer.mValues: v2 vertex-scoped columns, one value per vertex
+}
+```
+
+Each column is `{ name, type, values, present? }`. `present` is a bitmap with one bit per
+feature, LSB-first, left out when every feature has a value. `bool` comes as `0`/`1`, and
+64-bit integers, ids included, as `Float64Array`, so values above `Number.MAX_SAFE_INTEGER`
+lose precision.
 
 ### 3D
 
@@ -63,7 +91,7 @@ for (const [name, layer] of Object.entries(tile.layers)) {
 `loadGeometry()` and `loadPolygons()`, with every vertex an `[x, y, z]` array, so the rest of the
 code can assume 3D. It throws when any layer has no z coordinates, for which `decodeTile` reads the
 tile in 2D, and when any layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry
-layout, since tessellation is not supported in 3D.
+layout. `decodeTileColumns` reads every layout, in 2D and 3D.
 
 Like `x` and `y`, `z` is the stored integer: it lies on the layer's `zStep` grid, and its
 elevation is `-10000 + z * 10 ** zStep` metres.

@@ -14,7 +14,7 @@ use enum_dispatch::enum_dispatch;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::Alp;
 use crate::decoder::RawStream;
-use crate::utils::Presence;
+use crate::utils::PresentValues;
 use crate::{DecodeState, Lazy, PropKind};
 
 /// Property column representation, parameterized by decode state.
@@ -206,6 +206,7 @@ pub enum RawProperty<'a> {
 #[derive(Clone, Debug, PartialEq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 #[enum_dispatch(Analyze)]
+#[non_exhaustive]
 pub enum ParsedProperty<'a> {
     Bool(ParsedScalar<'a, bool>),
     I8(ParsedScalar<'a, i8>),
@@ -244,17 +245,14 @@ with_kinds!(impl_parsed_property_kind);
 
 /// Decoded scalar property column (bool, integer, or float).
 ///
-/// `presence` carries both the optional bitvector and the dense values.
-/// For a non-optional column, `presence` is [`Presence::AllPresent`] with all
-/// values inline. For an optional column, `presence` is [`Presence::Bits`] with
-/// `bits.count_ones() == values.len()`.
+/// `presence` carries which features have a value and the values themselves.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParsedScalar<'a, T: Copy + PartialEq> {
     pub(crate) name: &'a str,
-    pub(crate) presence: Presence<'a, T>,
+    pub(crate) presence: PresentValues<'a, T>,
 }
 impl<'a, T: Copy + PartialEq> Deref for ParsedScalar<'a, T> {
-    type Target = Presence<'a, T>;
+    type Target = PresentValues<'a, T>;
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.presence
