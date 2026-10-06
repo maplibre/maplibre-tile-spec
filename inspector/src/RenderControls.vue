@@ -29,6 +29,15 @@ const props = defineProps<{ layers: string[] }>();
     <button
       type="button"
       class="knob"
+      :class="{ on: view.stats }"
+      :aria-pressed="view.stats"
+      @click="view.stats = !view.stats"
+    >
+      Statistics
+    </button>
+    <button
+      type="button"
+      class="knob"
       :class="{ on: view.colorful }"
       :aria-pressed="view.colorful"
       @click="view.colorful = !view.colorful"

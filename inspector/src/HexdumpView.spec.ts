@@ -187,7 +187,7 @@ describe("the detail pane", () => {
   it("names the selected region and its span", () => {
     const pane = view(tinyTree(), 1);
     expect(pane.get("h2").text()).toBe("name");
-    expect(pane.get("dd").text()).toBe("0000 ... 0001 (2 B)");
+    expect(pane.get("aside dd").text()).toBe("0000 ... 0001 (2 B)");
   });
 
   it("waits for a region before it says anything", () => {
