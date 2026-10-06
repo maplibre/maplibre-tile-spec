@@ -38,6 +38,7 @@ const index = ref<FixtureEntry[]>([]);
 const view = ref<ViewState>({
   ...defaultView(),
   geo: readDeepLink(location.search).geo,
+  stats: readDeepLink(location.search).stats,
 });
 const tile = shallowRef<AnnotatedTile | null>(null);
 const decoded = shallowRef<FeatureCollection | null>(null);
@@ -225,6 +226,7 @@ async function restore(target: DeepLink) {
     filters.value = target.filters;
     query.value = target.query;
     view.value.geo = target.geo;
+    view.value.stats = target.stats;
     goHome();
     return;
   }
@@ -236,6 +238,7 @@ async function restore(target: DeepLink) {
   if (!current(at) || tile.value === null) return;
   view.value.layer = target.layer;
   view.value.geo = target.geo;
+  view.value.stats = target.stats;
   // With layer and region rather than before the awaits: on its own it would be a link
   // naming no tile yet, which the watcher would push as an entry of its own.
   filters.value = target.filters;
@@ -291,6 +294,7 @@ const link = computed<DeepLink>(() => ({
   filters: filters.value,
   query: query.value,
   geo: view.value.geo,
+  stats: view.value.stats,
 }));
 
 watch(link, (moved) => {

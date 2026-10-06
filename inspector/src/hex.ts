@@ -16,6 +16,8 @@ export interface ViewState {
   colorful: boolean;
   /** Whether the geometry panel is drawn, which a narrow window may not have room for. */
   geo: boolean;
+  /** Whether the statistics panel is drawn beside the geometry. */
+  stats: boolean;
   layer: number | null;
 }
 
@@ -25,6 +27,7 @@ export function defaultView(): ViewState {
     width: 16,
     colorful: false,
     geo: true,
+    stats: false,
     layer: null,
   };
 }
