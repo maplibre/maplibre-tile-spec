@@ -7,16 +7,17 @@ import type {
 import {
   decodeTileColumns,
   isPresent,
-  type MltColumn,
   type MltColumnLayer,
   MltGeometryType,
   type MltNamedColumn,
 } from "./columns";
 import {
-  featureGeometry,
+  featureCorners,
+  geometryStart,
   isTrianglesOnly,
-  type MltFeatureGeometry,
-  type MltPolygonRings,
+  lineStart,
+  polygonLevels,
+  runLength,
 } from "./featureGeometry";
 
 // ---------------------------------------------------------------------------
@@ -42,51 +43,36 @@ export type Position3D = [x: number, y: number, z: number];
 type VertexOf<T> = (i: number) => T;
 
 /**
- * Reads `count` vertices from `first`. With `close`, the first is appended again, as
+ * Reads vertices `start..end`. With `close`, the first is appended again, as
  * @mapbox/vector-tile closes rings; it is built anew, so callers that mutate vertices in
  * place don't move it twice.
  */
-function readRun<T>(vertex: VertexOf<T>, first: number, count: number, close: boolean): T[] {
+function readRun<T>(vertex: VertexOf<T>, start: number, end: number, close: boolean): T[] {
+  const count = runLength(start, end);
   if (count === 0) return [];
   const run = new Array(close ? count + 1 : count) as T[];
-  for (let k = 0; k < count; k++) run[k] = vertex(first + k);
-  if (close) run[count] = vertex(first);
+  for (let k = 0; k < count; k++) run[k] = vertex(start + k);
+  if (close) run[count] = vertex(start);
   return run;
 }
 
-/** A polygon's rings, each closed: the shell, then its holes. */
-function polygonRings<T>(polygon: MltPolygonRings, dimension: number, vertex: VertexOf<T>): T[][] {
-  const starts = [0, ...polygon.holeIndices, polygon.vertices.length / dimension];
-  return starts
-    .slice(1)
-    .map((end, k) => readRun(vertex, polygon.firstVertex + starts[k], end - starts[k], true));
+/** Rings `r0..r1`, each closed. */
+function closedRings<T>(rings: Uint32Array, r0: number, r1: number, vertex: VertexOf<T>): T[][] {
+  const out = new Array(r1 - r0) as T[][];
+  for (let r = r0; r < r1; r++) out[r - r0] = readRun(vertex, rings[r], rings[r + 1], true);
+  return out;
 }
 
 /**
- * A feature's geometry as @mapbox/vector-tile's rings: a ring of one per point, one per line,
- * and every polygon ring closed. A `TessPolygons` feature stores triangles without outlines,
- * so each triangle is a polygon of its own: its corners in index buffer order, closed.
+ * Each triangle as a closed ring of its corners, in index buffer order, for a `TessPolygons`
+ * feature, which stores no outlines.
  */
-function featureRings<T>(g: MltFeatureGeometry, dimension: number, vertex: VertexOf<T>): T[][] {
-  switch (g.kind) {
-    case "point":
-      return readRun(vertex, g.firstVertex, g.vertices.length / dimension, false).map((p) => [p]);
-    case "line":
-      return g.lines.map((line) =>
-        readRun(vertex, line.firstVertex, line.vertices.length / dimension, false),
-      );
-    case "polygon": {
-      if (g.polygons.length > 0 || g.triangles === undefined) {
-        return g.polygons.flatMap((polygon) => polygonRings(polygon, dimension, vertex));
-      }
-      const corner = (t: number) => vertex(g.firstVertex + (g.triangles as Uint32Array)[t]);
-      const rings: T[][] = [];
-      for (let t = 0; t < g.triangles.length; t += 3) {
-        rings.push([corner(t), corner(t + 1), corner(t + 2), corner(t)]);
-      }
-      return rings;
-    }
+function triangleRings<T>(corners: Uint32Array, vertex: VertexOf<T>): T[][] {
+  const rings = new Array(corners.length / 3) as T[][];
+  for (let t = 0; t < corners.length; t += 3) {
+    rings[t / 3] = [vertex(corners[t]), vertex(corners[t + 1]), vertex(corners[t + 2]), vertex(corners[t])];
   }
+  return rings;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,34 +89,11 @@ const MVT_TYPES = [
   POLYGON,
 ] as const;
 
-/** Everything a layer's features read, taken from its decoded columns. */
+/** A layer's decoded columns, and what its features read off them once per layer. */
 interface LayerData {
   readonly layer: MltColumnLayer;
-  readonly extent: number;
-  readonly mltTypes: Uint8Array;
-  readonly ids: MltColumn<Float64Array> | undefined;
-  readonly verts: Int32Array;
-  /** Words per vertex in `verts`: `2`, or `3` when z is interleaved. */
-  readonly stride: 2 | 3;
-  readonly zStep: number | undefined;
   /** A `TessPolygons` layer, which has triangles and no outlines to walk. */
   readonly trianglesOnly: boolean;
-  readonly properties: readonly MltNamedColumn[];
-}
-
-function readLayer(layer: MltColumnLayer): LayerData {
-  const geom = layer.geometry;
-  return {
-    layer,
-    extent: layer.extent,
-    mltTypes: geom.types,
-    ids: layer.ids,
-    verts: geom.vertices,
-    stride: geom.dimension,
-    zStep: geom.zStep,
-    trianglesOnly: isTrianglesOnly(geom),
-    properties: layer.properties,
-  };
 }
 
 /** Reads `column` at `index` as the value a feature's `properties` holds. */
@@ -155,7 +118,7 @@ abstract class FeatureBase<V> {
     protected readonly _featureIdx: number,
     protected readonly _layer: LayerData,
   ) {
-    this.extent = _layer.extent;
+    this.extent = _layer.layer.extent;
   }
 
   /**
@@ -164,7 +127,7 @@ abstract class FeatureBase<V> {
    */
   get mltType(): MltGeometryType {
     if (this._layer.trianglesOnly) return MltGeometryType.MultiPolygon;
-    return this._layer.mltTypes[this._featureIdx] as MltGeometryType;
+    return this._layer.layer.geometry.types[this._featureIdx] as MltGeometryType;
   }
 
   get type(): 0 | 1 | 2 | 3 {
@@ -172,7 +135,7 @@ abstract class FeatureBase<V> {
   }
 
   get id(): number | undefined {
-    const { ids } = this._layer;
+    const { ids } = this._layer.layer;
     if (ids === undefined || !isPresent(ids, this._featureIdx))
       return undefined;
     return ids.values[this._featureIdx];
@@ -180,7 +143,7 @@ abstract class FeatureBase<V> {
 
   get properties(): Record<string, number | string | boolean> {
     const result: Record<string, number | string | boolean> = {};
-    for (const column of this._layer.properties) {
+    for (const column of this._layer.layer.properties) {
       const value = propertyValue(column, this._featureIdx);
       if (value !== undefined) result[column.name] = value;
     }
@@ -190,23 +153,59 @@ abstract class FeatureBase<V> {
   /** Builds the value this feature's geometry holds for vertex `i`. */
   protected abstract vertex(): VertexOf<V>;
 
-  protected geometry(): MltFeatureGeometry {
-    return featureGeometry(this._layer.layer, this._featureIdx);
+  /** The run of geometries (points, lines or polygons) this feature is. */
+  protected geometries(): [start: number, end: number] {
+    const { geometry } = this._layer.layer;
+    return [geometryStart(geometry, this._featureIdx), geometryStart(geometry, this._featureIdx + 1)];
   }
 
+  /** A ring of one per point, one per line, and every polygon ring closed, as @mapbox/vector-tile. */
   protected rings(): V[][] {
-    return featureRings(this.geometry(), this._layer.stride, this.vertex());
+    const { geometry } = this._layer.layer;
+    const vertex = this.vertex();
+    if (this._layer.trianglesOnly) {
+      return triangleRings(featureCorners(geometry, this._featureIdx), vertex);
+    }
+    const [g0, g1] = this.geometries();
+    switch (this.type) {
+      case POINT: {
+        const [v0, v1] = [lineStart(geometry, g0), lineStart(geometry, g1)];
+        const points = new Array(runLength(v0, v1)) as V[][];
+        for (let v = v0; v < v1; v++) points[v - v0] = [vertex(v)];
+        return points;
+      }
+      case LINESTRING: {
+        const lines = new Array(g1 - g0) as V[][];
+        for (let line = g0; line < g1; line++) {
+          lines[line - g0] = readRun(vertex, lineStart(geometry, line), lineStart(geometry, line + 1), false);
+        }
+        return lines;
+      }
+      case POLYGON: {
+        // Flat ring list matching MVT convention - use loadPolygons() for grouped output.
+        const [parts, rings] = polygonLevels(geometry);
+        return closedRings(rings, parts[g0], parts[g1], vertex);
+      }
+      default:
+        return [];
+    }
   }
 
   /** Rings grouped by polygon; a triangle of a `TessPolygons` feature is a polygon of its own. */
   protected polygons(): V[][][] {
-    const g = this.geometry();
-    if (g.kind !== "polygon" || g.polygons.length === 0) {
-      const rings = featureRings(g, this._layer.stride, this.vertex());
-      return g.kind === "polygon" ? rings.map((ring) => [ring]) : [rings];
-    }
+    if (this.type !== POLYGON) return [this.rings()];
+    const { geometry } = this._layer.layer;
     const vertex = this.vertex();
-    return g.polygons.map((polygon) => polygonRings(polygon, this._layer.stride, vertex));
+    if (this._layer.trianglesOnly) {
+      return triangleRings(featureCorners(geometry, this._featureIdx), vertex).map((ring) => [ring]);
+    }
+    const [parts, rings] = polygonLevels(geometry);
+    const [g0, g1] = this.geometries();
+    const polygons = new Array(g1 - g0) as V[][][];
+    for (let polygon = g0; polygon < g1; polygon++) {
+      polygons[polygon - g0] = closedRings(rings, parts[polygon], parts[polygon + 1], vertex);
+    }
+    return polygons;
   }
 }
 
@@ -215,7 +214,7 @@ export class MltFeature
   implements VectorTileFeatureLike
 {
   /** The z grid as the power of ten of its step in metres, or `undefined` when the layer has none. */
-  readonly zStep: number | undefined = this._layer.zStep;
+  readonly zStep: number | undefined = this._layer.layer.geometry.zStep;
 
   loadGeometry(): Point[][] {
     return this.rings();
@@ -228,13 +227,12 @@ export class MltFeature
    * A `TessPolygons` feature has the z of each triangle corner, in index buffer order.
    */
   loadZ(): number[] {
-    if (this._layer.stride !== 3) return [];
-    const g = this.geometry();
-    const z = (i: number) => g.vertices[i * 3 + 2];
-    if (g.kind === "polygon" && this._layer.trianglesOnly) {
-      return Array.from(g.triangles ?? [], z);
-    }
-    return Array.from({ length: g.vertices.length / 3 }, (_, i) => z(i));
+    const { geometry } = this._layer.layer;
+    if (geometry.dimension !== 3) return [];
+    const z = (v: number) => geometry.vertices[v * 3 + 2];
+    if (this._layer.trianglesOnly) return Array.from(featureCorners(geometry, this._featureIdx), z);
+    const [g0, g1] = this.geometries();
+    return readRun(z, lineStart(geometry, g0), lineStart(geometry, g1), false);
   }
 
   /** Returns rings grouped by polygon - avoids the lossy winding-order heuristic in MVT's classifyRings. */
@@ -243,8 +241,8 @@ export class MltFeature
   }
 
   protected vertex(): VertexOf<Point> {
-    const { verts, stride } = this._layer;
-    return (i) => new Point(verts[i * stride], verts[i * stride + 1]);
+    const { vertices, dimension } = this._layer.layer.geometry;
+    return (i) => new Point(vertices[i * dimension], vertices[i * dimension + 1]);
   }
 }
 
@@ -269,8 +267,8 @@ export class MltFeature3D extends FeatureBase<Position3D> {
   }
 
   protected vertex(): VertexOf<Position3D> {
-    const { verts } = this._layer;
-    return (i) => [verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]];
+    const { vertices } = this._layer.layer.geometry;
+    return (i) => [vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]];
   }
 }
 
@@ -289,7 +287,7 @@ abstract class LayerBase {
   protected readonly _data: LayerData;
 
   constructor(layer: MltColumnLayer) {
-    this._data = readLayer(layer);
+    this._data = { layer, trianglesOnly: isTrianglesOnly(layer.geometry) };
     this.name = layer.name;
     this.extent = layer.extent;
     this.length = layer.featureCount;
@@ -302,7 +300,7 @@ export class MltLayer extends LayerBase implements VectorTileLayerLike {
   readonly version = 1 as const;
 
   /** The z grid as the power of ten of its step in metres, or `undefined` when the layer has none. */
-  readonly zStep: number | undefined = this._data.zStep;
+  readonly zStep: number | undefined = this._data.layer.geometry.zStep;
 
   feature(i: number): MltFeature {
     return new MltFeature(i, this._data);

@@ -114,6 +114,16 @@ describe("featureGeometry", () => {
     expect(() => featureGeometry(layer, -1)).toThrow(RangeError);
   });
 
+  it("rejects an offset level that runs backwards", () => {
+    const layer = onlyLayer("0x01/poly_hole");
+    const { ringOffsets } = layer.geometry;
+    if (ringOffsets === undefined) throw new Error("poly_hole has no ring offsets");
+    const backwards = Uint32Array.from(ringOffsets);
+    [backwards[1], backwards[2]] = [backwards[2], backwards[1]];
+    const broken: MltColumnLayer = { ...layer, geometry: { ...layer.geometry, ringOffsets: backwards } };
+    expect(() => featureGeometry(broken, 0)).toThrow(/ends before it starts/);
+  });
+
   it("rejects triangles whose offsets stop before the feature", () => {
     for (const name of ["0x02/z_poly_hole_tri", "0x02/z_poly_hole_tes"]) {
       const layer = onlyLayer(name);

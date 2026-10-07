@@ -79,6 +79,13 @@ function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
   return ordinals[index];
 }
 
+// ---------------------------------------------------------------------------
+// Walking the offset levels
+//
+// Numbers only. `vectorTile.ts` builds arrays of its own from these and must not pay for a
+// view per run; `featureGeometry` is the same walk with views on top.
+// ---------------------------------------------------------------------------
+
 /** A `TessPolygons` layer: triangles, and no outlines to walk. */
 export function isTrianglesOnly(geometry: MltGeometryColumns): boolean {
   return geometry.indexBuffer !== undefined && geometry.partOffsets === undefined;
@@ -89,8 +96,39 @@ function at(level: Uint32Array | undefined, i: number): number {
   return level === undefined ? i : level[i];
 }
 
+/** The first geometry (point, line or polygon) of feature `index`; `index + 1` gives its end. */
+export function geometryStart(geometry: MltGeometryColumns, index: number): number {
+  return at(geometry.geometryOffsets, index);
+}
+
+/**
+ * The first vertex of line `line`, which is one part, and in a layer with rings, one ring.
+ * Over a feature's geometry run, from `geometryStart`, it bounds the feature's vertices too.
+ */
+export function lineStart(geometry: MltGeometryColumns, line: number): number {
+  return at(geometry.ringOffsets, at(geometry.partOffsets, line));
+}
+
+/** The levels a polygon's rings are read from: a layer storing polygons has both. */
+export function polygonLevels(
+  geometry: MltGeometryColumns,
+): [parts: Uint32Array, rings: Uint32Array] {
+  const { partOffsets, ringOffsets } = geometry;
+  if (partOffsets === undefined || ringOffsets === undefined) {
+    throw new Error("a layer storing polygons has part and ring offsets, and this one has not");
+  }
+  return [partOffsets, ringOffsets];
+}
+
+/** The vertices in `start..end`. Throws when an offset level runs backwards. */
+export function runLength(start: number, end: number): number {
+  if (end < start) throw new Error(`a run of vertices ${start}..${end} ends before it starts`);
+  return end - start;
+}
+
 /** Vertices `start..end` of `geometry`, as a view. */
 function view(geometry: MltGeometryColumns, start: number, end: number): Int32Array {
+  runLength(start, end);
   return geometry.vertices.subarray(start * geometry.dimension, end * geometry.dimension);
 }
 
@@ -98,7 +136,7 @@ function view(geometry: MltGeometryColumns, start: number, end: number): Int32Ar
  * The triangle corners of polygon feature `index` of a tessellated layer, as layer vertex
  * indices. Throws when the layer's `triangleOffsets` stop before the feature.
  */
-function featureCorners(geometry: MltGeometryColumns, index: number): Uint32Array {
+export function featureCorners(geometry: MltGeometryColumns, index: number): Uint32Array {
   const { indexBuffer, triangleOffsets } = geometry;
   const ordinal = polygonOrdinal(geometry, index);
   const [t0, t1] = [triangleOffsets?.[ordinal], triangleOffsets?.[ordinal + 1]];
@@ -145,9 +183,8 @@ export function featureGeometry(layer: MltColumnLayer, index: number): MltFeatur
   }
 
   // Every offset level maps a run of its items to a run of the next, down to vertices.
-  const { geometryOffsets: geoms, partOffsets: parts, ringOffsets: rings } = geometry;
-  const [g0, g1] = [at(geoms, index), at(geoms, index + 1)];
-  const [v0, v1] = [at(rings, at(parts, g0)), at(rings, at(parts, g1))];
+  const [g0, g1] = [geometryStart(geometry, index), geometryStart(geometry, index + 1)];
+  const [v0, v1] = [lineStart(geometry, g0), lineStart(geometry, g1)];
   const vertices = view(geometry, v0, v1);
 
   switch (type) {
@@ -156,26 +193,29 @@ export function featureGeometry(layer: MltColumnLayer, index: number): MltFeatur
       return { kind: "point", type, vertices, firstVertex: v0 };
     case MltGeometryType.LineString:
     case MltGeometryType.MultiLineString: {
-      // A line is one geometry, one part, and in a layer with rings, one ring.
       const lines: MltVertexRun[] = [];
       for (let line = g0; line < g1; line++) {
-        const [a, b] = [at(rings, at(parts, line)), at(rings, at(parts, line + 1))];
+        const [a, b] = [lineStart(geometry, line), lineStart(geometry, line + 1)];
         lines.push({ vertices: view(geometry, a, b), firstVertex: a });
       }
       return { kind: "line", type, vertices, firstVertex: v0, lines };
     }
     case MltGeometryType.Polygon:
     case MltGeometryType.MultiPolygon: {
-      if (parts === undefined || rings === undefined) {
-        throw new Error(`polygon feature ${index} of layer "${layer.name}" has no rings`);
-      }
       // A polygon is one geometry, its parts are its rings.
+      const [parts, rings] = polygonLevels(geometry);
       const polygons: MltPolygonRings[] = [];
       for (let polygon = g0; polygon < g1; polygon++) {
         const [r0, r1] = [parts[polygon], parts[polygon + 1]];
         const [a, b] = [rings[r0], rings[r1]];
         const holeIndices: number[] = [];
-        for (let ring = r0 + 1; ring < r1; ring++) holeIndices.push(rings[ring] - a);
+        let previous = a;
+        for (let ring = r0 + 1; ring < r1; ring++) {
+          runLength(previous, rings[ring]);
+          previous = rings[ring];
+          holeIndices.push(previous - a);
+        }
+        runLength(previous, b);
         polygons.push({ vertices: view(geometry, a, b), firstVertex: a, holeIndices });
       }
       const triangles =

@@ -51,18 +51,16 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
         let parsed = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
         // `ParsedLayer` is non_exhaustive: a layer of a tag this binding does not know is skipped.
         let object = match &parsed {
-            ParsedLayer::Tag01(layer) => layer_object(layer, 1)?,
+            ParsedLayer::Tag01(layer) => layer_object(layer, 1, &Array::new())?,
             #[cfg(feature = "unstable-v2")]
             ParsedLayer::Tag02(layer) => {
-                let object = layer_object(layer.layer(), 2)?;
                 let geometry = layer.layer().geometry_values();
                 let m_values = Array::new();
                 for m_value in layer.m_values() {
                     let column = m_value_column(m_value, geometry)?;
                     m_values.push(&column);
                 }
-                set(&object, "mValues", &m_values);
-                object
+                layer_object(layer.layer(), 2, &m_values)?
             }
             _ => continue,
         };
@@ -71,8 +69,12 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
     Ok(layers)
 }
 
-/// The columns every wire version has, with an empty `mValues` that a v2 layer fills in.
-fn layer_object(layer: &ParsedLayer01<'_>, version: u8) -> Result<Object, JsError> {
+/// The columns every wire version has, plus `m_values`, which only a v2 layer has any of.
+fn layer_object(
+    layer: &ParsedLayer01<'_>,
+    version: u8,
+    m_values: &Array,
+) -> Result<Object, JsError> {
     let object = Object::new();
     set(&object, "name", &layer.name().into());
     set(&object, "extent", &layer.extent().get().into());
@@ -106,7 +108,7 @@ fn layer_object(layer: &ParsedLayer01<'_>, version: u8) -> Result<Object, JsErro
         return Err(JsError::new("a property name has no column"));
     }
     set(&object, "properties", &properties);
-    set(&object, "mValues", &Array::new());
+    set(&object, "mValues", m_values);
     Ok(object)
 }
 

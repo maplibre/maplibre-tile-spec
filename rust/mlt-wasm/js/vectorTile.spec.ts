@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import type Point from "@mapbox/point-geometry";
 import { describe, expect, it } from "vitest";
-import { decodeTile, type MltFeature, type MltLayer } from "./vectorTile";
+import { decodeTileColumns } from "./columns";
+import { decodeTile, type MltFeature, MltLayer } from "./vectorTile";
 
 interface Fixture {
   feature: MltFeature;
@@ -61,6 +62,19 @@ describe("polygon rings are closed", () => {
     const [ring] = (await load("poly")).feature.loadGeometry();
     expect(ring).toHaveLength(4);
     expect(ring[3]).not.toBe(ring[0]);
+  });
+});
+
+describe("malformed offsets", () => {
+  it("are rejected, not read past", async () => {
+    const mlt = await readFile(new URL("../../../test/synthetic/0x01/poly_hole.mlt", import.meta.url));
+    const [layer] = decodeTileColumns(new Uint8Array(mlt)).layers;
+    const { ringOffsets } = layer.geometry;
+    if (ringOffsets === undefined) throw new Error("poly_hole has no ring offsets");
+    const backwards = Uint32Array.from(ringOffsets);
+    [backwards[1], backwards[2]] = [backwards[2], backwards[1]];
+    const broken = new MltLayer({ ...layer, geometry: { ...layer.geometry, ringOffsets: backwards } });
+    expect(() => broken.feature(0).loadGeometry()).toThrow(/ends before it starts/);
   });
 });
 
