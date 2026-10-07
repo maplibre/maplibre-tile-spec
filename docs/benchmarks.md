@@ -134,14 +134,14 @@ Pick a dataset below; the [method](#method) applies to all of them.
     If you use for example `mbtiles diff` to construct an **binary diff**, the size reducing options above might not be in your interest.
     This is because as bsdiff patches between two versions you pay for every byte that differs between the old and the new tile.
     This means that encodings that keeps edits local beat ones that makes the tile smaller but rewrites it after the first changed value.
-    
+
     Here is our current recomendation for this workflow (with a few caveats, read table below)
-    
+
     ```terminal
     mlt convert --mlt-version 2 --delta2 --sort none --no-shared-dict --no-fsst --fields ./string_to_field_config.toml new.mbtiles new.mlt2.mbtiles
     mbtiles diff --strict --patch-type bin-diff-raw old.mlt2.mbtiles new.mlt2.mbtiles old_to_new.bindiff
     ```
-    
+
     | Option | For binary diffs | Rationale |
     |---|---|---|
     | `--mlt-version 2` | Use | Smaller tiles, less metadata, supports `--delta2`. |
