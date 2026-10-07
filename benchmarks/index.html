@@ -1133,6 +1133,92 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 </div>
 </div>
 </div>
+<div class="admonition tip">
+<p class="admonition-title">Binary-diff updates</p>
+<p>If you use for example <code>mbtiles diff</code> to construct an <strong>binary diff</strong>, the size reducing options above might not be in your interest.
+This is because as bsdiff patches between two versions you pay for every byte that differs between the old and the new tile.
+This means that encodings that keeps edits local beat ones that makes the tile smaller but rewrites it after the first changed value.</p>
+<p>Here is our current recomendation for this workflow (with a few caveats, read table below)</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mlt convert --mlt-version 2 --delta2 --sort none --no-shared-dict --no-fsst --fields ./string_to_field_config.toml new.mbtiles new.mlt2.mbtiles
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mbtiles diff --strict --patch-type bin-diff-raw old.mlt2.mbtiles new.mlt2.mbtiles old_to_new.bindiff
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>For binary diffs</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--mlt-version 2</code></td>
+<td>Use</td>
+<td>Smaller tiles, less metadata, supports <code>--delta2</code>.</td>
+</tr>
+<tr>
+<td><code>--delta2</code></td>
+<td>Use</td>
+<td>Densely sampled lines have tiny second differences, and an edit changes only the deltas next to it.</td>
+</tr>
+<tr>
+<td><code>--sort none</code></td>
+<td>Likely use</td>
+<td>Features keep their source order, so an edited feature does not move others. <em>Good/bad for bsdiff may be different based on data.</em></td>
+</tr>
+<tr>
+<td><code>--no-shared-dict</code></td>
+<td>Use</td>
+<td>One new string would renumber the dictionary shared by several columns.</td>
+</tr>
+<tr>
+<td><code>--no-fsst</code></td>
+<td>Use</td>
+<td>FSST trains its symbol table on the column, so one changed string can change every compressed string.</td>
+</tr>
+<tr>
+<td><code>--fields</code></td>
+<td>Use</td>
+<td>Numbers parsed out of strings are smaller as typed columns, and an edit changes only the values it touches.</td>
+</tr>
+<tr>
+<td><code>--no-alp</code></td>
+<td>Depends</td>
+<td>ALP stores a column as offsets from its minimum at one decimal scale, so a new minimum or a finer value changes every offset. Without it, floats are stored raw or dictionary-coded, and raw floats change only where a value changes.</td>
+</tr>
+<tr>
+<td><code>--no-float-dict</code></td>
+<td>Depends</td>
+<td>The float dictionary numbers values in order of first appearance, so a new or removed value renumbers every value after it. <em>Good/bad for bsdiff may be different based on data.</em></td>
+</tr>
+<tr>
+<td><code>--no-fastpfor</code></td>
+<td>Likely Avoid</td>
+<td>The patch stays the same, and the tiles grow. <em>Good/bad for bsdiff may be different based on data.</em></td>
+</tr>
+<tr>
+<td><code>--rans-vertices</code></td>
+<td>Avoid</td>
+<td>Every byte of the rANS stream after the first changed symbol differs, which roughly doubles the patch.</td>
+</tr>
+<tr>
+<td><code>--tile-compression gzip</code></td>
+<td>Avoid</td>
+<td>Deflate output differs after the first change. If wanted, compress the patch instead.</td>
+</tr>
+<tr>
+<td><code>--tessellate</code></td>
+<td>Avoid</td>
+<td>Adds triangles that change with every polygon edit, and the tiles grow by a fifth or more.</td>
+</tr>
+<tr>
+<td><code>--no-bitpacking</code></td>
+<td>Avoid</td>
+<td>Only string dictionary indexes are bit-packed.</td>
+</tr>
+</tbody>
+</table>
+</div>
 <h2 id="method">Method<a class="headerlink" href="#method" title="Link to this section">&para;</a></h2>
 <p>Decoding is timed on the same tiles sampled from each archive, up to 5,000 per zoom level, as the best of 15 runs on one core of an AMD Ryzen 9 3900.
 MVT is read with <a href="https://crates.io/crates/fast-mvt">fast-mvt</a>, the fastest known MVT library, and MLT with <code>decode_all</code>, so MLT gets no "unfair" gain from lazy per-attribute decoding.
