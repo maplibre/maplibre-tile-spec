@@ -130,19 +130,17 @@ export function decodeTileColumns(
 }
 
 /**
- * Feature `index`'s value in `column`, or `undefined` when the feature has none, or when
- * `index` is not a feature. A `bool` value comes as stored, `0` or `1`.
+ * Feature `index`'s value in `column`, or `undefined` when the feature has none.
  *
- * Reading many values, `values` and the `present` bitmap can also be read directly.
+ * Throws when `index` is not a feature, so that `undefined` only ever means no value.
  */
 export function columnValue<C extends MltColumn>(
   column: C,
   index: number,
 ): C["values"][number] | undefined {
   const { values, present } = column;
-  if (!Number.isInteger(index) || index < 0 || index >= values.length) return undefined;
-  if (present !== undefined && ((present[index >> 3] >> (index & 7)) & 1) === 0) {
-    return undefined;
+  if (!Number.isInteger(index) || index < 0 || index >= values.length) {
+    throw new RangeError(`the column has no feature ${index}`);
   }
   return values[index];
 }

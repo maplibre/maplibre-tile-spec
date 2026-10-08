@@ -63,10 +63,12 @@ describe("decodeTileColumns", () => {
     expect(Array.from(val.present ?? [])).toEqual([0b0101_0101]);
   });
 
-  it("reads nothing for an index that is not a feature", () => {
+  it("rejects an index that is not a feature, rather than reading it as no value", () => {
     const [val] = onlyLayer("0x02/prop_i32").properties;
     expect(columnValue(val, 0)).toBe(42);
-    for (const index of [-1, 1, 0.5, Number.NaN]) expect(columnValue(val, index)).toBeUndefined();
+    for (const index of [-1, 1, 0.5, Number.NaN]) {
+      expect(() => columnValue(val, index)).toThrow(RangeError);
+    }
   });
 
   it("leaves out the bitmap when every feature has a value", () => {
