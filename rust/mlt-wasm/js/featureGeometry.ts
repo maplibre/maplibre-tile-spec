@@ -227,12 +227,3 @@ export function featureGeometry(layer: MltColumnLayer, index: number): MltFeatur
       throw new Error(`feature ${index} of layer "${layer.name}" has unknown geometry type ${type}`);
   }
 }
-
-/**
- * The z of a vertex in metres, `-10000 + z * 10 ** zStep`, as mlt-core's `ZStep::elevation`:
- * a fine grid divides last, so `1001234` on the `-2` grid is exactly `12.34`.
- */
-export function toElevation(z: number, zStep: number): number {
-  const power = 10 ** Math.abs(zStep);
-  return zStep < 0 ? (z - 10000 * power) / power : -10000 + z * power;
-}

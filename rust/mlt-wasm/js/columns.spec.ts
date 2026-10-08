@@ -4,6 +4,7 @@ import {
   decodeTileColumns,
   columnValue,
   type MltColumnLayer,
+  toElevation,
 } from "./columns";
 
 function fixture(name: string): Uint8Array {
@@ -143,3 +144,16 @@ function concat(...parts: Uint8Array[]): Uint8Array {
   }
   return out;
 }
+
+describe("toElevation", () => {
+  it("offsets by -10000 m and scales by the step", () => {
+    expect(toElevation(10000, 0)).toBe(0);
+    expect(toElevation(21000, 0)).toBe(11000);
+    expect(toElevation(1012, 1)).toBe(120);
+  });
+
+  it("keeps a fine grid's decimals exact", () => {
+    expect(toElevation(1001234, -2)).toBe(12.34);
+    expect(toElevation(10012345, -3)).toBe(12.345);
+  });
+});

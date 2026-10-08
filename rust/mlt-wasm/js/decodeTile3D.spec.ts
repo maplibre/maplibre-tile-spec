@@ -1,8 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { getTestCases } from "../../../test/synthetic/synthetic-test-utils";
-import { MltGeometryType } from "./columns";
-import { toElevation } from "./featureGeometry";
+import { MltGeometryType, toElevation } from "./columns";
 import {
   decodeTile,
   decodeTile3D,

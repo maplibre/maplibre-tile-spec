@@ -86,7 +86,7 @@ export interface MltGeometryColumns2D extends MltGeometryColumnsBase {
 /** `(x, y, z)` vertices. */
 export interface MltGeometryColumns3D extends MltGeometryColumnsBase {
   readonly dimension: 3;
-  /** The z grid as the power of ten of its step in metres: `-10000 + z * 10 ** zStep` metres. */
+  /** The z grid as the power of ten of its step in metres; `toElevation` gives a z in metres. */
   readonly zStep: number;
 }
 
@@ -142,5 +142,15 @@ export function columnValue<C extends MltColumn>(
   if (!Number.isInteger(index) || index < 0 || index >= values.length) {
     throw new RangeError(`the column has no feature ${index}`);
   }
-  return values[index];
+  const has = present === undefined || ((present[index >> 3] >> (index & 7)) & 1) === 1;
+  return has ? values[index] : undefined;
+}
+
+/**
+ * A z of a 3D layer in metres, `-10000 + z * 10 ** zStep`, as mlt-core's `ZStep::elevation`:
+ * a fine grid divides last, so `1001234` on the `-2` grid is exactly `12.34`.
+ */
+export function toElevation(z: number, zStep: number): number {
+  const power = 10 ** Math.abs(zStep);
+  return zStep < 0 ? (z - 10000 * power) / power : -10000 + z * power;
 }

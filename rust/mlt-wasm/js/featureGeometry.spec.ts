@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { getTestCases } from "../../../test/synthetic/synthetic-test-utils";
 import { decodeTileColumns, type MltColumnLayer, MltGeometryType } from "./columns";
 import {
-  toElevation,
   featureGeometry,
   type MltFeatureGeometry,
 } from "./featureGeometry";
@@ -135,18 +134,5 @@ describe("featureGeometry", () => {
       expect(() => featureGeometry(cut(triangleOffsets.subarray(0, 1)), 0)).toThrow(/do not cover polygon 0/);
       expect(() => featureGeometry(cut(undefined), 0)).toThrow(/do not cover polygon 0/);
     }
-  });
-});
-
-describe("toElevation", () => {
-  it("offsets by -10000 m and scales by the step", () => {
-    expect(toElevation(10000, 0)).toBe(0);
-    expect(toElevation(21000, 0)).toBe(11000);
-    expect(toElevation(1012, 1)).toBe(120);
-  });
-
-  it("keeps a fine grid's decimals exact", () => {
-    expect(toElevation(1001234, -2)).toBe(12.34);
-    expect(toElevation(10012345, -3)).toBe(12.345);
   });
 });

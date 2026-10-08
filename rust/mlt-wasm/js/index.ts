@@ -27,9 +27,9 @@ export {
   type MltGeometryColumns3D,
   MltGeometryType,
   type MltNamedColumn,
+  toElevation,
 } from "./columns";
 export {
-  toElevation,
   featureGeometry,
   type MltFeatureGeometry,
   type MltLineGeometry,
