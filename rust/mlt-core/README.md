@@ -66,6 +66,8 @@ See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for additional pipeline docs.
 The diagram below shows the full lifecycle of tile data - from raw bytes on the wire,
 through lazy parsing and optional per-column decoding, to zero-copy iteration or
 fully owned row-form access, and back to encoded bytes via the columnar encode pipeline.
+A layer can also be written straight into that pipeline, one feature at a time from borrowed
+values, with `LayerWriter`, which encodes to MLT or MVT exactly as the same `TileLayer` would.
 
 ```mermaid
 flowchart TB
@@ -110,8 +112,12 @@ flowchart TB
            props:    Vec&lt;PropValue>"]
     end
 
+    W(["LayerWriter::feature()
+        features written from borrowed values
+        into flat columns"])
+
     subgraph ENC ["Encoding"]
-        J["StagedLayer::from(TileLayer)
+        J["stage_layer(&impl LayerSource)
            owned columnar form
            IdValues · GeometryValues · Vec&lt;StagedProperty>"]
 
@@ -132,13 +138,14 @@ flowchart TB
     A --> B --> C --> D --> E
     E -->|"borrow"| F --> G
     E -->|"own all data"| H --> I
-    I -->|"From&lt;TileLayer>"| J --> K --> L --> M --> N
+    I -->|"LayerSource"| J --> K --> L --> M --> N
+    W -->|"LayerSource"| J
 
     classDef io fill:#1e5c3a,color:#e8f5e9,stroke:#0a3d22
     classDef bridge fill:#4a1c6b,color:#f3e5f5,stroke:#2d0b45
     classDef dec fill:#1a3a5c,color:#e3f2fd,stroke:#0d1f35
     classDef enc fill:#5c2a1a,color:#fbe9e7,stroke:#3d1510
-    class A,N io
+    class A,N,W io
     class H,I bridge
     class B,C,D,E,F,G dec
     class J,K,L,M enc
@@ -152,6 +159,7 @@ flowchart TB
 | `LazyParsed<Raw, Parsed>` | Type-state wrapper: `Raw(RawStream)` before decoding, `Parsed(T)` after, `ParsingFailed` on error |
 | `ParsedLayer` = `Layer<Parsed>` | All columns decoded; borrow-based iteration via `iter_features()` |
 | `TileLayer` | Row-oriented, fully owned bridge between decode and encode |
+| `LayerWriter` | Columnar layer written feature by feature from borrowed values; reusable across layers |
 | `StagedLayer` | Owned columnar data ready for compression/encoding |
 | `EncodedLayer01` | Wire-ready columnar data; written by `write_to()` with size + tag prefix |
 
