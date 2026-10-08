@@ -1,31 +1,33 @@
-//! Row-oriented "source form" for the optimizer.
-//!
-//! [`TileLayer`] holds one [`TileFeature`] per map feature, each owning
-//! its geometry as a [`geo_types::Geometry<i32>`] and its property values as a
-//! plain `Vec<PropValue>`.  This is the working form used throughout the
-//! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
-//! and free from any encoded/decoded duality.
-//!
-//! Conversion from [`TileLayer`] to [`StagedLayer`] is done via
-//! [`StagedLayer::from_tile`] with pre-computed layer statistics.
+//! Staging: from the features a [`LayerSource`] provides to the columnar [`StagedLayer`] the
+//! wire encoders write.
 
 #[cfg(feature = "unstable-v2")]
 use std::collections::BTreeMap;
 
+use crate::PropValueRef;
 use crate::decoder::GeometryValues;
-use crate::encoder::geometry::coord_count;
-use crate::encoder::model::{CurveParams, StagedLayer};
-use crate::encoder::optimizer::{LayerStats, Presence, PropertyTypedStats, SharedDictRole};
-use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict};
+#[cfg(any(test, feature = "__private"))]
+use crate::encoder::SortStrategy;
+#[cfg(any(test, feature = "__private"))]
+use crate::encoder::model::CurveParams;
+use crate::encoder::model::StagedLayer;
+use crate::encoder::optimizer::{LayerStats, Presence, PropertyStats, SharedDictRole};
+#[cfg(any(test, feature = "__private"))]
+use crate::encoder::sort::sort_order;
+use crate::encoder::source::{LayerSource, Order};
+use crate::encoder::{EncoderConfig, StagedId, StagedProperty, StagedSharedDict};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::{
     StagedInterior, StagedLeaf, StagedList, StagedMValue, StagedNested, StagedNode, StagedStruct,
     StagedValues,
 };
+use crate::tile::PropKind;
+#[cfg(any(test, feature = "__private"))]
+use crate::tile::TileLayer;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValue, NestedKind, NestedValue, PropKind};
-use crate::tile::{PropValue, TileFeature, TileLayer};
+use crate::tile::{MValue, NestedKind, NestedValue, PropValue};
 
+#[cfg(any(test, feature = "__private"))]
 impl StagedLayer {
     /// Construct a [`StagedLayer`] from a row-oriented [`TileLayer`] using
     /// pre-computed layer statistics and curve parameters.
@@ -37,137 +39,144 @@ impl StagedLayer {
     /// When `tessellate` is `true`, polygon and multi-polygon geometries have
     /// their triangulation stored alongside the geometry.
     #[must_use]
-    #[hotpath::measure]
     pub fn from_tile(
-        mut source: TileLayer,
+        source: &TileLayer,
         sort: SortStrategy,
         stats: &LayerStats,
         tessellate: bool,
         curve_params: CurveParams,
     ) -> Self {
         assert!(source.feature_count() != 0, "empty tile");
-        source.sort(sort, curve_params);
-        let TileLayer {
-            name,
-            extent,
-            mut property_names,
-            property_kinds: _,
-            #[cfg(feature = "unstable-v2")]
-            m_value_names,
-            #[cfg(feature = "unstable-v2")]
-            m_value_kinds,
-            #[cfg(feature = "unstable-v2")]
-            nested_names,
-            #[cfg(feature = "unstable-v2")]
-            nested_kinds,
-            #[cfg(feature = "unstable-v2")]
-            z_step,
-            mut features,
-        } = source;
-        let mut geometry = if tessellate {
-            GeometryValues::new_tessellated()
-        } else {
-            GeometryValues::default()
+        let order = sort_order(source, sort, curve_params);
+        let options = StageOptions {
+            tessellate,
+            widen_8bit: false,
         };
-        geometry.reserve(
-            features.len(),
-            features.iter().map(|f| coord_count(f.geometry())).sum(),
-        );
-        for f in &features {
-            geometry.push_geom(f.geometry());
-        }
-        #[cfg(feature = "unstable-v2")]
-        if let Some(step) = z_step {
-            let z: Vec<i32> = features.iter().flat_map(|f| f.z.iter().copied()).collect();
-            geometry
-                .add_z(step, &z)
-                .expect("TileLayer holds one z per stored vertex");
-        }
+        stage_layer(source, &order, stats, options)
+    }
+}
 
-        let id = StagedId::from_optional_with_presence(
-            features.iter().map(TileFeature::id),
-            stats.id.as_ref(),
-        );
+/// How [`stage_layer`] stages a layer.
+#[derive(Clone, Copy)]
+pub(crate) struct StageOptions {
+    /// Store the triangulation of polygons alongside their geometry.
+    pub(crate) tessellate: bool,
+    /// Stage 8-bit integer columns as 32-bit ones, for encoders that lack them.
+    pub(crate) widen_8bit: bool,
+}
 
-        let shared_dict_columns = shared_dict_columns(stats);
-        let mut properties = Vec::with_capacity(property_names.len());
-        for (col_idx, shared_cols) in shared_dict_columns
-            .iter()
-            .enumerate()
-            .take(property_names.len())
-        {
-            let prop_analysis = stats
-                .properties
-                .get(col_idx)
-                .expect("analysis matches source property columns");
-            match prop_analysis.stats.shared_dict() {
-                SharedDictRole::Owner(prefix) => {
-                    properties.push(build_shared_dict(
-                        col_idx,
-                        &prefix,
-                        shared_cols,
-                        &property_names,
-                        stats,
-                        &features,
-                    ));
-                }
-                SharedDictRole::Member(_) => {}
-                SharedDictRole::None => {
-                    if let Some(prop) = build_scalar_column(
-                        std::mem::take(&mut property_names[col_idx]),
-                        col_idx,
-                        prop_analysis.presence,
-                        &prop_analysis.stats,
-                        &mut features,
-                    ) {
-                        properties.push(prop);
-                    }
-                }
-            }
-        }
-
-        #[cfg(feature = "unstable-v2")]
-        let nested = build_nested(&nested_names, &nested_kinds, &features);
-        #[cfg(feature = "unstable-v2")]
-        let m_values = build_m_values(&m_value_names, &m_value_kinds, &mut features);
-
+impl From<EncoderConfig> for StageOptions {
+    fn from(cfg: EncoderConfig) -> Self {
         Self {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-            #[cfg(feature = "unstable-v2")]
-            m_values,
-            #[cfg(feature = "unstable-v2")]
-            nested,
+            tessellate: cfg.tessellate(),
+            widen_8bit: !cfg.allow_8bit_ints(),
         }
     }
 }
 
-/// Gather each m-value column out of the features, in the row order the sort left them in.
+/// Stage the features of `source`, in `order`, using pre-computed layer statistics.
+#[hotpath::measure]
+pub(crate) fn stage_layer(
+    source: &impl LayerSource,
+    order: &Order,
+    stats: &LayerStats,
+    options: StageOptions,
+) -> StagedLayer {
+    let mut geometry = if options.tessellate {
+        GeometryValues::new_tessellated()
+    } else {
+        GeometryValues::default()
+    };
+    geometry.reserve(
+        source.feature_count(),
+        order.iter().map(|f| source.coord_count(f)).sum(),
+    );
+    for f in order.iter() {
+        source.push_geometry(f, &mut geometry);
+    }
+    #[cfg(feature = "unstable-v2")]
+    if let Some(step) = source.v2_layout().z_step {
+        let z: Vec<i32> = order
+            .iter()
+            .flat_map(|f| source.z(f).iter().copied())
+            .collect();
+        geometry
+            .add_z(step, &z)
+            .expect("the source holds one z per stored vertex");
+    }
+
+    let id = StagedId::from_optional_with_presence(
+        order.iter().map(|f| source.id(f)),
+        stats.id.as_ref(),
+    );
+
+    let property_count = source.property_count();
+    let shared_dict_columns = shared_dict_columns(stats);
+    let mut properties = Vec::with_capacity(property_count);
+    for (col_idx, shared_cols) in shared_dict_columns.iter().enumerate().take(property_count) {
+        let prop_analysis = stats
+            .properties
+            .get(col_idx)
+            .expect("analysis matches source property columns");
+        match prop_analysis.stats.shared_dict() {
+            SharedDictRole::Owner(prefix) => {
+                properties.push(build_shared_dict(
+                    &prefix,
+                    shared_cols,
+                    source,
+                    order,
+                    stats,
+                ));
+            }
+            SharedDictRole::Member(_) => {}
+            SharedDictRole::None => {
+                if let Some(prop) =
+                    build_scalar_column(source, order, col_idx, prop_analysis, options.widen_8bit)
+                {
+                    properties.push(prop);
+                }
+            }
+        }
+    }
+
+    StagedLayer {
+        name: source.name().to_owned(),
+        extent: source.extent(),
+        id,
+        geometry,
+        properties,
+        #[cfg(feature = "unstable-v2")]
+        m_values: build_m_values(source, order),
+        #[cfg(feature = "unstable-v2")]
+        nested: build_nested(source, order),
+    }
+}
+
+/// Gather each m-value column out of the features, in staging order.
 ///
 /// A feature with no values for a column clears its presence bit and contributes
 /// nothing to the values, which is the whole of how m-values are null.
 #[cfg(feature = "unstable-v2")]
-fn build_m_values(
-    names: &[String],
-    kinds: &[PropKind],
-    features: &mut [TileFeature],
-) -> Vec<StagedMValue> {
+fn build_m_values(source: &impl LayerSource, order: &Order) -> Vec<StagedMValue> {
     /// Gather one column, naming the run and the staged column that hold its kind of values.
     macro_rules! column {
         ($index:expr, $variant:ident) => {{
-            let (presence, values) = take_column($index, features, |m_value| match m_value {
-                MValue::$variant(run) => Some(run),
+            let (presence, values) = take_column(source, order, $index, |m_value| match m_value {
+                MValue::$variant(run) => Some(run.as_deref()),
                 _ => None,
             });
             (presence, StagedValues::$variant(values))
         }};
     }
 
-    let mut columns = Vec::with_capacity(names.len());
-    for (index, (name, &kind)) in names.iter().zip(kinds).enumerate() {
+    let layout = source.v2_layout();
+    let mut columns = Vec::with_capacity(layout.m_value_names.len());
+    for (index, (name, &kind)) in layout
+        .m_value_names
+        .iter()
+        .zip(layout.m_value_kinds)
+        .enumerate()
+    {
         let (presence, values) = match kind {
             PropKind::Bool => column!(index, Bool),
             PropKind::I8 => column!(index, I8),
@@ -191,44 +200,47 @@ fn build_m_values(
     columns
 }
 
-/// Move column `index` out of the features: which of them carry values, and the
-/// values themselves, flat in row order.
+/// Column `index` of the features in staging order: which of them carry values, and the
+/// values themselves, flat.
 ///
 /// `run` projects a feature's value to its run of `T`, and is [`None`] only for a
-/// value of another kind, which [`TileLayer`] rejects when the feature is pushed.
+/// value of another kind, which a source never holds.
 #[cfg(feature = "unstable-v2")]
-fn take_column<T>(
+fn take_column<T: Clone>(
+    source: &impl LayerSource,
+    order: &Order,
     index: usize,
-    features: &mut [TileFeature],
-    run: fn(&mut MValue) -> Option<&mut Option<Vec<T>>>,
+    run: fn(&MValue) -> Option<Option<&[T]>>,
 ) -> (Vec<bool>, Vec<T>) {
-    let mut presence = Vec::with_capacity(features.len());
+    let mut presence = Vec::with_capacity(source.feature_count());
     let mut values = Vec::new();
-    for feature in features {
-        let Some(m_value) = feature.m_values.get_mut(index) else {
+    for f in order.iter() {
+        let Some(m_value) = source.m_value(f, index) else {
             presence.push(false);
             continue;
         };
         let run = run(m_value).expect("m-value kind matches its column");
         presence.push(run.is_some());
-        values.extend(run.take().into_iter().flatten());
+        values.extend(run.into_iter().flatten().cloned());
     }
     (presence, values)
 }
 
-/// Shred each nested column out of the features, in the row order the sort left them in.
+/// Shred each nested column out of the features, in staging order.
 ///
 /// A map is shredded as a struct here, whichever of the two the writer then picks.
 #[cfg(feature = "unstable-v2")]
-fn build_nested(
-    names: &[String],
-    kinds: &[NestedKind],
-    features: &[TileFeature],
-) -> Vec<StagedNested> {
-    let mut columns = Vec::with_capacity(names.len());
-    for (index, (name, kind)) in names.iter().zip(kinds).enumerate() {
+fn build_nested(source: &impl LayerSource, order: &Order) -> Vec<StagedNested> {
+    let layout = source.v2_layout();
+    let mut columns = Vec::with_capacity(layout.nested_names.len());
+    for (index, (name, kind)) in layout
+        .nested_names
+        .iter()
+        .zip(layout.nested_kinds)
+        .enumerate()
+    {
         let inputs: Vec<Option<&NestedValue>> =
-            features.iter().map(|f| f.nested.get(index)).collect();
+            order.iter().map(|f| source.nested(f, index)).collect();
         let StagedNode::Interior(root) = shred(kind, &inputs) else {
             unreachable!("a nested column's root is never a leaf")
         };
@@ -342,134 +354,79 @@ fn shared_dict_columns(stats: &LayerStats) -> Vec<Vec<usize>> {
 }
 
 fn build_scalar_column(
-    name: String,
+    source: &impl LayerSource,
+    order: &Order,
     col: usize,
-    presence: Presence,
-    stats: &PropertyTypedStats,
-    features: &mut [TileFeature],
+    analysis: &PropertyStats,
+    widen_8bit: bool,
 ) -> Option<StagedProperty> {
-    if presence == Presence::AllNull {
+    let PropertyStats { presence, stats } = analysis;
+    if *presence == Presence::AllNull {
         return None;
     }
-
-    // Determine the variant by peeking at the first feature value.
-    // Typed nulls (e.g. `PropValue::Bool(None)`) already carry the column type,
-    // so no filtering is needed; only a fully-absent column returns `None` here.
-    // Fall back to `Str` if every feature has no value for this column.
-    let first_val = features.iter().find_map(|f| f.properties().get(col));
+    let name = source.property_name(col).to_owned();
+    let values = order.iter().map(|f| source.property(f, col));
 
     // Presence is precomputed before sort trials; this pass only gathers values
-    // in the selected row order.
-    macro_rules! scalar_col {
-        ($opt_ctor:ident, $non_opt_ctor:ident, $ty:ty, $sv:ident) => {{
-            Some(match presence {
-                Presence::AllNull => unreachable!("handled before variant dispatch"),
-                Presence::AllPresent => StagedProperty::$non_opt_ctor(
-                    name,
-                    features
-                        .iter()
-                        .map(|f| match f.properties().get(col) {
-                            Some(PropValue::$sv(Some(v))) => *v,
-                            _ => unreachable!("analysis guarantees present typed values"),
-                        })
-                        .collect(),
-                ),
-                Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::$opt_ctor(
-                    name,
-                    features.iter().map(|f| match f.properties().get(col) {
-                        Some(PropValue::$sv(v)) => *v,
-                        _ => None,
-                    }),
-                ),
+    // in the selected row order. `$convert` widens or narrows to the staged type.
+    macro_rules! column {
+        ($opt_ctor:ident, $ctor:ident, $variant:ident, $convert:expr) => {{
+            let values = values.map(|v| match v {
+                Some(PropValueRef::$variant(v)) => Some($convert(v)),
+                _ => None,
+            });
+            Some(if *presence == Presence::AllPresent {
+                let values = values.map(|v| v.expect("analysis guarantees present typed values"));
+                StagedProperty::$ctor(name, values.collect::<Vec<_>>())
+            } else {
+                StagedProperty::$opt_ctor(name, values)
             })
         }};
     }
 
-    // Narrows a 64-bit source column to a 32-bit destination, so the
-    // `FastPFOR` codec (32-bit only) becomes eligible.
-    macro_rules! narrow_col {
-        ($opt_ctor:ident, $non_opt_ctor:ident, $dst:ty, $sv:ident) => {{
-            Some(match presence {
-                Presence::AllNull => unreachable!("handled before variant dispatch"),
-                Presence::AllPresent => StagedProperty::$non_opt_ctor(
-                    name,
-                    features
-                        .iter()
-                        .map(|f| match f.properties().get(col) {
-                            Some(PropValue::$sv(Some(v))) => <$dst>::try_from(*v)
-                                .expect("analyzed range guarantees value fits narrowed type"),
-                            _ => unreachable!("analysis guarantees present typed values"),
-                        })
-                        .collect(),
-                ),
-                Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::$opt_ctor(
-                    name,
-                    features.iter().map(|f| match f.properties().get(col) {
-                        Some(PropValue::$sv(Some(v))) => Some(
-                            <$dst>::try_from(*v)
-                                .expect("analyzed range guarantees value fits narrowed type"),
-                        ),
-                        _ => None,
-                    }),
-                ),
-            })
-        }};
-    }
-
-    match first_val {
-        Some(PropValue::Bool(_)) => scalar_col!(opt_bool, bool, bool, Bool),
-        Some(PropValue::I8(_)) => scalar_col!(opt_i8, i8, i8, I8),
-        Some(PropValue::U8(_)) => scalar_col!(opt_u8, u8, u8, U8),
-        Some(PropValue::I32(_)) => scalar_col!(opt_i32, i32, i32, I32),
-        Some(PropValue::U32(_)) => scalar_col!(opt_u32, u32, u32, U32),
+    match source.property_kinds()[col] {
+        PropKind::Bool => column!(opt_bool, bool, Bool, |v| v),
+        PropKind::I8 if widen_8bit => column!(opt_i32, i32, I8, i32::from),
+        PropKind::I8 => column!(opt_i8, i8, I8, |v| v),
+        PropKind::U8 if widen_8bit => column!(opt_u32, u32, U8, u32::from),
+        PropKind::U8 => column!(opt_u8, u8, U8, |v| v),
+        PropKind::I32 => column!(opt_i32, i32, I32, |v| v),
+        PropKind::U32 => column!(opt_u32, u32, U32, |v| v),
         // `u32` is tried before `i32` since `values_fit_u32` requires `min >= 0`.
-        Some(PropValue::I64(_)) if stats.values_fit_u32() => narrow_col!(opt_u32, u32, u32, I64),
-        Some(PropValue::I64(_)) if stats.values_fit_i32() => narrow_col!(opt_i32, i32, i32, I64),
-        Some(PropValue::I64(_)) => scalar_col!(opt_i64, i64, i64, I64),
-        Some(PropValue::U64(_)) if stats.values_fit_u32() => narrow_col!(opt_u32, u32, u32, U64),
-        Some(PropValue::U64(_)) => scalar_col!(opt_u64, u64, u64, U64),
-        Some(PropValue::F32(_)) => scalar_col!(opt_f32, f32, f32, F32),
-        Some(PropValue::F64(_)) => scalar_col!(opt_f64, f64, f64, F64),
-        Some(PropValue::Str(_)) | None => Some(match presence {
-            Presence::AllNull => unreachable!("handled before variant dispatch"),
-            Presence::AllPresent => StagedProperty::str(
-                name,
-                features
-                    .iter_mut()
-                    .map(|f| match f.properties_mut().get_mut(col) {
-                        Some(PropValue::Str(Some(v))) => std::mem::take(v),
-                        _ => unreachable!("analysis guarantees present string values"),
-                    }),
-            ),
-            Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::opt_str(
-                name,
-                features
-                    .iter_mut()
-                    .map(|f| match f.properties_mut().get_mut(col) {
-                        Some(PropValue::Str(v)) => v.take(),
-                        _ => None,
-                    }),
-            ),
-        }),
+        PropKind::I64 if stats.values_fit_u32() => column!(opt_u32, u32, I64, narrow),
+        PropKind::I64 if stats.values_fit_i32() => column!(opt_i32, i32, I64, narrow),
+        PropKind::I64 => column!(opt_i64, i64, I64, |v| v),
+        PropKind::U64 if stats.values_fit_u32() => column!(opt_u32, u32, U64, narrow),
+        PropKind::U64 => column!(opt_u64, u64, U64, |v| v),
+        PropKind::F32 => column!(opt_f32, f32, F32, |v| v),
+        PropKind::F64 => column!(opt_f64, f64, F64, |v| v),
+        PropKind::Str => column!(opt_str, str, Str, |v| v),
     }
 }
 
+/// Narrowing a 64-bit column to 32 bits makes the `FastPFOR` codec (32-bit only) eligible.
+fn narrow<S, D>(value: S) -> D
+where
+    D: TryFrom<S>,
+    D::Error: std::fmt::Debug,
+{
+    D::try_from(value).expect("analyzed range guarantees value fits narrowed type")
+}
+
 fn build_shared_dict(
-    owner_col: usize,
     prefix: &str,
     shared_dict_columns: &[usize],
-    property_names: &[String],
+    source: &impl LayerSource,
+    order: &Order,
     analysis: &LayerStats,
-    features: &[TileFeature],
 ) -> StagedProperty {
-    debug_assert_eq!(shared_dict_columns.first(), Some(&owner_col));
     let columns = shared_dict_columns.iter().copied().map(|col_idx| {
-        let name = &property_names[col_idx];
+        let name = source.property_name(col_idx);
         let suffix = name.strip_prefix(prefix).unwrap_or(name).to_owned();
-        let values = features
+        let values = order
             .iter()
-            .map(move |f| match f.properties().get(col_idx) {
-                Some(PropValue::Str(s)) => s.as_deref(),
+            .map(move |f| match source.property(f, col_idx) {
+                Some(PropValueRef::Str(s)) => Some(s),
                 _ => None,
             });
         let presence = analysis.properties[col_idx].presence;
@@ -486,10 +443,10 @@ mod tests {
     use geo_types::Point;
 
     use super::*;
-    use crate::Layer;
     use crate::decoder::GeometryValues;
     use crate::encoder::{Codecs, Encoder};
     use crate::test_helpers::{dec, parser};
+    use crate::{Layer, PropValue};
 
     fn layer_tile(staged: StagedLayer) -> TileLayer {
         let mut codecs = Codecs::default();
