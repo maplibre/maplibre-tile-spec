@@ -89,7 +89,7 @@ mod tests {
             nested_kinds: vec![],
             #[cfg(feature = "unstable-v2")]
             z_step: None,
-       https://github.com/maplibre/maplibre-tile-spec/pull/1889     features: vec![],
+            features: vec![],
         };
 
         assert!(matches!(
