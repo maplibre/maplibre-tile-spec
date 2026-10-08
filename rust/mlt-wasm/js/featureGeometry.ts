@@ -15,8 +15,7 @@ interface MltFeatureGeometryBase {
   /** This feature's vertices, `dimension` words each. */
   readonly vertices: Int32Array;
   /**
-   * Where `vertices` starts in the layer's vertex sequence, which m-value columns and other
-   * per-vertex arrays run over.
+   * Where `vertices` starts in the layer's vertex sequence, which per-vertex arrays run over.
    */
   readonly firstVertex: number;
 }

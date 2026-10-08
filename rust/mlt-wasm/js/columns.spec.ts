@@ -1,14 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  compareWithTolerance,
-  getTestCases,
-} from "../../../test/synthetic/synthetic-test-utils";
-import {
   decodeTileColumns,
   isPresent,
   type MltColumnLayer,
-  type MltNamedColumn,
 } from "./columns";
 
 function fixture(name: string): Uint8Array {
@@ -31,7 +26,6 @@ describe("decodeTileColumns", () => {
     expect(layer.geometry.zStep).toBeUndefined();
     expect(Array.from(layer.geometry.vertices)).toEqual([13, 42]);
     expect(layer.ids).toBeUndefined();
-    expect(layer.mValues).toEqual([]);
   });
 
   it("interleaves z after x and y", () => {
@@ -95,78 +89,6 @@ describe("decodeTileColumns", () => {
     expect(geometry.indexBuffer).toBeDefined();
   });
 });
-
-type Expected = {
-  features: { properties: Record<string, unknown> }[];
-};
-
-/** Each m-value fixture's expected `m:` arrays, one value per vertex the feature stores. */
-describe("m-values line up with vertices", () => {
-  expect.addEqualityTesters([compareWithTolerance]);
-  const cases = getTestCases([]).active.filter(({ name }) =>
-    /^0x02\/(z_)?mvalues/.test(name),
-  );
-  it("covers the m-value fixtures", () => {
-    expect(cases.length).toBeGreaterThan(30);
-  });
-  for (const { name, content, fileName } of cases) {
-    it(name, () => {
-      const expected = (content as Expected).features;
-      const { layers } = decodeTileColumns(
-        new Uint8Array(readFileSync(fileName)),
-      );
-      let next = 0;
-      for (const layer of layers) {
-        for (let f = 0; f < layer.featureCount; f++) {
-          const { properties } = expected[next++];
-          const [start, end] = vertexRange(layer, f);
-          const expectedKeys = Object.keys(properties).filter((k) =>
-            k.startsWith("m:"),
-          );
-          const presentKeys = layer.mValues
-            .filter((column) => isPresent(column, f))
-            .map((column) => `m:${column.name}`);
-          expect(presentKeys.sort()).toEqual(expectedKeys.sort());
-          for (const column of layer.mValues) {
-            const key = `m:${column.name}`;
-            if (!isPresent(column, f)) {
-              expect(properties[key]).toBeUndefined();
-              continue;
-            }
-            const actual = mValues(column, start, end);
-            expect(actual).toEqual(properties[key]);
-          }
-        }
-      }
-      expect(next).toBe(expected.length);
-      expect(layers.some((layer) => layer.mValues.length > 0)).toBe(true);
-    });
-  }
-});
-
-/** The vertices feature `f` owns, by descending every offset level the layer has. */
-function vertexRange(layer: MltColumnLayer, f: number): [number, number] {
-  const { geometryOffsets, partOffsets, ringOffsets } = layer.geometry;
-  let [start, end] = [f, f + 1];
-  for (const offsets of [geometryOffsets, partOffsets, ringOffsets]) {
-    if (offsets !== undefined) [start, end] = [offsets[start], offsets[end]];
-  }
-  return [start, end];
-}
-
-/**
- * The values of `column` over vertices `start..end`. `compareWithTolerance` matches the
- * fixtures' NaN and infinity spellings, so only bools need converting.
- */
-function mValues(
-  column: MltNamedColumn,
-  start: number,
-  end: number,
-): unknown[] {
-  return Array.from(column.values.slice(start, end), (value) =>
-    column.type === "bool" ? value === 1 : value,
-  );
-}
 
 describe("the layers option", () => {
   // A tile is a sequence of layer frames, so fixtures concatenate into a multi-layer tile.

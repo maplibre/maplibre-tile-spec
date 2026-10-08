@@ -11,7 +11,7 @@ export enum MltGeometryType {
 }
 
 /**
- * The array each column type comes as, one value per feature (per vertex for an m-value column).
+ * The array each column type comes as, one value per feature.
  *
  * `bool` comes as `0`/`1` in a `Uint8Array`. `i64` and `u64` come as `Float64Array`, so values
  * above `Number.MAX_SAFE_INTEGER` lose precision.
@@ -29,7 +29,7 @@ interface MltColumnValuesByType {
   string: string[];
 }
 
-/** The type a property or m-value column was stored as. */
+/** The type a property column was stored as. */
 export type MltColumnType = keyof MltColumnValuesByType;
 
 export type MltColumnValues = MltColumnValuesByType[MltColumnType];
@@ -43,7 +43,7 @@ export interface MltColumn<V extends MltColumnValues = MltColumnValues> {
   readonly present?: Uint8Array;
 }
 
-/** A property or m-value column. Checking `type` narrows `values` to its array. */
+/** A property column. Checking `type` narrows `values` to its array. */
 export type MltNamedColumn = {
   [T in MltColumnType]: MltColumn<MltColumnValuesByType[T]> & {
     readonly name: string;
@@ -101,11 +101,9 @@ export interface MltColumnLayer {
   readonly ids?: MltColumn<Float64Array>;
   /**
    * In wire order, a shared dictionary's children named by its prefix and their own names.
-   * v2 nested columns are not passed on.
+   * v2 vertex-scoped (m-value) and nested columns are not passed on.
    */
   readonly properties: readonly MltNamedColumn[];
-  /** v2 vertex-scoped columns, one value per vertex in `geometry.vertices` order. */
-  readonly mValues: readonly MltNamedColumn[];
 }
 
 export interface MltColumnTile {

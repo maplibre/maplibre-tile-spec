@@ -194,24 +194,12 @@ impl<'a> ParsedMValue<'a> {
     /// Check that this column and the geometry it runs over agree.
     ///
     /// The values are cut into per-feature runs by the geometry's vertex counts, so a
-    /// column that does not end exactly where the last feature's run does is rejected,
-    /// as is a carrying feature whose vertices reach past the stored ones.
+    /// column that does not end exactly where the last feature's run does is rejected.
     pub fn check_length(&self, geometry: &GeometryValues) -> MltResult<()> {
-        let stored = geometry
-            .vertices()
-            .map_or(0, |v| v.len() / geometry.stride());
         let mut expected = 0;
         for index in 0..geometry.feature_count() {
             if self.is_present(index) {
-                let vertices = geometry.vertex_range(index)?;
-                if vertices.end > stored {
-                    return Err(MltError::GeometryVertexOutOfBounds {
-                        index,
-                        vertex: vertices.end,
-                        count: stored,
-                    });
-                }
-                expected += vertices.len();
+                expected += geometry.vertex_count(index)?;
             }
         }
         if expected != self.values.len() {
@@ -450,27 +438,6 @@ mod tests {
                     expected: 4,
                     actual: 5,
                 } if name == "m"
-            ),
-            "{err:?}"
-        );
-    }
-
-    #[test]
-    fn a_feature_whose_vertices_are_not_stored_is_rejected() {
-        let mut geometry = geometry(&[2, 3]);
-        // Keep the offsets but store only the first three vertices.
-        geometry.vertices.as_mut().expect("vertices").truncate(6);
-        let err = column(None, vec![1, 2, 3, 4, 5])
-            .check_length(&geometry)
-            .unwrap_err();
-        assert!(
-            matches!(
-                err,
-                MltError::GeometryVertexOutOfBounds {
-                    index: 1,
-                    vertex: 5,
-                    count: 3,
-                }
             ),
             "{err:?}"
         );

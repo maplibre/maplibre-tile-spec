@@ -76,7 +76,7 @@ for (const layer of decodeTileColumns(data).layers) {
         // column.values has one slot per feature; a slot without a value holds 0 or ""
         const has0 = isPresent(column, 0);
     }
-    // layer.mValues: v2 vertex-scoped columns, one value per vertex
+    // v2 vertex-scoped (m-value) and nested columns are not passed on
 }
 ```
 
@@ -109,6 +109,44 @@ const lngLat = toLngLat(g.vertices, layer, { z, x, y });
 ```
 
 `toElevation(z, zStep)` converts one z to metres, exactly as `mlt-core` does.
+
+#### Building GPU buffers
+
+`layer.geometry.vertices` can be uploaded as the vertex buffer as it is: `dimension` integers per
+vertex, read as `ivec2` or `ivec3` in the shader. What a renderer adds next to it depends on whether
+its shapes need tessellation on the CPU.
+
+Shapes drawn as they are, such as points and lines (thick lines can be extruded in the vertex
+shader), need per-vertex ids to break lines apart and to look up a feature's style or pick it.
+`featureGeometry` places each line in the layer's vertex sequence:
+
+```ts
+// Vertices of other features keep NO_LINE; a segment is drawn only if both ends are the same line.
+const NO_LINE = 0xffffffff;
+const { dimension, vertices } = layer.geometry;
+const lineOfVertex = new Uint32Array(vertices.length / dimension).fill(NO_LINE);
+const featureOfLine: number[] = [];
+for (let f = 0; f < layer.featureCount; f++) {
+    const g = featureGeometry(layer, f);
+    if (g.kind !== 'line') continue;
+    for (const line of g.lines) {
+        lineOfVertex.fill(featureOfLine.length, line.firstVertex, line.firstVertex + line.vertices.length / dimension);
+        featureOfLine.push(f);
+    }
+}
+```
+
+Shapes that need tessellation work one feature at a time instead:
+
+- A tessellation that only adds triangles keeps the vertex buffer: earcut's indices are counted from the
+  polygon's view, so adding its `firstVertex` makes them an index buffer over `vertices`. A tessellated
+  layer's triangles are that already.
+- A tessellation that creates vertices, such as ribbons with joins built on the CPU or extruded walls,
+  writes a buffer of its own, and tags its output with the feature it came from.
+
+`featureGeometry` costs per feature, not per vertex. On a 1.3 MB tile of 1,333 line features and
+524,482 vertices, the loop above takes about 0.4 ms, against about 3.7 ms for `decodeTileColumns`
+(Node, one machine).
 
 ### 3D
 

@@ -5,9 +5,6 @@
 //! Every array is copied out of WASM memory once: a view into it would be detached the next
 //! time that memory grows.
 
-#[cfg(feature = "unstable-v2")]
-use std::ops::Range;
-
 use js_sys::{
     Array, Float32Array, Float64Array, Int8Array, Int32Array, Object, Reflect, Uint8Array,
     Uint32Array,
@@ -16,8 +13,6 @@ use mlt_core::{
     Decoder, GeometryValues, ParsedLayer, ParsedLayer01, ParsedProperty, ParsedStrings, Parser,
     PresentValues, PropKind, ZStep,
 };
-#[cfg(feature = "unstable-v2")]
-use mlt_core::{MValues, ParsedMValue};
 use wasm_bindgen::prelude::*;
 
 use crate::to_js_err;
@@ -51,17 +46,10 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
         let parsed = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
         // `ParsedLayer` is non_exhaustive: a layer of a tag this binding does not know is skipped.
         let object = match &parsed {
-            ParsedLayer::Tag01(layer) => layer_object(layer, 1, &Array::new())?,
+            ParsedLayer::Tag01(layer) => layer_object(layer, 1)?,
+            // A v2 layer's vertex-scoped and nested columns are not passed on.
             #[cfg(feature = "unstable-v2")]
-            ParsedLayer::Tag02(layer) => {
-                let geometry = layer.layer().geometry_values();
-                let m_values = Array::new();
-                for m_value in layer.m_values() {
-                    let column = m_value_column(m_value, geometry)?;
-                    m_values.push(&column);
-                }
-                layer_object(layer.layer(), 2, &m_values)?
-            }
+            ParsedLayer::Tag02(layer) => layer_object(layer.layer(), 2)?,
             _ => continue,
         };
         layers.push(&object);
@@ -69,12 +57,8 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
     Ok(layers)
 }
 
-/// The columns every wire version has, plus `m_values`, which only a v2 layer has any of.
-fn layer_object(
-    layer: &ParsedLayer01<'_>,
-    version: u8,
-    m_values: &Array,
-) -> Result<Object, JsError> {
+/// The columns every wire version has.
+fn layer_object(layer: &ParsedLayer01<'_>, version: u8) -> Result<Object, JsError> {
     let object = Object::new();
     set(&object, "name", &layer.name().into());
     set(&object, "extent", &layer.extent().get().into());
@@ -108,7 +92,6 @@ fn layer_object(
         return Err(JsError::new("a property name has no column"));
     }
     set(&object, "properties", &properties);
-    set(&object, "mValues", m_values);
     Ok(object)
 }
 
@@ -174,87 +157,6 @@ fn property_columns(property: &ParsedProperty<'_>) -> Result<Vec<ColumnParts>, J
         }
     };
     Ok(vec![(type_name(property.kind()), values, present)])
-}
-
-/// One value per vertex of the layer's vertex sequence, so it lines up with `vertices`.
-/// A feature that carries none leaves its vertices at `0` or `""`, and `present` marks it.
-#[cfg(feature = "unstable-v2")]
-fn m_value_column(
-    m_value: &ParsedMValue<'_>,
-    geometry: &GeometryValues,
-) -> Result<Object, JsError> {
-    let vertex_count = geometry
-        .vertices()
-        .map_or(0, |v| v.len() / geometry.stride());
-    // Where each carrying feature's values go: its vertices, and its run of the column.
-    let mut runs: Vec<(Range<usize>, Range<usize>)> = Vec::new();
-    for (feature, span) in m_value.spans(geometry).enumerate() {
-        if let Some(span) = span.map_err(|e| to_js_err(&e))? {
-            let vertices = geometry.vertex_range(feature).map_err(|e| to_js_err(&e))?;
-            runs.push((vertices, span));
-        }
-    }
-    let present = bitmap(geometry.feature_count(), |f| m_value.is_present(f));
-    let name = m_value.name();
-
-    let values = match m_value.values() {
-        MValues::Bool(v) => JsElement::js_array(&spread(name, v, &runs, vertex_count)?),
-        MValues::I8(v) => JsElement::js_array(&spread(name, v, &runs, vertex_count)?),
-        MValues::U8(v) => JsElement::js_array(&spread(name, v, &runs, vertex_count)?),
-        MValues::I32(v) => JsElement::js_array(&spread(name, v, &runs, vertex_count)?),
-        MValues::U32(v) => JsElement::js_array(&spread(name, v, &runs, vertex_count)?),
-        MValues::I64(v) => JsElement::js_array(&spread(name, v, &runs, vertex_count)?),
-        MValues::U64(v) => JsElement::js_array(&spread(name, v, &runs, vertex_count)?),
-        MValues::F32(v) => JsElement::js_array(&spread(name, v, &runs, vertex_count)?),
-        MValues::F64(v) => JsElement::js_array(&spread(name, v, &runs, vertex_count)?),
-        MValues::Str(s) => {
-            let values = (0..s.feature_count())
-                .map(|i| {
-                    string_at(s, i).ok_or_else(|| {
-                        JsError::new(&format!("m-value column {name:?}: value {i} is absent"))
-                    })
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            spread(name, &values, &runs, vertex_count)?
-                .into_iter()
-                .map(JsValue::from_str)
-                .collect::<Array>()
-                .into()
-        }
-    };
-    Ok(column(
-        Some((name, type_name(m_value.values().kind()))),
-        &values,
-        present.as_ref(),
-    ))
-}
-
-/// Lay `values` out over `len` vertices: each run of them onto the vertices that carry it.
-///
-/// Decoding the layer ran `check_length`, which keeps every run inside both buffers. A run
-/// that does not fit is still an error rather than a panic, which would abort the WASM
-/// instance.
-#[cfg(feature = "unstable-v2")]
-fn spread<T: Copy + Default>(
-    name: &str,
-    values: &[T],
-    runs: &[(Range<usize>, Range<usize>)],
-    len: usize,
-) -> Result<Vec<T>, JsError> {
-    let mut out = vec![T::default(); len];
-    for (vertices, span) in runs {
-        match (out.get_mut(vertices.clone()), values.get(span.clone())) {
-            (Some(dst), Some(src)) if dst.len() == src.len() => dst.copy_from_slice(src),
-            _ => {
-                return Err(JsError::new(&format!(
-                    "m-value column {name:?}: values {span:?} do not fit vertices {vertices:?} \
-                     of its {} values and the layer's {len} vertices",
-                    values.len()
-                )));
-            }
-        }
-    }
-    Ok(out)
 }
 
 /// `{ name, type, values, present }`, leaving out `name` and `type` for the id column and
