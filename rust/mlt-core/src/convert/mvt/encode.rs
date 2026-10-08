@@ -4,6 +4,7 @@ use std::borrow::Borrow;
 
 use fast_mvt::{MvtTileBuilder, MvtValueRef};
 
+use crate::encoder::LayerSource;
 use crate::tile::TileLayer;
 use crate::{MltError, MltResult, PropValueRef};
 
@@ -18,19 +19,22 @@ pub fn tile_layers_to_mvt(
     Ok(tile.encode())
 }
 
-/// Adds `source` to `tile`, writing each feature straight from the layer.
-fn write_mvt_layer(source: &TileLayer, tile: MvtTileBuilder) -> MltResult<MvtTileBuilder> {
+/// Adds `source` to `tile`, writing each feature straight from the source.
+pub(crate) fn write_mvt_layer(
+    source: &impl LayerSource,
+    tile: MvtTileBuilder,
+) -> MltResult<MvtTileBuilder> {
     if source.name().is_empty() {
         return Err(MltError::MissingLayerName);
     }
     let mut layer = tile.layer(source.name())?;
     layer.extent(source.extent().into());
-    for feature in source.features() {
-        let mut out = layer.feature(feature.geometry())?;
-        out.id(feature.id());
-        for (name, prop) in source.property_names().iter().zip(feature.properties()) {
-            if let Some(value) = prop.value_ref() {
-                out.tag_ref(name, value.into())?;
+    for feature in 0..source.feature_count() {
+        let mut out = source.mvt_feature(feature, layer)?;
+        out.id(source.id(feature));
+        for column in 0..source.property_count() {
+            if let Some(value) = source.property(feature, column) {
+                out.tag_ref(source.property_name(column), value.into())?;
             }
         }
         layer = out.end();

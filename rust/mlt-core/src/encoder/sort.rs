@@ -1,12 +1,10 @@
 //! Feature reordering for the optimizer
 
-use geo::CoordsIter as _;
-use geo_types::{Coord, Geometry};
-
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
 use crate::encoder::model::CurveParams;
-use crate::tile::{TileFeature, TileLayer};
+use crate::encoder::source::{LayerSource, Order};
+use crate::tile::TileLayer;
 
 /// Controls how features inside a layer are reordered before encoding.
 ///
@@ -50,59 +48,71 @@ impl TileLayer {
     /// trivially unchanged.
     #[hotpath::measure]
     pub fn sort(&mut self, strategy: SortStrategy, params: CurveParams) {
-        match strategy {
-            SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
-                let curve_key = if let SortStrategy::SpatialMorton = strategy {
-                    morton_sort_key
-                } else {
-                    hilbert_sort_key
-                };
-                self.features_mut().sort_by_cached_key(|f| {
-                    first_vertex(f.geometry()).map_or(u64::MAX, |c| u64::from(curve_key(c, params)))
-                });
-            }
-            SortStrategy::Id => {
-                self.features_mut().sort_by_cached_key(TileFeature::id);
-            }
-            SortStrategy::Unsorted => {
-                // do nothing
-            }
+        if strategy == SortStrategy::Unsorted {
+            return;
         }
+        let order = sort_order(self, strategy, params);
+        let mut features: Vec<_> = std::mem::take(&mut self.features)
+            .into_iter()
+            .map(Some)
+            .collect();
+        self.features = order
+            .iter()
+            .map(|f| features[f].take().expect("each feature appears once"))
+            .collect();
     }
 
     /// Hilbert/Morton `CurveParams` for this layer.
     /// Bounds are order-invariant, so the optimizer computes this once per layer
     /// and reuses it across every sort trial and the encoder's dictionary builders.
-    #[hotpath::measure]
     #[must_use]
     pub fn curve_params(&self) -> CurveParams {
-        let (min_val, max_val) = self
-            .features()
-            .iter()
-            .flat_map(|f| f.geometry().coords_iter())
-            .fold((i32::MAX, i32::MIN), |(min, max), c| {
-                (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
-            });
-        hilbert_curve_params_from_bounds(min_val, max_val)
+        curve_params(self)
     }
 }
 
-/// Extract the coordinate of the first vertex of a geometry.
-fn first_vertex(geom: &Geometry<i32>) -> Option<Coord<i32>> {
-    match geom {
-        Geometry::<i32>::Point(p) => Some(p.0),
-        Geometry::<i32>::Line(l) => Some(l.start),
-        Geometry::<i32>::LineString(ls) => ls.0.first().copied(),
-        Geometry::<i32>::Polygon(p) => p.exterior().0.first().copied(),
-        Geometry::<i32>::MultiPoint(mp) => mp.0.first().map(|p| p.0),
-        Geometry::<i32>::MultiLineString(mls) => mls.0.first().and_then(|ls| ls.0.first().copied()),
-        Geometry::<i32>::MultiPolygon(mp) => {
-            mp.0.first().and_then(|p| p.exterior().0.first().copied())
+/// The order `strategy` puts the features of `source` in.
+#[hotpath::measure]
+pub(crate) fn sort_order(
+    source: &impl LayerSource,
+    strategy: SortStrategy,
+    params: CurveParams,
+) -> Order {
+    let len = source.feature_count();
+    match strategy {
+        SortStrategy::Unsorted => Order::Stored(len),
+        SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
+            let curve_key = if strategy == SortStrategy::SpatialMorton {
+                morton_sort_key
+            } else {
+                hilbert_sort_key
+            };
+            Order::Permuted(permutation(len, |f| {
+                source
+                    .first_coord(f)
+                    .map_or(u64::MAX, |c| u64::from(curve_key(c, params)))
+            }))
         }
-        Geometry::<i32>::Triangle(t) => Some(t.v1()),
-        Geometry::<i32>::Rect(r) => Some(r.min()),
-        Geometry::<i32>::GeometryCollection(gc) => gc.0.first().and_then(first_vertex),
+        SortStrategy::Id => Order::Permuted(permutation(len, |f| source.id(f))),
     }
+}
+
+/// Feature indexes ordered by `key`, with ties in stored order, as a stable sort leaves them.
+fn permutation<K: Ord>(len: usize, key: impl Fn(usize) -> K) -> Vec<u32> {
+    let mut keyed: Vec<(K, u32)> = (0..len)
+        .map(|f| (key(f), u32::try_from(f).expect("feature count fits in u32")))
+        .collect();
+    keyed.sort_unstable();
+    keyed.into_iter().map(|(_, f)| f).collect()
+}
+
+/// Hilbert/Morton `CurveParams` covering every coordinate of `source`.
+#[hotpath::measure]
+pub(crate) fn curve_params(source: &impl LayerSource) -> CurveParams {
+    let (min_val, max_val) = source.coords().fold((i32::MAX, i32::MIN), |(min, max), c| {
+        (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
+    });
+    hilbert_curve_params_from_bounds(min_val, max_val)
 }
 
 #[cfg(test)]
@@ -363,7 +373,7 @@ mod tests {
 
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer`.
     /// This tests the full encode->decode roundtrip, verifying that sorting was applied.
-    fn sort_encode_decode(tile: TileLayer, sort: SortStrategy) -> TileLayer {
+    fn sort_encode_decode(tile: &TileLayer, sort: SortStrategy) -> TileLayer {
         let enc_cfg = EncoderConfig::default();
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));
         let mut codecs = Codecs::default();
@@ -389,7 +399,7 @@ mod tests {
         tile
     }
 
-    fn encode_decode(tile: TileLayer, cfg: EncoderConfig) -> TileLayer {
+    fn encode_decode(tile: &TileLayer, cfg: EncoderConfig) -> TileLayer {
         let buf = tile.encode(cfg).expect("encode failed");
         let layer = assert_empty(Layer::from_bytes(&buf, &mut parser()));
         into_layer01(layer)
@@ -411,7 +421,7 @@ mod tests {
     fn default_config_keeps_the_source_order() {
         let geoms = scattered_points(600);
         let ids: Vec<Option<u64>> = (0..600).rev().map(Some).collect();
-        let decoded = encode_decode(build_tile_layer(&geoms, &ids), EncoderConfig::default());
+        let decoded = encode_decode(&build_tile_layer(&geoms, &ids), EncoderConfig::default());
 
         let decoded_ids: Vec<Option<u64>> =
             decoded.features().iter().map(TileFeature::id).collect();
@@ -427,7 +437,7 @@ mod tests {
         expected.sort(SortStrategy::SpatialHilbert, params);
 
         let decoded = encode_decode(
-            build_tile_layer(&geoms, &ids),
+            &build_tile_layer(&geoms, &ids),
             EncoderConfig::default().with_spatial_hilbert_sort(true),
         );
 
@@ -455,7 +465,7 @@ mod tests {
         // P1 (key 68) < P2 (key 136), so expected order: [P1(0,-10), P2(-10,0)].
 
         let tile = build_tile_layer(&[pt(0, -10), pt(-10, 0)], &[Some(1), Some(2)]);
-        let source = sort_encode_decode(tile, SortStrategy::SpatialMorton);
+        let source = sort_encode_decode(&tile, SortStrategy::SpatialMorton);
 
         let verts = vertices_from_source(&source);
         assert_eq!(verts, vec![0, -10, -10, 0]);
@@ -464,7 +474,7 @@ mod tests {
     #[test]
     fn test_id_sort_nulls_first() {
         let tile = build_tile_layer(&[pt(2, 2), pt(1, 1), pt(0, 0)], &[Some(10), None, Some(5)]);
-        let source = sort_encode_decode(tile, SortStrategy::Id);
+        let source = sort_encode_decode(&tile, SortStrategy::Id);
 
         let ids: Vec<Option<u64>> = source.features().iter().map(TileFeature::id).collect();
         // Expected order: [None, Some(5), Some(10)]
@@ -488,7 +498,7 @@ mod tests {
             &[pt(2, 0), ls(&[(0, 0), (0, 5)]), pt(1, 0)],
             &[Some(1), Some(2), Some(3)],
         );
-        let source = sort_encode_decode(tile, SortStrategy::SpatialMorton);
+        let source = sort_encode_decode(&tile, SortStrategy::SpatialMorton);
 
         let types: Vec<_> = source
             .features()

@@ -45,7 +45,7 @@ impl ExplicitEncoder {
 
 #[must_use]
 pub fn stage_tile(
-    tile: TileLayer,
+    tile: &TileLayer,
     sort: SortStrategy,
     allow_shared_dict: bool,
     tessellate: bool,

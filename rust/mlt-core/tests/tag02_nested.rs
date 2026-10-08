@@ -52,7 +52,7 @@ fn assert_round_trips_as_v2(layer: &TileLayer) -> Vec<u8> {
 }
 
 fn assert_round_trips_with(layer: &TileLayer, cfg: EncoderConfig) -> Vec<u8> {
-    let bytes = layer.clone().encode(cfg).expect("v2 encode");
+    let bytes = layer.encode(cfg).expect("v2 encode");
     assert_eq!(&decode(&bytes), layer);
     assert_dump_covers(&bytes);
     bytes
@@ -306,7 +306,7 @@ fn an_empty_list_and_a_null_list_stay_apart() {
     let layer = nested_layer(kind, &[point(0, 0), point(1, 1), point(2, 2)], &values);
     assert_round_trips_as_v2(&layer);
 
-    let decoded = decode(&layer.clone().encode(cfg_v2()).expect("encode"));
+    let decoded = decode(&layer.encode(cfg_v2()).expect("encode"));
     assert_eq!(
         decoded.features()[0].nested()[0],
         NestedValue::List(Some(Vec::new()))
@@ -369,7 +369,7 @@ fn a_null_struct_field_is_an_absent_key() {
     let layer = nested_layer(kind, &two_points(), &values);
     assert_round_trips_as_v2(&layer);
 
-    let decoded = decode(&layer.clone().encode(cfg_v2()).expect("encode"));
+    let decoded = decode(&layer.encode(cfg_v2()).expect("encode"));
     let NestedValue::Map(Some(second)) = &decoded.features()[1].nested()[0] else {
         panic!("a map")
     };

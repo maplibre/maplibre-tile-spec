@@ -762,7 +762,7 @@ fn staging_uses_id_presence_analysis() {
     assert!(id.stats.values_fit_u32());
     let curve_params = all_present.curve_params();
 
-    let staged = StagedLayer::from_tile(all_present, Unsorted, &analysis, false, curve_params);
+    let staged = StagedLayer::from_tile(&all_present, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id(), StagedId::U32(_)));
 
     let mixed = tile_from_ids(&[Some(1), None, Some(3)]);
@@ -771,7 +771,7 @@ fn staging_uses_id_presence_analysis() {
     assert!(id.stats.values_fit_u32());
     let curve_params = mixed.curve_params();
 
-    let staged = StagedLayer::from_tile(mixed, Unsorted, &analysis, false, curve_params);
+    let staged = StagedLayer::from_tile(&mixed, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id(), StagedId::OptU32(_)));
 
     let large = tile_from_ids(&[Some(u64::from(u32::MAX) + 1), None, Some(3)]);
@@ -780,7 +780,7 @@ fn staging_uses_id_presence_analysis() {
     assert!(!id.stats.values_fit_u32());
     let curve_params = large.curve_params();
 
-    let staged = StagedLayer::from_tile(large, Unsorted, &analysis, false, curve_params);
+    let staged = StagedLayer::from_tile(&large, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id(), StagedId::OptU64(_)));
 
     let all_null = tile_from_ids(&[None, None, None]);
@@ -788,7 +788,7 @@ fn staging_uses_id_presence_analysis() {
     assert_eq!(analysis.id, None);
     let curve_params = all_null.curve_params();
 
-    let staged = StagedLayer::from_tile(all_null, Unsorted, &analysis, false, curve_params);
+    let staged = StagedLayer::from_tile(&all_null, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id(), StagedId::None));
 }
 
@@ -796,7 +796,7 @@ fn stage_single_prop(name: &str, values: Vec<PropValue>) -> StagedProperty {
     let tile = tile_from_cols(&[(name, values)]);
     let analysis = tile.analyze(false).unwrap();
     let curve_params = tile.curve_params();
-    let mut staged = StagedLayer::from_tile(tile, Unsorted, &analysis, false, curve_params)
+    let mut staged = StagedLayer::from_tile(&tile, Unsorted, &analysis, false, curve_params)
         .properties()
         .to_vec();
     assert_eq!(staged.len(), 1, "expected exactly one staged property");
@@ -1165,7 +1165,7 @@ fn staging_uses_presence_analysis_for_scalar_variants_and_skips_all_null() {
         ),
     ]);
 
-    let staged = stage_tile(tile, Unsorted, false, false);
+    let staged = stage_tile(&tile, Unsorted, false, false);
 
     assert_eq!(staged.properties().len(), 2);
     assert!(matches!(staged.properties()[0], StagedProperty::U32(_)));

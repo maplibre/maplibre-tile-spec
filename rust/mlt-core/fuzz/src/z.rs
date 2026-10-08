@@ -118,10 +118,10 @@ impl ZInput {
             with_z.push_feature(feature).expect("a z feature");
         }
 
-        let Some(flat) = encode(flat, cfg) else {
+        let Some(flat) = encode(&flat, cfg) else {
             return;
         };
-        let decoded = encode(with_z, cfg).expect("z encodes wherever the flat layer does");
+        let decoded = encode(&with_z, cfg).expect("z encodes wherever the flat layer does");
         assert_eq!(decoded.z_step(), Some(self.step));
         assert_eq!(strip_z(&decoded), flat, "z changed the decoded geometry");
 
@@ -137,7 +137,7 @@ impl ZInput {
         }
 
         let staged = stage_tile(
-            decoded.clone(),
+            &decoded,
             Unsorted,
             cfg.allow_shared_dict(),
             cfg.tessellate(),
@@ -206,7 +206,7 @@ fn stored_coords(geometry: &Geometry<i32>) -> Vec<Coord<i32>> {
 }
 
 /// Encode through the row model and decode back, or `None` when v2 has no layout for the layer.
-fn encode(layer: TileLayer, cfg: EncoderConfig) -> Option<TileLayer> {
+fn encode(layer: &TileLayer, cfg: EncoderConfig) -> Option<TileLayer> {
     match layer.encode(cfg) {
         Ok(bytes) => Some(decode(&bytes, 2)),
         Err(MltError::NotImplemented(_)) => None,
