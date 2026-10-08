@@ -96,7 +96,7 @@ and a polygon's rings come ready for earcut. A tessellated layer's triangles com
 counted from the feature's own vertices.
 
 ```ts
-import { featureGeometry, toLngLat } from '@maplibre/mlt-wasm';
+import { featureGeometry } from '@maplibre/mlt-wasm';
 
 const g = featureGeometry(layer, i);
 if (g.kind === 'polygon') {
@@ -104,8 +104,6 @@ if (g.kind === 'polygon') {
         const triangles = earcut(vertices, holeIndices, layer.geometry.dimension);
     }
 }
-// longitude, latitude (and metres): same layout as the vertices it is given
-const lngLat = toLngLat(g.vertices, layer, { z, x, y });
 ```
 
 `toElevation(z, zStep)` converts one z to metres, exactly as `mlt-core` does.

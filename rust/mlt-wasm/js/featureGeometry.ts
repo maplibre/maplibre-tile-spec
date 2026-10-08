@@ -3,7 +3,7 @@ import { type MltColumnLayer, type MltGeometryColumns, MltGeometryType } from ".
 /**
  * One feature's geometry as views into its layer's buffers: nothing is copied but a
  * tessellated feature's triangles. Coordinates stay as decoded, in tile coordinates with z
- * (when `dimension` is 3) on the layer's grid; `toLngLat` converts any of these vertex views.
+ * (when `dimension` is 3) on the layer's grid.
  */
 export type MltFeatureGeometry =
   | MltPointGeometry
@@ -233,39 +233,6 @@ export function featureGeometry(layer: MltColumnLayer, index: number): MltFeatur
  * a fine grid divides last, so `1001234` on the `-2` grid is exactly `12.34`.
  */
 export function toElevation(z: number, zStep: number): number {
-  return metres(z, zStep < 0, 10 ** Math.abs(zStep));
-}
-
-/** `toElevation` with the grid's `10 ** |zStep|` worked out by the caller. */
-function metres(z: number, fine: boolean, power: number): number {
-  return fine ? (z - 10000 * power) / power : -10000 + z * power;
-}
-
-/**
- * Convert `vertices` of `layer` (all of them, or any view `featureGeometry` returns) to
- * `longitude, latitude` in degrees, and the altitude in metres when the layer has z.
- *
- * The result has the same layout as `vertices`, so offsets, triangles and indices into one
- * index the other. `tile` is the tile's position, which only the caller knows.
- */
-export function toLngLat(
-  vertices: Int32Array,
-  layer: MltColumnLayer,
-  tile: { readonly z: number; readonly x: number; readonly y: number },
-): Float64Array {
-  const { dimension, zStep } = layer.geometry;
-  // Web Mercator, 0 to 1 across the world, is the tile's corner plus a fraction of its width.
-  const tiles = 2 ** tile.z;
-  const [originX, originY] = [tile.x / tiles, tile.y / tiles];
-  const scale = 1 / (layer.extent * tiles);
-  const power = 10 ** Math.abs(zStep ?? 0);
-  const out = new Float64Array(vertices.length);
-  for (let i = 0; i < vertices.length; i += dimension) {
-    const mx = originX + vertices[i] * scale;
-    const my = originY + vertices[i + 1] * scale;
-    out[i] = mx * 360 - 180;
-    out[i + 1] = (Math.atan(Math.sinh(Math.PI * (1 - 2 * my))) * 180) / Math.PI;
-    if (zStep !== undefined) out[i + 2] = metres(vertices[i + 2], zStep < 0, power);
-  }
-  return out;
+  const power = 10 ** Math.abs(zStep);
+  return zStep < 0 ? (z - 10000 * power) / power : -10000 + z * power;
 }

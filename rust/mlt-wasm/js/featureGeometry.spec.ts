@@ -6,7 +6,6 @@ import {
   toElevation,
   featureGeometry,
   type MltFeatureGeometry,
-  toLngLat,
 } from "./featureGeometry";
 
 function onlyLayer(name: string): MltColumnLayer {
@@ -149,39 +148,5 @@ describe("toElevation", () => {
   it("keeps a fine grid's decimals exact", () => {
     expect(toElevation(1001234, -2)).toBe(12.34);
     expect(toElevation(10012345, -3)).toBe(12.345);
-  });
-});
-
-describe("toLngLat", () => {
-  const layer = onlyLayer("0x02/z_point");
-  const tile = { z: 0, x: 0, y: 0 };
-
-  it("converts tile coordinates and z, keeping the layout", () => {
-    const [lng, lat, metres] = toLngLat(layer.geometry.vertices, layer, tile);
-    expect(lng).toBeCloseTo((13 / layer.extent) * 360 - 180, 12);
-    const my = 42 / layer.extent;
-    expect(lat).toBeCloseTo((Math.atan(Math.sinh(Math.PI * (1 - 2 * my))) * 180) / Math.PI, 12);
-    expect(metres).toBe(12);
-  });
-
-  it("puts the world's centre at the equator and the prime meridian", () => {
-    const flat = onlyLayer("0x01/point");
-    const centre = Int32Array.of(flat.extent / 2, flat.extent / 2);
-    expect(Array.from(toLngLat(centre, flat, tile))).toEqual([0, 0]);
-  });
-
-  it("puts the world's north-west corner at Web Mercator's limit", () => {
-    const flat = onlyLayer("0x01/point");
-    const [lng, lat] = toLngLat(Int32Array.of(0, 0), flat, tile);
-    expect(lng).toBe(-180);
-    expect(lat).toBeCloseTo(85.0511287798, 9);
-  });
-
-  it("offsets by the tile's position", () => {
-    const flat = onlyLayer("0x01/point");
-    const corner = Int32Array.of(0, 0);
-    const [lng, lat] = toLngLat(corner, flat, { z: 1, x: 1, y: 1 });
-    expect(lng).toBe(0);
-    expect(lat).toBeCloseTo(0, 12);
   });
 });
