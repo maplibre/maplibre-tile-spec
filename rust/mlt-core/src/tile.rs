@@ -918,9 +918,9 @@ impl TileFeature {
 
     pub fn set_property(&mut self, key: PropertyKey, value: PropValue) -> MltResult<()> {
         let Some(prop) = self.properties.get_mut(key.index()) else {
-            return Err(MltError::PropertyLengthMismatch {
-                expected: key.index() + 1,
-                actual: self.properties.len(),
+            return Err(MltError::UnknownProperty {
+                index: key.index(),
+                count: self.properties.len(),
             });
         };
         let expected = PropKind::from(&*prop);
@@ -1144,6 +1144,70 @@ impl MValue {
     }
 }
 
+/// A borrowed, non-null per-feature property value.
+///
+/// Nullability is lifted to [`ColumnRef`](crate::decoder::ColumnRef): only non-null values appear in
+/// [`FeatureRef::iter_properties`](crate::decoder::FeatureRef::iter_properties).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PropValueRef<'a> {
+    Bool(bool),
+    I8(i8),
+    U8(u8),
+    I32(i32),
+    U32(u32),
+    I64(i64),
+    U64(u64),
+    F32(f32),
+    F64(f64),
+    Str(&'a str),
+}
+
+impl From<bool> for PropValueRef<'_> {
+    fn from(v: bool) -> Self {
+        Self::Bool(v)
+    }
+}
+impl From<i8> for PropValueRef<'_> {
+    fn from(v: i8) -> Self {
+        Self::I8(v)
+    }
+}
+impl From<u8> for PropValueRef<'_> {
+    fn from(v: u8) -> Self {
+        Self::U8(v)
+    }
+}
+impl From<i32> for PropValueRef<'_> {
+    fn from(v: i32) -> Self {
+        Self::I32(v)
+    }
+}
+impl From<u32> for PropValueRef<'_> {
+    fn from(v: u32) -> Self {
+        Self::U32(v)
+    }
+}
+impl From<i64> for PropValueRef<'_> {
+    fn from(v: i64) -> Self {
+        Self::I64(v)
+    }
+}
+impl From<u64> for PropValueRef<'_> {
+    fn from(v: u64) -> Self {
+        Self::U64(v)
+    }
+}
+impl From<f32> for PropValueRef<'_> {
+    fn from(v: f32) -> Self {
+        Self::F32(v)
+    }
+}
+impl From<f64> for PropValueRef<'_> {
+    fn from(v: f64) -> Self {
+        Self::F64(v)
+    }
+}
+
 macro_rules! kind_mappings {
     (
         scalar { $($sv:ident),* $(,)? }
@@ -1181,6 +1245,16 @@ macro_rules! kind_mappings {
                 match kind {
                     $(PropKind::$sv => Self::$sv(None),)*
                     $(PropKind::$gv => Self::$gv(None),)*
+                }
+            }
+
+            /// The value, borrowed, or [`None`] for a null.
+            #[inline]
+            #[must_use]
+            pub fn value_ref(&self) -> Option<PropValueRef<'_>> {
+                match self {
+                    $(Self::$sv(v) => v.map(PropValueRef::$sv),)*
+                    $(Self::$gv(v) => v.as_deref().map(PropValueRef::$gv),)*
                 }
             }
         }
