@@ -1134,19 +1134,51 @@ pub enum PropValueRef<'a> {
     Str(&'a str),
 }
 
-macro_rules! impl_from_for_prop_value_ref {
-    ($($ty:ty => $variant:ident),+ $(,)?) => {
-        $(impl From<$ty> for PropValueRef<'_> {
-            fn from(v: $ty) -> Self { Self::$variant(v) }
-        })+
-    };
+impl From<bool> for PropValueRef<'_> {
+    fn from(v: bool) -> Self {
+        Self::Bool(v)
+    }
 }
-impl_from_for_prop_value_ref!(
-    bool => Bool, i8 => I8, u8 => U8,
-    i32 => I32, u32 => U32,
-    i64 => I64, u64 => U64,
-    f32 => F32, f64 => F64,
-);
+impl From<i8> for PropValueRef<'_> {
+    fn from(v: i8) -> Self {
+        Self::I8(v)
+    }
+}
+impl From<u8> for PropValueRef<'_> {
+    fn from(v: u8) -> Self {
+        Self::U8(v)
+    }
+}
+impl From<i32> for PropValueRef<'_> {
+    fn from(v: i32) -> Self {
+        Self::I32(v)
+    }
+}
+impl From<u32> for PropValueRef<'_> {
+    fn from(v: u32) -> Self {
+        Self::U32(v)
+    }
+}
+impl From<i64> for PropValueRef<'_> {
+    fn from(v: i64) -> Self {
+        Self::I64(v)
+    }
+}
+impl From<u64> for PropValueRef<'_> {
+    fn from(v: u64) -> Self {
+        Self::U64(v)
+    }
+}
+impl From<f32> for PropValueRef<'_> {
+    fn from(v: f32) -> Self {
+        Self::F32(v)
+    }
+}
+impl From<f64> for PropValueRef<'_> {
+    fn from(v: f64) -> Self {
+        Self::F64(v)
+    }
+}
 
 macro_rules! kind_mappings {
     (

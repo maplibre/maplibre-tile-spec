@@ -1,5 +1,4 @@
-//! Encode layers as MVT (Mapbox Vector Tile) bytes, delegating wire-format details to the
-//! [`fast_mvt`] crate.
+//! Encode layers as MVT (Mapbox Vector Tile) bytes
 
 use std::borrow::Borrow;
 
