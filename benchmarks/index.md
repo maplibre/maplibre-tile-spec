@@ -100,9 +100,9 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 >
 > **Binary-diff updates**
 >
-> If you use for example `mbtiles diff` to construct an **binary diff**, the size reducing options above might not be in your interest. This is because as bsdiff patches between two versions you pay for every byte that differs between the old and the new tile. This means that encodings that keeps edits local beat ones that makes the tile smaller but rewrites it after the first changed value.
+> If you use for example `mbtiles diff` to construct a **binary diff**, the size reducing options above might not be in your interest. This is because as bsdiff patches between two versions you pay for every byte that differs between the old and the new tile. This means that encodings that keep edits local beat ones that make the tile smaller but rewrite it after the first changed value.
 >
-> Here is our current recomendation for this workflow (with a few caveats, read table below)
+> Here is our current recommendation for this workflow (with a few caveats, read table below)
 >
 > ```text
 > mlt convert --mlt-version 2 --delta2 --sort none --no-shared-dict --no-fsst --fields ./string_to_field_config.toml new.mbtiles new.mlt2.mbtiles

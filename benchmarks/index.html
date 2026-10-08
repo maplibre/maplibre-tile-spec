@@ -1135,10 +1135,10 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Binary-diff updates</p>
-<p>If you use for example <code>mbtiles diff</code> to construct an <strong>binary diff</strong>, the size reducing options above might not be in your interest.
+<p>If you use for example <code>mbtiles diff</code> to construct a <strong>binary diff</strong>, the size reducing options above might not be in your interest.
 This is because as bsdiff patches between two versions you pay for every byte that differs between the old and the new tile.
-This means that encodings that keeps edits local beat ones that makes the tile smaller but rewrites it after the first changed value.</p>
-<p>Here is our current recomendation for this workflow (with a few caveats, read table below)</p>
+This means that encodings that keep edits local beat ones that make the tile smaller but rewrite it after the first changed value.</p>
+<p>Here is our current recommendation for this workflow (with a few caveats, read table below)</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mlt convert --mlt-version 2 --delta2 --sort none --no-shared-dict --no-fsst --fields ./string_to_field_config.toml new.mbtiles new.mlt2.mbtiles
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mbtiles diff --strict --patch-type bin-diff-raw old.mlt2.mbtiles new.mlt2.mbtiles old_to_new.bindiff
 </span></code></pre></div>
