@@ -65,7 +65,7 @@ for (const [name, layer] of Object.entries(tile.layers)) {
 build their own buffers, such as a renderer. Nothing per feature crosses the WASM boundary.
 
 ```ts
-import { decodeTileColumns, isPresent } from '@maplibre/mlt-wasm';
+import { columnValue, decodeTileColumns } from '@maplibre/mlt-wasm';
 
 for (const layer of decodeTileColumns(data).layers) {
     const { dimension, vertices, zStep } = layer.geometry;
@@ -74,7 +74,7 @@ for (const layer of decodeTileColumns(data).layers) {
     // triangleOffsets, indexBuffer: present on tessellated layers
     for (const column of layer.properties) {
         // column.values has one slot per feature; a slot without a value holds 0 or ""
-        const has0 = isPresent(column, 0);
+        const first = columnValue(column, 0); // undefined when feature 0 has no value
     }
     // v2 vertex-scoped (m-value) and nested columns are not passed on
 }

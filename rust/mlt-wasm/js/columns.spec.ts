@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   decodeTileColumns,
-  isPresent,
+  columnValue,
   type MltColumnLayer,
 } from "./columns";
 
@@ -45,12 +45,12 @@ describe("decodeTileColumns", () => {
     if (ids === undefined) return;
     expect(Array.from(ids.values)).toEqual([100, 101, 0, 105, 106]);
     expect(Array.from(ids.present ?? [])).toEqual([0b11011]);
-    expect([0, 1, 2, 3, 4].map((i) => isPresent(ids, i))).toEqual([
-      true,
-      true,
-      false,
-      true,
-      true,
+    expect([0, 1, 2, 3, 4].map((i) => columnValue(ids, i))).toEqual([
+      100,
+      101,
+      undefined,
+      105,
+      106,
     ]);
   });
 
@@ -58,7 +58,15 @@ describe("decodeTileColumns", () => {
     const [val] = onlyLayer("0x02/presence_bitmap").properties;
     expect(val.name).toBe("val");
     expect(Array.from(val.values)).toEqual([0, 0, 2, 0, 4, 0, 6, 0]);
+    // A stored 0 and an absent value differ only by the bitmap, which columnValue reads.
+    expect([0, 1, 2, 3].map((i) => columnValue(val, i))).toEqual([0, undefined, 2, undefined]);
     expect(Array.from(val.present ?? [])).toEqual([0b0101_0101]);
+  });
+
+  it("reads nothing for an index that is not a feature", () => {
+    const [val] = onlyLayer("0x02/prop_i32").properties;
+    expect(columnValue(val, 0)).toBe(42);
+    for (const index of [-1, 1, 0.5, Number.NaN]) expect(columnValue(val, index)).toBeUndefined();
   });
 
   it("leaves out the bitmap when every feature has a value", () => {

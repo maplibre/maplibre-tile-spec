@@ -129,10 +129,20 @@ export function decodeTileColumns(
   return { layers: wasmDecodeTileColumns(data, names) as MltColumnLayer[] };
 }
 
-/** Whether entry `index` of `column` holds a value. */
-export function isPresent(column: MltColumn, index: number): boolean {
-  const { present } = column;
-  return (
-    present === undefined || ((present[index >> 3] >> (index & 7)) & 1) === 1
-  );
+/**
+ * Feature `index`'s value in `column`, or `undefined` when the feature has none, or when
+ * `index` is not a feature. A `bool` value comes as stored, `0` or `1`.
+ *
+ * Reading many values, `values` and the `present` bitmap can also be read directly.
+ */
+export function columnValue<C extends MltColumn>(
+  column: C,
+  index: number,
+): C["values"][number] | undefined {
+  const { values, present } = column;
+  if (!Number.isInteger(index) || index < 0 || index >= values.length) return undefined;
+  if (present !== undefined && ((present[index >> 3] >> (index & 7)) & 1) === 0) {
+    return undefined;
+  }
+  return values[index];
 }

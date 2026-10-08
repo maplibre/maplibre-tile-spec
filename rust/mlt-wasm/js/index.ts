@@ -16,7 +16,7 @@ export { annotateTile } from "./annotate";
 export {
   type DecodeTileColumnsOptions,
   decodeTileColumns,
-  isPresent,
+  columnValue,
   type MltColumn,
   type MltColumnLayer,
   type MltColumnTile,
@@ -37,7 +37,6 @@ export {
   type MltPolygonGeometry,
   type MltPolygonRings,
   type MltVertexRun,
-  toLngLat,
 } from "./featureGeometry";
 export { tileGeoJson } from "./geojson";
 export {

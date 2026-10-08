@@ -6,7 +6,7 @@ import type {
 } from "@maplibre/vt-pbf";
 import {
   decodeTileColumns,
-  isPresent,
+  columnValue,
   type MltColumnLayer,
   MltGeometryType,
   type MltNamedColumn,
@@ -101,9 +101,8 @@ function propertyValue(
   column: MltNamedColumn,
   index: number,
 ): number | string | boolean | undefined {
-  if (!isPresent(column, index)) return undefined;
-  const value = column.values[index];
-  return column.type === "bool" ? value === 1 : value;
+  const value = columnValue(column, index);
+  return column.type === "bool" && value !== undefined ? value === 1 : value;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,9 +135,7 @@ abstract class FeatureBase<V> {
 
   get id(): number | undefined {
     const { ids } = this._layer.layer;
-    if (ids === undefined || !isPresent(ids, this._featureIdx))
-      return undefined;
-    return ids.values[this._featureIdx];
+    return ids && columnValue(ids, this._featureIdx);
   }
 
   get properties(): Record<string, number | string | boolean> {
