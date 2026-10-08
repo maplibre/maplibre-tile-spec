@@ -918,9 +918,9 @@ impl TileFeature {
 
     pub fn set_property(&mut self, key: PropertyKey, value: PropValue) -> MltResult<()> {
         let Some(prop) = self.properties.get_mut(key.index()) else {
-            return Err(MltError::PropertyLengthMismatch {
-                expected: key.index() + 1,
-                actual: self.properties.len(),
+            return Err(MltError::UnknownProperty {
+                index: key.index(),
+                count: self.properties.len(),
             });
         };
         let expected = PropKind::from(&*prop);
@@ -1144,6 +1144,38 @@ impl MValue {
     }
 }
 
+/// A borrowed, non-null per-feature property value.
+///
+/// Nullability is lifted to [`ColumnRef`](crate::decoder::ColumnRef): only non-null values appear in
+/// [`FeatureRef::iter_properties`](crate::decoder::FeatureRef::iter_properties).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PropValueRef<'a> {
+    Bool(bool),
+    I8(i8),
+    U8(u8),
+    I32(i32),
+    U32(u32),
+    I64(i64),
+    U64(u64),
+    F32(f32),
+    F64(f64),
+    Str(&'a str),
+}
+
+macro_rules! impl_from_for_prop_value_ref {
+    ($($ty:ty => $variant:ident),+ $(,)?) => {
+        $(impl From<$ty> for PropValueRef<'_> {
+            fn from(v: $ty) -> Self { Self::$variant(v) }
+        })+
+    };
+}
+impl_from_for_prop_value_ref!(
+    bool => Bool, i8 => I8, u8 => U8,
+    i32 => I32, u32 => U32,
+    i64 => I64, u64 => U64,
+    f32 => F32, f64 => F64,
+);
+
 macro_rules! kind_mappings {
     (
         scalar { $($sv:ident),* $(,)? }
@@ -1181,6 +1213,16 @@ macro_rules! kind_mappings {
                 match kind {
                     $(PropKind::$sv => Self::$sv(None),)*
                     $(PropKind::$gv => Self::$gv(None),)*
+                }
+            }
+
+            /// The value, borrowed, or [`None`] for a null.
+            #[inline]
+            #[must_use]
+            pub fn value_ref(&self) -> Option<PropValueRef<'_>> {
+                match self {
+                    $(Self::$sv(v) => v.map(PropValueRef::$sv),)*
+                    $(Self::$gv(v) => v.as_deref().map(PropValueRef::$gv),)*
                 }
             }
         }

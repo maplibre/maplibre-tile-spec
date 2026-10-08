@@ -37,6 +37,8 @@ pub enum MltError {
     },
     #[error("feature property count mismatch: expected {expected}, got {actual}")]
     PropertyLengthMismatch { expected: usize, actual: usize },
+    #[error("property {index} does not exist: the layer has {count}")]
+    UnknownProperty { index: usize, count: usize },
     #[error("property {index} kind mismatch: expected {expected:?}, got {actual:?}")]
     PropertyKindMismatch {
         index: usize,

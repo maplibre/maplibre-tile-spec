@@ -31,7 +31,7 @@ derive-debug = "0.1.2"
 diplomat = "0.16.0"
 diplomat-runtime = "0.16.0"
 enum_dispatch = "0.3"
-fast-mvt = "0.6.0"
+fast-mvt = "0.7.0"
 fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
 fsst-rs = "0.6"
