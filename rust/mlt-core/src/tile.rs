@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
-use geo_types::{Geometry, LineString};
+use geo_types::{Coord, Geometry, LineString};
 #[cfg(feature = "unstable-v2")]
 use num_traits::ToPrimitive as _;
 
@@ -215,6 +215,10 @@ pub struct TileFeature {
 pub struct PropertyKey(usize);
 
 impl PropertyKey {
+    pub(crate) const fn new(index: usize) -> Self {
+        Self(index)
+    }
+
     #[must_use]
     pub fn index(self) -> usize {
         self.0
@@ -1148,6 +1152,12 @@ impl_from_for_prop_value_ref!(
     f32 => F32, f64 => F64,
 );
 
+impl<'a> From<&'a str> for PropValueRef<'a> {
+    fn from(v: &'a str) -> Self {
+        Self::Str(v)
+    }
+}
+
 macro_rules! kind_mappings {
     (
         scalar { $($sv:ident),* $(,)? }
@@ -1244,7 +1254,11 @@ with_kinds!(kind_mappings);
 
 /// How many of a ring's coordinates MLT stores, which is all of them but a closing one.
 pub(crate) fn stored_ring_len(ring: &LineString<i32>) -> usize {
-    let coords = &ring.0;
+    stored_len(&ring.0)
+}
+
+/// [`stored_ring_len`] of a ring given as its coordinates.
+pub(crate) fn stored_len(coords: &[Coord<i32>]) -> usize {
     if coords.len() > 1 && coords.last() == coords.first() {
         coords.len() - 1
     } else {
@@ -1293,7 +1307,7 @@ fn validate_nested_kind(name: &str, kind: &NestedKind) -> MltResult<()> {
     Ok(())
 }
 
-fn validate_layer_name(name: &str) -> MltResult<()> {
+pub(crate) fn validate_layer_name(name: &str) -> MltResult<()> {
     if name.is_empty() {
         Err(MltError::MissingLayerName)
     } else {
@@ -1584,11 +1598,7 @@ mod tests {
     #[test]
     fn a_polygon_does_not_count_its_closing_vertices() {
         let ring = |pts: &[(i32, i32)]| {
-            let mut ls = LineString::new(
-                pts.iter()
-                    .map(|&(x, y)| geo_types::Coord { x, y })
-                    .collect(),
-            );
+            let mut ls = LineString::new(pts.iter().map(|&(x, y)| Coord { x, y }).collect());
             ls.close();
             ls
         };

@@ -1,8 +1,8 @@
 use geo::{Convert as _, TriangulateEarcut as _};
-use geo_types::{Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Polygon};
+use geo_types::{Coord, Geometry, LineString, Polygon};
 
 use crate::decoder::{GeometryType, GeometryValues};
-use crate::tile::stored_ring_len;
+use crate::tile::stored_len;
 
 impl TryFrom<&Geometry<i32>> for GeometryType {
     type Error = ();
@@ -44,35 +44,38 @@ pub(crate) fn coord_count(geom: &Geometry<i32>) -> usize {
     }
 }
 
-/// Run the Earcut algorithm on `polygon`, append triangle indices (shifted by `vertex_offset`)
-/// into `index_buf`, and return `(num_triangles, num_vertices)`.
+/// Run the Earcut algorithm on the polygon with these `rings`, exterior first, append triangle
+/// indices (shifted by `vertex_offset`) into `index_buf`, and return `(num_triangles, num_vertices)`.
 ///
 /// `num_vertices` is how many vertices MLT stores for the polygon, which is where the next one starts.
 /// A ring whose points all lie on a line is left out of the cut, since it holds no triangle and `earcut` can loop forever on one.
 /// Indices are mapped back past it.
-fn earcut_into(polygon: &Polygon<i32>, vertex_offset: u32, index_buf: &mut Vec<u32>) -> (u32, u32) {
-    let rings: Vec<&LineString<i32>> = std::iter::once(polygon.exterior())
-        .chain(polygon.interiors())
-        .collect();
-    let stored: usize = rings.iter().copied().map(stored_ring_len).sum();
+fn earcut_into<'c>(
+    rings: impl Iterator<Item = &'c [Coord<i32>]>,
+    vertex_offset: u32,
+    index_buf: &mut Vec<u32>,
+) -> (u32, u32) {
+    let rings: Vec<&[Coord<i32>]> = rings.collect();
+    let stored: usize = rings.iter().map(|ring| stored_len(ring)).sum();
     let num_vertices = u32::try_from(stored).expect("too many vertices");
-    if !has_area(polygon.exterior()) {
+    let Some(exterior) = rings.first().map(|ring| closed(ring)).filter(has_area) else {
         return (0, num_vertices);
-    }
+    };
 
     // Where each ring earcut sees starts among the vertices MLT stores.
-    let mut kept = Vec::with_capacity(rings.len());
+    let mut holes = Vec::with_capacity(rings.len() - 1);
     let mut stored_starts = Vec::with_capacity(rings.len());
-    let mut stored_start = 0;
-    for ring in rings {
-        if has_area(ring) {
-            kept.push(ring.clone());
+    stored_starts.push(0);
+    let mut stored_start = stored_len(rings[0]);
+    for ring in &rings[1..] {
+        let hole = closed(ring);
+        if has_area(&hole) {
+            holes.push(hole);
             stored_starts.push(stored_start);
         }
-        stored_start += stored_ring_len(ring);
+        stored_start += stored_len(ring);
     }
-    let exterior = kept.remove(0);
-    let polygon_f64: Polygon<f64> = Polygon::new(exterior, kept).convert();
+    let polygon_f64: Polygon<f64> = Polygon::new(exterior, holes).convert();
     let raw = polygon_f64.earcut_triangles_raw();
     let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
 
@@ -94,6 +97,13 @@ fn earcut_into(polygon: &Polygon<i32>, vertex_offset: u32, index_buf: &mut Vec<u
     }
 
     (num_triangles, num_vertices)
+}
+
+/// The ring as a closed `geo` ring, whether or not the caller closed it.
+fn closed(ring: &[Coord<i32>]) -> LineString<i32> {
+    let mut ring = LineString::from(ring.to_vec());
+    ring.close();
+    ring
 }
 
 /// Whether a closed ring encloses any area, which one whose points all lie on a line does not.
@@ -150,17 +160,19 @@ impl GeometryValues {
     ///
     /// Each polygon's indices are shifted past the vertices of the ones before it,
     /// so every index names a vertex of the whole layer.
-    fn tessellate_polygons<'p>(
+    fn tessellate_polygons<'c, R>(
         &mut self,
-        polygons: impl IntoIterator<Item = &'p Polygon<i32>>,
+        polygons: impl IntoIterator<Item = R>,
         first_vertex: u32,
-    ) {
+    ) where
+        R: Iterator<Item = &'c [Coord<i32>]>,
+    {
         if let Some(offsets) = self.triangle_offsets.as_mut() {
             let mut total = *offsets.last().expect("offsets start at 0");
             let mut vertex_offset = first_vertex;
             let index_buffer = self.index_buffer.get_or_insert_with(Vec::new);
-            for poly in polygons {
-                let (num_triangles, num_verts) = earcut_into(poly, vertex_offset, index_buffer);
+            for rings in polygons {
+                let (num_triangles, num_verts) = earcut_into(rings, vertex_offset, index_buffer);
                 total += num_triangles;
                 vertex_offset += num_verts;
             }
@@ -185,14 +197,16 @@ impl GeometryValues {
         debug_assert!(self.z_step.is_none(), "push_geom after add_z");
         match geom {
             Geometry::<i32>::Point(p) => self.push_point(p.0),
-            Geometry::<i32>::Line(l) => self.push_linestring(&LineString(vec![l.start, l.end])),
-            Geometry::<i32>::LineString(ls) => self.push_linestring(ls),
-            Geometry::<i32>::Polygon(p) => self.push_polygon(p),
-            Geometry::<i32>::MultiPoint(mp) => self.push_multi_point(mp),
-            Geometry::<i32>::MultiLineString(mls) => self.push_multi_linestring(mls),
-            Geometry::<i32>::MultiPolygon(mp) => self.push_multi_polygon(mp),
-            Geometry::<i32>::Triangle(t) => self.push_polygon(&t.to_polygon()),
-            Geometry::<i32>::Rect(r) => self.push_polygon(&r.to_polygon()),
+            Geometry::<i32>::Line(l) => self.push_linestring(&[l.start, l.end]),
+            Geometry::<i32>::LineString(ls) => self.push_linestring(&ls.0),
+            Geometry::<i32>::Polygon(p) => self.push_polygon(rings(p)),
+            Geometry::<i32>::MultiPoint(mp) => self.push_multi_point(mp.0.iter().map(|p| p.0)),
+            Geometry::<i32>::MultiLineString(mls) => {
+                self.push_multi_linestring(mls.0.iter().map(|ls| ls.0.as_slice()));
+            }
+            Geometry::<i32>::MultiPolygon(mp) => self.push_multi_polygon(mp.0.iter().map(rings)),
+            Geometry::<i32>::Triangle(t) => self.push_polygon(rings(&t.to_polygon())),
+            Geometry::<i32>::Rect(r) => self.push_polygon(rings(&r.to_polygon())),
             Geometry::<i32>::GeometryCollection(gc) => {
                 for g in gc {
                     self.push_geom(g);
@@ -201,14 +215,14 @@ impl GeometryValues {
         }
     }
 
-    fn push_point(&mut self, coord: Coord<i32>) {
+    pub(crate) fn push_point(&mut self, coord: Coord<i32>) {
         self.vector_types.push(GeometryType::Point);
         self.vertices
             .get_or_insert_with(Vec::new)
             .extend([coord.x, coord.y]);
     }
 
-    fn push_linestring(&mut self, ls: &LineString<i32>) {
+    pub(crate) fn push_linestring(&mut self, line: &[Coord<i32>]) {
         self.vector_types.push(GeometryType::LineString);
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
@@ -220,10 +234,14 @@ impl GeometryValues {
             .as_mut()
             .unwrap_or_else(|| self.part_offsets.get_or_insert_with(Vec::new));
 
-        push_linestrings(std::iter::once(ls), verts, offsets);
+        push_linestrings(std::iter::once(line), verts, offsets);
     }
 
-    fn push_polygon(&mut self, poly: &Polygon<i32>) {
+    /// Add a polygon given as its rings, exterior first, each open or closed.
+    pub(crate) fn push_polygon<'c>(
+        &mut self,
+        rings: impl Iterator<Item = &'c [Coord<i32>]> + Clone,
+    ) {
         // Only on the very first polygon: if LineStrings were pushed before us,
         // their vertex offsets are sitting in part_offsets. Move them to
         // ring_offsets now, before we set up ring_offsets for polygon use.
@@ -234,11 +252,11 @@ impl GeometryValues {
         let first_vertex = self.stored_vertex_count();
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
-        let rings = self.ring_offsets.as_mut().unwrap();
+        let ring_offsets = self.ring_offsets.as_mut().unwrap();
         let parts = self.part_offsets.as_mut().unwrap();
 
-        push_polygon_rings(poly, verts, rings, parts);
-        self.tessellate_polygons([poly], first_vertex);
+        push_polygon_rings(rings.clone(), verts, ring_offsets, parts);
+        self.tessellate_polygons([rings], first_vertex);
     }
 
     /// Initialize offset arrays for polygon storage. On the first polygon,
@@ -253,23 +271,29 @@ impl GeometryValues {
         init_offsets(self.part_offsets.get_or_insert_with(Vec::new));
     }
 
-    fn push_multi_point(&mut self, mp: &MultiPoint<i32>) {
+    pub(crate) fn push_multi_point(&mut self, points: impl Iterator<Item = Coord<i32>>) {
         self.vector_types.push(GeometryType::MultiPoint);
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
-        for point in mp {
-            verts.extend([point.0.x, point.0.y]);
+        let mut count = 0_u32;
+        for point in points {
+            verts.extend([point.x, point.y]);
+            count += 1;
         }
 
-        self.push_geometry_count(u32::try_from(mp.0.len()).expect("point count overflow"));
+        self.push_geometry_count(count);
     }
 
-    fn push_multi_linestring(&mut self, mls: &MultiLineString<i32>) {
+    pub(crate) fn push_multi_linestring<'c>(
+        &mut self,
+        lines: impl ExactSizeIterator<Item = &'c [Coord<i32>]>,
+    ) {
         self.vector_types.push(GeometryType::MultiLineString);
+        let count = u32::try_from(lines.len()).expect("linestring count overflow");
 
         // An empty multi contributes no part, so it must not bring a part level into
         // existence either: the offset arrays a layer has must be ones it fills.
-        if !mls.0.is_empty() {
+        if count > 0 {
             let verts = self.vertices.get_or_insert_with(Vec::new);
             // When a Polygon is present (ring_offsets exists), LineString vertex counts
             // go to ring_offsets instead of part_offsets. This matches Java's behavior.
@@ -278,34 +302,41 @@ impl GeometryValues {
                 .as_mut()
                 .unwrap_or_else(|| self.part_offsets.get_or_insert_with(Vec::new));
 
-            push_linestrings(mls.iter(), verts, offsets);
+            push_linestrings(lines, verts, offsets);
         }
 
-        self.push_geometry_count(u32::try_from(mls.0.len()).expect("linestring count overflow"));
+        self.push_geometry_count(count);
     }
 
-    fn push_multi_polygon(&mut self, mp: &MultiPolygon<i32>) {
+    /// Add polygons, each given as its rings like [`Self::push_polygon`].
+    pub(crate) fn push_multi_polygon<'c, R>(
+        &mut self,
+        polygons: impl ExactSizeIterator<Item = R> + Clone,
+    ) where
+        R: Iterator<Item = &'c [Coord<i32>]>,
+    {
         self.vector_types.push(GeometryType::MultiPolygon);
         let first_vertex = self.stored_vertex_count();
+        let count = u32::try_from(polygons.len()).expect("polygon count overflow");
 
         // An empty multi contributes no part and no ring, so it must not bring those
         // levels into existence either: the offset arrays a layer has must be ones it
         // fills. A `POLYGON EMPTY` still pushes its zero-length ring, since a non-multi
         // Polygon always contributes exactly its ring count.
-        if !mp.0.is_empty() {
+        if count > 0 {
             self.init_polygon_offsets();
 
             let verts = self.vertices.get_or_insert_with(Vec::new);
-            let rings = self.ring_offsets.as_mut().unwrap();
+            let ring_offsets = self.ring_offsets.as_mut().unwrap();
             let parts = self.part_offsets.as_mut().unwrap();
 
-            for poly in mp {
-                push_polygon_rings(poly, verts, rings, parts);
+            for rings in polygons.clone() {
+                push_polygon_rings(rings, verts, ring_offsets, parts);
             }
         }
 
-        self.push_geometry_count(u32::try_from(mp.0.len()).expect("polygon count overflow"));
-        self.tessellate_polygons(mp, first_vertex);
+        self.push_geometry_count(count);
+        self.tessellate_polygons(polygons, first_vertex);
     }
 
     /// Initialize and update `geometry_offsets` with a sub-geometry count.
@@ -314,6 +345,12 @@ impl GeometryValues {
         init_offsets(g);
         g.push(g.last().unwrap() + count);
     }
+}
+
+/// The rings of a polygon, exterior first.
+fn rings(polygon: &Polygon<i32>) -> impl Iterator<Item = &[Coord<i32>]> + Clone {
+    std::iter::once(polygon.exterior().0.as_slice())
+        .chain(polygon.interiors().iter().map(|ring| ring.0.as_slice()))
 }
 
 /// Ensure offset array starts with 0.
@@ -325,14 +362,14 @@ fn init_offsets(v: &mut Vec<u32>) {
 
 /// Push a single polygon's rings (exterior + interiors) to the offset arrays.
 /// MLT omits closing vertices, so we strip them if present.
-fn push_polygon_rings(
-    poly: &Polygon<i32>,
+fn push_polygon_rings<'c>(
+    polygon: impl Iterator<Item = &'c [Coord<i32>]>,
     verts: &mut Vec<i32>,
     rings: &mut Vec<u32>,
     parts: &mut Vec<u32>,
 ) {
     let mut ring_count = *parts.last().unwrap();
-    for ring in std::iter::once(poly.exterior()).chain(poly.interiors()) {
+    for ring in polygon {
         push_ring(ring, verts, rings);
         ring_count += 1;
     }
@@ -340,10 +377,9 @@ fn push_polygon_rings(
 }
 
 /// Push a ring's coordinates (stripping closing vertex) to verts and update rings offset.
-fn push_ring(ring: &LineString<i32>, verts: &mut Vec<i32>, rings: &mut Vec<u32>) {
-    let coords = &ring.0;
-    let len = stored_ring_len(ring);
-    for c in &coords[..len] {
+fn push_ring(ring: &[Coord<i32>], verts: &mut Vec<i32>, rings: &mut Vec<u32>) {
+    let len = stored_len(ring);
+    for c in &ring[..len] {
         verts.extend([c.x, c.y]);
     }
     let prev = *rings.last().unwrap();
@@ -352,17 +388,17 @@ fn push_ring(ring: &LineString<i32>, verts: &mut Vec<i32>, rings: &mut Vec<u32>)
 
 /// Push linestrings to vertex buffer and offset array.
 fn push_linestrings<'a>(
-    iter: impl Iterator<Item = &'a LineString<i32>>,
+    iter: impl Iterator<Item = &'a [Coord<i32>]>,
     verts: &mut Vec<i32>,
     offsets: &mut Vec<u32>,
 ) {
     init_offsets(offsets);
     for ls in iter {
-        for c in ls.coords() {
+        for c in ls {
             verts.extend([c.x, c.y]);
         }
         let prev = *offsets.last().unwrap();
-        offsets.push(prev + u32::try_from(ls.0.len()).expect("vertex count overflow"));
+        offsets.push(prev + u32::try_from(ls.len()).expect("vertex count overflow"));
     }
 }
 
