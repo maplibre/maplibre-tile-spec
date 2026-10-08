@@ -474,29 +474,6 @@ impl TileLayer {
     }
 
     #[must_use]
-    pub(crate) fn features_mut(&mut self) -> &mut [TileFeature] {
-        &mut self.features
-    }
-
-    /// Widen every `I8` and `U8` property column to `I32` and `U32`.
-    pub(crate) fn widen_8bit_ints(&mut self) {
-        for kind in &mut self.property_kinds {
-            if *kind == PropKind::I8 {
-                *kind = PropKind::I32;
-            } else if *kind == PropKind::U8 {
-                *kind = PropKind::U32;
-            }
-        }
-        for prop in self.features.iter_mut().flat_map(|f| &mut f.properties) {
-            if let PropValue::I8(v) = *prop {
-                *prop = PropValue::I32(v.map(i32::from));
-            } else if let PropValue::U8(v) = *prop {
-                *prop = PropValue::U32(v.map(u32::from));
-            }
-        }
-    }
-
-    #[must_use]
     pub fn feature_count(&self) -> usize {
         self.features.len()
     }
@@ -812,11 +789,6 @@ impl TileFeature {
     #[must_use]
     pub fn properties(&self) -> &[PropValue] {
         &self.properties
-    }
-
-    #[must_use]
-    pub(crate) fn properties_mut(&mut self) -> &mut [PropValue] {
-        &mut self.properties
     }
 
     /// How many vertices this feature stores, which is how many values each of
@@ -1255,6 +1227,16 @@ macro_rules! kind_mappings {
                 match self {
                     $(Self::$sv(v) => v.map(PropValueRef::$sv),)*
                     $(Self::$gv(v) => v.as_deref().map(PropValueRef::$gv),)*
+                }
+            }
+        }
+
+        impl PropValueRef<'_> {
+            #[inline]
+            pub(crate) fn kind(&self) -> PropKind {
+                match self {
+                    $(Self::$sv(_) => PropKind::$sv,)*
+                    $(Self::$gv(_) => PropKind::$gv,)*
                 }
             }
         }

@@ -14,11 +14,15 @@ use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::optimizer::{Presence, PropertyStats, SharedDictRole};
 use crate::encoder::property::strings::{write_fsst_data, write_raw_str_data};
+use crate::encoder::source::LayerSource;
 use crate::encoder::{Codecs, Encoder, StagedSharedDict, StagedSharedDictItem};
 use crate::errors::AsMltError as _;
-use crate::tile::{PropValue, TileLayer};
+use crate::tile::PropKind;
 use crate::utils::{checked_sum3, strings_to_lengths};
-use crate::{ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
+use crate::{
+    ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, PropValueRef,
+    StreamType,
+};
 
 /// Number of `MinHash` permutations. 128 gives ~9 % error on Jaccard estimates.
 const MINHASH_PERMUTATIONS: usize = 128;
@@ -45,68 +49,67 @@ struct StringProfile<'a> {
     trigram_hashes: Vec<u64>,
 }
 
-impl TileLayer {
-    /// Compute which string columns can be merged into a shared dict.
-    #[hotpath::measure]
-    pub(crate) fn group_string_properties(&self, properties: &mut [PropertyStats]) {
-        let mut trigrams = Vec::<u32>::new();
-        let profiles: Vec<StringProfile<'_>> = hotpath::measure_block!(
-            { "shared_dict::build_profiles" },
-            self.property_names()
-                .iter()
-                .enumerate()
-                .filter_map(|(col_idx, name)| {
-                    let mut vals: Vec<&str> = self
-                        .features()
-                        .iter()
-                        .filter_map(|f| match f.properties().get(col_idx) {
-                            Some(PropValue::Str(Some(s))) => Some(s.as_str()),
-                            _ => None,
-                        })
-                        .collect();
-                    if vals.is_empty() {
-                        return None;
-                    }
-                    vals.sort_unstable();
-                    vals.dedup();
-                    let exact_hashes = min_hashes(vals.iter().map(|s| xxh3_64(s.as_bytes())));
-                    trigrams.clear();
-                    trigrams.extend(vals.iter().flat_map(|s| {
-                        s.as_bytes()
-                            .windows(3)
-                            .map(|w| u32::from(w[0]) << 16 | u32::from(w[1]) << 8 | u32::from(w[2]))
-                    }));
-                    trigrams.sort_unstable();
-                    trigrams.dedup();
-                    let trigram_hashes = min_hashes(trigrams.iter().map(|&t| mix64(t.into())));
-                    Some(StringProfile {
-                        col_idx,
-                        name,
-                        unique_values: vals,
-                        exact_hashes,
-                        trigram_hashes,
+/// Compute which string columns of `source` can be merged into a shared dict.
+#[hotpath::measure]
+pub(crate) fn group_string_properties(source: &impl LayerSource, properties: &mut [PropertyStats]) {
+    let mut trigrams = Vec::<u32>::new();
+    let profiles: Vec<StringProfile<'_>> = hotpath::measure_block!(
+        { "shared_dict::build_profiles" },
+        source
+            .property_kinds()
+            .iter()
+            .enumerate()
+            .filter(|(_, kind)| **kind == PropKind::Str)
+            .filter_map(|(col_idx, _)| {
+                let name = source.property_name(col_idx);
+                let mut vals: Vec<&str> = (0..source.feature_count())
+                    .filter_map(|f| match source.property(f, col_idx) {
+                        Some(PropValueRef::Str(s)) => Some(s),
+                        _ => None,
                     })
+                    .collect();
+                if vals.is_empty() {
+                    return None;
+                }
+                vals.sort_unstable();
+                vals.dedup();
+                let exact_hashes = min_hashes(vals.iter().map(|s| xxh3_64(s.as_bytes())));
+                trigrams.clear();
+                trigrams.extend(vals.iter().flat_map(|s| {
+                    s.as_bytes()
+                        .windows(3)
+                        .map(|w| u32::from(w[0]) << 16 | u32::from(w[1]) << 8 | u32::from(w[2]))
+                }));
+                trigrams.sort_unstable();
+                trigrams.dedup();
+                let trigram_hashes = min_hashes(trigrams.iter().map(|&t| mix64(t.into())));
+                Some(StringProfile {
+                    col_idx,
+                    name,
+                    unique_values: vals,
+                    exact_hashes,
+                    trigram_hashes,
                 })
-                .collect()
-        );
-        hotpath::gauge!("shared_dict::profiles")
-            .set(f64::from(u32::try_from(profiles.len()).unwrap_or(u32::MAX)));
+            })
+            .collect()
+    );
+    hotpath::gauge!("shared_dict::profiles")
+        .set(f64::from(u32::try_from(profiles.len()).unwrap_or(u32::MAX)));
 
-        for group in cluster_by_similarity(profiles) {
-            debug_assert!(
-                group
-                    .iter()
-                    .all(|p| properties[p.col_idx].presence != Presence::AllNull)
-            );
-            let owner_col = group[0].col_idx;
-            properties[owner_col]
+    for group in cluster_by_similarity(profiles) {
+        debug_assert!(
+            group
+                .iter()
+                .all(|p| properties[p.col_idx].presence != Presence::AllNull)
+        );
+        let owner_col = group[0].col_idx;
+        properties[owner_col]
+            .stats
+            .set_shared_dict(SharedDictRole::Owner(common_prefix_name(&group)));
+        for profile in group.iter().skip(1) {
+            properties[profile.col_idx]
                 .stats
-                .set_shared_dict(SharedDictRole::Owner(common_prefix_name(&group)));
-            for profile in group.iter().skip(1) {
-                properties[profile.col_idx]
-                    .stats
-                    .set_shared_dict(SharedDictRole::Member(owner_col));
-            }
+                .set_shared_dict(SharedDictRole::Member(owner_col));
         }
     }
 }
