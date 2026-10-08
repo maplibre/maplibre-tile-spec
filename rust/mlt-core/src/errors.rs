@@ -23,6 +23,8 @@ pub enum MltError {
     IntegerOverflow,
     #[error("missing geometry column in feature table")]
     MissingGeometry,
+    #[error("a {0} feature {1}")]
+    InvalidFeatureGeometry(GeometryType, &'static str),
     #[error("missing layer name")]
     MissingLayerName,
     #[error("invalid extent: {0}")]
