@@ -65,7 +65,7 @@ fn differential_fixture([path]: [&Path; 1]) {
         return;
     };
     for layer in layers {
-        let v2_bytes = match layer.clone().encode(cfg(WireVersion::V02)) {
+        let v2_bytes = match layer.encode(cfg(WireVersion::V02)) {
             Ok(bytes) => bytes,
             // A stream set v2 has no layout code for.
             Err(MltError::NotImplemented(_)) => continue,
@@ -94,7 +94,7 @@ fn named_fixtures_still_reach_the_v2_encoder(#[case] fixture: &str, #[case] expe
         .expect("decode fixture");
     let encodable = layers
         .into_iter()
-        .filter(|l| l.clone().encode(cfg(WireVersion::V02)).is_ok())
+        .filter(|l| l.encode(cfg(WireVersion::V02)).is_ok())
         .count();
     assert_eq!(encodable, expected);
 }

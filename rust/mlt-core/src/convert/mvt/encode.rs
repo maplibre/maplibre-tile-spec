@@ -1,63 +1,61 @@
-//! Encode row-oriented [`TileLayer`]s as MVT (Mapbox Vector Tile) bytes,
-//! delegating wire-format details to the [`fast_mvt`] crate.
+//! Encode layers as MVT (Mapbox Vector Tile) bytes
 
-use fast_mvt::{MvtTileBuilder, MvtValue};
+use std::borrow::Borrow;
 
-use crate::tile::{PropValue, TileLayer};
-use crate::{MltError, MltResult};
+use fast_mvt::{MvtTileBuilder, MvtValueRef};
+
+use crate::encoder::LayerSource;
+use crate::tile::TileLayer;
+use crate::{MltError, MltResult, PropValueRef};
 
 /// Encode row-oriented [`TileLayer`]s as MVT (Mapbox Vector Tile) bytes.
-pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
-    let mut tile = MvtTileBuilder::with_capacity(layers.len());
+pub fn tile_layers_to_mvt(
+    layers: impl IntoIterator<Item = impl Borrow<TileLayer>>,
+) -> MltResult<Vec<u8>> {
+    let mut tile = MvtTileBuilder::new();
     for layer in layers {
-        if layer.name.is_empty() {
-            return Err(MltError::MissingLayerName);
-        }
-        let mut mvt_layer = tile.layer_with_capacity(layer.name, layer.features.len())?;
-        mvt_layer.extent(layer.extent.into());
-        for feat in layer.features {
-            let mut feature = mvt_layer.feature(&feat.geometry)?;
-            feature.id(feat.id);
-            for (col_idx, prop) in feat.properties.into_iter().enumerate() {
-                if let Some(name) = layer.property_names.get(col_idx)
-                    && let Ok(value) = MvtValue::try_from(prop)
-                {
-                    feature.tag(name, value)?;
-                }
-            }
-            mvt_layer = feature.end();
-        }
-        tile = mvt_layer.end();
+        tile = write_mvt_layer(layer.borrow(), tile)?;
     }
     Ok(tile.encode())
 }
 
-impl TryFrom<PropValue> for MvtValue {
-    type Error = ();
+/// Adds `source` to `tile`, writing each feature straight from the source.
+pub(crate) fn write_mvt_layer(
+    source: &impl LayerSource,
+    tile: MvtTileBuilder,
+) -> MltResult<MvtTileBuilder> {
+    if source.name().is_empty() {
+        return Err(MltError::MissingLayerName);
+    }
+    let mut layer = tile.layer(source.name())?;
+    layer.extent(source.extent().into());
+    for feature in 0..source.feature_count() {
+        let mut out = source.mvt_feature(feature, layer)?;
+        out.id(source.id(feature));
+        for column in 0..source.property_count() {
+            if let Some(value) = source.property(feature, column) {
+                out.tag_ref(source.property_name(column), value.into())?;
+            }
+        }
+        layer = out.end();
+    }
+    Ok(layer.end())
+}
 
-    fn try_from(prop: PropValue) -> Result<Self, Self::Error> {
-        Ok(match prop {
-            PropValue::Bool(Some(b)) => Self::Bool(b),
-            PropValue::I8(Some(i)) => Self::SInt(i.into()),
-            PropValue::U8(Some(u)) => Self::UInt(u.into()),
-            PropValue::I32(Some(i)) => Self::SInt(i.into()),
-            PropValue::U32(Some(u)) => Self::UInt(u.into()),
-            PropValue::I64(Some(i)) => Self::SInt(i),
-            PropValue::U64(Some(u)) => Self::UInt(u),
-            PropValue::F32(Some(f)) => Self::Float(f),
-            PropValue::F64(Some(f)) => Self::Double(f),
-            PropValue::Str(Some(s)) => Self::String(s),
-            PropValue::Bool(None)
-            | PropValue::I8(None)
-            | PropValue::U8(None)
-            | PropValue::I32(None)
-            | PropValue::U32(None)
-            | PropValue::I64(None)
-            | PropValue::U64(None)
-            | PropValue::F32(None)
-            | PropValue::F64(None)
-            | PropValue::Str(None) => Err(())?,
-        })
+impl<'a> From<PropValueRef<'a>> for MvtValueRef<'a> {
+    fn from(value: PropValueRef<'a>) -> Self {
+        match value {
+            PropValueRef::Bool(v) => Self::Bool(v),
+            PropValueRef::I8(v) => Self::SInt(v.into()),
+            PropValueRef::U8(v) => Self::UInt(v.into()),
+            PropValueRef::I32(v) => Self::SInt(v.into()),
+            PropValueRef::U32(v) => Self::UInt(v.into()),
+            PropValueRef::I64(v) => Self::SInt(v),
+            PropValueRef::U64(v) => Self::UInt(v),
+            PropValueRef::F32(v) => Self::Float(v),
+            PropValueRef::F64(v) => Self::Double(v),
+            PropValueRef::Str(v) => Self::String(v),
+        }
     }
 }
 
@@ -69,7 +67,7 @@ mod tests {
 
     #[test]
     fn empty_input_yields_empty_output() {
-        let bytes = tile_layers_to_mvt(Vec::new()).unwrap();
+        let bytes = tile_layers_to_mvt(Vec::<TileLayer>::new()).unwrap();
         let decoded = mvt_to_tile_layers(bytes).unwrap();
         assert_eq!(decoded, [] as [TileLayer; 0]);
     }

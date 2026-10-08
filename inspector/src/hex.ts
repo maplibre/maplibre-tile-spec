@@ -27,7 +27,7 @@ export function defaultView(): ViewState {
     width: 16,
     colorful: false,
     geo: true,
-    stats: false,
+    stats: true,
     layer: null,
   };
 }

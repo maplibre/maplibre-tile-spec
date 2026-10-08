@@ -24,6 +24,7 @@ use geo_types::Geometry;
 use usize_cast::IntoUsize as _;
 
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, Property, RawProperty};
+pub use crate::tile::PropValueRef;
 use crate::{Lazy, LazyParsed, MltResult, Parsed};
 
 /// A minimal lending (streaming) iterator trait.
@@ -149,38 +150,6 @@ impl PartialEq<PropName<'_>> for &str {
         other == *self
     }
 }
-
-/// A borrowed, non-null per-feature property value.
-///
-/// Nullability is lifted to [`ColumnRef`]: only non-null values appear in
-/// [`FeatureRef::iter_properties`].
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PropValueRef<'a> {
-    Bool(bool),
-    I8(i8),
-    U8(u8),
-    I32(i32),
-    U32(u32),
-    I64(i64),
-    U64(u64),
-    F32(f32),
-    F64(f64),
-    Str(&'a str),
-}
-
-macro_rules! impl_from_for_prop_value_ref {
-    ($($ty:ty => $variant:ident),+ $(,)?) => {
-        $(impl From<$ty> for PropValueRef<'_> {
-            fn from(v: $ty) -> Self { Self::$variant(v) }
-        })+
-    };
-}
-impl_from_for_prop_value_ref!(
-    bool => Bool, i8 => I8, u8 => U8,
-    i32 => I32, u32 => U32,
-    i64 => I64, u64 => U64,
-    f32 => F32, f64 => F64,
-);
 
 /// A single non-null property value for one feature, yielded by [`FeatureRef::iter_properties`].
 ///

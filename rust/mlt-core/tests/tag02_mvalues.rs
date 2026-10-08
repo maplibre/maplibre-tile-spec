@@ -49,7 +49,7 @@ fn decode_err(bytes: &[u8]) -> MltError {
 }
 
 fn assert_round_trips_as_v2(layer: &TileLayer) -> Vec<u8> {
-    let bytes = layer.clone().encode(cfg_v2()).expect("v2 encode");
+    let bytes = layer.encode(cfg_v2()).expect("v2 encode");
     assert_eq!(&decode(&bytes), layer);
     assert_dump_covers(&bytes);
     bytes
@@ -397,7 +397,7 @@ fn m_values_keep_the_outlines_of_a_triangles_only_layer() {
         &[("m", i32s(&[&[1, 2, 3, 4]]))],
     );
     let cfg = cfg_v2().with_tessellation(true).with_triangles_only(true);
-    let bytes = l.clone().encode(cfg).unwrap();
+    let bytes = l.encode(cfg).unwrap();
     assert_eq!(&decode(&bytes), &l);
     insta::assert_snapshot!(header_bits_and_column_types(&bytes), @r#"
     an m-value section ends the body
@@ -647,7 +647,7 @@ fn the_layer_reports_its_m_value_columns() {
         vec![line(&[(0, 0), (1, 1)])],
         &[("a", i32s(&[&[1, 2]])), ("b", i32s(&[&[3, 4]]))],
     );
-    let decoded = decode(&l.clone().encode(cfg_v2()).unwrap());
+    let decoded = decode(&l.encode(cfg_v2()).unwrap());
     assert_eq!(decoded.m_value_names(), ["a", "b"]);
     assert_eq!(decoded.m_value_kinds(), [PropKind::I32, PropKind::I32]);
     assert_eq!(
@@ -662,7 +662,7 @@ fn a_feature_iterator_sees_the_same_geometry_as_the_m_values_describe() {
         vec![line(&[(0, 0), (1, 1), (2, 2)])],
         &[("m", i32s(&[&[1, 2, 3]]))],
     );
-    let decoded = decode(&l.clone().encode(cfg_v2()).unwrap());
+    let decoded = decode(&l.encode(cfg_v2()).unwrap());
     let feature: &TileFeature = &decoded.features()[0];
     assert_eq!(feature.vertex_count(), 3);
     assert_eq!(feature.m_values()[0].count(), Some(3));

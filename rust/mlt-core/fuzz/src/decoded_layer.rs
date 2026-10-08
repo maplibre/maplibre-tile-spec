@@ -22,16 +22,16 @@ impl DecodedLayerInput {
         let Some(tile1) = encode_decode(self.layer, cfg) else {
             return; // the wire version cannot represent this layer
         };
-        let tile2 = restage_roundtrip(tile1, cfg);
+        let tile2 = restage_roundtrip(&tile1, cfg);
 
         // Same roundtrip again - must be a fixpoint.
-        let tile3 = restage_roundtrip(tile2.clone(), cfg);
+        let tile3 = restage_roundtrip(&tile2, cfg);
         assert_eq!(tile2, tile3, "canonical roundtrip is not idempotent");
     }
 }
 
 /// Re-stage an already-decoded layer and run it through the same wire version again.
-fn restage_roundtrip(tile: mlt_core::TileLayer, cfg: EncoderConfig) -> mlt_core::TileLayer {
+fn restage_roundtrip(tile: &mlt_core::TileLayer, cfg: EncoderConfig) -> mlt_core::TileLayer {
     let staged = stage_tile(tile, Unsorted, cfg.allow_shared_dict(), cfg.tessellate());
     encode_decode(staged, cfg).expect("re-encoding a layer this version already produced")
 }

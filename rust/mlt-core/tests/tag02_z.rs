@@ -49,7 +49,7 @@ fn assert_dump_covers(bytes: &[u8]) {
 }
 
 fn assert_round_trips(layer: &TileLayer, cfg: EncoderConfig) -> Vec<u8> {
-    let bytes = layer.clone().encode(cfg).expect("v2 encode");
+    let bytes = layer.encode(cfg).expect("v2 encode");
     assert_eq!(&decode(&bytes), layer);
     assert_dump_covers(&bytes);
     bytes

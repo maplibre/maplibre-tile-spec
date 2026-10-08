@@ -23,6 +23,8 @@ pub enum MltError {
     IntegerOverflow,
     #[error("missing geometry column in feature table")]
     MissingGeometry,
+    #[error("a {0} feature {1}")]
+    InvalidFeatureGeometry(GeometryType, &'static str),
     #[error("missing layer name")]
     MissingLayerName,
     #[error("invalid extent: {0}")]
@@ -37,6 +39,8 @@ pub enum MltError {
     },
     #[error("feature property count mismatch: expected {expected}, got {actual}")]
     PropertyLengthMismatch { expected: usize, actual: usize },
+    #[error("property {index} does not exist: the layer has {count}")]
+    UnknownProperty { index: usize, count: usize },
     #[error("property {index} kind mismatch: expected {expected:?}, got {actual:?}")]
     PropertyKindMismatch {
         index: usize,

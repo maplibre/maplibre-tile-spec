@@ -52,7 +52,7 @@ fn assert_differential(layer: &TileLayer) -> (usize, usize) {
 
 /// As [`assert_differential`], with `cfg` deciding everything but the wire version.
 fn assert_differential_with(layer: &TileLayer, cfg: EncoderConfig) -> (usize, usize) {
-    let v1_bytes = layer.clone().encode(cfg).expect("v1 encode");
+    let v1_bytes = layer.encode(cfg).expect("v1 encode");
     let v2_bytes = layer
         .clone()
         .encode(cfg.with_wire_version(WireVersion::V02))
@@ -335,7 +335,7 @@ fn eight_bit_ints_widen_in_v1_only() {
     ];
     let src = layer(geoms, None, &props);
     let props_of = |cfg: EncoderConfig| -> Vec<Vec<PropValue>> {
-        let (_, tile) = decode(&src.clone().encode(cfg).expect("encode"));
+        let (_, tile) = decode(&src.encode(cfg).expect("encode"));
         tile.features()
             .iter()
             .map(|f| f.properties().to_vec())
@@ -515,7 +515,7 @@ fn a_bitpacking_friendly_column_takes_fastpfor128() {
         .collect();
     let l = layer(geoms, None, &[("scattered", values)]);
 
-    let v2 = l.clone().encode(cfg_v2()).expect("v2 encode");
+    let v2 = l.encode(cfg_v2()).expect("v2 encode");
     assert!(
         dump_text(&v2).contains("physical = FastPFor128"),
         "v2 should code the scattered column with FastPFor128"
@@ -542,7 +542,7 @@ fn a_fastpfor128_stream_round_trips_across_block_boundaries(
         .map(|i| PropValue::U32(Some(i.wrapping_mul(2_654_435_761) % 4096)))
         .collect();
     let l = layer(geoms, None, &[("scattered", values)]);
-    let v2 = l.clone().encode(cfg_v2()).expect("v2 encode");
+    let v2 = l.encode(cfg_v2()).expect("v2 encode");
     assert!(
         dump_text(&v2).contains("physical = FastPFor128"),
         "{n} scattered values should be coded with FastPFor128"
@@ -682,7 +682,7 @@ mod geometry_layouts {
     #[test]
     fn repeated_vertices_pick_a_dictionary_layout() {
         let l = layer(repeated_points(200), None, &[]);
-        let dump = dump_text(&l.clone().encode(cfg_v2()).unwrap());
+        let dump = dump_text(&l.encode(cfg_v2()).unwrap());
         assert!(dump.contains("geometry layout = PointsDict"), "{dump}");
         assert!(dump.contains("vertex_offsets"), "{dump}");
         assert_differential(&l);
@@ -691,7 +691,7 @@ mod geometry_layouts {
     #[test]
     fn distinct_vertices_stay_plain() {
         let l = layer((0..64).map(|i| pt(i * 7, i * 13)).collect(), None, &[]);
-        let dump = dump_text(&l.clone().encode(cfg_v2()).unwrap());
+        let dump = dump_text(&l.encode(cfg_v2()).unwrap());
         assert!(dump.contains("geometry layout = Points\n"), "{dump}");
         assert_differential(&l);
     }
@@ -772,7 +772,7 @@ mod geometry_layouts {
         #[case] geometry_type: &str,
     ) {
         let l = layer(geoms, None, &[]);
-        let bytes = l.clone().encode(cfg_v2()).unwrap();
+        let bytes = l.encode(cfg_v2()).unwrap();
         with_settings!({snapshot_suffix => geometry_type}, {
             assert_snapshot!(header_bits(&bytes).join("\n"));
         });
@@ -783,7 +783,7 @@ mod geometry_layouts {
     #[test]
     fn mixed_geometry_types_keep_their_stream() {
         let l = layer(vec![pt(5, 5), line(&[(0, 0), (10, 10)])], None, &[]);
-        let bytes = l.clone().encode(cfg_v2()).unwrap();
+        let bytes = l.encode(cfg_v2()).unwrap();
         assert_snapshot!(header_bits(&bytes).join("\n"), @"
         no m-value section
         a types stream leads the geometry section
@@ -902,7 +902,7 @@ mod geometry_layouts {
     #[case::points_and_polygons(vec![pt(5, 5), Geometry::Polygon(square(20, 20))])]
     fn a_layer_with_more_than_polygons_keeps_its_outlines(#[case] geoms: Vec<Geometry<i32>>) {
         let l = layer(geoms, None, &[]);
-        let bytes = l.clone().encode(cfg_triangles_only()).unwrap();
+        let bytes = l.encode(cfg_triangles_only()).unwrap();
         assert_eq!(
             header_bits(&bytes).last().map(String::as_str),
             Some("geometry layout = TessPolygonsWithOutlines"),
@@ -915,7 +915,7 @@ mod geometry_layouts {
         let l = layer(vec![Geometry::Polygon(square(0, 0))], None, &[]);
         let v1 = cfg_tessellated();
         assert_eq!(
-            l.clone().encode(v1.with_triangles_only(true)).unwrap(),
+            l.encode(v1.with_triangles_only(true)).unwrap(),
             l.encode(v1).unwrap(),
         );
     }
@@ -1063,7 +1063,7 @@ mod strings {
         #[case] values: Values,
     ) {
         let l = column(values(9).into_iter().map(Some));
-        let with = l.clone().encode(cfg_v2()).unwrap();
+        let with = l.encode(cfg_v2()).unwrap();
         let without = l.encode(cfg_v2().with_fsst(false)).unwrap();
         assert_eq!(layouts(&with), ["FsstDict"]);
         assert!(
@@ -1151,11 +1151,11 @@ mod strings {
     fn columns_v1_would_share_a_dictionary_share_one_in_v2_too() {
         let l = shared_dict_layer();
         assert_eq!(
-            base_types(&l.clone().encode(cfg_v1()).unwrap()),
+            base_types(&l.encode(cfg_v1()).unwrap()),
             ["Geometry", "SharedDict", "Str", "Str"]
         );
         assert_eq!(
-            data_types(&l.clone().encode(cfg_v2()).unwrap()),
+            data_types(&l.encode(cfg_v2()).unwrap()),
             ["SharedDict", "Str", "Str"]
         );
         assert_differential(&l);
@@ -1206,7 +1206,7 @@ mod strings {
     #[test]
     fn a_shared_dictionary_is_smaller_than_per_column_ones() {
         let l = shared_dict_layer();
-        let shared = l.clone().encode(cfg_v2()).unwrap().len();
+        let shared = l.encode(cfg_v2()).unwrap().len();
         let separate = l.encode(cfg_v2().with_shared_dict(false)).unwrap().len();
         assert!(shared < separate, "shared {shared} vs separate {separate}");
     }
@@ -1228,7 +1228,7 @@ mod strings {
             &[("name:de", values(0)), ("name:en", values(1))],
         );
         assert_eq!(
-            data_types(&l.clone().encode(cfg_v2()).unwrap()),
+            data_types(&l.encode(cfg_v2()).unwrap()),
             ["SharedDict", "Str", "Str"]
         );
         assert_differential(&l);
@@ -1286,7 +1286,7 @@ mod strings {
 
         /// How often `needle` annotates the v2 dump of `l`.
         fn count(l: &TileLayer, needle: &str) -> usize {
-            dump_text(&l.clone().encode(cfg_v2()).unwrap())
+            dump_text(&l.encode(cfg_v2()).unwrap())
                 .matches(needle)
                 .count()
         }
@@ -1376,7 +1376,7 @@ mod strings {
         #[test]
         fn which_masks_win_a_slot_does_not_depend_on_hash_map_order() {
             let l = dict_layer(&["101101", "101101", "110011", "110011", "111101"], &[]);
-            let first = l.clone().encode(cfg_v2()).unwrap();
+            let first = l.encode(cfg_v2()).unwrap();
             let second = l.encode(cfg_v2()).unwrap();
             assert_eq!(first, second);
         }
@@ -1475,7 +1475,7 @@ mod float_codecs {
     }
 
     pub fn round_trip(l: &TileLayer, config: EncoderConfig) -> TileLayer {
-        let bytes = l.clone().encode(config).expect("encode");
+        let bytes = l.encode(config).expect("encode");
         let (tag, tile) = decode(&bytes);
         assert_eq!(tag, 2);
         assert_dump_covers(&bytes);
@@ -1496,8 +1496,8 @@ mod float_codecs {
     #[test]
     fn a_dictionary_column_is_smaller_than_the_raw_one() {
         let l = column(&repeated_decimals(12));
-        let plain = l.clone().encode(cfg_v2()).unwrap();
-        let dict = l.clone().encode(cfg_dict()).unwrap();
+        let plain = l.encode(cfg_v2()).unwrap();
+        let dict = l.encode(cfg_dict()).unwrap();
         assert!(
             dict.len() < plain.len(),
             "{} vs {}",
@@ -1582,10 +1582,7 @@ mod float_codecs {
             .map(|i| std::f64::consts::PI * f64::from(i + 1))
             .collect();
         let l = column(&values);
-        assert_eq!(
-            l.clone().encode(cfg_both()).unwrap(),
-            l.encode(cfg_v2()).unwrap()
-        );
+        assert_eq!(l.encode(cfg_both()).unwrap(), l.encode(cfg_v2()).unwrap());
     }
 
     #[test]
@@ -1611,10 +1608,7 @@ mod float_codecs {
     fn v1_ignores_the_flags(#[case] config: EncoderConfig) {
         const VALUES: &[f64] = &[1.5, 1.5, 1.5, 1.5];
         let l = column(VALUES);
-        assert_eq!(
-            l.clone().encode(config).unwrap(),
-            l.encode(cfg_v1()).unwrap()
-        );
+        assert_eq!(l.encode(config).unwrap(), l.encode(cfg_v1()).unwrap());
     }
 }
 
@@ -1628,8 +1622,8 @@ mod alp {
     fn a_decimal_column_is_smaller_through_alp() {
         let values: Vec<f64> = (0..64).map(|i| f64::from(i) * 0.25 - 8.0).collect();
         let l = column(&values);
-        let plain = l.clone().encode(cfg_v2()).unwrap();
-        let coded = l.clone().encode(cfg_alp()).unwrap();
+        let plain = l.encode(cfg_v2()).unwrap();
+        let coded = l.encode(cfg_alp()).unwrap();
 
         assert_eq!(round_trip(&l, cfg_alp()), round_trip(&l, cfg_v2()));
         assert!(
@@ -1667,8 +1661,8 @@ mod alp {
             .map(|i| 1000.0 + f64::from(i % 97) * 0.25)
             .collect();
         let l = column(&values);
-        let packed = l.clone().encode(cfg_alp()).unwrap();
-        let varint = l.clone().encode(cfg_alp().with_fastpfor(false)).unwrap();
+        let packed = l.encode(cfg_alp()).unwrap();
+        let varint = l.encode(cfg_alp().with_fastpfor(false)).unwrap();
 
         assert_eq!(
             float_physicals(&packed)[..],
@@ -1935,7 +1929,7 @@ mod delta2 {
     #[test]
     fn smooth_vertices_take_second_order_deltas_and_decode_unchanged() {
         let l = layer(smooth_lines(), None, &[]);
-        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let plain = l.encode(cfg_v2()).unwrap();
         let delta2 = l.encode(cfg_delta2()).unwrap();
         assert_eq!(
             vertex_logicals(&plain),
@@ -1958,8 +1952,8 @@ mod delta2 {
     #[test]
     fn a_smooth_m_value_column_takes_second_order_deltas_and_decodes_unchanged() {
         let l = elevated_lines();
-        let plain = l.clone().encode(cfg_v2()).unwrap();
-        let delta2 = l.clone().encode(cfg_delta2()).unwrap();
+        let plain = l.encode(cfg_v2()).unwrap();
+        let delta2 = l.encode(cfg_delta2()).unwrap();
         assert_eq!(
             data_logicals(&delta2),
             [LogicalEncoding::Int(IntLogical::Delta2)]
@@ -1984,7 +1978,7 @@ mod delta2 {
     fn an_integer_column_round_trips_through_delta2(#[case] value: fn(i32) -> PropValue) {
         let values: Vec<PropValue> = (0..300).map(value).collect();
         let l = layer((0..300).map(|i| pt(i, i)).collect(), None, &[("v", values)]);
-        let coded = l.clone().encode(cfg_delta2()).unwrap();
+        let coded = l.encode(cfg_delta2()).unwrap();
         assert_eq!(decode(&coded).1, l);
         assert_dump_covers(&coded);
     }
@@ -1994,7 +1988,7 @@ mod delta2 {
         let values = (0..6).map(|i| PropValue::I32(Some(i * i))).collect();
         let l = layer(smooth_lines(), None, &[("v", values)]);
         let v1 = cfg_v1().with_delta2(true);
-        assert_eq!(l.clone().encode(v1).unwrap(), l.encode(cfg_v1()).unwrap());
+        assert_eq!(l.encode(v1).unwrap(), l.encode(cfg_v1()).unwrap());
     }
 }
 
@@ -2065,7 +2059,7 @@ mod rans_vertices {
     #[case::mixed(mixed())]
     fn vertices_are_rans_coded_and_decode_unchanged(#[case] geoms: Vec<Geometry<i32>>) {
         let l = layer(geoms, None, &[]);
-        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let plain = l.encode(cfg_v2()).unwrap();
         let rans = l.encode(cfg_rans()).unwrap();
         assert_eq!(
             vertex_logicals(&rans),
@@ -2087,7 +2081,7 @@ mod rans_vertices {
         let cfg = cfg_rans()
             .with_tessellation(true)
             .with_triangles_only(triangles_only);
-        let rans = l.clone().encode(cfg).unwrap();
+        let rans = l.encode(cfg).unwrap();
         assert_eq!(
             vertex_logicals(&rans),
             [LogicalEncoding::Vertex(VertexLogical::Rans)]
@@ -2113,7 +2107,7 @@ mod rans_vertices {
     fn v1_ignores_rans_vertices() {
         let l = layer(lines(), None, &[]);
         assert_eq!(
-            l.clone().encode(cfg_v1().with_rans_vertices(true)).unwrap(),
+            l.encode(cfg_v1().with_rans_vertices(true)).unwrap(),
             l.encode(cfg_v1()).unwrap()
         );
     }

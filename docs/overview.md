@@ -4,7 +4,7 @@ description: The data model of tiles, layers, features, columns and streams
 
 <h1>Overview</h1>
 
-This page describes the MLT data model used in [MLT v1](specification/v1.md) and [MLT v2](specification/v2.md) formats.
+This page describes the MLT data model used by the [MLT v1](specification/v1.md) and [MLT v2](specification/v2.md) formats.
 
 # Tiles
 
@@ -51,15 +51,14 @@ Tiles with identical content, such as open water or the inside of a large park, 
 
 Integer coordinates compress well, since neighboring vertices differ by small numbers.
 `4096` is the conventional extent and the encoder default.
-A larger extent gives more precision and costs more bytes.
+A larger extent gives more precision but costs more bytes.
 Coordinates MAY be negative or exceed `extent`.
 This lets geometry crossing a tile boundary keep its shape, so that lines and polygon edges meet across the seam instead of being clipped to it.
 
 # Layers and features
 
 In MLT v1 and v2, each frame is a layer, called a `FeatureTable` in the specification.
-A layer is a thematic group of data such as `water`, `roads` or `place_labels`,
-and is the unit a [MapLibre Style](https://maplibre.org/maplibre-style-spec/) targets.
+A layer is a thematic group of data such as `water`, `roads` or `place_labels`, and is the unit a [MapLibre Style](https://maplibre.org/maplibre-style-spec/) targets.
 Layers are equivalent to layers in MVT.
 
 A feature has:
@@ -83,7 +82,7 @@ MLT is column-oriented: it writes every feature's `id`, then every feature's geo
 
 The column layout has the following consequences:
 
-- **Compression.** A column of road classes is a few distinct strings repeated many times, which a dictionary collapses. A column of ascending ids is a constant delta. Neither pattern is visible when the values are spread across records.
+- **Compression.** A column of road classes is a few distinct strings repeated many times, which a dictionary collapses. A column of sequential ids has a constant delta. Neither pattern is visible when the values are spread across records.
 - **Decoding speed.** A column decodes with one loop over one buffer, which vectorizes. A record stream decodes with a branchy loop over mixed types.
 - **GPU upload.** Vertices are already contiguous, so they can be copied to a GPU buffer without gathering.
 - **Partial decoding.** A renderer that needs only the geometry and one property can skip the other columns.
@@ -112,8 +111,8 @@ MLT defines these stream kinds:
 | **Offset** | Indices into another stream, used by dictionary encodings. |
 
 Each stream is encoded independently.
-Lengths are usually small and repetitive and run-length encode well.
-String bytes do not, but often dictionary-encode well.
+Lengths are usually small and repetitive, so they run-length encode well.
+String bytes do not, but strings often dictionary-encode well.
 
 # Encodings
 
@@ -121,11 +120,11 @@ Every stream has its own lightweight encoding: delta, run-length, dictionary, bi
 Lightweight means cheap enough to decode at render time.
 
 Encodings cascade.
-Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta- or bit-packed like any other.
+Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta-encoded or bit-packed like any other.
 
 Encoders choose encodings by sampling, since trying every combination is too expensive; see [choosing an encoding](implementation-guide.md#choosing-an-encoding).
 The [encoding algorithms](encodings.md) page describes each scheme.
-The specifications say which streams may use which.
+The specifications say which encodings each stream may use.
 
 Tiles are usually also gzip- or brotli-compressed in transit.
 
@@ -160,7 +159,8 @@ The differences come from MVT's per-feature tag/value model versus MLT's per-lay
   MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
 - **Layer names must be non-empty.**
   MLT always requires a non-empty layer name, and a layer without one MUST be rejected.
-  MVT leaves this unclear: its protobuf schema marks `name` as required, but the written specification never says it cannot be an empty string, although some Mapbox tooling rejects empty names.
+  MVT leaves this unclear: its protobuf schema marks `name` as required, but the written specification never says it cannot be an empty string.
+  Some Mapbox tooling rejects empty names.
 - **A layer holds at most `2^31 - 1` features.**
   MVT sets no limit, but MLT stores the feature count as a signed 32-bit integer.
 - **MLT v2 restricts the extent.**

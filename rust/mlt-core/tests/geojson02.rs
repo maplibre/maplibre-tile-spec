@@ -22,7 +22,7 @@ fn line(from: i32) -> Geometry<i32> {
 }
 
 /// Encode as v2, parse, decode and render the layer as one `GeoJSON` line.
-fn as_geojson(layer: TileLayer) -> String {
+fn as_geojson(layer: &TileLayer) -> String {
     let bytes = layer.encode(cfg_v2()).expect("encode");
     let mut parser = parser();
     let layers = parser.parse_layers(&bytes).expect("parse");
@@ -63,7 +63,7 @@ fn every_m_value_kind_rides_along_as_an_array_property() {
     measured.finish().expect("push");
     builder.feature(line(10)).finish().expect("push");
 
-    assert_snapshot!(as_geojson(builder.finish()), @r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"_extent":4096,"_layer":"mvals","m:bool":[true,false],"m:f32":[0.5,"f32::INFINITY"],"m:f64":[-0.25,"f64::NAN"],"m:i32":[-2147483648,2],"m:i64":[-9223372036854775808,2],"m:i8":[-128,2],"m:str":["a","b"],"m:u32":[0,4294967295],"m:u64":[0,18446744073709551615],"m:u8":[0,255]},"geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]}},{"type":"Feature","properties":{"_extent":4096,"_layer":"mvals"},"geometry":{"type":"LineString","coordinates":[[10,10],[11,11]]}}]}"#);
+    assert_snapshot!(as_geojson(&builder.finish()), @r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"_extent":4096,"_layer":"mvals","m:bool":[true,false],"m:f32":[0.5,"f32::INFINITY"],"m:f64":[-0.25,"f64::NAN"],"m:i32":[-2147483648,2],"m:i64":[-9223372036854775808,2],"m:i8":[-128,2],"m:str":["a","b"],"m:u32":[0,4294967295],"m:u64":[0,18446744073709551615],"m:u8":[0,255]},"geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]}},{"type":"Feature","properties":{"_extent":4096,"_layer":"mvals"},"geometry":{"type":"LineString","coordinates":[[10,10],[11,11]]}}]}"#);
 }
 
 #[test]
@@ -132,5 +132,5 @@ fn nested_columns_serialize_under_their_own_name() {
     third.finish().expect("push");
 
     // Every field of the second feature is null, and a null field is an absent key.
-    assert_snapshot!(as_geojson(builder.finish()), @r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"_extent":4096,"_layer":"nested","list":[1,2],"map":{"count":18446744073709551615,"flag":true,"inner":{"deep":-7},"label":"x","ratio":0.5}},"geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]}},{"type":"Feature","properties":{"_extent":4096,"_layer":"nested","list":[],"map":{}},"geometry":{"type":"LineString","coordinates":[[10,10],[11,11]]}},{"type":"Feature","properties":{"_extent":4096,"_layer":"nested","list":null,"map":null},"geometry":{"type":"LineString","coordinates":[[20,20],[21,21]]}}]}"#);
+    assert_snapshot!(as_geojson(&builder.finish()), @r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"_extent":4096,"_layer":"nested","list":[1,2],"map":{"count":18446744073709551615,"flag":true,"inner":{"deep":-7},"label":"x","ratio":0.5}},"geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]}},{"type":"Feature","properties":{"_extent":4096,"_layer":"nested","list":[],"map":{}},"geometry":{"type":"LineString","coordinates":[[10,10],[11,11]]}},{"type":"Feature","properties":{"_extent":4096,"_layer":"nested","list":null,"map":null},"geometry":{"type":"LineString","coordinates":[[20,20],[21,21]]}}]}"#);
 }

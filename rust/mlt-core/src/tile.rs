@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
-use geo_types::{Geometry, LineString};
+use geo_types::{Coord, Geometry, LineString};
 #[cfg(feature = "unstable-v2")]
 use num_traits::ToPrimitive as _;
 
@@ -215,6 +215,10 @@ pub struct TileFeature {
 pub struct PropertyKey(usize);
 
 impl PropertyKey {
+    pub(crate) const fn new(index: usize) -> Self {
+        Self(index)
+    }
+
     #[must_use]
     pub fn index(self) -> usize {
         self.0
@@ -471,29 +475,6 @@ impl TileLayer {
     #[must_use]
     pub fn features(&self) -> &[TileFeature] {
         &self.features
-    }
-
-    #[must_use]
-    pub(crate) fn features_mut(&mut self) -> &mut [TileFeature] {
-        &mut self.features
-    }
-
-    /// Widen every `I8` and `U8` property column to `I32` and `U32`.
-    pub(crate) fn widen_8bit_ints(&mut self) {
-        for kind in &mut self.property_kinds {
-            if *kind == PropKind::I8 {
-                *kind = PropKind::I32;
-            } else if *kind == PropKind::U8 {
-                *kind = PropKind::U32;
-            }
-        }
-        for prop in self.features.iter_mut().flat_map(|f| &mut f.properties) {
-            if let PropValue::I8(v) = *prop {
-                *prop = PropValue::I32(v.map(i32::from));
-            } else if let PropValue::U8(v) = *prop {
-                *prop = PropValue::U32(v.map(u32::from));
-            }
-        }
     }
 
     #[must_use]
@@ -814,11 +795,6 @@ impl TileFeature {
         &self.properties
     }
 
-    #[must_use]
-    pub(crate) fn properties_mut(&mut self) -> &mut [PropValue] {
-        &mut self.properties
-    }
-
     /// How many vertices this feature stores, which is how many values each of
     /// its m-values holds.
     ///
@@ -918,9 +894,9 @@ impl TileFeature {
 
     pub fn set_property(&mut self, key: PropertyKey, value: PropValue) -> MltResult<()> {
         let Some(prop) = self.properties.get_mut(key.index()) else {
-            return Err(MltError::PropertyLengthMismatch {
-                expected: key.index() + 1,
-                actual: self.properties.len(),
+            return Err(MltError::UnknownProperty {
+                index: key.index(),
+                count: self.properties.len(),
             });
         };
         let expected = PropKind::from(&*prop);
@@ -1144,6 +1120,76 @@ impl MValue {
     }
 }
 
+/// A borrowed, non-null per-feature property value.
+///
+/// Nullability is lifted to [`ColumnRef`](crate::decoder::ColumnRef): only non-null values appear in
+/// [`FeatureRef::iter_properties`](crate::decoder::FeatureRef::iter_properties).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PropValueRef<'a> {
+    Bool(bool),
+    I8(i8),
+    U8(u8),
+    I32(i32),
+    U32(u32),
+    I64(i64),
+    U64(u64),
+    F32(f32),
+    F64(f64),
+    Str(&'a str),
+}
+
+impl From<bool> for PropValueRef<'_> {
+    fn from(v: bool) -> Self {
+        Self::Bool(v)
+    }
+}
+impl From<i8> for PropValueRef<'_> {
+    fn from(v: i8) -> Self {
+        Self::I8(v)
+    }
+}
+impl From<u8> for PropValueRef<'_> {
+    fn from(v: u8) -> Self {
+        Self::U8(v)
+    }
+}
+impl From<i32> for PropValueRef<'_> {
+    fn from(v: i32) -> Self {
+        Self::I32(v)
+    }
+}
+impl From<u32> for PropValueRef<'_> {
+    fn from(v: u32) -> Self {
+        Self::U32(v)
+    }
+}
+impl From<i64> for PropValueRef<'_> {
+    fn from(v: i64) -> Self {
+        Self::I64(v)
+    }
+}
+impl From<u64> for PropValueRef<'_> {
+    fn from(v: u64) -> Self {
+        Self::U64(v)
+    }
+}
+impl From<f32> for PropValueRef<'_> {
+    fn from(v: f32) -> Self {
+        Self::F32(v)
+    }
+}
+impl From<f64> for PropValueRef<'_> {
+    fn from(v: f64) -> Self {
+        Self::F64(v)
+    }
+}
+
+impl<'a> From<&'a str> for PropValueRef<'a> {
+    fn from(v: &'a str) -> Self {
+        Self::Str(v)
+    }
+}
+
 macro_rules! kind_mappings {
     (
         scalar { $($sv:ident),* $(,)? }
@@ -1183,6 +1229,26 @@ macro_rules! kind_mappings {
                     $(PropKind::$gv => Self::$gv(None),)*
                 }
             }
+
+            /// The value, borrowed, or [`None`] for a null.
+            #[inline]
+            #[must_use]
+            pub fn value_ref(&self) -> Option<PropValueRef<'_>> {
+                match self {
+                    $(Self::$sv(v) => v.map(PropValueRef::$sv),)*
+                    $(Self::$gv(v) => v.as_deref().map(PropValueRef::$gv),)*
+                }
+            }
+        }
+
+        impl PropValueRef<'_> {
+            #[inline]
+            pub(crate) fn kind(&self) -> PropKind {
+                match self {
+                    $(Self::$sv(_) => PropKind::$sv,)*
+                    $(Self::$gv(_) => PropKind::$gv,)*
+                }
+            }
         }
 
         #[cfg(feature = "unstable-v2")]
@@ -1220,7 +1286,11 @@ with_kinds!(kind_mappings);
 
 /// How many of a ring's coordinates MLT stores, which is all of them but a closing one.
 pub(crate) fn stored_ring_len(ring: &LineString<i32>) -> usize {
-    let coords = &ring.0;
+    stored_len(&ring.0)
+}
+
+/// [`stored_ring_len`] of a ring given as its coordinates.
+pub(crate) fn stored_len(coords: &[Coord<i32>]) -> usize {
     if coords.len() > 1 && coords.last() == coords.first() {
         coords.len() - 1
     } else {
@@ -1269,7 +1339,7 @@ fn validate_nested_kind(name: &str, kind: &NestedKind) -> MltResult<()> {
     Ok(())
 }
 
-fn validate_layer_name(name: &str) -> MltResult<()> {
+pub(crate) fn validate_layer_name(name: &str) -> MltResult<()> {
     if name.is_empty() {
         Err(MltError::MissingLayerName)
     } else {
@@ -1560,11 +1630,7 @@ mod tests {
     #[test]
     fn a_polygon_does_not_count_its_closing_vertices() {
         let ring = |pts: &[(i32, i32)]| {
-            let mut ls = LineString::new(
-                pts.iter()
-                    .map(|&(x, y)| geo_types::Coord { x, y })
-                    .collect(),
-            );
+            let mut ls = LineString::new(pts.iter().map(|&(x, y)| Coord { x, y }).collect());
             ls.close();
             ls
         };

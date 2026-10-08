@@ -252,10 +252,10 @@ const anchors = computed(() =>
         </div>
       </template>
 
-      <template v-if="anchors.length">
-        <h3>encodings</h3>
+      <section v-if="anchors.length" class="docs">
+        <h3>from the spec</h3>
         <EncodingDocs :anchors="anchors" editable />
-      </template>
+      </section>
     </template>
     <p v-else class="idle">
       Hover a byte, or walk the regions with the arrow keys.
@@ -294,6 +294,11 @@ h3 {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0.85rem 0 0.3rem;
+}
+/* Reference text rather than facts about these bytes, so it is ruled off from them. */
+.docs {
+  margin-top: 0.85rem;
+  border-top: 1px solid var(--line);
 }
 h3 small {
   text-transform: none;

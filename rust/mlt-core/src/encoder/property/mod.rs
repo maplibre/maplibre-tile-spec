@@ -11,3 +11,4 @@ pub use model::{
     StagedOptScalar, StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem,
     StagedStrings,
 };
+pub(crate) use shared_dict::group_string_properties;

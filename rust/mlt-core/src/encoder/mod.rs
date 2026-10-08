@@ -14,6 +14,7 @@ mod nested;
 mod optimizer;
 mod property;
 mod sort;
+mod source;
 mod stream;
 #[cfg(any(test, feature = "__private"))]
 mod tests;
@@ -49,10 +50,12 @@ pub(crate) use nested::{
 };
 #[cfg(any(test, feature = "__private"))]
 pub use optimizer::Presence;
+pub(crate) use optimizer::encode_layer;
 pub(crate) use property::*;
 #[cfg(feature = "__private")]
 pub use property::{StagedProperty, StagedSharedDict};
 pub use sort::SortStrategy;
+pub(crate) use source::LayerSource;
 pub(crate) use stream::*;
 #[cfg(feature = "__private")]
 pub use stream::{Codecs, IntEncoder, LogicalEncoder, PhysicalEncoder};
