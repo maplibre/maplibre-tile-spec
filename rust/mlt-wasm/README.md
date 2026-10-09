@@ -137,6 +137,34 @@ for (let f = 0; f < layer.featureCount; f++) {
 }
 ```
 
+`geometryStarts(layer.geometry)` resolves the offset levels for the whole layer at once instead:
+where each feature's geometries start, where each geometry's vertices start and, in a layer with
+polygons, where each polygon's rings and each ring's vertices start. Each array has one entry more
+than it has items, and stored offset columns come back as they are. They are resolved once per layer
+and every call returns the same arrays, so don't modify them. In a layer of one geometry kind they
+are what a renderer takes for a batch, such as deck.gl's binary `PathLayer` for lines:
+
+```ts
+import { geometryStarts } from '@maplibre/mlt-wasm';
+
+const { featureGeometries, geometryVertices, ringVertices } = geometryStarts(layer.geometry);
+// Lines: line g is vertices geometryVertices[g] .. geometryVertices[g + 1].
+new PathLayer({
+    data: {
+        length: geometryVertices.length - 1,
+        startIndices: geometryVertices,
+        attributes: { getPath: { value: layer.geometry.vertices, size: layer.geometry.dimension } },
+    },
+    _pathType: 'open',
+});
+// Polygons: geometryVertices starts each polygon, ringVertices each ring (outlines without the
+// closing vertex); a feature's geometries are featureGeometries[f] .. featureGeometries[f + 1].
+```
+
+A geometry is a point, a line or a polygon, and every kind shares one sequence in feature order, so in
+a layer mixing kinds, `layer.geometry.types` tells which features are which. A `TessPolygons` layer has
+no runs of vertices, only triangles.
+
 Shapes that need tessellation work one feature at a time instead:
 
 - A tessellation that only adds triangles keeps the vertex buffer: earcut's indices are counted from the
@@ -146,8 +174,8 @@ Shapes that need tessellation work one feature at a time instead:
   writes a buffer of its own, and tags its output with the feature it came from.
 
 `featureGeometry` costs per feature, not per vertex. On a 1.3 MB tile of 1,333 line features and
-524,482 vertices, the loop above takes about 0.4 ms, against about 3.7 ms for `decodeTileColumns`
-(Node, one machine).
+524,482 vertices, the `featureGeometry` loop above takes about 0.4 ms, against about 3.7 ms for
+`decodeTileColumns` (Node, one machine).
 
 ### 3D
 

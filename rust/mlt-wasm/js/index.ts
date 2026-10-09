@@ -14,9 +14,9 @@ export type {
 } from "./annotate";
 export { annotateTile } from "./annotate";
 export {
+  columnValue,
   type DecodeTileColumnsOptions,
   decodeTileColumns,
-  columnValue,
   type MltColumn,
   type MltColumnLayer,
   type MltColumnTile,
@@ -31,7 +31,9 @@ export {
 } from "./columns";
 export {
   featureGeometry,
+  geometryStarts,
   type MltFeatureGeometry,
+  type MltGeometryStarts,
   type MltLineGeometry,
   type MltPointGeometry,
   type MltPolygonGeometry,
