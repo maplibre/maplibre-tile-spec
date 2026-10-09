@@ -13,19 +13,19 @@
 
 namespace diplomat {
 namespace capi {
-    enum MltWireVersion {
-        MltWireVersion_V01 = 0,
-        MltWireVersion_V02 = 1,
-    };
+enum MltWireVersion {
+    MltWireVersion_V01 = 0,
+    MltWireVersion_V02 = 1,
+};
 
-    typedef struct MltWireVersion_option {
-        union {
-            MltWireVersion ok;
-        };
-        bool is_ok;
-    } MltWireVersion_option;
+typedef struct MltWireVersion_option {
+    union {
+        MltWireVersion ok;
+    };
+    bool is_ok;
+} MltWireVersion_option;
 } // namespace capi
-} // namespace
+} // namespace diplomat
 
 /**
  * The wire format an encoded layer uses.
@@ -44,15 +44,11 @@ public:
     };
 
     MltWireVersion()
-        : value(Value::V01)
-    {
-    }
+        : value(Value::V01) {}
 
     // Implicit conversions between enum and ::Value
     constexpr MltWireVersion(Value v)
-        : value(v)
-    {
-    }
+        : value(v) {}
     constexpr operator Value() const { return value; }
     // Prevent usage as boolean value
     explicit operator bool() const = delete;

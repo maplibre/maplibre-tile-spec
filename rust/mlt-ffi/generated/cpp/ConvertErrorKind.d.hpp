@@ -13,19 +13,19 @@
 
 namespace diplomat {
 namespace capi {
-    enum ConvertErrorKind {
-        ConvertErrorKind_InvalidInput = 0,
-        ConvertErrorKind_EncodingFailed = 1,
-    };
+enum ConvertErrorKind {
+    ConvertErrorKind_InvalidInput = 0,
+    ConvertErrorKind_EncodingFailed = 1,
+};
 
-    typedef struct ConvertErrorKind_option {
-        union {
-            ConvertErrorKind ok;
-        };
-        bool is_ok;
-    } ConvertErrorKind_option;
+typedef struct ConvertErrorKind_option {
+    union {
+        ConvertErrorKind ok;
+    };
+    bool is_ok;
+} ConvertErrorKind_option;
 } // namespace capi
-} // namespace
+} // namespace diplomat
 
 /**
  * Which stage of a conversion failed.
@@ -44,15 +44,11 @@ public:
     };
 
     ConvertErrorKind()
-        : value(Value::InvalidInput)
-    {
-    }
+        : value(Value::InvalidInput) {}
 
     // Implicit conversions between enum and ::Value
     constexpr ConvertErrorKind(Value v)
-        : value(v)
-    {
-    }
+        : value(v) {}
     constexpr operator Value() const { return value; }
     // Prevent usage as boolean value
     explicit operator bool() const = delete;

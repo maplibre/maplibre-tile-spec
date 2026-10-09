@@ -14,24 +14,20 @@
 #include <stdio.h>
 
 namespace diplomat {
-namespace capi {
+namespace capi {} // namespace capi
+} // namespace diplomat
 
-} // namespace capi
-} // namespace
-
-inline diplomat::capi::ConvertErrorKind ConvertErrorKind::AsFFI() const
-{
+inline diplomat::capi::ConvertErrorKind ConvertErrorKind::AsFFI() const {
     return static_cast<diplomat::capi::ConvertErrorKind>(value);
 }
 
-inline ConvertErrorKind ConvertErrorKind::FromFFI(diplomat::capi::ConvertErrorKind c_enum)
-{
+inline ConvertErrorKind ConvertErrorKind::FromFFI(diplomat::capi::ConvertErrorKind c_enum) {
     switch (c_enum) {
-    case diplomat::capi::ConvertErrorKind_InvalidInput:
-    case diplomat::capi::ConvertErrorKind_EncodingFailed:
-        return static_cast<ConvertErrorKind::Value>(c_enum);
-    default:
-        std::abort();
+        case diplomat::capi::ConvertErrorKind_InvalidInput:
+        case diplomat::capi::ConvertErrorKind_EncodingFailed:
+            return static_cast<ConvertErrorKind::Value>(c_enum);
+        default:
+            std::abort();
     }
 }
 #endif // ConvertErrorKind_HPP
