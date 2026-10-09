@@ -8,17 +8,54 @@
 )]
 #[diplomat::bridge]
 mod ffi {
-    use mlt_core::encoder::EncoderConfig;
-    use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
-    use mlt_core::{Decoder, Layer, Parser};
+    use std::fmt::Write as _;
 
-    /// Error type returned by FFI conversion functions.
-    #[diplomat::attr(auto, error)]
-    pub enum ConvertError {
+    use mlt_core::encoder::{EncoderConfig, WireVersion};
+    use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
+    use mlt_core::{Decoder, Parser};
+
+    /// Which stage of a conversion failed.
+    pub enum ConvertErrorKind {
         /// Input bytes could not be parsed or decoded.
         InvalidInput,
         /// Encoding failed.
         EncodingFailed,
+    }
+
+    /// Error returned by FFI conversion functions.
+    #[diplomat::opaque]
+    #[diplomat::attr(auto, error)]
+    pub struct ConvertError {
+        kind: ConvertErrorKind,
+        message: String,
+    }
+
+    impl ConvertError {
+        /// The stage that failed.
+        #[diplomat::attr(auto, getter = "kind")]
+        pub fn kind(&self) -> ConvertErrorKind {
+            self.kind
+        }
+
+        /// Human-readable cause.
+        #[diplomat::attr(auto, getter = "message")]
+        pub fn message(&self, write: &mut DiplomatWrite) {
+            let _ = write.write_str(&self.message);
+        }
+
+        #[cfg(test)]
+        pub(crate) fn message_len(&self) -> usize {
+            self.message.len()
+        }
+    }
+
+    impl ConvertError {
+        fn new(kind: ConvertErrorKind, source: &impl std::fmt::Display) -> Box<Self> {
+            Box::new(Self {
+                kind,
+                message: source.to_string(),
+            })
+        }
     }
 
     /// Owned byte buffer returned from conversion functions.
@@ -46,17 +83,29 @@ mod ffi {
         }
     }
 
+    /// The wire format an encoded layer uses.
+    #[expect(
+        dead_code,
+        reason = "Diplomat constructs the variants on the foreign side"
+    )]
+    pub enum MltWireVersion {
+        /// Tag `0x01`, the stable v1 format.
+        V01,
+        /// Tag `0x02`, the experimental v2 format.
+        V02,
+    }
+
     /// Encoder options controlling which optimisations are attempted for
     /// MVT -> MLT conversion.
     ///
-    /// Construct with [`new`](MltEncoderOptions::new) (all optimisations
-    /// enabled except tessellation) and toggle individual flags with the
+    /// Construct with [`new`](MltEncoderOptions::new) (FSST, `FastPFOR` and shared
+    /// dictionaries enabled, no sorting and no tessellation) and toggle individual flags with the
     /// setter methods.
     #[diplomat::opaque_mut]
     pub struct MltEncoderOptions(EncoderConfig);
 
     impl MltEncoderOptions {
-        /// Create encoder options with the default configuration (no sorting and no tessellation).
+        /// Create encoder options with the default configuration.
         #[diplomat::attr(auto, constructor)]
         pub fn new() -> Box<MltEncoderOptions> {
             Box::new(MltEncoderOptions(EncoderConfig::default()))
@@ -96,6 +145,53 @@ mod ffi {
         pub fn set_allow_shared_dict(&mut self, enabled: bool) {
             self.0 = self.0.with_shared_dict(enabled);
         }
+
+        /// Select the wire format to encode to.
+        /// Every setter marked v2 only has no effect on a v1 layer.
+        pub fn set_wire_version(&mut self, version: MltWireVersion) {
+            let version = match version {
+                MltWireVersion::V01 => WireVersion::V01,
+                MltWireVersion::V02 => WireVersion::V02,
+            };
+            self.0 = self.0.with_wire_version(version);
+        }
+
+        /// v2 only: let a tessellated all-polygon layer store its triangles without the outlines.
+        /// Each polygon then decodes as the triangles it was cut into.
+        /// Requires tessellation.
+        pub fn set_allow_triangles_only(&mut self, enabled: bool) {
+            self.0 = self.0.with_triangles_only(enabled);
+        }
+
+        /// v2 only: allow integer and vertex streams to store the deltas of their deltas.
+        pub fn set_allow_delta2(&mut self, enabled: bool) {
+            self.0 = self.0.with_delta2(enabled);
+        }
+
+        /// v2 only: allow float columns to store one code per value into a dictionary.
+        pub fn set_allow_float_dict(&mut self, enabled: bool) {
+            self.0 = self.0.with_float_dict(enabled);
+        }
+
+        /// v2 only: allow float columns to store each value as a decimal-scaled integer (ALP).
+        pub fn set_allow_float_alp(&mut self, enabled: bool) {
+            self.0 = self.0.with_float_alp(enabled);
+        }
+
+        /// v2 only: allow dictionary code streams to be bit-packed.
+        pub fn set_allow_packed_dict_codes(&mut self, enabled: bool) {
+            self.0 = self.0.with_packed_dict_codes(enabled);
+        }
+
+        /// v2 only: allow plain vertex streams to be rANS-coded.
+        pub fn set_allow_rans_vertices(&mut self, enabled: bool) {
+            self.0 = self.0.with_rans_vertices(enabled);
+        }
+
+        /// v2 only: let a nested struct or map code its row shapes instead of per-field presence.
+        pub fn set_allow_row_shapes(&mut self, enabled: bool) {
+            self.0 = self.0.with_row_shapes(enabled);
+        }
     }
 
     /// Stateless FFI entry-points for MLT <-> MVT conversion.
@@ -104,21 +200,20 @@ mod ffi {
 
     impl MltConverter {
         /// Decode MLT bytes into MVT bytes.
-        pub fn mlt_to_mvt(mlt: &[u8]) -> Result<Box<MltBuffer>, ConvertError> {
+        pub fn mlt_to_mvt(mlt: &[u8]) -> Result<Box<MltBuffer>, Box<ConvertError>> {
             let layers = Parser::default()
                 .parse_layers(mlt)
-                .map_err(|_| ConvertError::InvalidInput)?;
+                .map_err(|e| ConvertError::new(ConvertErrorKind::InvalidInput, &e))?;
             let mut dec = Decoder::default();
             let mut tiles = Vec::new();
             for layer in layers {
-                if let Layer::Tag01(l) = layer {
-                    let tile = l
-                        .into_tile(&mut dec)
-                        .map_err(|_| ConvertError::InvalidInput)?;
-                    tiles.push(tile);
-                }
+                let tile = layer
+                    .into_tile(&mut dec)
+                    .map_err(|e| ConvertError::new(ConvertErrorKind::InvalidInput, &e))?;
+                tiles.extend(tile);
             }
-            let out = tile_layers_to_mvt(tiles).map_err(|_| ConvertError::InvalidInput)?;
+            let out = tile_layers_to_mvt(tiles)
+                .map_err(|e| ConvertError::new(ConvertErrorKind::InvalidInput, &e))?;
             Ok(Box::new(MltBuffer(out)))
         }
 
@@ -126,16 +221,56 @@ mod ffi {
         pub fn mvt_to_mlt(
             mvt: &[u8],
             options: &MltEncoderOptions,
-        ) -> Result<Box<MltBuffer>, ConvertError> {
+        ) -> Result<Box<MltBuffer>, Box<ConvertError>> {
             let mut out = Vec::new();
-            let layers = mvt_to_tile_layers(mvt).map_err(|_| ConvertError::EncodingFailed)?;
+            let layers = mvt_to_tile_layers(mvt)
+                .map_err(|e| ConvertError::new(ConvertErrorKind::EncodingFailed, &e))?;
             for tile in layers {
                 let encoded_tile = tile
                     .encode(options.0)
-                    .map_err(|_| ConvertError::EncodingFailed)?;
+                    .map_err(|e| ConvertError::new(ConvertErrorKind::EncodingFailed, &e))?;
                 out.extend_from_slice(&encoded_tile);
             }
             Ok(Box::new(MltBuffer(out)))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mlt_core::mvt::mvt_to_tile_layers;
+
+    use super::ffi::{MltConverter, MltEncoderOptions, MltWireVersion};
+
+    /// One layer `l` holding a 10x10 square polygon.
+    const SQUARE_MVT: &[u8] = &[
+        0x1a, 0x19, 0x0a, 0x01, b'l', 0x12, 0x0f, 0x18, 0x03, 0x22, 0x0b, 9, 0, 0, 26, 20, 0, 0,
+        20, 19, 0, 15, 0x28, 0x80, 0x20, 0x78, 0x02,
+    ];
+
+    fn round_trip(options: &MltEncoderOptions) -> usize {
+        let mlt = MltConverter::mvt_to_mlt(SQUARE_MVT, options).ok().unwrap();
+        let back = MltConverter::mlt_to_mvt(mlt.as_bytes()).ok().unwrap();
+        mvt_to_tile_layers(back.as_bytes()).unwrap().len()
+    }
+
+    #[test]
+    fn v1_round_trips() {
+        assert_eq!(round_trip(&MltEncoderOptions::new()), 1);
+    }
+
+    #[test]
+    fn v2_tessellated_without_outlines_round_trips() {
+        let mut options = MltEncoderOptions::new();
+        options.set_wire_version(MltWireVersion::V02);
+        options.set_tessellate(true);
+        options.set_allow_triangles_only(true);
+        assert_eq!(round_trip(&options), 1);
+    }
+
+    #[test]
+    fn invalid_mlt_error_has_a_message() {
+        let err = MltConverter::mlt_to_mvt(&[0xff]).err().unwrap();
+        assert!(err.message_len() > 0);
     }
 }

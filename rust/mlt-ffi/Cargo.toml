@@ -17,7 +17,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 diplomat.workspace = true
 diplomat-runtime.workspace = true
-mlt-core.workspace = true
+mlt-core = { workspace = true, features = ["unstable-v2"] }
 
 [lints]
 workspace = true
