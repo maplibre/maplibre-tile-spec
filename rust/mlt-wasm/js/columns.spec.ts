@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  decodeTileColumns,
   columnValue,
+  decodeTileColumns,
   type MltColumnLayer,
   toElevation,
 } from "./columns";
@@ -132,7 +132,12 @@ describe("columnValue", () => {
   it("reads a feature's value, and undefined where it has none", () => {
     const [val] = onlyLayer("0x02/presence_bitmap").properties;
     // A stored 0 and an absent value differ only by the bitmap.
-    expect([0, 1, 2, 3].map((i) => columnValue(val, i))).toEqual([0, undefined, 2, undefined]);
+    expect([0, 1, 2, 3].map((i) => columnValue(val, i))).toEqual([
+      0,
+      undefined,
+      2,
+      undefined,
+    ]);
   });
 
   it("rejects an index that is not a feature, rather than reading it as no value", () => {

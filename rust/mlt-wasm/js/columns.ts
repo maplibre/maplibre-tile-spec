@@ -142,7 +142,8 @@ export function columnValue<C extends MltColumn>(
   if (!Number.isInteger(index) || index < 0 || index >= values.length) {
     throw new RangeError(`the column has no feature ${index}`);
   }
-  const has = present === undefined || ((present[index >> 3] >> (index & 7)) & 1) === 1;
+  const has =
+    present === undefined || ((present[index >> 3] >> (index & 7)) & 1) === 1;
   return has ? values[index] : undefined;
 }
 
