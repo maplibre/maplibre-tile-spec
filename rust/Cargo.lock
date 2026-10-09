@@ -2878,6 +2878,7 @@ version = "0.1.33"
 dependencies = [
  "diplomat",
  "diplomat-runtime",
+ "insta",
  "mlt-core",
 ]
 

@@ -7,8 +7,14 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "ConvertErrorKind.d.h"
+
 #include "ConvertError.d.h"
 
-// No Content
+ConvertErrorKind ConvertError_kind(const ConvertError* self);
+
+void ConvertError_message(const ConvertError* self, DiplomatWrite* write);
+
+void ConvertError_destroy(ConvertError* self);
 
 #endif // ConvertError_H

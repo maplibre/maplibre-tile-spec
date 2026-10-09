@@ -1,7 +1,12 @@
+import org.maplibre.mlt_ffi.ConvertError
+import org.maplibre.mlt_ffi.ConvertErrorKind
 import org.maplibre.mlt_ffi.MltConverter
 import org.maplibre.mlt_ffi.MltEncoderOptions
+import org.maplibre.mlt_ffi.MltWireVersion
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalUnsignedTypes::class)
@@ -61,5 +66,39 @@ class TestRoundTrip {
         assertTrue(mvtBytes.isNotEmpty(), "MVT output is empty")
 
         assertEquals(0x1au.toUByte(), mvtBytes[0], "expected protobuf tag 0x1a")
+    }
+
+    @Test
+    fun v2EncodingOfAPointLayerDecodesToTheSameMvtAsV1() {
+        val v1Options = MltEncoderOptions.new_()
+        val v2Options = MltEncoderOptions.new_()
+        v2Options.setWireVersion(MltWireVersion.V02)
+
+        val v1Mlt = MltConverter.mvtToMlt(mvtFixture, v1Options).getOrThrow().asBytes()
+        val v2Mlt = MltConverter.mvtToMlt(mvtFixture, v2Options).getOrThrow().asBytes()
+
+        assertContentEquals(
+            MltConverter.mltToMvt(v1Mlt).getOrThrow().asBytes(),
+            MltConverter.mltToMvt(v2Mlt).getOrThrow().asBytes(),
+        )
+    }
+
+    @Test
+    fun decodingGarbageAsMltReportsInvalidInputWithTheParserMessage() {
+        val error = assertFailsWith<ConvertError> { MltConverter.mltToMvt(ubyteArrayOf(0xffu)).getOrThrow() }
+
+        assertEquals(ConvertErrorKind.InvalidInput, error.kind())
+        assertEquals("buffer underflow: needed 2 bytes, but only 1 remain", error.message())
+    }
+
+    @Test
+    fun encodingGarbageAsMvtReportsEncodingFailedWithTheParserMessage() {
+        val error =
+            assertFailsWith<ConvertError> {
+                MltConverter.mvtToMlt(ubyteArrayOf(0xffu), MltEncoderOptions.new_()).getOrThrow()
+            }
+
+        assertEquals(ConvertErrorKind.EncodingFailed, error.kind())
+        assertEquals("MVT error: protobuf decode error: unexpected end of buffer", error.message())
     }
 }

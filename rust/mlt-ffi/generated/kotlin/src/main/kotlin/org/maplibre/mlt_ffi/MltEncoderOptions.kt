@@ -44,13 +44,53 @@ internal interface MltEncoderOptionsLib : Library {
         handle: Pointer,
         enabled: Boolean,
     ): Unit
+
+    fun MltEncoderOptions_set_wire_version(
+        handle: Pointer,
+        version: Int,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_triangles_only(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_delta2(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_float_dict(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_float_alp(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_packed_dict_codes(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_rans_vertices(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_row_shapes(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
 }
 
 /** Encoder options controlling which optimisations are attempted for
 *MVT -> MLT conversion.
 *
-*Construct with [new](MltEncoderOptions::new) (all optimisations
-*enabled except tessellation) and toggle individual flags with the
+*Construct with [new](MltEncoderOptions::new) (FSST, `FastPFOR` and shared
+*dictionaries enabled, no sorting and no tessellation) and toggle individual flags with the
 *setter methods.
 */
 class MltEncoderOptions internal constructor(
@@ -83,7 +123,7 @@ class MltEncoderOptions internal constructor(
         internal val libClass: Class<MltEncoderOptionsLib> = MltEncoderOptionsLib::class.java
         internal val lib: MltEncoderOptionsLib = Native.load("mlt_ffi", libClass)
 
-        /** Create encoder options with the default configuration (no sorting and no tessellation).
+        /** Create encoder options with the default configuration.
          */
         @JvmStatic
         fun new_(): MltEncoderOptions {
@@ -135,5 +175,56 @@ class MltEncoderOptions internal constructor(
      */
     fun setAllowSharedDict(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_shared_dict(handle, enabled)
+    }
+
+    /** Select the wire format to encode to.
+     *Every setter marked v2 only has no effect on a v1 layer.
+     */
+    fun setWireVersion(version: MltWireVersion) {
+        val returnVal = lib.MltEncoderOptions_set_wire_version(handle, version.toNative())
+    }
+
+    /** v2 only: let a tessellated all-polygon layer store its triangles without the outlines.
+     *Each polygon then decodes as the triangles it was cut into.
+     *Requires tessellation.
+     */
+    fun setAllowTrianglesOnly(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_triangles_only(handle, enabled)
+    }
+
+    /** v2 only: allow integer and vertex streams to store the deltas of their deltas.
+     */
+    fun setAllowDelta2(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_delta2(handle, enabled)
+    }
+
+    /** v2 only: allow float columns to store one code per value into a dictionary.
+     */
+    fun setAllowFloatDict(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_float_dict(handle, enabled)
+    }
+
+    /** v2 only: allow float columns to store each value as a decimal-scaled integer (ALP).
+     */
+    fun setAllowFloatAlp(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_float_alp(handle, enabled)
+    }
+
+    /** v2 only: allow dictionary code streams to be bit-packed.
+     */
+    fun setAllowPackedDictCodes(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_packed_dict_codes(handle, enabled)
+    }
+
+    /** v2 only: allow plain vertex streams to be rANS-coded.
+     */
+    fun setAllowRansVertices(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_rans_vertices(handle, enabled)
+    }
+
+    /** v2 only: let a nested struct or map code its row shapes instead of per-field presence.
+     */
+    fun setAllowRowShapes(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_row_shapes(handle, enabled)
     }
 }

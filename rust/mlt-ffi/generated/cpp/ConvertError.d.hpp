@@ -11,53 +11,44 @@
 #include <stdint.h>
 #include <stdio.h>
 
+class ConvertErrorKind;
+
 namespace diplomat {
 namespace capi {
-enum ConvertError {
-    ConvertError_InvalidInput = 0,
-    ConvertError_EncodingFailed = 1,
-};
-
-typedef struct ConvertError_option {
-    union {
-        ConvertError ok;
-    };
-    bool is_ok;
-} ConvertError_option;
+struct ConvertError;
 } // namespace capi
 } // namespace diplomat
 
 /**
- * Error type returned by FFI conversion functions.
+ * Error returned by FFI conversion functions.
  */
 class ConvertError {
 public:
-    enum Value {
-        /**
-         * Input bytes could not be parsed or decoded.
-         */
-        InvalidInput = 0,
-        /**
-         * Encoding failed.
-         */
-        EncodingFailed = 1,
-    };
+    /**
+     * The stage that failed.
+     */
+    inline ConvertErrorKind kind() const;
 
-    ConvertError()
-        : value(Value::InvalidInput) {}
+    /**
+     * Human-readable cause.
+     */
+    inline std::string message() const;
+    template <typename W>
+    inline void message_write(W& writeable_output) const;
 
-    // Implicit conversions between enum and ::Value
-    constexpr ConvertError(Value v)
-        : value(v) {}
-    constexpr operator Value() const { return value; }
-    // Prevent usage as boolean value
-    explicit operator bool() const = delete;
-
-    inline diplomat::capi::ConvertError AsFFI() const;
-    inline static ConvertError FromFFI(diplomat::capi::ConvertError c_enum);
+    inline const diplomat::capi::ConvertError* AsFFI() const;
+    inline diplomat::capi::ConvertError* AsFFI();
+    inline static const ConvertError* FromFFI(const diplomat::capi::ConvertError* ptr);
+    inline static ConvertError* FromFFI(diplomat::capi::ConvertError* ptr);
+    inline static void operator delete(void* ptr);
 
 private:
-    Value value;
+    ConvertError() = delete;
+    ConvertError(const ConvertError&) = delete;
+    ConvertError(ConvertError&&) noexcept = delete;
+    ConvertError operator=(const ConvertError&) = delete;
+    ConvertError operator=(ConvertError&&) noexcept = delete;
+    static void operator delete[](void*, size_t) = delete;
 };
 
 #endif // ConvertError_D_HPP

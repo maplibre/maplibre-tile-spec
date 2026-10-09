@@ -7,16 +7,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-typedef enum ConvertError {
-    ConvertError_InvalidInput = 0,
-    ConvertError_EncodingFailed = 1,
-} ConvertError;
-
-typedef struct ConvertError_option {
-    union {
-        ConvertError ok;
-    };
-    bool is_ok;
-} ConvertError_option;
+typedef struct ConvertError ConvertError;
 
 #endif // ConvertError_D_H

@@ -12,6 +12,10 @@
 #include <stdio.h>
 
 namespace diplomat::capi {
+struct ConvertError;
+}
+class ConvertError;
+namespace diplomat::capi {
 struct MltBuffer;
 }
 class MltBuffer;
@@ -19,7 +23,6 @@ namespace diplomat::capi {
 struct MltEncoderOptions;
 }
 class MltEncoderOptions;
-class ConvertError;
 
 namespace diplomat {
 namespace capi {
@@ -35,13 +38,13 @@ public:
     /**
      * Decode MLT bytes into MVT bytes.
      */
-    inline static diplomat::result<std::unique_ptr<MltBuffer>, ConvertError> mlt_to_mvt(
+    inline static diplomat::result<std::unique_ptr<MltBuffer>, std::unique_ptr<ConvertError>> mlt_to_mvt(
         diplomat::span<const uint8_t> mlt);
 
     /**
      * Encode MVT bytes into MLT bytes using the given encoder options.
      */
-    inline static diplomat::result<std::unique_ptr<MltBuffer>, ConvertError> mvt_to_mlt(
+    inline static diplomat::result<std::unique_ptr<MltBuffer>, std::unique_ptr<ConvertError>> mvt_to_mlt(
         diplomat::span<const uint8_t> mvt, const MltEncoderOptions& options);
 
     inline const diplomat::capi::MltConverter* AsFFI() const;

@@ -8,12 +8,12 @@ import com.sun.jna.Structure
 internal interface MltConverterLib : Library {
     fun MltConverter_destroy(handle: Pointer)
 
-    fun MltConverter_mlt_to_mvt(mlt: Slice): ResultPointerInt
+    fun MltConverter_mlt_to_mvt(mlt: Slice): ResultPointerPointer
 
     fun MltConverter_mvt_to_mlt(
         mvt: Slice,
         options: Pointer,
-    ): ResultPointerInt
+    ): ResultPointerPointer
 }
 
 /** Stateless FFI entry-points for MLT <-> MVT conversion.
@@ -63,7 +63,10 @@ class MltConverter internal constructor(
                     val returnOpaque = MltBuffer(handle, selfEdges, true)
                     return returnOpaque.ok()
                 } else {
-                    return ConvertErrorError(ConvertError.fromNative(returnVal.getNativeErr()!!)).err()
+                    val selfEdges: List<Any> = listOf()
+                    val handle = returnVal.getNativeErr()!!
+                    val returnOpaque = ConvertError(handle, selfEdges, true)
+                    return returnOpaque.err()
                 }
             } finally {
                 mltSliceMemory.close()
@@ -88,7 +91,10 @@ class MltConverter internal constructor(
                     val returnOpaque = MltBuffer(handle, selfEdges, true)
                     return returnOpaque.ok()
                 } else {
-                    return ConvertErrorError(ConvertError.fromNative(returnVal.getNativeErr()!!)).err()
+                    val selfEdges: List<Any> = listOf()
+                    val handle = returnVal.getNativeErr()!!
+                    val returnOpaque = ConvertError(handle, selfEdges, true)
+                    return returnOpaque.err()
                 }
             } finally {
                 mvtSliceMemory.close()
