@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+class MltWireVersion;
+
 namespace diplomat {
 namespace capi {
 struct MltEncoderOptions;
@@ -21,14 +23,14 @@ struct MltEncoderOptions;
  * Encoder options controlling which optimisations are attempted for
  * MVT -> MLT conversion.
  *
- * Construct with {@link new}(MltEncoderOptions::new) (all optimisations
- * enabled except tessellation) and toggle individual flags with the
+ * Construct with {@link new}(MltEncoderOptions::new) (FSST, `FastPFOR` and shared
+ * dictionaries enabled, no sorting and no tessellation) and toggle individual flags with the
  * setter methods.
  */
 class MltEncoderOptions {
 public:
     /**
-     * Create encoder options with the default configuration (no sorting and no tessellation).
+     * Create encoder options with the default configuration.
      */
     inline static std::unique_ptr<MltEncoderOptions> new_();
 
@@ -66,6 +68,49 @@ public:
      * Allow string grouping into shared dictionaries.
      */
     inline void set_allow_shared_dict(bool enabled);
+
+    /**
+     * Select the wire format to encode to.
+     * Every setter marked v2 only has no effect on a v1 layer.
+     */
+    inline void set_wire_version(MltWireVersion version);
+
+    /**
+     * v2 only: let a tessellated all-polygon layer store its triangles without the outlines.
+     * Each polygon then decodes as the triangles it was cut into.
+     * Requires tessellation.
+     */
+    inline void set_allow_triangles_only(bool enabled);
+
+    /**
+     * v2 only: allow integer and vertex streams to store the deltas of their deltas.
+     */
+    inline void set_allow_delta2(bool enabled);
+
+    /**
+     * v2 only: allow float columns to store one code per value into a dictionary.
+     */
+    inline void set_allow_float_dict(bool enabled);
+
+    /**
+     * v2 only: allow float columns to store each value as a decimal-scaled integer (ALP).
+     */
+    inline void set_allow_float_alp(bool enabled);
+
+    /**
+     * v2 only: allow dictionary code streams to be bit-packed.
+     */
+    inline void set_allow_packed_dict_codes(bool enabled);
+
+    /**
+     * v2 only: allow plain vertex streams to be rANS-coded.
+     */
+    inline void set_allow_rans_vertices(bool enabled);
+
+    /**
+     * v2 only: let a nested struct or map code its row shapes instead of per-field presence.
+     */
+    inline void set_allow_row_shapes(bool enabled);
 
     inline const diplomat::capi::MltEncoderOptions* AsFFI() const;
     inline diplomat::capi::MltEncoderOptions* AsFFI();

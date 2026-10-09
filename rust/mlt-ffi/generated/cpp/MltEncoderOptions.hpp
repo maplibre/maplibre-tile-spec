@@ -3,6 +3,7 @@
 
 #include "MltEncoderOptions.d.hpp"
 
+#include "MltWireVersion.hpp"
 #include "diplomat_runtime.hpp"
 #include <cstdlib>
 #include <functional>
@@ -32,6 +33,23 @@ void MltEncoderOptions_set_allow_fsst(diplomat::capi::MltEncoderOptions* self, b
 void MltEncoderOptions_set_allow_fastpfor(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_set_allow_shared_dict(diplomat::capi::MltEncoderOptions* self, bool enabled);
+
+void MltEncoderOptions_set_wire_version(diplomat::capi::MltEncoderOptions* self,
+                                        diplomat::capi::MltWireVersion version);
+
+void MltEncoderOptions_set_allow_triangles_only(diplomat::capi::MltEncoderOptions* self, bool enabled);
+
+void MltEncoderOptions_set_allow_delta2(diplomat::capi::MltEncoderOptions* self, bool enabled);
+
+void MltEncoderOptions_set_allow_float_dict(diplomat::capi::MltEncoderOptions* self, bool enabled);
+
+void MltEncoderOptions_set_allow_float_alp(diplomat::capi::MltEncoderOptions* self, bool enabled);
+
+void MltEncoderOptions_set_allow_packed_dict_codes(diplomat::capi::MltEncoderOptions* self, bool enabled);
+
+void MltEncoderOptions_set_allow_rans_vertices(diplomat::capi::MltEncoderOptions* self, bool enabled);
+
+void MltEncoderOptions_set_allow_row_shapes(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_destroy(MltEncoderOptions* self);
 
@@ -70,6 +88,38 @@ inline void MltEncoderOptions::set_allow_fastpfor(bool enabled) {
 
 inline void MltEncoderOptions::set_allow_shared_dict(bool enabled) {
     diplomat::capi::MltEncoderOptions_set_allow_shared_dict(this->AsFFI(), enabled);
+}
+
+inline void MltEncoderOptions::set_wire_version(MltWireVersion version) {
+    diplomat::capi::MltEncoderOptions_set_wire_version(this->AsFFI(), version.AsFFI());
+}
+
+inline void MltEncoderOptions::set_allow_triangles_only(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_allow_triangles_only(this->AsFFI(), enabled);
+}
+
+inline void MltEncoderOptions::set_allow_delta2(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_allow_delta2(this->AsFFI(), enabled);
+}
+
+inline void MltEncoderOptions::set_allow_float_dict(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_allow_float_dict(this->AsFFI(), enabled);
+}
+
+inline void MltEncoderOptions::set_allow_float_alp(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_allow_float_alp(this->AsFFI(), enabled);
+}
+
+inline void MltEncoderOptions::set_allow_packed_dict_codes(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_allow_packed_dict_codes(this->AsFFI(), enabled);
+}
+
+inline void MltEncoderOptions::set_allow_rans_vertices(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_allow_rans_vertices(this->AsFFI(), enabled);
+}
+
+inline void MltEncoderOptions::set_allow_row_shapes(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_allow_row_shapes(this->AsFFI(), enabled);
 }
 
 inline const diplomat::capi::MltEncoderOptions* MltEncoderOptions::AsFFI() const {

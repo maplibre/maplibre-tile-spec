@@ -709,19 +709,19 @@ class UnitError internal constructor() : Exception("Rust error result for Unit")
     override fun toString(): String = "Unit error"
 }
 
-internal class ResultPointerIntUnion : Union() {
+internal class ResultPointerPointerUnion : Union() {
     @JvmField
     internal var ok: Pointer = Pointer(0)
 
     @JvmField
-    internal var err: Int = 0
+    internal var err: Pointer = Pointer(0)
 }
 
-class ResultPointerInt :
+class ResultPointerPointer :
     Structure(),
     Structure.ByValue {
     @JvmField
-    internal var union: ResultPointerIntUnion = ResultPointerIntUnion()
+    internal var union: ResultPointerPointerUnion = ResultPointerPointerUnion()
 
     @JvmField
     internal var isOk: Byte = 0
@@ -736,9 +736,9 @@ class ResultPointerInt :
         return null
     }
 
-    internal fun getNativeErr(): Int? {
+    internal fun getNativeErr(): Pointer? {
         if (isOk == 0.toByte()) {
-            return union.getTypedValue(Int::class.java) as Int
+            return union.getTypedValue(Pointer::class.java) as Pointer
         }
         return null
     }
