@@ -291,6 +291,14 @@ abstract class LayerBase {
     this.propertyColumns = layer.properties;
     this.propertyKeys = layer.properties.map((column) => column.name);
   }
+
+  /** `i`, checked to be a feature of this layer, so that a bad index fails where it is given. */
+  protected featureIndex(i: number): number {
+    if (!Number.isInteger(i) || i < 0 || i >= this.length) {
+      throw new RangeError(`layer "${this.name}" has no feature ${i}`);
+    }
+    return i;
+  }
 }
 
 export class MltLayer extends LayerBase implements VectorTileLayerLike {
@@ -300,7 +308,7 @@ export class MltLayer extends LayerBase implements VectorTileLayerLike {
   readonly zStep: number | undefined = this._data.layer.geometry.zStep;
 
   feature(i: number): MltFeature {
-    return new MltFeature(i, this._data);
+    return new MltFeature(this.featureIndex(i), this._data);
   }
 }
 
@@ -333,7 +341,7 @@ export class MltLayer3D extends LayerBase {
   }
 
   feature(i: number): MltFeature3D {
-    return new MltFeature3D(i, this._data, this.zStep);
+    return new MltFeature3D(this.featureIndex(i), this._data, this.zStep);
   }
 }
 

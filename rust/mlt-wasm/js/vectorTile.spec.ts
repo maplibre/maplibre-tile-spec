@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import type Point from "@mapbox/point-geometry";
 import { describe, expect, it } from "vitest";
 import { decodeTileColumns } from "./columns";
-import { decodeTile, type MltFeature, MltLayer } from "./vectorTile";
+import { decodeTile, decodeTile3D, type MltFeature, MltLayer } from "./vectorTile";
 
 interface Fixture {
   feature: MltFeature;
@@ -89,5 +89,23 @@ describe("layers keyed by name", () => {
     twice.set(point, point.length);
     expect(Object.keys(decodeTile(point).layers)).toHaveLength(1);
     expect(() => decodeTile(twice)).toThrow(/two layers named/);
+  });
+});
+
+describe("feature indexes", () => {
+  it("rejects an index that is not a feature, naming the layer", async () => {
+    const read = async (name: string) =>
+      new Uint8Array(await readFile(new URL(`../../../test/synthetic/${name}.mlt`, import.meta.url)));
+    const [flat] = Object.values(decodeTile(await read("0x01/point")).layers);
+    const [raised] = Object.values(decodeTile3D(await read("0x02/z_point")).layers);
+    for (const layer of [flat, raised]) {
+      expect(layer.length).toBe(1);
+      expect(() => layer.feature(0)).not.toThrow();
+      for (const index of [-1, 1, 0.5, Number.NaN]) {
+        expect(() => layer.feature(index)).toThrow(
+          new RangeError(`layer "${layer.name}" has no feature ${index}`),
+        );
+      }
+    }
   });
 });
