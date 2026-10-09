@@ -51,7 +51,7 @@ runs:
       with:
         toolchain: ${{ steps.msrv.outputs.value }}
 
-    # Debug info roughly doubles the cached target dir. Set before rust-cache, which hashes CARGO_*.
+    # Must precede rust-cache, which hashes CARGO_* into its key.
     - name: Build without debug info
       shell: bash
       run: echo "CARGO_PROFILE_DEV_DEBUG=0" >> "$GITHUB_ENV"
@@ -68,9 +68,6 @@ runs:
         # dispatching to rustup-init mode), causing maturin-action to fail with
         # "unexpected argument '--print' found / Usage: rustup-init[EXE]".
         cache-bin: false
-        # No shared-key: it drops this key and the job id, so all jobs would share one entry.
-        # Each job builds different artifacts.
-        key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}
 
     - if: ${{ inputs.coverage == 'true' }}
       uses: taiki-e/install-action@v2
