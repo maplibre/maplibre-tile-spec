@@ -31,7 +31,7 @@ const POLYGON = 3;
 
 /**
  * A vertex in 3D, as stored: `x` and `y` in tile coordinates, then `z` on the layer's
- * `zStep` grid, which is `-10000 + z * 10 ** zStep` metres.
+ * `zStep` grid, which `toElevation` converts to metres.
  */
 export type Position3D = [x: number, y: number, z: number];
 
@@ -314,7 +314,7 @@ export class MltLayer extends LayerBase implements VectorTileLayerLike {
 
 /** A layer with z coordinates, as `decodeTile3D` returns. */
 export class MltLayer3D extends LayerBase {
-  /** The z grid as the power of ten of its step in metres: a raw z is `-10000 + z * 10 ** zStep` metres. */
+  /** The z grid as the power of ten of its step in metres; `toElevation` gives a z in metres. */
   readonly zStep: number;
 
   /**

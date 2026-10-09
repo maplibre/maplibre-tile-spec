@@ -74,7 +74,9 @@ for (const layer of decodeTileColumns(data).layers) {
     // triangleOffsets, indexBuffer: present on tessellated layers
     for (const column of layer.properties) {
         // column.values has one slot per feature; a slot without a value holds 0 or ""
-        const first = columnValue(column, 0); // undefined when feature 0 has no value
+        for (let f = 0; f < layer.featureCount; f++) {
+            const value = columnValue(column, f); // undefined when feature f has no value
+        }
     }
     // v2 vertex-scoped (m-value) and nested columns are not passed on
 }
@@ -87,6 +89,9 @@ Each column is `{ name, type, values, present? }`. `present` is a bitmap with on
 feature, LSB-first, left out when every feature has a value. `bool` comes as `0`/`1`, and
 64-bit integers, ids included, as `Float64Array`, so values above `Number.MAX_SAFE_INTEGER`
 lose precision.
+
+A 3D layer's `zStep` is the power of ten of its z grid's step in metres; `toElevation(z, zStep)`
+converts one z to metres, exactly as `mlt-core` does.
 
 ### Features
 
@@ -105,8 +110,6 @@ if (g.kind === 'polygon') {
     }
 }
 ```
-
-`toElevation(z, zStep)` converts one z to metres, exactly as `mlt-core` does.
 
 #### Building GPU buffers
 
@@ -154,8 +157,8 @@ code can assume 3D. It throws when any layer has no z coordinates, for which `de
 tile in 2D, and when any layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry
 layout. `decodeTileColumns` reads every layout, in 2D and 3D.
 
-Like `x` and `y`, `z` is the stored integer: it lies on the layer's `zStep` grid, and its
-elevation is `-10000 + z * 10 ** zStep` metres.
+Like `x` and `y`, `z` is the stored integer: it lies on the layer's `zStep` grid, and
+`toElevation(z, layer.zStep)` gives its elevation in metres.
 
 ```ts
 import { decodeTile3D } from '@maplibre/mlt-wasm';
