@@ -246,7 +246,8 @@ mod tests {
 
     const POINT: &[u8] = include_bytes!("../../../test/fixtures/simple/point-boolean.mvt");
     const POLYGON: &[u8] = include_bytes!("../../../test/fixtures/simple/polygon-boolean.mvt");
-    const MULTIPOLYGON: &[u8] = include_bytes!("../../../test/fixtures/simple/multipolygon-boolean.mvt");
+    const MULTIPOLYGON: &[u8] =
+        include_bytes!("../../../test/fixtures/simple/multipolygon-boolean.mvt");
 
     #[test]
     fn v1_encoding_of_a_point_layer_decodes_to_the_same_layers() {
@@ -265,7 +266,9 @@ mod tests {
     fn v1_encoding_of_a_multipolygon_layer_decodes_to_the_same_layers() {
         let options = MltEncoderOptions::new();
 
-        let mlt = MltConverter::mvt_to_mlt(MULTIPOLYGON, &options).ok().unwrap();
+        let mlt = MltConverter::mvt_to_mlt(MULTIPOLYGON, &options)
+            .ok()
+            .unwrap();
         let decoded = MltConverter::mlt_to_mvt(mlt.as_bytes()).ok().unwrap();
 
         assert_eq!(
@@ -279,7 +282,9 @@ mod tests {
         let mut options = MltEncoderOptions::new();
         options.set_wire_version(MltWireVersion::V02);
 
-        let mlt = MltConverter::mvt_to_mlt(MULTIPOLYGON, &options).ok().unwrap();
+        let mlt = MltConverter::mvt_to_mlt(MULTIPOLYGON, &options)
+            .ok()
+            .unwrap();
         let decoded = MltConverter::mlt_to_mvt(mlt.as_bytes()).ok().unwrap();
 
         assert_eq!(
