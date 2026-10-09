@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.41](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.40...rust-mlt-wasm-v0.1.41) - 2026-10-08
+
+### Other
+
+- *(deps-dev)* bump source-map-js from 1.2.1 to 1.2.2 in /rust/mlt-wasm ([#1883](https://github.com/maplibre/maplibre-tile-spec/pull/1883))
+
 ## [0.1.40](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.39...rust-mlt-wasm-v0.1.40) - 2026-10-04
 
 ### Other

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.2.8...python-mlt-v0.2.9) - 2026-10-08
+
+### Added
+
+- feat!(rust): keep the source feature order by default ([#1867](https://github.com/maplibre/maplibre-tile-spec/pull/1867))
+
 ## [0.2.8](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.2.7...python-mlt-v0.2.8) - 2026-10-04
 
 ### Other

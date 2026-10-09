@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.3.5...rust-mlt-v0.4.0) - 2026-10-08
+
+### Added
+
+- *(v2)* replace the Indices presence coding with Sparse ([#1868](https://github.com/maplibre/maplibre-tile-spec/pull/1868))
+- feat!(rust): keep the source feature order by default ([#1867](https://github.com/maplibre/maplibre-tile-spec/pull/1867))
+- *(rust/mlt)* [**breaking**] bit-pack dictionary codes by default, add --no-bitpacking ([#1866](https://github.com/maplibre/maplibre-tile-spec/pull/1866))
+- feat!(rust/mlt): Enable v2 by default ([#1860](https://github.com/maplibre/maplibre-tile-spec/pull/1860))
+
+### Other
+
+- *(deps)* bump martin-tile-utils from 0.7.8 to 0.8.1 in /rust ([#1862](https://github.com/maplibre/maplibre-tile-spec/pull/1862))
+
 ## [0.3.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.3.4...rust-mlt-v0.3.5) - 2026-10-04
 
 ### Added

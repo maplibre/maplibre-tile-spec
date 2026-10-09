@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.19.3...rust-mlt-core-v0.20.0) - 2026-10-08
+
+### Added
+
+- *(rust)* LayerWriter builds a layer one feature at a time ([#1894](https://github.com/maplibre/maplibre-tile-spec/pull/1894))
+- *(v2)* replace the Indices presence coding with Sparse ([#1868](https://github.com/maplibre/maplibre-tile-spec/pull/1868))
+- feat!(rust): keep the source feature order by default ([#1867](https://github.com/maplibre/maplibre-tile-spec/pull/1867))
+- *(rust/mlt)* [**breaking**] bit-pack dictionary codes by default, add --no-bitpacking ([#1866](https://github.com/maplibre/maplibre-tile-spec/pull/1866))
+- feat!(rust/mlt): Enable v2 by default ([#1860](https://github.com/maplibre/maplibre-tile-spec/pull/1860))
+
+### Other
+
+- *(rust)* encoder reads layers through LayerSource ([#1890](https://github.com/maplibre/maplibre-tile-spec/pull/1890))
+- *(rust)* stream MVT output with fast-mvt 0.7 ([#1889](https://github.com/maplibre/maplibre-tile-spec/pull/1889))
+- *(rust)* materialise dictionary rows without re-validating UTF-8 ([#1855](https://github.com/maplibre/maplibre-tile-spec/pull/1855))
+- *(rust)* expand FSST symbols with one fixed-width copy ([#1854](https://github.com/maplibre/maplibre-tile-spec/pull/1854))
+
 ## [0.19.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.19.2...rust-mlt-core-v0.19.3) - 2026-10-04
 
 ### Added
