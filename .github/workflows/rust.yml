@@ -112,7 +112,7 @@ jobs:
         with:
           submodules: ${{ matrix.target == 'differential' && 'recursive' || '' }}
       - uses: ./.github/actions/mlt-setup-rust
-        with: { toolchain: nightly }
+        with: { toolchain: nightly, fuzz: true }
       - if: matrix.target == 'differential'
         name: Build mlt-cpp-json oracle
         run: just -v cpp::build-json
