@@ -118,37 +118,23 @@ vertex, read as `ivec2` or `ivec3` in the shader. What a renderer adds next to i
 its shapes need tessellation on the CPU.
 
 Shapes drawn as they are, such as points and lines (thick lines can be extruded in the vertex
-shader), need per-vertex ids to break lines apart and to look up a feature's style or pick it.
-`featureGeometry` places each line in the layer's vertex sequence:
+shader), need to know where each line starts, to break lines apart, and which feature it belongs to,
+to style or pick it. `geometryStarts(layer.geometry)` gives both for the whole layer, from the tile's
+own offset levels: where each feature's geometries start, where each geometry's vertices start and, in
+a layer with polygons, where each polygon's rings and each ring's vertices start. The tile stores
+these as counts per level, not per vertex, and the arrays are their running totals. Each has one
+entry more than it has items, and stored offset columns come back as they are. They are resolved once
+per layer and every call returns the same arrays, so don't modify them.
 
-```ts
-// Vertices of other features keep NO_LINE; a segment is drawn only if both ends are the same line.
-const NO_LINE = 0xffffffff;
-const { dimension, vertices } = layer.geometry;
-const lineOfVertex = new Uint32Array(vertices.length / dimension).fill(NO_LINE);
-const featureOfLine: number[] = [];
-for (let f = 0; f < layer.featureCount; f++) {
-    const g = featureGeometry(layer, f);
-    if (g.kind !== 'line') continue;
-    for (const line of g.lines) {
-        lineOfVertex.fill(featureOfLine.length, line.firstVertex, line.firstVertex + line.vertices.length / dimension);
-        featureOfLine.push(f);
-    }
-}
-```
-
-`geometryStarts(layer.geometry)` resolves the offset levels for the whole layer at once instead:
-where each feature's geometries start, where each geometry's vertices start and, in a layer with
-polygons, where each polygon's rings and each ring's vertices start. Each array has one entry more
-than it has items, and stored offset columns come back as they are. They are resolved once per layer
-and every call returns the same arrays, so don't modify them. In a layer of one geometry kind they
-are what a renderer takes for a batch, such as deck.gl's binary `PathLayer` for lines:
+In a layer of one geometry kind they are what a renderer takes for a batch, such as deck.gl's binary
+`PathLayer` for lines:
 
 ```ts
 import { geometryStarts } from '@maplibre/mlt-wasm';
 
 const { featureGeometries, geometryVertices, ringVertices } = geometryStarts(layer.geometry);
-// Lines: line g is vertices geometryVertices[g] .. geometryVertices[g + 1].
+// Lines: line g is vertices geometryVertices[g] .. geometryVertices[g + 1], and feature f's lines
+// are featureGeometries[f] .. featureGeometries[f + 1].
 new PathLayer({
     data: {
         length: geometryVertices.length - 1,
@@ -158,24 +144,36 @@ new PathLayer({
     _pathType: 'open',
 });
 // Polygons: geometryVertices starts each polygon, ringVertices each ring (outlines without the
-// closing vertex); a feature's geometries are featureGeometries[f] .. featureGeometries[f + 1].
+// closing vertex).
+```
+
+A shader that extrudes lines itself reads one vertex at a time, so it needs the line as a vertex
+attribute instead. That is one fill per line from the same starts, done by the renderer for the id it
+uploads:
+
+```ts
+// A segment is drawn only if both ends are the same line.
+const lineOfVertex = new Uint32Array(geometryVertices[geometryVertices.length - 1]);
+for (let g = 0; g + 1 < geometryVertices.length; g++) {
+    lineOfVertex.fill(g, geometryVertices[g], geometryVertices[g + 1]);
+}
 ```
 
 A geometry is a point, a line or a polygon, and every kind shares one sequence in feature order, so in
 a layer mixing kinds, `layer.geometry.types` tells which features are which. A `TessPolygons` layer has
 no runs of vertices, only triangles.
 
-Shapes that need tessellation work one feature at a time instead:
+On a 1.3 MB tile of 1,333 line features and 524,482 vertices, `geometryStarts` takes about 0.006 ms
+and the fill above about 0.2 ms, against about 3.8 ms for `decodeTileColumns` (Node, one machine).
 
-- A tessellation that only adds triangles keeps the vertex buffer: earcut's indices are counted from the
-  polygon's view, so adding its `firstVertex` makes them an index buffer over `vertices`. A tessellated
-  layer's triangles are that already.
+Shapes that need tessellation on the CPU work one polygon or line at a time:
+
+- A tessellation that only adds triangles keeps the vertex buffer: earcut's indices are counted from a
+  polygon's view in `featureGeometry`, which comes with its hole indices, so adding its `firstVertex`
+  makes them an index buffer over `vertices`. A tessellated layer's triangles are that already.
 - A tessellation that creates vertices, such as ribbons with joins built on the CPU or extruded walls,
-  writes a buffer of its own, and tags its output with the feature it came from.
-
-`featureGeometry` costs per feature, not per vertex. On a 1.3 MB tile of 1,333 line features and
-524,482 vertices, the `featureGeometry` loop above takes about 0.4 ms, against about 3.7 ms for
-`decodeTileColumns` (Node, one machine).
+  reads each line or ring between its starts, writes a buffer of its own, and tags its output with the
+  line or feature it came from.
 
 ### 3D
 
