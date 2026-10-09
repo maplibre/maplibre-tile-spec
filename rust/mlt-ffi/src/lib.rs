@@ -15,6 +15,7 @@ mod ffi {
     use mlt_core::{Decoder, Parser};
 
     /// Which stage of a conversion failed.
+    #[derive(Debug, PartialEq, Eq)]
     pub enum ConvertErrorKind {
         /// Input bytes could not be parsed or decoded.
         InvalidInput,
@@ -44,8 +45,8 @@ mod ffi {
         }
 
         #[cfg(test)]
-        pub(crate) fn message_len(&self) -> usize {
-            self.message.len()
+        pub(crate) fn message_text(&self) -> &str {
+            &self.message
         }
     }
 
@@ -238,39 +239,121 @@ mod ffi {
 
 #[cfg(test)]
 mod tests {
+    use insta::assert_debug_snapshot;
     use mlt_core::mvt::mvt_to_tile_layers;
 
-    use super::ffi::{MltConverter, MltEncoderOptions, MltWireVersion};
+    use super::ffi::{ConvertErrorKind, MltConverter, MltEncoderOptions, MltWireVersion};
 
-    /// One layer `l` holding a 10x10 square polygon.
-    const SQUARE_MVT: &[u8] = &[
-        0x1a, 0x19, 0x0a, 0x01, b'l', 0x12, 0x0f, 0x18, 0x03, 0x22, 0x0b, 9, 0, 0, 26, 20, 0, 0,
-        20, 19, 0, 15, 0x28, 0x80, 0x20, 0x78, 0x02,
-    ];
+    const POINT: &[u8] = include_bytes!("../../../test/fixtures/simple/point-boolean.mvt");
+    const POLYGON: &[u8] = include_bytes!("../../../test/fixtures/simple/polygon-boolean.mvt");
+    const MULTIPOLYGON: &[u8] = include_bytes!("../../../test/fixtures/simple/multipolygon-boolean.mvt");
 
-    fn round_trip(options: &MltEncoderOptions) -> usize {
-        let mlt = MltConverter::mvt_to_mlt(SQUARE_MVT, options).ok().unwrap();
-        let back = MltConverter::mlt_to_mvt(mlt.as_bytes()).ok().unwrap();
-        mvt_to_tile_layers(back.as_bytes()).unwrap().len()
+    #[test]
+    fn v1_encoding_of_a_point_layer_decodes_to_the_same_layers() {
+        let options = MltEncoderOptions::new();
+
+        let mlt = MltConverter::mvt_to_mlt(POINT, &options).ok().unwrap();
+        let decoded = MltConverter::mlt_to_mvt(mlt.as_bytes()).ok().unwrap();
+
+        assert_eq!(
+            mvt_to_tile_layers(decoded.as_bytes()).unwrap(),
+            mvt_to_tile_layers(POINT).unwrap()
+        );
     }
 
     #[test]
-    fn v1_round_trips() {
-        assert_eq!(round_trip(&MltEncoderOptions::new()), 1);
+    fn v1_encoding_of_a_multipolygon_layer_decodes_to_the_same_layers() {
+        let options = MltEncoderOptions::new();
+
+        let mlt = MltConverter::mvt_to_mlt(MULTIPOLYGON, &options).ok().unwrap();
+        let decoded = MltConverter::mlt_to_mvt(mlt.as_bytes()).ok().unwrap();
+
+        assert_eq!(
+            mvt_to_tile_layers(decoded.as_bytes()).unwrap(),
+            mvt_to_tile_layers(MULTIPOLYGON).unwrap()
+        );
     }
 
     #[test]
-    fn v2_tessellated_without_outlines_round_trips() {
+    fn v2_encoding_of_a_multipolygon_layer_decodes_to_the_same_layers() {
+        let mut options = MltEncoderOptions::new();
+        options.set_wire_version(MltWireVersion::V02);
+
+        let mlt = MltConverter::mvt_to_mlt(MULTIPOLYGON, &options).ok().unwrap();
+        let decoded = MltConverter::mlt_to_mvt(mlt.as_bytes()).ok().unwrap();
+
+        assert_eq!(
+            mvt_to_tile_layers(decoded.as_bytes()).unwrap(),
+            mvt_to_tile_layers(MULTIPOLYGON).unwrap()
+        );
+    }
+
+    #[test]
+    fn v2_tessellated_encoding_without_outlines_decodes_a_polygon_as_triangles() {
         let mut options = MltEncoderOptions::new();
         options.set_wire_version(MltWireVersion::V02);
         options.set_tessellate(true);
         options.set_allow_triangles_only(true);
-        assert_eq!(round_trip(&options), 1);
+
+        let mlt = MltConverter::mvt_to_mlt(POLYGON, &options).ok().unwrap();
+        let decoded = MltConverter::mlt_to_mvt(mlt.as_bytes()).ok().unwrap();
+
+        assert_debug_snapshot!(mvt_to_tile_layers(decoded.as_bytes()).unwrap(), @r#"
+        [
+            TileLayer {
+                name: "layer",
+                extent: Extent(
+                    4096,
+                ),
+                property_names: [
+                    "key",
+                ],
+                property_kinds: [
+                    Bool,
+                ],
+                m_value_names: [],
+                m_value_kinds: [],
+                nested_names: [],
+                nested_kinds: [],
+                z_step: None,
+                features: [
+                    TileFeature {
+                        id: Some(
+                            1,
+                        ),
+                        geometry: POLYGON((8 12,20 34,3 6,8 12)),
+                        properties: [
+                            Bool(
+                                Some(
+                                    true,
+                                ),
+                            ),
+                        ],
+                        m_values: [],
+                        nested: [],
+                        z: [],
+                    },
+                ],
+            },
+        ]
+        "#);
     }
 
     #[test]
-    fn invalid_mlt_error_has_a_message() {
-        let err = MltConverter::mlt_to_mvt(&[0xff]).err().unwrap();
-        assert!(err.message_len() > 0);
+    fn decoding_garbage_as_mlt_reports_invalid_input_with_the_parser_message() {
+        let error = MltConverter::mlt_to_mvt(&[0xff]).err().unwrap();
+
+        assert_eq!(error.kind(), ConvertErrorKind::InvalidInput);
+        assert_debug_snapshot!(error.message_text(), @r#""buffer underflow: needed 2 bytes, but only 1 remain""#);
+    }
+
+    #[test]
+    fn encoding_garbage_as_mvt_reports_encoding_failed_with_the_parser_message() {
+        let error = MltConverter::mvt_to_mlt(&[0xff], &MltEncoderOptions::new())
+            .err()
+            .unwrap();
+
+        assert_eq!(error.kind(), ConvertErrorKind::EncodingFailed);
+        assert_debug_snapshot!(error.message_text(), @r#""MVT error: protobuf decode error: unexpected end of buffer""#);
     }
 }

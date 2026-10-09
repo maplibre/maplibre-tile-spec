@@ -19,5 +19,8 @@ diplomat.workspace = true
 diplomat-runtime.workspace = true
 mlt-core = { workspace = true, features = ["unstable-v2"] }
 
+[dev-dependencies]
+insta.workspace = true
+
 [lints]
 workspace = true
