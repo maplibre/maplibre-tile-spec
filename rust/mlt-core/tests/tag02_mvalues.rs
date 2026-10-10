@@ -182,10 +182,10 @@ fn m_values_follow_their_vertices_when_a_ring_is_rewound() {
     );
     let wound = layer(
         vec![Geometry::Polygon(Polygon::new(
-            ring(&[(9, 0), (9, 9), (0, 9), (0, 0)]),
+            ring(&[(0, 0), (9, 0), (9, 9), (0, 9)]),
             vec![],
         ))],
-        &[("m", i32s(&[&[4, 3, 2, 1]]))],
+        &[("m", i32s(&[&[1, 4, 3, 2]]))],
     );
     let bytes = wrong.encode(cfg_v2()).expect("v2 encode");
     assert_eq!(decode(&bytes), wound);
