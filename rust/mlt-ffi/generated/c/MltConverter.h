@@ -22,6 +22,15 @@ typedef struct MltConverter_mlt_to_mvt_result {
 } MltConverter_mlt_to_mvt_result;
 MltConverter_mlt_to_mvt_result MltConverter_mlt_to_mvt(DiplomatU8View mlt);
 
+typedef struct MltConverter_mlt_to_mvt_with_limit_result {
+    union {
+        MltBuffer* ok;
+        ConvertError* err;
+    };
+    bool is_ok;
+} MltConverter_mlt_to_mvt_with_limit_result;
+MltConverter_mlt_to_mvt_with_limit_result MltConverter_mlt_to_mvt_with_limit(DiplomatU8View mlt, uint32_t max_bytes);
+
 typedef struct MltConverter_mvt_to_mlt_result {
     union {
         MltBuffer* ok;

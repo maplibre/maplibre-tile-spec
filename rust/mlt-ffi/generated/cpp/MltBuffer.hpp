@@ -17,6 +17,10 @@ namespace diplomat {
 namespace capi {
 extern "C" {
 
+diplomat::capi::MltBuffer* MltBuffer_new(void);
+
+void MltBuffer_clear(diplomat::capi::MltBuffer* self);
+
 diplomat::capi::DiplomatU8View MltBuffer_as_bytes(const diplomat::capi::MltBuffer* self);
 
 size_t MltBuffer_len(const diplomat::capi::MltBuffer* self);
@@ -26,6 +30,15 @@ void MltBuffer_destroy(MltBuffer* self);
 } // extern "C"
 } // namespace capi
 } // namespace diplomat
+
+inline std::unique_ptr<MltBuffer> MltBuffer::new_() {
+    auto result = diplomat::capi::MltBuffer_new();
+    return std::unique_ptr<MltBuffer>(MltBuffer::FromFFI(result));
+}
+
+inline void MltBuffer::clear() {
+    diplomat::capi::MltBuffer_clear(this->AsFFI());
+}
 
 inline diplomat::span<const uint8_t> MltBuffer::as_bytes() const DIPLOMAT_LIFETIME_BOUND {
     auto result = diplomat::capi::MltBuffer_as_bytes(this->AsFFI());

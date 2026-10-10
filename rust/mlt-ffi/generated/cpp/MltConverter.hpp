@@ -29,6 +29,16 @@ typedef struct MltConverter_mlt_to_mvt_result {
 } MltConverter_mlt_to_mvt_result;
 MltConverter_mlt_to_mvt_result MltConverter_mlt_to_mvt(diplomat::capi::DiplomatU8View mlt);
 
+typedef struct MltConverter_mlt_to_mvt_with_limit_result {
+    union {
+        diplomat::capi::MltBuffer* ok;
+        diplomat::capi::ConvertError* err;
+    };
+    bool is_ok;
+} MltConverter_mlt_to_mvt_with_limit_result;
+MltConverter_mlt_to_mvt_with_limit_result MltConverter_mlt_to_mvt_with_limit(diplomat::capi::DiplomatU8View mlt,
+                                                                             uint32_t max_bytes);
+
 typedef struct MltConverter_mvt_to_mlt_result {
     union {
         diplomat::capi::MltBuffer* ok;
@@ -48,6 +58,17 @@ void MltConverter_destroy(MltConverter* self);
 inline diplomat::result<std::unique_ptr<MltBuffer>, std::unique_ptr<ConvertError>> MltConverter::mlt_to_mvt(
     diplomat::span<const uint8_t> mlt) {
     auto result = diplomat::capi::MltConverter_mlt_to_mvt({mlt.data(), mlt.size()});
+    return result.is_ok ? diplomat::result<std::unique_ptr<MltBuffer>, std::unique_ptr<ConvertError>>(
+                              diplomat::Ok<std::unique_ptr<MltBuffer>>(
+                                  std::unique_ptr<MltBuffer>(MltBuffer::FromFFI(result.ok))))
+                        : diplomat::result<std::unique_ptr<MltBuffer>, std::unique_ptr<ConvertError>>(
+                              diplomat::Err<std::unique_ptr<ConvertError>>(
+                                  std::unique_ptr<ConvertError>(ConvertError::FromFFI(result.err))));
+}
+
+inline diplomat::result<std::unique_ptr<MltBuffer>, std::unique_ptr<ConvertError>> MltConverter::mlt_to_mvt_with_limit(
+    diplomat::span<const uint8_t> mlt, uint32_t max_bytes) {
+    auto result = diplomat::capi::MltConverter_mlt_to_mvt_with_limit({mlt.data(), mlt.size()}, max_bytes);
     return result.is_ok ? diplomat::result<std::unique_ptr<MltBuffer>, std::unique_ptr<ConvertError>>(
                               diplomat::Ok<std::unique_ptr<MltBuffer>>(
                                   std::unique_ptr<MltBuffer>(MltBuffer::FromFFI(result.ok))))
