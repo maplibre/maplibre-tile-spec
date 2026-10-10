@@ -65,7 +65,7 @@ export default class FeatureTable {
      */
     getFeatures(): Feature[] {
         const features: Feature[] = [];
-        const geometries = this.geometryVector.getGeometries();
+        const { coordinates: geometries, polygons } = this.geometryVector.decodeGeometries();
 
         for (let i = 0; i < this.numFeatures; i++) {
             let id: number | bigint | undefined;
@@ -75,9 +75,10 @@ export default class FeatureTable {
                     id = this.containsMaxSafeIntegerValues(this.idVector) ? Number(idValue) : idValue;
                 }
             }
-            const geometry = {
+            const geometry: Geometry = {
                 coordinates: geometries[i],
                 type: this.geometryVector.geometryType(i),
+                polygons: polygons[i],
             };
 
             const properties: { [key: string]: unknown } = {};

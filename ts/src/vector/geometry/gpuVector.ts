@@ -1,5 +1,5 @@
 import { createFlatGeometryVector } from "./flatGeometryVector";
-import type { CoordinatesArray } from "./geometryVector";
+import type { CoordinatesArray, DecodedGeometries } from "./geometryVector";
 import type { TopologyVector } from "./topologyVector";
 
 export abstract class GpuVector implements Iterable<CoordinatesArray> {
@@ -33,6 +33,11 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
     }
 
     getGeometries(): CoordinatesArray[] {
+        return this.decodeGeometries().coordinates;
+    }
+
+    /** Like `getGeometries()`, and also keeps each multi-polygon's rings grouped by polygon. */
+    decodeGeometries(): DecodedGeometries {
         if (!this._topologyVector) {
             throw new Error("Cannot convert GpuVector to coordinates without topology information");
         }
@@ -40,7 +45,7 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         for (let i = 0; i < this.numGeometries; i++) {
             types[i] = this.geometryType(i);
         }
-        return createFlatGeometryVector(types, this._topologyVector, undefined, this._vertexBuffer).getGeometries();
+        return createFlatGeometryVector(types, this._topologyVector, undefined, this._vertexBuffer).decodeGeometries();
     }
 
     [Symbol.iterator](): Iterator<CoordinatesArray> {
