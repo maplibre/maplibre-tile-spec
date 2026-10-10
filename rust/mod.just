@@ -126,7 +126,7 @@ ci-test-wasm: ci-env-info wasm-test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all FFI round-trip tests as expected by CI, building the cdylib once
-ci-test-ffi: ci-env-info test-ffi-c test-ffi-cpp test-ffi-kotlin
+ci-test-ffi: ci-env-info test-ffi-c test-ffi-cpp test-ffi-kotlin test-ffi-java
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: ci-env-info
@@ -403,7 +403,7 @@ semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install'
 
 # Regenerate diplomat FFI bindings
 [working-directory: 'mlt-ffi']
-sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'clang-format') (just 'assert-cmd' 'ktlint')
+sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'clang-format') (just 'assert-cmd' 'ktlint') (just 'assert-cmd' 'jextract')
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -412,6 +412,16 @@ sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'cl
     diplomat-tool kotlin generated/kotlin -e src/lib.rs
     clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp generated/c/* generated/cpp/*
     ktlint --format ./**/*.kt
+
+    JAVA_SRC=generated/java/src/main/java
+    UMBRELLA="$(mktemp -d)"
+    trap 'rm -rf "$UMBRELLA"' EXIT
+    for header in generated/c/*.h; do
+        case "$header" in *.d.h) ;; *) echo "#include \"$(basename "$header")\"" ;; esac
+    done > "$UMBRELLA/mlt_ffi.h"
+    rm -rf "$JAVA_SRC/org/maplibre/mlt/ffi/raw"
+    jextract --output "$JAVA_SRC" --target-package org.maplibre.mlt.ffi.raw --header-class-name mlt_ffi_h \
+        -I generated/c "$UMBRELLA/mlt_ffi.h"
 
 _build-ffi-lib:
     cargo build --release -p mlt-ffi
@@ -459,6 +469,25 @@ test-ffi-kotlin: _build-ffi-lib (just 'assert-cmd' 'java')
     cp "target/release/$LIB" "$NATIVES/$LIB"
 
     cd mlt-ffi/generated/kotlin
+    ./gradlew --console=plain --no-daemon test -Pversion=0.0.0-test
+
+# Run the Java FFI round-trip test, generating the raw bindings with jextract
+test-ffi-java: _build-ffi-lib (just 'assert-cmd' 'java')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64)        CLASSIFIER=linux-x86_64;   LIB=libmlt_ffi.so    ;;
+        Linux-aarch64)       CLASSIFIER=linux-aarch64;  LIB=libmlt_ffi.so    ;;
+        Darwin-arm64)        CLASSIFIER=macos-aarch64;  LIB=libmlt_ffi.dylib ;;
+        MINGW*-*|MSYS*-*|CYGWIN*-*) CLASSIFIER=windows-x86_64; LIB=mlt_ffi.dll ;;
+        *) echo "::error::Unsupported host $(uname -s)-$(uname -m)"; exit 1 ;;
+    esac
+
+    NATIVES="mlt-ffi/generated/java/build/natives/$CLASSIFIER"
+    mkdir -p "$NATIVES"
+    cp "target/release/$LIB" "$NATIVES/$LIB"
+
+    cd mlt-ffi/generated/java
     ./gradlew --console=plain --no-daemon test -Pversion=0.0.0-test
 
 # Regenerate the Python type stub for mlt-py

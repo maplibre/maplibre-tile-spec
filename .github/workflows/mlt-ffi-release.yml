@@ -67,6 +67,9 @@ jobs:
           - project: kotlin
             artifact: mlt-ffi-kotlin
             java-version: '21'
+          - project: java
+            artifact: mlt-ffi-java
+            java-version: '25'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }

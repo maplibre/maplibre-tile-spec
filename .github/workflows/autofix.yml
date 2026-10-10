@@ -94,6 +94,16 @@ jobs:
         if: steps.filter.outputs.expected == 'true'
         run: just inspector::regenerate-expected
 
+      - name: Setup Java for jextract
+        if: steps.filter.outputs.ffi == 'true'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+      - name: Setup jextract
+        if: steps.filter.outputs.ffi == 'true'
+        uses: ./.github/actions/mlt-setup-jextract
+
       - name: Install clang-format and ktlint
         if: steps.filter.outputs.ffi == 'true'
         run: |
