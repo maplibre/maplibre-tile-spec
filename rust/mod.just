@@ -403,7 +403,7 @@ semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install'
 
 # Regenerate diplomat FFI bindings
 [working-directory: 'mlt-ffi']
-sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'clang-format') (just 'assert-cmd' 'ktlint')
+sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'clang-format') (just 'assert-cmd' 'ktlint') (just 'assert-cmd' 'jextract')
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -412,6 +412,16 @@ sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'cl
     diplomat-tool kotlin generated/kotlin -e src/lib.rs
     clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp generated/c/* generated/cpp/*
     ktlint --format ./**/*.kt
+
+    JAVA_SRC=generated/java/src/main/java
+    UMBRELLA="$(mktemp -d)"
+    trap 'rm -rf "$UMBRELLA"' EXIT
+    for header in generated/c/*.h; do
+        case "$header" in *.d.h) ;; *) echo "#include \"$(basename "$header")\"" ;; esac
+    done > "$UMBRELLA/mlt_ffi.h"
+    rm -rf "$JAVA_SRC/org/maplibre/mlt/ffi/raw"
+    jextract --output "$JAVA_SRC" --target-package org.maplibre.mlt.ffi.raw --header-class-name mlt_ffi_h \
+        -I generated/c "$UMBRELLA/mlt_ffi.h"
 
 _build-ffi-lib:
     cargo build --release -p mlt-ffi
