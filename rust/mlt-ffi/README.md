@@ -1,17 +1,19 @@
 # mlt-ffi
 
-[Diplomat](https://github.com/rust-diplomat/diplomat)-based FFI bindings for
-`mlt-core`, providing MLT <-> MVT conversion from C, C++, and Kotlin.
+[Diplomat](https://github.com/rust-diplomat/diplomat)-based FFI bindings for`mlt-core`, providing MLT <-> MVT conversion and per-feature layer encoding from C, C++ and Kotlin.
 
 ## API
-| Type                | Purpose                                                                              |
-|---------------------|--------------------------------------------------------------------------------------|
-| `MltConverter`      | `mlt_to_mvt(bytes)` and `mvt_to_mlt(bytes, encoder_options)` conversion              |
-| `MltEncoderOptions` | Builder wrapping `EncoderConfig` - construct with `new()`, toggle flags with setters |
-| `MltBuffer`         | Owned result buffer with `.bytes` / `.len` accessors                                 |
-| `ConvertError`      | Opaque error with `.kind` (`ConvertErrorKind`) and `.message` accessors              |
-| `MltWireVersion`    | `V01` (default) or the experimental `V02`                                            |
-| `ConvertErrorKind`  | `InvalidInput` or `EncodingFailed`                                                   |
+
+| Type                | Purpose                                                                                           |
+|---------------------|---------------------------------------------------------------------------------------------------|
+| `MltConverter`      | `mlt_to_mvt(bytes)`, `mlt_to_mvt_with_limit(bytes, max_bytes)` and `mvt_to_mlt(bytes, options)`   |
+| `MltLayerBuilder`   | Writes a layer one feature at a time and encodes it into an `MltBuffer` without going through MVT |
+| `MltEncoderOptions` | Builder wrapping `EncoderConfig` - construct with `new()`, toggle flags with setters              |
+| `MltBuffer`         | Owned byte buffer with `.bytes` / `.len` accessors, `clear()`, and appending encodes              |
+| `ConvertError`      | Opaque error with `.kind` (`ConvertErrorKind`) and `.message` accessors                           |
+| `MltWireVersion`    | `V01` (default) or the experimental `V02`                                                         |
+| `MltGeometryType`   | The geometry type of one `MltLayerBuilder` feature                                                |
+| `ConvertErrorKind`  | `InvalidInput`, `EncodingFailed` or `InvalidFeature`                                              |
 
 ## Usage examples
 

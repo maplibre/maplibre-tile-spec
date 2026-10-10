@@ -13,6 +13,7 @@ internal interface ConvertErrorKindLib : Library
 enum class ConvertErrorKind {
     InvalidInput,
     EncodingFailed,
+    InvalidFeature,
     ;
 
     fun toNative(): Int = this.ordinal

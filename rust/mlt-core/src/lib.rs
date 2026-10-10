@@ -41,7 +41,7 @@ pub(crate) mod layer_writer;
 pub(crate) mod tile;
 pub(crate) mod utils;
 
-pub use convert::{geojson, mvt};
+pub use convert::{InferredKind, geojson, mvt};
 pub use decoder::{
     ColNames, ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
     Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropName,

@@ -10,6 +10,7 @@
 typedef enum ConvertErrorKind {
     ConvertErrorKind_InvalidInput = 0,
     ConvertErrorKind_EncodingFailed = 1,
+    ConvertErrorKind_InvalidFeature = 2,
 } ConvertErrorKind;
 
 typedef struct ConvertErrorKind_option {
