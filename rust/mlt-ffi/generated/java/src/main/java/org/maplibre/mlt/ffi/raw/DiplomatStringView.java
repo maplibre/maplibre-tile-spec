@@ -170,4 +170,3 @@ public class DiplomatStringView {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

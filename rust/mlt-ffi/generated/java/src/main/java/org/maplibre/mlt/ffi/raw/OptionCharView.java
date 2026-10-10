@@ -175,4 +175,3 @@ public class OptionCharView {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

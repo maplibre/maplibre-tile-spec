@@ -175,4 +175,3 @@ public class OptionU16Array {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

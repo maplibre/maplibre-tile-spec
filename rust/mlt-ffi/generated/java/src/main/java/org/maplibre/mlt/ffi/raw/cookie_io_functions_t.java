@@ -28,4 +28,3 @@ public class cookie_io_functions_t extends _IO_cookie_io_functions_t {
         // Should not be called directly
     }
 }
-

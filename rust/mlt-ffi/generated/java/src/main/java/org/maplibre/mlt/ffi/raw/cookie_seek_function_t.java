@@ -67,4 +67,3 @@ public class cookie_seek_function_t {
         }
     }
 }
-

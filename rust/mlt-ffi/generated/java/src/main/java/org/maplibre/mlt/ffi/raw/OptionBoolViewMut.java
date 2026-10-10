@@ -175,4 +175,3 @@ public class OptionBoolViewMut {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

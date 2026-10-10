@@ -377,4 +377,3 @@ public class __mbstate_t {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

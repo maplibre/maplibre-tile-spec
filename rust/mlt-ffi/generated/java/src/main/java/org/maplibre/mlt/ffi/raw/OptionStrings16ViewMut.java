@@ -175,4 +175,3 @@ public class OptionStrings16ViewMut {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

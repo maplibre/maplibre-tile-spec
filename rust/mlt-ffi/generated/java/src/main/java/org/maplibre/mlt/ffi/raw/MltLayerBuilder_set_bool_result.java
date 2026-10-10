@@ -175,4 +175,3 @@ public class MltLayerBuilder_set_bool_result {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

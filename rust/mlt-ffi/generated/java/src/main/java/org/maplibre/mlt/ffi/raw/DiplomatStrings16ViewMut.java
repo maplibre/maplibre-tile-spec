@@ -170,4 +170,3 @@ public class DiplomatStrings16ViewMut {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

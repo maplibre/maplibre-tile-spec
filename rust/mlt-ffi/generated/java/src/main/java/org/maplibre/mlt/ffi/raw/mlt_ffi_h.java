@@ -10508,4 +10508,3 @@ public class mlt_ffi_h {
         return __HAVE_FLOAT128_UNLIKE_LDBL;
     }
 }
-

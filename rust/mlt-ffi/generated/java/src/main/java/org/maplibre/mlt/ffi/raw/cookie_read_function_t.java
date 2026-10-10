@@ -67,4 +67,3 @@ public class cookie_read_function_t {
         }
     }
 }
-

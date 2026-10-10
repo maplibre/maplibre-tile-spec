@@ -175,4 +175,3 @@ public class OptionIsizeView {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

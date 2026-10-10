@@ -175,4 +175,3 @@ public class OptionF64ViewMut {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

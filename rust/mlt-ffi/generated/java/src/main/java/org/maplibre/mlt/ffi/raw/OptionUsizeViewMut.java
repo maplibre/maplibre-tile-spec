@@ -175,4 +175,3 @@ public class OptionUsizeViewMut {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

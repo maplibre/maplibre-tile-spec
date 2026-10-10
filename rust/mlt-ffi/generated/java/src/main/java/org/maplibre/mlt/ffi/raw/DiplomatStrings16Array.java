@@ -170,4 +170,3 @@ public class DiplomatStrings16Array {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

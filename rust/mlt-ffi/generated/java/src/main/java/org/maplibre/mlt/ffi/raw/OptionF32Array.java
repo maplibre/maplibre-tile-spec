@@ -175,4 +175,3 @@ public class OptionF32Array {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

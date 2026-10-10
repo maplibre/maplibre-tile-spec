@@ -175,4 +175,3 @@ public class OptionBoolView {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

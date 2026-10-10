@@ -175,4 +175,3 @@ public class OptionI32View {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

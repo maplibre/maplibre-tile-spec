@@ -175,4 +175,3 @@ public class OptionUsize {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

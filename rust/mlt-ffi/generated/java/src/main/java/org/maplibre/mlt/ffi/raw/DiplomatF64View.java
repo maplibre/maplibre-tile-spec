@@ -170,4 +170,3 @@ public class DiplomatF64View {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

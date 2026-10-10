@@ -26,4 +26,3 @@ public class __fpos_t extends _G_fpos_t {
         // Should not be called directly
     }
 }
-

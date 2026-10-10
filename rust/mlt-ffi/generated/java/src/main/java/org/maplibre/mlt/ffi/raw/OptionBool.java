@@ -174,4 +174,3 @@ public class OptionBool {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

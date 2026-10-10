@@ -170,4 +170,3 @@ public class DiplomatU16View {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

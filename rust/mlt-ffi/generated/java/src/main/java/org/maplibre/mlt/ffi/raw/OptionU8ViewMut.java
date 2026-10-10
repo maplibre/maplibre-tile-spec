@@ -175,4 +175,3 @@ public class OptionU8ViewMut {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

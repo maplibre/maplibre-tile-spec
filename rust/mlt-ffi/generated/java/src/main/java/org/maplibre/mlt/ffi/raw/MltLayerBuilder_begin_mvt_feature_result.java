@@ -175,4 +175,3 @@ public class MltLayerBuilder_begin_mvt_feature_result {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

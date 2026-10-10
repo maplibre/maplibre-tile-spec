@@ -509,4 +509,3 @@ public class DiplomatWrite {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

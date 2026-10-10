@@ -157,4 +157,3 @@ public class __fsid_t {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

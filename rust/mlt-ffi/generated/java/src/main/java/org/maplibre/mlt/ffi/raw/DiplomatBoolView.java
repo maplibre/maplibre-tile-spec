@@ -170,4 +170,3 @@ public class DiplomatBoolView {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

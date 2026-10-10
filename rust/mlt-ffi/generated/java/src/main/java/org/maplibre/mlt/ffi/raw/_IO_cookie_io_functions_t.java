@@ -262,4 +262,3 @@ public class _IO_cookie_io_functions_t {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

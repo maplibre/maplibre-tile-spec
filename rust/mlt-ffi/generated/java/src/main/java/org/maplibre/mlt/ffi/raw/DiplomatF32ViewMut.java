@@ -170,4 +170,3 @@ public class DiplomatF32ViewMut {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

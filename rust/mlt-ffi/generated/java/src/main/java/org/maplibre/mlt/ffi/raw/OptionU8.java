@@ -174,4 +174,3 @@ public class OptionU8 {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

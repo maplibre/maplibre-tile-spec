@@ -175,4 +175,3 @@ public class MltLayerBuilder_set_f64_result {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

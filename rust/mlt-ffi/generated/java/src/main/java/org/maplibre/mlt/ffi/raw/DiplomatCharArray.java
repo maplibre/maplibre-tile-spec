@@ -170,4 +170,3 @@ public class DiplomatCharArray {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

@@ -175,4 +175,3 @@ public class OptionI64View {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

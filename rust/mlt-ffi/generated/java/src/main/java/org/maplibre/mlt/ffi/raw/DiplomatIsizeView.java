@@ -170,4 +170,3 @@ public class DiplomatIsizeView {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

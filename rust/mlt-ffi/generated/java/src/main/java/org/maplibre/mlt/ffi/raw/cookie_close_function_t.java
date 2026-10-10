@@ -65,4 +65,3 @@ public class cookie_close_function_t {
         }
     }
 }
-

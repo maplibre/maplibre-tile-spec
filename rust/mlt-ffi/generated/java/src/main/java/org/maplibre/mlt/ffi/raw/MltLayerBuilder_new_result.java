@@ -221,4 +221,3 @@ public class MltLayerBuilder_new_result {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

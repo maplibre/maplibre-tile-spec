@@ -26,4 +26,3 @@ public class __fpos64_t extends _G_fpos64_t {
         // Should not be called directly
     }
 }
-

@@ -170,4 +170,3 @@ public class DiplomatBoolArray {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

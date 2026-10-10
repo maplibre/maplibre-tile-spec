@@ -170,4 +170,3 @@ public class DiplomatI8View {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

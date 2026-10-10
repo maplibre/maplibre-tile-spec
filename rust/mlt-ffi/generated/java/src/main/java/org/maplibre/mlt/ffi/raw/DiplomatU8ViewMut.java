@@ -170,4 +170,3 @@ public class DiplomatU8ViewMut {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

@@ -175,4 +175,3 @@ public class OptionString16 {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

@@ -221,4 +221,3 @@ public class MltConverter_mvt_to_mlt_result {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

@@ -170,4 +170,3 @@ public class _G_fpos_t {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

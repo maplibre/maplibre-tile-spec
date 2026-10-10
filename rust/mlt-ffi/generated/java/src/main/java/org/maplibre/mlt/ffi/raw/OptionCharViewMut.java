@@ -175,4 +175,3 @@ public class OptionCharViewMut {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-

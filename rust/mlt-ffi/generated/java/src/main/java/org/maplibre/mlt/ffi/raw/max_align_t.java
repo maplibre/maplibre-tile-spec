@@ -126,4 +126,3 @@ public class max_align_t {
         return addr.reinterpret(layout().byteSize() * elementCount, arena, cleanup);
     }
 }
-
