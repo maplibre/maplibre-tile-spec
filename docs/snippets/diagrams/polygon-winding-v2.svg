@@ -1,0 +1,20 @@
+<svg class="mlt-diagram" viewBox="0 0 710 290" role="img" aria-label="A polygon with a hole as given to the encoder, with the exterior counter-clockwise and the hole clockwise, and as stored, with the exterior clockwise and the hole counter-clockwise, which is the winding MVT uses" xmlns="http://www.w3.org/2000/svg">
+<text class="bold" x="40" y="14">as given<tspan class="muted"> ✗ wound against MVT</tspan></text>
+<text class="muted small" x="40" y="34">ccw exterior, cw hole</text>
+<path class="f0 area" fill-rule="evenodd" d="M40,60V240H220V60ZM90,110H170V190H90Z"/>
+<path class="f0 edge wind" d="M40,60V240H220V60Z"/>
+<path class="f1 edge wind" d="M90,110H170V190H90Z"/>
+<path class="head t0" d="M35,145L40,154L45,145Z"/>
+<path class="head t1" d="M125,105L134,110L125,115Z"/>
+<text class="bold" x="400" y="14">as stored<tspan class="muted"> ✓ wound as MVT</tspan></text>
+<text class="muted small" x="400" y="34">cw exterior, ccw hole</text>
+<path class="f0 area" fill-rule="evenodd" d="M400,60H580V240H400ZM450,110V190H530V110Z"/>
+<path class="f0 edge wind" d="M400,60H580V240H400Z"/>
+<path class="f1 edge wind" d="M450,110V190H530V110Z"/>
+<path class="head t0" d="M485,55L494,60L485,65Z"/>
+<path class="head t1" d="M445,145L450,154L455,145Z"/>
+<path class="implicit" d="M255,150H345"/>
+<path class="head" d="M345,145L354,150L345,155Z"/>
+<text class="muted small" x="262" y="140">encoder reverses</text>
+<text class="muted" x="40" y="274">exterior area &gt; 0, hole area &lt; 0, arrows show winding</text>
+</svg>
