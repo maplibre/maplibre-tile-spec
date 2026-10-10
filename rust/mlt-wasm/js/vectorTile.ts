@@ -8,11 +8,10 @@ import {
   columnValue,
   decodeTileColumns,
   type MltColumnLayer,
-  MltGeometryType,
+  type MltGeometryType,
   type MltNamedColumn,
 } from "./columns";
 import {
-  featureCorners,
   geometryStart,
   isTrianglesOnly,
   lineStart,
@@ -74,23 +73,6 @@ function closedRings<T>(
   return out;
 }
 
-/**
- * Each triangle as a closed ring of its corners, in index buffer order, for a `TessPolygons`
- * feature, which stores no outlines.
- */
-function triangleRings<T>(corners: Uint32Array, vertex: VertexOf<T>): T[][] {
-  const rings = new Array(corners.length / 3) as T[][];
-  for (let t = 0; t < corners.length; t += 3) {
-    rings[t / 3] = [
-      vertex(corners[t]),
-      vertex(corners[t + 1]),
-      vertex(corners[t + 2]),
-      vertex(corners[t]),
-    ];
-  }
-  return rings;
-}
-
 // ---------------------------------------------------------------------------
 // Shared per-layer state
 // ---------------------------------------------------------------------------
@@ -108,7 +90,7 @@ const MVT_TYPES = [
 /** A layer's decoded columns, and what its features read off them once per layer. */
 interface LayerData {
   readonly layer: MltColumnLayer;
-  /** A `TessPolygons` layer, which has triangles and no outlines to walk. */
+  /** A `TessPolygons` layer, which has triangles and no outlines for its geometry. */
   readonly trianglesOnly: boolean;
 }
 
@@ -136,12 +118,7 @@ abstract class FeatureBase<V> {
     this.extent = _layer.layer.extent;
   }
 
-  /**
-   * The MLT geometry type. A `TessPolygons` feature is a `MultiPolygon` of its triangles,
-   * whichever type it was stored as, since its outlines are not stored.
-   */
   get mltType(): MltGeometryType {
-    if (this._layer.trianglesOnly) return MltGeometryType.MultiPolygon;
     return this._layer.layer.geometry.types[
       this._featureIdx
     ] as MltGeometryType;
@@ -168,8 +145,16 @@ abstract class FeatureBase<V> {
   /** Builds the value this feature's geometry holds for vertex `i`. */
   protected abstract vertex(): VertexOf<V>;
 
-  /** The run of geometries (points, lines or polygons) this feature is. */
+  /**
+   * The run of geometries (points, lines or polygons) this feature is. Throws for a
+   * `TessPolygons` feature, whose outlines are not stored.
+   */
   protected geometries(): [start: number, end: number] {
+    if (this._layer.trianglesOnly) {
+      throw new Error(
+        `layer "${this._layer.layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
+      );
+    }
     const { geometry } = this._layer.layer;
     return [
       geometryStart(geometry, this._featureIdx),
@@ -181,9 +166,6 @@ abstract class FeatureBase<V> {
   protected rings(): V[][] {
     const { geometry } = this._layer.layer;
     const vertex = this.vertex();
-    if (this._layer.trianglesOnly) {
-      return triangleRings(featureCorners(geometry, this._featureIdx), vertex);
-    }
     const [g0, g1] = this.geometries();
     switch (this.type) {
       case POINT: {
@@ -214,19 +196,13 @@ abstract class FeatureBase<V> {
     }
   }
 
-  /** Rings grouped by polygon; a triangle of a `TessPolygons` feature is a polygon of its own. */
+  /** Rings grouped by polygon. */
   protected polygons(): V[][][] {
     if (this.type !== POLYGON) return [this.rings()];
     const { geometry } = this._layer.layer;
     const vertex = this.vertex();
-    if (this._layer.trianglesOnly) {
-      return triangleRings(
-        featureCorners(geometry, this._featureIdx),
-        vertex,
-      ).map((ring) => [ring]);
-    }
-    const [parts, rings] = polygonLevels(geometry);
     const [g0, g1] = this.geometries();
+    const [parts, rings] = polygonLevels(geometry);
     const polygons = new Array(g1 - g0) as V[][][];
     for (let polygon = g0; polygon < g1; polygon++) {
       polygons[polygon - g0] = closedRings(
@@ -255,14 +231,11 @@ export class MltFeature
    * Returns one z per vertex in storage order, or an empty array when the layer has none.
    * A polygon ring's closing point is not stored, so it has no z: each ring from
    * loadGeometry() or loadPolygons() has one more point than it has z values here.
-   * A `TessPolygons` feature has the z of each triangle corner, in index buffer order.
    */
   loadZ(): number[] {
     const { geometry } = this._layer.layer;
     if (geometry.dimension !== 3) return [];
     const z = (v: number) => geometry.vertices[v * 3 + 2];
-    if (this._layer.trianglesOnly)
-      return Array.from(featureCorners(geometry, this._featureIdx), z);
     const [g0, g1] = this.geometries();
     return readRun(z, lineStart(geometry, g0), lineStart(geometry, g1), false);
   }

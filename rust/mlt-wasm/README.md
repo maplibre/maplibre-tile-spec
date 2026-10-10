@@ -97,8 +97,9 @@ converts one z to metres, exactly as `mlt-core` does.
 
 `featureGeometry(layer, i)` reads feature `i` of a column layer without knowing the offset levels.
 Its points, lines and polygon rings are views of the layer's vertices, still in tile coordinates,
-and a polygon's rings come ready for earcut. A tessellated layer's triangles come per feature,
-counted from the feature's own vertices.
+and a polygon's rings come ready for earcut. A `TessPolygonsWithOutlines` layer's triangles come per
+feature, counted from the feature's own vertices. A `TessPolygons` layer stores triangles without
+outlines, so `featureGeometry` rejects it; its `indexBuffer` and `triangleOffsets` are the triangles.
 
 ```ts
 import { featureGeometry } from '@maplibre/mlt-wasm';
@@ -161,7 +162,7 @@ for (let g = 0; g + 1 < geometryVertices.length; g++) {
 
 A geometry is a point, a line or a polygon, and every kind shares one sequence in feature order, so in
 a layer mixing kinds, `layer.geometry.types` tells which features are which. A `TessPolygons` layer has
-no runs of vertices, only triangles.
+no runs of vertices, only triangles, so `geometryStarts` rejects it.
 
 On a 1.3 MB tile of 1,333 line features and 524,482 vertices, `geometryStarts` takes about 0.006 ms
 and the fill above about 0.2 ms, against about 3.8 ms for `decodeTileColumns` (Node, one machine).

@@ -38,14 +38,11 @@ export interface MltLineGeometry extends MltFeatureGeometryBase {
 /** A `Polygon` or `MultiPolygon`. */
 export interface MltPolygonGeometry extends MltFeatureGeometryBase {
   readonly kind: "polygon";
-  /**
-   * Each polygon's rings, ready for `earcut(vertices, holeIndices, dimension)`. Empty for a
-   * `TessPolygons` layer, which stores triangles without outlines.
-   */
+  /** Each polygon's rings, ready for `earcut(vertices, holeIndices, dimension)`. */
   readonly polygons: readonly MltPolygonRings[];
   /**
-   * Three indices into `vertices` per triangle, for a tessellated layer: the triangles of
-   * every polygon of the feature. Left `undefined` when the layer is not tessellated.
+   * Three indices into `vertices` per triangle, for a `TessPolygonsWithOutlines` layer: the
+   * triangles of every polygon of the feature. Left `undefined` when the layer is not tessellated.
    */
   readonly triangles: Uint32Array | undefined;
 }
@@ -157,7 +154,7 @@ function view(
  * The triangle corners of polygon feature `index` of a tessellated layer, as layer vertex
  * indices. Throws when the layer's `triangleOffsets` stop before the feature.
  */
-export function featureCorners(
+function featureCorners(
   geometry: MltGeometryColumns,
   index: number,
 ): Uint32Array {
@@ -330,7 +327,8 @@ function resolveStarts(geometry: MltGeometryColumns): MltGeometryStarts {
 /**
  * Feature `index` of `layer`, as views into the layer's buffers.
  *
- * Throws when `index` is not a feature of the layer.
+ * Throws when `index` is not a feature of the layer, and for a `TessPolygons` layer, which
+ * stores triangles and no outlines: read its `indexBuffer` and `triangleOffsets` instead.
  */
 export function featureGeometry(
   layer: MltColumnLayer,
@@ -343,22 +341,9 @@ export function featureGeometry(
   const type = geometry.types[index] as MltGeometryType;
 
   if (isTrianglesOnly(geometry)) {
-    // No outlines say which vertices are whose: a feature's are the span its triangles use.
-    const corners = featureCorners(geometry, index);
-    let [v0, v1] = corners.length > 0 ? [corners[0], corners[0] + 1] : [0, 0];
-    for (const corner of corners) {
-      if (corner < v0) v0 = corner;
-      if (corner >= v1) v1 = corner + 1;
-    }
-    const triangles = rebase(corners, v0, v1, index);
-    return {
-      kind: "polygon",
-      type,
-      vertices: view(geometry, v0, v1),
-      firstVertex: v0,
-      polygons: [],
-      triangles,
-    };
+    throw new Error(
+      `layer "${layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
+    );
   }
 
   // Every offset level maps a run of its items to a run of the next, down to vertices.

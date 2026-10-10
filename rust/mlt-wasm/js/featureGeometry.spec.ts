@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { getTestCases } from "../../../test/synthetic/synthetic-test-utils";
 import {
@@ -51,17 +51,6 @@ function geoJson(g: MltFeatureGeometry, dimension: number): GeoJSON.Geometry {
         : { type: "MultiLineString", coordinates: lines };
     }
     case "polygon": {
-      if (g.polygons.length === 0 && g.triangles) {
-        // Triangles without outlines: each triangle is a polygon of its own.
-        const all = positions(g.vertices, dimension);
-        const triangles: Position[][][] = [];
-        for (let t = 0; t < g.triangles.length; t += 3) {
-          triangles.push([
-            closed([...g.triangles.subarray(t, t + 3)].map((i) => all[i])),
-          ]);
-        }
-        return { type: "MultiPolygon", coordinates: triangles };
-      }
       const polygons = g.polygons.map((polygon) => {
         const all = positions(polygon.vertices, dimension);
         const starts = [0, ...polygon.holeIndices, all.length];
@@ -76,8 +65,16 @@ function geoJson(g: MltFeatureGeometry, dimension: number): GeoJSON.Geometry {
   }
 }
 
+/** The fixtures written with the TessPolygons layout, which `featureGeometry` rejects. */
+const TRIANGLES_ONLY = readdirSync(
+  new URL("../../../test/synthetic/0x02", import.meta.url),
+)
+  .filter((file) => file.endsWith("_tri.mlt"))
+  .map((file) => `0x02/${file.slice(0, -".mlt".length)}`);
+
 describe("featureGeometry against every synthetic fixture", () => {
-  for (const { name, content, fileName } of getTestCases([]).active) {
+  const testCases = getTestCases(TRIANGLES_ONLY);
+  for (const { name, content, fileName } of testCases.active) {
     it(name, () => {
       const expected = (content as GeoJSON.FeatureCollection).features;
       const { layers } = decodeTileColumns(
@@ -89,6 +86,16 @@ describe("featureGeometry against every synthetic fixture", () => {
         ),
       );
       expect(actual).toEqual(expected.map((f) => f.geometry));
+    });
+  }
+  for (const { name, fileName } of testCases.skipped) {
+    it(`${name} is rejected as a TessPolygons layer`, () => {
+      const { layers } = decodeTileColumns(
+        new Uint8Array(readFileSync(fileName)),
+      );
+      for (const layer of layers) {
+        expect(() => featureGeometry(layer, 0)).toThrow(/TessPolygons/);
+      }
     });
   }
 });
@@ -110,16 +117,16 @@ describe("featureGeometry", () => {
 
   it("gives an outlined layer's triangles as the triangles-only layout stores them", () => {
     const outlined = featureGeometry(onlyLayer("0x02/z_poly_hole_tes"), 0);
-    const bare = featureGeometry(onlyLayer("0x02/z_poly_hole_tri"), 0);
-    if (outlined.kind !== "polygon" || bare.kind !== "polygon")
-      throw new Error("not polygons");
-    const corners = (g: typeof outlined) => {
-      const all = positions(g.vertices, 3);
-      return Array.from(g.triangles ?? [], (i) => all[i]);
-    };
+    if (outlined.kind !== "polygon") throw new Error("not a polygon");
     expect(outlined.polygons).toHaveLength(1);
-    expect(bare.polygons).toEqual([]);
-    expect(corners(outlined)).toEqual(corners(bare));
+    const corners = positions(outlined.vertices, 3);
+    // The same polygon without outlines, read from its raw columns.
+    const bare = onlyLayer("0x02/z_poly_hole_tri");
+    expect(bare.featureCount).toBe(1);
+    const bareCorners = positions(bare.geometry.vertices, 3);
+    expect(Array.from(outlined.triangles ?? [], (i) => corners[i])).toEqual(
+      Array.from(bare.geometry.indexBuffer ?? [], (i) => bareCorners[i]),
+    );
   });
 
   it("rejects an index that is not a feature", () => {
@@ -143,22 +150,20 @@ describe("featureGeometry", () => {
   });
 
   it("rejects triangles whose offsets stop before the feature", () => {
-    for (const name of ["0x02/z_poly_hole_tri", "0x02/z_poly_hole_tes"]) {
-      const layer = onlyLayer(name);
-      const { triangleOffsets } = layer.geometry;
-      if (triangleOffsets === undefined)
-        throw new Error(`${name} has no triangle offsets`);
-      const cut = (offsets: Uint32Array | undefined): MltColumnLayer => ({
-        ...layer,
-        geometry: { ...layer.geometry, triangleOffsets: offsets },
-      });
-      expect(() =>
-        featureGeometry(cut(triangleOffsets.subarray(0, 1)), 0),
-      ).toThrow(/do not cover polygon 0/);
-      expect(() => featureGeometry(cut(undefined), 0)).toThrow(
-        /do not cover polygon 0/,
-      );
-    }
+    const layer = onlyLayer("0x02/z_poly_hole_tes");
+    const { triangleOffsets } = layer.geometry;
+    if (triangleOffsets === undefined)
+      throw new Error("z_poly_hole_tes has no triangle offsets");
+    const cut = (offsets: Uint32Array | undefined): MltColumnLayer => ({
+      ...layer,
+      geometry: { ...layer.geometry, triangleOffsets: offsets },
+    });
+    expect(() =>
+      featureGeometry(cut(triangleOffsets.subarray(0, 1)), 0),
+    ).toThrow(/do not cover polygon 0/);
+    expect(() => featureGeometry(cut(undefined), 0)).toThrow(
+      /do not cover polygon 0/,
+    );
   });
 });
 

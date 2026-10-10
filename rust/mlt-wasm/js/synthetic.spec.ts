@@ -14,6 +14,10 @@ import { decodeTile, type MltFeature, type MltLayer } from "./vectorTile";
 const V2_GAPS: [RegExp, string][] = [
   [/^(z_)?mvalues(?!_all_null$)/, "the vector-tile API has no m-value columns"],
   [/^nested_/, "the vector-tile API has no nested columns"],
+  [
+    /_tri$/,
+    "a TessPolygons layer stores triangles, not the outlines loadGeometry reads",
+  ],
 ];
 
 const UNIMPLEMENTED_SYNTHETICS = new Map(
