@@ -27,9 +27,9 @@ class MltMvtGeometryType;
 
 namespace diplomat {
 namespace capi {
-    struct MltLayerBuilder;
+struct MltLayerBuilder;
 } // namespace capi
-} // namespace
+} // namespace diplomat
 
 /**
  * A layer written one feature at a time, then encoded without going through MVT.
@@ -39,12 +39,15 @@ public:
     /**
      * Start a layer.
      */
-    inline static diplomat::result<diplomat::result<std::unique_ptr<MltLayerBuilder>, std::unique_ptr<ConvertError>>, diplomat::Utf8Error> new_(std::string_view name, uint32_t extent);
+    inline static diplomat::result<diplomat::result<std::unique_ptr<MltLayerBuilder>, std::unique_ptr<ConvertError>>,
+                                   diplomat::Utf8Error>
+    new_(std::string_view name, uint32_t extent);
 
     /**
      * Start another layer, keeping the allocations of the last one.
      */
-    inline diplomat::result<diplomat::result<std::monostate, std::unique_ptr<ConvertError>>, diplomat::Utf8Error> reset(std::string_view name, uint32_t extent);
+    inline diplomat::result<diplomat::result<std::monostate, std::unique_ptr<ConvertError>>, diplomat::Utf8Error> reset(
+        std::string_view name, uint32_t extent);
 
     /**
      * Declare a property column, returning the key to set it with.
@@ -56,7 +59,8 @@ public:
      * Start a feature with its geometry given as MVT commands, ending the previous one.
      * A ring with positive area starts a polygon and any other ring is a hole of the last one.
      */
-    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> begin_mvt_feature(MltMvtGeometryType geometry, diplomat::span<const uint32_t> commands, std::optional<uint64_t> id);
+    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> begin_mvt_feature(
+        MltMvtGeometryType geometry, diplomat::span<const uint32_t> commands, std::optional<uint64_t> id);
 
     /**
      * Set a boolean property of the current feature.
@@ -81,12 +85,14 @@ public:
     /**
      * Set a string property of the current feature.
      */
-    inline diplomat::result<diplomat::result<std::monostate, std::unique_ptr<ConvertError>>, diplomat::Utf8Error> set_str(uint32_t key, std::string_view value);
+    inline diplomat::result<diplomat::result<std::monostate, std::unique_ptr<ConvertError>>, diplomat::Utf8Error>
+    set_str(uint32_t key, std::string_view value);
 
     /**
      * Encode the layer and append it to `out`.
      */
-    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> encode_into(const MltEncoderOptions& options, MltBuffer& out) const;
+    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> encode_into(const MltEncoderOptions& options,
+                                                                                       MltBuffer& out) const;
 
     inline const diplomat::capi::MltLayerBuilder* AsFFI() const;
     inline diplomat::capi::MltLayerBuilder* AsFFI();

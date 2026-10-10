@@ -39,7 +39,10 @@ typedef struct MltLayerBuilder_begin_mvt_feature_result {
     };
     bool is_ok;
 } MltLayerBuilder_begin_mvt_feature_result;
-MltLayerBuilder_begin_mvt_feature_result MltLayerBuilder_begin_mvt_feature(MltLayerBuilder* self, MltMvtGeometryType geometry, DiplomatU32View commands, OptionU64 id);
+MltLayerBuilder_begin_mvt_feature_result MltLayerBuilder_begin_mvt_feature(MltLayerBuilder* self,
+                                                                           MltMvtGeometryType geometry,
+                                                                           DiplomatU32View commands,
+                                                                           OptionU64 id);
 
 typedef struct MltLayerBuilder_set_bool_result {
     union {
@@ -87,7 +90,9 @@ typedef struct MltLayerBuilder_encode_into_result {
     };
     bool is_ok;
 } MltLayerBuilder_encode_into_result;
-MltLayerBuilder_encode_into_result MltLayerBuilder_encode_into(const MltLayerBuilder* self, const MltEncoderOptions* options, MltBuffer* out);
+MltLayerBuilder_encode_into_result MltLayerBuilder_encode_into(const MltLayerBuilder* self,
+                                                               const MltEncoderOptions* options,
+                                                               MltBuffer* out);
 
 void MltLayerBuilder_destroy(MltLayerBuilder* self);
 

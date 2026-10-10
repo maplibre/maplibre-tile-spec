@@ -13,20 +13,20 @@
 
 namespace diplomat {
 namespace capi {
-    enum MltMvtGeometryType {
-        MltMvtGeometryType_Point = 0,
-        MltMvtGeometryType_LineString = 1,
-        MltMvtGeometryType_Polygon = 2,
-    };
+enum MltMvtGeometryType {
+    MltMvtGeometryType_Point = 0,
+    MltMvtGeometryType_LineString = 1,
+    MltMvtGeometryType_Polygon = 2,
+};
 
-    typedef struct MltMvtGeometryType_option {
-        union {
-            MltMvtGeometryType ok;
-        };
-        bool is_ok;
-    } MltMvtGeometryType_option;
+typedef struct MltMvtGeometryType_option {
+    union {
+        MltMvtGeometryType ok;
+    };
+    bool is_ok;
+} MltMvtGeometryType_option;
 } // namespace capi
-} // namespace
+} // namespace diplomat
 
 /**
  * The geometry type of an MVT feature, which also covers its multi variant.
@@ -40,15 +40,11 @@ public:
     };
 
     MltMvtGeometryType()
-        : value(Value::Point)
-    {
-    }
+        : value(Value::Point) {}
 
     // Implicit conversions between enum and ::Value
     constexpr MltMvtGeometryType(Value v)
-        : value(v)
-    {
-    }
+        : value(v) {}
     constexpr operator Value() const { return value; }
     // Prevent usage as boolean value
     explicit operator bool() const = delete;

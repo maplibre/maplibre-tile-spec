@@ -14,25 +14,21 @@
 #include <stdio.h>
 
 namespace diplomat {
-namespace capi {
+namespace capi {} // namespace capi
+} // namespace diplomat
 
-} // namespace capi
-} // namespace
-
-inline diplomat::capi::MltMvtGeometryType MltMvtGeometryType::AsFFI() const
-{
+inline diplomat::capi::MltMvtGeometryType MltMvtGeometryType::AsFFI() const {
     return static_cast<diplomat::capi::MltMvtGeometryType>(value);
 }
 
-inline MltMvtGeometryType MltMvtGeometryType::FromFFI(diplomat::capi::MltMvtGeometryType c_enum)
-{
+inline MltMvtGeometryType MltMvtGeometryType::FromFFI(diplomat::capi::MltMvtGeometryType c_enum) {
     switch (c_enum) {
-    case diplomat::capi::MltMvtGeometryType_Point:
-    case diplomat::capi::MltMvtGeometryType_LineString:
-    case diplomat::capi::MltMvtGeometryType_Polygon:
-        return static_cast<MltMvtGeometryType::Value>(c_enum);
-    default:
-        std::abort();
+        case diplomat::capi::MltMvtGeometryType_Point:
+        case diplomat::capi::MltMvtGeometryType_LineString:
+        case diplomat::capi::MltMvtGeometryType_Polygon:
+            return static_cast<MltMvtGeometryType::Value>(c_enum);
+        default:
+            std::abort();
     }
 }
 #endif // MltMvtGeometryType_HPP
