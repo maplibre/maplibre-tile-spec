@@ -9245,59 +9245,32 @@ public class mlt_ffi_h {
            throw new AssertionError("should not reach here", ex$);
         }
     }
-    private static final int MltGeometryType_Point = (int)0L;
+    private static final int MltMvtGeometryType_Point = (int)0L;
     /**
      * {@snippet lang=c :
-     * enum MltGeometryType.MltGeometryType_Point = 0
+     * enum MltMvtGeometryType.MltMvtGeometryType_Point = 0
      * }
      */
-    public static int MltGeometryType_Point() {
-        return MltGeometryType_Point;
+    public static int MltMvtGeometryType_Point() {
+        return MltMvtGeometryType_Point;
     }
-    private static final int MltGeometryType_LineString = (int)1L;
+    private static final int MltMvtGeometryType_LineString = (int)1L;
     /**
      * {@snippet lang=c :
-     * enum MltGeometryType.MltGeometryType_LineString = 1
+     * enum MltMvtGeometryType.MltMvtGeometryType_LineString = 1
      * }
      */
-    public static int MltGeometryType_LineString() {
-        return MltGeometryType_LineString;
+    public static int MltMvtGeometryType_LineString() {
+        return MltMvtGeometryType_LineString;
     }
-    private static final int MltGeometryType_Polygon = (int)2L;
+    private static final int MltMvtGeometryType_Polygon = (int)2L;
     /**
      * {@snippet lang=c :
-     * enum MltGeometryType.MltGeometryType_Polygon = 2
+     * enum MltMvtGeometryType.MltMvtGeometryType_Polygon = 2
      * }
      */
-    public static int MltGeometryType_Polygon() {
-        return MltGeometryType_Polygon;
-    }
-    private static final int MltGeometryType_MultiPoint = (int)3L;
-    /**
-     * {@snippet lang=c :
-     * enum MltGeometryType.MltGeometryType_MultiPoint = 3
-     * }
-     */
-    public static int MltGeometryType_MultiPoint() {
-        return MltGeometryType_MultiPoint;
-    }
-    private static final int MltGeometryType_MultiLineString = (int)4L;
-    /**
-     * {@snippet lang=c :
-     * enum MltGeometryType.MltGeometryType_MultiLineString = 4
-     * }
-     */
-    public static int MltGeometryType_MultiLineString() {
-        return MltGeometryType_MultiLineString;
-    }
-    private static final int MltGeometryType_MultiPolygon = (int)5L;
-    /**
-     * {@snippet lang=c :
-     * enum MltGeometryType.MltGeometryType_MultiPolygon = 5
-     * }
-     */
-    public static int MltGeometryType_MultiPolygon() {
-        return MltGeometryType_MultiPolygon;
+    public static int MltMvtGeometryType_Polygon() {
+        return MltMvtGeometryType_Polygon;
     }
 
     private static class MltLayerBuilder_new {
@@ -9478,14 +9451,16 @@ public class mlt_ffi_h {
         }
     }
 
-    private static class MltLayerBuilder_begin_feature {
-        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+    private static class MltLayerBuilder_begin_mvt_feature {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            MltLayerBuilder_begin_mvt_feature_result.layout(),
             mlt_ffi_h.C_POINTER,
             mlt_ffi_h.C_INT,
+            DiplomatU32View.layout(),
             OptionU64.layout()
         );
 
-        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltLayerBuilder_begin_feature");
+        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltLayerBuilder_begin_mvt_feature");
 
         public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
@@ -9493,281 +9468,45 @@ public class mlt_ffi_h {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * void MltLayerBuilder_begin_feature(MltLayerBuilder *self, MltGeometryType geometry, OptionU64 id)
+     * MltLayerBuilder_begin_mvt_feature_result MltLayerBuilder_begin_mvt_feature(MltLayerBuilder *self, MltMvtGeometryType geometry, DiplomatU32View commands, OptionU64 id)
      * }
      */
-    public static FunctionDescriptor MltLayerBuilder_begin_feature$descriptor() {
-        return MltLayerBuilder_begin_feature.DESC;
+    public static FunctionDescriptor MltLayerBuilder_begin_mvt_feature$descriptor() {
+        return MltLayerBuilder_begin_mvt_feature.DESC;
     }
 
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * void MltLayerBuilder_begin_feature(MltLayerBuilder *self, MltGeometryType geometry, OptionU64 id)
+     * MltLayerBuilder_begin_mvt_feature_result MltLayerBuilder_begin_mvt_feature(MltLayerBuilder *self, MltMvtGeometryType geometry, DiplomatU32View commands, OptionU64 id)
      * }
      */
-    public static MethodHandle MltLayerBuilder_begin_feature$handle() {
-        return MltLayerBuilder_begin_feature.HANDLE;
+    public static MethodHandle MltLayerBuilder_begin_mvt_feature$handle() {
+        return MltLayerBuilder_begin_mvt_feature.HANDLE;
     }
 
     /**
      * Address for:
      * {@snippet lang=c :
-     * void MltLayerBuilder_begin_feature(MltLayerBuilder *self, MltGeometryType geometry, OptionU64 id)
+     * MltLayerBuilder_begin_mvt_feature_result MltLayerBuilder_begin_mvt_feature(MltLayerBuilder *self, MltMvtGeometryType geometry, DiplomatU32View commands, OptionU64 id)
      * }
      */
-    public static MemorySegment MltLayerBuilder_begin_feature$address() {
-        return MltLayerBuilder_begin_feature.ADDR;
+    public static MemorySegment MltLayerBuilder_begin_mvt_feature$address() {
+        return MltLayerBuilder_begin_mvt_feature.ADDR;
     }
 
     /**
      * {@snippet lang=c :
-     * void MltLayerBuilder_begin_feature(MltLayerBuilder *self, MltGeometryType geometry, OptionU64 id)
+     * MltLayerBuilder_begin_mvt_feature_result MltLayerBuilder_begin_mvt_feature(MltLayerBuilder *self, MltMvtGeometryType geometry, DiplomatU32View commands, OptionU64 id)
      * }
      */
-    public static void MltLayerBuilder_begin_feature(MemorySegment self, int geometry, MemorySegment id) {
-        var mh$ = MltLayerBuilder_begin_feature.HANDLE;
+    public static MemorySegment MltLayerBuilder_begin_mvt_feature(SegmentAllocator allocator, MemorySegment self, int geometry, MemorySegment commands, MemorySegment id) {
+        var mh$ = MltLayerBuilder_begin_mvt_feature.HANDLE;
         try {
             if (TRACE_DOWNCALLS) {
-                traceDowncall("MltLayerBuilder_begin_feature", self, geometry, id);
+                traceDowncall("MltLayerBuilder_begin_mvt_feature", allocator, self, geometry, commands, id);
             }
-            mh$.invokeExact(self, geometry, id);
-        } catch (Throwable ex$) {
-           throw new AssertionError("should not reach here", ex$);
-        }
-    }
-
-    private static class MltLayerBuilder_add_points {
-        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
-            MltLayerBuilder_add_points_result.layout(),
-            mlt_ffi_h.C_POINTER,
-            DiplomatI32View.layout()
-        );
-
-        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltLayerBuilder_add_points");
-
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
-    }
-
-    /**
-     * Function descriptor for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_points_result MltLayerBuilder_add_points(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static FunctionDescriptor MltLayerBuilder_add_points$descriptor() {
-        return MltLayerBuilder_add_points.DESC;
-    }
-
-    /**
-     * Downcall method handle for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_points_result MltLayerBuilder_add_points(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MethodHandle MltLayerBuilder_add_points$handle() {
-        return MltLayerBuilder_add_points.HANDLE;
-    }
-
-    /**
-     * Address for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_points_result MltLayerBuilder_add_points(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MemorySegment MltLayerBuilder_add_points$address() {
-        return MltLayerBuilder_add_points.ADDR;
-    }
-
-    /**
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_points_result MltLayerBuilder_add_points(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MemorySegment MltLayerBuilder_add_points(SegmentAllocator allocator, MemorySegment self, MemorySegment xy) {
-        var mh$ = MltLayerBuilder_add_points.HANDLE;
-        try {
-            if (TRACE_DOWNCALLS) {
-                traceDowncall("MltLayerBuilder_add_points", allocator, self, xy);
-            }
-            return (MemorySegment)mh$.invokeExact(allocator, self, xy);
-        } catch (Throwable ex$) {
-           throw new AssertionError("should not reach here", ex$);
-        }
-    }
-
-    private static class MltLayerBuilder_add_line {
-        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
-            MltLayerBuilder_add_line_result.layout(),
-            mlt_ffi_h.C_POINTER,
-            DiplomatI32View.layout()
-        );
-
-        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltLayerBuilder_add_line");
-
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
-    }
-
-    /**
-     * Function descriptor for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_line_result MltLayerBuilder_add_line(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static FunctionDescriptor MltLayerBuilder_add_line$descriptor() {
-        return MltLayerBuilder_add_line.DESC;
-    }
-
-    /**
-     * Downcall method handle for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_line_result MltLayerBuilder_add_line(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MethodHandle MltLayerBuilder_add_line$handle() {
-        return MltLayerBuilder_add_line.HANDLE;
-    }
-
-    /**
-     * Address for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_line_result MltLayerBuilder_add_line(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MemorySegment MltLayerBuilder_add_line$address() {
-        return MltLayerBuilder_add_line.ADDR;
-    }
-
-    /**
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_line_result MltLayerBuilder_add_line(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MemorySegment MltLayerBuilder_add_line(SegmentAllocator allocator, MemorySegment self, MemorySegment xy) {
-        var mh$ = MltLayerBuilder_add_line.HANDLE;
-        try {
-            if (TRACE_DOWNCALLS) {
-                traceDowncall("MltLayerBuilder_add_line", allocator, self, xy);
-            }
-            return (MemorySegment)mh$.invokeExact(allocator, self, xy);
-        } catch (Throwable ex$) {
-           throw new AssertionError("should not reach here", ex$);
-        }
-    }
-
-    private static class MltLayerBuilder_add_exterior_ring {
-        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
-            MltLayerBuilder_add_exterior_ring_result.layout(),
-            mlt_ffi_h.C_POINTER,
-            DiplomatI32View.layout()
-        );
-
-        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltLayerBuilder_add_exterior_ring");
-
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
-    }
-
-    /**
-     * Function descriptor for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_exterior_ring_result MltLayerBuilder_add_exterior_ring(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static FunctionDescriptor MltLayerBuilder_add_exterior_ring$descriptor() {
-        return MltLayerBuilder_add_exterior_ring.DESC;
-    }
-
-    /**
-     * Downcall method handle for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_exterior_ring_result MltLayerBuilder_add_exterior_ring(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MethodHandle MltLayerBuilder_add_exterior_ring$handle() {
-        return MltLayerBuilder_add_exterior_ring.HANDLE;
-    }
-
-    /**
-     * Address for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_exterior_ring_result MltLayerBuilder_add_exterior_ring(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MemorySegment MltLayerBuilder_add_exterior_ring$address() {
-        return MltLayerBuilder_add_exterior_ring.ADDR;
-    }
-
-    /**
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_exterior_ring_result MltLayerBuilder_add_exterior_ring(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MemorySegment MltLayerBuilder_add_exterior_ring(SegmentAllocator allocator, MemorySegment self, MemorySegment xy) {
-        var mh$ = MltLayerBuilder_add_exterior_ring.HANDLE;
-        try {
-            if (TRACE_DOWNCALLS) {
-                traceDowncall("MltLayerBuilder_add_exterior_ring", allocator, self, xy);
-            }
-            return (MemorySegment)mh$.invokeExact(allocator, self, xy);
-        } catch (Throwable ex$) {
-           throw new AssertionError("should not reach here", ex$);
-        }
-    }
-
-    private static class MltLayerBuilder_add_hole {
-        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
-            MltLayerBuilder_add_hole_result.layout(),
-            mlt_ffi_h.C_POINTER,
-            DiplomatI32View.layout()
-        );
-
-        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltLayerBuilder_add_hole");
-
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
-    }
-
-    /**
-     * Function descriptor for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_hole_result MltLayerBuilder_add_hole(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static FunctionDescriptor MltLayerBuilder_add_hole$descriptor() {
-        return MltLayerBuilder_add_hole.DESC;
-    }
-
-    /**
-     * Downcall method handle for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_hole_result MltLayerBuilder_add_hole(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MethodHandle MltLayerBuilder_add_hole$handle() {
-        return MltLayerBuilder_add_hole.HANDLE;
-    }
-
-    /**
-     * Address for:
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_hole_result MltLayerBuilder_add_hole(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MemorySegment MltLayerBuilder_add_hole$address() {
-        return MltLayerBuilder_add_hole.ADDR;
-    }
-
-    /**
-     * {@snippet lang=c :
-     * MltLayerBuilder_add_hole_result MltLayerBuilder_add_hole(MltLayerBuilder *self, DiplomatI32View xy)
-     * }
-     */
-    public static MemorySegment MltLayerBuilder_add_hole(SegmentAllocator allocator, MemorySegment self, MemorySegment xy) {
-        var mh$ = MltLayerBuilder_add_hole.HANDLE;
-        try {
-            if (TRACE_DOWNCALLS) {
-                traceDowncall("MltLayerBuilder_add_hole", allocator, self, xy);
-            }
-            return (MemorySegment)mh$.invokeExact(allocator, self, xy);
+            return (MemorySegment)mh$.invokeExact(allocator, self, geometry, commands, id);
         } catch (Throwable ex$) {
            throw new AssertionError("should not reach here", ex$);
         }

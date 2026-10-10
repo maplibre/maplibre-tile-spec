@@ -1,5 +1,5 @@
-#ifndef MltGeometryType_H
-#define MltGeometryType_H
+#ifndef MltMvtGeometryType_H
+#define MltMvtGeometryType_H
 
 #include "diplomat_runtime.h"
 #include <stdbool.h>
@@ -7,8 +7,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "MltGeometryType.d.h"
+#include "MltMvtGeometryType.d.h"
 
 // No Content
 
-#endif // MltGeometryType_H
+#endif // MltMvtGeometryType_H

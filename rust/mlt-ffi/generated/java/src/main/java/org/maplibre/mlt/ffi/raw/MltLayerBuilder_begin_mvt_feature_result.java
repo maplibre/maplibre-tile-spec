@@ -14,7 +14,7 @@ import static java.lang.foreign.MemoryLayout.PathElement.*;
 
 /**
  * {@snippet lang=c :
- * struct MltLayerBuilder_add_line_result {
+ * struct MltLayerBuilder_begin_mvt_feature_result {
  *     union {
  *         ConvertError *err;
  *     };
@@ -22,19 +22,19 @@ import static java.lang.foreign.MemoryLayout.PathElement.*;
  * }
  * }
  */
-public class MltLayerBuilder_add_line_result {
+public class MltLayerBuilder_begin_mvt_feature_result {
 
-    MltLayerBuilder_add_line_result() {
+    MltLayerBuilder_begin_mvt_feature_result() {
         // Should not be called directly
     }
 
     private static final GroupLayout $LAYOUT = MemoryLayout.structLayout(
         MemoryLayout.unionLayout(
             mlt_ffi_h.C_POINTER.withName("err")
-        ).withName("$anon$47:5"),
+        ).withName("$anon$37:5"),
         mlt_ffi_h.C_BOOL.withName("is_ok"),
         MemoryLayout.paddingLayout(7)
-    ).withName("MltLayerBuilder_add_line_result");
+    ).withName("MltLayerBuilder_begin_mvt_feature_result");
 
     /**
      * The layout of this struct
@@ -43,7 +43,7 @@ public class MltLayerBuilder_add_line_result {
         return $LAYOUT;
     }
 
-    private static final AddressLayout err$LAYOUT = (AddressLayout)$LAYOUT.select(groupElement("$anon$47:5"), groupElement("err"));
+    private static final AddressLayout err$LAYOUT = (AddressLayout)$LAYOUT.select(groupElement("$anon$37:5"), groupElement("err"));
 
     /**
      * Layout for field:

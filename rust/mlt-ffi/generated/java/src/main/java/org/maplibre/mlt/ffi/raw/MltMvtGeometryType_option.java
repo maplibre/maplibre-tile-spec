@@ -14,27 +14,27 @@ import static java.lang.foreign.MemoryLayout.PathElement.*;
 
 /**
  * {@snippet lang=c :
- * struct MltLayerBuilder_add_exterior_ring_result {
+ * struct MltMvtGeometryType_option {
  *     union {
- *         ConvertError *err;
+ *         MltMvtGeometryType ok;
  *     };
  *     bool is_ok;
  * }
  * }
  */
-public class MltLayerBuilder_add_exterior_ring_result {
+public class MltMvtGeometryType_option {
 
-    MltLayerBuilder_add_exterior_ring_result() {
+    MltMvtGeometryType_option() {
         // Should not be called directly
     }
 
     private static final GroupLayout $LAYOUT = MemoryLayout.structLayout(
         MemoryLayout.unionLayout(
-            mlt_ffi_h.C_POINTER.withName("err")
-        ).withName("$anon$55:5"),
+            mlt_ffi_h.C_INT.withName("ok")
+        ).withName("$anon$17:5"),
         mlt_ffi_h.C_BOOL.withName("is_ok"),
-        MemoryLayout.paddingLayout(7)
-    ).withName("MltLayerBuilder_add_exterior_ring_result");
+        MemoryLayout.paddingLayout(3)
+    ).withName("MltMvtGeometryType_option");
 
     /**
      * The layout of this struct
@@ -43,48 +43,48 @@ public class MltLayerBuilder_add_exterior_ring_result {
         return $LAYOUT;
     }
 
-    private static final AddressLayout err$LAYOUT = (AddressLayout)$LAYOUT.select(groupElement("$anon$55:5"), groupElement("err"));
+    private static final OfInt ok$LAYOUT = (OfInt)$LAYOUT.select(groupElement("$anon$17:5"), groupElement("ok"));
 
     /**
      * Layout for field:
      * {@snippet lang=c :
-     * ConvertError *err
+     * MltMvtGeometryType ok
      * }
      */
-    public static final AddressLayout err$layout() {
-        return err$LAYOUT;
+    public static final OfInt ok$layout() {
+        return ok$LAYOUT;
     }
 
-    private static final long err$OFFSET = 0;
+    private static final long ok$OFFSET = 0;
 
     /**
      * Offset for field:
      * {@snippet lang=c :
-     * ConvertError *err
+     * MltMvtGeometryType ok
      * }
      */
-    public static final long err$offset() {
-        return err$OFFSET;
+    public static final long ok$offset() {
+        return ok$OFFSET;
     }
 
     /**
      * Getter for field:
      * {@snippet lang=c :
-     * ConvertError *err
+     * MltMvtGeometryType ok
      * }
      */
-    public static MemorySegment err(MemorySegment struct) {
-        return struct.get(err$LAYOUT, err$OFFSET);
+    public static int ok(MemorySegment struct) {
+        return struct.get(ok$LAYOUT, ok$OFFSET);
     }
 
     /**
      * Setter for field:
      * {@snippet lang=c :
-     * ConvertError *err
+     * MltMvtGeometryType ok
      * }
      */
-    public static void err(MemorySegment struct, MemorySegment fieldValue) {
-        struct.set(err$LAYOUT, err$OFFSET, fieldValue);
+    public static void ok(MemorySegment struct, int fieldValue) {
+        struct.set(ok$LAYOUT, ok$OFFSET, fieldValue);
     }
 
     private static final OfBoolean is_ok$LAYOUT = (OfBoolean)$LAYOUT.select(groupElement("is_ok"));
@@ -99,7 +99,7 @@ public class MltLayerBuilder_add_exterior_ring_result {
         return is_ok$LAYOUT;
     }
 
-    private static final long is_ok$OFFSET = 8;
+    private static final long is_ok$OFFSET = 4;
 
     /**
      * Offset for field:

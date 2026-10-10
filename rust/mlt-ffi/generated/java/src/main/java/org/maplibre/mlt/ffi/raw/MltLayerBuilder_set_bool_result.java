@@ -31,7 +31,7 @@ public class MltLayerBuilder_set_bool_result {
     private static final GroupLayout $LAYOUT = MemoryLayout.structLayout(
         MemoryLayout.unionLayout(
             mlt_ffi_h.C_POINTER.withName("err")
-        ).withName("$anon$71:5"),
+        ).withName("$anon$45:5"),
         mlt_ffi_h.C_BOOL.withName("is_ok"),
         MemoryLayout.paddingLayout(7)
     ).withName("MltLayerBuilder_set_bool_result");
@@ -43,7 +43,7 @@ public class MltLayerBuilder_set_bool_result {
         return $LAYOUT;
     }
 
-    private static final AddressLayout err$LAYOUT = (AddressLayout)$LAYOUT.select(groupElement("$anon$71:5"), groupElement("err"));
+    private static final AddressLayout err$LAYOUT = (AddressLayout)$LAYOUT.select(groupElement("$anon$45:5"), groupElement("err"));
 
     /**
      * Layout for field:

@@ -31,7 +31,7 @@ public class MltLayerBuilder_encode_into_result {
     private static final GroupLayout $LAYOUT = MemoryLayout.structLayout(
         MemoryLayout.unionLayout(
             mlt_ffi_h.C_POINTER.withName("err")
-        ).withName("$anon$111:5"),
+        ).withName("$anon$85:5"),
         mlt_ffi_h.C_BOOL.withName("is_ok"),
         MemoryLayout.paddingLayout(7)
     ).withName("MltLayerBuilder_encode_into_result");
@@ -43,7 +43,7 @@ public class MltLayerBuilder_encode_into_result {
         return $LAYOUT;
     }
 
-    private static final AddressLayout err$LAYOUT = (AddressLayout)$LAYOUT.select(groupElement("$anon$111:5"), groupElement("err"));
+    private static final AddressLayout err$LAYOUT = (AddressLayout)$LAYOUT.select(groupElement("$anon$85:5"), groupElement("err"));
 
     /**
      * Layout for field:

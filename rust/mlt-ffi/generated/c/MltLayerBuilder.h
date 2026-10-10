@@ -10,7 +10,7 @@
 #include "ConvertError.d.h"
 #include "MltBuffer.d.h"
 #include "MltEncoderOptions.d.h"
-#include "MltGeometryType.d.h"
+#include "MltMvtGeometryType.d.h"
 
 #include "MltLayerBuilder.d.h"
 
@@ -33,39 +33,16 @@ MltLayerBuilder_reset_result MltLayerBuilder_reset(MltLayerBuilder* self, Diplom
 
 uint32_t MltLayerBuilder_add_property(MltLayerBuilder* self, DiplomatStringView name);
 
-void MltLayerBuilder_begin_feature(MltLayerBuilder* self, MltGeometryType geometry, OptionU64 id);
-
-typedef struct MltLayerBuilder_add_points_result {
+typedef struct MltLayerBuilder_begin_mvt_feature_result {
     union {
         ConvertError* err;
     };
     bool is_ok;
-} MltLayerBuilder_add_points_result;
-MltLayerBuilder_add_points_result MltLayerBuilder_add_points(MltLayerBuilder* self, DiplomatI32View xy);
-
-typedef struct MltLayerBuilder_add_line_result {
-    union {
-        ConvertError* err;
-    };
-    bool is_ok;
-} MltLayerBuilder_add_line_result;
-MltLayerBuilder_add_line_result MltLayerBuilder_add_line(MltLayerBuilder* self, DiplomatI32View xy);
-
-typedef struct MltLayerBuilder_add_exterior_ring_result {
-    union {
-        ConvertError* err;
-    };
-    bool is_ok;
-} MltLayerBuilder_add_exterior_ring_result;
-MltLayerBuilder_add_exterior_ring_result MltLayerBuilder_add_exterior_ring(MltLayerBuilder* self, DiplomatI32View xy);
-
-typedef struct MltLayerBuilder_add_hole_result {
-    union {
-        ConvertError* err;
-    };
-    bool is_ok;
-} MltLayerBuilder_add_hole_result;
-MltLayerBuilder_add_hole_result MltLayerBuilder_add_hole(MltLayerBuilder* self, DiplomatI32View xy);
+} MltLayerBuilder_begin_mvt_feature_result;
+MltLayerBuilder_begin_mvt_feature_result MltLayerBuilder_begin_mvt_feature(MltLayerBuilder* self,
+                                                                           MltMvtGeometryType geometry,
+                                                                           DiplomatU32View commands,
+                                                                           OptionU64 id);
 
 typedef struct MltLayerBuilder_set_bool_result {
     union {

@@ -10,18 +10,18 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SegmentAllocator;
 import java.nio.charset.StandardCharsets;
-import org.maplibre.mlt.ffi.raw.DiplomatI32View;
-import org.maplibre.mlt.ffi.raw.MltLayerBuilder_add_points_result;
+import java.util.HashMap;
+import java.util.Map;
+import org.maplibre.mlt.ffi.raw.DiplomatU32View;
+import org.maplibre.mlt.ffi.raw.MltLayerBuilder_begin_mvt_feature_result;
 import org.maplibre.mlt.ffi.raw.OptionU64;
 import org.maplibre.mlt.ffi.raw.mlt_ffi_h;
 
 /**
- * A layer written one feature at a time, then encoded without going through MVT.
+ * A layer written one feature at a time, then encoded without serializing an MVT tile.
  * <p>
- * Declare every property name with {@link #addProperty} first.
- * A feature starts with {@link #beginFeature}, gets its geometry and property values, and ends when the next one
- * begins or on {@link #encodeInto}.
- * Coordinates are interleaved {@code x, y} pairs in tile units.
+ * A feature starts with {@link #beginMvtFeature}, which takes its geometry as MVT commands in tile units.
+ * It gets its property values by name, and ends when the next one begins or on {@link #encodeInto}.
  * Values of different kinds under one key merge the way the MVT importer does:
  * integers and floats widen to a double, any other mix becomes text.
  * <p>
@@ -34,14 +34,15 @@ public final class MltLayerBuilder implements AutoCloseable {
 
   static {
     NativeLibrary.load();
-    if (MltLayerBuilder_add_points_result.layout().byteSize() != RESULT_SIZE) {
+    if (MltLayerBuilder_begin_mvt_feature_result.layout().byteSize() != RESULT_SIZE) {
       throw new IllegalStateException("Unexpected native result layout");
     }
   }
 
   private final Arena arena = Arena.ofShared();
   private final SegmentAllocator results = SegmentAllocator.prefixAllocator(arena.allocate(RESULT_SIZE, 8));
-  private final MemorySegment view = DiplomatI32View.allocate(arena);
+  private final MemorySegment view = DiplomatU32View.allocate(arena);
+  private final Map<String, Integer> keys = new HashMap<>();
   private final MemorySegment id = OptionU64.allocate(arena);
   private MemorySegment scratch = arena.allocate(1 << 12, 16);
   private MemorySegment handle;
@@ -73,92 +74,61 @@ public final class MltLayerBuilder implements AutoCloseable {
   public void reset(String name, int extent) {
     checkExtent(extent);
     check(mlt_ffi_h.MltLayerBuilder_reset(results, self(), string(name), extent));
+    keys.clear();
   }
 
-  /** Declares a property column, returning the key to set it with. */
-  public int addProperty(String name) {
-    return mlt_ffi_h.MltLayerBuilder_add_property(self(), string(name));
+  /** Starts a feature without an id from its MVT geometry commands, ending the previous one. */
+  public void beginMvtFeature(MvtGeometryType geometry, int[] commands) {
+    beginMvtFeature(geometry, commands, null);
   }
 
-  /** Starts a feature without an id, ending the previous one. */
-  public void beginFeature(GeometryType geometry) {
-    beginFeature(geometry, null);
-  }
-
-  /** Starts a feature with an optional id, ending the previous one. */
-  public void beginFeature(GeometryType geometry, Long featureId) {
+  /**
+   * Starts a feature with an optional id from its MVT geometry commands, ending the previous one.
+   * A ring with positive area starts a polygon and any other ring is a hole of the last one.
+   */
+  public void beginMvtFeature(MvtGeometryType geometry, int[] commands, Long featureId) {
     if (featureId == null) {
       OptionU64.is_ok(id, false);
     } else {
       OptionU64.ok(id, featureId);
       OptionU64.is_ok(id, true);
     }
-    mlt_ffi_h.MltLayerBuilder_begin_feature(self(), geometry.nativeValue(), id);
-  }
-
-  /** Adds the points of a point or multi-point feature. */
-  public void addPoints(int[] xy) {
-    addPoints(xy, 0, xy.length);
-  }
-
-  /** Adds the points of a point or multi-point feature from {@code length} ints of {@code xy} at {@code offset}. */
-  public void addPoints(int[] xy, int offset, int length) {
-    check(mlt_ffi_h.MltLayerBuilder_add_points(results, self(), ints(xy, offset, length)));
-  }
-
-  /** Adds a line of a line or multi-line feature. */
-  public void addLine(int[] xy) {
-    addLine(xy, 0, xy.length);
-  }
-
-  /** Adds a line of a line or multi-line feature from {@code length} ints of {@code xy} at {@code offset}. */
-  public void addLine(int[] xy, int offset, int length) {
-    check(mlt_ffi_h.MltLayerBuilder_add_line(results, self(), ints(xy, offset, length)));
-  }
-
-  /** Starts a polygon of a polygon or multi-polygon feature with its exterior ring. */
-  public void addExteriorRing(int[] xy) {
-    addExteriorRing(xy, 0, xy.length);
-  }
-
-  /** Starts a polygon with its exterior ring from {@code length} ints of {@code xy} at {@code offset}. */
-  public void addExteriorRing(int[] xy, int offset, int length) {
-    check(mlt_ffi_h.MltLayerBuilder_add_exterior_ring(results, self(), ints(xy, offset, length)));
-  }
-
-  /** Adds a hole to the polygon the last exterior ring started. */
-  public void addHole(int[] xy) {
-    addHole(xy, 0, xy.length);
-  }
-
-  /** Adds a hole from {@code length} ints of {@code xy} at {@code offset}. */
-  public void addHole(int[] xy, int offset, int length) {
-    check(mlt_ffi_h.MltLayerBuilder_add_hole(results, self(), ints(xy, offset, length)));
+    check(mlt_ffi_h.MltLayerBuilder_begin_mvt_feature(results, self(), geometry.nativeValue(), ints(commands), id));
   }
 
   /** Sets a boolean property of the current feature. */
-  public void setBool(int key, boolean value) {
-    check(mlt_ffi_h.MltLayerBuilder_set_bool(results, self(), key, value));
+  public void setBool(String key, boolean value) {
+    check(mlt_ffi_h.MltLayerBuilder_set_bool(results, self(), key(key), value));
   }
 
   /** Sets an integer property of the current feature. */
-  public void setLong(int key, long value) {
-    check(mlt_ffi_h.MltLayerBuilder_set_i64(results, self(), key, value));
+  public void setLong(String key, long value) {
+    check(mlt_ffi_h.MltLayerBuilder_set_i64(results, self(), key(key), value));
   }
 
   /** Sets a 32-bit float property of the current feature. */
-  public void setFloat(int key, float value) {
-    check(mlt_ffi_h.MltLayerBuilder_set_f32(results, self(), key, value));
+  public void setFloat(String key, float value) {
+    check(mlt_ffi_h.MltLayerBuilder_set_f32(results, self(), key(key), value));
   }
 
   /** Sets a 64-bit float property of the current feature. */
-  public void setDouble(int key, double value) {
-    check(mlt_ffi_h.MltLayerBuilder_set_f64(results, self(), key, value));
+  public void setDouble(String key, double value) {
+    check(mlt_ffi_h.MltLayerBuilder_set_f64(results, self(), key(key), value));
   }
 
   /** Sets a string property of the current feature. */
-  public void setString(int key, String value) {
-    check(mlt_ffi_h.MltLayerBuilder_set_str(results, self(), key, string(value)));
+  public void setString(String key, String value) {
+    int column = key(key);
+    check(mlt_ffi_h.MltLayerBuilder_set_str(results, self(), column, string(value)));
+  }
+
+  private int key(String name) {
+    Integer key = keys.get(name);
+    if (key == null) {
+      key = mlt_ffi_h.MltLayerBuilder_add_property(self(), string(name));
+      keys.put(name, key);
+    }
+    return key;
   }
 
   /** Encodes the layer and appends it to {@code out}, so a tile is its layers in one buffer. */
@@ -187,11 +157,11 @@ public final class MltLayerBuilder implements AutoCloseable {
     return view;
   }
 
-  private MemorySegment ints(int[] xy, int offset, int length) {
-    ensureScratch(4L * length);
-    MemorySegment.copy(xy, offset, scratch, JAVA_INT_UNALIGNED, 0, length);
+  private MemorySegment ints(int[] values) {
+    ensureScratch(4L * values.length);
+    MemorySegment.copy(values, 0, scratch, JAVA_INT_UNALIGNED, 0, values.length);
     view.set(ADDRESS, 0, scratch);
-    view.set(JAVA_LONG, 8, length);
+    view.set(JAVA_LONG, 8, values.length);
     return view;
   }
 

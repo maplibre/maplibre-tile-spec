@@ -6,7 +6,7 @@
 #include "ConvertError.hpp"
 #include "MltBuffer.hpp"
 #include "MltEncoderOptions.hpp"
-#include "MltGeometryType.hpp"
+#include "MltMvtGeometryType.hpp"
 #include "diplomat_runtime.hpp"
 #include <cstdlib>
 #include <functional>
@@ -42,45 +42,16 @@ MltLayerBuilder_reset_result MltLayerBuilder_reset(diplomat::capi::MltLayerBuild
 
 uint32_t MltLayerBuilder_add_property(diplomat::capi::MltLayerBuilder* self, diplomat::capi::DiplomatStringView name);
 
-void MltLayerBuilder_begin_feature(diplomat::capi::MltLayerBuilder* self,
-                                   diplomat::capi::MltGeometryType geometry,
-                                   diplomat::capi::OptionU64 id);
-
-typedef struct MltLayerBuilder_add_points_result {
+typedef struct MltLayerBuilder_begin_mvt_feature_result {
     union {
         diplomat::capi::ConvertError* err;
     };
     bool is_ok;
-} MltLayerBuilder_add_points_result;
-MltLayerBuilder_add_points_result MltLayerBuilder_add_points(diplomat::capi::MltLayerBuilder* self,
-                                                             diplomat::capi::DiplomatI32View xy);
-
-typedef struct MltLayerBuilder_add_line_result {
-    union {
-        diplomat::capi::ConvertError* err;
-    };
-    bool is_ok;
-} MltLayerBuilder_add_line_result;
-MltLayerBuilder_add_line_result MltLayerBuilder_add_line(diplomat::capi::MltLayerBuilder* self,
-                                                         diplomat::capi::DiplomatI32View xy);
-
-typedef struct MltLayerBuilder_add_exterior_ring_result {
-    union {
-        diplomat::capi::ConvertError* err;
-    };
-    bool is_ok;
-} MltLayerBuilder_add_exterior_ring_result;
-MltLayerBuilder_add_exterior_ring_result MltLayerBuilder_add_exterior_ring(diplomat::capi::MltLayerBuilder* self,
-                                                                           diplomat::capi::DiplomatI32View xy);
-
-typedef struct MltLayerBuilder_add_hole_result {
-    union {
-        diplomat::capi::ConvertError* err;
-    };
-    bool is_ok;
-} MltLayerBuilder_add_hole_result;
-MltLayerBuilder_add_hole_result MltLayerBuilder_add_hole(diplomat::capi::MltLayerBuilder* self,
-                                                         diplomat::capi::DiplomatI32View xy);
+} MltLayerBuilder_begin_mvt_feature_result;
+MltLayerBuilder_begin_mvt_feature_result MltLayerBuilder_begin_mvt_feature(diplomat::capi::MltLayerBuilder* self,
+                                                                           diplomat::capi::MltMvtGeometryType geometry,
+                                                                           diplomat::capi::DiplomatU32View commands,
+                                                                           diplomat::capi::OptionU64 id);
 
 typedef struct MltLayerBuilder_set_bool_result {
     union {
@@ -185,46 +156,13 @@ inline diplomat::result<uint32_t, diplomat::Utf8Error> MltLayerBuilder::add_prop
     return diplomat::Ok<uint32_t>(result);
 }
 
-inline void MltLayerBuilder::begin_feature(MltGeometryType geometry, std::optional<uint64_t> id) {
-    diplomat::capi::MltLayerBuilder_begin_feature(
+inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> MltLayerBuilder::begin_mvt_feature(
+    MltMvtGeometryType geometry, diplomat::span<const uint32_t> commands, std::optional<uint64_t> id) {
+    auto result = diplomat::capi::MltLayerBuilder_begin_mvt_feature(
         this->AsFFI(),
         geometry.AsFFI(),
+        {commands.data(), commands.size()},
         id.has_value() ? (diplomat::capi::OptionU64{{id.value()}, true}) : (diplomat::capi::OptionU64{{}, false}));
-}
-
-inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> MltLayerBuilder::add_points(
-    diplomat::span<const int32_t> xy) {
-    auto result = diplomat::capi::MltLayerBuilder_add_points(this->AsFFI(), {xy.data(), xy.size()});
-    return result.is_ok
-               ? diplomat::result<std::monostate, std::unique_ptr<ConvertError>>(diplomat::Ok<std::monostate>())
-               : diplomat::result<std::monostate, std::unique_ptr<ConvertError>>(
-                     diplomat::Err<std::unique_ptr<ConvertError>>(
-                         std::unique_ptr<ConvertError>(ConvertError::FromFFI(result.err))));
-}
-
-inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> MltLayerBuilder::add_line(
-    diplomat::span<const int32_t> xy) {
-    auto result = diplomat::capi::MltLayerBuilder_add_line(this->AsFFI(), {xy.data(), xy.size()});
-    return result.is_ok
-               ? diplomat::result<std::monostate, std::unique_ptr<ConvertError>>(diplomat::Ok<std::monostate>())
-               : diplomat::result<std::monostate, std::unique_ptr<ConvertError>>(
-                     diplomat::Err<std::unique_ptr<ConvertError>>(
-                         std::unique_ptr<ConvertError>(ConvertError::FromFFI(result.err))));
-}
-
-inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> MltLayerBuilder::add_exterior_ring(
-    diplomat::span<const int32_t> xy) {
-    auto result = diplomat::capi::MltLayerBuilder_add_exterior_ring(this->AsFFI(), {xy.data(), xy.size()});
-    return result.is_ok
-               ? diplomat::result<std::monostate, std::unique_ptr<ConvertError>>(diplomat::Ok<std::monostate>())
-               : diplomat::result<std::monostate, std::unique_ptr<ConvertError>>(
-                     diplomat::Err<std::unique_ptr<ConvertError>>(
-                         std::unique_ptr<ConvertError>(ConvertError::FromFFI(result.err))));
-}
-
-inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> MltLayerBuilder::add_hole(
-    diplomat::span<const int32_t> xy) {
-    auto result = diplomat::capi::MltLayerBuilder_add_hole(this->AsFFI(), {xy.data(), xy.size()});
     return result.is_ok
                ? diplomat::result<std::monostate, std::unique_ptr<ConvertError>>(diplomat::Ok<std::monostate>())
                : diplomat::result<std::monostate, std::unique_ptr<ConvertError>>(

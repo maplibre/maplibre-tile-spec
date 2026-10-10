@@ -69,13 +69,42 @@ class RoundTripTest {
       error.getMessage());
   }
 
+  private static int zigzag(int value) {
+    return (value << 1) ^ (value >> 31);
+  }
+
+  private static int[] point(int x, int y) {
+    return new int[] {9, zigzag(x), zigzag(y)};
+  }
+
+  private static int[] commands(boolean close, int[]... parts) {
+    var commands = new ArrayList<Integer>();
+    int x = 0;
+    int y = 0;
+    for (int[] part : parts) {
+      for (int i = 0; i < part.length; i += 2) {
+        if (i == 0) {
+          commands.add(9);
+        } else if (i == 2) {
+          commands.add(2 | ((part.length / 2 - 1) << 3));
+        }
+        commands.add(zigzag(part[i] - x));
+        commands.add(zigzag(part[i + 1] - y));
+        x = part[i];
+        y = part[i + 1];
+      }
+      if (close) {
+        commands.add(15);
+      }
+    }
+    return commands.stream().mapToInt(Integer::intValue).toArray();
+  }
+
   @Test
   void builderOutputEqualsMvtConversionOfTheSamePointLayer() throws IOException {
     try (var options = new EncoderOptions(); var builder = new MltLayerBuilder("layer", 4096)) {
-      int key = builder.addProperty("key");
-      builder.beginFeature(GeometryType.POINT, 1L);
-      builder.addPoints(new int[] {25, 17});
-      builder.setBool(key, true);
+      builder.beginMvtFeature(MvtGeometryType.POINT, point(25, 17), 1L);
+      builder.setBool("key", true);
 
       assertArrayEquals(Converter.mvtToMlt(fixture("point-boolean.mvt"), options), encode(builder, options));
     }
@@ -85,11 +114,9 @@ class RoundTripTest {
   void multipolygonBuilderOutputInV2ReencodesToTheSameMlt() throws IOException {
     try (var options = new EncoderOptions().wireVersion(WireVersion.V02);
       var builder = new MltLayerBuilder("layer", 4096)) {
-      int key = builder.addProperty("key");
-      builder.beginFeature(GeometryType.MULTI_POLYGON, 1L);
-      builder.addExteriorRing(new int[] {0, 0, 10, 0, 10, 10, 0, 10, 0, 0});
-      builder.addExteriorRing(new int[] {20, 20, 30, 20, 30, 30, 20, 30, 20, 20});
-      builder.setBool(key, true);
+      builder.beginMvtFeature(MvtGeometryType.POLYGON,
+        commands(true, new int[] {0, 0, 10, 0, 10, 10, 0, 10}, new int[] {20, 20, 30, 20, 30, 30, 20, 30}), 1L);
+      builder.setBool("key", true);
       byte[] built = encode(builder, options);
 
       byte[] mvt = Converter.mltToMvt(built);
@@ -101,17 +128,13 @@ class RoundTripTest {
   @Test
   void mvtDecodedFromBuilderOutputReencodesToTheSameMlt() throws IOException {
     try (var options = new EncoderOptions(); var builder = new MltLayerBuilder("layer", 4096)) {
-      int flag = builder.addProperty("flag");
-      int name = builder.addProperty("name");
-      builder.beginFeature(GeometryType.LINE_STRING, 3L);
-      builder.addLine(new int[] {0, 0, 10, 10, 20, 5});
-      builder.setBool(flag, false);
-      builder.setString(name, "alpha");
-      builder.beginFeature(GeometryType.MULTI_LINE_STRING, 4L);
-      builder.addLine(new int[] {1, 1, 2, 2});
-      builder.addLine(new int[] {5, 5, 6, 7, 8, 9});
-      builder.setBool(flag, true);
-      builder.setString(name, "beta");
+      builder.beginMvtFeature(MvtGeometryType.LINE_STRING, commands(false, new int[] {0, 0, 10, 10, 20, 5}), 3L);
+      builder.setBool("flag", false);
+      builder.setString("name", "alpha");
+      builder.beginMvtFeature(MvtGeometryType.LINE_STRING,
+        commands(false, new int[] {1, 1, 2, 2}, new int[] {5, 5, 6, 7, 8, 9}), 4L);
+      builder.setBool("flag", true);
+      builder.setString("name", "beta");
       byte[] built = encode(builder, options);
 
       assertArrayEquals(built, Converter.mvtToMlt(Converter.mltToMvt(built), options));
@@ -123,20 +146,14 @@ class RoundTripTest {
     try (var options = new EncoderOptions();
       var mixed = new MltLayerBuilder("layer", 4096);
       var doubles = new MltLayerBuilder("layer", 4096)) {
-      int mixedKey = mixed.addProperty("key");
-      mixed.beginFeature(GeometryType.POINT);
-      mixed.addPoints(new int[] {1, 1});
-      mixed.setLong(mixedKey, 3L);
-      mixed.beginFeature(GeometryType.POINT);
-      mixed.addPoints(new int[] {2, 2});
-      mixed.setFloat(mixedKey, 1.5f);
-      int doublesKey = doubles.addProperty("key");
-      doubles.beginFeature(GeometryType.POINT);
-      doubles.addPoints(new int[] {1, 1});
-      doubles.setDouble(doublesKey, 3.0);
-      doubles.beginFeature(GeometryType.POINT);
-      doubles.addPoints(new int[] {2, 2});
-      doubles.setDouble(doublesKey, 1.5);
+      mixed.beginMvtFeature(MvtGeometryType.POINT, point(1, 1));
+      mixed.setLong("key", 3L);
+      mixed.beginMvtFeature(MvtGeometryType.POINT, point(2, 2));
+      mixed.setFloat("key", 1.5f);
+      doubles.beginMvtFeature(MvtGeometryType.POINT, point(1, 1));
+      doubles.setDouble("key", 3.0);
+      doubles.beginMvtFeature(MvtGeometryType.POINT, point(2, 2));
+      doubles.setDouble("key", 1.5);
 
       assertArrayEquals(encode(doubles, options), encode(mixed, options));
     }
@@ -147,20 +164,14 @@ class RoundTripTest {
     try (var options = new EncoderOptions();
       var mixed = new MltLayerBuilder("layer", 4096);
       var text = new MltLayerBuilder("layer", 4096)) {
-      int mixedKey = mixed.addProperty("key");
-      mixed.beginFeature(GeometryType.POINT);
-      mixed.addPoints(new int[] {1, 1});
-      mixed.setBool(mixedKey, true);
-      mixed.beginFeature(GeometryType.POINT);
-      mixed.addPoints(new int[] {2, 2});
-      mixed.setLong(mixedKey, 5L);
-      int textKey = text.addProperty("key");
-      text.beginFeature(GeometryType.POINT);
-      text.addPoints(new int[] {1, 1});
-      text.setString(textKey, "true");
-      text.beginFeature(GeometryType.POINT);
-      text.addPoints(new int[] {2, 2});
-      text.setString(textKey, "5");
+      mixed.beginMvtFeature(MvtGeometryType.POINT, point(1, 1));
+      mixed.setBool("key", true);
+      mixed.beginMvtFeature(MvtGeometryType.POINT, point(2, 2));
+      mixed.setLong("key", 5L);
+      text.beginMvtFeature(MvtGeometryType.POINT, point(1, 1));
+      text.setString("key", "true");
+      text.beginMvtFeature(MvtGeometryType.POINT, point(2, 2));
+      text.setString("key", "5");
 
       assertArrayEquals(encode(text, options), encode(mixed, options));
     }
@@ -170,13 +181,11 @@ class RoundTripTest {
   void layersAppendedToOneBufferEqualTheirSeparateEncodings() {
     try (var options = new EncoderOptions(); var builder = new MltLayerBuilder("first", 4096);
       var tile = new MltBuffer()) {
-      builder.beginFeature(GeometryType.POINT);
-      builder.addPoints(new int[] {1, 1});
+      builder.beginMvtFeature(MvtGeometryType.POINT, point(1, 1));
       builder.encodeInto(options, tile);
       byte[] first = encode(builder, options);
       builder.reset("second", 4096);
-      builder.beginFeature(GeometryType.POINT);
-      builder.addPoints(new int[] {2, 2});
+      builder.beginMvtFeature(MvtGeometryType.POINT, point(2, 2));
       builder.encodeInto(options, tile);
       byte[] second = encode(builder, options);
 
@@ -188,11 +197,27 @@ class RoundTripTest {
   }
 
   @Test
+  void resetLayerWithOtherPropertiesEncodesLikeAFreshBuilder() {
+    try (var options = new EncoderOptions(); var reused = new MltLayerBuilder("layer", 4096);
+      var fresh = new MltLayerBuilder("layer", 4096)) {
+      reused.beginMvtFeature(MvtGeometryType.POINT, point(1, 1));
+      reused.setLong("first", 1L);
+      reused.setLong("second", 2L);
+      reused.reset("layer", 4096);
+      reused.beginMvtFeature(MvtGeometryType.POINT, point(2, 2));
+      reused.setString("second", "two");
+      fresh.beginMvtFeature(MvtGeometryType.POINT, point(2, 2));
+      fresh.setString("second", "two");
+
+      assertArrayEquals(encode(fresh, options), encode(reused, options));
+    }
+  }
+
+  @Test
   void clearedBufferIsEmpty() {
     try (var options = new EncoderOptions(); var builder = new MltLayerBuilder("layer", 4096);
       var out = new MltBuffer()) {
-      builder.beginFeature(GeometryType.POINT);
-      builder.addPoints(new int[] {1, 1});
+      builder.beginMvtFeature(MvtGeometryType.POINT, point(1, 1));
       builder.encodeInto(options, out);
 
       out.clear();
@@ -202,22 +227,9 @@ class RoundTripTest {
   }
 
   @Test
-  void rangeOverloadAddsOnlyTheRequestedCoordinates() {
-    try (var options = new EncoderOptions(); var whole = new MltLayerBuilder("layer", 4096);
-      var ranged = new MltLayerBuilder("layer", 4096)) {
-      whole.beginFeature(GeometryType.LINE_STRING);
-      whole.addLine(new int[] {1, 2, 3, 4});
-      ranged.beginFeature(GeometryType.LINE_STRING);
-      ranged.addLine(new int[] {9, 9, 1, 2, 3, 4, 9, 9}, 2, 4);
-
-      assertArrayEquals(encode(whole, options), encode(ranged, options));
-    }
-  }
-
-  @Test
-  void geometryBeforeAFeatureBeginsIsAnInvalidFeature() {
+  void propertyBeforeAFeatureBeginsIsAnInvalidFeature() {
     try (var builder = new MltLayerBuilder("layer", 4096)) {
-      var error = assertThrows(MltException.class, () -> builder.addPoints(new int[] {1, 1}));
+      var error = assertThrows(MltException.class, () -> builder.setLong("key", 1));
 
       assertEquals(MltException.Kind.INVALID_FEATURE, error.kind());
       assertEquals("no feature begun", error.getMessage());
@@ -225,38 +237,24 @@ class RoundTripTest {
   }
 
   @Test
-  void oddCoordinateCountIsAnInvalidFeature() {
+  void truncatedMvtCommandsAreAnInvalidFeature() {
     try (var builder = new MltLayerBuilder("layer", 4096)) {
-      builder.beginFeature(GeometryType.LINE_STRING);
-
-      var error = assertThrows(MltException.class, () -> builder.addLine(new int[] {1, 2, 3}));
+      var error = assertThrows(MltException.class,
+        () -> builder.beginMvtFeature(MvtGeometryType.LINE_STRING, new int[] {9, 2, 2, 18, 4}));
 
       assertEquals(MltException.Kind.INVALID_FEATURE, error.kind());
-      assertEquals("coordinates must come in x, y pairs", error.getMessage());
+      assertEquals("invalid MVT geometry: ends inside a command", error.getMessage());
     }
   }
 
   @Test
-  void undeclaredPropertyKeyIsAnInvalidFeature() {
+  void lineToInAPointGeometryIsAnInvalidFeature() {
     try (var builder = new MltLayerBuilder("layer", 4096)) {
-      builder.beginFeature(GeometryType.POINT);
-
-      var error = assertThrows(MltException.class, () -> builder.setLong(3, 1));
+      var error = assertThrows(MltException.class,
+        () -> builder.beginMvtFeature(MvtGeometryType.POINT, new int[] {9, 2, 2, 10, 4, 4}));
 
       assertEquals(MltException.Kind.INVALID_FEATURE, error.kind());
-      assertEquals("unknown property key 3", error.getMessage());
-    }
-  }
-
-  @Test
-  void lineOnAPointFeatureFailsToEncode() {
-    try (var options = new EncoderOptions(); var builder = new MltLayerBuilder("layer", 4096)) {
-      builder.beginFeature(GeometryType.POINT);
-      builder.addLine(new int[] {1, 1, 2, 2});
-
-      var error = assertThrows(MltException.class, () -> encode(builder, options));
-
-      assertEquals(MltException.Kind.ENCODING_FAILED, error.kind());
+      assertEquals("invalid MVT geometry: a LineTo outside a line or ring", error.getMessage());
     }
   }
 
@@ -270,7 +268,7 @@ class RoundTripTest {
     var builder = new MltLayerBuilder("layer", 4096);
     builder.close();
 
-    assertThrows(IllegalStateException.class, () -> builder.addProperty("key"));
+    assertThrows(IllegalStateException.class, () -> builder.setLong("key", 1));
   }
 
   @Test
@@ -346,11 +344,9 @@ class RoundTripTest {
 
   private static byte[] encodeLayer() {
     try (var options = new EncoderOptions(); var builder = new MltLayerBuilder("layer", 4096)) {
-      int name = builder.addProperty("name");
       for (int f = 0; f < 50; f++) {
-        builder.beginFeature(GeometryType.POINT, (long) f);
-        builder.addPoints(new int[] {f, f * 2});
-        builder.setString(name, "feature " + f);
+        builder.beginMvtFeature(MvtGeometryType.POINT, point(f, f * 2), (long) f);
+        builder.setString("name", "feature " + f);
       }
       return encode(builder, options);
     }

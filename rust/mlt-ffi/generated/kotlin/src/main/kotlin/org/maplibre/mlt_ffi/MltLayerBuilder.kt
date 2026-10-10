@@ -24,30 +24,11 @@ internal interface MltLayerBuilderLib : Library {
         name: Slice,
     ): FFIUint32
 
-    fun MltLayerBuilder_begin_feature(
+    fun MltLayerBuilder_begin_mvt_feature(
         handle: Pointer,
         geometry: Int,
+        commands: Slice,
         id: OptionFFIUint64,
-    ): Unit
-
-    fun MltLayerBuilder_add_points(
-        handle: Pointer,
-        xy: Slice,
-    ): ResultUnitPointer
-
-    fun MltLayerBuilder_add_line(
-        handle: Pointer,
-        xy: Slice,
-    ): ResultUnitPointer
-
-    fun MltLayerBuilder_add_exterior_ring(
-        handle: Pointer,
-        xy: Slice,
-    ): ResultUnitPointer
-
-    fun MltLayerBuilder_add_hole(
-        handle: Pointer,
-        xy: Slice,
     ): ResultUnitPointer
 
     fun MltLayerBuilder_set_bool(
@@ -173,6 +154,7 @@ class MltLayerBuilder internal constructor(
     }
 
     /** Declare a property column, returning the key to set it with.
+     *Declaring a name again returns its existing key.
      */
     fun addProperty(name: String): UInt {
         val nameSliceMemory = PrimitiveArrayTools.borrowUtf8(name)
@@ -185,28 +167,25 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Start a feature, ending the previous one.
+    /** Start a feature with its geometry given as MVT commands, ending the previous one.
+     *A ring with positive area starts a polygon and any other ring is a hole of the last one.
      */
-    fun beginFeature(
-        geometry: MltGeometryType,
+    fun beginMvtFeature(
+        geometry: MltMvtGeometryType,
+        commands: UIntArray,
         id: ULong?,
-    ) {
+    ): Result<Unit> {
+        val commandsSliceMemory = PrimitiveArrayTools.borrow(commands)
+
         val returnVal =
-            lib.MltLayerBuilder_begin_feature(
+            lib.MltLayerBuilder_begin_mvt_feature(
                 handle,
                 geometry.toNative(),
+                commandsSliceMemory.slice,
                 id?.let {
                     OptionFFIUint64.some(FFIUint64(it))
                 } ?: OptionFFIUint64.none(),
             )
-    }
-
-    /** Add the points of a point or multi-point feature.
-     */
-    fun addPoints(xy: IntArray): Result<Unit> {
-        val xySliceMemory = PrimitiveArrayTools.borrow(xy)
-
-        val returnVal = lib.MltLayerBuilder_add_points(handle, xySliceMemory.slice)
         try {
             val nativeOkVal = returnVal.getNativeOk()
             if (nativeOkVal != null) {
@@ -218,70 +197,7 @@ class MltLayerBuilder internal constructor(
                 return returnOpaque.err()
             }
         } finally {
-            xySliceMemory.close()
-        }
-    }
-
-    /** Add a line of a line or multi-line feature.
-     */
-    fun addLine(xy: IntArray): Result<Unit> {
-        val xySliceMemory = PrimitiveArrayTools.borrow(xy)
-
-        val returnVal = lib.MltLayerBuilder_add_line(handle, xySliceMemory.slice)
-        try {
-            val nativeOkVal = returnVal.getNativeOk()
-            if (nativeOkVal != null) {
-                return Unit.ok()
-            } else {
-                val selfEdges: List<Any> = listOf()
-                val handle = returnVal.getNativeErr()!!
-                val returnOpaque = ConvertError(handle, selfEdges, true)
-                return returnOpaque.err()
-            }
-        } finally {
-            xySliceMemory.close()
-        }
-    }
-
-    /** Start a polygon of a polygon or multi-polygon feature with its exterior ring.
-     */
-    fun addExteriorRing(xy: IntArray): Result<Unit> {
-        val xySliceMemory = PrimitiveArrayTools.borrow(xy)
-
-        val returnVal = lib.MltLayerBuilder_add_exterior_ring(handle, xySliceMemory.slice)
-        try {
-            val nativeOkVal = returnVal.getNativeOk()
-            if (nativeOkVal != null) {
-                return Unit.ok()
-            } else {
-                val selfEdges: List<Any> = listOf()
-                val handle = returnVal.getNativeErr()!!
-                val returnOpaque = ConvertError(handle, selfEdges, true)
-                return returnOpaque.err()
-            }
-        } finally {
-            xySliceMemory.close()
-        }
-    }
-
-    /** Add a hole to the polygon the last exterior ring started.
-     */
-    fun addHole(xy: IntArray): Result<Unit> {
-        val xySliceMemory = PrimitiveArrayTools.borrow(xy)
-
-        val returnVal = lib.MltLayerBuilder_add_hole(handle, xySliceMemory.slice)
-        try {
-            val nativeOkVal = returnVal.getNativeOk()
-            if (nativeOkVal != null) {
-                return Unit.ok()
-            } else {
-                val selfEdges: List<Any> = listOf()
-                val handle = returnVal.getNativeErr()!!
-                val returnOpaque = ConvertError(handle, selfEdges, true)
-                return returnOpaque.err()
-            }
-        } finally {
-            xySliceMemory.close()
+            commandsSliceMemory.close()
         }
     }
 

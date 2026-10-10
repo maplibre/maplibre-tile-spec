@@ -23,7 +23,7 @@ namespace diplomat::capi {
 struct MltEncoderOptions;
 }
 class MltEncoderOptions;
-class MltGeometryType;
+class MltMvtGeometryType;
 
 namespace diplomat {
 namespace capi {
@@ -51,34 +51,16 @@ public:
 
     /**
      * Declare a property column, returning the key to set it with.
+     * Declaring a name again returns its existing key.
      */
     inline diplomat::result<uint32_t, diplomat::Utf8Error> add_property(std::string_view name);
 
     /**
-     * Start a feature, ending the previous one.
+     * Start a feature with its geometry given as MVT commands, ending the previous one.
+     * A ring with positive area starts a polygon and any other ring is a hole of the last one.
      */
-    inline void begin_feature(MltGeometryType geometry, std::optional<uint64_t> id);
-
-    /**
-     * Add the points of a point or multi-point feature.
-     */
-    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> add_points(diplomat::span<const int32_t> xy);
-
-    /**
-     * Add a line of a line or multi-line feature.
-     */
-    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> add_line(diplomat::span<const int32_t> xy);
-
-    /**
-     * Start a polygon of a polygon or multi-polygon feature with its exterior ring.
-     */
-    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> add_exterior_ring(
-        diplomat::span<const int32_t> xy);
-
-    /**
-     * Add a hole to the polygon the last exterior ring started.
-     */
-    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> add_hole(diplomat::span<const int32_t> xy);
+    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> begin_mvt_feature(
+        MltMvtGeometryType geometry, diplomat::span<const uint32_t> commands, std::optional<uint64_t> id);
 
     /**
      * Set a boolean property of the current feature.
