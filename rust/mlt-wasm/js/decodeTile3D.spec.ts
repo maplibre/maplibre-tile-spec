@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { getTestCases } from "../../../test/synthetic/synthetic-test-utils";
+import { MltGeometryType, toElevation } from "./columns";
 import {
   decodeTile,
   decodeTile3D,
   type MltFeature3D,
-  MltGeometryType,
   type MltLayer,
   type MltLayer3D,
 } from "./vectorTile";
@@ -71,7 +71,7 @@ describe("raw z", () => {
     expect(layer.zStep).toBe(-1);
     const [x, y, z] = layer.feature(0).loadGeometry()[0][0];
     expect([x, y, z]).toEqual([13, 42, 100_120]);
-    expect(-10000 + z * 10 ** layer.zStep).toBeCloseTo(12, 9);
+    expect(toElevation(z, layer.zStep)).toBe(12);
   });
 });
 

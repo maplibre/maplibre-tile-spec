@@ -20,7 +20,8 @@ crate-type = ["cdylib"]
 [features]
 # Export the recorded LLVM coverage counters, for `just rust::wasm-coverage`
 coverage = ["dep:minicov"]
-# Decode v2 layers in `decode_tile`, which otherwise skips them
+default = ["unstable-v2"]
+# Decode v2 layers in `decodeTileColumns`, which otherwise skips them
 unstable-v2 = []
 
 [dependencies]

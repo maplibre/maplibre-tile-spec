@@ -1,7 +1,13 @@
 import { readFile } from "node:fs/promises";
 import type Point from "@mapbox/point-geometry";
 import { describe, expect, it } from "vitest";
-import { decodeTile, type MltFeature, type MltLayer } from "./vectorTile";
+import { decodeTileColumns } from "./columns";
+import {
+  decodeTile,
+  decodeTile3D,
+  type MltFeature,
+  MltLayer,
+} from "./vectorTile";
 
 interface Fixture {
   feature: MltFeature;
@@ -61,5 +67,66 @@ describe("polygon rings are closed", () => {
     const [ring] = (await load("poly")).feature.loadGeometry();
     expect(ring).toHaveLength(4);
     expect(ring[3]).not.toBe(ring[0]);
+  });
+});
+
+describe("malformed offsets", () => {
+  it("are rejected, not read past", async () => {
+    const mlt = await readFile(
+      new URL("../../../test/synthetic/0x01/poly_hole.mlt", import.meta.url),
+    );
+    const [layer] = decodeTileColumns(new Uint8Array(mlt)).layers;
+    const { ringOffsets } = layer.geometry;
+    if (ringOffsets === undefined)
+      throw new Error("poly_hole has no ring offsets");
+    const backwards = Uint32Array.from(ringOffsets);
+    [backwards[1], backwards[2]] = [backwards[2], backwards[1]];
+    const broken = new MltLayer({
+      ...layer,
+      geometry: { ...layer.geometry, ringOffsets: backwards },
+    });
+    expect(() => broken.feature(0).loadGeometry()).toThrow(
+      /ends before it starts/,
+    );
+  });
+});
+
+describe("layers keyed by name", () => {
+  it("rejects a tile whose layers share a name, rather than keeping one", async () => {
+    // A tile is a sequence of layer frames, so a fixture twice over is a tile of two layers.
+    const point = new Uint8Array(
+      await readFile(
+        new URL("../../../test/synthetic/0x01/point.mlt", import.meta.url),
+      ),
+    );
+    const twice = new Uint8Array(point.length * 2);
+    twice.set(point);
+    twice.set(point, point.length);
+    expect(Object.keys(decodeTile(point).layers)).toHaveLength(1);
+    expect(() => decodeTile(twice)).toThrow(/two layers named/);
+  });
+});
+
+describe("feature indexes", () => {
+  it("rejects an index that is not a feature, naming the layer", async () => {
+    const read = async (name: string) =>
+      new Uint8Array(
+        await readFile(
+          new URL(`../../../test/synthetic/${name}.mlt`, import.meta.url),
+        ),
+      );
+    const [flat] = Object.values(decodeTile(await read("0x01/point")).layers);
+    const [raised] = Object.values(
+      decodeTile3D(await read("0x02/z_point")).layers,
+    );
+    for (const layer of [flat, raised]) {
+      expect(layer.length).toBe(1);
+      expect(() => layer.feature(0)).not.toThrow();
+      for (const index of [-1, 1, 0.5, Number.NaN]) {
+        expect(() => layer.feature(index)).toThrow(
+          new RangeError(`layer "${layer.name}" has no feature ${index}`),
+        );
+      }
+    }
   });
 });

@@ -2,30 +2,20 @@
 //!
 //! # Design
 //!
-//! A single `MltTile` struct owns all decoded [`mlt_core::TileLayer`] data for
-//! every layer in the tile.  No per-layer or per-feature WASM objects are
-//! created; every accessor takes explicit `(layer_idx, feature_idx)` arguments
-//! so the JavaScript side can keep plain numeric indices rather than
-//! heap-allocated wrapper objects.
+//! `decodeTileColumns` hands every layer to JS as typed arrays in one call, read
+//! straight off `mlt-core`'s decoded columns. No per-layer or per-feature WASM objects are
+//! kept alive, so nothing needs freeing, and JS walks the arrays with zero boundary crossings.
 //!
 //! ## Geometry
 //!
-//! `MltTile::layer_geometry` returns a `LayerGeometry`
-//! whose typed-array getters expose the raw offset and vertex buffers.
-//! JS walks these directly - zero WASM boundary crossings per feature.
+//! The vertex buffer is passed on as decoded: `(x, y)` pairs, or `(x, y, z)` triples when the
+//! layer has z coordinates, as the v2 wire format interleaves them.
 //!
-//! ## IDs
+//! ## Ids and properties
 //!
-//! `MltTile::layer_ids` returns a `Float64Array` - one `f64` per
-//! feature.  Absent IDs are `NaN` (≡ `undefined` after the JS wrapper checks
-//! `isNaN`).  IDs above `Number.MAX_SAFE_INTEGER` lose precision.
-//!
-//! ## Properties
-//!
-//! `MltTile::layer_property_keys` and `MltTile::layer_properties`
-//! expose all property columns as typed arrays built once per layer.  JS reads
-//! any feature's property with a single array index - zero WASM calls during
-//! traversal.
+//! Each column is one value per feature with a presence bitmap beside it, rather than a
+//! sentinel. 64-bit integers come out as `f64`, so values above `Number.MAX_SAFE_INTEGER`
+//! lose precision.
 //!
 //! ## Annotate
 //!
@@ -34,80 +24,13 @@
 //! decoded tile.
 
 mod annotate;
+mod columns;
 #[cfg(feature = "coverage")]
 mod coverage;
-mod geometry;
-mod layer;
-mod properties;
-mod tile;
 
-use js_sys::Uint8Array;
-use layer::DecodedLayer;
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{Decoder, GeometryType, MltError, ParsedLayer, Parser};
-use tile::MltTile;
+use mlt_core::{Decoder, MltError, Parser};
 use wasm_bindgen::prelude::*;
-
-/// Decode a raw MLT tile blob and return an `MltTile`.
-///
-/// All geometry, IDs and properties are decoded eagerly into row-oriented
-/// [`mlt_core::TileLayer`] values.
-#[wasm_bindgen]
-pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
-    let mut parser = Parser::default();
-    let raw_layers = parser.parse_layers(data).map_err(|e| to_js_err(&e))?;
-    let mut dec = Decoder::default();
-    let mut layers = Vec::with_capacity(raw_layers.len());
-
-    for raw_layer in raw_layers {
-        #[cfg(not(feature = "unstable-v2"))]
-        if !matches!(raw_layer, mlt_core::Layer::Tag01(_)) {
-            continue;
-        }
-
-        // Decode all columns at once, then clone the geometry, already columnar, before the
-        // layer is consumed into its tile.
-        let decoded = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
-        let (parsed_geometry, geo_layout, tile) = match decoded {
-            ParsedLayer::Tag01(l) => (l.geometry_values().clone(), None, l.into_tile(&mut dec)),
-            #[cfg(feature = "unstable-v2")]
-            ParsedLayer::Tag02(l) => (
-                l.layer().geometry_values().clone(),
-                Some(l.layout().geometry),
-                l.into_tile(&mut dec),
-            ),
-            _ => continue,
-        };
-        let tile = tile.map_err(|e| to_js_err(&e))?;
-
-        let (types_bytes, mlt_types_bytes): (Vec<u8>, Vec<u8>) = parsed_geometry
-            .vector_types()
-            .iter()
-            .map(|t| {
-                let mvt = match t {
-                    GeometryType::Point | GeometryType::MultiPoint => 1,
-                    GeometryType::LineString | GeometryType::MultiLineString => 2,
-                    GeometryType::Polygon | GeometryType::MultiPolygon => 3,
-                    #[allow(unreachable_patterns)]
-                    _ => 0,
-                };
-                (mvt, *t as u8)
-            })
-            .unzip();
-        let types_array = Uint8Array::from(types_bytes.as_slice());
-        let mlt_types_array = Uint8Array::from(mlt_types_bytes.as_slice());
-
-        layers.push(DecodedLayer {
-            tile,
-            types_array,
-            mlt_types_array,
-            geometry: parsed_geometry,
-            geo_layout,
-        });
-    }
-
-    Ok(MltTile { layers })
-}
 
 /// Decode a raw MLT tile blob into `GeoJSON`, as the serialized text.
 ///

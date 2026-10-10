@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use crate::decoder::{ColumnDecl, RawPresence, RawStream};
-use crate::utils::Presence;
+use crate::utils::PresentValues;
 use crate::utils::analyze::AnalyzeViaDeref;
 use crate::{DecodeState, Lazy};
 
@@ -37,7 +37,7 @@ impl RawId<'_> {
 
 /// Decoded ID column.
 ///
-/// A transparent type over [`Presence<'a, u64>`]. All feature-access methods
+/// A transparent type over [`PresentValues<'a, u64>`]. All feature-access methods
 /// (`get`, `feature_count`, `dense_values`, `materialize`, `is_present`) are
 /// available via auto-deref.
 ///
@@ -46,10 +46,10 @@ impl RawId<'_> {
 /// `Cow` becomes owned and no longer borrows from the input.
 // TODO: consider converting ParsedId to an enum with u32 vs u64 for performance
 #[derive(Clone, Debug, PartialEq)]
-pub struct ParsedId<'a>(pub(crate) Presence<'a, u64>);
+pub struct ParsedId<'a>(pub(crate) PresentValues<'a, u64>);
 
 impl<'a> Deref for ParsedId<'a> {
-    type Target = Presence<'a, u64>;
+    type Target = PresentValues<'a, u64>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {

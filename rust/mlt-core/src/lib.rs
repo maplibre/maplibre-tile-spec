@@ -44,7 +44,8 @@ pub(crate) mod utils;
 pub use convert::{geojson, mvt};
 pub use decoder::{
     ColNames, ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
-    Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropName,
+    Layer01FeatureIter, LendingIterator, ParsedId, ParsedLayer, ParsedLayer01, ParsedProperty,
+    ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, Parser, PropName,
     PropNamesIter, PropValueRef, Unknown,
 };
 // Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
@@ -70,6 +71,7 @@ pub use tile::{
 pub use tile::{MValue, MValueKey, NestedKey, NestedKind, NestedValue, ZStep};
 pub(crate) use utils::analyze::{Analyze, StatType};
 pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
+pub use utils::{PresenceOptIter, PresentValues};
 
 /// Wire-level encoding metadata - for tile analysis and tooling.
 ///
