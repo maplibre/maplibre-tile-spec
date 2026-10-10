@@ -26,6 +26,7 @@ mod writer;
 pub(crate) use geometry::VertexBufferType;
 #[cfg(feature = "__private")]
 pub use geometry::VertexBufferType;
+pub use geometry::wound_geometry;
 pub use id::StagedId;
 #[cfg(feature = "unstable-v2")]
 pub use model::WireVersion;

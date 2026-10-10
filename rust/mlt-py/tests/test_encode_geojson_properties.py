@@ -41,6 +41,22 @@ _key = st.text(
 )
 
 
+def _same_up_to_winding(actual, expected):
+    def rings(geometry):
+        coordinates = geometry["coordinates"]
+        if geometry["type"] == "Polygon":
+            return coordinates
+        return [ring for polygon in coordinates for ring in polygon]
+
+    if expected["type"] not in ("Polygon", "MultiPolygon"):
+        return actual == expected
+    if actual["type"] != expected["type"]:
+        return False
+    return len(rings(actual)) == len(rings(expected)) and all(
+        a == e or a == e[::-1] for a, e in zip(rings(actual), rings(expected))
+    )
+
+
 def _fc(features):
     return {"type": "FeatureCollection", "features": features}
 
@@ -58,7 +74,7 @@ def test_geometry_roundtrips_for_any_input(geometries):
 
     assert len(by_id) == len(geometries)
     for i, geometry in enumerate(geometries):
-        assert by_id[i] == geometry
+        assert _same_up_to_winding(by_id[i], geometry)
 
 
 @given(feature_id=st.integers(min_value=0, max_value=2**64 - 1))
