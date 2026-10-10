@@ -22,6 +22,7 @@ The round-trip tests are the primary documentation for each language:
 - **C** - [`tests/c/test_round_trip.c`](tests/c/test_round_trip.c)
 - **C++** - [`tests/cpp/test_round_trip.cpp`](tests/cpp/test_round_trip.cpp)
 - **Kotlin** - [`tests/kotlin/TestRoundTrip.kt`](tests/kotlin/TestRoundTrip.kt)
+- **Java** - [`tests/java/org/maplibre/mlt/ffi/RoundTripTest.java`](tests/java/org/maplibre/mlt/ffi/RoundTripTest.java)
 
 ## Building
 
@@ -35,7 +36,7 @@ cargo build --release -p mlt-ffi
 just rust::sync-ffi-bindings
 ```
 
-Requires `diplomat-tool`, `clang-format`, and `ktlint`.
+Requires `diplomat-tool`, `clang-format`, `ktlint`, and `jextract`.
 
 ## Running tests
 
@@ -43,4 +44,5 @@ Requires `diplomat-tool`, `clang-format`, and `ktlint`.
 just rust::test-ffi-c
 just rust::test-ffi-cpp
 just rust::test-ffi-kotlin
+just rust::test-ffi-java
 ```

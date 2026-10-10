@@ -126,7 +126,7 @@ ci-test-wasm: ci-env-info wasm-test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all FFI round-trip tests as expected by CI, building the cdylib once
-ci-test-ffi: ci-env-info test-ffi-c test-ffi-cpp test-ffi-kotlin
+ci-test-ffi: ci-env-info test-ffi-c test-ffi-cpp test-ffi-kotlin test-ffi-java
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: ci-env-info
@@ -459,6 +459,25 @@ test-ffi-kotlin: _build-ffi-lib (just 'assert-cmd' 'java')
     cp "target/release/$LIB" "$NATIVES/$LIB"
 
     cd mlt-ffi/generated/kotlin
+    ./gradlew --console=plain --no-daemon test -Pversion=0.0.0-test
+
+# Run the Java FFI round-trip test, generating the raw bindings with jextract
+test-ffi-java: _build-ffi-lib (just 'assert-cmd' 'java')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64)        CLASSIFIER=linux-x86_64;   LIB=libmlt_ffi.so    ;;
+        Linux-aarch64)       CLASSIFIER=linux-aarch64;  LIB=libmlt_ffi.so    ;;
+        Darwin-arm64)        CLASSIFIER=macos-aarch64;  LIB=libmlt_ffi.dylib ;;
+        MINGW*-*|MSYS*-*|CYGWIN*-*) CLASSIFIER=windows-x86_64; LIB=mlt_ffi.dll ;;
+        *) echo "::error::Unsupported host $(uname -s)-$(uname -m)"; exit 1 ;;
+    esac
+
+    NATIVES="mlt-ffi/generated/java/build/natives/$CLASSIFIER"
+    mkdir -p "$NATIVES"
+    cp "target/release/$LIB" "$NATIVES/$LIB"
+
+    cd mlt-ffi/generated/java
     ./gradlew --console=plain --no-daemon test -Pversion=0.0.0-test
 
 # Regenerate the Python type stub for mlt-py
