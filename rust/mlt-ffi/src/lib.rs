@@ -14,9 +14,9 @@ mod ffi {
 
     use mlt_core::encoder::{EncoderConfig, WireVersion};
     use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
-    use mlt_core::{Decoder, GeometryType, Parser};
+    use mlt_core::{Decoder, Parser};
 
-    use crate::store::{LayerBuffer, PartRole, StoreError, StoredValue};
+    use crate::store::{LayerBuffer, MvtGeometryType, StoreError, StoredValue};
 
     /// Which stage of a conversion failed.
     #[derive(Debug, PartialEq, Eq)]
@@ -77,33 +77,12 @@ mod ffi {
         ConvertError::new(ConvertErrorKind::EncodingFailed, &source)
     }
 
-    fn add_part(
-        buffer: &mut LayerBuffer,
-        role: PartRole,
-        xy: &[i32],
-    ) -> Result<(), Box<ConvertError>> {
-        buffer.add_part(role, xy).map_err(|e| feature_error(&e))
-    }
-
     fn set_value(
         buffer: &mut LayerBuffer,
         key: u32,
         value: StoredValue,
     ) -> Result<(), Box<ConvertError>> {
         buffer.set(key, value).map_err(|e| feature_error(&e))
-    }
-
-    impl From<MltGeometryType> for GeometryType {
-        fn from(geometry: MltGeometryType) -> Self {
-            match geometry {
-                MltGeometryType::Point => Self::Point,
-                MltGeometryType::LineString => Self::LineString,
-                MltGeometryType::Polygon => Self::Polygon,
-                MltGeometryType::MultiPoint => Self::MultiPoint,
-                MltGeometryType::MultiLineString => Self::MultiLineString,
-                MltGeometryType::MultiPolygon => Self::MultiPolygon,
-            }
-        }
     }
 
     /// Owned byte buffer returned from conversion functions.
@@ -253,14 +232,28 @@ mod ffi {
         }
     }
 
-    /// The geometry type of one feature.
-    pub enum MltGeometryType {
+    impl From<MltMvtGeometryType> for MvtGeometryType {
+        fn from(geometry: MltMvtGeometryType) -> Self {
+            match geometry {
+                MltMvtGeometryType::Point => Self::Point,
+                MltMvtGeometryType::LineString => Self::LineString,
+                MltMvtGeometryType::Polygon => Self::Polygon,
+            }
+        }
+    }
+
+    /// The geometry type of an MVT feature, which also covers its multi variant.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "Diplomat constructs the variants on the foreign side"
+        )
+    )]
+    pub enum MltMvtGeometryType {
         Point,
         LineString,
         Polygon,
-        MultiPoint,
-        MultiLineString,
-        MultiPolygon,
     }
 
     /// A layer written one feature at a time, then encoded without going through MVT.
@@ -283,33 +276,22 @@ mod ffi {
         }
 
         /// Declare a property column, returning the key to set it with.
+        /// Declaring a name again returns its existing key.
         pub fn add_property(&mut self, name: &str) -> u32 {
             self.0.add_property(name)
         }
 
-        /// Start a feature, ending the previous one.
-        pub fn begin_feature(&mut self, geometry: MltGeometryType, id: Option<u64>) {
-            self.0.begin_feature(geometry.into(), id);
-        }
-
-        /// Add the points of a point or multi-point feature.
-        pub fn add_points(&mut self, xy: &[i32]) -> Result<(), Box<ConvertError>> {
-            add_part(&mut self.0, PartRole::Points, xy)
-        }
-
-        /// Add a line of a line or multi-line feature.
-        pub fn add_line(&mut self, xy: &[i32]) -> Result<(), Box<ConvertError>> {
-            add_part(&mut self.0, PartRole::Line, xy)
-        }
-
-        /// Start a polygon of a polygon or multi-polygon feature with its exterior ring.
-        pub fn add_exterior_ring(&mut self, xy: &[i32]) -> Result<(), Box<ConvertError>> {
-            add_part(&mut self.0, PartRole::Exterior, xy)
-        }
-
-        /// Add a hole to the polygon the last exterior ring started.
-        pub fn add_hole(&mut self, xy: &[i32]) -> Result<(), Box<ConvertError>> {
-            add_part(&mut self.0, PartRole::Hole, xy)
+        /// Start a feature with its geometry given as MVT commands, ending the previous one.
+        /// A ring with positive area starts a polygon and any other ring is a hole of the last one.
+        pub fn begin_mvt_feature(
+            &mut self,
+            geometry: MltMvtGeometryType,
+            commands: &[u32],
+            id: Option<u64>,
+        ) -> Result<(), Box<ConvertError>> {
+            self.0
+                .begin_mvt_feature(geometry.into(), commands, id)
+                .map_err(|e| feature_error(&e))
         }
 
         /// Set a boolean property of the current feature.
@@ -408,8 +390,8 @@ mod tests {
     use mlt_core::mvt::mvt_to_tile_layers;
 
     use super::ffi::{
-        ConvertErrorKind, MltBuffer, MltConverter, MltEncoderOptions, MltGeometryType,
-        MltLayerBuilder, MltWireVersion,
+        ConvertErrorKind, MltBuffer, MltConverter, MltEncoderOptions, MltLayerBuilder,
+        MltMvtGeometryType, MltWireVersion,
     };
 
     const POINT: &[u8] = include_bytes!("../../../test/fixtures/simple/point-boolean.mvt");
@@ -520,8 +502,7 @@ mod tests {
         let ratio = builder.add_property("ratio");
         let precise = builder.add_property("precise");
         let name = builder.add_property("name");
-        builder.begin_feature(MltGeometryType::Point, Some(7));
-        builder.add_points(&[8, 12]).ok().unwrap();
+        add_point(&mut builder, [8, 12], Some(7));
         builder.set_bool(flag, true).ok().unwrap();
         builder.set_i64(count, -3).ok().unwrap();
         builder.set_f32(ratio, 1.5).ok().unwrap();
@@ -581,46 +562,6 @@ mod tests {
     }
 
     #[test]
-    fn builder_multipolygon_with_a_hole_round_trips_in_v2() {
-        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
-        builder.begin_feature(MltGeometryType::MultiPolygon, None);
-        builder
-            .add_exterior_ring(&[0, 0, 100, 0, 100, 100, 0, 100, 0, 0])
-            .ok()
-            .unwrap();
-        builder
-            .add_hole(&[20, 20, 20, 40, 40, 40, 40, 20, 20, 20])
-            .ok()
-            .unwrap();
-        builder
-            .add_exterior_ring(&[200, 200, 300, 200, 300, 300, 200, 300, 200, 200])
-            .ok()
-            .unwrap();
-        let mut options = MltEncoderOptions::new();
-        options.set_wire_version(MltWireVersion::V02);
-
-        let mut out = MltBuffer::new();
-        builder.encode_into(&options, &mut out).ok().unwrap();
-
-        let mvt = MltConverter::mlt_to_mvt(out.as_bytes()).ok().unwrap();
-        let layers = mvt_to_tile_layers(mvt.as_bytes()).unwrap();
-        assert_eq!(layers.len(), 1);
-
-        assert_debug_snapshot!(layers[0].features(), @"
-        [
-            TileFeature {
-                id: None,
-                geometry: MULTIPOLYGON(((0 0,100 0,100 100,0 100,0 0),(20 20,20 40,40 40,40 20,20 20)),((200 200,300 200,300 300,200 300,200 200))),
-                properties: [],
-                m_values: [],
-                nested: [],
-                z: [],
-            },
-        ]
-        ");
-    }
-
-    #[test]
     fn builder_reset_rejects_an_empty_layer_name() {
         let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
 
@@ -639,91 +580,14 @@ mod tests {
     }
 
     #[test]
-    fn builder_multiline_layer_round_trips_two_features() {
-        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
-        builder.begin_feature(MltGeometryType::LineString, Some(1));
-        builder.add_line(&[0, 0, 10, 10, 20, 5]).ok().unwrap();
-        builder.begin_feature(MltGeometryType::MultiLineString, Some(2));
-        builder.add_line(&[1, 1, 2, 2]).ok().unwrap();
-        builder.add_line(&[5, 5, 6, 7, 8, 9]).ok().unwrap();
-
-        let mut out = MltBuffer::new();
-        builder
-            .encode_into(&MltEncoderOptions::new(), &mut out)
-            .ok()
-            .unwrap();
-
-        let mvt = MltConverter::mlt_to_mvt(out.as_bytes()).ok().unwrap();
-        let layers = mvt_to_tile_layers(mvt.as_bytes()).unwrap();
-        assert_eq!(layers.len(), 1);
-
-        assert_debug_snapshot!(layers[0].features(), @"
-        [
-            TileFeature {
-                id: Some(
-                    1,
-                ),
-                geometry: LINESTRING(0 0,10 10,20 5),
-                properties: [],
-                m_values: [],
-                nested: [],
-                z: [],
-            },
-            TileFeature {
-                id: Some(
-                    2,
-                ),
-                geometry: MULTILINESTRING((1 1,2 2),(5 5,6 7,8 9)),
-                properties: [],
-                m_values: [],
-                nested: [],
-                z: [],
-            },
-        ]
-        ");
-    }
-
-    #[test]
-    fn builder_multipoint_layer_round_trips() {
-        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
-        builder.begin_feature(MltGeometryType::MultiPoint, None);
-        builder.add_points(&[1, 2, 3, 4, 5, 6]).ok().unwrap();
-
-        let mut out = MltBuffer::new();
-        builder
-            .encode_into(&MltEncoderOptions::new(), &mut out)
-            .ok()
-            .unwrap();
-
-        let mvt = MltConverter::mlt_to_mvt(out.as_bytes()).ok().unwrap();
-        let layers = mvt_to_tile_layers(mvt.as_bytes()).unwrap();
-        assert_eq!(layers.len(), 1);
-
-        assert_debug_snapshot!(layers[0].features(), @"
-        [
-            TileFeature {
-                id: None,
-                geometry: MULTIPOINT(1 2,3 4,5 6),
-                properties: [],
-                m_values: [],
-                nested: [],
-                z: [],
-            },
-        ]
-        ");
-    }
-
-    #[test]
     fn builder_layers_appended_to_one_buffer_decode_as_one_tile() {
         let mut out = MltBuffer::new();
         let options = MltEncoderOptions::new();
         let mut builder = MltLayerBuilder::new("first", 4096).ok().unwrap();
-        builder.begin_feature(MltGeometryType::Point, None);
-        builder.add_points(&[1, 1]).ok().unwrap();
+        add_point(&mut builder, [1, 1], None);
         builder.encode_into(&options, &mut out).ok().unwrap();
         builder.reset("second", 4096).ok().unwrap();
-        builder.begin_feature(MltGeometryType::Point, None);
-        builder.add_points(&[2, 2]).ok().unwrap();
+        add_point(&mut builder, [2, 2], None);
         builder.encode_into(&options, &mut out).ok().unwrap();
 
         let mvt = MltConverter::mlt_to_mvt(out.as_bytes()).ok().unwrap();
@@ -736,39 +600,11 @@ mod tests {
         assert_eq!(names, ["first", "second"]);
     }
 
-    #[test]
-    fn builder_matches_mvt_conversion_of_the_same_layer() {
-        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
-        let key = builder.add_property("key");
-        builder.begin_feature(MltGeometryType::Point, Some(1));
-        builder.add_points(&[25, 17]).ok().unwrap();
-        builder.set_bool(key, true).ok().unwrap();
-        let options = MltEncoderOptions::new();
-
-        let mut from_builder = MltBuffer::new();
-        builder
-            .encode_into(&options, &mut from_builder)
-            .ok()
-            .unwrap();
-        let from_mvt = MltConverter::mvt_to_mlt(POINT, &options).ok().unwrap();
-
-        let builder_mvt = MltConverter::mlt_to_mvt(from_builder.as_bytes())
-            .ok()
-            .unwrap();
-        let mvt_mvt = MltConverter::mlt_to_mvt(from_mvt.as_bytes()).ok().unwrap();
-        let builder_layers = mvt_to_tile_layers(builder_mvt.as_bytes()).unwrap();
-        let mvt_layers = mvt_to_tile_layers(mvt_mvt.as_bytes()).unwrap();
-        assert_eq!(builder_layers.len(), 1);
-        assert_eq!(mvt_layers.len(), 1);
-        assert_eq!(builder_layers[0].features(), mvt_layers[0].features());
-    }
-
     fn encode_fifty_points(options: &MltEncoderOptions) -> Vec<u8> {
         let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
         let key = builder.add_property("key");
         for i in 0..50_i32 {
-            builder.begin_feature(MltGeometryType::Point, Some(u64::from(i.unsigned_abs())));
-            builder.add_points(&[i, 2 * i]).ok().unwrap();
+            add_point(&mut builder, [i, 2 * i], Some(u64::from(i.unsigned_abs())));
             builder.set_i64(key, i64::from(i)).ok().unwrap();
         }
         let mut out = MltBuffer::new();
@@ -798,8 +634,7 @@ mod tests {
     #[test]
     fn clearing_a_buffer_empties_it() {
         let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
-        builder.begin_feature(MltGeometryType::Point, None);
-        builder.add_points(&[1, 1]).ok().unwrap();
+        add_point(&mut builder, [1, 1], None);
         let mut out = MltBuffer::new();
         builder
             .encode_into(&MltEncoderOptions::new(), &mut out)
@@ -812,30 +647,21 @@ mod tests {
     }
 
     #[test]
-    fn adding_geometry_before_a_feature_begins_is_invalid() {
+    fn setting_a_property_before_a_feature_begins_is_invalid() {
         let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
 
-        let error = builder.add_points(&[1, 1]).err().unwrap();
+        let key = builder.add_property("key");
+
+        let error = builder.set_i64(key, 1).err().unwrap();
 
         assert_eq!(error.kind(), ConvertErrorKind::InvalidFeature);
         assert_debug_snapshot!(error.message_text(), @r#""no feature begun""#);
     }
 
     #[test]
-    fn odd_coordinate_count_is_invalid() {
-        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
-        builder.begin_feature(MltGeometryType::LineString, None);
-
-        let error = builder.add_line(&[1, 2, 3]).err().unwrap();
-
-        assert_eq!(error.kind(), ConvertErrorKind::InvalidFeature);
-        assert_debug_snapshot!(error.message_text(), @r#""coordinates must come in x, y pairs""#);
-    }
-
-    #[test]
     fn setting_an_undeclared_property_key_is_invalid() {
         let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
-        builder.begin_feature(MltGeometryType::Point, None);
+        add_point(&mut builder, [1, 1], None);
 
         let error = builder.set_i64(3, 1).err().unwrap();
 
@@ -847,11 +673,9 @@ mod tests {
     fn integer_and_float_values_of_one_key_widen_to_a_float_column() {
         let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
         let key = builder.add_property("key");
-        builder.begin_feature(MltGeometryType::Point, None);
-        builder.add_points(&[1, 1]).ok().unwrap();
+        add_point(&mut builder, [1, 1], None);
         builder.set_i64(key, 3).ok().unwrap();
-        builder.begin_feature(MltGeometryType::Point, None);
-        builder.add_points(&[2, 2]).ok().unwrap();
+        add_point(&mut builder, [2, 2], None);
         builder.set_f32(key, 1.5).ok().unwrap();
 
         let mut out = MltBuffer::new();
@@ -902,11 +726,9 @@ mod tests {
     fn boolean_and_integer_values_of_one_key_become_text() {
         let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
         let key = builder.add_property("key");
-        builder.begin_feature(MltGeometryType::Point, None);
-        builder.add_points(&[1, 1]).ok().unwrap();
+        add_point(&mut builder, [1, 1], None);
         builder.set_bool(key, true).ok().unwrap();
-        builder.begin_feature(MltGeometryType::Point, None);
-        builder.add_points(&[2, 2]).ok().unwrap();
+        add_point(&mut builder, [2, 2], None);
         builder.set_i64(key, 5).ok().unwrap();
 
         let mut out = MltBuffer::new();
@@ -953,19 +775,233 @@ mod tests {
         "#);
     }
 
+    fn add_point(builder: &mut MltLayerBuilder, [x, y]: [i32; 2], id: Option<u64>) {
+        builder
+            .begin_mvt_feature(MltMvtGeometryType::Point, &[9, zigzag(x), zigzag(y)], id)
+            .ok()
+            .unwrap();
+    }
+
+    fn zigzag(value: i32) -> u32 {
+        ((value << 1) ^ (value >> 31)).cast_unsigned()
+    }
+
+    fn mvt_commands(parts: &[&[i32]], close: bool) -> Vec<u32> {
+        let mut commands = Vec::new();
+        let (mut x, mut y) = (0, 0);
+        for part in parts {
+            for (i, xy) in part.chunks(2).enumerate() {
+                match i {
+                    0 => commands.push(9),
+                    1 => commands.push(2 | (u32::try_from(part.len() / 2 - 1).unwrap() << 3)),
+                    _ => {}
+                }
+                commands.extend([zigzag(xy[0] - x), zigzag(xy[1] - y)]);
+                (x, y) = (xy[0], xy[1]);
+            }
+            if close {
+                commands.push(15);
+            }
+        }
+        commands
+    }
+
+    fn decoded_features(builder: &MltLayerBuilder) -> Vec<mlt_core::TileFeature> {
+        decoded_features_with(builder, &MltEncoderOptions::new())
+    }
+
+    fn decoded_features_with(
+        builder: &MltLayerBuilder,
+        options: &MltEncoderOptions,
+    ) -> Vec<mlt_core::TileFeature> {
+        let mut out = MltBuffer::new();
+        builder.encode_into(options, &mut out).ok().unwrap();
+        let mvt = MltConverter::mlt_to_mvt(out.as_bytes()).ok().unwrap();
+        let mut layers = mvt_to_tile_layers(mvt.as_bytes()).unwrap();
+        assert_eq!(layers.len(), 1);
+        layers.remove(0).features().to_vec()
+    }
+
     #[test]
-    fn line_geometry_on_a_point_feature_fails_at_encode() {
+    fn mvt_point_feature_matches_mvt_conversion_of_the_same_layer() {
         let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
-        builder.begin_feature(MltGeometryType::Point, None);
-        builder.add_line(&[1, 1, 2, 2]).ok().unwrap();
+        let key = builder.add_property("key");
+        builder
+            .begin_mvt_feature(MltMvtGeometryType::Point, &[9, 50, 34], Some(1))
+            .ok()
+            .unwrap();
+        builder.set_bool(key, true).ok().unwrap();
+
+        let from_mvt = MltConverter::mvt_to_mlt(POINT, &MltEncoderOptions::new())
+            .ok()
+            .unwrap();
+        let mvt = MltConverter::mlt_to_mvt(from_mvt.as_bytes()).ok().unwrap();
+        let mvt_layers = mvt_to_tile_layers(mvt.as_bytes()).unwrap();
+        assert_eq!(decoded_features(&builder), mvt_layers[0].features());
+    }
+
+    #[test]
+    fn v2_mvt_multipolygon_with_a_hole_splits_rings_by_winding() {
+        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
+        let commands = mvt_commands(
+            &[
+                &[0, 0, 100, 0, 100, 100, 0, 100],
+                &[20, 20, 20, 40, 40, 40, 40, 20],
+                &[200, 200, 300, 200, 300, 300, 200, 300],
+            ],
+            true,
+        );
+        builder
+            .begin_mvt_feature(MltMvtGeometryType::Polygon, &commands, None)
+            .ok()
+            .unwrap();
+        let mut options = MltEncoderOptions::new();
+        options.set_wire_version(MltWireVersion::V02);
+
+        assert_debug_snapshot!(decoded_features_with(&builder, &options), @"
+        [
+            TileFeature {
+                id: None,
+                geometry: MULTIPOLYGON(((0 0,100 0,100 100,0 100,0 0),(20 20,20 40,40 40,40 20,20 20)),((200 200,300 200,300 300,200 300,200 200))),
+                properties: [],
+                m_values: [],
+                nested: [],
+                z: [],
+            },
+        ]
+        ");
+    }
+
+    #[test]
+    fn mvt_features_take_the_single_or_multi_type_from_their_part_count() {
+        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
+        let mvt = MltMvtGeometryType::LineString;
+        builder
+            .begin_mvt_feature(mvt, &mvt_commands(&[&[0, 0, 10, 10, 20, 5]], false), None)
+            .ok()
+            .unwrap();
+        let lines = mvt_commands(&[&[1, 1, 2, 2], &[5, 5, 6, 7]], false);
+        builder.begin_mvt_feature(mvt, &lines, None).ok().unwrap();
+        builder
+            .begin_mvt_feature(
+                MltMvtGeometryType::Polygon,
+                &mvt_commands(&[&[0, 0, 9, 0, 9, 9]], true),
+                None,
+            )
+            .ok()
+            .unwrap();
+
+        assert_debug_snapshot!(decoded_features(&builder), @"
+        [
+            TileFeature {
+                id: None,
+                geometry: LINESTRING(0 0,10 10,20 5),
+                properties: [],
+                m_values: [],
+                nested: [],
+                z: [],
+            },
+            TileFeature {
+                id: None,
+                geometry: MULTILINESTRING((1 1,2 2),(5 5,6 7)),
+                properties: [],
+                m_values: [],
+                nested: [],
+                z: [],
+            },
+            TileFeature {
+                id: None,
+                geometry: POLYGON((0 0,9 0,9 9,0 0)),
+                properties: [],
+                m_values: [],
+                nested: [],
+                z: [],
+            },
+        ]
+        ");
+    }
+
+    #[test]
+    fn mvt_points_of_one_move_to_become_a_multipoint() {
+        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
+        builder
+            .begin_mvt_feature(MltMvtGeometryType::Point, &[25, 2, 4, 4, 4, 4, 4], None)
+            .ok()
+            .unwrap();
+
+        assert_debug_snapshot!(decoded_features(&builder), @"
+        [
+            TileFeature {
+                id: None,
+                geometry: MULTIPOINT(1 2,3 4,5 6),
+                properties: [],
+                m_values: [],
+                nested: [],
+                z: [],
+            },
+        ]
+        ");
+    }
+
+    #[test]
+    fn truncated_mvt_commands_are_invalid_and_leave_no_feature_behind() {
+        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
+        builder
+            .begin_mvt_feature(MltMvtGeometryType::Point, &[9, 2, 2], None)
+            .ok()
+            .unwrap();
 
         let error = builder
-            .encode_into(&MltEncoderOptions::new(), &mut MltBuffer::new())
+            .begin_mvt_feature(MltMvtGeometryType::LineString, &[9, 2, 2, 18, 4], None)
             .err()
             .unwrap();
 
-        assert_eq!(error.kind(), ConvertErrorKind::EncodingFailed);
-        assert_debug_snapshot!(error.message_text(), @r#""a Point feature lines""#);
+        assert_eq!(error.kind(), ConvertErrorKind::InvalidFeature);
+        assert_debug_snapshot!(error.message_text(), @r#""invalid MVT geometry: ends inside a command""#);
+        assert_eq!(decoded_features(&builder).len(), 1);
+    }
+
+    #[test]
+    fn line_to_in_a_point_geometry_is_invalid() {
+        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
+
+        let error = builder
+            .begin_mvt_feature(MltMvtGeometryType::Point, &[9, 2, 2, 10, 4, 4], None)
+            .err()
+            .unwrap();
+
+        assert_debug_snapshot!(error.message_text(), @r#""invalid MVT geometry: a LineTo outside a line or ring""#);
+    }
+
+    #[test]
+    fn empty_mvt_commands_are_invalid() {
+        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
+
+        let error = builder
+            .begin_mvt_feature(MltMvtGeometryType::Polygon, &[], None)
+            .err()
+            .unwrap();
+
+        assert_debug_snapshot!(error.message_text(), @r#""invalid MVT geometry: no rings""#);
+    }
+
+    #[test]
+    fn declaring_a_property_name_again_returns_its_key() {
+        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
+        let first = builder.add_property("name");
+        builder.add_property("other");
+
+        assert_eq!(builder.add_property("name"), first);
+    }
+
+    #[test]
+    fn reset_forgets_the_declared_property_names() {
+        let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
+        builder.add_property("first");
+        builder.add_property("second");
+        builder.reset("layer", 4096).ok().unwrap();
+
+        assert_eq!(builder.add_property("second"), 0);
     }
 
     #[test]
