@@ -12,6 +12,10 @@ inputs:
       Collect it with `just rust::coverage-report <suite>` and the mlt-upload-coverage action.
     required: false
     default: 'false'
+  fuzz:
+    description: Also cache the target dir of the cargo-fuzz workspace in rust/mlt-core/fuzz.
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
@@ -19,15 +23,6 @@ runs:
 
     - uses: taiki-e/install-action@v2
       with: { tool: 'just,cargo-binstall,cargo-hack,cargo-nextest,cargo-insta,cargo-sort' }
-
-    # install-action has no manifest for fd, and binstall's guess at its release archive
-    # misses, so it falls back to QuickInstall; name the release asset instead.
-    - name: Install fd from its GitHub release
-      shell: bash
-      run: >-
-        cargo binstall --no-confirm --no-track --disable-telemetry --strategies crate-meta-data fd-find
-        --pkg-url '{ repo }/releases/download/v{ version }/fd-v{ version }-{ target }{ archive-suffix }'
-        --bin-dir 'fd-v{ version }-{ target }/{ bin }{ binary-ext }'
 
     # Install the requested toolchain (stable, nightly, or msrv)
     - if: ${{ inputs.toolchain == 'stable' }}
@@ -47,19 +42,23 @@ runs:
       with:
         toolchain: ${{ steps.msrv.outputs.value }}
 
+    # Must precede rust-cache, which hashes CARGO_* into its key.
+    - name: Build without debug info
+      shell: bash
+      run: echo "CARGO_PROFILE_DEV_DEBUG=0" >> "$GITHUB_ENV"
+
     - name: Cache Cargo registry and build artifacts
       if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       uses: Swatinem/rust-cache@v2
       with:
-        workspaces: rust
-        shared-key: mlt
+        workspaces: |
+          rust
+          ${{ inputs.fuzz == 'true' && 'rust/mlt-core/fuzz' || '' }}
         save-if: ${{ github.ref == 'refs/heads/main' }}
         # Caching ~/.cargo/bin breaks rustup proxies after restore (they end up
         # dispatching to rustup-init mode), causing maturin-action to fail with
         # "unexpected argument '--print' found / Usage: rustup-init[EXE]".
         cache-bin: false
-        # Instrumented artifacts cannot be reused by the uninstrumented jobs, so they get their own cache
-        key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}
 
     - if: ${{ inputs.coverage == 'true' }}
       uses: taiki-e/install-action@v2

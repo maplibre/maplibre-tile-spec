@@ -16,7 +16,7 @@
 typedef struct MltConverter_mlt_to_mvt_result {
     union {
         MltBuffer* ok;
-        ConvertError err;
+        ConvertError* err;
     };
     bool is_ok;
 } MltConverter_mlt_to_mvt_result;
@@ -25,7 +25,7 @@ MltConverter_mlt_to_mvt_result MltConverter_mlt_to_mvt(DiplomatU8View mlt);
 typedef struct MltConverter_mvt_to_mlt_result {
     union {
         MltBuffer* ok;
-        ConvertError err;
+        ConvertError* err;
     };
     bool is_ok;
 } MltConverter_mvt_to_mlt_result;
