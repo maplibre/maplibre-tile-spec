@@ -1,5 +1,6 @@
-use geo::winding_order::{Winding as _, WindingOrder};
-use geo::{Convert as _, TriangulateEarcut as _};
+use std::borrow::Cow;
+
+use geo::{Convert as _, GeoNum, Kernel as _, Orientation, TriangulateEarcut as _};
 use geo_types::{Coord, Geometry, LineString, Polygon};
 
 use crate::decoder::{GeometryType, GeometryValues};
@@ -243,13 +244,20 @@ impl GeometryValues {
         &mut self,
         rings: impl Iterator<Item = &'c [Coord<i32>]> + Clone,
     ) {
+        if any_reversal(rings.clone()) {
+            let rings = wound(rings);
+            self.push_wound_polygon(rings.iter().map(AsRef::as_ref));
+        } else {
+            self.push_wound_polygon(rings);
+        }
+    }
+
+    fn push_wound_polygon<'c>(&mut self, rings: impl Iterator<Item = &'c [Coord<i32>]> + Clone) {
         // Only on the very first polygon: if LineStrings were pushed before us,
         // their vertex offsets are sitting in part_offsets. Move them to
         // ring_offsets now, before we set up ring_offsets for polygon use.
         // On subsequent polygons ring_offsets is already initialized and
         // part_offsets holds polygon ring-range data - leave both alone.
-        let rings = wound(rings);
-        let rings = rings.iter().map(|ring| ring.0.as_slice());
         self.vector_types.push(GeometryType::Polygon);
         self.init_polygon_offsets();
         let first_vertex = self.stored_vertex_count();
@@ -318,10 +326,22 @@ impl GeometryValues {
     ) where
         R: Iterator<Item = &'c [Coord<i32>]>,
     {
-        let polygons: Vec<_> = polygons.map(wound).collect();
-        let polygons = polygons
-            .iter()
-            .map(|rings| rings.iter().map(|ring| ring.0.as_slice()));
+        if polygons.clone().any(any_reversal) {
+            let polygons: Vec<_> = polygons.map(wound).collect();
+            self.push_wound_multi_polygon(
+                polygons.iter().map(|rings| rings.iter().map(AsRef::as_ref)),
+            );
+        } else {
+            self.push_wound_multi_polygon(polygons);
+        }
+    }
+
+    fn push_wound_multi_polygon<'c, R>(
+        &mut self,
+        polygons: impl ExactSizeIterator<Item = R> + Clone,
+    ) where
+        R: Iterator<Item = &'c [Coord<i32>]>,
+    {
         self.vector_types.push(GeometryType::MultiPolygon);
         let first_vertex = self.stored_vertex_count();
         let count = u32::try_from(polygons.len()).expect("polygon count overflow");
@@ -360,19 +380,29 @@ fn rings(polygon: &Polygon<i32>) -> impl Iterator<Item = &[Coord<i32>]> + Clone 
         .chain(polygon.interiors().iter().map(|ring| ring.0.as_slice()))
 }
 
-/// The rings of a polygon, closed and wound as MVT winds them: counter-clockwise exterior, clockwise holes.
+/// Whether any ring of the polygon winds against MVT.
+fn any_reversal<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> bool {
+    rings
+        .enumerate()
+        .any(|(i, ring)| needs_reversal(ring, i == 0))
+}
+
+/// The rings of a polygon wound as MVT winds them: counter-clockwise exterior, clockwise holes.
 ///
-/// A ring [`geo`] gives no winding, which is one with fewer than three distinct coordinates, keeps its direction.
-fn wound<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> Vec<LineString<i32>> {
+/// A reversed ring keeps its first vertex, and its closing one if it had one.
+fn wound<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> Vec<Cow<'c, [Coord<i32>]>> {
     rings
         .enumerate()
         .map(|(i, ring)| {
-            let mut ring = closed(ring);
-            if needs_reversal(&ring, i == 0) {
-                // Reversing the closed ring leaves its first vertex where it was.
-                ring.0.reverse();
+            if !needs_reversal(ring, i == 0) {
+                return Cow::Borrowed(ring);
             }
-            ring
+            let (stored, closing) = ring.split_at(stored_len(ring));
+            let mut reversed = Vec::with_capacity(ring.len());
+            reversed.extend(stored.first());
+            reversed.extend(stored.iter().skip(1).rev());
+            reversed.extend(closing);
+            Cow::Owned(reversed)
         })
         .collect()
 }
@@ -381,7 +411,9 @@ fn wound<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> Vec<LineString<i3
 #[must_use]
 pub fn wound_geometry(geom: &Geometry<i32>) -> Geometry<i32> {
     let polygon = |p: &Polygon<i32>| {
-        let mut rings = wound(rings(p)).into_iter();
+        let mut rings = wound(rings(p))
+            .into_iter()
+            .map(|ring| LineString::from(ring.into_owned()));
         let exterior = rings.next().unwrap_or_else(|| LineString::new(vec![]));
         Polygon::new(exterior, rings.collect())
     };
@@ -403,24 +435,34 @@ pub fn wound_geometry(geom: &Geometry<i32>) -> Geometry<i32> {
     }
 }
 
-/// Whether the closed ring winds against the MVT winding of its role.
+/// Whether the ring, open or closed, winds against the MVT winding of its role.
 ///
-/// The order is read off `f64` coordinates, which hold every `i32` exactly.
-/// The `i32` kernel of [`geo`] would overflow on coordinates far from the origin.
-fn needs_reversal(ring: &LineString<i32>, exterior: bool) -> bool {
-    let against = if exterior {
-        WindingOrder::Clockwise
-    } else {
-        WindingOrder::CounterClockwise
+/// This is the test of [`geo`]'s `Winding`, run on the slice: the turn at the lexicographically least vertex.
+/// A ring with fewer than three distinct coordinates has no winding.
+/// The turn is taken on `i128`, since the `i32` kernel of [`geo`] overflows on rings spanning more than about 32k.
+fn needs_reversal(ring: &[Coord<i32>], exterior: bool) -> bool {
+    let ring = &ring[..stored_len(ring)];
+    let Some(least) = (0..ring.len()).min_by_key(|&i| (ring[i].x, ring[i].y)) else {
+        return false;
     };
-    let ring: LineString<f64> = ring
-        .coords()
-        .map(|c| Coord {
-            x: f64::from(c.x),
-            y: f64::from(c.y),
-        })
-        .collect();
-    ring.winding_order() == Some(against)
+    let pivot = ring[least];
+    let others = || ring[least + 1..].iter().chain(&ring[..least]);
+    let (Some(&next), Some(&prev)) = (
+        others().find(|&&c| c != pivot),
+        others().rev().find(|&&c| c != pivot),
+    ) else {
+        return false;
+    };
+    let against = if exterior {
+        Orientation::Clockwise
+    } else {
+        Orientation::CounterClockwise
+    };
+    let wide = |c: Coord<i32>| Coord {
+        x: i128::from(c.x),
+        y: i128::from(c.y),
+    };
+    <i128 as GeoNum>::Ker::orient2d(wide(prev), wide(pivot), wide(next)) == against
 }
 
 /// Where each stored vertex of the geometry ends up once its polygon rings are wound.
@@ -436,7 +478,7 @@ pub(crate) fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
         for (i, ring) in rings(polygon).enumerate() {
             let start = order.len();
             let end = start + stored_len(ring);
-            if needs_reversal(&closed(ring), i == 0) {
+            if needs_reversal(ring, i == 0) {
                 *reversed = true;
                 // Reversing the closed ring leaves its first vertex where it was.
                 order.extend((start..end.min(start + 1)).chain((start + 1..end).rev()));
@@ -540,7 +582,7 @@ mod tests {
             .collect();
         wound(rings.iter().map(Vec::as_slice))
             .iter()
-            .map(|ring| ring.0.iter().map(|c| (c.x, c.y)).collect())
+            .map(|ring| ring.iter().map(|c| (c.x, c.y)).collect())
             .collect()
     }
 
@@ -584,10 +626,10 @@ mod tests {
     }
 
     #[test]
-    fn an_open_ring_is_closed_and_reversed() {
+    fn an_open_ring_is_reversed_without_gaining_a_closing_vertex() {
         assert_eq!(
             wound_rings(&[&[(0, 0), (0, 9), (9, 9)]]),
-            [vec![(0, 0), (9, 9), (0, 9), (0, 0)]]
+            [vec![(0, 0), (9, 9), (0, 9)]]
         );
     }
 
@@ -605,7 +647,6 @@ mod tests {
                 (i32::MAX, i32::MIN),
                 (i32::MAX, i32::MAX),
                 (i32::MIN, i32::MAX),
-                (i32::MIN, i32::MIN),
             ]]
         );
     }
