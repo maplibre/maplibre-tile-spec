@@ -1,4 +1,5 @@
 //! Owned feature columns that replay into a borrowing `LayerWriter` on encode.
+use std::collections::HashMap;
 use std::fmt;
 use std::ops::Range;
 
@@ -9,18 +10,25 @@ use mlt_core::{GeometryType, InferredKind, LayerWriter, MltResult, PropKind};
 #[derive(Debug, PartialEq, Eq)]
 pub enum StoreError {
     NoFeatureBegun,
-    OddCoordinateCount,
     UnknownPropertyKey(u32),
+    InvalidMvtGeometry(&'static str),
 }
 
 impl fmt::Display for StoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NoFeatureBegun => f.write_str("no feature begun"),
-            Self::OddCoordinateCount => f.write_str("coordinates must come in x, y pairs"),
             Self::UnknownPropertyKey(key) => write!(f, "unknown property key {key}"),
+            Self::InvalidMvtGeometry(reason) => write!(f, "invalid MVT geometry: {reason}"),
         }
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum MvtGeometryType {
+    Point,
+    LineString,
+    Polygon,
 }
 
 #[derive(Clone, Copy)]
@@ -38,6 +46,22 @@ pub enum StoredValue {
     F32(f32),
     F64(f64),
     Str(Range<usize>),
+}
+
+fn invalid_mvt(reason: &'static str) -> StoreError {
+    StoreError::InvalidMvtGeometry(reason)
+}
+
+fn unzigzag(value: u32) -> i32 {
+    (value >> 1).cast_signed() ^ -(value & 1).cast_signed()
+}
+
+fn signed_area(ring: &[Coord<i32>]) -> i64 {
+    let next = ring.iter().cycle().skip(1);
+    ring.iter()
+        .zip(next)
+        .map(|(a, b)| i64::from(a.x) * i64::from(b.y) - i64::from(b.x) * i64::from(a.y))
+        .sum()
 }
 
 impl StoredValue {
@@ -72,6 +96,7 @@ struct LayerHeader {
 pub struct LayerBuffer {
     header: LayerHeader,
     prop_names: Vec<String>,
+    prop_keys: HashMap<String, u32>,
     prop_kinds: Vec<InferredKind>,
     features: Vec<Feature>,
     parts: Vec<Part>,
@@ -89,6 +114,7 @@ impl LayerBuffer {
                 extent,
             },
             prop_names: Vec::new(),
+            prop_keys: HashMap::new(),
             prop_kinds: Vec::new(),
             features: Vec::new(),
             parts: Vec::new(),
@@ -104,6 +130,7 @@ impl LayerBuffer {
         self.header.name.push_str(name);
         self.header.extent = extent;
         self.prop_names.clear();
+        self.prop_keys.clear();
         self.prop_kinds.clear();
         self.features.clear();
         self.parts.clear();
@@ -114,37 +141,145 @@ impl LayerBuffer {
     }
 
     pub fn add_property(&mut self, name: &str) -> u32 {
+        if let Some(&key) = self.prop_keys.get(name) {
+            return key;
+        }
+        let key = u32::try_from(self.prop_names.len()).expect("fewer than 2^32 properties");
         self.prop_names.push(name.to_owned());
+        self.prop_keys.insert(name.to_owned(), key);
         self.prop_kinds.push(InferredKind::Unknown);
-        u32::try_from(self.prop_names.len() - 1).expect("fewer than 2^32 properties")
+        key
     }
 
-    pub fn begin_feature(&mut self, geometry: GeometryType, id: Option<u64>) {
-        let (parts_start, props_start) = (self.parts.len(), self.props.len());
+    pub fn begin_mvt_feature(
+        &mut self,
+        mvt_type: MvtGeometryType,
+        commands: &[u32],
+        id: Option<u64>,
+    ) -> Result<(), StoreError> {
+        let (coords_start, parts_start) = (self.coords.len(), self.parts.len());
+        let geometry = self.decode_mvt(mvt_type, commands).inspect_err(|_| {
+            self.coords.truncate(coords_start);
+            self.parts.truncate(parts_start);
+        })?;
+        let props_start = self.props.len();
         self.features.push(Feature {
             geometry,
             id,
-            parts: parts_start..parts_start,
+            parts: parts_start..self.parts.len(),
             props: props_start..props_start,
         });
+        Ok(())
     }
 
-    pub fn add_part(&mut self, role: PartRole, xy: &[i32]) -> Result<(), StoreError> {
-        let Some(feature) = self.features.last_mut() else {
-            return Err(StoreError::NoFeatureBegun);
-        };
-        if !xy.len().is_multiple_of(2) {
-            return Err(StoreError::OddCoordinateCount);
+    fn decode_mvt(
+        &mut self,
+        mvt_type: MvtGeometryType,
+        commands: &[u32],
+    ) -> Result<GeometryType, StoreError> {
+        let coords_start = self.coords.len();
+        let mut cursor = Coord { x: 0, y: 0 };
+        let mut part: Option<usize> = None;
+        let mut parts = 0;
+        let mut exteriors = 0;
+        let mut values = commands.iter();
+        while let Some(&command) = values.next() {
+            let count = command >> 3;
+            match command & 7 {
+                1 => {
+                    if mvt_type != MvtGeometryType::Point {
+                        if count != 1 {
+                            return Err(invalid_mvt(
+                                "a line or ring starts with more than one MoveTo point",
+                            ));
+                        }
+                        self.end_mvt_part(mvt_type, part.take(), &mut parts, &mut exteriors);
+                    }
+                    part.get_or_insert(self.coords.len());
+                    self.read_mvt_coords(&mut values, &mut cursor, count)?;
+                }
+                2 => {
+                    if mvt_type == MvtGeometryType::Point || part.is_none() {
+                        return Err(invalid_mvt("a LineTo outside a line or ring"));
+                    }
+                    self.read_mvt_coords(&mut values, &mut cursor, count)?;
+                }
+                7 => {
+                    if mvt_type != MvtGeometryType::Polygon || part.is_none() || count != 1 {
+                        return Err(invalid_mvt("a ClosePath outside a ring"));
+                    }
+                }
+                _ => return Err(invalid_mvt("an unknown command")),
+            }
         }
-        let start = self.coords.len();
-        self.coords
-            .extend(xy.as_chunks::<2>().0.iter().map(|&[x, y]| Coord { x, y }));
+        self.end_mvt_part(mvt_type, part, &mut parts, &mut exteriors);
+        Ok(match mvt_type {
+            MvtGeometryType::Point => match self.coords.len() - coords_start {
+                0 => return Err(invalid_mvt("no points")),
+                1 => GeometryType::Point,
+                _ => GeometryType::MultiPoint,
+            },
+            MvtGeometryType::LineString => match parts {
+                0 => return Err(invalid_mvt("no lines")),
+                1 => GeometryType::LineString,
+                _ => GeometryType::MultiLineString,
+            },
+            MvtGeometryType::Polygon => match exteriors {
+                0 => return Err(invalid_mvt("no rings")),
+                1 => GeometryType::Polygon,
+                _ => GeometryType::MultiPolygon,
+            },
+        })
+    }
+
+    fn read_mvt_coords(
+        &mut self,
+        values: &mut std::slice::Iter<'_, u32>,
+        cursor: &mut Coord<i32>,
+        count: u32,
+    ) -> Result<(), StoreError> {
+        for _ in 0..count {
+            let (Some(&dx), Some(&dy)) = (values.next(), values.next()) else {
+                return Err(invalid_mvt("ends inside a command"));
+            };
+            cursor.x = cursor.x.saturating_add(unzigzag(dx));
+            cursor.y = cursor.y.saturating_add(unzigzag(dy));
+            self.coords.push(*cursor);
+        }
+        Ok(())
+    }
+
+    /// The first ring of a feature and every ring with positive area start a polygon.
+    fn end_mvt_part(
+        &mut self,
+        mvt_type: MvtGeometryType,
+        start: Option<usize>,
+        parts: &mut usize,
+        exteriors: &mut usize,
+    ) {
+        let Some(start) = start else {
+            return;
+        };
+        let role = match mvt_type {
+            MvtGeometryType::Point => PartRole::Points,
+            MvtGeometryType::LineString => PartRole::Line,
+            MvtGeometryType::Polygon => {
+                let ring = &self.coords[start..];
+                let (first, exterior) = (ring[0], *exteriors == 0 || signed_area(ring) > 0);
+                self.coords.push(first);
+                if exterior {
+                    *exteriors += 1;
+                    PartRole::Exterior
+                } else {
+                    PartRole::Hole
+                }
+            }
+        };
+        *parts += 1;
         self.parts.push(Part {
             role,
             coords: start..self.coords.len(),
         });
-        feature.parts.end = self.parts.len();
-        Ok(())
     }
 
     pub fn set(&mut self, key: u32, value: StoredValue) -> Result<(), StoreError> {
