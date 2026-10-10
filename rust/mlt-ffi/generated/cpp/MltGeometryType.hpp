@@ -14,28 +14,24 @@
 #include <stdio.h>
 
 namespace diplomat {
-namespace capi {
+namespace capi {} // namespace capi
+} // namespace diplomat
 
-} // namespace capi
-} // namespace
-
-inline diplomat::capi::MltGeometryType MltGeometryType::AsFFI() const
-{
+inline diplomat::capi::MltGeometryType MltGeometryType::AsFFI() const {
     return static_cast<diplomat::capi::MltGeometryType>(value);
 }
 
-inline MltGeometryType MltGeometryType::FromFFI(diplomat::capi::MltGeometryType c_enum)
-{
+inline MltGeometryType MltGeometryType::FromFFI(diplomat::capi::MltGeometryType c_enum) {
     switch (c_enum) {
-    case diplomat::capi::MltGeometryType_Point:
-    case diplomat::capi::MltGeometryType_LineString:
-    case diplomat::capi::MltGeometryType_Polygon:
-    case diplomat::capi::MltGeometryType_MultiPoint:
-    case diplomat::capi::MltGeometryType_MultiLineString:
-    case diplomat::capi::MltGeometryType_MultiPolygon:
-        return static_cast<MltGeometryType::Value>(c_enum);
-    default:
-        std::abort();
+        case diplomat::capi::MltGeometryType_Point:
+        case diplomat::capi::MltGeometryType_LineString:
+        case diplomat::capi::MltGeometryType_Polygon:
+        case diplomat::capi::MltGeometryType_MultiPoint:
+        case diplomat::capi::MltGeometryType_MultiLineString:
+        case diplomat::capi::MltGeometryType_MultiPolygon:
+            return static_cast<MltGeometryType::Value>(c_enum);
+        default:
+            std::abort();
     }
 }
 #endif // MltGeometryType_HPP

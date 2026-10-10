@@ -27,9 +27,9 @@ class MltGeometryType;
 
 namespace diplomat {
 namespace capi {
-    struct MltLayerBuilder;
+struct MltLayerBuilder;
 } // namespace capi
-} // namespace
+} // namespace diplomat
 
 /**
  * A layer written one feature at a time, then encoded without going through MVT.
@@ -39,12 +39,15 @@ public:
     /**
      * Start a layer.
      */
-    inline static diplomat::result<diplomat::result<std::unique_ptr<MltLayerBuilder>, std::unique_ptr<ConvertError>>, diplomat::Utf8Error> new_(std::string_view name, uint32_t extent);
+    inline static diplomat::result<diplomat::result<std::unique_ptr<MltLayerBuilder>, std::unique_ptr<ConvertError>>,
+                                   diplomat::Utf8Error>
+    new_(std::string_view name, uint32_t extent);
 
     /**
      * Start another layer, keeping the allocations of the last one.
      */
-    inline diplomat::result<diplomat::result<std::monostate, std::unique_ptr<ConvertError>>, diplomat::Utf8Error> reset(std::string_view name, uint32_t extent);
+    inline diplomat::result<diplomat::result<std::monostate, std::unique_ptr<ConvertError>>, diplomat::Utf8Error> reset(
+        std::string_view name, uint32_t extent);
 
     /**
      * Declare a property column, returning the key to set it with.
@@ -69,7 +72,8 @@ public:
     /**
      * Start a polygon of a polygon or multi-polygon feature with its exterior ring.
      */
-    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> add_exterior_ring(diplomat::span<const int32_t> xy);
+    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> add_exterior_ring(
+        diplomat::span<const int32_t> xy);
 
     /**
      * Add a hole to the polygon the last exterior ring started.
@@ -99,12 +103,14 @@ public:
     /**
      * Set a string property of the current feature.
      */
-    inline diplomat::result<diplomat::result<std::monostate, std::unique_ptr<ConvertError>>, diplomat::Utf8Error> set_str(uint32_t key, std::string_view value);
+    inline diplomat::result<diplomat::result<std::monostate, std::unique_ptr<ConvertError>>, diplomat::Utf8Error>
+    set_str(uint32_t key, std::string_view value);
 
     /**
      * Encode the layer and append it to `out`.
      */
-    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> encode_into(const MltEncoderOptions& options, MltBuffer& out) const;
+    inline diplomat::result<std::monostate, std::unique_ptr<ConvertError>> encode_into(const MltEncoderOptions& options,
+                                                                                       MltBuffer& out) const;
 
     inline const diplomat::capi::MltLayerBuilder* AsFFI() const;
     inline diplomat::capi::MltLayerBuilder* AsFFI();

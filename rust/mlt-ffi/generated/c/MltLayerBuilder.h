@@ -113,7 +113,9 @@ typedef struct MltLayerBuilder_encode_into_result {
     };
     bool is_ok;
 } MltLayerBuilder_encode_into_result;
-MltLayerBuilder_encode_into_result MltLayerBuilder_encode_into(const MltLayerBuilder* self, const MltEncoderOptions* options, MltBuffer* out);
+MltLayerBuilder_encode_into_result MltLayerBuilder_encode_into(const MltLayerBuilder* self,
+                                                               const MltEncoderOptions* options,
+                                                               MltBuffer* out);
 
 void MltLayerBuilder_destroy(MltLayerBuilder* self);
 
