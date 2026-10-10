@@ -15,8 +15,25 @@ public final class MltException extends RuntimeException {
     INVALID_INPUT,
     /** Encoding failed. */
     ENCODING_FAILED,
-    /** A feature handed to a layer builder is malformed. */
-    INVALID_FEATURE
+    /** A feature handed to an encoder is malformed. */
+    INVALID_FEATURE;
+
+    int nativeValue() {
+      return switch (this) {
+        case INVALID_INPUT -> mlt_ffi_h.ConvertErrorKind_InvalidInput();
+        case ENCODING_FAILED -> mlt_ffi_h.ConvertErrorKind_EncodingFailed();
+        case INVALID_FEATURE -> mlt_ffi_h.ConvertErrorKind_InvalidFeature();
+      };
+    }
+
+    static Kind fromNative(int value) {
+      for (Kind kind : values()) {
+        if (kind.nativeValue() == value) {
+          return kind;
+        }
+      }
+      throw new IllegalStateException("Unknown native error kind " + value);
+    }
   }
 
   private final Kind kind;
@@ -31,27 +48,18 @@ public final class MltException extends RuntimeException {
     return kind;
   }
 
-  /** Reads and frees the native {@code ConvertError} behind {@code error}. */
-  static MltException take(MemorySegment error) {
-    int kind = mlt_ffi_h.ConvertError_kind(error);
+  /** Reads the native {@code ConvertError} behind {@code error} and frees it. */
+  static MltException fromNative(MemorySegment error) {
     MemorySegment write = mlt_ffi_h.diplomat_buffer_write_create(64);
     try {
+      Kind kind = Kind.fromNative(mlt_ffi_h.ConvertError_kind(error));
       mlt_ffi_h.ConvertError_message(error, write);
       long length = mlt_ffi_h.diplomat_buffer_write_len(write);
       byte[] bytes = mlt_ffi_h.diplomat_buffer_write_get_bytes(write).reinterpret(length).toArray(JAVA_BYTE);
-      return new MltException(kindOf(kind), new String(bytes, StandardCharsets.UTF_8));
+      return new MltException(kind, new String(bytes, StandardCharsets.UTF_8));
     } finally {
       mlt_ffi_h.diplomat_buffer_write_destroy(write);
       mlt_ffi_h.ConvertError_destroy(error);
     }
-  }
-
-  private static Kind kindOf(int kind) {
-    if (kind == mlt_ffi_h.ConvertErrorKind_InvalidInput()) {
-      return Kind.INVALID_INPUT;
-    } else if (kind == mlt_ffi_h.ConvertErrorKind_EncodingFailed()) {
-      return Kind.ENCODING_FAILED;
-    }
-    return Kind.INVALID_FEATURE;
   }
 }

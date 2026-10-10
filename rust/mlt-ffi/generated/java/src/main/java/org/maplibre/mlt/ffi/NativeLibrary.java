@@ -22,7 +22,11 @@ public final class NativeLibrary {
 
   private NativeLibrary() {}
 
-  /** Loads the native library unless it is loaded already, throwing {@link UnsatisfiedLinkError} if that fails. */
+  /**
+   * Loads the native library unless it is loaded already.
+   *
+   * @throws UnsatisfiedLinkError if the library is missing or cannot be loaded
+   */
   public static synchronized void load() {
     if (loadedFrom != null) {
       return;
@@ -32,7 +36,7 @@ public final class NativeLibrary {
     try {
       System.load(path.toAbsolutePath().toString());
     } catch (UnsatisfiedLinkError e) {
-      throw new UnsatisfiedLinkError("Cannot load the MLT native library " + path + ": " + e.getMessage());
+      throw linkError("Cannot load the MLT native library " + path + ": " + e.getMessage(), e);
     }
     loadedFrom = path;
   }
@@ -73,7 +77,8 @@ public final class NativeLibrary {
     if (!osName.toLowerCase(Locale.ROOT).contains("linux")) {
       return false;
     }
-    boolean arm = archName.equals("aarch64") || archName.equals("arm64");
+    String arch = archName.toLowerCase(Locale.ROOT);
+    boolean arm = arch.equals("aarch64") || arch.equals("arm64");
     String musl = arm ? "/lib/ld-musl-aarch64.so.1" : "/lib/ld-musl-x86_64.so.1";
     String glibc = arm ? "/lib/ld-linux-aarch64.so.1" : "/lib64/ld-linux-x86-64.so.2";
     return Files.exists(Path.of(musl)) && !Files.exists(Path.of(glibc));
@@ -95,7 +100,13 @@ public final class NativeLibrary {
       dir.toFile().deleteOnExit();
       return file;
     } catch (IOException e) {
-      throw new UnsatisfiedLinkError("Cannot extract the MLT native library " + resource + ": " + e.getMessage());
+      throw linkError("Cannot extract the MLT native library " + resource + ": " + e.getMessage(), e);
     }
+  }
+
+  private static UnsatisfiedLinkError linkError(String message, Throwable cause) {
+    UnsatisfiedLinkError error = new UnsatisfiedLinkError(message);
+    error.initCause(cause);
+    return error;
   }
 }

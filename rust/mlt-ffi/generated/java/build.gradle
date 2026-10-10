@@ -10,6 +10,12 @@ repositories {
 dependencies {
     testImplementation platform('org.junit:junit-bom:6.0.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    // Planetiler's MVT command encoder, without the dependencies of the rest of planetiler-core.
+    testImplementation('com.onthegomap.planetiler:planetiler-core:0.10.2') { transitive = false }
+    testImplementation 'org.locationtech.jts:jts-core:1.20.0'
+    testImplementation 'com.carrotsearch:hppc:0.10.0'
+    testImplementation 'com.google.protobuf:protobuf-java:4.34.1'
+    testImplementation 'org.slf4j:slf4j-api:2.0.17'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -32,9 +38,11 @@ sourceSets {
     }
 }
 
+// raw is left to the compiled classes, so its sources are not documented.
 javadoc {
     exclude 'org/maplibre/mlt/ffi/raw/**'
     options.addBooleanOption('Xdoclint:none', true)
+    options.addStringOption('-patch-module', "org.maplibre.mlt.ffi=${sourceSets.main.output.classesDirs.asPath}")
 }
 
 test {
