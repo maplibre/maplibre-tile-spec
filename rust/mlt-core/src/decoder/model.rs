@@ -30,6 +30,58 @@ pub enum Layer<'a, S: DecodeState = Lazy> {
 }
 pub type ParsedLayer<'a> = Layer<'a, Parsed>;
 
+/// The bytes a layer spends on the wire, by what they hold.
+///
+/// Every byte the columns leave over is layer metadata: the tag, name, header and column schema.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LayerBytes {
+    pub(crate) size: u32,
+    pub(crate) geometry: u32,
+    pub(crate) properties: u32,
+    pub(crate) ids: u32,
+}
+
+impl LayerBytes {
+    /// Start counting a layer whose body is `body_len` bytes.
+    pub(crate) fn of_body(body_len: usize) -> Self {
+        Self {
+            // The body never exceeds the u32 size varint that framed it.
+            size: u32::try_from(body_len).map_or(u32::MAX, |len| len.saturating_add(1)),
+            ..Self::default()
+        }
+    }
+
+    /// The value of the layer's size varint: the tag and the body, without the varint itself.
+    #[must_use]
+    pub fn size(&self) -> u32 {
+        self.size
+    }
+
+    /// The geometry column, or the v2 geometry section.
+    #[must_use]
+    pub fn geometry(&self) -> u32 {
+        self.geometry
+    }
+
+    /// Every column that is neither geometry nor the id, nested and m-value columns included.
+    #[must_use]
+    pub fn properties(&self) -> u32 {
+        self.properties
+    }
+
+    /// The id column.
+    #[must_use]
+    pub fn ids(&self) -> u32 {
+        self.ids
+    }
+
+    /// What is left of [`Self::size`] once every column is taken out.
+    #[must_use]
+    pub fn metadata(&self) -> u32 {
+        self.size - self.geometry - self.properties - self.ids
+    }
+}
+
 /// Unknown layer data, stored as encoded bytes.
 ///
 /// Returned inside [`Layer::Unknown`] for any layer tag that is not recognized

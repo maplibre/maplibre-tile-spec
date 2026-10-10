@@ -59,11 +59,11 @@ use crate::decoder::stream::header02::{
 use crate::decoder::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
     DictionaryType, FloatLogical, GeoLayout, GeoTypes, Id, IdWidth02, IndexBase, Layer01, Layer02,
-    LayerHeader02, LayerLayout, LengthType, LogicalEncoding, MValues, Nested, Presence02,
-    RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue, RawMValue,
-    RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding,
-    RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictKind, ValueType02,
-    ValuesColumn02,
+    LayerBytes, LayerHeader02, LayerLayout, LengthType, LogicalEncoding, MValues, Nested,
+    Presence02, RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue,
+    RawMValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
+    RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
+    SharedDictKind, ValueType02, ValuesColumn02,
 };
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8};
@@ -74,6 +74,7 @@ pub(crate) fn parse_layer02<'a>(
     input: &'a [u8],
     parser: &mut Parser,
 ) -> MltResult<Layer02<'a, Lazy>> {
+    let mut bytes = LayerBytes::of_body(input.len());
     let (input, layer_name) = parse_string(input)?;
     if layer_name.is_empty() {
         return Err(MissingLayerName);
@@ -93,7 +94,9 @@ pub(crate) fn parse_layer02<'a>(
     let (input, cols) = parse_shared_presence(input, layout, feature_count, parser)?;
 
     // ── Geometry section ──────────────────────────────────────────────────
-    let (input, geometry) = parse_geometry(input, header, layout.geometry, feature_count, parser)?;
+    let (rest, geometry) = parse_geometry(input, header, layout.geometry, feature_count, parser)?;
+    bytes.geometry = u32::try_from(input.len() - rest.len())?;
+    let input = rest;
 
     // ── Counted columns ───────────────────────────────────────────────────
     let (mut input, counts) = ColumnCounts::parse(input, header.m_values)?;
@@ -112,6 +115,7 @@ pub(crate) fn parse_layer02<'a>(
     let mut layer_order = vec![crate::decoder::fuzzing::LayerOrdering::Geometry];
 
     for _ in 0..column_count {
+        let before = input.len();
         let typ_byte;
         (input, typ_byte) = parse_u8(input)?;
         let typ = match cols.column(typ_byte)? {
@@ -124,6 +128,7 @@ pub(crate) fn parse_layer02<'a>(
                     column_names.push((Cow::Owned(name), ColumnRole::Property));
                 }
                 properties.push(Raw(RawProperty::SharedDict(shared_dict)));
+                bytes.properties += u32::try_from(before - input.len())?;
                 #[cfg(fuzzing)]
                 layer_order.push(crate::decoder::fuzzing::LayerOrdering::Property);
                 continue;
@@ -148,6 +153,7 @@ pub(crate) fn parse_layer02<'a>(
                     IdWidth02::Id64 => RawIdValue::Id64(data),
                 };
                 id_column.set_once(Raw(RawId { presence, value }))?;
+                bytes.ids += u32::try_from(before - input.len())?;
             }
             ColumnKind02::Values(column) => {
                 #[cfg(fuzzing)]
@@ -164,6 +170,7 @@ pub(crate) fn parse_layer02<'a>(
                     parser,
                 )?;
                 properties.push(Raw(values.into()));
+                bytes.properties += u32::try_from(before - input.len())?;
             }
             ColumnKind02::Nested(column) => {
                 #[cfg(fuzzing)]
@@ -174,17 +181,20 @@ pub(crate) fn parse_layer02<'a>(
                 (input, tree) =
                     parse_nested(input, name, presence, column.root, data_count, parser)?;
                 nested.push(Raw(tree));
+                bytes.properties += u32::try_from(before - input.len())?;
             }
         }
     }
 
     // ── M-value section ───────────────────────────────────────────────────
+    let before = input.len();
     let m_values;
     (input, m_values) = if header.m_values {
         parse_m_values(input, counts.m_values, &cols, &mut column_names, parser)?
     } else {
         (input, Vec::new())
     };
+    bytes.properties += u32::try_from(before - input.len())?;
 
     if !input.is_empty() {
         return Err(TrailingLayerData(input.len()));
@@ -196,6 +206,7 @@ pub(crate) fn parse_layer02<'a>(
             id: id_column,
             geometry: Raw(geometry),
             properties,
+            bytes,
             #[cfg(fuzzing)]
             layer_order,
         },

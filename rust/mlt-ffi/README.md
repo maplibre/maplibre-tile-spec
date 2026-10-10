@@ -10,6 +10,8 @@
 | `MltLayerBuilder`    | Writes a layer one feature at a time from MVT geometry commands and encodes it into an `MltBuffer` |
 | `MltEncoderOptions`  | Builder wrapping `EncoderConfig` - construct with `new()`, toggle flags with setters               |
 | `MltBuffer`          | Owned byte buffer with `.bytes` / `.len` accessors, `clear()`, and appending encodes               |
+| `MltTileStats`       | `from_bytes(bytes)` parses a tile without decoding it, then reports each layer's name and bytes    |
+| `MltLayerBytes`      | One layer's size, split into geometry, property, id and metadata bytes                             |
 | `ConvertError`       | Opaque error with `.kind` (`ConvertErrorKind`) and `.message` accessors                            |
 | `MltWireVersion`     | `V01` (default) or the experimental `V02`                                                          |
 | `MltMvtGeometryType` | The MVT geometry type of one `MltLayerBuilder` feature                                             |
