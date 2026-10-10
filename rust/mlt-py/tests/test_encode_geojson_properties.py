@@ -41,6 +41,30 @@ _key = st.text(
 )
 
 
+def _wound(geometry):
+    def area(points):
+        return sum(
+            x1 * y2 - y1 * x2
+            for (x1, y1), (x2, y2) in zip(points, points[1:] + points[:1])
+        )
+
+    def polygon(rings):
+        out = []
+        for i, ring in enumerate(rings):
+            points = [tuple(p) for p in ring[:-1]]
+            a = area(points)
+            if a != 0 and (a > 0) != (i == 0):
+                points.reverse()
+            out.append([list(p) for p in points + points[:1]])
+        return out
+
+    if geometry["type"] == "Polygon":
+        return {**geometry, "coordinates": polygon(geometry["coordinates"])}
+    if geometry["type"] == "MultiPolygon":
+        return {**geometry, "coordinates": [polygon(p) for p in geometry["coordinates"]]}
+    return geometry
+
+
 def _fc(features):
     return {"type": "FeatureCollection", "features": features}
 
@@ -58,7 +82,7 @@ def test_geometry_roundtrips_for_any_input(geometries):
 
     assert len(by_id) == len(geometries)
     for i, geometry in enumerate(geometries):
-        assert by_id[i] == geometry
+        assert by_id[i] == _wound(geometry)
 
 
 @given(feature_id=st.integers(min_value=0, max_value=2**64 - 1))

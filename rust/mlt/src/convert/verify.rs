@@ -5,12 +5,13 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use anyhow::{Context as _, Result as AnyResult, anyhow, bail, ensure};
+use mlt_core::encoder::wound_geometry;
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::{Decoder, MValue, NestedValue, Parser, PropValue, TileFeature, TileLayer};
 
 /// Decode `encoded`, hand it to `restore`, and require the result to hold what `source` does.
 ///
-/// The encoder chooses the feature order and each integer column's width, so neither counts.
+/// The encoder chooses the feature order, each integer column's width and the winding of each polygon ring, so none of them counts.
 /// A null value is the same as no value.
 /// A layer without features encodes to no bytes.
 pub fn check_round_trip(
@@ -67,7 +68,7 @@ fn same_layer(expected: &TileLayer, actual: &TileLayer) -> AnyResult<()> {
             e.id.map_or_else(|| "without an id".to_owned(), |id| id.to_string());
         ensure!(e.id == a.id, "feature {id} is missing");
         ensure!(
-            e.geometry == a.geometry,
+            wound_geometry(e.geometry) == *a.geometry,
             "feature {id} has another geometry"
         );
         ensure!(

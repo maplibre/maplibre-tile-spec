@@ -379,6 +379,34 @@ fn wound<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> Vec<Cow<'c, [Coor
         .collect()
 }
 
+/// The geometry with its polygon rings wound as the encoder stores them.
+#[must_use]
+pub fn wound_geometry(geom: &Geometry<i32>) -> Geometry<i32> {
+    let polygon = |p: &Polygon<i32>| {
+        let mut rings = wound(rings(p))
+            .into_iter()
+            .map(|ring| LineString::from(ring.into_owned()));
+        let exterior = rings.next().unwrap_or_else(|| LineString::new(vec![]));
+        Polygon::new(exterior, rings.collect())
+    };
+    match geom {
+        Geometry::<i32>::Polygon(p) => Geometry::Polygon(polygon(p)),
+        Geometry::<i32>::MultiPolygon(mp) => {
+            Geometry::MultiPolygon(mp.0.iter().map(polygon).collect())
+        }
+        Geometry::<i32>::GeometryCollection(gc) => {
+            Geometry::GeometryCollection(gc.0.iter().map(wound_geometry).collect())
+        }
+        other @ (Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::LineString(_)
+        | Geometry::<i32>::MultiPoint(_)
+        | Geometry::<i32>::MultiLineString(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_)) => other.clone(),
+    }
+}
+
 /// Whether the ring winds against the MVT winding of its role.
 fn needs_reversal(ring: &[Coord<i32>], exterior: bool) -> bool {
     let area = signed_area(&ring[..stored_len(ring)]);
@@ -520,6 +548,17 @@ mod tests {
             .iter()
             .map(|ring| ring.iter().map(|c| (c.x, c.y)).collect())
             .collect()
+    }
+
+    #[test]
+    fn wound_geometry_rewinds_every_polygon_of_a_multi_polygon() {
+        let against = wkt! { MULTIPOLYGON(((0 0,0 9,9 9,9 0,0 0),(2 2,3 2,3 3,2 3,2 2))) };
+        assert_eq!(
+            wound_geometry(&Geometry::MultiPolygon(against)),
+            Geometry::MultiPolygon(
+                wkt! { MULTIPOLYGON(((9 0,9 9,0 9,0 0,9 0),(2 3,3 3,3 2,2 2,2 3))) }
+            )
+        );
     }
 
     #[test]
