@@ -112,7 +112,7 @@ fn square(x: i32, y: i32) -> Polygon<i32> {
 #[case::lines(vec![line(&[(0, 0), (10, 10), (20, 0)]), line(&[(5, 5), (6, 6)])])]
 #[case::polygon_with_hole(vec![Geometry::Polygon(Polygon::new(
     ring(&[(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)]),
-    vec![ring(&[(20, 20), (40, 20), (40, 40), (20, 40), (20, 20)])],
+    vec![ring(&[(20, 20), (20, 40), (40, 40), (40, 20), (20, 20)])],
 ))])]
 #[case::multi_points(vec![Geometry::MultiPoint(MultiPoint(vec![Point::new(1, 2), Point::new(3, 4)]))])]
 #[case::multi_lines(vec![Geometry::MultiLineString(MultiLineString(vec![

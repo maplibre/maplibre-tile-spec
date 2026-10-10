@@ -166,11 +166,29 @@ fn a_line_layer_holds_one_value_per_vertex() {
 #[test]
 fn a_polygon_ring_has_no_value_for_its_closing_vertex() {
     let hole = ring(&[(2, 2), (2, 3), (3, 3), (3, 2)]);
-    let outer = ring(&[(0, 0), (0, 9), (9, 9), (9, 0)]);
+    let outer = ring(&[(0, 0), (9, 0), (9, 9), (0, 9)]);
     let poly = Geometry::Polygon(Polygon::new(outer, vec![hole]));
     // Four outer and four inner vertices, with the two closing ones stripped.
     let l = layer(vec![poly], &[("m", i32s(&[&[1, 2, 3, 4, 5, 6, 7, 8]]))]);
     assert_round_trips_as_v2(&l);
+}
+
+#[test]
+fn m_values_follow_their_vertices_when_a_ring_is_rewound() {
+    let outer = ring(&[(0, 0), (0, 9), (9, 9), (9, 0)]);
+    let wrong = layer(
+        vec![Geometry::Polygon(Polygon::new(outer, vec![]))],
+        &[("m", i32s(&[&[1, 2, 3, 4]]))],
+    );
+    let wound = layer(
+        vec![Geometry::Polygon(Polygon::new(
+            ring(&[(9, 0), (9, 9), (0, 9), (0, 0)]),
+            vec![],
+        ))],
+        &[("m", i32s(&[&[4, 3, 2, 1]]))],
+    );
+    let bytes = wrong.encode(cfg_v2()).expect("v2 encode");
+    assert_eq!(decode(&bytes), wound);
 }
 
 #[rstest]
@@ -187,8 +205,8 @@ fn a_polygon_ring_has_no_value_for_its_closing_vertex() {
 )]
 #[case::multipolygon(
     Geometry::MultiPolygon(MultiPolygon(vec![
-        Polygon::new(ring(&[(0, 0), (0, 2), (2, 2)]), vec![]),
-        Polygon::new(ring(&[(5, 5), (5, 7), (7, 7)]), vec![]),
+        Polygon::new(ring(&[(0, 0), (2, 2), (0, 2)]), vec![]),
+        Polygon::new(ring(&[(5, 5), (7, 7), (5, 7)]), vec![]),
     ])),
     vec![1, 2, 3, 4, 5, 6],
 )]

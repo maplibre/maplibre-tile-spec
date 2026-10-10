@@ -96,10 +96,16 @@ pub(crate) fn stage_layer(
     }
     #[cfg(feature = "unstable-v2")]
     if let Some(step) = source.v2_layout().z_step {
-        let z: Vec<i32> = order
-            .iter()
-            .flat_map(|f| source.z(f).iter().copied())
-            .collect();
+        let mut z = Vec::new();
+        for f in order.iter() {
+            let feature_z = source.z(f);
+            match source.vertex_order(f) {
+                Some(moved) if moved.len() == feature_z.len() => {
+                    z.extend(moved.iter().map(|&i| feature_z[i]));
+                }
+                _ => z.extend_from_slice(feature_z),
+            }
+        }
         geometry
             .add_z(step, &z)
             .expect("the source holds one z per stored vertex");
@@ -221,7 +227,13 @@ fn take_column<T: Clone>(
         };
         let run = run(m_value).expect("m-value kind matches its column");
         presence.push(run.is_some());
-        values.extend(run.into_iter().flatten().cloned());
+        let run = run.unwrap_or_default();
+        match source.vertex_order(f) {
+            Some(moved) if moved.len() == run.len() => {
+                values.extend(moved.iter().map(|&i| run[i].clone()));
+            }
+            _ => values.extend_from_slice(run),
+        }
     }
     (presence, values)
 }

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{Coord, Geometry, LineString, Polygon};
 
@@ -247,6 +249,8 @@ impl GeometryValues {
         // ring_offsets now, before we set up ring_offsets for polygon use.
         // On subsequent polygons ring_offsets is already initialized and
         // part_offsets holds polygon ring-range data - leave both alone.
+        let rings = wound(rings);
+        let rings = rings.iter().map(AsRef::as_ref);
         self.vector_types.push(GeometryType::Polygon);
         self.init_polygon_offsets();
         let first_vertex = self.stored_vertex_count();
@@ -315,6 +319,8 @@ impl GeometryValues {
     ) where
         R: Iterator<Item = &'c [Coord<i32>]>,
     {
+        let polygons: Vec<_> = polygons.map(wound).collect();
+        let polygons = polygons.iter().map(|rings| rings.iter().map(AsRef::as_ref));
         self.vector_types.push(GeometryType::MultiPolygon);
         let first_vertex = self.stored_vertex_count();
         let count = u32::try_from(polygons.len()).expect("polygon count overflow");
@@ -351,6 +357,100 @@ impl GeometryValues {
 fn rings(polygon: &Polygon<i32>) -> impl Iterator<Item = &[Coord<i32>]> + Clone {
     std::iter::once(polygon.exterior().0.as_slice())
         .chain(polygon.interiors().iter().map(|ring| ring.0.as_slice()))
+}
+
+/// The rings of a polygon wound as MVT winds them: a positive signed area for the exterior, a negative one for each hole.
+///
+/// A ring that encloses no signed area keeps its direction.
+fn wound<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> Vec<Cow<'c, [Coord<i32>]>> {
+    rings
+        .enumerate()
+        .map(|(i, ring)| {
+            if needs_reversal(ring, i == 0) {
+                let mut reversed: Vec<_> = ring[..stored_len(ring)].iter().rev().copied().collect();
+                if reversed.len() < ring.len() {
+                    reversed.push(reversed[0]);
+                }
+                Cow::Owned(reversed)
+            } else {
+                Cow::Borrowed(ring)
+            }
+        })
+        .collect()
+}
+
+/// Whether the ring winds against the MVT winding of its role.
+fn needs_reversal(ring: &[Coord<i32>], exterior: bool) -> bool {
+    let area = signed_area(&ring[..stored_len(ring)]);
+    area != 0 && (area > 0) != exterior
+}
+
+/// Where each stored vertex of the geometry ends up once its polygon rings are wound.
+///
+/// Entry `i` is the input position of the vertex stored at `i`, so a value held per vertex follows by reading its run through the entries.
+/// Is [`None`] when no ring is reversed.
+#[cfg(feature = "unstable-v2")]
+pub(crate) fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
+    fn plain(order: &mut Vec<usize>, len: usize) {
+        order.extend(order.len()..order.len() + len);
+    }
+    fn polygon(order: &mut Vec<usize>, reversed: &mut bool, polygon: &Polygon<i32>) {
+        for (i, ring) in rings(polygon).enumerate() {
+            let start = order.len();
+            let end = start + stored_len(ring);
+            if needs_reversal(ring, i == 0) {
+                *reversed = true;
+                order.extend((start..end).rev());
+            } else {
+                order.extend(start..end);
+            }
+        }
+    }
+    fn walk(order: &mut Vec<usize>, reversed: &mut bool, geom: &Geometry<i32>) {
+        match geom {
+            Geometry::<i32>::Point(_) => plain(order, 1),
+            Geometry::<i32>::Line(_) => plain(order, 2),
+            Geometry::<i32>::LineString(ls) => plain(order, ls.0.len()),
+            Geometry::<i32>::MultiPoint(mp) => plain(order, mp.0.len()),
+            Geometry::<i32>::MultiLineString(mls) => {
+                plain(order, mls.0.iter().map(|ls| ls.0.len()).sum());
+            }
+            Geometry::<i32>::Polygon(p) => polygon(order, reversed, p),
+            Geometry::<i32>::MultiPolygon(mp) => {
+                for p in &mp.0 {
+                    polygon(order, reversed, p);
+                }
+            }
+            Geometry::<i32>::Triangle(t) => polygon(order, reversed, &t.to_polygon()),
+            Geometry::<i32>::Rect(r) => polygon(order, reversed, &r.to_polygon()),
+            Geometry::<i32>::GeometryCollection(gc) => {
+                for g in gc {
+                    walk(order, reversed, g);
+                }
+            }
+        }
+    }
+    let mut order = Vec::new();
+    let mut reversed = false;
+    walk(&mut order, &mut reversed, geom);
+    reversed.then_some(order)
+}
+
+/// Twice the signed area of the ring, positive when it runs clockwise on a y-down screen.
+fn signed_area(ring: &[Coord<i32>]) -> i128 {
+    let cross = |a: Coord<i32>, b: Coord<i32>| {
+        i128::from(a.x) * i128::from(b.y) - i128::from(a.y) * i128::from(b.x)
+    };
+    let Some(&first) = ring.first() else {
+        return 0;
+    };
+    let mut prev = first;
+    let mut area = 0;
+    for &coord in &ring[1..] {
+        area += cross(prev, coord);
+        prev = coord;
+    }
+    area + cross(prev, first)
 }
 
 /// Ensure offset array starts with 0.
@@ -410,6 +510,62 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+
+    fn wound_rings(rings: &[&[(i32, i32)]]) -> Vec<Vec<(i32, i32)>> {
+        let rings: Vec<Vec<Coord<i32>>> = rings
+            .iter()
+            .map(|ring| ring.iter().map(|&(x, y)| Coord { x, y }).collect())
+            .collect();
+        wound(rings.iter().map(Vec::as_slice))
+            .iter()
+            .map(|ring| ring.iter().map(|c| (c.x, c.y)).collect())
+            .collect()
+    }
+
+    #[test]
+    fn rings_already_wound_as_mvt_are_kept() {
+        assert_eq!(
+            wound_rings(&[
+                &[(0, 0), (9, 0), (9, 9), (0, 9), (0, 0)],
+                &[(2, 2), (2, 3), (3, 3), (3, 2), (2, 2)],
+            ]),
+            [
+                vec![(0, 0), (9, 0), (9, 9), (0, 9), (0, 0)],
+                vec![(2, 2), (2, 3), (3, 3), (3, 2), (2, 2)],
+            ]
+        );
+    }
+
+    #[test]
+    fn rings_wound_against_mvt_are_reversed_and_stay_closed() {
+        assert_eq!(
+            wound_rings(&[
+                &[(0, 0), (0, 9), (9, 9), (9, 0), (0, 0)],
+                &[(2, 2), (3, 2), (3, 3), (2, 3), (2, 2)],
+            ]),
+            [
+                vec![(9, 0), (9, 9), (0, 9), (0, 0), (9, 0)],
+                vec![(2, 3), (3, 3), (3, 2), (2, 2), (2, 3)],
+            ]
+        );
+    }
+
+    #[test]
+    fn an_open_ring_is_reversed_without_gaining_a_closing_vertex() {
+        assert_eq!(
+            wound_rings(&[&[(0, 0), (0, 9), (9, 9)]]),
+            [vec![(9, 9), (0, 9), (0, 0)]]
+        );
+    }
+
+    #[test]
+    fn a_ring_with_no_area_keeps_its_direction() {
+        assert_eq!(
+            wound_rings(&[&[(0, 0), (4, 4), (8, 8), (0, 0)]]),
+            [vec![(0, 0), (4, 4), (8, 8), (0, 0)]]
+        );
+    }
+
     use crate::__private::PhysicalEncoding;
     use crate::LazyParsed;
     use crate::decoder::{
