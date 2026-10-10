@@ -744,6 +744,38 @@ class ResultPointerPointer :
     }
 }
 
+internal class ResultUnitPointerUnion : Union() {
+    @JvmField
+    internal var err: Pointer = Pointer(0)
+}
+
+class ResultUnitPointer :
+    Structure(),
+    Structure.ByValue {
+    @JvmField
+    internal var union: ResultUnitPointerUnion = ResultUnitPointerUnion()
+
+    @JvmField
+    internal var isOk: Byte = 0
+
+    // Define the fields of the struct
+    override fun getFieldOrder(): List<String> = listOf("union", "isOk")
+
+    internal fun getNativeOk(): Unit? {
+        if (isOk == 1.toByte()) {
+            return Unit
+        }
+        return null
+    }
+
+    internal fun getNativeErr(): Pointer? {
+        if (isOk == 0.toByte()) {
+            return union.getTypedValue(Pointer::class.java) as Pointer
+        }
+        return null
+    }
+}
+
 internal class OptionUnit constructor() :
     Structure(),
     Structure.ByValue {
