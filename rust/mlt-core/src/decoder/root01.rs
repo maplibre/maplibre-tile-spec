@@ -12,8 +12,8 @@ use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
     Column, ColumnType, DictLayout, DictionaryType, GeoTypes, Geometry, Id, IndexBase, Layer01,
-    RawFloats, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty,
-    RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
+    LayerBytes, RawFloats, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
     RawStringsEncoding, StreamType, ValueKind,
 };
 use crate::errors::AsMltError as _;
@@ -24,6 +24,7 @@ use crate::{Lazy, MltRefResult, MltResult, Parser};
 impl<'a> Layer01<'a, Lazy> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
     pub(crate) fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltResult<Self> {
+        let mut bytes = LayerBytes::of_body(input.len());
         let (input, layer_name) = parse_string(input)?;
         if layer_name.is_empty() {
             return Err(MissingLayerName);
@@ -57,6 +58,7 @@ impl<'a> Layer01<'a, Lazy> {
             let presence;
             let value;
             let name = column.name.unwrap_or("");
+            let before = input.len();
 
             match column.typ {
                 ColumnType::Id | ColumnType::OptId => {
@@ -124,6 +126,14 @@ impl<'a> Layer01<'a, Lazy> {
                     properties.push(Raw(prop));
                 }
             }
+            let spent = u32::try_from(before - input.len())?;
+            if column.typ == ColumnType::Geometry {
+                bytes.geometry += spent;
+            } else if column.typ.is_id() {
+                bytes.ids += spent;
+            } else {
+                bytes.properties += spent;
+            }
         }
         if input.is_empty() {
             Ok(Layer01 {
@@ -132,6 +142,7 @@ impl<'a> Layer01<'a, Lazy> {
                 id: id_column,
                 geometry: geometry.ok_or(MissingGeometry)?,
                 properties,
+                bytes,
                 #[cfg(fuzzing)]
                 layer_order,
             })

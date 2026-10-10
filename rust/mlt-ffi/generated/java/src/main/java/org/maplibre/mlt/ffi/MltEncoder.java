@@ -7,7 +7,9 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SegmentAllocator;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.maplibre.mlt.ffi.raw.DiplomatStringView;
 import org.maplibre.mlt.ffi.raw.DiplomatU32View;
@@ -23,6 +25,8 @@ import org.maplibre.mlt.ffi.raw.mlt_ffi_h;
  * It gets its property values by name, and ends when the next feature or layer begins.
  * Values of different kinds under one key merge the way the MVT importer does:
  * integers and floats widen to a double, any other mix becomes text.
+ * <p>
+ * After {@link #toByteArray}, {@link #lastLayerSizes} holds the size of each layer of the tile it returned.
  * <p>
  * One encoder is reused across tiles and keeps its allocations.
  * A layer that fails to encode discards the whole tile.
@@ -40,10 +44,13 @@ public final class MltEncoder implements AutoCloseable {
   private final MemorySegment view = arena.allocate(DiplomatU32View.layout());
   private final MemorySegment id = OptionU64.allocate(arena);
   private final Map<String, Integer> keys = new HashMap<>();
+  private List<MltLayerSize> layerSizes = new ArrayList<>();
+  private List<MltLayerSize> lastLayerSizes = List.of();
   private MemorySegment scratch = arena.allocate(1 << 12, 16);
   private MemorySegment options;
   private MemorySegment buffer;
   private MemorySegment layer;
+  private String layerName;
   private boolean layerOpen;
 
   /** Creates an encoder with the default options. */
@@ -75,6 +82,7 @@ public final class MltEncoder implements AutoCloseable {
       Diplomat.check(mlt_ffi_h.MltLayerBuilder_reset(results, layer, utf8View(name), extent));
     }
     keys.clear();
+    layerName = name;
     layerOpen = true;
   }
 
@@ -168,17 +176,47 @@ public final class MltEncoder implements AutoCloseable {
     finishLayer();
     byte[] tile = Diplomat.toByteArray(mlt_ffi_h.MltBuffer_as_bytes(bytesResults, buffer()));
     mlt_ffi_h.MltBuffer_clear(buffer);
+    lastLayerSizes = List.copyOf(layerSizes);
+    layerSizes.clear();
     return tile;
+  }
+
+  /**
+   * Returns the size of each layer of the tile {@link #toByteArray} last returned, in {@link #beginLayer} order.
+   * A layer without features is left out, as the tile does not hold it.
+   */
+  public List<MltLayerSize> lastLayerSizes() {
+    return lastLayerSizes;
   }
 
   private void finishLayer() {
     if (layerOpen) {
       layerOpen = false;
+      long start = mlt_ffi_h.MltBuffer_len(buffer());
       try {
-        Diplomat.check(mlt_ffi_h.MltLayerBuilder_encode_into(results, layer, options, buffer()));
+        Diplomat.check(mlt_ffi_h.MltLayerBuilder_encode_into(results, layer, options, buffer));
       } catch (MltException e) {
         mlt_ffi_h.MltBuffer_clear(buffer);
+        layerSizes.clear();
         throw e;
+      }
+      // A layer without features encodes to nothing, so the tile does not hold it.
+      if (mlt_ffi_h.MltBuffer_len(buffer) > start) {
+        layerSizes.add(new MltLayerSize(layerName, sizeVarint(start)));
+      }
+    }
+  }
+
+  /** Reads the size varint that starts the layer at {@code offset} in the buffer. */
+  private int sizeVarint(long offset) {
+    MemorySegment view = mlt_ffi_h.MltBuffer_as_bytes(bytesResults, buffer);
+    MemorySegment bytes = DiplomatU8View.data(view).reinterpret(DiplomatU8View.len(view));
+    int value = 0;
+    for (int shift = 0; ; shift += 7) {
+      byte b = bytes.get(JAVA_BYTE, offset++);
+      value |= (b & 0x7F) << shift;
+      if (b >= 0) {
+        return value;
       }
     }
   }

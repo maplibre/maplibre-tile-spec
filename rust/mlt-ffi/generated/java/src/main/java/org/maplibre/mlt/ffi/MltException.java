@@ -1,9 +1,6 @@
 package org.maplibre.mlt.ffi;
 
-import static java.lang.foreign.ValueLayout.JAVA_BYTE;
-
 import java.lang.foreign.MemorySegment;
-import java.nio.charset.StandardCharsets;
 import org.maplibre.mlt.ffi.raw.mlt_ffi_h;
 
 /** An error reported by the native library. */
@@ -50,15 +47,10 @@ public final class MltException extends RuntimeException {
 
   /** Reads the native {@code ConvertError} behind {@code error} and frees it. */
   static MltException fromNative(MemorySegment error) {
-    MemorySegment write = mlt_ffi_h.diplomat_buffer_write_create(64);
     try {
       Kind kind = Kind.fromNative(mlt_ffi_h.ConvertError_kind(error));
-      mlt_ffi_h.ConvertError_message(error, write);
-      long length = mlt_ffi_h.diplomat_buffer_write_len(write);
-      byte[] bytes = mlt_ffi_h.diplomat_buffer_write_get_bytes(write).reinterpret(length).toArray(JAVA_BYTE);
-      return new MltException(kind, new String(bytes, StandardCharsets.UTF_8));
+      return new MltException(kind, Diplomat.string(write -> mlt_ffi_h.ConvertError_message(error, write)));
     } finally {
-      mlt_ffi_h.diplomat_buffer_write_destroy(write);
       mlt_ffi_h.ConvertError_destroy(error);
     }
   }

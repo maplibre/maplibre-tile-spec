@@ -84,7 +84,9 @@ pub mod wire {
         LengthType, LogicalEncoding, LogicalTechnique, Morton, OffsetType, PhysicalEncoding,
         RleLayout, RleMeta, StreamMeta, StreamType, ValueKind, VertexLogical,
     };
-    pub use crate::decoder::{ColumnDecl, ColumnStorage, ColumnType, DictLayout, StringLayout};
+    pub use crate::decoder::{
+        ColumnDecl, ColumnStorage, ColumnType, DictLayout, LayerBytes, StringLayout,
+    };
     #[cfg(feature = "unstable-v2")]
     pub use crate::decoder::{GeoLayout, LayerLayout};
     pub use crate::utils::analyze::{Analyze, StatType};
