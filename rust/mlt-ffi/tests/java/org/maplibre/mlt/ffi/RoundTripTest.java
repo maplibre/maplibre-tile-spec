@@ -73,7 +73,7 @@ class RoundTripTest {
     byte[] built = encode(encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "POINT (25 17)", 1L);
-      encoder.setBool("key", true);
+      encoder.setProperty("key", true);
     });
 
     assertArrayEquals(MltConverter.mvtToMlt(fixture("point-boolean.mvt")), built);
@@ -84,11 +84,11 @@ class RoundTripTest {
     byte[] built = encode(encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "LINESTRING (0 0, 10 10, 20 5)", 3L);
-      encoder.setBool("flag", false);
-      encoder.setString("name", "alpha");
+      encoder.setProperty("flag", false);
+      encoder.setProperty("name", "alpha");
       beginFeature(encoder, "MULTILINESTRING ((1 1, 2 2), (5 5, 6 7, 8 9))", 4L);
-      encoder.setBool("flag", true);
-      encoder.setString("name", "beta");
+      encoder.setProperty("flag", true);
+      encoder.setProperty("name", "beta");
     });
 
     assertArrayEquals(built, MltConverter.mvtToMlt(MltConverter.mltToMvt(built)));
@@ -99,7 +99,7 @@ class RoundTripTest {
     byte[] built = encode(encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "POLYGON ((0 0, 100 0, 100 100, 0 100, 0 0), (20 20, 20 40, 40 40, 40 20, 20 20))");
-      encoder.setString("kind", "park");
+      encoder.setProperty("kind", "park");
     });
 
     assertArrayEquals(built, MltConverter.mvtToMlt(MltConverter.mltToMvt(built)));
@@ -111,10 +111,43 @@ class RoundTripTest {
     byte[] built = encode(v2, encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0)), ((20 20, 30 20, 30 30, 20 30, 20 20)))", 1L);
-      encoder.setBool("key", true);
+      encoder.setProperty("key", true);
     });
 
     assertArrayEquals(built, MltConverter.mvtToMlt(MltConverter.mltToMvt(built), v2));
+  }
+
+  @Test
+  void setPropertyEncodesAnyNumberAsLongAndAnyObjectAsItsString() {
+    byte[] boxed = encode(encoder -> {
+      encoder.beginLayer("layer", EXTENT);
+      beginFeature(encoder, "POINT (1 1)");
+      encoder.setProperty("int", 3);
+      encoder.setProperty("text", new StringBuilder("beta"));
+    });
+    byte[] plain = encode(encoder -> {
+      encoder.beginLayer("layer", EXTENT);
+      beginFeature(encoder, "POINT (1 1)");
+      encoder.setProperty("int", 3L);
+      encoder.setProperty("text", "beta");
+    });
+
+    assertArrayEquals(plain, boxed);
+  }
+
+  @Test
+  void setPropertySkipsNull() {
+    byte[] skipped = encode(encoder -> {
+      encoder.beginLayer("layer", EXTENT);
+      beginFeature(encoder, "POINT (1 1)");
+      encoder.setProperty("missing", null);
+    });
+    byte[] bare = encode(encoder -> {
+      encoder.beginLayer("layer", EXTENT);
+      beginFeature(encoder, "POINT (1 1)");
+    });
+
+    assertArrayEquals(bare, skipped);
   }
 
   @Test
@@ -122,16 +155,16 @@ class RoundTripTest {
     byte[] mixed = encode(encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "POINT (1 1)");
-      encoder.setLong("key", 3L);
+      encoder.setProperty("key", 3L);
       beginFeature(encoder, "POINT (2 2)");
-      encoder.setFloat("key", 1.5f);
+      encoder.setProperty("key", 1.5f);
     });
     byte[] doubles = encode(encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "POINT (1 1)");
-      encoder.setDouble("key", 3.0);
+      encoder.setProperty("key", 3.0);
       beginFeature(encoder, "POINT (2 2)");
-      encoder.setDouble("key", 1.5);
+      encoder.setProperty("key", 1.5);
     });
 
     assertArrayEquals(doubles, mixed);
@@ -142,16 +175,16 @@ class RoundTripTest {
     byte[] mixed = encode(encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "POINT (1 1)");
-      encoder.setBool("key", true);
+      encoder.setProperty("key", true);
       beginFeature(encoder, "POINT (2 2)");
-      encoder.setLong("key", 5L);
+      encoder.setProperty("key", 5L);
     });
     byte[] text = encode(encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "POINT (1 1)");
-      encoder.setString("key", "true");
+      encoder.setProperty("key", "true");
       beginFeature(encoder, "POINT (2 2)");
-      encoder.setString("key", "5");
+      encoder.setProperty("key", "5");
     });
 
     assertArrayEquals(text, mixed);
@@ -185,17 +218,17 @@ class RoundTripTest {
     byte[] fresh = encode(encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "POINT (2 2)");
-      encoder.setString("second", "two");
+      encoder.setProperty("second", "two");
     });
     byte[] reused = encode(encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "POINT (1 1)");
-      encoder.setLong("first", 1L);
-      encoder.setLong("second", 2L);
+      encoder.setProperty("first", 1L);
+      encoder.setProperty("second", 2L);
       encoder.toByteArray();
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "POINT (2 2)");
-      encoder.setString("second", "two");
+      encoder.setProperty("second", "two");
     });
 
     assertArrayEquals(fresh, reused);
@@ -223,7 +256,7 @@ class RoundTripTest {
       encoder.beginLayer("layer", EXTENT);
       for (int f = 0; f < 50; f++) {
         beginFeature(encoder, "POINT (" + f + " " + f * 2 + ")", f);
-        encoder.setString("name", "feature " + f);
+        encoder.setProperty("name", "feature " + f);
       }
     });
   }
@@ -264,7 +297,7 @@ class RoundTripTest {
     try (var encoder = new MltEncoder()) {
       encoder.beginLayer("layer", EXTENT);
 
-      var error = assertThrows(MltException.class, () -> encoder.setLong("key", 1));
+      var error = assertThrows(MltException.class, () -> encoder.setProperty("key", 1));
 
       assertEquals(MltException.Kind.INVALID_FEATURE, error.kind());
       assertEquals("no feature begun", error.getMessage());
@@ -312,7 +345,7 @@ class RoundTripTest {
     encoder.beginLayer("layer", EXTENT);
     encoder.close();
 
-    var error = assertThrows(IllegalStateException.class, () -> encoder.setLong("key", 1));
+    var error = assertThrows(IllegalStateException.class, () -> encoder.setProperty("key", 1));
 
     assertEquals("MltEncoder is closed", error.getMessage());
   }

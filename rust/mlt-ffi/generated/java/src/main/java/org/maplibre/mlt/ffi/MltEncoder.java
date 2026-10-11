@@ -121,7 +121,7 @@ public final class MltEncoder implements AutoCloseable {
    * @throws IllegalStateException if no layer has begun or the encoder is closed
    * @throws MltException if no feature has begun
    */
-  public void setBool(String key, boolean value) {
+  private void setBool(String key, boolean value) {
     Diplomat.check(mlt_ffi_h.MltLayerBuilder_set_bool(results, layer(), key(key), value));
   }
 
@@ -131,7 +131,7 @@ public final class MltEncoder implements AutoCloseable {
    * @throws IllegalStateException if no layer has begun or the encoder is closed
    * @throws MltException if no feature has begun
    */
-  public void setLong(String key, long value) {
+  private void setLong(String key, long value) {
     Diplomat.check(mlt_ffi_h.MltLayerBuilder_set_i64(results, layer(), key(key), value));
   }
 
@@ -141,7 +141,7 @@ public final class MltEncoder implements AutoCloseable {
    * @throws IllegalStateException if no layer has begun or the encoder is closed
    * @throws MltException if no feature has begun
    */
-  public void setFloat(String key, float value) {
+  private void setFloat(String key, float value) {
     Diplomat.check(mlt_ffi_h.MltLayerBuilder_set_f32(results, layer(), key(key), value));
   }
 
@@ -151,7 +151,7 @@ public final class MltEncoder implements AutoCloseable {
    * @throws IllegalStateException if no layer has begun or the encoder is closed
    * @throws MltException if no feature has begun
    */
-  public void setDouble(String key, double value) {
+  private void setDouble(String key, double value) {
     Diplomat.check(mlt_ffi_h.MltLayerBuilder_set_f64(results, layer(), key(key), value));
   }
 
@@ -161,9 +161,29 @@ public final class MltEncoder implements AutoCloseable {
    * @throws IllegalStateException if no layer has begun or the encoder is closed
    * @throws MltException if no feature has begun
    */
-  public void setString(String key, String value) {
+  private void setString(String key, String value) {
     int column = key(key);
     Diplomat.check(mlt_ffi_h.MltLayerBuilder_set_str(results, layer(), column, utf8View(value)));
+  }
+
+  /**
+   * Sets a property of the current feature by the runtime type of its value.
+   * <p>
+   * Booleans, floats and doubles keep their kind, any other number is stored as a long, and everything else as its string form.
+   * A null value is skipped.
+   *
+   * @throws IllegalStateException if no layer has begun or the encoder is closed
+   * @throws MltException if no feature has begun
+   */
+  public void setProperty(String key, Object value) {
+    switch (value) {
+      case null -> { }
+      case Boolean b -> setBool(key, b);
+      case Float f -> setFloat(key, f);
+      case Double d -> setDouble(key, d);
+      case Number n -> setLong(key, n.longValue());
+      case Object o -> setString(key, o.toString());
+    }
   }
 
   /**
