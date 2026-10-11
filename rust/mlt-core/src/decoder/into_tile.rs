@@ -5,7 +5,7 @@
 //! feature, owning its geometry and property values outright. That is the form
 //! the optimizer, the sorting pipeline, and the converters work in.
 
-use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty, PropValueRef};
+use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::{Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested};
 use crate::errors::AsMltError as _;
@@ -49,7 +49,7 @@ impl ParsedLayer01<'_> {
             let mut values = dec.alloc::<PropValue>(names.len())?;
             for (col_idx, value) in feat.iter_all_properties().enumerate() {
                 values.push(match value {
-                    Some(v) => prop_value_from_ref(v),
+                    Some(v) => v.into(),
                     None => col_nulls[col_idx].clone(),
                 });
             }
@@ -182,23 +182,6 @@ fn nested_of(
         values.push(value);
     }
     Ok(values)
-}
-
-/// Convert a [`PropValueRef`] (as yielded by [`crate::FeatureRef::iter_all_properties`])
-/// into an owned [`PropValue`].
-fn prop_value_from_ref(value: PropValueRef<'_>) -> PropValue {
-    match value {
-        PropValueRef::Bool(v) => PropValue::Bool(Some(v)),
-        PropValueRef::I8(v) => PropValue::I8(Some(v)),
-        PropValueRef::U8(v) => PropValue::U8(Some(v)),
-        PropValueRef::I32(v) => PropValue::I32(Some(v)),
-        PropValueRef::U32(v) => PropValue::U32(Some(v)),
-        PropValueRef::I64(v) => PropValue::I64(Some(v)),
-        PropValueRef::U64(v) => PropValue::U64(Some(v)),
-        PropValueRef::F32(v) => PropValue::F32(Some(v)),
-        PropValueRef::F64(v) => PropValue::F64(Some(v)),
-        PropValueRef::Str(s) => PropValue::Str(Some(s.to_string())),
-    }
 }
 
 /// Build a flat list of typed null [`PropValue`]s, one per logical column position
