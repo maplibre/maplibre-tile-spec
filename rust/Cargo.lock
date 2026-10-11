@@ -533,9 +533,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50a649af8a827553c29fb0cb4bd4a6f1a0dd695bd3232b9bc98bd9c8a3ffbb8b"
+checksum = "6651c9ed80effdc7db0ff72512157f901af5e3549e341e24b1dd4887d836d838"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -2642,11 +2642,11 @@ checksum = "4050469837a6ff301cd14c1f8f24f88549e6d548f24f64e2148eb0f72cebc51f"
 
 [[package]]
 name = "mac_address"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b367b50a9be9a5d3b5718c1da74e5d6b9c17647f89752ee2562a470cc3c4eb1a"
+checksum = "f3d0581a75c45969c63afd2bb87b1d8b25cfcc556c7a918cf9bb13b0fe8d2381"
 dependencies = [
- "nix 0.30.1",
+ "nix 0.31.3",
  "windows-sys 0.61.2",
 ]
 
@@ -2824,7 +2824,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2865,7 +2865,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.20.1"
+version = "0.20.2"
 dependencies = [
  "arbitrary",
  "bitvec",
@@ -2907,7 +2907,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-ffi"
-version = "0.1.35"
+version = "0.1.36"
 dependencies = [
  "diplomat",
  "diplomat-runtime",
@@ -2917,7 +2917,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "mlt-core",
  "pyo3",
@@ -2938,7 +2938,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-wasm"
-version = "0.1.42"
+version = "0.1.43"
 dependencies = [
  "js-sys",
  "minicov",
@@ -2995,9 +2995,9 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.30.1"
+version = "0.31.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74523f3a35e05aba87a1d978330aef40f67b0304ac79c1c00b294c9830543db6"
+checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
 dependencies = [
  "bitflags 2.13.2",
  "cfg-if",
@@ -4663,9 +4663,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.152"
+version = "1.0.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1741ab7a6cc54a03a89b5d563ed60075c277d9e3cfa73ad0c1f23f23974703c6"
+checksum = "aa62079d232416ecf7b2f938d389e28bbcd3677bcdb67b42e2f29c2433552176"
 dependencies = [
  "indexmap",
  "itoa",
