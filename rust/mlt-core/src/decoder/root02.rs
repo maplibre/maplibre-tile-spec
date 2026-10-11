@@ -95,7 +95,7 @@ pub(crate) fn parse_layer02<'a>(
 
     // ── Geometry section ──────────────────────────────────────────────────
     let (rest, geometry) = parse_geometry(input, header, layout.geometry, feature_count, parser)?;
-    bytes.geometry = u32::try_from(input.len() - rest.len())?;
+    bytes.add_geometry(input.len() - rest.len())?;
     let input = rest;
 
     // ── Counted columns ───────────────────────────────────────────────────
@@ -128,7 +128,7 @@ pub(crate) fn parse_layer02<'a>(
                     column_names.push((Cow::Owned(name), ColumnRole::Property));
                 }
                 properties.push(Raw(RawProperty::SharedDict(shared_dict)));
-                bytes.properties += u32::try_from(before - input.len())?;
+                bytes.add_properties(before - input.len())?;
                 #[cfg(fuzzing)]
                 layer_order.push(crate::decoder::fuzzing::LayerOrdering::Property);
                 continue;
@@ -153,7 +153,7 @@ pub(crate) fn parse_layer02<'a>(
                     IdWidth02::Id64 => RawIdValue::Id64(data),
                 };
                 id_column.set_once(Raw(RawId { presence, value }))?;
-                bytes.ids += u32::try_from(before - input.len())?;
+                bytes.add_ids(before - input.len())?;
             }
             ColumnKind02::Values(column) => {
                 #[cfg(fuzzing)]
@@ -170,7 +170,7 @@ pub(crate) fn parse_layer02<'a>(
                     parser,
                 )?;
                 properties.push(Raw(values.into()));
-                bytes.properties += u32::try_from(before - input.len())?;
+                bytes.add_properties(before - input.len())?;
             }
             ColumnKind02::Nested(column) => {
                 #[cfg(fuzzing)]
@@ -181,7 +181,7 @@ pub(crate) fn parse_layer02<'a>(
                 (input, tree) =
                     parse_nested(input, name, presence, column.root, data_count, parser)?;
                 nested.push(Raw(tree));
-                bytes.properties += u32::try_from(before - input.len())?;
+                bytes.add_properties(before - input.len())?;
             }
         }
     }
@@ -194,7 +194,7 @@ pub(crate) fn parse_layer02<'a>(
     } else {
         (input, Vec::new())
     };
-    bytes.properties += u32::try_from(before - input.len())?;
+    bytes.add_properties(before - input.len())?;
 
     if !input.is_empty() {
         return Err(TrailingLayerData(input.len()));

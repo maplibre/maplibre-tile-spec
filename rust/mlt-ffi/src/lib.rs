@@ -362,12 +362,12 @@ mod ffi {
             Ok(Box::new(MltTileStats(stats)))
         }
 
-        /// Number of layers, in tile order.
+        /// Number of layers with a known tag, in tile order.
         pub fn layer_count(&self) -> usize {
             self.0.len()
         }
 
-        /// The name of layer `i`, or nothing past the last layer.
+        /// The name of the `i`-th layer with a known tag, or nothing past the last one.
         pub fn layer_name(&self, i: usize, out: &mut DiplomatWrite) {
             if let Some((name, _)) = self.0.get(i) {
                 let _ = out.write_str(name);
@@ -379,7 +379,7 @@ mod ffi {
             &self.0[i].0
         }
 
-        /// The bytes of layer `i`, or `None` past the last layer.
+        /// The bytes of the `i`-th layer with a known tag, or `None` past the last one.
         pub fn layer_bytes(&self, i: usize) -> Option<MltLayerBytes> {
             let (_, bytes) = self.0.get(i)?;
             Some(MltLayerBytes {

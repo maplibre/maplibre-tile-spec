@@ -35,19 +35,19 @@ public:
         diplomat::span<const uint8_t> mlt);
 
     /**
-     * Number of layers, in tile order.
+     * Number of layers with a known tag, in tile order.
      */
     inline size_t layer_count() const;
 
     /**
-     * The name of layer `i`, or nothing past the last layer.
+     * The name of the `i`-th layer with a known tag, or nothing past the last one.
      */
     inline std::string layer_name(size_t i) const;
     template <typename W>
     inline void layer_name_write(size_t i, W& writeable_output) const;
 
     /**
-     * The bytes of layer `i`, or `None` past the last layer.
+     * The bytes of the `i`-th layer with a known tag, or `None` past the last one.
      */
     inline std::optional<MltLayerBytes> layer_bytes(size_t i) const;
 

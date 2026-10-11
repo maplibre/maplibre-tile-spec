@@ -16,7 +16,7 @@ class LayerStatsTest {
   }
 
   private static List<MltLayerSize> sizes(List<MltLayerStats> stats) {
-    return stats.stream().map(layer -> new MltLayerSize(layer.name(), layer.bytes())).toList();
+    return stats.stream().map(MltLayerStats::size).toList();
   }
 
   @Test

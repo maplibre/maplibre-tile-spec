@@ -23,6 +23,11 @@ public record MltLayerStats(String name, int bytes, int geometryBytes, int prope
     NativeLibrary.load();
   }
 
+  /** Returns the name and size of this layer. */
+  public MltLayerSize size() {
+    return new MltLayerSize(name, bytes);
+  }
+
   /** Returns what is left of {@link #bytes} once every column is taken out: the tag, name, header and column schema. */
   public int metadataBytes() {
     return bytes - geometryBytes - propertyBytes - idBytes;

@@ -82,14 +82,14 @@ class MltTileStats internal constructor(
         }
     }
 
-    /** Number of layers, in tile order.
+    /** Number of layers with a known tag, in tile order.
      */
     fun layerCount(): ULong {
         val returnVal = lib.MltTileStats_layer_count(handle)
         return (returnVal.toULong())
     }
 
-    /** The name of layer `i`, or nothing past the last layer.
+    /** The name of the `i`-th layer with a known tag, or nothing past the last one.
      */
     fun layerName(i: ULong): String {
         val write = DW.lib.diplomat_buffer_write_create(0)
@@ -99,7 +99,7 @@ class MltTileStats internal constructor(
         return returnString
     }
 
-    /** The bytes of layer `i`, or `None` past the last layer.
+    /** The bytes of the `i`-th layer with a known tag, or `None` past the last one.
      */
     fun layerBytes(i: ULong): MltLayerBytes? {
         val returnVal = lib.MltTileStats_layer_bytes(handle, FFISizet(i))

@@ -184,6 +184,7 @@ public final class MltEncoder implements AutoCloseable {
   /**
    * Returns the size of each layer of the tile {@link #toByteArray} last returned, in {@link #beginLayer} order.
    * A layer without features is left out, as the tile does not hold it.
+   * Empty after a tile that failed to encode.
    */
   public List<MltLayerSize> lastLayerSizes() {
     return lastLayerSizes;
@@ -198,6 +199,7 @@ public final class MltEncoder implements AutoCloseable {
       } catch (MltException e) {
         mlt_ffi_h.MltBuffer_clear(buffer);
         layerSizes.clear();
+        lastLayerSizes = List.of();
         throw e;
       }
       // A layer without features encodes to nothing, so the tile does not hold it.

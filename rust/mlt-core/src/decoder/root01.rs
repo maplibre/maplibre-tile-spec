@@ -126,13 +126,13 @@ impl<'a> Layer01<'a, Lazy> {
                     properties.push(Raw(prop));
                 }
             }
-            let spent = u32::try_from(before - input.len())?;
+            let spent = before - input.len();
             if column.typ == ColumnType::Geometry {
-                bytes.geometry += spent;
+                bytes.add_geometry(spent)?;
             } else if column.typ.is_id() {
-                bytes.ids += spent;
+                bytes.add_ids(spent)?;
             } else {
-                bytes.properties += spent;
+                bytes.add_properties(spent)?;
             }
         }
         if input.is_empty() {

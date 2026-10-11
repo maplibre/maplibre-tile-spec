@@ -11,16 +11,17 @@ test_each_path! { for ["mlt"] in "../test/synthetic/0x02" as bytes_0x02 => match
 
 fn matches_the_inspector([path]: [&Path; 1]) {
     let buffer = fs::read(path).unwrap();
-    let Ok(layers) = Parser::default().parse_layers(&buffer) else {
+    let (tree, err) = annotate_tile(&buffer);
+    let layers = Parser::default().parse_layers(&buffer);
+    assert_eq!(layers.is_err(), err.is_some(), "{}", path.display());
+    let Ok(layers) = layers else {
         return;
     };
     let parsed: Vec<_> = layers
         .iter()
-        .filter_map(mlt_core::Layer::bytes)
+        .map(|layer| layer.bytes().expect("fixtures carry known tags"))
         .map(|b| [b.size(), b.geometry(), b.properties(), b.ids()].map(|n| n as usize))
         .collect();
-    let (tree, err) = annotate_tile(&buffer);
-    assert!(err.is_none(), "{}: {err:?}", path.display());
 
     assert_eq!(parsed, inspector_bytes(&tree.regions), "{}", path.display());
 }
