@@ -7,7 +7,7 @@
 use crate::decoder::model01::Layer01;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::model02::Layer02;
-use crate::{DecodeState, Lazy, Parsed};
+use crate::{DecodeState, Lazy, MltResult, Parsed};
 
 /// A layer that can be one of the known types, or an unknown.
 ///
@@ -29,6 +29,80 @@ pub enum Layer<'a, S: DecodeState = Lazy> {
     Unknown(Unknown<'a>),
 }
 pub type ParsedLayer<'a> = Layer<'a, Parsed>;
+
+/// Every layer starts with a one-byte tag that its size varint counts.
+const TAG_LEN: u32 = 1;
+
+/// The bytes a layer spends on the wire, by what they hold.
+///
+/// Every byte the columns leave over is layer metadata: the tag, name and header.
+/// A v1 layer also keeps its column schema there, while a v2 column counts its own type byte and name.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LayerBytes {
+    pub(crate) size: u32,
+    pub(crate) geometry: u32,
+    pub(crate) properties: u32,
+    pub(crate) ids: u32,
+}
+
+impl LayerBytes {
+    /// Start counting a layer whose body is `body_len` bytes.
+    pub(crate) fn of_body(body_len: usize) -> Self {
+        Self {
+            // The body never exceeds the u32 size varint that framed it.
+            size: u32::try_from(body_len).map_or(u32::MAX, |len| len.saturating_add(TAG_LEN)),
+            ..Self::default()
+        }
+    }
+
+    /// Count `spent` bytes against the geometry.
+    pub(crate) fn add_geometry(&mut self, spent: usize) -> MltResult<()> {
+        self.geometry += u32::try_from(spent)?;
+        Ok(())
+    }
+
+    /// Count `spent` bytes against the id column.
+    pub(crate) fn add_ids(&mut self, spent: usize) -> MltResult<()> {
+        self.ids += u32::try_from(spent)?;
+        Ok(())
+    }
+
+    /// Count `spent` bytes against the properties.
+    pub(crate) fn add_properties(&mut self, spent: usize) -> MltResult<()> {
+        self.properties += u32::try_from(spent)?;
+        Ok(())
+    }
+
+    /// The value of the layer's size varint: the tag and the body, without the varint itself.
+    #[must_use]
+    pub fn size(&self) -> u32 {
+        self.size
+    }
+
+    /// The geometry column, or the v2 geometry section.
+    #[must_use]
+    pub fn geometry(&self) -> u32 {
+        self.geometry
+    }
+
+    /// Every column that is neither geometry nor the id, nested and m-value columns included.
+    #[must_use]
+    pub fn properties(&self) -> u32 {
+        self.properties
+    }
+
+    /// The id column.
+    #[must_use]
+    pub fn ids(&self) -> u32 {
+        self.ids
+    }
+
+    /// What is left of [`Self::size`] once every column is taken out.
+    #[must_use]
+    pub fn metadata(&self) -> u32 {
+        self.size - self.geometry - self.properties - self.ids
+    }
+}
 
 /// Unknown layer data, stored as encoded bytes.
 ///
