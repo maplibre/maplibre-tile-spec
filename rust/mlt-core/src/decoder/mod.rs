@@ -39,7 +39,7 @@ pub use iterators::{
     PropValueRef,
 };
 pub use limits::{Decoder, Parser};
-pub use model::{Layer, ParsedLayer, Unknown};
+pub use model::{Layer, LayerBytes, ParsedLayer, Unknown};
 pub(crate) use model01::{BASE_TYPE_MASK, Column, OPTIONAL_FLAG};
 pub use model01::{ColumnType, Layer01, ParsedLayer01};
 #[cfg(feature = "unstable-v2")]

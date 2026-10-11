@@ -6,7 +6,9 @@ import static java.lang.foreign.ValueLayout.JAVA_BYTE;
 import java.lang.foreign.GroupLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SegmentAllocator;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.function.Consumer;
 import org.maplibre.mlt.ffi.raw.DiplomatU8View;
 import org.maplibre.mlt.ffi.raw.MltConverter_mlt_to_mvt_result;
 import org.maplibre.mlt.ffi.raw.MltConverter_mlt_to_mvt_with_limit_result;
@@ -20,6 +22,8 @@ import org.maplibre.mlt.ffi.raw.MltLayerBuilder_set_f32_result;
 import org.maplibre.mlt.ffi.raw.MltLayerBuilder_set_f64_result;
 import org.maplibre.mlt.ffi.raw.MltLayerBuilder_set_i64_result;
 import org.maplibre.mlt.ffi.raw.MltLayerBuilder_set_str_result;
+import org.maplibre.mlt.ffi.raw.MltTileStats_from_bytes_result;
+import org.maplibre.mlt.ffi.raw.mlt_ffi_h;
 
 /**
  * Reads and writes the structs Diplomat passes across the native boundary.
@@ -44,7 +48,8 @@ final class Diplomat {
       MltLayerBuilder_set_f32_result.layout(),
       MltLayerBuilder_set_f64_result.layout(),
       MltLayerBuilder_set_i64_result.layout(),
-      MltLayerBuilder_set_str_result.layout());
+      MltLayerBuilder_set_str_result.layout(),
+      MltTileStats_from_bytes_result.layout());
     long isOk = MltLayerBuilder_new_result.is_ok$offset();
     for (GroupLayout result : results) {
       long offset = result.byteOffset(groupElement("is_ok"));
@@ -83,6 +88,19 @@ final class Diplomat {
     DiplomatU8View.data(view, allocator.allocateFrom(JAVA_BYTE, bytes));
     DiplomatU8View.len(view, bytes.length);
     return view;
+  }
+
+  /** Returns the UTF-8 text a native call writes into a fresh {@code DiplomatWrite}. */
+  static String string(Consumer<MemorySegment> call) {
+    MemorySegment write = mlt_ffi_h.diplomat_buffer_write_create(64);
+    try {
+      call.accept(write);
+      long length = mlt_ffi_h.diplomat_buffer_write_len(write);
+      byte[] bytes = mlt_ffi_h.diplomat_buffer_write_get_bytes(write).reinterpret(length).toArray(JAVA_BYTE);
+      return new String(bytes, StandardCharsets.UTF_8);
+    } finally {
+      mlt_ffi_h.diplomat_buffer_write_destroy(write);
+    }
   }
 
   /** Copies the bytes a view points at to the heap. */

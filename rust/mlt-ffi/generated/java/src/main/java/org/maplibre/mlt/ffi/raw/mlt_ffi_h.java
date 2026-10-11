@@ -9928,6 +9928,297 @@ public class mlt_ffi_h {
            throw new AssertionError("should not reach here", ex$);
         }
     }
+
+    private static class MltTileStats_from_bytes {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            MltTileStats_from_bytes_result.layout(),
+            DiplomatU8View.layout()
+        );
+
+        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltTileStats_from_bytes");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * MltTileStats_from_bytes_result MltTileStats_from_bytes(DiplomatU8View mlt)
+     * }
+     */
+    public static FunctionDescriptor MltTileStats_from_bytes$descriptor() {
+        return MltTileStats_from_bytes.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * MltTileStats_from_bytes_result MltTileStats_from_bytes(DiplomatU8View mlt)
+     * }
+     */
+    public static MethodHandle MltTileStats_from_bytes$handle() {
+        return MltTileStats_from_bytes.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * MltTileStats_from_bytes_result MltTileStats_from_bytes(DiplomatU8View mlt)
+     * }
+     */
+    public static MemorySegment MltTileStats_from_bytes$address() {
+        return MltTileStats_from_bytes.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * MltTileStats_from_bytes_result MltTileStats_from_bytes(DiplomatU8View mlt)
+     * }
+     */
+    public static MemorySegment MltTileStats_from_bytes(SegmentAllocator allocator, MemorySegment mlt) {
+        var mh$ = MltTileStats_from_bytes.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("MltTileStats_from_bytes", allocator, mlt);
+            }
+            return (MemorySegment)mh$.invokeExact(allocator, mlt);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class MltTileStats_layer_count {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            mlt_ffi_h.C_LONG,
+            mlt_ffi_h.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltTileStats_layer_count");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * size_t MltTileStats_layer_count(const MltTileStats *self)
+     * }
+     */
+    public static FunctionDescriptor MltTileStats_layer_count$descriptor() {
+        return MltTileStats_layer_count.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * size_t MltTileStats_layer_count(const MltTileStats *self)
+     * }
+     */
+    public static MethodHandle MltTileStats_layer_count$handle() {
+        return MltTileStats_layer_count.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * size_t MltTileStats_layer_count(const MltTileStats *self)
+     * }
+     */
+    public static MemorySegment MltTileStats_layer_count$address() {
+        return MltTileStats_layer_count.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * size_t MltTileStats_layer_count(const MltTileStats *self)
+     * }
+     */
+    public static long MltTileStats_layer_count(MemorySegment self) {
+        var mh$ = MltTileStats_layer_count.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("MltTileStats_layer_count", self);
+            }
+            return (long)mh$.invokeExact(self);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class MltTileStats_layer_name {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            mlt_ffi_h.C_POINTER,
+            mlt_ffi_h.C_LONG,
+            mlt_ffi_h.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltTileStats_layer_name");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void MltTileStats_layer_name(const MltTileStats *self, size_t i, DiplomatWrite *write)
+     * }
+     */
+    public static FunctionDescriptor MltTileStats_layer_name$descriptor() {
+        return MltTileStats_layer_name.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void MltTileStats_layer_name(const MltTileStats *self, size_t i, DiplomatWrite *write)
+     * }
+     */
+    public static MethodHandle MltTileStats_layer_name$handle() {
+        return MltTileStats_layer_name.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void MltTileStats_layer_name(const MltTileStats *self, size_t i, DiplomatWrite *write)
+     * }
+     */
+    public static MemorySegment MltTileStats_layer_name$address() {
+        return MltTileStats_layer_name.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void MltTileStats_layer_name(const MltTileStats *self, size_t i, DiplomatWrite *write)
+     * }
+     */
+    public static void MltTileStats_layer_name(MemorySegment self, long i, MemorySegment write) {
+        var mh$ = MltTileStats_layer_name.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("MltTileStats_layer_name", self, i, write);
+            }
+            mh$.invokeExact(self, i, write);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class MltTileStats_layer_bytes {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            MltTileStats_layer_bytes_result.layout(),
+            mlt_ffi_h.C_POINTER,
+            mlt_ffi_h.C_LONG
+        );
+
+        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltTileStats_layer_bytes");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * MltTileStats_layer_bytes_result MltTileStats_layer_bytes(const MltTileStats *self, size_t i)
+     * }
+     */
+    public static FunctionDescriptor MltTileStats_layer_bytes$descriptor() {
+        return MltTileStats_layer_bytes.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * MltTileStats_layer_bytes_result MltTileStats_layer_bytes(const MltTileStats *self, size_t i)
+     * }
+     */
+    public static MethodHandle MltTileStats_layer_bytes$handle() {
+        return MltTileStats_layer_bytes.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * MltTileStats_layer_bytes_result MltTileStats_layer_bytes(const MltTileStats *self, size_t i)
+     * }
+     */
+    public static MemorySegment MltTileStats_layer_bytes$address() {
+        return MltTileStats_layer_bytes.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * MltTileStats_layer_bytes_result MltTileStats_layer_bytes(const MltTileStats *self, size_t i)
+     * }
+     */
+    public static MemorySegment MltTileStats_layer_bytes(SegmentAllocator allocator, MemorySegment self, long i) {
+        var mh$ = MltTileStats_layer_bytes.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("MltTileStats_layer_bytes", allocator, self, i);
+            }
+            return (MemorySegment)mh$.invokeExact(allocator, self, i);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class MltTileStats_destroy {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            mlt_ffi_h.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltTileStats_destroy");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void MltTileStats_destroy(MltTileStats *self)
+     * }
+     */
+    public static FunctionDescriptor MltTileStats_destroy$descriptor() {
+        return MltTileStats_destroy.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void MltTileStats_destroy(MltTileStats *self)
+     * }
+     */
+    public static MethodHandle MltTileStats_destroy$handle() {
+        return MltTileStats_destroy.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void MltTileStats_destroy(MltTileStats *self)
+     * }
+     */
+    public static MemorySegment MltTileStats_destroy$address() {
+        return MltTileStats_destroy.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void MltTileStats_destroy(MltTileStats *self)
+     * }
+     */
+    public static void MltTileStats_destroy(MemorySegment self) {
+        var mh$ = MltTileStats_destroy.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("MltTileStats_destroy", self);
+            }
+            mh$.invokeExact(self);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
     private static final long _POSIX_C_SOURCE = 200809L;
     /**
      * {@snippet lang=c :

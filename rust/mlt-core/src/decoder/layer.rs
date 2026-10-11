@@ -1,7 +1,7 @@
 use crate::codecs::varint::parse_varint;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::root02::parse_layer02;
-use crate::decoder::{ColumnDecl, ColumnStorage, Layer01, ParsedLayer01, Unknown};
+use crate::decoder::{ColumnDecl, ColumnStorage, Layer01, LayerBytes, ParsedLayer01, Unknown};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::{Layer02, ParsedLayer02};
 use crate::utils::{parse_u8, take};
@@ -19,6 +19,17 @@ impl<'a, S: DecodeState> Layer<'a, S> {
             Self::Tag01(l) => Some(l.name()),
             #[cfg(feature = "unstable-v2")]
             Self::Tag02(l) => Some(l.layer().name()),
+            Self::Unknown(_) => None,
+        }
+    }
+
+    /// The bytes the layer spent on the wire, or `None` for a tag this build does not know.
+    #[must_use]
+    pub fn bytes(&self) -> Option<LayerBytes> {
+        match self {
+            Self::Tag01(l) => Some(l.bytes()),
+            #[cfg(feature = "unstable-v2")]
+            Self::Tag02(l) => Some(l.layer().bytes()),
             Self::Unknown(_) => None,
         }
     }
@@ -107,6 +118,7 @@ impl<'a> Layer01<'a, Lazy> {
                 .into_iter()
                 .map(|p| p.into_parsed(dec))
                 .collect::<MltResult<Vec<_>>>()?,
+            bytes: self.bytes,
             #[cfg(fuzzing)]
             layer_order: self.layer_order,
         })
