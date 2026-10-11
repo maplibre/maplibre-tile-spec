@@ -1242,11 +1242,22 @@ macro_rules! kind_mappings {
         }
 
         impl PropValueRef<'_> {
+            /// The [`PropKind`] of this value.
             #[inline]
-            pub(crate) fn kind(&self) -> PropKind {
+            #[must_use]
+            pub fn kind(self) -> PropKind {
                 match self {
                     $(Self::$sv(_) => PropKind::$sv,)*
                     $(Self::$gv(_) => PropKind::$gv,)*
+                }
+            }
+        }
+
+        impl From<PropValueRef<'_>> for PropValue {
+            fn from(value: PropValueRef<'_>) -> Self {
+                match value {
+                    $(PropValueRef::$sv(v) => Self::$sv(Some(v)),)*
+                    $(PropValueRef::$gv(v) => Self::$gv(Some(v.to_owned())),)*
                 }
             }
         }
@@ -1283,6 +1294,106 @@ macro_rules! kind_mappings {
 }
 
 with_kinds!(kind_mappings);
+
+impl PropKind {
+    fn is_signed_int(self) -> bool {
+        matches!(self, Self::I8 | Self::I32 | Self::I64)
+    }
+
+    fn is_unsigned_int(self) -> bool {
+        matches!(self, Self::U8 | Self::U32 | Self::U64)
+    }
+
+    fn is_float(self) -> bool {
+        matches!(self, Self::F32 | Self::F64)
+    }
+
+    /// The kind of a column holding values of both kinds.
+    ///
+    /// Equal kinds stay as they are, signed integers widen to `I64`, unsigned integers to `U64`,
+    /// signed mixed with unsigned to `I64`, floats to `F64`, integers mixed with floats to `F64`,
+    /// and any other mix to `Str`.
+    #[must_use]
+    pub fn merge(self, other: Self) -> Self {
+        let int = |k: Self| k.is_signed_int() || k.is_unsigned_int();
+        if self == other {
+            self
+        } else if int(self) && int(other) {
+            if self.is_unsigned_int() && other.is_unsigned_int() {
+                Self::U64
+            } else {
+                Self::I64
+            }
+        } else if (self.is_float() || int(self)) && (other.is_float() || int(other)) {
+            Self::F64
+        } else {
+            Self::Str
+        }
+    }
+}
+
+impl PropValueRef<'_> {
+    fn as_int(self) -> Option<i128> {
+        match self {
+            Self::I8(v) => Some(i128::from(v)),
+            Self::U8(v) => Some(i128::from(v)),
+            Self::I32(v) => Some(i128::from(v)),
+            Self::U32(v) => Some(i128::from(v)),
+            Self::I64(v) => Some(i128::from(v)),
+            Self::U64(v) => Some(i128::from(v)),
+            Self::Bool(_) | Self::F32(_) | Self::F64(_) | Self::Str(_) => None,
+        }
+    }
+
+    /// `self` as a value of column kind `kind`.
+    ///
+    /// A matching kind is kept, an integer goes to another integer kind when it is in range,
+    /// a float or integer goes to `F64` as an `as f64` cast, and anything goes to `Str` as its text.
+    /// Every other conversion, and an out-of-range integer, gives the null of `kind`.
+    #[must_use]
+    pub fn coerce(self, kind: PropKind) -> PropValue {
+        if self.kind() == kind {
+            return self.into();
+        }
+        let int = self.as_int();
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "integers in a float column are taken as floats"
+        )]
+        match kind {
+            PropKind::I8 => PropValue::I8(int.and_then(|v| i8::try_from(v).ok())),
+            PropKind::U8 => PropValue::U8(int.and_then(|v| u8::try_from(v).ok())),
+            PropKind::I32 => PropValue::I32(int.and_then(|v| i32::try_from(v).ok())),
+            PropKind::U32 => PropValue::U32(int.and_then(|v| u32::try_from(v).ok())),
+            PropKind::I64 => PropValue::I64(int.and_then(|v| i64::try_from(v).ok())),
+            PropKind::U64 => PropValue::U64(int.and_then(|v| u64::try_from(v).ok())),
+            PropKind::F64 => PropValue::F64(match self {
+                Self::F32(v) => Some(f64::from(v)),
+                Self::F64(v) => Some(v),
+                Self::Bool(_) | Self::Str(_) => None,
+                Self::I8(_)
+                | Self::U8(_)
+                | Self::I32(_)
+                | Self::U32(_)
+                | Self::I64(_)
+                | Self::U64(_) => int.map(|v| v as f64),
+            }),
+            PropKind::Str => PropValue::Str(Some(match self {
+                Self::Bool(v) => v.to_string(),
+                Self::I8(v) => v.to_string(),
+                Self::U8(v) => v.to_string(),
+                Self::I32(v) => v.to_string(),
+                Self::U32(v) => v.to_string(),
+                Self::I64(v) => v.to_string(),
+                Self::U64(v) => v.to_string(),
+                Self::F32(v) => v.to_string(),
+                Self::F64(v) => v.to_string(),
+                Self::Str(v) => v.to_string(),
+            })),
+            PropKind::Bool | PropKind::F32 => PropValue::null(kind),
+        }
+    }
+}
 
 /// How many of a ring's coordinates MLT stores, which is all of them but a closing one.
 pub(crate) fn stored_ring_len(ring: &LineString<i32>) -> usize {
@@ -1481,8 +1592,61 @@ fn validate_kinds<T: FeatureColumn>(kinds: &[PropKind], feature: &TileFeature) -
 #[cfg(test)]
 mod tests {
     use geo_types::{Geometry, Point};
+    use rstest::rstest;
 
     use super::*;
+
+    #[rstest]
+    #[case::same_kind(PropKind::I32, PropKind::I32, PropKind::I32)]
+    #[case::signed_widths(PropKind::I8, PropKind::I32, PropKind::I64)]
+    #[case::unsigned_widths(PropKind::U8, PropKind::U32, PropKind::U64)]
+    #[case::signed_with_unsigned(PropKind::I64, PropKind::U64, PropKind::I64)]
+    #[case::small_signed_with_unsigned(PropKind::I8, PropKind::U8, PropKind::I64)]
+    #[case::floats(PropKind::F32, PropKind::F64, PropKind::F64)]
+    #[case::int_with_float(PropKind::U8, PropKind::F32, PropKind::F64)]
+    #[case::bool_with_int(PropKind::Bool, PropKind::I64, PropKind::Str)]
+    #[case::str_with_float(PropKind::Str, PropKind::F64, PropKind::Str)]
+    fn merge_kinds(#[case] a: PropKind, #[case] b: PropKind, #[case] expected: PropKind) {
+        assert_eq!(a.merge(b), expected);
+        assert_eq!(b.merge(a), expected);
+    }
+
+    #[rstest]
+    #[case::same_kind(PropValueRef::I32(-3), PropKind::I32, PropValue::I32(Some(-3)))]
+    #[case::widen_signed(PropValueRef::I8(-3), PropKind::I64, PropValue::I64(Some(-3)))]
+    #[case::unsigned_into_signed(PropValueRef::U64(7), PropKind::I64, PropValue::I64(Some(7)))]
+    #[case::u64_above_i64_max(PropValueRef::U64(u64::MAX), PropKind::I64, PropValue::I64(None))]
+    #[case::negative_into_u64(PropValueRef::I64(-1), PropKind::U64, PropValue::U64(None))]
+    #[case::narrowing_out_of_range(PropValueRef::I32(300), PropKind::U8, PropValue::U8(None))]
+    #[case::f32_into_f64(PropValueRef::F32(0.5), PropKind::F64, PropValue::F64(Some(0.5)))]
+    #[case::int_into_f64(PropValueRef::I64(-2), PropKind::F64, PropValue::F64(Some(-2.0)))]
+    #[case::u64_into_f64(PropValueRef::U64(1 << 63), PropKind::F64, PropValue::F64(Some(9.223_372_036_854_776e18)))]
+    #[case::bool_into_str(PropValueRef::Bool(true), PropKind::Str, PropValue::Str(Some("true".into())))]
+    #[case::int_into_str(PropValueRef::I64(-12), PropKind::Str, PropValue::Str(Some("-12".into())))]
+    #[case::f32_into_str(PropValueRef::F32(1.5), PropKind::Str, PropValue::Str(Some("1.5".into())))]
+    #[case::str_into_str(PropValueRef::Str("a"), PropKind::Str, PropValue::Str(Some("a".into())))]
+    #[case::str_into_int(PropValueRef::Str("1"), PropKind::I64, PropValue::I64(None))]
+    #[case::f64_into_f32(PropValueRef::F64(1.0), PropKind::F32, PropValue::F32(None))]
+    fn coerce_to_kind(
+        #[case] value: PropValueRef<'_>,
+        #[case] kind: PropKind,
+        #[case] expected: PropValue,
+    ) {
+        assert_eq!(value.coerce(kind), expected);
+    }
+
+    #[rstest]
+    #[case::bool(PropValueRef::Bool(true), PropKind::Bool, PropValue::Bool(Some(true)))]
+    #[case::u8(PropValueRef::U8(1), PropKind::U8, PropValue::U8(Some(1)))]
+    #[case::str(PropValueRef::Str("x"), PropKind::Str, PropValue::Str(Some("x".into())))]
+    fn ref_into_owned_keeps_kind(
+        #[case] value: PropValueRef<'_>,
+        #[case] kind: PropKind,
+        #[case] expected: PropValue,
+    ) {
+        assert_eq!(value.kind(), kind);
+        assert_eq!(PropValue::from(value), expected);
+    }
 
     fn point_feature(properties: Vec<PropValue>) -> TileFeature {
         TileFeature {
