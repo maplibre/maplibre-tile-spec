@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.36](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.35...rust-mlt-ffi-v0.1.36) - 2026-10-11
+
+### Added
+
+- *(rust)* per-layer byte stats in mlt-ffi ([#1907](https://github.com/maplibre/maplibre-tile-spec/pull/1907))
+
 ## [0.1.35](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.34...rust-mlt-ffi-v0.1.35) - 2026-10-10
 
 ### Added
