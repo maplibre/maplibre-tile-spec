@@ -87,7 +87,7 @@ jobs:
             convert /tmp/benchmark-tiles/ /tmp/mlt-out/
           test -s "$HOTPATH_OUTPUT_PATH"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: hotpath-report
           path: report.json
@@ -114,7 +114,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: echo "$PR_NUMBER" > /tmp/size-metrics/pr_number.txt
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: size-metrics
           path: /tmp/size-metrics/

@@ -1,0 +1,24 @@
+name: mlt-setup-jextract
+description: Install the pinned jextract release through SDKMAN and put it on the PATH
+
+inputs:
+  version:
+    description: SDKMAN jextract version
+    default: 22.ea.6
+
+runs:
+  using: 'composite'
+  steps:
+
+    - name: Install jextract
+      shell: bash
+      env:
+        JEXTRACT_VERSION: ${{ inputs.version }}
+        SDKMAN_DIR: ${{ runner.temp }}/sdkman
+      run: |
+        set -eo pipefail
+        curl --fail --silent --show-error --location "https://get.sdkman.io?rcupdate=false" | bash
+        # sdkman-init.sh reads unset variables, so it cannot run under `set -u`
+        source "${SDKMAN_DIR}/bin/sdkman-init.sh"
+        sdk install jextract "$JEXTRACT_VERSION"
+        echo "${SDKMAN_DIR}/candidates/jextract/current/bin" >> "$GITHUB_PATH"

@@ -8,6 +8,10 @@ import com.sun.jna.Structure
 internal interface MltBufferLib : Library {
     fun MltBuffer_destroy(handle: Pointer)
 
+    fun MltBuffer_new(): Pointer
+
+    fun MltBuffer_clear(handle: Pointer): Unit
+
     fun MltBuffer_as_bytes(handle: Pointer): Slice
 
     fun MltBuffer_len(handle: Pointer): FFISizet
@@ -47,6 +51,23 @@ class MltBuffer internal constructor(
     companion object {
         internal val libClass: Class<MltBufferLib> = MltBufferLib::class.java
         internal val lib: MltBufferLib = Native.load("mlt_ffi", libClass)
+
+        /** An empty buffer, to collect the layers of one tile.
+         */
+        @JvmStatic
+        fun new_(): MltBuffer {
+            val returnVal = lib.MltBuffer_new()
+            val selfEdges: List<Any> = listOf()
+            val handle = returnVal
+            val returnOpaque = MltBuffer(handle, selfEdges, true)
+            return returnOpaque
+        }
+    }
+
+    /** Empty the buffer, keeping its allocation for the next tile.
+     */
+    fun clear() {
+        val returnVal = lib.MltBuffer_clear(handle)
     }
 
     /** Borrow the contents as a byte slice.

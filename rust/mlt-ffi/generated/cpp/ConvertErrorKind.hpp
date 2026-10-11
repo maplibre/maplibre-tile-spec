@@ -25,6 +25,7 @@ inline ConvertErrorKind ConvertErrorKind::FromFFI(diplomat::capi::ConvertErrorKi
     switch (c_enum) {
         case diplomat::capi::ConvertErrorKind_InvalidInput:
         case diplomat::capi::ConvertErrorKind_EncodingFailed:
+        case diplomat::capi::ConvertErrorKind_InvalidFeature:
             return static_cast<ConvertErrorKind::Value>(c_enum);
         default:
             std::abort();

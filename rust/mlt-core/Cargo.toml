@@ -1,7 +1,7 @@
 [package]
 name = "mlt-core"
 description = "MapLibre Tile library code"
-version = "0.20.0"
+version = "0.20.1"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -109,6 +109,10 @@ required-features = ["__private"]
 [[test]]
 name = "geojson02"
 required-features = ["__private-v2"]
+
+[[test]]
+name = "layer_bytes"
+required-features = ["unstable-v2"]
 
 [[test]]
 name = "mvt_round_trip"

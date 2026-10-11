@@ -8,7 +8,7 @@ use crate::tile::PropKind;
 /// Column kind inferred so far. `Unknown` is a column seen only as null, which
 /// resolves to [`PropKind::Str`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum InferredKind {
+pub enum InferredKind {
     Unknown,
     Bool,
     I64,
@@ -22,6 +22,7 @@ impl InferredKind {
     /// Merge with another kind: `I64`+`U64` widen to `I64`, floats widen to
     /// `F64`, integers mixed with floats widen to `F64`, and any other conflict
     /// falls back to `Str`.
+    #[must_use]
     pub fn merge(self, other: Self) -> Self {
         if self == Self::Unknown {
             return other;
@@ -43,7 +44,8 @@ impl InferredKind {
         }
     }
 
-    fn prop_kind(self) -> PropKind {
+    #[must_use]
+    pub fn prop_kind(self) -> PropKind {
         match self {
             Self::Unknown | Self::Str => PropKind::Str,
             Self::Bool => PropKind::Bool,

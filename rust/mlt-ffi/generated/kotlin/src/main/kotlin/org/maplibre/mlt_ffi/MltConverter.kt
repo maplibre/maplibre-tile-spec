@@ -10,6 +10,11 @@ internal interface MltConverterLib : Library {
 
     fun MltConverter_mlt_to_mvt(mlt: Slice): ResultPointerPointer
 
+    fun MltConverter_mlt_to_mvt_with_limit(
+        mlt: Slice,
+        maxBytes: FFIUint32,
+    ): ResultPointerPointer
+
     fun MltConverter_mvt_to_mlt(
         mvt: Slice,
         options: Pointer,
@@ -55,6 +60,34 @@ class MltConverter internal constructor(
             val mltSliceMemory = PrimitiveArrayTools.borrow(mlt)
 
             val returnVal = lib.MltConverter_mlt_to_mvt(mltSliceMemory.slice)
+            try {
+                val nativeOkVal = returnVal.getNativeOk()
+                if (nativeOkVal != null) {
+                    val selfEdges: List<Any> = listOf()
+                    val handle = nativeOkVal
+                    val returnOpaque = MltBuffer(handle, selfEdges, true)
+                    return returnOpaque.ok()
+                } else {
+                    val selfEdges: List<Any> = listOf()
+                    val handle = returnVal.getNativeErr()!!
+                    val returnOpaque = ConvertError(handle, selfEdges, true)
+                    return returnOpaque.err()
+                }
+            } finally {
+                mltSliceMemory.close()
+            }
+        }
+
+        /** Decode MLT bytes into MVT bytes within a memory budget.
+         */
+        @JvmStatic
+        fun mltToMvtWithLimit(
+            mlt: UByteArray,
+            maxBytes: UInt,
+        ): Result<MltBuffer> {
+            val mltSliceMemory = PrimitiveArrayTools.borrow(mlt)
+
+            val returnVal = lib.MltConverter_mlt_to_mvt_with_limit(mltSliceMemory.slice, FFIUint32(maxBytes))
             try {
                 val nativeOkVal = returnVal.getNativeOk()
                 if (nativeOkVal != null) {

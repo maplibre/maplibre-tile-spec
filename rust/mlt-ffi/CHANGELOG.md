@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.35](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.34...rust-mlt-ffi-v0.1.35) - 2026-10-10
+
+### Added
+
+- *(rust)* add an Java panama ffi wrapper ([#1905](https://github.com/maplibre/maplibre-tile-spec/pull/1905))
+- *(rust)* Add an feature based ffi builder ([#1904](https://github.com/maplibre/maplibre-tile-spec/pull/1904))
+
 ## [0.1.34](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.33...rust-mlt-ffi-v0.1.34) - 2026-10-08
 
 ### Added
