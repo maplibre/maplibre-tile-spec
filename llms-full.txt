@@ -1528,19 +1528,20 @@ A layer needs `0xD` to stroke its polygon outlines, to hold anything but polygon
 
 ### Z Coordinates
 
-A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of the extension field of its [encoding byte](<#encoding-byte>) is `1` for triples and `0` for pairs. A `z_step` byte is the stream's [parameter](<#parameters>). `byte_length` does not count it.
+A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of the extension field of its [encoding byte](<#encoding-byte>) is `1` for triples and `0` for pairs. A byte holding `z_step + 3` is the stream's [parameter](<#parameters>). `byte_length` does not count it.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_point.mlt&amp;at=vertices>) - a point 12 m up, its `z` one word after `x` and `y`.
 
-\\\[ \\text{elevation} = -10000\\,\\text{m} + z \\cdot 10^{\\,z\\\_step - 3}\\,\\text{m} \\\]
+\\\[ \\text{elevation} = -10000\\,\\text{m} + z \\cdot 10^{\\,z\\\_step}\\,\\text{m} \\\]
 
-| `z_step` | `0` | `1` | `2` | `3` | `4` | `5` | `6` | `7` |
+| `z_step` | `-3` | `-2` | `-1` | `0` | `1` | `2` | `3` | `4` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Byte | `0` | `1` | `2` | `3` | `4` | `5` | `6` | `7` |
 | Step | 1 mm | 1 cm | 1 dm | 1 m | 10 m | 100 m | 1 km | 10 km |
 
-`8`-`255` are unassigned and MUST be rejected.
+Bytes `8`-`255` are reserved and MUST be rejected.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices>) - a polygon with a hole at a `z_step` of `2`, one unit per decimeter.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices>) - a polygon with a hole at a `z_step` of `-1`, one unit per decimeter.
 
 `z` is a signed 32-bit word like `x` and `y`, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m. Like `x` and `y`, `z` can be negative.
 
@@ -2035,7 +2036,7 @@ Parameters sit between `byte_length`, where written, and the payload:
 | --- | --- |
 | Framed, Exception-Free ALP | `scale` (byte), `base` (ZigZag varint). See [framed, exception-free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/#alp>). |
 | Morton | `bits` (varint), `shift` (varint). The grid the codes are laid on. |
-| Any, on a vertex stream with extension bit 0 set | `z_step` (byte). See [Z coordinates](<#z-coordinates>). |
+| Any, on a vertex stream with extension bit 0 set | `z_step + 3` (byte). See [Z coordinates](<#z-coordinates>). |
 
 ## Examples
 

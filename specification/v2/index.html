@@ -2196,27 +2196,38 @@ A feature that is not a polygon stores no triangle count and owns no run of the 
 <h3 id="z-coordinates">Z Coordinates<a class="headerlink" href="#z-coordinates" title="Link to this section">&para;</a></h3>
 <p>A vertex stream MAY hold <code>(x, y, z)</code> triples instead of <code>(x, y)</code> pairs.
 Bit 0 of the extension field of its <a href="#encoding-byte">encoding byte</a> is <code>1</code> for triples and <code>0</code> for pairs.
-A <code>z_step</code> byte is the stream's <a href="#parameters">parameter</a>.
+A byte holding <code>z_step + 3</code> is the stream's <a href="#parameters">parameter</a>.
 <code>byte_length</code> does not count it.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_point.mlt&amp;at=vertices" target="_blank">View example</a> - a point 12 m up, its <code>z</code> one word after <code>x</code> and <code>y</code>.</p>
 <div class="arithmatex">\[
-\text{elevation} = -10000\,\text{m} + z \cdot 10^{\,z\_step - 3}\,\text{m}
+\text{elevation} = -10000\,\text{m} + z \cdot 10^{\,z\_step}\,\text{m}
 \]</div>
 <table>
 <thead>
 <tr>
 <th><code>z_step</code></th>
+<th><code>-3</code></th>
+<th><code>-2</code></th>
+<th><code>-1</code></th>
 <th><code>0</code></th>
 <th><code>1</code></th>
 <th><code>2</code></th>
 <th><code>3</code></th>
 <th><code>4</code></th>
-<th><code>5</code></th>
-<th><code>6</code></th>
-<th><code>7</code></th>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>Byte</td>
+<td><code>0</code></td>
+<td><code>1</code></td>
+<td><code>2</code></td>
+<td><code>3</code></td>
+<td><code>4</code></td>
+<td><code>5</code></td>
+<td><code>6</code></td>
+<td><code>7</code></td>
+</tr>
 <tr>
 <td>Step</td>
 <td>1 mm</td>
@@ -2230,8 +2241,8 @@ A <code>z_step</code> byte is the stream's <a href="#parameters">parameter</a>.
 </tr>
 </tbody>
 </table>
-<p><code>8</code>-<code>255</code> are unassigned and MUST be rejected.</p>
-<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices" target="_blank">View example</a> - a polygon with a hole at a <code>z_step</code> of <code>2</code>, one unit per decimeter.</p>
+<p>Bytes <code>8</code>-<code>255</code> are reserved and MUST be rejected.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices" target="_blank">View example</a> - a polygon with a hole at a <code>z_step</code> of <code>-1</code>, one unit per decimeter.</p>
 <p><code>z</code> is a signed 32-bit word like <code>x</code> and <code>y</code>, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m.
 Like <code>x</code> and <code>y</code>, <code>z</code> can be negative.</p>
 <p>The stream holds <code>3 * num_values</code> words for <code>num_values</code> vertices, with <code>x</code>, <code>y</code> and <code>z</code> interleaved.</p>
@@ -4276,7 +4287,7 @@ A decoder MUST select the variant by the layer tag.</p>
 </tr>
 <tr>
 <td>Any, on a vertex stream with extension bit 0 set</td>
-<td><code>z_step</code> (byte). See <a href="#z-coordinates">Z coordinates</a>.</td>
+<td><code>z_step + 3</code> (byte). See <a href="#z-coordinates">Z coordinates</a>.</td>
 </tr>
 </tbody>
 </table>
