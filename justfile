@@ -1,7 +1,6 @@
 #!/usr/bin/env just --justfile
 
 mod cpp
-mod java
 mod inspector 'inspector'
 mod rust
 mod ts
@@ -15,7 +14,6 @@ ci_mode := if env('CI', '') != '' {'1'} else {''}
 
 bench:
     {{just}} rust::bench
-    {{just}} java::bench
     {{just}} ts::bench
 
 # Run integration tests, and override what we expect the output to be with the actual output
@@ -28,28 +26,24 @@ bless: _clean-int-test _test-run-int
 # Delete all build files for multiple languages
 clean:
     {{just}} rust::clean
-    {{just}} java::clean
     {{just}} ts::clean
     {{just}} cpp::clean
 
 # Run all formatting in every language
 fmt:
     {{just}} rust::fmt
-    {{just}} java::fmt
     {{just}} ts::fmt
     {{just}} cpp::fmt
 
 # Run linting in every language. Run `just fmt` to fix formatting issues.
 lint:
     {{just}} rust::lint
-    {{just}} java::lint
     {{just}} ts::lint
     {{just}} cpp::lint
 
 # Run all tests in every language, including integration tests
 test: test-int
     {{just}} rust::test
-    {{just}} java::test
     {{just}} ts::test
     {{just}} cpp::test
 
@@ -62,7 +56,7 @@ docs: inspector::build
 docs-build: rust::wasm-build inspector::build
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 
-# Merge the lcov and JaCoCo coverage reports in `dir` into one Cobertura report at `out`
+# Merge the lcov coverage reports in `dir` into one Cobertura report at `out`
 coverage-merge dir out: (cargo-install 'grcov')
     #!/usr/bin/env bash
     set -euo pipefail

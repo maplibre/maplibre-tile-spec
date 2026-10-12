@@ -22,7 +22,6 @@ description: Libraries, tools and datasets that support MLT
 |---|---|---|---|
 | [maplibre-tile-spec/cpp](https://github.com/maplibre/maplibre-tile-spec/tree/main/cpp) | C++ | Decoder | Used by MapLibre Native |
 | [maplibre-tile-spec/ts](https://github.com/maplibre/maplibre-tile-spec/tree/main/ts) | TypeScript | Decoder / Encoder | Used by MapLibre GL JS. The encoder is still experimental. |
-| [maplibre-tile-spec/java](https://github.com/maplibre/maplibre-tile-spec/tree/main/java) | Java | Encoder | |
 | [maplibre-tile-spec/rust/mlt](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md) | Rust | Decoder / Encoder | The `mlt` CLI and TUI for inspecting and converting tiles, built on `mlt-core`. |
 | [maplibre-tile-spec/rust/mlt-core](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md) | Rust | Decoder / Encoder | The core library. Used in Martin. |
 | [maplibre-tile-spec/rust/mlt-wasm](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm) | Rust / WASM | Decoder | Uses `mlt-core` |

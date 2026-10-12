@@ -37,7 +37,6 @@ See the [MVT compatibility notes](docs/overview.md#mvt-compatibility) for detail
 
 - `/spec` MLT specification and related documentation
 - `/test` Test MVT tiles and the expected MLT conversion results
-- `/java` Java encoder for converting MVT to MLT, as well as a decoder parsing MLT to an in-memory representation.
 - `/js` Javascript decoder
 - `/rust` Rust decoder
 

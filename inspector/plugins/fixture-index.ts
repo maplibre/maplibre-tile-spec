@@ -74,7 +74,7 @@ function readFacets(
  * Every corpus the picker offers: the prefix its keys carry, and where the tiles are,
  * relative to `test/synthetic` which the `fixtures` symlink points at.
  * The synthetic sets are disjoint rather than re-encodings of one another; the rest are
- * real-world tiles, which the Java encoder wrote into `test/expected` and `mlt convert` re-encoded in place.
+ * real-world tiles, which the retired Java encoder wrote into `test/expected` and `mlt convert` re-encoded in place.
  */
 export const FIXTURE_SOURCES: { directory: string; from: string }[] = [
   { directory: "0x01", from: "0x01" },

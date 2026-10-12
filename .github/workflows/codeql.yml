@@ -27,7 +27,7 @@ jobs:
         if: github.event_name == 'pull_request' || github.event_name == 'push'
         with:
           # Only files the extractors actually read, verified against a default-setup run log.
-          # Build manifests are absent on purpose: every language but java-kotlin runs
+          # Build manifests are absent on purpose: every language runs
           # build-mode none, so CMake/Bazel/lockfiles never reach the analysis.
           filters: |
             actions:
@@ -40,11 +40,6 @@ jobs:
               - '**/*.h'
               - '**/*.cpp'
               - '**/*.hpp'
-            java-kotlin:
-              - '.github/workflows/codeql.yml'
-              - '**/*.java'
-              - '**/*.gradle'
-              - 'java/gradle/**'
             javascript-typescript:
               - '.github/workflows/codeql.yml'
               - '**/*.ts'
@@ -64,7 +59,7 @@ jobs:
         id: select
         env:
           # Scheduled and manual runs refresh every language, so the alert baseline never goes stale.
-          CHANGED: ${{ steps.filter.outcome == 'skipped' && '["actions","c-cpp","java-kotlin","javascript-typescript","python","rust"]' || steps.filter.outputs.changes }}
+          CHANGED: ${{ steps.filter.outcome == 'skipped' && '["actions","c-cpp","javascript-typescript","python","rust"]' || steps.filter.outputs.changes }}
         run: |
           echo "languages=$CHANGED" >> "$GITHUB_OUTPUT"
           echo "Analysing: $CHANGED" >> "$GITHUB_STEP_SUMMARY"
@@ -74,9 +69,6 @@ jobs:
     if: needs.changes.outputs.languages != '[]'
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
-    env:
-      # Kotlin extraction is off, so java-kotlin analyses Java only.
-      CODEQL_EXTRACTOR_JAVA_AGENT_DISABLE_KOTLIN: 'true'
     permissions:
       contents: read
       actions: read
@@ -92,11 +84,7 @@ jobs:
       - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           languages: ${{ matrix.language }}
-          # Same build modes GitHub's default setup used, so results stay comparable.
-          build-mode: ${{ matrix.language == 'java-kotlin' && 'autobuild' || 'none' }}
-
-      - if: matrix.language == 'java-kotlin'
-        uses: github/codeql-action/autobuild@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+          build-mode: none
 
       - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
