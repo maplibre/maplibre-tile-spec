@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.20.2...rust-mlt-core-v0.20.3) - 2026-10-12
+
+### Added
+
+- feat!(rust/mlt-wasm): low-level, columnar decoder API ([#1901](https://github.com/maplibre/maplibre-tile-spec/pull/1901))
+
 ## [0.20.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.20.1...rust-mlt-core-v0.20.2) - 2026-10-11
 
 ### Added
