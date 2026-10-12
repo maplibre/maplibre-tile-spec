@@ -193,6 +193,18 @@ public final class MltEncoder implements AutoCloseable {
   }
 
   /**
+   * Sets every entry of {@code properties} on the current feature, like {@link #setProperty} does for one.
+   * <p>
+   * Entries before a failing one stay set.
+   *
+   * @throws IllegalStateException if no layer has begun or the encoder is closed
+   * @throws MltException if no feature has begun
+   */
+  public void setProperties(Map<String, ?> properties) {
+    properties.forEach(this::setProperty);
+  }
+
+  /**
    * Encodes the open layer and returns the tile, leaving the encoder empty for the next one.
    *
    * @throws IllegalStateException if the encoder is closed

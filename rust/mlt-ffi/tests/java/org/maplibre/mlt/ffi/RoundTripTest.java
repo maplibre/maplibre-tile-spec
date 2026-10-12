@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -148,6 +149,27 @@ class RoundTripTest {
     });
 
     assertArrayEquals(bare, skipped);
+  }
+
+  @Test
+  void setPropertiesEncodesLikeSettingEachEntryInOrder() {
+    var properties = new LinkedHashMap<String, Object>();
+    properties.put("flag", true);
+    properties.put("missing", null);
+    properties.put("count", 3);
+    properties.put("name", "alpha");
+    byte[] bulk = encode(encoder -> {
+      encoder.beginLayer("layer", EXTENT);
+      beginFeature(encoder, "POINT (1 1)");
+      encoder.setProperties(properties);
+    });
+    byte[] single = encode(encoder -> {
+      encoder.beginLayer("layer", EXTENT);
+      beginFeature(encoder, "POINT (1 1)");
+      properties.forEach(encoder::setProperty);
+    });
+
+    assertArrayEquals(single, bulk);
   }
 
   @Test
