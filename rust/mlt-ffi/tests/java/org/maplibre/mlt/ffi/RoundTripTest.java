@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -31,11 +32,11 @@ class RoundTripTest {
   }
 
   private static byte[] encode(Consumer<MltEncoder> tile) {
-    return encode(MltEncoderOptions.defaults(), tile);
+    return encode(MltEncoder.builder(), tile);
   }
 
-  private static byte[] encode(MltEncoderOptions options, Consumer<MltEncoder> tile) {
-    try (var encoder = new MltEncoder(options)) {
+  private static byte[] encode(MltEncoder.Builder options, Consumer<MltEncoder> tile) {
+    try (var encoder = options.build()) {
       tile.accept(encoder);
       return encoder.toByteArray();
     }
@@ -107,7 +108,7 @@ class RoundTripTest {
 
   @Test
   void multipolygonInV2ReencodesToTheSameMlt() {
-    var v2 = MltEncoderOptions.builder().wireVersion(MltWireVersion.V2).build();
+    var v2 = MltEncoder.builder().wireVersion(MltWireVersion.V2);
     byte[] built = encode(v2, encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0)), ((20 20, 30 20, 30 30, 20 30, 20 20)))", 1L);
@@ -148,6 +149,27 @@ class RoundTripTest {
     });
 
     assertArrayEquals(bare, skipped);
+  }
+
+  @Test
+  void setPropertiesEncodesLikeSettingEachEntryInOrder() {
+    var properties = new LinkedHashMap<String, Object>();
+    properties.put("flag", true);
+    properties.put("missing", null);
+    properties.put("count", 3);
+    properties.put("name", "alpha");
+    byte[] bulk = encode(encoder -> {
+      encoder.beginLayer("layer", EXTENT);
+      beginFeature(encoder, "POINT (1 1)");
+      encoder.setProperties(properties);
+    });
+    byte[] single = encode(encoder -> {
+      encoder.beginLayer("layer", EXTENT);
+      beginFeature(encoder, "POINT (1 1)");
+      properties.forEach(encoder::setProperty);
+    });
+
+    assertArrayEquals(single, bulk);
   }
 
   @Test

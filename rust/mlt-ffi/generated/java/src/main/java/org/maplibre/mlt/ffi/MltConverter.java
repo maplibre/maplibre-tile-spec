@@ -46,16 +46,16 @@ public final class MltConverter {
    * @throws MltException if {@code mvt} cannot be parsed or encoded
    */
   public static byte[] mvtToMlt(byte[] mvt) {
-    return mvtToMlt(mvt, MltEncoderOptions.defaults());
+    return mvtToMlt(mvt, MltEncoder.builder());
   }
 
   /**
-   * Encodes MVT bytes into MLT bytes using the given encoder options.
+   * Encodes MVT bytes into MLT bytes using the options collected by {@code options}.
    *
    * @throws MltException if {@code mvt} cannot be parsed or encoded
    */
-  public static byte[] mvtToMlt(byte[] mvt, MltEncoderOptions options) {
-    MemorySegment handle = options.newHandle();
+  public static byte[] mvtToMlt(byte[] mvt, MltEncoder.Builder options) {
+    MemorySegment handle = options.options().newHandle();
     try (Arena arena = Arena.ofConfined()) {
       return takeBytes(mlt_ffi_h.MltConverter_mvt_to_mlt(arena, Diplomat.u8View(arena, mvt), handle), arena);
     } finally {
