@@ -157,6 +157,12 @@ fn dict_span_str(dict_data: &str, span: (u32, u32)) -> MltResult<&str> {
 }
 
 impl ParsedSharedDict<'_> {
+    /// The child columns reading this dictionary, in wire order.
+    #[must_use]
+    pub fn items(&self) -> &[ParsedSharedDictItem<'_>] {
+        &self.items
+    }
+
     #[must_use]
     pub fn corpus(&self) -> &str {
         &self.data
@@ -171,6 +177,12 @@ impl ParsedSharedDict<'_> {
 }
 
 impl ParsedSharedDictItem<'_> {
+    /// Number of features this child spans, present or not.
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.ranges.len()
+    }
+
     #[must_use]
     pub fn get<'a>(&self, shared_dict: &'a ParsedSharedDict<'_>, i: usize) -> Option<&'a str> {
         self.ranges

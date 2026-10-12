@@ -1,5 +1,5 @@
 use crate::codecs::varint::parse_varint;
-use crate::utils::Presence;
+use crate::utils::PresentValues;
 use crate::{Decoder, MltError, MltRefResult, MltResult, RawPresence};
 
 #[inline]
@@ -28,20 +28,20 @@ pub fn parse_u8(input: &[u8]) -> MltRefResult<'_, u8> {
 }
 
 /// Decode an optional presence stream, combining it with the dense values.
-/// Returns [`Presence::AllPresent`] for a non-optional column.
+/// A non-optional column has every feature present.
 /// Otherwise decodes the bitvector and checks its set-bit count matches `values.len()`.
 pub fn decode_presence<'a, T: Copy>(
     presence: RawPresence<'a>,
     values: Vec<T>,
     dec: &mut Decoder,
-) -> MltResult<Presence<'a, T>> {
+) -> MltResult<PresentValues<'a, T>> {
     let Some(bits) = presence.decode_bits(dec)? else {
-        return Ok(Presence::AllPresent(values));
+        return Ok(PresentValues::all_present(values));
     };
     let set_count = bits.count_ones();
     let dense_count = values.len();
     if set_count != dense_count {
         return Err(MltError::PresenceValueCountMismatch(set_count, dense_count));
     }
-    Ok(Presence::Bits { bits, values })
+    Ok(PresentValues::with_bits(bits, values))
 }

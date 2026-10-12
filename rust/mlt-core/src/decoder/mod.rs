@@ -59,11 +59,13 @@ pub use nested::{
 };
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
-pub use property::{ColumnDecl, ColumnStorage, DictLayout, StringLayout};
+pub use property::{
+    ColumnDecl, ColumnStorage, DictLayout, ParsedProperty, ParsedScalar, ParsedSharedDict,
+    ParsedSharedDictItem, ParsedStrings, StringLayout,
+};
 pub(crate) use property::{
-    DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
-    Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence, RawProperty,
-    RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
+    DictRange, Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
     RawStringsEncoding,
 };
 #[cfg(feature = "unstable-v2")]

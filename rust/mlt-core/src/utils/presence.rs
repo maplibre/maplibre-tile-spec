@@ -6,30 +6,43 @@ use bitvec::slice::BitSlice;
 
 use crate::{Analyze, StatType};
 
-/// Per-column feature presence bitvector paired with its dense values.
+/// Which features of a column have a value, paired with those values.
 ///
-/// Bit order matches the wire format (`bitvec`'s `Lsb0`): bit `i` corresponds to
-/// `(byte[i/8] >> (i%8)) & 1`.
+/// Opaque: read it through its accessors, so the storage can change without
+/// breaking anyone.
 #[derive(Clone, PartialEq, Debug)]
-pub enum Presence<'a, T: Copy> {
-    /// No presence stream - every feature has a value.
-    AllPresent(Vec<T>),
-    /// Per-feature packed bitvector: bit `i` is set iff feature `i` has a value.
-    /// `values` holds only the non-null (present) entries in dense order.
-    Bits {
-        bits: Cow<'a, BitSlice<u8, Lsb0>>,
-        values: Vec<T>,
-    },
+pub struct PresentValues<'a, T: Copy> {
+    /// Bit `i` is set iff feature `i` has a value, in the wire's `Lsb0` order,
+    /// or [`None`] when every feature has one.
+    bits: Option<Cow<'a, BitSlice<u8, Lsb0>>>,
+    /// The values of the features that have one, in feature order.
+    values: Vec<T>,
 }
 
-impl<T: Copy> Presence<'_, T> {
+impl<'a, T: Copy> PresentValues<'a, T> {
+    /// Every feature has a value: `values` holds one per feature.
+    pub(crate) fn all_present(values: Vec<T>) -> Self {
+        Self { bits: None, values }
+    }
+
+    /// Only the features whose bit is set have a value.
+    /// The caller checks that `values` holds one per set bit.
+    pub(crate) fn with_bits(bits: Cow<'a, BitSlice<u8, Lsb0>>, values: Vec<T>) -> Self {
+        Self {
+            bits: Some(bits),
+            values,
+        }
+    }
+}
+
+impl<T: Copy> PresentValues<'_, T> {
     /// Returns `true` if feature `idx` is present, `false` if absent or out of bounds.
     #[inline]
     #[must_use]
     pub fn is_present(&self, idx: usize) -> bool {
-        match self {
-            Self::AllPresent(values) => idx < values.len(),
-            Self::Bits { bits, .. } => bits.get(idx).as_deref().copied().unwrap_or(false),
+        match &self.bits {
+            None => idx < self.values.len(),
+            Some(bits) => bits.get(idx).as_deref().copied().unwrap_or(false),
         }
     }
 
@@ -37,9 +50,9 @@ impl<T: Copy> Presence<'_, T> {
     #[inline]
     #[must_use]
     pub fn feature_count(&self) -> usize {
-        match self {
-            Self::AllPresent(values) => values.len(),
-            Self::Bits { bits, .. } => bits.len(),
+        match &self.bits {
+            None => self.values.len(),
+            Some(bits) => bits.len(),
         }
     }
 
@@ -47,24 +60,22 @@ impl<T: Copy> Presence<'_, T> {
     #[inline]
     #[must_use]
     pub fn dense_values(&self) -> &[T] {
-        match self {
-            Self::AllPresent(values) | Self::Bits { values, .. } => values,
-        }
+        &self.values
     }
 
     /// Returns the value for feature `idx`, or `None` if absent or out of bounds.
     ///
-    /// For sequential access over all features prefer [`Presence::iter_optional`],
+    /// For sequential access over all features prefer [`PresentValues::iter_optional`],
     /// which is O(1) per step. This method recomputes `count_ones()` each call and
     /// is O(idx) for sparse (Bits) presence.
     #[inline]
     #[must_use]
     pub fn get(&self, idx: usize) -> Option<T> {
-        match self {
-            Self::AllPresent(values) => values.get(idx).copied(),
-            Self::Bits { bits, values } => {
+        match &self.bits {
+            None => self.values.get(idx).copied(),
+            Some(bits) => {
                 if *bits.get(idx)? {
-                    Some(values[bits[..idx].count_ones()])
+                    Some(self.values[bits[..idx].count_ones()])
                 } else {
                     None
                 }
@@ -74,8 +85,8 @@ impl<T: Copy> Presence<'_, T> {
 
     /// Expand into a `Vec<Option<T>>` with one entry per feature.
     ///
-    /// Allocates; prefer [`Presence::get`] for single-feature access or
-    /// [`Presence::iter_optional`] for sequential access without allocation.
+    /// Allocates; prefer [`PresentValues::get`] for single-feature access or
+    /// [`PresentValues::iter_optional`] for sequential access without allocation.
     #[must_use]
     pub fn materialize(&self) -> Vec<Option<T>> {
         self.iter_optional().collect()
@@ -83,53 +94,40 @@ impl<T: Copy> Presence<'_, T> {
 
     /// Iterate over all features in order, yielding `Option<T>` per feature in O(1) per step.
     ///
-    /// Unlike repeated [`Presence::get`] calls (which are O(idx) for sparse columns),
+    /// Unlike repeated [`PresentValues::get`] calls (which are O(idx) for sparse columns),
     /// this iterator tracks `dense_idx` internally and advances in O(1) per step.
     #[must_use]
     pub fn iter_optional(&self) -> PresenceOptIter<'_, T> {
-        match self {
-            Self::AllPresent(values) => PresenceOptIter {
-                bits: None,
-                values,
-                feat_idx: 0,
-                end: values.len(),
-                dense_idx: 0,
-                back_dense: None,
-            },
-            Self::Bits { bits, values } => PresenceOptIter {
-                bits: Some(bits),
-                values,
-                feat_idx: 0,
-                end: bits.len(),
-                dense_idx: 0,
-                back_dense: None,
-            },
+        PresenceOptIter {
+            bits: self.bits.as_deref(),
+            values: &self.values,
+            feat_idx: 0,
+            end: self.feature_count(),
+            dense_idx: 0,
+            back_dense: None,
         }
     }
 }
 
-impl<T: Analyze + Copy> Analyze for Presence<'_, T> {
+impl<T: Analyze + Copy> Analyze for PresentValues<'_, T> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         if stat == StatType::DecodedMetaSize {
             0
         } else {
-            let bits_size = match self {
-                Self::AllPresent(_) => 0,
-                Self::Bits { bits, .. } => bits.len().div_ceil(8),
-            };
+            let bits_size = self.bits.as_ref().map_or(0, |bits| bits.len().div_ceil(8));
             bits_size + self.dense_values().collect_statistic(stat)
         }
     }
 }
 
-/// O(1)-per-step iterator over all features of a [`Presence`], yielding `Option<T>`.
+/// O(1)-per-step iterator over all features of a [`PresentValues`], yielding `Option<T>`.
 ///
-/// Returned by [`Presence::iter_optional`]. Prefer this over repeated [`Presence::get`]
+/// Returned by [`PresentValues::iter_optional`]. Prefer this over repeated [`PresentValues::get`]
 /// calls when iterating in order: `get` is O(idx) for sparse columns (recomputes
 /// `count_ones()`), while this iterator advances in O(1) per step by tracking
 /// `dense_idx` internally.
 pub struct PresenceOptIter<'p, T: Copy> {
-    /// `None` for `AllPresent`, `Some(bits)` for `Bits`.
+    /// `None` when every feature has a value.
     bits: Option<&'p BitSlice<u8, Lsb0>>,
     values: &'p [T],
     /// Next feature index to yield from the front.
@@ -210,7 +208,7 @@ mod tests {
     use super::*;
     use crate::test_helpers::assert_size_hint_exact;
 
-    fn sparse(pattern: &[bool]) -> Presence<'static, u8> {
+    fn sparse(pattern: &[bool]) -> PresentValues<'static, u8> {
         let mut bits = bitvec![u8, Lsb0;];
         let mut values = Vec::new();
         for (idx, &present) in pattern.iter().enumerate() {
@@ -219,10 +217,7 @@ mod tests {
                 values.push(u8::try_from(idx).unwrap());
             }
         }
-        Presence::Bits {
-            bits: Cow::Owned(bits),
-            values,
-        }
+        PresentValues::with_bits(Cow::Owned(bits), values)
     }
 
     fn expected(pattern: &[bool]) -> Vec<Option<u8>> {
@@ -259,7 +254,7 @@ mod tests {
     #[case::single(&[10])]
     #[case::many(&[10, 20, 30, 40])]
     fn iter_optional_runs_backwards_all_present(#[case] values: &[u8]) {
-        let presence = Presence::AllPresent(values.to_vec());
+        let presence = PresentValues::all_present(values.to_vec());
         let want: Vec<_> = values.iter().copied().map(Some).collect();
 
         assert_eq!(presence.iter_optional().collect::<Vec<_>>(), want);
@@ -276,12 +271,11 @@ mod tests {
     #[case::all_absent(&[false, false])]
     fn get_matches_iter_optional(#[case] pattern: &[bool]) {
         let dense: Vec<u8> = expected(pattern).into_iter().flatten().collect();
-        for presence in [sparse(pattern), Presence::AllPresent(dense.clone())] {
-            let want = match presence {
-                Presence::AllPresent(_) => dense.iter().copied().map(Some).collect(),
-                Presence::Bits { .. } => expected(pattern),
-            };
-
+        let all_present = dense.iter().copied().map(Some).collect();
+        for (presence, want) in [
+            (sparse(pattern), expected(pattern)),
+            (PresentValues::all_present(dense.clone()), all_present),
+        ] {
             assert_eq!(presence.feature_count(), want.len());
             assert_eq!(presence.dense_values(), dense);
             assert_eq!(presence.materialize(), want);

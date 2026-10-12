@@ -9,7 +9,9 @@ use std::io::Write;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingColumnType;
-use crate::decoder::{Geometry, GeometryValues, Id, LayerBytes, ParsedProperty, Property};
+use crate::decoder::{
+    Geometry, GeometryValues, Id, LayerBytes, ParsedId, ParsedProperty, Property,
+};
 use crate::tile::Extent;
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
 use crate::{DecodeState, Lazy, MltRefResult, Parsed, Parser};
@@ -87,6 +89,14 @@ impl ParsedLayer01<'_> {
     #[must_use]
     pub fn properties(&self) -> &[ParsedProperty<'_>] {
         &self.properties
+    }
+
+    /// The layer's feature id column, or [`None`] when the layer has none.
+    ///
+    /// Columnar: one entry per feature, with absent ids marked by its presence.
+    #[must_use]
+    pub fn id(&self) -> Option<&ParsedId<'_>> {
+        self.id.as_ref()
     }
 }
 
