@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.37](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.36...rust-mlt-ffi-v0.1.37) - 2026-10-12
 
-### Other
-
+- make the builder more "java native" ([#1914](https://github.com/maplibre/maplibre-tile-spec/pull/1914))
 - use java-style properties in the ffi API ([#1913](https://github.com/maplibre/maplibre-tile-spec/pull/1913))
 
 ## [0.1.36](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.35...rust-mlt-ffi-v0.1.36) - 2026-10-11
