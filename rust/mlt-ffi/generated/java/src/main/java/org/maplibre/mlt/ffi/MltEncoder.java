@@ -8,9 +8,11 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SegmentAllocator;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.maplibre.mlt.ffi.raw.DiplomatStringView;
 import org.maplibre.mlt.ffi.raw.DiplomatU32View;
 import org.maplibre.mlt.ffi.raw.DiplomatU8View;
@@ -47,19 +49,23 @@ public final class MltEncoder implements AutoCloseable {
   private List<MltLayerSize> layerSizes = new ArrayList<>();
   private List<MltLayerSize> lastLayerSizes = List.of();
   private MemorySegment scratch = arena.allocate(1 << 12, 16);
-  private MemorySegment options;
-  private MemorySegment buffer;
-  private MemorySegment layer;
-  private String layerName;
+  private @Nullable MemorySegment options;
+  private @Nullable MemorySegment buffer;
+  private @Nullable MemorySegment layer;
+  private @Nullable String layerName;
   private boolean layerOpen;
 
   /** Creates an encoder with the default options. */
   public MltEncoder() {
-    this(MltEncoderOptions.defaults());
+    this(builder().options());
   }
 
-  /** Creates an encoder that encodes every layer with {@code options}. */
-  public MltEncoder(MltEncoderOptions options) {
+  /** Starts encoder options from the defaults. */
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  private MltEncoder(MltEncoderOptions options) {
     this.options = options.newHandle();
     buffer = mlt_ffi_h.MltBuffer_new();
   }
@@ -175,7 +181,7 @@ public final class MltEncoder implements AutoCloseable {
    * @throws IllegalStateException if no layer has begun or the encoder is closed
    * @throws MltException if no feature has begun
    */
-  public void setProperty(String key, Object value) {
+  public void setProperty(String key, @Nullable Object value) {
     switch (value) {
       case null -> { }
       case Boolean b -> setBool(key, b);
@@ -298,6 +304,109 @@ public final class MltEncoder implements AutoCloseable {
       options = null;
       layerOpen = false;
       arena.close();
+    }
+  }
+
+  /**
+   * Collects encoder options, leaving every unset one at its default.
+   * <p>
+   * Starts with FSST, FastPFOR and shared dictionaries enabled, no sorting and no tessellation.
+   * Every method marked v2 only has no effect on a v1 layer.
+   */
+  public static final class Builder {
+    private final Map<MltEncoderOptions.Flag, Boolean> flags = new EnumMap<>(MltEncoderOptions.Flag.class);
+    private @Nullable MltWireVersion wireVersion;
+
+    private Builder() {}
+
+    private Builder set(MltEncoderOptions.Flag flag, boolean enabled) {
+      flags.put(flag, enabled);
+      return this;
+    }
+
+    /** Generates tessellation data for polygons and multi-polygons. */
+    public Builder tessellate(boolean enabled) {
+      return set(MltEncoderOptions.Flag.TESSELLATE, enabled);
+    }
+
+    /** Tries sorting features by the Z-order (Morton) curve index. */
+    public Builder attemptSpatialMortonSort(boolean enabled) {
+      return set(MltEncoderOptions.Flag.MORTON_SORT, enabled);
+    }
+
+    /** Tries sorting features by the Hilbert curve index. */
+    public Builder attemptSpatialHilbertSort(boolean enabled) {
+      return set(MltEncoderOptions.Flag.HILBERT_SORT, enabled);
+    }
+
+    /** Tries sorting features by their feature ID in ascending order. */
+    public Builder attemptIdSort(boolean enabled) {
+      return set(MltEncoderOptions.Flag.ID_SORT, enabled);
+    }
+
+    /** Allows FSST string compression. */
+    public Builder allowFsst(boolean enabled) {
+      return set(MltEncoderOptions.Flag.FSST, enabled);
+    }
+
+    /** Allows FastPFOR integer compression. */
+    public Builder allowFastPfor(boolean enabled) {
+      return set(MltEncoderOptions.Flag.FASTPFOR, enabled);
+    }
+
+    /** Allows string grouping into shared dictionaries. */
+    public Builder allowSharedDict(boolean enabled) {
+      return set(MltEncoderOptions.Flag.SHARED_DICT, enabled);
+    }
+
+    /** Selects the wire format to encode to. */
+    public Builder wireVersion(MltWireVersion version) {
+      wireVersion = version;
+      return this;
+    }
+
+    /** v2 only: lets a tessellated all-polygon layer store its triangles without the outlines. */
+    public Builder allowTrianglesOnly(boolean enabled) {
+      return set(MltEncoderOptions.Flag.TRIANGLES_ONLY, enabled);
+    }
+
+    /** v2 only: allows integer and vertex streams to store the deltas of their deltas. */
+    public Builder allowDelta2(boolean enabled) {
+      return set(MltEncoderOptions.Flag.DELTA2, enabled);
+    }
+
+    /** v2 only: allows float columns to store one code per value into a dictionary. */
+    public Builder allowFloatDict(boolean enabled) {
+      return set(MltEncoderOptions.Flag.FLOAT_DICT, enabled);
+    }
+
+    /** v2 only: allows float columns to store each value as a decimal-scaled integer (ALP). */
+    public Builder allowFloatAlp(boolean enabled) {
+      return set(MltEncoderOptions.Flag.FLOAT_ALP, enabled);
+    }
+
+    /** v2 only: allows dictionary code streams to be bit-packed. */
+    public Builder allowPackedDictCodes(boolean enabled) {
+      return set(MltEncoderOptions.Flag.PACKED_DICT_CODES, enabled);
+    }
+
+    /** v2 only: allows plain vertex streams to be rANS-coded. */
+    public Builder allowRansVertices(boolean enabled) {
+      return set(MltEncoderOptions.Flag.RANS_VERTICES, enabled);
+    }
+
+    /** v2 only: lets a nested struct or map code its row shapes instead of per-field presence. */
+    public Builder allowRowShapes(boolean enabled) {
+      return set(MltEncoderOptions.Flag.ROW_SHAPES, enabled);
+    }
+
+    MltEncoderOptions options() {
+      return new MltEncoderOptions(flags, wireVersion);
+    }
+
+    /** Creates an encoder with these options, which the caller closes. */
+    public MltEncoder build() {
+      return new MltEncoder(options());
     }
   }
 }

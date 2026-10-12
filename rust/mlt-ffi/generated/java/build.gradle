@@ -8,6 +8,8 @@ repositories {
 }
 
 dependencies {
+    // Nullness annotations only, so consumers need no runtime jar.
+    compileOnlyApi 'org.jspecify:jspecify:1.0.0'
     testImplementation platform('org.junit:junit-bom:6.0.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     // Planetiler's MVT command encoder, without the dependencies of the rest of planetiler-core.

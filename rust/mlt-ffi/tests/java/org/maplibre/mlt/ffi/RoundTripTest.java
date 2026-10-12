@@ -31,11 +31,11 @@ class RoundTripTest {
   }
 
   private static byte[] encode(Consumer<MltEncoder> tile) {
-    return encode(MltEncoderOptions.defaults(), tile);
+    return encode(MltEncoder.builder(), tile);
   }
 
-  private static byte[] encode(MltEncoderOptions options, Consumer<MltEncoder> tile) {
-    try (var encoder = new MltEncoder(options)) {
+  private static byte[] encode(MltEncoder.Builder options, Consumer<MltEncoder> tile) {
+    try (var encoder = options.build()) {
       tile.accept(encoder);
       return encoder.toByteArray();
     }
@@ -107,7 +107,7 @@ class RoundTripTest {
 
   @Test
   void multipolygonInV2ReencodesToTheSameMlt() {
-    var v2 = MltEncoderOptions.builder().wireVersion(MltWireVersion.V2).build();
+    var v2 = MltEncoder.builder().wireVersion(MltWireVersion.V2);
     byte[] built = encode(v2, encoder -> {
       encoder.beginLayer("layer", EXTENT);
       beginFeature(encoder, "MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0)), ((20 20, 30 20, 30 30, 20 30, 20 20)))", 1L);
