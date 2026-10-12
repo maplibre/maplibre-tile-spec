@@ -24,7 +24,7 @@ class LayerStatsTest {
     try (var encoder = new MltEncoder()) {
       encoder.beginLayer("with_id", EXTENT);
       encoder.beginFeature(MvtGeometryType.POINT, point(1, 1), 3);
-      encoder.setString("name", "alpha");
+      encoder.setProperty("name", "alpha");
       encoder.beginLayer("bare", EXTENT);
       encoder.beginFeature(MvtGeometryType.POINT, point(2, 2));
 
@@ -45,7 +45,7 @@ class LayerStatsTest {
       encoder.beginLayer("large", EXTENT);
       for (int i = 0; i < 100; i++) {
         encoder.beginFeature(MvtGeometryType.POINT, point(i * 37, i * 11), i);
-        encoder.setLong("rank", i * 1009L);
+        encoder.setProperty("rank", i * 1009L);
       }
 
       byte[] tile = encoder.toByteArray();
