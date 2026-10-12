@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.45](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.44...rust-mlt-wasm-v0.1.45) - 2026-10-12
+
+### Fixed
+
+- *(mlt-wasm)* Remove wasm-pack's .gitignore on building the NPM package ([#1919](https://github.com/maplibre/maplibre-tile-spec/pull/1919))
+
 ## [0.1.44](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.43...rust-mlt-wasm-v0.1.44) - 2026-10-12
 
 ### Added
