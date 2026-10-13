@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use anyhow::{Context as _, Result as AnyResult, anyhow, bail, ensure};
-use mlt_core::encoder::wound_geometry;
+use mlt_core::encoder::wound_layer;
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::{Decoder, MValue, NestedValue, Parser, PropValue, TileFeature, TileLayer};
 
@@ -34,7 +34,7 @@ pub fn check_round_trip(
     let decoded = layer
         .into_tile(&mut Decoder::default())?
         .ok_or_else(|| anyhow!("the encoded layer has an unknown tag"))?;
-    same_layer(source, &restore(decoded)?)
+    same_layer(&wound_layer(source), &restore(decoded)?)
         .with_context(|| format!("layer {} does not decode back to its input", source.name()))
 }
 
@@ -68,7 +68,7 @@ fn same_layer(expected: &TileLayer, actual: &TileLayer) -> AnyResult<()> {
             e.id.map_or_else(|| "without an id".to_owned(), |id| id.to_string());
         ensure!(e.id == a.id, "feature {id} is missing");
         ensure!(
-            wound_geometry(e.geometry) == *a.geometry,
+            e.geometry == a.geometry,
             "feature {id} has another geometry"
         );
         ensure!(
@@ -347,6 +347,27 @@ mod tests {
         let a = layer_with_z(Some(0), vec![100]);
         let b = layer_with_z(Some(0), vec![101]);
         insta::assert_snapshot!(same_layer(&a, &b).unwrap_err(), @"feature 1 has other z: [101], not [100]");
+    }
+
+    #[test]
+    fn a_rewound_ring_carries_its_z_and_m_values_along() {
+        let mut layer = TileLayer::builder("l", 4096).unwrap();
+        layer.set_z_step(mlt_core::ZStep::new(0).unwrap()).unwrap();
+        let key = layer.add_m_value("m", PropKind::I32).unwrap();
+        let clockwise = Polygon::new(
+            LineString::from(vec![(0, 0), (0, 9), (9, 9), (9, 0), (0, 0)]),
+            vec![],
+        );
+        let mut row = layer.feature(clockwise.into());
+        row.z(vec![10, 20, 30, 40]).unwrap();
+        row.m_value(key, MValue::I32(Some(vec![1, 2, 3, 4])))
+            .unwrap();
+        row.finish().unwrap();
+        let layer = layer.finish();
+        let config = mlt_core::encoder::EncoderConfig::default()
+            .with_wire_version(mlt_core::encoder::WireVersion::V02);
+        let encoded = layer.clone().encode(config).unwrap();
+        check_round_trip(&layer, &encoded, Ok).unwrap();
     }
 
     fn layer_with_nested(kind: mlt_core::NestedKind, value: NestedValue) -> TileLayer {

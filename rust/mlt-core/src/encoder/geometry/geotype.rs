@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
-use geo::{Convert as _, GeoNum, Kernel as _, Orientation, TriangulateEarcut as _};
+use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{Coord, Geometry, LineString, Polygon};
 
 use crate::decoder::{GeometryType, GeometryValues};
-use crate::tile::stored_len;
+use crate::tile::{TileLayer, stored_len};
 
 impl TryFrom<&Geometry<i32>> for GeometryType {
     type Error = ();
@@ -407,6 +407,25 @@ fn wound<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> Vec<Cow<'c, [Coor
         .collect()
 }
 
+/// The layer with its polygon rings wound as the encoder stores them, and the values held per vertex moved along.
+#[must_use]
+pub fn wound_layer(layer: &TileLayer) -> TileLayer {
+    let mut layer = layer.clone();
+    for feature in &mut layer.features {
+        #[cfg(feature = "unstable-v2")]
+        if let Some(order) = wound_vertex_order(&feature.geometry) {
+            if order.len() == feature.z.len() {
+                feature.z = order.iter().map(|&i| feature.z[i]).collect();
+            }
+            for m_value in &mut feature.m_values {
+                m_value.reorder(&order);
+            }
+        }
+        feature.geometry = wound_geometry(&feature.geometry);
+    }
+    layer
+}
+
 /// The geometry with its polygon rings wound as the encoder stores them.
 #[must_use]
 pub fn wound_geometry(geom: &Geometry<i32>) -> Geometry<i32> {
@@ -437,32 +456,19 @@ pub fn wound_geometry(geom: &Geometry<i32>) -> Geometry<i32> {
 
 /// Whether the ring, open or closed, winds against the MVT winding of its role.
 ///
-/// This is the test of [`geo`]'s `Winding`, run on the slice: the turn at the lexicographically least vertex.
-/// A ring with fewer than three distinct coordinates has no winding.
-/// The turn is taken on `i128`, since the `i32` kernel of [`geo`] overflows on rings spanning more than about 32k.
+/// The winding is the sign of the ring's area by the surveyor's formula, as MVT defines it.
+/// A ring of zero area has no winding.
+/// Reversing a ring negates its area, so a wound ring is never reversed again.
+/// The area is summed on `i128`, since `i32` products overflow.
 fn needs_reversal(ring: &[Coord<i32>], exterior: bool) -> bool {
     let ring = &ring[..stored_len(ring)];
-    let Some(least) = (0..ring.len()).min_by_key(|&i| (ring[i].x, ring[i].y)) else {
-        return false;
-    };
-    let pivot = ring[least];
-    let others = || ring[least + 1..].iter().chain(&ring[..least]);
-    let (Some(&next), Some(&prev)) = (
-        others().find(|&&c| c != pivot),
-        others().rev().find(|&&c| c != pivot),
-    ) else {
-        return false;
-    };
-    let against = if exterior {
-        Orientation::Clockwise
-    } else {
-        Orientation::CounterClockwise
-    };
-    let wide = |c: Coord<i32>| Coord {
-        x: i128::from(c.x),
-        y: i128::from(c.y),
-    };
-    <i128 as GeoNum>::Ker::orient2d(wide(prev), wide(pivot), wide(next)) == against
+    let next = ring.iter().cycle().skip(1);
+    let area: i128 = ring
+        .iter()
+        .zip(next)
+        .map(|(a, b)| i128::from(a.x) * i128::from(b.y) - i128::from(b.x) * i128::from(a.y))
+        .sum();
+    if exterior { area < 0 } else { area > 0 }
 }
 
 /// Where each stored vertex of the geometry ends up once its polygon rings are wound.
@@ -623,6 +629,21 @@ mod tests {
                 vec![(2, 2), (2, 3), (3, 3), (3, 2), (2, 2)],
             ]
         );
+    }
+
+    #[test]
+    fn a_wound_ring_that_revisits_its_least_vertex_is_kept() {
+        let ring: &[(i32, i32)] = &[
+            (3702, 1966),
+            (-64, -64),
+            (-64, 10),
+            (-64, -64),
+            (-64, -64),
+            (3702, 1966),
+        ];
+        let once = wound_rings(&[ring]);
+        let once: Vec<&[(i32, i32)]> = once.iter().map(Vec::as_slice).collect();
+        assert_eq!(wound_rings(&once), once);
     }
 
     #[test]
@@ -1094,7 +1115,7 @@ mod tests {
                 LineString::from(vec![(0, 0), (10, 10), (0, 10), (10, 0), (0, 0)]),
                 vec![],
             );
-            assert_eq!(triangles(&Geometry::Polygon(bowtie)), [0, 3, 2]);
+            assert_eq!(triangles(&Geometry::Polygon(bowtie)), [1, 0, 3]);
         }
 
         #[test]
