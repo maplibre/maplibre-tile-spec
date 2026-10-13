@@ -90,10 +90,10 @@ static MIX_TYPES: LazyLock<[(&'static str, Geometry<i32>); 7]> = LazyLock::new(|
     [
         ("pt", wkt!(POINT(38 29)).into()),
         ("line", wkt!(LINESTRING(5 38, 12 45, 9 70)).into()),
-        ("poly", wkt!(POLYGON((55 5, 58 28, 75 22, 55 5))).into()),
+        ("poly", wkt!(POLYGON((55 5, 75 22, 58 28, 55 5))).into()),
         (
             "polyh",
-            wkt!(POLYGON((52 35, 14 55, 60 72, 52 35),(32 50, 36 60, 24 54, 32 50))).into(),
+            wkt!(POLYGON((52 35, 60 72, 14 55, 52 35),(32 50, 24 54, 36 60, 32 50))).into(),
         ),
         ("mpt", wkt!(MULTIPOINT(6 25, 21 41, 23 69)).into()),
         (
@@ -102,7 +102,7 @@ static MIX_TYPES: LazyLock<[(&'static str, Geometry<i32>); 7]> = LazyLock::new(|
         ),
         (
             "mpoly",
-            wkt!(MULTIPOLYGON(((7 20, 21 31, 26 9, 7 20),(15 20, 20 15, 18 25, 15 20)),((69 57, 71 66, 73 64, 69 57)))).into(),
+            wkt!(MULTIPOLYGON(((7 20, 26 9, 21 31, 7 20),(15 20, 18 25, 20 15, 15 20)),((69 57, 73 64, 71 66, 69 57)))).into(),
         ),
     ]
 });
@@ -136,13 +136,13 @@ fn line2() -> LineString<i32> {
     wkt!(LINESTRING(23 34, 73 4, 13 24))
 }
 fn poly1() -> Polygon<i32> {
-    wkt!(POLYGON((11 52, 71 72, 61 22, 11 52)))
+    wkt!(POLYGON((11 52, 61 22, 71 72, 11 52)))
 }
 fn poly2() -> Polygon<i32> {
-    wkt!(POLYGON((23 34, 73 4, 13 24, 23 34)))
+    wkt!(POLYGON((23 34, 13 24, 73 4, 23 34)))
 }
 fn poly1h() -> Polygon<i32> {
-    wkt!(POLYGON((11 52, 71 72, 61 22, 11 52),(65 66, 35 56, 55 36, 65 66)))
+    wkt!(POLYGON((11 52, 61 22, 71 72, 11 52),(65 66, 55 36, 35 56, 65 66)))
 }
 fn poly_collinear() -> Polygon<i32> {
     wkt!(POLYGON((0 0, 10 0, 20 0, 0 0)))
@@ -1525,7 +1525,7 @@ fn generate_m_value_geometries(w: &mut SynthWriter) {
         .write(w, "mvalues_poly");
     dict(geo_varint().no_v1().add_m_value(e, vals(6)).geos(vec![
         wkt!(POLYGON((0 0, 8 0, 0 8, 0 0))),
-        wkt!(POLYGON((8 8, 8 0, 0 8, 8 8))),
+        wkt!(POLYGON((8 8, 0 8, 8 0, 8 8))),
     ]))
     .write(w, "mvalues_poly_dict");
 
@@ -1551,7 +1551,7 @@ fn generate_m_value_geometries(w: &mut SynthWriter) {
             .rings2(E::rle_varint())
             .geo(MultiPolygon(vec![
                 wkt!(POLYGON((0 0, 8 0, 0 8, 0 0))),
-                wkt!(POLYGON((8 8, 8 0, 0 8, 8 8))),
+                wkt!(POLYGON((8 8, 0 8, 8 0, 8 8))),
             ])),
     )
     .no_v1()
