@@ -26,6 +26,16 @@ struct MltBuffer;
 class MltBuffer {
 public:
     /**
+     * An empty buffer, to collect the layers of one tile.
+     */
+    inline static std::unique_ptr<MltBuffer> new_();
+
+    /**
+     * Empty the buffer, keeping its allocation for the next tile.
+     */
+    inline void clear();
+
+    /**
      * Borrow the contents as a byte slice.
      */
     inline diplomat::span<const uint8_t> as_bytes() const DIPLOMAT_LIFETIME_BOUND;

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.20.2...rust-mlt-core-v0.20.3) - 2026-10-12
+
+### Added
+
+- feat!(rust/mlt-wasm): low-level, columnar decoder API ([#1901](https://github.com/maplibre/maplibre-tile-spec/pull/1901))
+
+## [0.20.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.20.1...rust-mlt-core-v0.20.2) - 2026-10-11
+
+### Added
+
+- *(rust)* per-layer byte stats in mlt-ffi ([#1907](https://github.com/maplibre/maplibre-tile-spec/pull/1907))
+
+## [0.20.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.20.0...rust-mlt-core-v0.20.1) - 2026-10-10
+
+### Added
+
+- *(rust)* Add an feature based ffi builder ([#1904](https://github.com/maplibre/maplibre-tile-spec/pull/1904))
+
 ## [0.20.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.19.3...rust-mlt-core-v0.20.0) - 2026-10-08
 
 ### Added

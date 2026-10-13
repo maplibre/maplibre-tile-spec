@@ -8,17 +8,16 @@ import {
   getTestCases,
   writeActualOutput,
 } from "../../../test/synthetic/synthetic-test-utils";
-import {
-  decodeTile,
-  type MltFeature,
-  MltGeometryType,
-  type MltLayer,
-} from "./vectorTile";
+import { MltGeometryType } from "./columns";
+import { decodeTile, type MltFeature, type MltLayer } from "./vectorTile";
 
 const V2_GAPS: [RegExp, string][] = [
   [/^(z_)?mvalues(?!_all_null$)/, "the vector-tile API has no m-value columns"],
   [/^nested_/, "the vector-tile API has no nested columns"],
-  [/_tri$/, "a triangles-only layer has no offsets for loadGeometry to walk"],
+  [
+    /_tri$/,
+    "a TessPolygons layer stores triangles, not the outlines loadGeometry reads",
+  ],
 ];
 
 const UNIMPLEMENTED_SYNTHETICS = new Map(
@@ -81,27 +80,8 @@ function tileToFeatureCollection(
         _extent: mltLayer.extent,
       };
 
-      for (let k = 0; k < mltLayer.propertyKeys.length; k++) {
-        const key = mltLayer.propertyKeys[k];
-        const col = mltLayer.propertyColumns[k];
-        let val = feature.properties[key];
-
-        if (typeof val === "number") {
-          if (Number.isNaN(val)) {
-            if (col instanceof Float32Array) val = "f32::NAN";
-            else if (col instanceof Float64Array) val = "f64::NAN";
-          } else if (val === Infinity) {
-            if (col instanceof Float32Array) val = "f32::INFINITY";
-            else if (col instanceof Float64Array) val = "f64::INFINITY";
-          } else if (val === -Infinity) {
-            if (col instanceof Float32Array) val = "f32::NEG_INFINITY";
-            else if (col instanceof Float64Array) val = "f64::NEG_INFINITY";
-          }
-        }
-        if (val !== undefined) {
-          properties[key] = val;
-        }
-      }
+      // `compareWithTolerance` matches the fixtures' NaN and infinity spellings.
+      Object.assign(properties, feature.properties);
 
       if (feature.zStep !== undefined) {
         properties._z_step = feature.zStep;

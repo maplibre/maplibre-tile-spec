@@ -1,17 +1,21 @@
 # mlt-ffi
 
-[Diplomat](https://github.com/rust-diplomat/diplomat)-based FFI bindings for
-`mlt-core`, providing MLT <-> MVT conversion from C, C++, and Kotlin.
+[Diplomat](https://github.com/rust-diplomat/diplomat)-based FFI bindings for`mlt-core`, providing MLT <-> MVT conversion and per-feature layer encoding from C, C++ and Kotlin.
 
 ## API
-| Type                | Purpose                                                                              |
-|---------------------|--------------------------------------------------------------------------------------|
-| `MltConverter`      | `mlt_to_mvt(bytes)` and `mvt_to_mlt(bytes, encoder_options)` conversion              |
-| `MltEncoderOptions` | Builder wrapping `EncoderConfig` - construct with `new()`, toggle flags with setters |
-| `MltBuffer`         | Owned result buffer with `.bytes` / `.len` accessors                                 |
-| `ConvertError`      | Opaque error with `.kind` (`ConvertErrorKind`) and `.message` accessors              |
-| `MltWireVersion`    | `V01` (default) or the experimental `V02`                                            |
-| `ConvertErrorKind`  | `InvalidInput` or `EncodingFailed`                                                   |
+
+| Type                 | Purpose                                                                                            |
+|----------------------|----------------------------------------------------------------------------------------------------|
+| `MltConverter`       | `mlt_to_mvt(bytes)`, `mlt_to_mvt_with_limit(bytes, max_bytes)` and `mvt_to_mlt(bytes, options)`    |
+| `MltLayerBuilder`    | Writes a layer one feature at a time from MVT geometry commands and encodes it into an `MltBuffer` |
+| `MltEncoderOptions`  | Builder wrapping `EncoderConfig` - construct with `new()`, toggle flags with setters               |
+| `MltBuffer`          | Owned byte buffer with `.bytes` / `.len` accessors, `clear()`, and appending encodes               |
+| `MltTileStats`       | `from_bytes(bytes)` parses a tile without decoding it, then reports each layer's name and bytes    |
+| `MltLayerBytes`      | One layer's size, split into geometry, property, id and metadata bytes                             |
+| `ConvertError`       | Opaque error with `.kind` (`ConvertErrorKind`) and `.message` accessors                            |
+| `MltWireVersion`     | `V01` (default) or the experimental `V02`                                                          |
+| `MltMvtGeometryType` | The MVT geometry type of one `MltLayerBuilder` feature                                             |
+| `ConvertErrorKind`   | `InvalidInput`, `EncodingFailed` or `InvalidFeature`                                               |
 
 ## Usage examples
 
@@ -20,6 +24,7 @@ The round-trip tests are the primary documentation for each language:
 - **C** - [`tests/c/test_round_trip.c`](tests/c/test_round_trip.c)
 - **C++** - [`tests/cpp/test_round_trip.cpp`](tests/cpp/test_round_trip.cpp)
 - **Kotlin** - [`tests/kotlin/TestRoundTrip.kt`](tests/kotlin/TestRoundTrip.kt)
+- **Java** - [`tests/java/org/maplibre/mlt/ffi/RoundTripTest.java`](tests/java/org/maplibre/mlt/ffi/RoundTripTest.java)
 
 ## Building
 
@@ -33,7 +38,7 @@ cargo build --release -p mlt-ffi
 just rust::sync-ffi-bindings
 ```
 
-Requires `diplomat-tool`, `clang-format`, and `ktlint`.
+Requires `diplomat-tool`, `clang-format`, `ktlint`, and `jextract`.
 
 ## Running tests
 
@@ -41,4 +46,5 @@ Requires `diplomat-tool`, `clang-format`, and `ktlint`.
 just rust::test-ffi-c
 just rust::test-ffi-cpp
 just rust::test-ffi-kotlin
+just rust::test-ffi-java
 ```

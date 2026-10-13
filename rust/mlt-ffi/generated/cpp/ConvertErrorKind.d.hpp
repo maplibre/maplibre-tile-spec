@@ -16,6 +16,7 @@ namespace capi {
 enum ConvertErrorKind {
     ConvertErrorKind_InvalidInput = 0,
     ConvertErrorKind_EncodingFailed = 1,
+    ConvertErrorKind_InvalidFeature = 2,
 };
 
 typedef struct ConvertErrorKind_option {
@@ -41,6 +42,10 @@ public:
          * Encoding failed.
          */
         EncodingFailed = 1,
+        /**
+         * A feature handed to a layer builder is malformed.
+         */
+        InvalidFeature = 2,
     };
 
     ConvertErrorKind()

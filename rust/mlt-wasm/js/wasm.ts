@@ -6,6 +6,6 @@
  */
 export {
   annotateTile as wasmAnnotateTile,
-  decode_tile as wasmDecodeTile,
+  decodeTileColumns as wasmDecodeTileColumns,
   tileGeoJson as wasmTileGeoJson,
 } from "../pkg/mlt_wasm.js";

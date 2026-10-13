@@ -8,7 +8,7 @@ use crate::tile::PropKind;
 /// Column kind inferred so far. `Unknown` is a column seen only as null, which
 /// resolves to [`PropKind::Str`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum InferredKind {
+pub enum InferredKind {
     Unknown,
     Bool,
     I64,
@@ -22,6 +22,7 @@ impl InferredKind {
     /// Merge with another kind: `I64`+`U64` widen to `I64`, floats widen to
     /// `F64`, integers mixed with floats widen to `F64`, and any other conflict
     /// falls back to `Str`.
+    #[must_use]
     pub fn merge(self, other: Self) -> Self {
         if self == Self::Unknown {
             return other;
@@ -29,21 +30,11 @@ impl InferredKind {
         if other == Self::Unknown || self == other {
             return self;
         }
-        #[expect(clippy::match_same_arms)]
-        match (self, other) {
-            // Signed and unsigned integers share a signed column.
-            (Self::I64 | Self::U64, Self::I64 | Self::U64) => Self::I64,
-            // Every f32 is exactly representable as f64.
-            (Self::F32 | Self::F64, Self::F32 | Self::F64) => Self::F64,
-            // Integers mixed with floats are most likely whole-number values of a float column
-            // that the encoder wrote as integers, so the column stays a float.
-            (Self::I64 | Self::U64, Self::F32 | Self::F64)
-            | (Self::F32 | Self::F64, Self::I64 | Self::U64) => Self::F64,
-            _ => Self::Str,
-        }
+        self.prop_kind().merge(other.prop_kind()).into()
     }
 
-    fn prop_kind(self) -> PropKind {
+    #[must_use]
+    pub fn prop_kind(self) -> PropKind {
         match self {
             Self::Unknown | Self::Str => PropKind::Str,
             Self::Bool => PropKind::Bool,
@@ -51,6 +42,21 @@ impl InferredKind {
             Self::U64 => PropKind::U64,
             Self::F32 => PropKind::F32,
             Self::F64 => PropKind::F64,
+        }
+    }
+}
+
+impl From<PropKind> for InferredKind {
+    fn from(kind: PropKind) -> Self {
+        match kind {
+            PropKind::Bool => Self::Bool,
+            PropKind::I64 => Self::I64,
+            PropKind::U64 => Self::U64,
+            PropKind::F32 => Self::F32,
+            PropKind::F64 => Self::F64,
+            PropKind::I8 | PropKind::U8 | PropKind::I32 | PropKind::U32 | PropKind::Str => {
+                Self::Str
+            }
         }
     }
 }

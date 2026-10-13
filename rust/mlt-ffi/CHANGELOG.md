@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.38](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.37...rust-mlt-ffi-v0.1.38) - 2026-10-12
+
+### Other
+
+- *(rust)* release mlt-ffi v0.1.37 ([#1915](https://github.com/maplibre/maplibre-tile-spec/pull/1915))
+
+## [0.1.37](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.36...rust-mlt-ffi-v0.1.37) - 2026-10-12
+
+- make the builder more "java native" ([#1914](https://github.com/maplibre/maplibre-tile-spec/pull/1914))
+- use java-style properties in the ffi API ([#1913](https://github.com/maplibre/maplibre-tile-spec/pull/1913))
+
+## [0.1.36](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.35...rust-mlt-ffi-v0.1.36) - 2026-10-11
+
+### Added
+
+- *(rust)* per-layer byte stats in mlt-ffi ([#1907](https://github.com/maplibre/maplibre-tile-spec/pull/1907))
+
+## [0.1.35](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.34...rust-mlt-ffi-v0.1.35) - 2026-10-10
+
+### Added
+
+- *(rust)* add an Java panama ffi wrapper ([#1905](https://github.com/maplibre/maplibre-tile-spec/pull/1905))
+- *(rust)* Add an feature based ffi builder ([#1904](https://github.com/maplibre/maplibre-tile-spec/pull/1904))
+
 ## [0.1.34](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.33...rust-mlt-ffi-v0.1.34) - 2026-10-08
 
 ### Added

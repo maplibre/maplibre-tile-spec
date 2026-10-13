@@ -9,7 +9,9 @@ use std::io::Write;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingColumnType;
-use crate::decoder::{Geometry, GeometryValues, Id, ParsedProperty, Property};
+use crate::decoder::{
+    Geometry, GeometryValues, Id, LayerBytes, ParsedId, ParsedProperty, Property,
+};
 use crate::tile::Extent;
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
 use crate::{DecodeState, Lazy, MltRefResult, Parsed, Parser};
@@ -41,6 +43,7 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub(crate) id: Option<Id<'a, S>>,
     pub(crate) geometry: Geometry<'a, S>,
     pub(crate) properties: Vec<Property<'a, S>>,
+    pub(crate) bytes: LayerBytes,
     #[cfg(fuzzing)]
     pub(crate) layer_order: Vec<crate::decoder::fuzzing::LayerOrdering>,
 }
@@ -56,6 +59,12 @@ impl<'a, S: DecodeState> Layer01<'a, S> {
     #[must_use]
     pub fn extent(&self) -> Extent {
         self.extent
+    }
+
+    /// The bytes the layer spent on the wire, by what they hold.
+    #[must_use]
+    pub fn bytes(&self) -> LayerBytes {
+        self.bytes
     }
 }
 
@@ -80,6 +89,14 @@ impl ParsedLayer01<'_> {
     #[must_use]
     pub fn properties(&self) -> &[ParsedProperty<'_>] {
         &self.properties
+    }
+
+    /// The layer's feature id column, or [`None`] when the layer has none.
+    ///
+    /// Columnar: one entry per feature, with absent ids marked by its presence.
+    #[must_use]
+    pub fn id(&self) -> Option<&ParsedId<'_>> {
+        self.id.as_ref()
     }
 }
 
@@ -165,6 +182,15 @@ impl ColumnType {
         !matches!(
             self,
             Self::Id | Self::OptId | Self::LongId | Self::OptLongId | Self::Geometry
+        )
+    }
+
+    /// Check if the column holds the feature ids.
+    #[must_use]
+    pub(crate) fn is_id(self) -> bool {
+        matches!(
+            self,
+            Self::Id | Self::OptId | Self::LongId | Self::OptLongId
         )
     }
 

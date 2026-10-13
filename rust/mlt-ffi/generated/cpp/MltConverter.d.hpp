@@ -42,6 +42,12 @@ public:
         diplomat::span<const uint8_t> mlt);
 
     /**
+     * Decode MLT bytes into MVT bytes within a memory budget.
+     */
+    inline static diplomat::result<std::unique_ptr<MltBuffer>, std::unique_ptr<ConvertError>> mlt_to_mvt_with_limit(
+        diplomat::span<const uint8_t> mlt, uint32_t max_bytes);
+
+    /**
      * Encode MVT bytes into MLT bytes using the given encoder options.
      */
     inline static diplomat::result<std::unique_ptr<MltBuffer>, std::unique_ptr<ConvertError>> mvt_to_mlt(
