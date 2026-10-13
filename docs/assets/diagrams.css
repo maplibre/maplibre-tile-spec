@@ -131,6 +131,9 @@
 .mlt-diagram .link.t1 {
   stroke: var(--mlt-f1);
 }
+.mlt-diagram .link.t0 {
+  stroke: var(--mlt-f0);
+}
 .mlt-diagram .pick {
   fill: none;
   stroke: var(--mlt-f1);
@@ -173,4 +176,17 @@
   .mlt-diagram .wind {
     animation: none;
   }
+}
+.mlt-diagram .math {
+  font-family: "Latin Modern Math", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
+  font-style: italic;
+  font-size: 16px;
+}
+.mlt-diagram .math .op {
+  font-style: normal;
+}
+.mlt-diagram .node {
+  fill: var(--md-default-bg-color);
+  stroke: var(--mlt-f1);
+  stroke-width: 1.5;
 }
