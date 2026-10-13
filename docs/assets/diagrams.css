@@ -178,7 +178,9 @@
   }
 }
 .mlt-diagram .math {
-  font-family: "Latin Modern Math", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
+  font-family:
+    "Latin Modern Math", "STIX Two Math", "Cambria Math", "Times New Roman",
+    serif;
   font-style: italic;
   font-size: 16px;
 }
