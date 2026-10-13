@@ -1289,6 +1289,21 @@ macro_rules! kind_mappings {
                     $(PropKind::$gv => Self::$gv(None),)*
                 }
             }
+
+            /// Value `i` becomes the one at `order[i]`, unless the counts differ.
+            pub(crate) fn reorder(&mut self, order: &[usize]) {
+                fn run<T: Clone>(values: &mut Option<Vec<T>>, order: &[usize]) {
+                    if let Some(v) = values
+                        && v.len() == order.len()
+                    {
+                        *v = order.iter().map(|&i| v[i].clone()).collect();
+                    }
+                }
+                match self {
+                    $(Self::$sv(v) => run(v, order),)*
+                    $(Self::$gv(v) => run(v, order),)*
+                }
+            }
         }
     };
 }

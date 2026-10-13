@@ -8,4 +8,7 @@ mod streams;
 mod tests;
 
 pub(crate) use geotype::coord_count;
+#[cfg(feature = "unstable-v2")]
+pub(crate) use geotype::wound_vertex_order;
+pub use geotype::{wound_geometry, wound_layer};
 pub use model::*;

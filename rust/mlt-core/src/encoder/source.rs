@@ -6,6 +6,8 @@ use geo_types::{Coord, Geometry};
 
 use crate::decoder::GeometryValues;
 use crate::encoder::geometry::coord_count;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::geometry::wound_vertex_order;
 use crate::tile::{Extent, PropKind, TileLayer};
 #[cfg(feature = "unstable-v2")]
 use crate::tile::{MValue, NestedKind, NestedValue, ZStep};
@@ -48,6 +50,12 @@ pub(crate) trait LayerSource {
     #[cfg(feature = "unstable-v2")]
     fn z(&self, _feature: usize) -> &[i32] {
         &[]
+    }
+    /// Where each stored vertex of the feature moves to when its rings are wound,
+    /// or [`None`] when none does, which the values held per vertex must follow.
+    #[cfg(feature = "unstable-v2")]
+    fn vertex_order(&self, _feature: usize) -> Option<Vec<usize>> {
+        None
     }
 }
 
@@ -164,6 +172,11 @@ impl LayerSource for TileLayer {
     #[cfg(feature = "unstable-v2")]
     fn z(&self, feature: usize) -> &[i32] {
         &self.features[feature].z
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn vertex_order(&self, feature: usize) -> Option<Vec<usize>> {
+        wound_vertex_order(&self.features[feature].geometry)
     }
 }
 
