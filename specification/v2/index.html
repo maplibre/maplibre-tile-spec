@@ -13,6 +13,12 @@
         <link rel="canonical" href="https://maplibre.org/maplibre-tile-spec/specification/v2/">
       
       
+        <link rel="describedby" href="../../llms.txt">
+        
+          <link rel="alternate" type="text/markdown" href="./index.md">
+        
+      
+      
         <link rel="prev" href="../v1/">
       
       
@@ -23,7 +29,7 @@
       
       
       <link rel="icon" href="https://maplibre.org/favicon.ico">
-      <meta name="generator" content="zensical-0.0.69">
+      <meta name="generator" content="zensical-0.0.70">
     
     
       
@@ -34,12 +40,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e15858d4.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e442bf79.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b27955a4.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
       
       
 
@@ -1619,41 +1625,33 @@ A tessellated layer that needs only some of the outline streams uses <code>0xD</
 <h3 id="polygon-rings">Polygon Rings<a class="headerlink" href="#polygon-rings" title="Link to this section">&para;</a></h3>
 <p>Rings take their roles from their order: the first ring of each polygon is its exterior, and any rings after it are its holes.
 The part and ring lengths of the <a href="#geometry-layout">geometry layout</a> say which rings belong to which polygon.
-Decoders MUST take each polygon's exterior and holes from these lengths, not from winding.</p>
+Decoders MUST take each polygon's exterior and holes from these lengths, not from winding, which only agrees with them.</p>
 <p>A polygon ring is stored without its closing vertex, and its ring length does not count it.
 An encoder MUST NOT store the closing vertex.
 A decoder that returns polygon rings MUST close each non-empty ring by repeating its first vertex at the end.</p>
-<p><strong>Winding carries no meaning</strong>: each ring MAY be wound either way, independently of the others.
-Unlike <a href="https://github.com/mapbox/vector-tile-spec/tree/master/2.1#4344-polygon-geometry-type">MVT</a>, MLT does not require exteriors to have a positive area or holes a negative one.</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 290" role="img" aria-label="The same three rings read from the topology streams, as MLT decoders do, with each ring stored without its closing vertex, and from their winding, as MVT decoders do: the clockwise hole becomes a second exterior and the counter-clockwise triangle becomes a hole" xmlns="http://www.w3.org/2000/svg">
-<text class="bold" x="40" y="14">from topology<tspan class="muted"> ✓ MLT</tspan></text>
-<text class="muted small" x="40" y="34">parts [2, 1] rings [4, 4, 3]</text>
-<path class="f0 area" fill-rule="evenodd" d="M40,60H220V240H40ZM90,110H170V190H90Z"/>
-<path class="f1 area" d="M250,240L310,240L280,150Z"/>
-<path class="f0 edge wind" d="M40,60H220V240H40M90,110H170V190H90"/>
-<path class="f1 edge wind" d="M250,240L310,240L280,150"/>
-<path class="implicit" d="M40,240V60M90,190V110M280,150L250,240"/>
-<path class="head t0" d="M125,55L134,60L125,65Z"/>
-<path class="head t0" d="M125,105L134,110L125,115Z"/>
-<path class="head t1" d="M275,235L284,240L275,245Z"/>
-<circle class="dot" cx="40" cy="60" r="2.5"/><circle class="dot" cx="220" cy="60" r="2.5"/><circle class="dot" cx="220" cy="240" r="2.5"/><circle class="dot" cx="40" cy="240" r="2.5"/><circle class="dot" cx="90" cy="110" r="2.5"/><circle class="dot" cx="170" cy="110" r="2.5"/><circle class="dot" cx="170" cy="190" r="2.5"/><circle class="dot" cx="90" cy="190" r="2.5"/><circle class="dot" cx="250" cy="240" r="2.5"/><circle class="dot" cx="310" cy="240" r="2.5"/><circle class="dot" cx="280" cy="150" r="2.5"/>
-<text class="vert halo" x="56" y="76">0</text>
-<text class="vert halo" x="130" y="150">1</text>
-<text class="vert halo" x="280" y="218">2</text>
-<text class="bold" x="400" y="14">from winding<tspan class="muted"> ✗ MVT</tspan></text>
+<p><strong>Winding follows MVT</strong>: an exterior ring MUST have a positive signed area and a hole a negative one, as in <a href="https://github.com/mapbox/vector-tile-spec/tree/master/2.1#4344-polygon-geometry-type">MVT</a>.
+That is clockwise on a tile whose y axis points down.
+A ring that encloses no area MAY wind either way.
+Decoders MAY rely on this and need not check it.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 290" role="img" aria-label="A polygon with a hole as given to the encoder, with the exterior counter-clockwise and the hole clockwise, and as stored, with the exterior clockwise and the hole counter-clockwise, which is the winding MVT uses" xmlns="http://www.w3.org/2000/svg">
+<text class="bold" x="40" y="14">as given<tspan class="muted"> ✗ wound against MVT</tspan></text>
+<text class="muted small" x="40" y="34">ccw exterior, cw hole</text>
+<path class="f0 area" fill-rule="evenodd" d="M40,60V240H220V60ZM90,110H170V190H90Z"/>
+<path class="f0 edge wind" d="M40,60V240H220V60Z"/>
+<path class="f1 edge wind" d="M90,110H170V190H90Z"/>
+<path class="head t0" d="M35,145L40,154L45,145Z"/>
+<path class="head t1" d="M125,105L134,110L125,115Z"/>
+<text class="bold" x="400" y="14">as stored<tspan class="muted"> ✓ wound as MVT</tspan></text>
 <text class="muted small" x="400" y="34">cw exterior, ccw hole</text>
-<path class="f0 wind" d="M400,60H580V240H400Z"/>
-<path class="f1 wind" d="M450,110H530V190H450Z"/>
-<path class="lost wind" d="M610,240L670,240L640,150Z"/>
+<path class="f0 area" fill-rule="evenodd" d="M400,60H580V240H400ZM450,110V190H530V110Z"/>
+<path class="f0 edge wind" d="M400,60H580V240H400Z"/>
+<path class="f1 edge wind" d="M450,110V190H530V110Z"/>
 <path class="head t0" d="M485,55L494,60L485,65Z"/>
-<path class="head t1" d="M485,105L494,110L485,115Z"/>
-<path class="head" d="M635,235L644,240L635,245Z"/>
-<text class="vert halo" x="416" y="76">0</text>
-<text class="vert halo" x="490" y="150">1</text>
-<text class="vert halo" x="640" y="218">2</text>
-<text class="muted" x="40" y="274"><tspan class="fg">0-2</tspan> ring order, arrows show winding</text>
-<path class="implicit" d="M330,274H354"/>
-<text class="muted" x="362" y="274">closing edge, not stored</text>
+<path class="head t1" d="M445,145L450,154L455,145Z"/>
+<path class="implicit" d="M255,150H345"/>
+<path class="head" d="M345,145L354,150L345,155Z"/>
+<text class="muted small" x="262" y="140">encoder reverses</text>
+<text class="muted" x="40" y="274">exterior area &gt; 0, hole area &lt; 0, arrows show winding</text>
 </svg></p>
 <h3 id="tessellation">Tessellation<a class="headerlink" href="#tessellation" title="Link to this section">&para;</a></h3>
 <p>A tessellated layer stores the triangles its polygons were cut into, next to their vertices.</p>
@@ -4387,15 +4385,15 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-14-39"><a id="__codelineno-14-39" name="__codelineno-14-39" href="#__codelineno-14-39"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-14-40"><a id="__codelineno-14-40" name="__codelineno-14-40" href="#__codelineno-14-40"></a>00000015  06                                                .                |       num_values: 6
 </span><span id="__span-14-41"><a id="__codelineno-14-41" name="__codelineno-14-41" href="#__codelineno-14-41"></a>00000016  0c                                                .                |       byte_length: 12
-</span><span id="__span-14-42"><a id="__codelineno-14-42" name="__codelineno-14-42" href="#__codelineno-14-42"></a>00000017  16 68 78 28 13 63 08 58 3b 13 28 27               .hx(.c.X;.('     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 6 values, 12 B]
-</span><span id="__span-14-43"><a id="__codelineno-14-43" name="__codelineno-14-43" href="#__codelineno-14-43"></a>                                                                             |         decoded: [11, 52, 71, 72, 61, 22, 65, 66, 35, 56, 55, 36]
+</span><span id="__span-14-42"><a id="__codelineno-14-42" name="__codelineno-14-42" href="#__codelineno-14-42"></a>00000017  16 68 64 3b 14 64 0b 0b 13 3b 27 28               .hd;.d...;'(     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 6 values, 12 B]
+</span><span id="__span-14-43"><a id="__codelineno-14-43" name="__codelineno-14-43" href="#__codelineno-14-43"></a>                                                                             |         decoded: [11, 52, 61, 22, 71, 72, 65, 66, 55, 36, 35, 56]
 </span><span id="__span-14-44"><a id="__codelineno-14-44" name="__codelineno-14-44" href="#__codelineno-14-44"></a>00000023  00                                                .                |   column_count: 0
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
 <p>The <code>TessPolygons</code> geometry layout: triangle lengths, the index buffer and the vertices, and no topology.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>00000000                                                                     | layer[0] "layer1" (76 B)
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>00000000  4b                                                K                |   size: 75 (varint) - tag + body
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>00000000                                                                     | layer[0] "layer1" (75 B)
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>00000000  4a                                                J                |   size: 74 (varint) - tag + body
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 </span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>00000009  00                                                .                |   header: extent = 64
@@ -4407,7 +4405,7 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>                                                                             |     └ bit 7 = 0 -&gt; shared bitfields are bitmaps
 </span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>                                                                             |     └ bits 6-4 = 000 -&gt; shared presence bitfields = 0
 </span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>                                                                             |     └ bits 3-0 = 1100 -&gt; geometry layout = TessPolygons
-</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>0000000c                                                                     |   geometry (63 B)
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>0000000c                                                                     |   geometry (62 B)
 </span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>0000000c                                                                     |     types (4 B)
 </span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a>0000000c  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
 </span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 2 values from context
@@ -4434,21 +4432,21 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-15-38"><a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-15-39"><a id="__codelineno-15-39" name="__codelineno-15-39" href="#__codelineno-15-39"></a>00000015  18                                                .                |       num_values: 24
 </span><span id="__span-15-40"><a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a>00000016  18                                                .                |       byte_length: 24
-</span><span id="__span-15-41"><a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a>00000017  01 00 02 03 06 08 07 06 03 04 03 08 07 03 05 05   ................ |       data [Offset(Index) Int(None)/VarInt, 24 values, 24 B]
-</span><span id="__span-15-42"><a id="__codelineno-15-42" name="__codelineno-15-42" href="#__codelineno-15-42"></a>00000027  04 08 08 07 05 0a 09 0b                           ........         |
-</span><span id="__span-15-43"><a id="__codelineno-15-43" name="__codelineno-15-43" href="#__codelineno-15-43"></a>                                                                             |         decoded: [1, 0, 2, 3, 6, 8, 7, 6, 3, 4, 3, 8, 7, 3, 5, 5, 4, 8, 8, 7, 5, 10, 9, 11]
-</span><span id="__span-15-44"><a id="__codelineno-15-44" name="__codelineno-15-44" href="#__codelineno-15-44"></a>0000002f                                                                     |     vertices (28 B)
+</span><span id="__span-15-41"><a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a>00000017  01 02 00 03 06 07 08 06 03 05 03 07 08 03 04 04   ................ |       data [Offset(Index) Int(None)/VarInt, 24 values, 24 B]
+</span><span id="__span-15-42"><a id="__codelineno-15-42" name="__codelineno-15-42" href="#__codelineno-15-42"></a>00000027  05 07 07 08 04 0a 0b 09                           ........         |
+</span><span id="__span-15-43"><a id="__codelineno-15-43" name="__codelineno-15-43" href="#__codelineno-15-43"></a>                                                                             |         decoded: [1, 2, 0, 3, 6, 7, 8, 6, 3, 5, 3, 7, 8, 3, 4, 4, 5, 7, 7, 8, 4, 10, 11, 9]
+</span><span id="__span-15-44"><a id="__codelineno-15-44" name="__codelineno-15-44" href="#__codelineno-15-44"></a>0000002f                                                                     |     vertices (27 B)
 </span><span id="__span-15-45"><a id="__codelineno-15-45" name="__codelineno-15-45" href="#__codelineno-15-45"></a>0000002f  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
 </span><span id="__span-15-46"><a id="__codelineno-15-46" name="__codelineno-15-46" href="#__codelineno-15-46"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
 </span><span id="__span-15-47"><a id="__codelineno-15-47" name="__codelineno-15-47" href="#__codelineno-15-47"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-15-48"><a id="__codelineno-15-48" name="__codelineno-15-48" href="#__codelineno-15-48"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-15-49"><a id="__codelineno-15-49" name="__codelineno-15-49" href="#__codelineno-15-49"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-15-50"><a id="__codelineno-15-50" name="__codelineno-15-50" href="#__codelineno-15-50"></a>00000030  0c                                                .                |       num_values: 12
-</span><span id="__span-15-51"><a id="__codelineno-15-51" name="__codelineno-15-51" href="#__codelineno-15-51"></a>00000031  19                                                .                |       byte_length: 25
-</span><span id="__span-15-52"><a id="__codelineno-15-52" name="__codelineno-15-52" href="#__codelineno-15-52"></a>00000032  6e 0a 06 2e 22 0b 87 01 03 1c 16 0a 2b 15 16 0a   n...".......+... |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 25 B]
-</span><span id="__span-15-53"><a id="__codelineno-15-53" name="__codelineno-15-53" href="#__codelineno-15-53"></a>00000042  09 03 14 66 40 04 12 04 03                        ...f@....        |
-</span><span id="__span-15-54"><a id="__codelineno-15-54" name="__codelineno-15-54" href="#__codelineno-15-54"></a>                                                                             |         decoded: [55, 5, 58, 28, 75, 22, 7, 20, 21, 31, 26, 9, 15, 20, 20, 15, 18, 25, 69, 57, 71, 66, 73, 64]
-</span><span id="__span-15-55"><a id="__codelineno-15-55" name="__codelineno-15-55" href="#__codelineno-15-55"></a>0000004b  00                                                .                |   column_count: 0
+</span><span id="__span-15-51"><a id="__codelineno-15-51" name="__codelineno-15-51" href="#__codelineno-15-51"></a>00000031  18                                                .                |       byte_length: 24
+</span><span id="__span-15-52"><a id="__codelineno-15-52" name="__codelineno-15-52" href="#__codelineno-15-52"></a>00000032  6e 0a 28 22 21 0c 65 0f 26 15 09 2c 0b 15 06 0a   n.("!.e.&amp;..,.... |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 24 B]
+</span><span id="__span-15-53"><a id="__codelineno-15-53" name="__codelineno-15-53" href="#__codelineno-15-53"></a>00000042  04 13 62 54 08 0e 03 04                           ..bT....         |
+</span><span id="__span-15-54"><a id="__codelineno-15-54" name="__codelineno-15-54" href="#__codelineno-15-54"></a>                                                                             |         decoded: [55, 5, 75, 22, 58, 28, 7, 20, 26, 9, 21, 31, 15, 20, 18, 25, 20, 15, 69, 57, 73, 64, 71, 66]
+</span><span id="__span-15-55"><a id="__codelineno-15-55" name="__codelineno-15-55" href="#__codelineno-15-55"></a>0000004a  00                                                .                |   column_count: 0
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
@@ -4495,9 +4493,9 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-16-40"><a id="__codelineno-16-40" name="__codelineno-16-40" href="#__codelineno-16-40"></a>00000015  06                                                .                |       num_values: 6
 </span><span id="__span-16-41"><a id="__codelineno-16-41" name="__codelineno-16-41" href="#__codelineno-16-41"></a>00000016  15                                                .                |       byte_length: 21
 </span><span id="__span-16-42"><a id="__codelineno-16-42" name="__codelineno-16-42" href="#__codelineno-16-42"></a>00000017  02                                                .                |       z_step: 1 dm
-</span><span id="__span-16-43"><a id="__codelineno-16-43" name="__codelineno-16-43" href="#__codelineno-16-43"></a>00000018  16 68 e0 a0 0c 78 28 14 13 63 14 08 58 ff 04 3b   .h...x(..c..X..; |       data [Data(Vertex) Vertex(Xyz(ZStep(-1), ComponentwiseDelta))/VarInt, 6 values, 21 B]
-</span><span id="__span-16-44"><a id="__codelineno-16-44" name="__codelineno-16-44" href="#__codelineno-16-44"></a>00000028  13 14 28 27 14                                    ..('.            |
-</span><span id="__span-16-45"><a id="__codelineno-16-45" name="__codelineno-16-45" href="#__codelineno-16-45"></a>                                                                             |         decoded: [11, 52, 100400, 71, 72, 100410, 61, 22, 100420, 65, 66, 100100, 35, 56, 100110, 55, 36, 100120]
+</span><span id="__span-16-43"><a id="__codelineno-16-43" name="__codelineno-16-43" href="#__codelineno-16-43"></a>00000018  16 68 e0 a0 0c 64 3b 14 14 64 14 0b 0b ff 04 13   .h...d;..d...... |       data [Data(Vertex) Vertex(Xyz(ZStep(-1), ComponentwiseDelta))/VarInt, 6 values, 21 B]
+</span><span id="__span-16-44"><a id="__codelineno-16-44" name="__codelineno-16-44" href="#__codelineno-16-44"></a>00000028  3b 14 27 28 14                                    ;.'(.            |
+</span><span id="__span-16-45"><a id="__codelineno-16-45" name="__codelineno-16-45" href="#__codelineno-16-45"></a>                                                                             |         decoded: [11, 52, 100400, 61, 22, 100410, 71, 72, 100420, 65, 66, 100100, 55, 36, 100110, 35, 56, 100120]
 </span><span id="__span-16-46"><a id="__codelineno-16-46" name="__codelineno-16-46" href="#__codelineno-16-46"></a>0000002d  00                                                .                |   column_count: 0
 </span></code></pre></div>
 </div>
@@ -5182,10 +5180,10 @@ The lengths stream counts elements per feature, and it and every stream below it
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"../../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.8b1c90bd.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a2388154.min.js"></script>
       
         <script src="../../assets/mathjax.js"></script>
       
