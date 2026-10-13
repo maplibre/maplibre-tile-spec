@@ -259,8 +259,10 @@ pub(crate) enum StreamCtx02 {
     GeomVertices,
     /// One index per vertex into the dictionary the preceding stream holds.
     GeomVertexOffsets,
-    /// The triangle indices of a tessellated layer, three per triangle.
-    GeomIndices,
+    /// One triangle tree symbol per triangle of a tessellated layer.
+    GeomTreeSymbols,
+    /// The outline cycle of each triangle tree of a tessellated layer.
+    GeomTreeCycles,
     GeomOffsets(LengthType),
     /// A nested list or map node's lengths, one per present value of the node.
     NestedLengths,
@@ -294,7 +296,8 @@ impl StreamCtx02 {
             | Self::StrSymbolLengths
             | Self::GeomTypes
             | Self::GeomVertexOffsets
-            | Self::GeomIndices
+            | Self::GeomTreeSymbols
+            | Self::GeomTreeCycles
             | Self::GeomOffsets(_)
             | Self::NestedLengths
             | Self::NestedShapeIds => Family::Int(WordWidth::W32),
@@ -320,7 +323,8 @@ impl StreamCtx02 {
             Self::StrBlob(dictionary) => StreamType::Data(dictionary),
             Self::GeomVertices => StreamType::Data(DictionaryType::Vertex),
             Self::GeomVertexOffsets => StreamType::Offset(OffsetType::Vertex),
-            Self::GeomIndices => StreamType::Offset(OffsetType::Index),
+            Self::GeomTreeSymbols => StreamType::Offset(OffsetType::TreeSymbols),
+            Self::GeomTreeCycles => StreamType::Offset(OffsetType::TreeCycles),
             Self::GeomOffsets(length_type) => StreamType::Length(length_type),
             Self::NestedLengths => StreamType::Length(LengthType::Nested),
             Self::NestedPresence | Self::NestedShapeTable => StreamType::Present,
@@ -1392,7 +1396,8 @@ mod tests {
     #[case::lengths(StreamCtx02::GeomOffsets(LengthType::Parts), INT_FAMILY)]
     #[case::vertices(StreamCtx02::GeomVertices, Family::Vertex)]
     #[case::vertex_offsets(StreamCtx02::GeomVertexOffsets, INT_FAMILY)]
-    #[case::triangle_indices(StreamCtx02::GeomIndices, INT_FAMILY)]
+    #[case::tree_symbols(StreamCtx02::GeomTreeSymbols, INT_FAMILY)]
+    #[case::tree_cycles(StreamCtx02::GeomTreeCycles, INT_FAMILY)]
     fn geometry_role_picks_its_family(#[case] ctx: StreamCtx02, #[case] family: Family) {
         assert_eq!(ctx.family(), family);
     }

@@ -9,6 +9,7 @@ use super::streams::{
     encode_vec2_vertex_stream02, encode_vec3_vertex_stream02, normalize_geometry_offsets,
     normalize_part_offsets_for_rings, seed_curve_caches, xyz_dict_may_be_beneficial,
 };
+use crate::codecs::tri::{self, TriTrees};
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::stream::header02::{Family, WordWidth};
 use crate::decoder::{
@@ -30,6 +31,29 @@ fn non_empty(data: Vec<u32>) -> Option<Vec<u32>> {
 struct Tessellation {
     triangles: Vec<u32>,
     index_buffer: Vec<u32>,
+}
+
+impl Tessellation {
+    /// The triangle trees that store the index buffer.
+    fn trees(&self) -> TriTrees {
+        let offsets: Vec<u32> = std::iter::once(0)
+            .chain(self.triangles.iter().scan(0, |total, &n| {
+                *total += n;
+                Some(*total)
+            }))
+            .collect();
+        let trees = tri::encode_trees(&self.index_buffer, &offsets);
+        debug_assert!(
+            tri::decode_trees(
+                &trees.symbols,
+                &trees.cycles,
+                &mut Decoder::with_max_size(u32::MAX)
+            )
+            .is_ok_and(|back| tri::same_triangles(&self.index_buffer, &back, &offsets)),
+            "triangle trees keep each feature's triangles"
+        );
+        trees
+    }
 }
 
 /// Whether a tessellated layer keeps the outline topology next to its triangles.
@@ -277,8 +301,11 @@ impl GeometrySection02 {
         if let Some(tess) = &self.tessellation {
             let ctx = StreamCtx::geom(StreamType::Length(LengthType::Triangles), "triangles");
             codecs.write_int_stream(&tess.triangles, &ctx, enc)?;
-            let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Index), "triangles_indexes");
-            codecs.write_int_stream(&tess.index_buffer, &ctx, enc)?;
+            let trees = tess.trees();
+            let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::TreeSymbols), "tree_symbols");
+            codecs.write_int_stream(&trees.symbols, &ctx, enc)?;
+            let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::TreeCycles), "tree_cycles");
+            codecs.write_int_stream(&trees.cycles, &ctx, enc)?;
         }
 
         let tessellated = self.tessellation.is_some();

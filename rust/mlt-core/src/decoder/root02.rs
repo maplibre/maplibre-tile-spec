@@ -747,7 +747,8 @@ fn parse_geometry<'a>(
     if layout.is_tess() {
         let triangles = StreamCtx02::GeomOffsets(LengthType::Triangles);
         input = stream(input, triangles, &mut items)?;
-        input = stream(input, StreamCtx02::GeomIndices, &mut items)?;
+        input = stream(input, StreamCtx02::GeomTreeSymbols, &mut items)?;
+        input = stream(input, StreamCtx02::GeomTreeCycles, &mut items)?;
     }
 
     // Vertex stream, holding the whole vertex sequence or a dictionary of the distinct

@@ -317,6 +317,12 @@ pub enum MltError {
     #[error("rANS vertex stream is malformed: {0}")]
     MalformedRans(&'static str),
     #[cfg(feature = "unstable-v2")]
+    #[error("triangle trees are malformed: {0}")]
+    MalformedTriangles(&'static str),
+    #[cfg(feature = "unstable-v2")]
+    #[error("triangle tree names vertex {0} of a layer with {1} vertices")]
+    TreeVertexOutOfBounds(u32, usize),
+    #[cfg(feature = "unstable-v2")]
     #[error("dictionary code {0} is out of range for a dictionary of {1} values")]
     DictionaryCodeOutOfRange(u32, usize),
     #[cfg(feature = "unstable-v2")]

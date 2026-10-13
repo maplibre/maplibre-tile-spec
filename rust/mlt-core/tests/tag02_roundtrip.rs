@@ -854,11 +854,12 @@ mod geometry_layouts {
         assert_snapshot!(geometry_streams(&bytes).join("\n"), @"
         types
         tri_lengths
-        tri_indexes
+        tri_symbols
+        tri_cycles
         vertices
         ");
         let (_, tile) = decode(&bytes);
-        assert_snapshot!(format!("{:?}", exteriors(&tile)), @"[[[(10, 10), (0, 10), (0, 0), (10, 10)], [(0, 0), (10, 0), (10, 10), (0, 0)]], [[(30, 30), (20, 30), (20, 20), (30, 30)], [(20, 20), (30, 20), (30, 30), (20, 20)], [(50, 50), (40, 50), (40, 40), (50, 50)], [(40, 40), (50, 40), (50, 50), (40, 40)]]]");
+        assert_snapshot!(format!("{:?}", exteriors(&tile)), @"[[[(0, 0), (10, 0), (10, 10), (0, 0)], [(0, 0), (10, 10), (0, 10), (0, 0)]], [[(20, 20), (30, 20), (30, 30), (20, 20)], [(20, 20), (30, 30), (20, 30), (20, 20)], [(40, 40), (50, 40), (50, 50), (40, 40)], [(40, 40), (50, 50), (40, 50), (40, 40)]]]");
     }
 
     #[test]
@@ -873,7 +874,7 @@ mod geometry_layouts {
             &[],
         );
         let (_, tile) = decode(&l.encode(cfg_triangles_only()).unwrap());
-        assert_snapshot!(format!("{:?}", exteriors(&tile)), @"[[], [[(50, 50), (40, 50), (40, 40), (50, 50)], [(40, 40), (50, 40), (50, 50), (40, 40)]]]");
+        assert_snapshot!(format!("{:?}", exteriors(&tile)), @"[[], [[(40, 40), (50, 40), (50, 50), (40, 40)], [(40, 40), (50, 50), (40, 50), (40, 40)]]]");
     }
 
     #[test]
@@ -891,7 +892,7 @@ mod geometry_layouts {
             .encode(cfg_tessellated().with_wire_version(WireVersion::V02))
             .unwrap();
         let triangles_only = l.encode(cfg_triangles_only()).unwrap();
-        assert_eq!((with_outlines.len(), triangles_only.len()), (87, 73));
+        assert_eq!((with_outlines.len(), triangles_only.len()), (82, 68));
     }
 
     #[rstest]
@@ -940,6 +941,32 @@ mod geometry_layouts {
             .into_tile(&mut Decoder::default())
             .expect_err("a point has no triangles");
         assert_snapshot!(err, @"geometry[0]: Point requires outlines, which a triangles-only layer does not store");
+    }
+    const TRIANGLES_ONLY: &[u8] = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../test/synthetic/0x02/mix_2_poly_mpoly_tri.mlt"
+    ));
+
+    fn decode_patched(offset: usize, from: u8, to: u8) -> String {
+        let mut bytes = TRIANGLES_ONLY.to_vec();
+        assert_eq!(bytes[offset], from);
+        bytes[offset] = to;
+        let layers = Parser::default().parse_layers(&bytes).expect("parse");
+        let layer = layers.into_iter().next().unwrap();
+        layer
+            .into_tile(&mut Decoder::default())
+            .unwrap_err()
+            .to_string()
+    }
+
+    #[test]
+    fn a_tree_cycle_naming_a_missing_vertex_is_rejected() {
+        assert_snapshot!(decode_patched(0x2e, 11, 12), @"triangle tree names vertex 12 of a layer with 12 vertices");
+    }
+
+    #[test]
+    fn triangle_lengths_not_summing_to_the_symbols_are_rejected() {
+        assert_snapshot!(decode_patched(0x13, 7, 6), @"triangle trees are malformed: triangle lengths do not sum to the symbol count");
     }
 }
 

@@ -140,7 +140,7 @@ fn z_round_trips_on_tessellated_outlines() {
 }
 
 #[test]
-fn a_triangles_only_feature_carries_the_z_of_each_corner_in_index_order() {
+fn a_triangles_only_feature_carries_the_z_of_each_corner_in_decoded_order() {
     let l = z_layer(vec![Geometry::Polygon(square(0, 0))]);
     let bytes = l
         .encode(cfg_v2().with_tessellation(true).with_triangles_only(true))
@@ -148,7 +148,7 @@ fn a_triangles_only_feature_carries_the_z_of_each_corner_in_index_order() {
     assert_eq!(geometry_layout(&bytes), "geometry layout = TessPolygons");
     let tile = decode(&bytes);
     assert_eq!(tile.z_step(), Some(step()));
-    assert_snapshot!(format!("{:?}", tile.features()[0].z()), @"[15, 22, 1, 1, 8, 15]");
+    assert_snapshot!(format!("{:?}", tile.features()[0].z()), @"[1, 8, 15, 1, 15, 22]");
     assert_round_trips(&tile, cfg_v2());
 }
 
