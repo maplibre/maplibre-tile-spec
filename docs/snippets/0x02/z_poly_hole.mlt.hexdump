@@ -40,7 +40,7 @@
 00000015  06                                                .                |       num_values: 6
 00000016  15                                                .                |       byte_length: 21
 00000017  02                                                .                |       z_step: 1 dm
-00000018  16 68 e0 a0 0c 78 28 14 13 63 14 08 58 ff 04 3b   .h...x(..c..X..; |       data [Data(Vertex) Vertex(Xyz(ZStep(-1), ComponentwiseDelta))/VarInt, 6 values, 21 B]
-00000028  13 14 28 27 14                                    ..('.            |
-                                                                             |         decoded: [11, 52, 100400, 71, 72, 100410, 61, 22, 100420, 65, 66, 100100, 35, 56, 100110, 55, 36, 100120]
+00000018  16 68 e0 a0 0c 64 3b 14 14 64 14 0b 0b ff 04 13   .h...d;..d...... |       data [Data(Vertex) Vertex(Xyz(ZStep(-1), ComponentwiseDelta))/VarInt, 6 values, 21 B]
+00000028  3b 14 27 28 14                                    ;.'(.            |
+                                                                             |         decoded: [11, 52, 100400, 61, 22, 100410, 71, 72, 100420, 65, 66, 100100, 55, 36, 100110, 35, 56, 100120]
 0000002d  00                                                .                |   column_count: 0

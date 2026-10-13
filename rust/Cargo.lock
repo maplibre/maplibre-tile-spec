@@ -2824,7 +2824,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2865,7 +2865,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.20.2"
+version = "0.20.3"
 dependencies = [
  "arbitrary",
  "bitvec",
@@ -2907,7 +2907,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-ffi"
-version = "0.1.37"
+version = "0.1.38"
 dependencies = [
  "diplomat",
  "diplomat-runtime",
@@ -2917,7 +2917,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.2.11"
+version = "0.2.12"
 dependencies = [
  "mlt-core",
  "pyo3",
@@ -2938,7 +2938,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-wasm"
-version = "0.1.43"
+version = "0.1.45"
 dependencies = [
  "js-sys",
  "minicov",
@@ -5874,9 +5874,9 @@ checksum = "5c1cb5db39152898a79168971543b1cb5020dff7fe43c8dc468b0885f5e29df5"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.26"
+version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"
+checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "unicode-normalization"

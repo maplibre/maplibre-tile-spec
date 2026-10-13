@@ -961,7 +961,7 @@ mod geometry_layouts {
 
     #[test]
     fn a_tree_cycle_naming_a_missing_vertex_is_rejected() {
-        assert_snapshot!(decode_patched(0x2e, 11, 12), @"triangle tree names vertex 12 of a layer with 12 vertices");
+        assert_snapshot!(decode_patched(0x2f, 11, 12), @"triangle tree names vertex 12 of a layer with 12 vertices");
     }
 
     #[test]

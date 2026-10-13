@@ -1,5 +1,5 @@
-00000000                                                                     | layer[0] "layer1" (77 B)
-00000000  4c                                                L                |   size: 76 (varint) - tag + body
+00000000                                                                     | layer[0] "layer1" (76 B)
+00000000  4b                                                K                |   size: 75 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 00000009  00                                                .                |   header: extent = 64
@@ -11,7 +11,7 @@
                                                                              |     └ bit 7 = 0 -> shared bitfields are bitmaps
                                                                              |     └ bits 6-4 = 000 -> shared presence bitfields = 0
                                                                              |     └ bits 3-0 = 1100 -> geometry layout = TessPolygons
-0000000c                                                                     |   geometry (64 B)
+0000000c                                                                     |   geometry (63 B)
 0000000c                                                                     |     types (4 B)
 0000000c  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
@@ -38,8 +38,8 @@
                                                                              |         └ bits 1-0 = 00 -> extension = 0
 00000015  08                                                .                |       num_values: 8
 00000016  08                                                .                |       byte_length: 8
-00000017  00 02 01 01 02 01 00 00                           ........         |       data [Offset(TreeSymbols) Int(None)/VarInt, 8 values, 8 B]
-                                                                             |         decoded: [0, 2, 1, 1, 2, 1, 0, 0]
+00000017  00 03 01 02 02 00 00 00                           ........         |       data [Offset(TreeSymbols) Int(None)/VarInt, 8 values, 8 B]
+                                                                             |         decoded: [0, 3, 1, 2, 2, 0, 0, 0]
 0000001f                                                                     |     tri_cycles (17 B)
 0000001f  88                                                .                |       encoding: 0x88 logical=None physical=VarInt
                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
@@ -48,17 +48,17 @@
                                                                              |         └ bits 1-0 = 00 -> extension = 0
 00000020  0e                                                .                |       num_values: 14
 00000021  0e                                                .                |       byte_length: 14
-00000022  00 02 01 03 06 08 07 06 03 05 04 09 0b 0a         ..............   |       data [Offset(TreeCycles) Int(None)/VarInt, 14 values, 14 B]
-                                                                             |         decoded: [0, 2, 1, 3, 6, 8, 7, 6, 3, 5, 4, 9, 11, 10]
-00000030                                                                     |     vertices (28 B)
+00000022  00 01 02 03 04 05 03 06 07 08 06 09 0a 0b         ..............   |       data [Offset(TreeCycles) Int(None)/VarInt, 14 values, 14 B]
+                                                                             |         decoded: [0, 1, 2, 3, 4, 5, 3, 6, 7, 8, 6, 9, 10, 11]
+00000030                                                                     |     vertices (27 B)
 00000030  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
                                                                              |         └ bits 1-0 = 00 -> extension = 0
 00000031  0c                                                .                |       num_values: 12
-00000032  19                                                .                |       byte_length: 25
-00000033  6e 0a 06 2e 22 0b 87 01 03 1c 16 0a 2b 15 16 0a   n...".......+... |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 25 B]
-00000043  09 03 14 66 40 04 12 04 03                        ...f@....        |
-                                                                             |         decoded: [55, 5, 58, 28, 75, 22, 7, 20, 21, 31, 26, 9, 15, 20, 20, 15, 18, 25, 69, 57, 71, 66, 73, 64]
-0000004c  00                                                .                |   column_count: 0
+00000032  18                                                .                |       byte_length: 24
+00000033  6e 0a 28 22 21 0c 65 0f 26 15 09 2c 0b 15 06 0a   n.("!.e.&..,.... |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 24 B]
+00000043  04 13 62 54 08 0e 03 04                           ..bT....         |
+                                                                             |         decoded: [55, 5, 75, 22, 58, 28, 7, 20, 26, 9, 21, 31, 15, 20, 18, 25, 20, 15, 69, 57, 73, 64, 71, 66]
+0000004b  00                                                .                |   column_count: 0

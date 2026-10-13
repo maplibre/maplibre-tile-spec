@@ -7,7 +7,7 @@ use std::path::Path;
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
     Presence, StagedId, StagedLayer, StagedMValue, StagedNested, StagedProperty, StagedSharedDict,
-    StrEncoding, StreamCtx, VertexBufferType, WireVersion,
+    StrEncoding, StreamCtx, VertexBufferType, WireVersion, wound_geometry,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -335,13 +335,24 @@ impl Layer {
         self
     }
 
+    /// Add a geometry, whose polygon rings must already be wound as MVT winds them.
+    ///
+    /// The encoder rewinds any other ring, and the z and m-values staged here would then not follow their vertices.
     #[must_use]
+    #[track_caller]
     pub fn geo(mut self, geometry: impl Into<Geometry<i32>>) -> Self {
-        self.geometry_items.push(geometry.into());
+        let geometry = geometry.into();
+        assert_eq!(
+            wound_geometry(&geometry),
+            geometry,
+            "a synthetic polygon must be wound as MVT winds it"
+        );
+        self.geometry_items.push(geometry);
         self
     }
 
     #[must_use]
+    #[track_caller]
     pub fn geos<T: Into<Geometry<i32>>, I: IntoIterator<Item = T>>(
         mut self,
         geometries: I,
@@ -796,6 +807,12 @@ impl Layer {
 
     pub(crate) fn versions(&self) -> &'static [WireVersion] {
         self.versions
+    }
+
+    pub(crate) fn has_polygons(&self) -> bool {
+        self.geometry_items
+            .iter()
+            .any(|g| matches!(g, Geometry::Polygon(_) | Geometry::MultiPolygon(_)))
     }
 }
 
