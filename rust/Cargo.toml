@@ -48,8 +48,8 @@ indicatif = "0.18"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
 js-sys = "0.3"
-martin-tile-utils = "0.8"
-mbtiles = { version = "0.20", default-features = false, features = ["transcode"] }
+martin-tile-utils = "0.9"
+mbtiles = { version = "0.21", default-features = false, features = ["transcode"] }
 mimalloc = "0.1.52"
 minicov = "0.3.9"
 mlt-core = { version = "0.20.4", path = "mlt-core" }
@@ -60,7 +60,7 @@ pmtiles = { version = "0.24.0", default-features = false, features = ["mmap-asyn
 pretty_assertions = "1.4"
 probabilistic-collections = "0.7"
 proptest = "1.11"
-proptest-derive = "0.8"
+proptest-derive = "0.9"
 pyo3 = "0.29.0"
 pyo3-stub-gen = "0.23.0"
 pythonize = "0.29"

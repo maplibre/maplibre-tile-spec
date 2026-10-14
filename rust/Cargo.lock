@@ -1293,9 +1293,9 @@ dependencies = [
 
 [[package]]
 name = "equivalent"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
 name = "errno"
@@ -1901,15 +1901,6 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fea08cd9a9b44bff59a678e2c140e25c90e0a5cf69032b546622ca4b29fdce6"
-dependencies = [
- "hotpath-macros 0.27.0",
-]
-
-[[package]]
-name = "hotpath"
 version = "0.28.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2ee4f8d17ebe2400fa845f079acf9ede235be6472512876779af45f7890f934"
@@ -1925,7 +1916,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.28.6",
+ "hotpath-macros",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -1958,12 +1949,6 @@ name = "hotpath-drain-meta"
 version = "0.28.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2ee9d8bd9bb6784d6dbb668b93cdbe433e6948777a991b7a66e9c13fd9da7b6"
-
-[[package]]
-name = "hotpath-macros"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc192b9ee12373854f13fd22ca359a2225e2c11d584999d61d8384ee589d06ef"
 
 [[package]]
 name = "hotpath-macros"
@@ -2658,14 +2643,14 @@ checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03e40bcc0e29bfb0ecdce7d003ebb03669fd19a7a7a8c59e660d4112171d7ca2"
+checksum = "259b19faebf03e3f0aeb33ddef4b0333762b4b3f8f5989515a6e0dbceb6bc2b5"
 dependencies = [
  "brotli",
  "bytes",
  "flate2",
- "hotpath 0.27.0",
+ "hotpath",
  "serde",
  "serde_json",
  "strum",
@@ -2691,16 +2676,16 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.20.2"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f657140ceaf88e07766bae13aff45aec87282dfdc0720189d9d3ec3cf05e0330"
+checksum = "964cd6a7495ab10ed9de24dc33c188f67c8d4f5d6719922a70f19126d52ca205"
 dependencies = [
  "bytes",
  "enum-display",
  "flume",
  "fnv",
  "futures",
- "hotpath 0.28.6",
+ "hotpath",
  "itertools 0.15.0",
  "martin-tile-utils",
  "md5",
@@ -2836,7 +2821,7 @@ dependencies = [
  "geojson",
  "glob",
  "globset",
- "hotpath 0.28.6",
+ "hotpath",
  "indicatif",
  "insta",
  "martin-tile-utils",
@@ -2882,7 +2867,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath 0.28.6",
+ "hotpath",
  "insta",
  "integer-encoding",
  "num-traits",
@@ -2907,7 +2892,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-ffi"
-version = "0.1.39"
+version = "0.1.40"
 dependencies = [
  "diplomat",
  "diplomat-runtime",
@@ -3592,13 +3577,13 @@ dependencies = [
 
 [[package]]
 name = "proptest-derive"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c57924a81864dddafba92e1bf92f9bf82f97096c44489548a60e888e1547549b"
+checksum = "587d11bad8340bf431e47b2ca2a3f11ecac3b09ecbf2f6e17dcf6655eead1ca9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -4356,9 +4341,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -5305,7 +5290,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -5559,9 +5544,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.53.2"
+version = "1.53.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
+checksum = "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e"
 dependencies = [
  "bytes",
  "libc",
@@ -6569,18 +6554,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.62"
+version = "0.8.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86502bf56ac7c77571a32e2647bb2a15894565e981fb2a48d7bde2d91c965a9d"
+checksum = "e5fe1f8f1b06191a00962174c61aa5005e0bb391a6d80d07e24d115c01a92ed8"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.62"
+version = "0.8.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5457206954b06561e2608c7e19cf58b1926586d999c246eebe4502f7e2039d1a"
+checksum = "863ad3ac83293fb4d740aedbfdc9240dd8d1a50c1099acd76ce80ce7c7230c7f"
 dependencies = [
  "proc-macro2",
  "quote",

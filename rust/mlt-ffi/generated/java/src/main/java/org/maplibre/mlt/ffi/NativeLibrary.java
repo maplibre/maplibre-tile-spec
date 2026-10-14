@@ -54,12 +54,18 @@ public final class NativeLibrary {
     boolean arm = arch.equals("aarch64") || arch.equals("arm64");
     if (os.contains("linux") && x86) {
       return musl ? "linux-x86-64-musl" : "linux-x86-64";
-    } else if (os.contains("linux") && arm && !musl) {
-      return "linux-aarch64";
+    } else if (os.contains("linux") && arm) {
+      return musl ? "linux-aarch64-musl" : "linux-aarch64";
     } else if (os.contains("mac") && arm) {
       return "darwin-aarch64";
+    } else if (os.contains("mac") && x86) {
+      return "darwin-x86-64";
+    } else if (os.contains("freebsd") && x86) {
+      return "freebsd-x86-64";
     } else if (os.contains("windows") && x86) {
       return "win32-x86-64";
+    } else if (os.contains("windows") && arm) {
+      return "win32-aarch64";
     }
     throw new UnsatisfiedLinkError("No MLT native library is packaged for " + osName + " " + archName
       + (musl ? " (musl)" : "") + ", set -D" + LIBRARY_PROPERTY + " to one");
