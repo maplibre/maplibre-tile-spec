@@ -58,6 +58,8 @@ public final class NativeLibrary {
       return "linux-aarch64";
     } else if (os.contains("mac") && arm) {
       return "darwin-aarch64";
+    } else if (os.contains("mac") && x86) {
+      return "darwin-x86-64";
     } else if (os.contains("windows") && x86) {
       return "win32-x86-64";
     }

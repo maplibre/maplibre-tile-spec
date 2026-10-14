@@ -32,6 +32,10 @@ jobs:
             target: aarch64-apple-darwin
             classifier: macos-aarch64
             lib_name: libmlt_ffi.dylib
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            classifier: macos-x86_64
+            lib_name: libmlt_ffi.dylib
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             classifier: windows-x86_64
