@@ -1901,15 +1901,6 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fea08cd9a9b44bff59a678e2c140e25c90e0a5cf69032b546622ca4b29fdce6"
-dependencies = [
- "hotpath-macros 0.27.0",
-]
-
-[[package]]
-name = "hotpath"
 version = "0.28.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2ee4f8d17ebe2400fa845f079acf9ede235be6472512876779af45f7890f934"
@@ -1925,7 +1916,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.28.6",
+ "hotpath-macros",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -1958,12 +1949,6 @@ name = "hotpath-drain-meta"
 version = "0.28.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2ee9d8bd9bb6784d6dbb668b93cdbe433e6948777a991b7a66e9c13fd9da7b6"
-
-[[package]]
-name = "hotpath-macros"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc192b9ee12373854f13fd22ca359a2225e2c11d584999d61d8384ee589d06ef"
 
 [[package]]
 name = "hotpath-macros"
@@ -2658,23 +2643,6 @@ checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03e40bcc0e29bfb0ecdce7d003ebb03669fd19a7a7a8c59e660d4112171d7ca2"
-dependencies = [
- "brotli",
- "bytes",
- "flate2",
- "hotpath 0.27.0",
- "serde",
- "serde_json",
- "strum",
- "thiserror 2.0.21",
- "zstd",
-]
-
-[[package]]
-name = "martin-tile-utils"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "259b19faebf03e3f0aeb33ddef4b0333762b4b3f8f5989515a6e0dbceb6bc2b5"
@@ -2682,7 +2650,7 @@ dependencies = [
  "brotli",
  "bytes",
  "flate2",
- "hotpath 0.28.6",
+ "hotpath",
  "serde",
  "serde_json",
  "strum",
@@ -2717,9 +2685,9 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath 0.28.6",
+ "hotpath",
  "itertools 0.15.0",
- "martin-tile-utils 0.9.0",
+ "martin-tile-utils",
  "md5",
  "moka",
  "num_cpus",
@@ -2853,10 +2821,10 @@ dependencies = [
  "geojson",
  "glob",
  "globset",
- "hotpath 0.28.6",
+ "hotpath",
  "indicatif",
  "insta",
- "martin-tile-utils 0.8.1",
+ "martin-tile-utils",
  "mbtiles",
  "mimalloc",
  "mlt-core",
@@ -2899,7 +2867,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath 0.28.6",
+ "hotpath",
  "insta",
  "integer-encoding",
  "num-traits",
@@ -5322,7 +5290,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
