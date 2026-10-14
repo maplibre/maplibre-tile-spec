@@ -1,7 +1,7 @@
 //! Triangle trees: a tessellation stored as two-bit symbols and the outline cycle of each tree.
 //!
 //! ```text
-//! symbols   one per triangle in preorder: bit 0 a child across v→w, bit 1 a child across w→u
+//! symbols   one per triangle in preorder: bit 0 a child across v->w, bit 1 a child across w->u
 //! cycles    per tree of n triangles: the root's u and v, then n apexes in in-order
 //! ```
 
