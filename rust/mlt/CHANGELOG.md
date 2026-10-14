@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.4.3...rust-mlt-v0.4.4) - 2026-10-13
+
+### Added
+
+- *(rust)* wind polygon rings as MVT does ([#1900](https://github.com/maplibre/maplibre-tile-spec/pull/1900))
+
 ## [0.4.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.4.2...rust-mlt-v0.4.3) - 2026-10-12
 
 ### Other
