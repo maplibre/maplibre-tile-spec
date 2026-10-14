@@ -28,6 +28,10 @@ jobs:
             target: aarch64-unknown-linux-gnu
             classifier: linux-aarch64
             lib_name: libmlt_ffi.so
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            classifier: linux-aarch64-musl
+            lib_name: libmlt_ffi.so
           - os: macos-latest
             target: aarch64-apple-darwin
             classifier: macos-aarch64
@@ -43,6 +47,10 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             classifier: windows-x86_64
+            lib_name: mlt_ffi.dll
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            classifier: windows-aarch64
             lib_name: mlt_ffi.dll
     runs-on: ${{ matrix.os }}
     steps:

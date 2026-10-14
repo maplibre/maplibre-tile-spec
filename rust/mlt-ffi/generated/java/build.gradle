@@ -61,13 +61,15 @@ test {
 // Natives arrive as build/natives/<ci-classifier>/<lib>. mlt-ffi-kotlin packs the same prefixes at the jar root, so these move below the package.
 def resourcePrefix(String classifier) {
     switch (classifier) {
-        case 'linux-x86_64':      return 'linux-x86-64'
-        case 'linux-x86_64-musl': return 'linux-x86-64-musl'
-        case 'linux-aarch64':     return 'linux-aarch64'
-        case 'macos-aarch64':     return 'darwin-aarch64'
-        case 'macos-x86_64':      return 'darwin-x86-64'
-        case 'freebsd-x86_64':    return 'freebsd-x86-64'
-        case 'windows-x86_64':    return 'win32-x86-64'
+        case 'linux-x86_64':       return 'linux-x86-64'
+        case 'linux-x86_64-musl':  return 'linux-x86-64-musl'
+        case 'linux-aarch64':      return 'linux-aarch64'
+        case 'linux-aarch64-musl': return 'linux-aarch64-musl'
+        case 'macos-aarch64':      return 'darwin-aarch64'
+        case 'macos-x86_64':       return 'darwin-x86-64'
+        case 'freebsd-x86_64':     return 'freebsd-x86-64'
+        case 'windows-x86_64':     return 'win32-x86-64'
+        case 'windows-aarch64':    return 'win32-aarch64'
         default: throw new GradleException("Unknown native classifier: ${classifier}")
     }
 }
