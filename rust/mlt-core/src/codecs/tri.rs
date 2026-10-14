@@ -139,7 +139,7 @@ fn build(
                     continue;
                 };
                 let nb = nb as usize;
-                if nb == t || visited[nb] {
+                if visited[nb] {
                     continue;
                 }
                 visited[nb] = true;
@@ -257,9 +257,10 @@ pub(crate) fn decode_trees(
         let mut sp = 1usize;
         for i in (s0..end).rev() {
             let (ha, hb) = (symbols[i] & 1, symbols[i] >> 1);
-            if sp <= (ha + hb).into_usize() {
-                return Err(MalformedTriangles("tree shape"));
-            }
+            debug_assert!(
+                sp > (ha + hb).into_usize(),
+                "the pending count proves every pop finds a subtree"
+            );
             let left = sizes[sp - 1] * ha;
             sp -= ha.into_usize();
             let right = sizes[sp - 1] * hb;
@@ -337,16 +338,13 @@ pub(crate) fn same_triangles(a: &[u32], b: &[u32], tri_offsets: &[u32]) -> bool 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn dec() -> Decoder {
-        Decoder::with_max_size(u32::MAX)
-    }
+    use crate::test_helpers::{dec, starved_dec};
 
     #[test]
     fn fan_with_a_hole_bridge_round_trips() {
-        let indices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 4, 3, 5, 6, 7, 8];
-        let offsets = [0, 4, 5];
-        let trees = encode_trees(&indices, &offsets);
+        let triangles = [[0, 1, 2], [0, 2, 3], [0, 3, 4], [4, 3, 5], [6, 7, 8]];
+        let tri_offsets = [0, 4, 5];
+        let trees = encode_trees(triangles.as_flattened(), &tri_offsets);
         assert_eq!(
             trees,
             TriTrees {
@@ -354,17 +352,28 @@ mod tests {
                 cycles: vec![0, 1, 2, 3, 5, 4, 6, 7, 8],
             }
         );
-        let back = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
-        assert!(same_triangles(&indices, &back, &offsets));
+        let decoded = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
+        assert!(same_triangles(
+            triangles.as_flattened(),
+            &decoded,
+            &tri_offsets
+        ));
     }
 
     #[test]
     fn spec_example_encodes() {
-        let indices = [
-            1, 0, 2, 3, 6, 8, 7, 6, 3, 4, 3, 8, 7, 3, 5, 5, 4, 8, 8, 7, 5, 10, 9, 11,
+        let triangles = [
+            [1, 0, 2],
+            [3, 6, 8],
+            [7, 6, 3],
+            [4, 3, 8],
+            [7, 3, 5],
+            [5, 4, 8],
+            [8, 7, 5],
+            [10, 9, 11],
         ];
         assert_eq!(
-            encode_trees(&indices, &[0, 1, 8]),
+            encode_trees(triangles.as_flattened(), &[0, 1, 8]),
             TriTrees {
                 symbols: vec![0, 2, 1, 1, 2, 1, 0, 0],
                 cycles: vec![0, 2, 1, 3, 6, 8, 7, 6, 3, 5, 4, 9, 11, 10],
@@ -376,11 +385,19 @@ mod tests {
     fn spec_example_decodes() {
         let symbols = [0, 2, 1, 1, 2, 1, 0, 0];
         let cycles = [0, 2, 1, 3, 6, 8, 7, 6, 3, 5, 4, 9, 11, 10];
+        let triangles = [
+            [0, 2, 1],
+            [3, 6, 8],
+            [3, 8, 4],
+            [4, 8, 5],
+            [5, 8, 7],
+            [5, 7, 3],
+            [3, 7, 6],
+            [9, 11, 10],
+        ];
         assert_eq!(
             decode_trees(&symbols, &cycles, &mut dec()).unwrap(),
-            [
-                0, 2, 1, 3, 6, 8, 3, 8, 4, 4, 8, 5, 5, 8, 7, 5, 7, 3, 3, 7, 6, 9, 11, 10
-            ]
+            triangles.as_flattened()
         );
     }
 
@@ -393,14 +410,37 @@ mod tests {
     }
 
     #[test]
-    fn every_short_input_decodes_or_errs() {
-        for len in 0..=6 {
-            for code in 0..5u32.pow(len) {
-                let symbols: Vec<u32> = (0..len).map(|i| code / 5u32.pow(i) % 5).collect();
-                for cycle_len in 0..len + 5 {
-                    let cycles: Vec<u32> = (0..cycle_len).collect();
-                    if let Ok(out) = decode_trees(&symbols, &cycles, &mut dec()) {
-                        assert_eq!(out.len(), symbols.len() * 3);
+    fn a_comb_of_100_two_child_triangles_outgrows_the_starting_stacks_and_round_trips() {
+        let symbols = [vec![3; 100], vec![0; 101]].concat();
+        let cycles: Vec<u32> = (0..203).collect();
+        let triangles = decode_trees(&symbols, &cycles, &mut dec()).unwrap();
+        assert_eq!(triangles.len(), 201 * 3);
+        assert_eq!(
+            encode_trees(&triangles, &[0, 201]),
+            TriTrees { symbols, cycles }
+        );
+    }
+
+    #[test]
+    fn decoding_past_the_memory_budget_is_rejected() {
+        let err = decode_trees(&[0], &[0, 1, 2], &mut starved_dec()).unwrap_err();
+        assert!(
+            matches!(err, crate::MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn every_input_of_up_to_6_symbols_decodes_three_indices_per_symbol_or_errs() {
+        for symbol_count in 0..=6 {
+            for digits in 0..5u32.pow(symbol_count) {
+                let symbols: Vec<u32> = (0..symbol_count)
+                    .map(|i| digits / 5u32.pow(i) % 5)
+                    .collect();
+                for cycle_count in 0..symbol_count + 5 {
+                    let cycles: Vec<u32> = (0..cycle_count).collect();
+                    if let Ok(triangles) = decode_trees(&symbols, &cycles, &mut dec()) {
+                        assert_eq!(triangles.len(), symbols.len() * 3);
                     }
                 }
             }
@@ -410,31 +450,47 @@ mod tests {
     #[test]
     fn random_triangle_soups_round_trip() {
         let mut state = 0x2545_f491_4f6c_dd1d_u64;
-        let mut next = |m: u32| {
+        let mut below = |bound: u32| {
             state ^= state << 13;
             state ^= state >> 7;
             state ^= state << 17;
-            u32::try_from(state % u64::from(m)).unwrap()
+            u32::try_from(state % u64::from(bound)).unwrap()
         };
         for _ in 0..2000 {
-            let vertices = 3 + next(8);
-            let features = 1 + next(3);
-            let mut offsets = vec![0];
+            let vertex_count = 3 + below(8);
+            let mut tri_offsets = vec![0];
             let mut indices = Vec::new();
-            for _ in 0..features {
-                let n = next(12);
-                for _ in 0..n * 3 {
-                    indices.push(next(vertices));
+            for _ in 0..1 + below(3) {
+                let triangle_count = below(12);
+                for _ in 0..triangle_count * 3 {
+                    indices.push(below(vertex_count));
                 }
-                offsets.push(offsets.last().unwrap() + n);
+                tri_offsets.push(tri_offsets.last().unwrap() + triangle_count);
             }
-            let trees = encode_trees(&indices, &offsets);
-            let back = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
+            let trees = encode_trees(&indices, &tri_offsets);
+            let decoded = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
             assert!(
-                same_triangles(&indices, &back, &offsets),
-                "{indices:?} {offsets:?}"
+                same_triangles(&indices, &decoded, &tri_offsets),
+                "{indices:?} {tri_offsets:?}"
             );
         }
+    }
+
+    #[rstest::rstest]
+    #[case::reordered_and_rotated(&[[0, 1, 2], [3, 4, 5]], &[[4, 5, 3], [1, 2, 0]], &[0, 2], true)]
+    #[case::reversed_winding(&[[0, 1, 2]], &[[0, 2, 1]], &[0, 1], false)]
+    #[case::moved_to_another_feature(&[[0, 1, 2], [3, 4, 5]], &[[3, 4, 5], [0, 1, 2]], &[0, 1, 2], false)]
+    #[case::one_triangle_missing(&[[0, 1, 2], [3, 4, 5]], &[[0, 1, 2]], &[0, 1], false)]
+    fn same_triangles_ignores_order_and_rotation_only(
+        #[case] a: &[[u32; 3]],
+        #[case] b: &[[u32; 3]],
+        #[case] tri_offsets: &[u32],
+        #[case] same: bool,
+    ) {
+        assert_eq!(
+            same_triangles(a.as_flattened(), b.as_flattened(), tri_offsets),
+            same
+        );
     }
 
     #[rstest::rstest]
