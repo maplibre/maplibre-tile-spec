@@ -2674,6 +2674,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "martin-tile-utils"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "259b19faebf03e3f0aeb33ddef4b0333762b4b3f8f5989515a6e0dbceb6bc2b5"
+dependencies = [
+ "brotli",
+ "bytes",
+ "flate2",
+ "hotpath 0.28.6",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.21",
+ "zstd",
+]
+
+[[package]]
 name = "matchit"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2691,9 +2708,9 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.20.2"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f657140ceaf88e07766bae13aff45aec87282dfdc0720189d9d3ec3cf05e0330"
+checksum = "964cd6a7495ab10ed9de24dc33c188f67c8d4f5d6719922a70f19126d52ca205"
 dependencies = [
  "bytes",
  "enum-display",
@@ -2702,7 +2719,7 @@ dependencies = [
  "futures",
  "hotpath 0.28.6",
  "itertools 0.15.0",
- "martin-tile-utils",
+ "martin-tile-utils 0.9.0",
  "md5",
  "moka",
  "num_cpus",
@@ -2839,7 +2856,7 @@ dependencies = [
  "hotpath 0.28.6",
  "indicatif",
  "insta",
- "martin-tile-utils",
+ "martin-tile-utils 0.8.1",
  "mbtiles",
  "mimalloc",
  "mlt-core",
