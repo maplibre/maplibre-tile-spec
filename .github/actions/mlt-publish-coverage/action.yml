@@ -22,3 +22,4 @@ runs:
         file: ${{ inputs.file }}
         language: ${{ inputs.language }}
         label: ${{ inputs.label }}
+        fail-on-error: false
