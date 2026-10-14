@@ -460,6 +460,7 @@ test-ffi-kotlin: _build-ffi-lib (just 'assert-cmd' 'java')
         Linux-x86_64)        CLASSIFIER=linux-x86_64;   LIB=libmlt_ffi.so    ;;
         Linux-aarch64)       CLASSIFIER=linux-aarch64;  LIB=libmlt_ffi.so    ;;
         Darwin-arm64)        CLASSIFIER=macos-aarch64;  LIB=libmlt_ffi.dylib ;;
+        Darwin-x86_64)       CLASSIFIER=macos-x86_64;   LIB=libmlt_ffi.dylib ;;
         MINGW*-*|MSYS*-*|CYGWIN*-*) CLASSIFIER=windows-x86_64; LIB=mlt_ffi.dll ;;
         *) echo "::error::Unsupported host $(uname -s)-$(uname -m)"; exit 1 ;;
     esac
@@ -479,6 +480,7 @@ test-ffi-java: _build-ffi-lib (just 'assert-cmd' 'java')
         Linux-x86_64)        CLASSIFIER=linux-x86_64;   LIB=libmlt_ffi.so    ;;
         Linux-aarch64)       CLASSIFIER=linux-aarch64;  LIB=libmlt_ffi.so    ;;
         Darwin-arm64)        CLASSIFIER=macos-aarch64;  LIB=libmlt_ffi.dylib ;;
+        Darwin-x86_64)       CLASSIFIER=macos-x86_64;   LIB=libmlt_ffi.dylib ;;
         MINGW*-*|MSYS*-*|CYGWIN*-*) CLASSIFIER=windows-x86_64; LIB=mlt_ffi.dll ;;
         *) echo "::error::Unsupported host $(uname -s)-$(uname -m)"; exit 1 ;;
     esac
