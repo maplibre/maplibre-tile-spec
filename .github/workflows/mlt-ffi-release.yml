@@ -49,6 +49,9 @@ jobs:
       - name: Build mlt-ffi
         if: ${{ !contains(matrix.target, 'musl') }}
         working-directory: rust
+        # Panics already abort at the extern "C" boundary, so unwind tables are dead weight.
+        env:
+          RUSTFLAGS: -C strip=symbols -C panic=abort
         run: |
           rustup target add ${{ matrix.target }}
           cargo build --release --target ${{ matrix.target }} -p mlt-ffi
@@ -57,7 +60,7 @@ jobs:
         if: contains(matrix.target, 'musl')
         run: >-
           docker run --rm -v "$PWD:/src" -w /src/rust
-          -e RUSTFLAGS='-C target-feature=-crt-static'
+          -e RUSTFLAGS='-C strip=symbols -C panic=abort -C target-feature=-crt-static'
           rust:1-alpine
           sh -c 'apk add musl-dev && cargo build --release --target ${{ matrix.target }} -p mlt-ffi'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
