@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.40](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.39...rust-mlt-ffi-v0.1.40) - 2026-10-14
+
+### Added
+
+- *(ffi)* package macOS x86_64 ([#1926](https://github.com/maplibre/maplibre-tile-spec/pull/1926))
+
 ## [0.1.39](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.38...rust-mlt-ffi-v0.1.39) - 2026-10-13
 
 ### Other
