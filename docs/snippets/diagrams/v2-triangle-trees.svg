@@ -1,4 +1,4 @@
-<svg class="mlt-diagram" viewBox="0 0 710 480" role="img" aria-label="Tree 1 of the example: its six triangles numbered in symbol order and joined across shared edges, entered across 3 to 6. Then the same triangles with the cycle walking their outline from u = 3 and v = 6 through p0 to p5" xmlns="http://www.w3.org/2000/svg">
+<svg class="mlt-diagram" viewBox="0 0 710 480" role="img" aria-label="Tree 1 of the example: its six triangles numbered in symbol order and joined across shared edges, entered across 3 to 6. Then the same triangles with the cycle walking their outline from the root edge from = 3, to = 6 through p0 to p5" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="ttree" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="ttree0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="ttree1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
 <polygon class="f1" points="40,195 160,195 205,270"/>
 <polygon class="f1" points="40,195 205,270 250,360"/>
@@ -90,12 +90,12 @@
 <circle class="dot" cx="685" cy="30" r="3.5"/>
 <text class="vert halo" x="698" y="22">5</text>
 <text class="row" x="400" y="440">cycle</text>
+<path class="bracket" d="M497 422V416H541V422"/>
+<text class="muted mid" x="519" y="401"><tspan class="math">from <tspan class="op">→</tspan> to</tspan></text>
 <rect class="f0" x="496" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="507" y="440">3</text>
-<text class="muted mid" x="507" y="466"><tspan class="math">u</tspan></text>
 <rect class="f0" x="520" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="531" y="440">6</text>
-<text class="muted mid" x="531" y="466"><tspan class="math">v</tspan></text>
 <rect class="f1" x="544" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="555" y="440">8</text>
 <text class="muted mid" x="555" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">0</tspan></text>
