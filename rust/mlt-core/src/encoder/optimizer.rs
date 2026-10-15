@@ -4,13 +4,15 @@ use std::ops::{Deref, DerefMut};
 use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
-use crate::encoder::cost::{ClientCost, Cost, Earcut};
+use crate::encoder::cost::{ClientCost, ClientWork as _, Cost, Earcut};
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::property::group_string_properties;
 use crate::encoder::sort::{curve_params, sort_order};
 use crate::encoder::source::LayerSource;
 use crate::encoder::tile::{StageOptions, stage_layer};
-use crate::encoder::{Codecs, Encoder, EncoderConfig, SortStrategy, Tessellation, encode01};
+use crate::encoder::{
+    Codecs, Encoder, EncoderConfig, Network, SortStrategy, Tessellation, encode01,
+};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::{WireVersion, encode02};
 use crate::tile::TileLayer;
@@ -141,18 +143,21 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     let mut enc = Encoder::new(cfg);
     seed_curve_caches(&mut enc, curve_params);
     let mut codecs = PooledCodecs::take();
-    let tessellations: &[bool] = match cfg.tessellation() {
-        Tessellation::Off => &[false],
-        Tessellation::Always => &[true],
-        Tessellation::Auto => &[false, true],
+    let earcut = Earcut::of(source);
+    // Trials that store the same triangles differ only in bytes, so any network ranks them alike.
+    let (tessellations, network): (&[bool], _) = match cfg.tessellation() {
+        Tessellation::Off => (&[false], Network::Offline),
+        Tessellation::Always => (&[true], Network::Offline),
+        // A layer without polygons has no triangles to store.
+        Tessellation::Auto(_) if earcut.client_time().is_zero() => (&[false], Network::Offline),
+        Tessellation::Auto(network) => (&[false, true], network),
     };
     if let ([sort], [tessellate]) = (&sort_by[..], tessellations) {
         return stage(*sort, *tessellate)
             .encode_into(enc, &mut codecs)?
             .into_layer_bytes();
     }
-    let client = ClientCost::new(cfg);
-    let earcut = Earcut::of(source);
+    let client = ClientCost::new(network);
     let mut best: Option<Best> = None;
     for &sort in &sort_by {
         // Triangles add about the same bytes in every order, so the source order alone decides on them.

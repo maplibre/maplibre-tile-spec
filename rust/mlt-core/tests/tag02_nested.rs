@@ -18,7 +18,7 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 }
 
 fn cfg_v2() -> EncoderConfig {
-    EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+    EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
 }
 

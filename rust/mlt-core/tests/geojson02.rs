@@ -9,7 +9,7 @@ use mlt_core::test_helpers::{dec, parser};
 use mlt_core::{MValue, NestedKind, NestedValue, PropKind, PropValue, TileLayer};
 
 fn cfg_v2() -> EncoderConfig {
-    EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+    EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
 }
 

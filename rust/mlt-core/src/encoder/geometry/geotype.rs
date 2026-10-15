@@ -698,10 +698,9 @@ mod tests {
     /// The input must already be in the dense canonical form that `from_encoded`
     /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
     fn roundtrip(decoded: &GeometryValues) -> GeometryValues {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
         let mut codecs = Codecs::default();
         decoded
             .clone()

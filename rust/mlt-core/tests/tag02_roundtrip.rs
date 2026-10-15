@@ -19,7 +19,7 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 
 fn cfg_v1() -> EncoderConfig {
     // sorting because sort trials could otherwise pick different winners per format.
-    EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+    EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
 }
 
 fn cfg_v2() -> EncoderConfig {
@@ -495,7 +495,7 @@ fn native_preset_with_sort_trials() {
     let bytes = l
         .clone()
         .encode(
-            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
                 .with_wire_version(WireVersion::V02),
         )
         .unwrap();

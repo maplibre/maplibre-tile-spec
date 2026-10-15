@@ -5,8 +5,8 @@ use std::time::Duration;
 use usize_cast::FromUsize as _;
 
 use crate::decoder::GeometryValues;
+use crate::encoder::Network;
 use crate::encoder::source::LayerSource;
-use crate::encoder::{EncoderConfig, Network};
 use crate::tile::stored_len;
 
 /// How long a client takes to decode one stored triangle.
@@ -22,7 +22,7 @@ pub(crate) struct Cost {
     bytes: usize,
 }
 
-/// Prices layer encodings for the client an [`EncoderConfig`] targets.
+/// Prices layer encodings for a client that fetches them over a [`Network`].
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ClientCost {
     /// One byte's transfer, in the time a Ryzen 9 3900 core does the same share of a slower client's work.
@@ -30,9 +30,9 @@ pub(crate) struct ClientCost {
 }
 
 impl ClientCost {
-    pub(crate) fn new(cfg: EncoderConfig) -> Self {
+    pub(crate) fn new(network: Network) -> Self {
         // How long 8 bits take to arrive at each network's rate.
-        let transfer = match cfg.network() {
+        let transfer = match network {
             Network::Offline => Duration::ZERO,
             Network::Cellular3G => Duration::from_micros(4),
             Network::Cellular4G => Duration::from_nanos(400),

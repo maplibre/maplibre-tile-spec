@@ -25,7 +25,7 @@ struct Stream {
 
 /// The v2 encoding `mlt convert --rans-vertices` writes.
 fn cfg_rans() -> EncoderConfig {
-    EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+    EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_float_alp(true)
         .with_float_dict(true)

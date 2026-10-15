@@ -165,10 +165,9 @@ mod tests {
 
     /// Encode + serialize + parse + decode a `GeometryValues` (round-trip).
     fn roundtrip_geom(decoded: &GeometryValues) -> GeometryValues {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
         let mut codecs = Codecs::default();
         decoded
             .clone()
@@ -378,7 +377,7 @@ mod tests {
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer`.
     /// This tests the full encode->decode roundtrip, verifying that sorting was applied.
     fn sort_encode_decode(tile: &TileLayer, sort: SortStrategy) -> TileLayer {
-        let enc_cfg = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G);
+        let enc_cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G));
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));
         let mut codecs = Codecs::default();
         let enc = stage_tile(tile, sort, false, false)
@@ -427,7 +426,7 @@ mod tests {
         let ids: Vec<Option<u64>> = (0..600).rev().map(Some).collect();
         let decoded = encode_decode(
             &build_tile_layer(&geoms, &ids),
-            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)),
         );
 
         let decoded_ids: Vec<Option<u64>> =
@@ -445,7 +444,7 @@ mod tests {
 
         let decoded = encode_decode(
             &build_tile_layer(&geoms, &ids),
-            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
                 .with_spatial_hilbert_sort(true),
         );
 

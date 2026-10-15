@@ -721,7 +721,7 @@ impl Layer {
             versions: _,
         } = self;
 
-        let enc_cfg = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        let enc_cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
             .with_tessellation(if tessellate {
                 Tessellation::Always
             } else {

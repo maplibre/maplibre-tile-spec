@@ -32,7 +32,7 @@ use crate::{MltError, MltResult, PropValueRef};
 /// let mut feature = layer.feature(GeometryType::Point);
 /// feature.id(Some(1)).points([Coord { x: 10, y: 20 }])?.property(name, "Cafe")?;
 /// feature.finish()?;
-/// let mlt = layer.encode(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G))?;
+/// let mlt = layer.encode(EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)))?;
 /// # Ok::<(), mlt_core::MltError>(())
 /// ```
 #[derive(Debug, Clone)]
@@ -658,10 +658,9 @@ mod tests {
 
     fn encode(writer: &LayerWriter<'_>) -> Vec<u8> {
         writer
-            .encode(EncoderConfig::from_preset(
-                Profile::Native,
+            .encode(EncoderConfig::from_profile(Profile::Native(
                 Network::Cellular4G,
-            ))
+            )))
             .expect("encode")
     }
 
@@ -808,10 +807,9 @@ mod tests {
         assert_eq!(
             encode(&writer),
             layer
-                .encode(EncoderConfig::from_preset(
-                    Profile::Native,
+                .encode(EncoderConfig::from_profile(Profile::Native(
                     Network::Cellular4G
-                ))
+                )))
                 .unwrap()
         );
     }
@@ -839,10 +837,9 @@ mod tests {
         assert_eq!(
             encode(&writer),
             layer
-                .encode(EncoderConfig::from_preset(
-                    Profile::Native,
+                .encode(EncoderConfig::from_profile(Profile::Native(
                     Network::Cellular4G
-                ))
+                )))
                 .unwrap()
         );
     }

@@ -55,7 +55,7 @@ fn bench_encode(c: &mut Criterion) {
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
         group.throughput(Throughput::Bytes(u64::from_usize(total_bytes)));
         for tessellate in [true, false] {
-            let enc_config = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G);
+            let enc_config = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G));
             for physical in limit(PhysicalEncoder::iter()) {
                 for logical in limit(LogicalEncoder::iter()) {
                     let int_enc = IntEncoder::new(logical, physical);

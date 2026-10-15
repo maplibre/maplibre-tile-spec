@@ -21,7 +21,7 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 }
 
 fn cfg(version: WireVersion) -> EncoderConfig {
-    EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_wire_version(version)
+    EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_wire_version(version)
 }
 
 #[expect(clippy::wildcard_enum_match_arm, reason = "Layer is non_exhaustive")]

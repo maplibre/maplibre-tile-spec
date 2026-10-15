@@ -417,8 +417,8 @@ fn allow_fsst_gates_fsst_selection() {
         .collect();
     let col = || StagedProperty::str("name", values.iter().map(String::as_str));
 
-    let on = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_fsst(true);
-    let off = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_fsst(false);
+    let on = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_fsst(true);
+    let off = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_fsst(false);
 
     let bytes_on = encode_to_bytes_auto(vec![col()], on);
     let bytes_off = encode_to_bytes_auto(vec![col()], off);
@@ -850,10 +850,9 @@ fn narrowed_property_column_round_trips_values() {
         ],
     )]);
     let bytes = tile
-        .encode(EncoderConfig::from_preset(
-            Profile::Native,
+        .encode(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ))
+        )))
         .unwrap();
 
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
@@ -1198,10 +1197,9 @@ fn analyze_layer_records_shared_dict_roles_by_property_index() {
 #[test]
 fn no_nulls_produces_encoded_output() {
     let props = vec![StagedProperty::u32("pop", vec![1, 2, 3])];
-    let mut enc = Encoder::new(EncoderConfig::from_preset(
-        Profile::Native,
+    let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
         Network::Cellular4G,
-    ));
+    )));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();
@@ -1220,10 +1218,9 @@ fn no_nulls_produces_encoded_output() {
 fn eight_bit_column_is_rejected_in_v1(#[case] prop: StagedProperty) {
     let err = write_prop(
         &prop,
-        &mut Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        &mut Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        )),
+        ))),
         &mut Codecs::default(),
     )
     .unwrap_err();
@@ -1233,10 +1230,9 @@ fn eight_bit_column_is_rejected_in_v1(#[case] prop: StagedProperty) {
 #[test]
 fn all_nulls_encodes_without_error() {
     let props = vec![StagedProperty::opt_i32("x", vec![None, None, None])];
-    let mut enc = Encoder::new(EncoderConfig::from_preset(
-        Profile::Native,
+    let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
         Network::Cellular4G,
-    ));
+    )));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();
@@ -1246,10 +1242,9 @@ fn all_nulls_encodes_without_error() {
 #[test]
 fn sequential_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("id", (0u32..1_000).collect())];
-    let mut enc = Encoder::new(EncoderConfig::from_preset(
-        Profile::Native,
+    let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
         Network::Cellular4G,
-    ));
+    )));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();
@@ -1260,10 +1255,9 @@ fn sequential_u32_encodes_successfully() {
 #[test]
 fn constant_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("val", vec![42u32; 500])];
-    let mut enc = Encoder::new(EncoderConfig::from_preset(
-        Profile::Native,
+    let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
         Network::Cellular4G,
-    ));
+    )));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();
@@ -1429,10 +1423,9 @@ fn overlapping_name_columns_stay_grouped() {
 #[test]
 fn encode_with_explicit_encoder_works() {
     let props = vec![StagedProperty::u32("id", (1_000u32..2_000).collect())];
-    let mut enc = Encoder::new(EncoderConfig::from_preset(
-        Profile::Native,
+    let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
         Network::Cellular4G,
-    ));
+    )));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();

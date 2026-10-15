@@ -16,7 +16,7 @@ const CORPORA: [&str; 4] = ["omt", "amazon", "amazon_here", "bing"];
 
 /// The v2 encoding `mlt convert --mlt-version 2` writes by default.
 fn cfg_v2() -> EncoderConfig {
-    EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+    EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_float_alp(true)
         .with_float_dict(true)

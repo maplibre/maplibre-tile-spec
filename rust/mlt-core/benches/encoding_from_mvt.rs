@@ -34,7 +34,7 @@ fn parse_mvt_to_tile_layers(mvt_files: &[(String, Vec<u8>)]) -> Vec<TileLayer> {
 
 fn bench_encode_from_mvt(c: &mut Criterion) {
     let mut group = c.benchmark_group("mlt encode from mvt");
-    let cfg = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+    let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_tessellation(Tessellation::Always);
 
     for zoom in BENCHMARKED_ZOOM_LEVELS {

@@ -148,7 +148,7 @@ mod ffi {
         #[diplomat::attr(auto, constructor)]
         pub fn new() -> Box<MltEncoderOptions> {
             Box::new(MltEncoderOptions(
-                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+                EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
                     .with_tessellation(Tessellation::Off),
             ))
         }

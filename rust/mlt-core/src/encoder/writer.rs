@@ -185,7 +185,7 @@ impl Encoder {
     #[inline]
     #[must_use]
     pub fn explicit(explicit: ExplicitEncoder) -> Self {
-        let cfg = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G);
+        let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G));
         Self::with_explicit(cfg, explicit)
     }
 
@@ -637,10 +637,9 @@ mod tests {
     /// The shortest candidate wins.
     #[test]
     fn alternatives_keeps_shortest() {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
         push(&mut enc, b"prefix");
 
         let mut alt = enc.try_alternatives();
@@ -667,10 +666,9 @@ mod tests {
     /// On a tie the first candidate is kept (strict `<`, not `<=`).
     #[test]
     fn alternatives_tie_keeps_first() {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
 
         let mut alt = enc.try_alternatives();
         alt.with(|enc| {
@@ -691,10 +689,9 @@ mod tests {
     /// A single candidate is unconditionally the winner.
     #[test]
     fn alternatives_single_candidate() {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
 
         let mut alt = enc.try_alternatives();
         alt.with(|enc| {
@@ -710,10 +707,9 @@ mod tests {
     /// Bytes written before `try_alternatives` are left intact throughout.
     #[test]
     fn prefix_bytes_are_preserved() {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
         push(&mut enc, b"HDR");
 
         let mut alt = enc.try_alternatives();
@@ -736,10 +732,9 @@ mod tests {
     /// Dropping the guard after all candidates are committed is a cheap stack-pop.
     #[test]
     fn drop_after_all_committed_is_noop() {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
 
         let mut alt = enc.try_alternatives();
         alt.with(|enc| {
@@ -758,10 +753,9 @@ mod tests {
     /// An inner competition is resolved before the outer candidate is committed.
     #[test]
     fn nested_alternatives() {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
 
         let mut outer = enc.try_alternatives();
 
@@ -799,10 +793,9 @@ mod tests {
     /// Stack depth tracks nesting level; inner guard drops before outer closure returns.
     #[test]
     fn nesting_depth_reflected_in_stack() {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
 
         assert_eq!(enc.alt_stack.len(), 0);
         let mut outer = enc.try_alternatives();
@@ -833,10 +826,9 @@ mod tests {
     /// candidate and kept for the winner, measured by total bytes.
     #[test]
     fn alternatives_tracks_meta_and_data() {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
         enc.data.extend_from_slice(b"D");
         enc.meta.extend_from_slice(b"M");
 
@@ -866,10 +858,9 @@ mod tests {
     /// A failing candidate is rolled back; prior best is preserved.
     #[test]
     fn error_candidate_is_rolled_back() {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
 
         let mut alt = enc.try_alternatives();
         alt.with(|enc| {

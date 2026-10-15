@@ -14,7 +14,7 @@ use crate::encoder::{
 
 impl Arbitrary<'_> for EncoderConfig {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
-        let config = Self::from_preset(Profile::default(), u.arbitrary()?)
+        let config = Self::from_profile(Profile::Native(u.arbitrary()?))
             .with_tessellation(u.arbitrary()?)
             .with_spatial_morton_sort(u.arbitrary()?)
             .with_spatial_hilbert_sort(u.arbitrary()?)

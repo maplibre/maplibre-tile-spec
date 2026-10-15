@@ -598,10 +598,9 @@ mod tests {
     fn layer_buf(staged: StagedLayer) -> Vec<u8> {
         staged
             .encode_into(
-                Encoder::new(EncoderConfig::from_preset(
-                    Profile::Native,
+                Encoder::new(EncoderConfig::from_profile(Profile::Native(
                     Network::Cellular4G,
-                )),
+                ))),
                 &mut Codecs::default(),
             )
             .unwrap()

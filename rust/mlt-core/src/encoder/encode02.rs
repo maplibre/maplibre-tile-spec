@@ -979,7 +979,7 @@ mod tests {
         .expect("staged layer")
         .encode_into(
             Encoder::new(
-                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+                EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
                     .with_wire_version(WireVersion::V02),
             ),
             &mut Codecs::default(),

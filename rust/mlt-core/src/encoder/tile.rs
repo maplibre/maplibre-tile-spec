@@ -466,10 +466,9 @@ mod tests {
         let mut codecs = Codecs::default();
         let buf = staged
             .encode_into(
-                Encoder::new(EncoderConfig::from_preset(
-                    Profile::Native,
+                Encoder::new(EncoderConfig::from_profile(Profile::Native(
                     Network::Cellular4G,
-                )),
+                ))),
                 &mut codecs,
             )
             .unwrap()

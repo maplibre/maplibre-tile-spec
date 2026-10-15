@@ -200,10 +200,9 @@ fn single_value_u32_picks_smaller_physical(
     #[case] v: u32,
     #[case] expected_physical: PhysicalEncoding,
 ) {
-    let mut enc = Encoder::new(EncoderConfig::from_preset(
-        Profile::Native,
+    let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
         Network::Cellular4G,
-    ));
+    )));
     let codecs = &mut Codecs::default();
     let ctx = StreamCtx::prop_data("test");
     codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
@@ -232,10 +231,9 @@ fn single_value_i32_picks_smaller_physical(
     #[case] v: i32,
     #[case] expected_physical: PhysicalEncoding,
 ) {
-    let mut enc = Encoder::new(EncoderConfig::from_preset(
-        Profile::Native,
+    let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
         Network::Cellular4G,
-    ));
+    )));
     let codecs = &mut Codecs::default();
     let ctx = StreamCtx::prop_data("test");
     codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
@@ -262,8 +260,9 @@ fn allow_fastpfor_gates_fastpfor_selection() {
         .map(|i| i.wrapping_mul(2_654_435_761) % 4096)
         .collect();
 
-    let on = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_fastpfor(true);
-    let off = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_fastpfor(false);
+    let on = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_fastpfor(true);
+    let off =
+        EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_fastpfor(false);
 
     assert_eq!(
         auto_physical(&values, on),

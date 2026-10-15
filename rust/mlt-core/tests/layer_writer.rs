@@ -17,8 +17,7 @@ test_each_path! { for ["mvt"] in "../test/fixtures" as auto_tessellated_fixtures
 
 fn writer_encodes_like_tile_layer_with_sorted_auto_tessellation([path]: [&Path; 1]) {
     let layers = mvt_to_tile_layers(fs::read(path).expect("read fixture")).expect("decode fixture");
-    let sorted_auto = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
-        .with_tessellation(Tessellation::Auto)
+    let sorted_auto = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_spatial_morton_sort(true)
         .with_spatial_hilbert_sort(true)
         .with_id_sort(true);
@@ -36,7 +35,7 @@ fn writer_encodes_like_tile_layer_with_sorted_auto_tessellation([path]: [&Path; 
 
 fn writer_encodes_like_tile_layer([path]: [&Path; 1]) {
     let layers = mvt_to_tile_layers(fs::read(path).expect("read fixture")).expect("decode fixture");
-    let base = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+    let base = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_tessellation(Tessellation::Off);
     let sorted = base
         .with_spatial_morton_sort(true)

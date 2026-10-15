@@ -427,30 +427,36 @@ impl WireVersion {
 }
 
 /// When the encoder stores the earcut triangles of a layer's polygons.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum Tessellation {
     /// Store no triangles, so the client cuts every polygon itself.
     Off,
-    /// Store a layer's triangles when the client CPU time they spare outweighs the bytes they add on the [`Network`].
-    #[default]
-    Auto,
+    /// Store a layer's triangles when the client CPU time they spare outweighs the bytes they add on this network.
+    Auto(Network),
     /// Store the triangles of every layer with polygons.
     Always,
 }
 
 /// Encoder defaults for one kind of tile consumer, which explicit settings override.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Profile {
     /// `MapLibre GL JS`: no triangles, which it ignores, and no `FastPFOR` or `FSST` unless [`Network::Offline`], since they lose bytes after HTTP compression.
-    Web,
-    /// `MapLibre Native`: [`Tessellation::Auto`] and every codec.
-    #[default]
-    Native,
+    Web(Network),
+    /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
+    Native(Network),
     /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas and rANS vertices.
     MinSize,
     /// Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries, and under v2 second-order deltas.
     Diffable,
+    /// The quickest encode: no triangles, sorts or optional codecs, so tiles come out larger.
+    FastEncoding,
+}
+
+impl Default for Profile {
+    fn default() -> Self {
+        Self::Native(Network::default())
+    }
 }
 
 /// How tiles reach the client, which prices a stored byte against the client CPU time it spares.
@@ -478,8 +484,6 @@ pub struct EncoderConfig {
     /// The wire format to encode layers to.
     #[cfg(feature = "unstable-v2")]
     wire_version: WireVersion,
-    /// How tiles reach the client.
-    network: Network,
     /// When to store the triangles of polygons and multi-polygons.
     tessellation: Tessellation,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
@@ -517,16 +521,15 @@ pub struct EncoderConfig {
     allow_rans_vertices: bool,
 }
 impl EncoderConfig {
-    /// The settings `profile` picks for tiles that reach the client over `network`, which the `with_*` methods override.
+    /// The settings `profile` picks, which the `with_*` methods override.
     #[must_use]
-    pub fn from_preset(profile: Profile, network: Network) -> Self {
+    pub fn from_profile(profile: Profile) -> Self {
         // Float dictionaries and ALP stay off in every preset while they are still being measured.
         match profile {
-            Profile::Native => Self {
+            Profile::Native(network) => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                network,
-                tessellation: Tessellation::Auto,
+                tessellation: Tessellation::Auto(network),
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,
@@ -548,10 +551,9 @@ impl EncoderConfig {
                 #[cfg(feature = "unstable-v2")]
                 allow_rans_vertices: false,
             },
-            Profile::Web => Self {
+            Profile::Web(network) => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                network,
                 tessellation: Tessellation::Off,
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
@@ -577,7 +579,6 @@ impl EncoderConfig {
             Profile::MinSize => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                network,
                 tessellation: Tessellation::Off,
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: true,
@@ -603,7 +604,6 @@ impl EncoderConfig {
             Profile::Diffable => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                network,
                 tessellation: Tessellation::Off,
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
@@ -626,6 +626,31 @@ impl EncoderConfig {
                 #[cfg(feature = "unstable-v2")]
                 allow_rans_vertices: false,
             },
+            Profile::FastEncoding => Self {
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                tessellation: Tessellation::Off,
+                attempt_spatial_morton_sort: false,
+                attempt_spatial_hilbert_sort: false,
+                attempt_id_sort: false,
+                allow_fsst: false,
+                allow_fastpfor: false,
+                allow_shared_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: false,
+            },
         }
     }
 
@@ -633,11 +658,6 @@ impl EncoderConfig {
     #[must_use]
     pub fn wire_version(self) -> WireVersion {
         self.wire_version
-    }
-
-    #[must_use]
-    pub fn network(self) -> Network {
-        self.network
     }
 
     #[must_use]

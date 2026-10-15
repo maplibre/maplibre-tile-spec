@@ -247,10 +247,9 @@ mod tests {
         let mut codecs = Codecs::default();
         let buf = staged
             .encode_into(
-                Encoder::new(EncoderConfig::from_preset(
-                    Profile::Native,
+                Encoder::new(EncoderConfig::from_profile(Profile::Native(
                     Network::Cellular4G,
-                )),
+                ))),
                 &mut codecs,
             )
             .expect("encode failed")
@@ -328,10 +327,9 @@ mod tests {
     #[case::empty(StagedId::from_optional(vec![]))]
     #[case::all_nulls(StagedId::from_optional(vec![None, None]))]
     fn test_automatic_encoding_skipped(#[case] input: StagedId) {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
         let mut codecs = Codecs::default();
         input.write_to(&mut enc, &mut codecs).unwrap();
         assert_eq!(
@@ -349,10 +347,9 @@ mod tests {
     #[case::constant(create_constant_ids())]
     #[case::with_nulls(create_ids_with_nulls())]
     fn test_automatic_encoding_produces_output(#[case] input: StagedId) {
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
         let mut codecs = Codecs::default();
         input.write_to(&mut enc, &mut codecs).unwrap();
         assert!(
@@ -364,10 +361,9 @@ mod tests {
     #[test]
     fn test_automatic_optimization_roundtrip_empty() {
         let decoded = StagedId::from_optional(vec![]);
-        let mut enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
         let mut codecs = Codecs::default();
         decoded.write_to(&mut enc, &mut codecs).unwrap();
         assert_eq!(enc.meta().len(), 0, "empty ID list should write no column");
@@ -412,10 +408,9 @@ mod tests {
     fn test_auto_fastpfor_beats_varint_for_large_u32_ids() {
         let ids = StagedId::from_optional((0u64..1000).map(|i| Some(i * 13 + 5)).collect());
 
-        let mut auto_enc = Encoder::new(EncoderConfig::from_preset(
-            Profile::Native,
+        let mut auto_enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
             Network::Cellular4G,
-        ));
+        )));
         let mut codecs = Codecs::default();
         ids.clone().write_to(&mut auto_enc, &mut codecs).unwrap();
 

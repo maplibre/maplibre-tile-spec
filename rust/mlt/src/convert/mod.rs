@@ -184,27 +184,9 @@ enum Profile {
     MinSize,
     /// Small binary diffs between releases: `--no-fsst --no-shared-dict`, and under MLT version 2 `--delta2`
     Diffable,
-}
-
-impl From<TessellateMode> for Tessellation {
-    fn from(mode: TessellateMode) -> Self {
-        match mode {
-            TessellateMode::Auto => Self::Auto,
-            TessellateMode::Always => Self::Always,
-            TessellateMode::Off => Self::Off,
-        }
-    }
-}
-
-impl From<Profile> for CoreProfile {
-    fn from(profile: Profile) -> Self {
-        match profile {
-            Profile::Web => Self::Web,
-            Profile::Native => Self::Native,
-            Profile::MinSize => Self::MinSize,
-            Profile::Diffable => Self::Diffable,
-        }
-    }
+    /// The quickest encode: no triangles, sorts, `FSST`, `FastPFOR` or shared dictionaries, so tiles come out larger
+    #[value(name = "fast_encoding", alias = "fast-encoding")]
+    FastEncoding,
 }
 
 /// How tiles reach the client, which prices a stored byte against the client earcut it spares.
@@ -287,7 +269,7 @@ pub(crate) struct Reencoder {
 impl Default for Reencoder {
     fn default() -> Self {
         Self {
-            encoder: EncoderConfig::from_preset(CoreProfile::Native, CoreNetwork::Cellular4G),
+            encoder: EncoderConfig::from_profile(CoreProfile::Native(CoreNetwork::Cellular4G)),
             fields: Arc::default(),
             verify: false,
         }
@@ -441,19 +423,34 @@ impl ConvertArgs {
     }
     /// The profile's encoder, with the explicit encoder flags applied on top.
     fn encoder(&self) -> AnyResult<EncoderConfig> {
-        let profile = self
-            .profile
-            .map_or_else(CoreProfile::default, CoreProfile::from);
         let network = self
             .network
             .map_or_else(CoreNetwork::default, CoreNetwork::from);
+        let profile = match self.profile {
+            None | Some(Profile::Native) => CoreProfile::Native(network),
+            Some(Profile::Web) => CoreProfile::Web(network),
+            Some(Profile::MinSize) => CoreProfile::MinSize,
+            Some(Profile::Diffable) => CoreProfile::Diffable,
+            Some(Profile::FastEncoding) => CoreProfile::FastEncoding,
+        };
         let mut encoder =
-            EncoderConfig::from_preset(profile, network).with_wire_version(self.mlt_version.into());
+            EncoderConfig::from_profile(profile).with_wire_version(self.mlt_version.into());
         if let Some(sort) = self.sort {
             encoder = sort.apply(encoder);
         }
         if let Some(mode) = self.tessellate {
-            encoder = encoder.with_tessellation(mode.into());
+            encoder = encoder.with_tessellation(match mode {
+                TessellateMode::Auto => Tessellation::Auto(network),
+                TessellateMode::Always => Tessellation::Always,
+                TessellateMode::Off => Tessellation::Off,
+            });
+        }
+        let reads_network = matches!(encoder.tessellation(), Tessellation::Auto(_))
+            || self.profile == Some(Profile::Web);
+        if self.network.is_some() && !reads_network {
+            bail!(
+                "--network prices --tessellate=auto and decides --profile web, and this conversion uses neither"
+            );
         }
         let v2 = &self.v2;
         if v2.triangles_only && encoder.tessellation() == Tessellation::Off {
@@ -667,9 +664,8 @@ fn convert_mlt_buffer(buffer: &[u8], reencoder: &Reencoder) -> AnyResult<Vec<u8>
         if let Layer::Unknown(u) = layer {
             out.extend(
                 EncodedUnknown::from(u)
-                    .write_to(Encoder::new(EncoderConfig::from_preset(
-                        CoreProfile::Native,
-                        CoreNetwork::Cellular4G,
+                    .write_to(Encoder::new(EncoderConfig::from_profile(
+                        CoreProfile::Native(CoreNetwork::Cellular4G),
                     )))?
                     .into_raw_bytes(),
             );
@@ -834,7 +830,7 @@ mod tests {
 
     fn round_trip(mvt: Vec<u8>, version: WireVersion, to: TileFormat) -> Vec<u8> {
         let reencoder = Reencoder {
-            encoder: EncoderConfig::from_preset(CoreProfile::Native, CoreNetwork::Cellular4G)
+            encoder: EncoderConfig::from_profile(CoreProfile::Native(CoreNetwork::Cellular4G))
                 .with_wire_version(version),
             ..Reencoder::default()
         };
@@ -1003,7 +999,10 @@ mod tests {
     #[test]
     fn convert_without_tessellate_tessellates_automatically() {
         let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
-        assert_eq!(encoder.tessellation(), Tessellation::Auto);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular4G)
+        );
     }
 
     #[test]
@@ -1011,13 +1010,19 @@ mod tests {
         let encoder = parse_args(&["--tessellate", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.tessellation(), Tessellation::Auto);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular4G)
+        );
     }
 
     #[test]
     fn t_alone_means_auto() {
         let encoder = parse_args(&["-t", "src", "dst"]).encoder().unwrap();
-        assert_eq!(encoder.tessellation(), Tessellation::Auto);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular4G)
+        );
     }
 
     #[test]
@@ -1025,7 +1030,10 @@ mod tests {
         let encoder = parse_args(&["--tessellate=auto", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.tessellation(), Tessellation::Auto);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular4G)
+        );
     }
 
     #[test]
@@ -1049,7 +1057,10 @@ mod tests {
         let encoder = parse_args(&["--profile", "web", "--tessellate=auto", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.tessellation(), Tessellation::Auto);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular4G)
+        );
     }
 
     #[test]
@@ -1071,7 +1082,10 @@ mod tests {
         let encoder = parse_args(&["--profile", "native", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.tessellation(), Tessellation::Auto);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular4G)
+        );
     }
 
     #[test]
@@ -1107,41 +1121,124 @@ mod tests {
     }
 
     #[test]
-    fn convert_without_network_assumes_4g() {
+    fn convert_without_network_prices_tessellation_on_4g() {
         let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
-        assert_eq!(encoder.network(), CoreNetwork::Cellular4G);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular4G)
+        );
     }
 
     #[test]
-    fn network_offline_selects_offline() {
+    fn network_offline_prices_tessellation_offline() {
         let encoder = parse_args(&["--network", "offline", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.network(), CoreNetwork::Offline);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Offline)
+        );
     }
 
     #[test]
-    fn network_3g_selects_3g() {
+    fn network_3g_prices_tessellation_on_3g() {
         let encoder = parse_args(&["--network", "3g", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.network(), CoreNetwork::Cellular3G);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular3G)
+        );
     }
 
     #[test]
-    fn network_4g_selects_4g() {
+    fn network_4g_prices_tessellation_on_4g() {
         let encoder = parse_args(&["--network", "4g", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.network(), CoreNetwork::Cellular4G);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular4G)
+        );
     }
 
     #[test]
-    fn network_5g_selects_5g() {
+    fn network_5g_prices_tessellation_on_5g() {
         let encoder = parse_args(&["--network", "5g", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.network(), CoreNetwork::Cellular5G);
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular5G)
+        );
+    }
+
+    #[test]
+    fn network_with_the_min_size_profile_is_rejected() {
+        let flags = ["--profile", "min_size", "--network", "3g", "src", "dst"];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--network prices --tessellate=auto and decides --profile web, and this conversion uses neither");
+    }
+
+    #[test]
+    fn network_with_the_fast_encoding_profile_is_rejected() {
+        let flags = [
+            "--profile",
+            "fast_encoding",
+            "--network",
+            "3g",
+            "src",
+            "dst",
+        ];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--network prices --tessellate=auto and decides --profile web, and this conversion uses neither");
+    }
+
+    #[test]
+    fn network_with_tessellate_off_is_rejected() {
+        let flags = ["--tessellate=off", "--network", "3g", "src", "dst"];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--network prices --tessellate=auto and decides --profile web, and this conversion uses neither");
+    }
+
+    #[test]
+    fn network_with_the_fast_encoding_profile_and_tessellate_auto_prices_tessellation() {
+        let flags = [
+            "--profile",
+            "fast_encoding",
+            "--tessellate=auto",
+            "--network",
+            "3g",
+            "src",
+            "dst",
+        ];
+        let encoder = parse_args(&flags).encoder().unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(CoreNetwork::Cellular3G)
+        );
+    }
+
+    #[test]
+    fn network_with_the_web_profile_is_accepted() {
+        let flags = ["--profile", "web", "--network", "5g", "src", "dst"];
+        assert!(parse_args(&flags).encoder().is_ok());
+    }
+
+    #[test]
+    fn profile_fast_encoding_switches_fsst_off() {
+        let encoder = parse_args(&["--profile", "fast_encoding", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.allow_fsst());
+    }
+
+    #[test]
+    fn profile_fast_dash_encoding_switches_fsst_off() {
+        let encoder = parse_args(&["--profile", "fast-encoding", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.allow_fsst());
     }
 
     #[test]

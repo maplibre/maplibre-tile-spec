@@ -32,7 +32,7 @@ fn absent_columns_tile() -> Vec<u8> {
             )
         })
         .collect();
-    let cfg = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+    let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02);
     StagedLayer::with_m_values(
         "test_layer",

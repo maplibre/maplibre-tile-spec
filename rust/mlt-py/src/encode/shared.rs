@@ -37,7 +37,7 @@ pub(crate) fn encoder_config(
         }
     };
     Ok(
-        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
             .with_tessellation(if tessellate {
                 Tessellation::Always
             } else {
