@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use arbitrary::{Arbitrary, Unstructured};
 use mlt_core::encoder::SortStrategy::Unsorted;
-use mlt_core::encoder::{EncoderConfig, WireVersion, stage_tile};
+use mlt_core::encoder::{EncoderConfig, Tessellation, WireVersion, stage_tile};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
@@ -140,11 +140,11 @@ impl ZInput {
             &decoded,
             Unsorted,
             cfg.allow_shared_dict(),
-            cfg.tessellate(),
+            cfg.tessellation() != Tessellation::Off,
         );
         let again = encode_decode(staged, cfg).expect("re-encoding a layer v2 produced");
         // Cutting stored triangles again may start each one at another corner.
-        if cfg.tessellate() && cfg.allow_triangles_only() {
+        if cfg.tessellation() != Tessellation::Off && cfg.allow_triangles_only() {
             for (before, after) in decoded.features().iter().zip(again.features()) {
                 assert_z_follows_its_vertex(before.geometry(), before.z(), after);
             }

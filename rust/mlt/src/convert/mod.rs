@@ -17,7 +17,9 @@ use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, Network, Profile, WireVersion};
+use mlt_core::encoder::{
+    EncodedUnknown, Encoder, EncoderConfig, Network, Profile, Tessellation, WireVersion,
+};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
@@ -373,7 +375,11 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     );
     let id_sort = matches!(args.sort, SortMode::All | SortMode::Auto | SortMode::Id);
     let encoder = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
-        .with_tessellation(args.tessellate)
+        .with_tessellation(if args.tessellate {
+            Tessellation::Always
+        } else {
+            Tessellation::Off
+        })
         .with_spatial_morton_sort(morton)
         .with_spatial_hilbert_sort(hilbert)
         .with_id_sort(id_sort)

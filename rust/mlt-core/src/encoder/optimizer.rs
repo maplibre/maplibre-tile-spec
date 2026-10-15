@@ -4,12 +4,15 @@ use std::ops::{Deref, DerefMut};
 use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
+use crate::encoder::cost::{ClientCost, Cost, Earcut};
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::property::group_string_properties;
 use crate::encoder::sort::{curve_params, sort_order};
 use crate::encoder::source::LayerSource;
-use crate::encoder::tile::stage_layer;
-use crate::encoder::{Codecs, Encoder, EncoderConfig, SortStrategy, encode01};
+use crate::encoder::tile::{StageOptions, stage_layer};
+use crate::encoder::{
+    Client, Codecs, Encoder, EncoderConfig, Network, SortStrategy, Tessellation, encode01,
+};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::{WireVersion, encode02};
 use crate::tile::TileLayer;
@@ -129,9 +132,9 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     // Bounds are order-invariant, so this scan is shared across every
     // sort trial and the encoder's Hilbert/Morton dictionary builders.
     let curve_params = curve_params(source);
-    let stage = |sort| {
+    let stage = |sort, tessellate| {
         let order = sort_order(source, sort, curve_params);
-        stage_layer(source, &order, &stats, cfg.into())
+        stage_layer(source, &order, &stats, StageOptions::new(cfg, tessellate))
     };
 
     // `Encoder::preserve_results` clears caches only on the moved-out
@@ -140,25 +143,72 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     let mut enc = Encoder::new(cfg);
     seed_curve_caches(&mut enc, curve_params);
     let mut codecs = PooledCodecs::take();
-    if let [sort] = sort_by[..] {
-        return stage(sort)
+    let earcut = Earcut::of(source);
+    // Trials that store the same triangles differ only in bytes, so any client and network rank them alike.
+    let bytes_only = (Client::Native, Network::Offline);
+    let (tessellations, (client, network)): (&[bool], _) = match cfg.tessellation() {
+        Tessellation::Always => (&[true], bytes_only),
+        // FIXME: GL JS ignores stored triangles.
+        // Remove the GL JS pattern once it reads them.
+        Tessellation::Off | Tessellation::Auto(Client::GlJs, _) => (&[false], bytes_only),
+        // A layer without polygons has no triangles to store.
+        Tessellation::Auto(..) if earcut.is_empty() => (&[false], bytes_only),
+        Tessellation::Auto(client, network) => (&[false, true], (client, network)),
+    };
+    if let ([sort], [tessellate]) = (&sort_by[..], tessellations) {
+        return stage(*sort, *tessellate)
             .encode_into(enc, &mut codecs)?
             .into_layer_bytes();
     }
-    let mut best: Option<Encoder> = None;
+    let client = ClientCost::new(client, network, cfg);
+    let mut best: Option<Best> = None;
     for &sort in &sort_by {
-        enc = stage(sort).encode_into(enc, &mut codecs)?;
-        if best
-            .as_ref()
-            .is_none_or(|best| enc.total_len() < best.total_len())
-        {
-            best = Some(enc.preserve_results());
-        } else {
-            // Drop the losing trial's bytes, or the next trial would append to them and overcount its total_len.
-            enc.clear_results();
+        // Triangles add about the same bytes in every order, so the source order alone decides on them.
+        let tessellations: &[bool] = match best.as_ref().map(|best| best.tessellated) {
+            None => tessellations,
+            Some(true) => &[true],
+            Some(false) => &[false],
+        };
+        for &tessellate in tessellations {
+            let layer = stage(sort, tessellate);
+            let price = if tessellate {
+                client.price(&layer.geometry)
+            } else {
+                client.price(&earcut)
+            };
+            // Even at the size of the layer without them, triangles that spare no client CPU would lose.
+            if let Some(best) = &best
+                && tessellate != best.tessellated
+                && price.at(best.enc.total_len()) >= best.cost
+            {
+                continue;
+            }
+            enc = layer.encode_into(enc, &mut codecs)?;
+            let cost = price.at(enc.total_len());
+            if best.as_ref().is_none_or(|best| cost < best.cost) {
+                let enc = enc.preserve_results();
+                best = Some(Best {
+                    cost,
+                    tessellated: tessellate,
+                    enc,
+                });
+            } else {
+                // Drop the losing trial's bytes, or the next trial would append to them and overcount its total_len.
+                enc.clear_results();
+            }
         }
     }
-    best.expect("at least two trials ran").into_layer_bytes()
+    best.expect("the source order is always tried")
+        .enc
+        .into_layer_bytes()
+}
+
+/// The cheapest trial so far.
+struct Best {
+    cost: Cost,
+    tessellated: bool,
+    /// The encoder holding the trial's bytes.
+    enc: Encoder,
 }
 
 /// Row-order-independent presence classification for IDs and properties.

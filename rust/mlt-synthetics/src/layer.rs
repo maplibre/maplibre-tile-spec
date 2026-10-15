@@ -7,7 +7,7 @@ use std::path::Path;
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
     Presence, StagedId, StagedLayer, StagedMValue, StagedNested, StagedProperty, StagedSharedDict,
-    StrEncoding, StreamCtx, VertexBufferType, WireVersion, wound_geometry,
+    StrEncoding, StreamCtx, Tessellation, VertexBufferType, WireVersion, wound_geometry,
 };
 use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{Coord, Geometry};
@@ -722,7 +722,11 @@ impl Layer {
         } = self;
 
         let enc_cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
-            .with_tessellation(tessellate)
+            .with_tessellation(if tessellate {
+                Tessellation::Always
+            } else {
+                Tessellation::Off
+            })
             .with_triangles_only(triangles_only)
             .with_row_shapes(row_shapes)
             .with_wire_version(wire_version);

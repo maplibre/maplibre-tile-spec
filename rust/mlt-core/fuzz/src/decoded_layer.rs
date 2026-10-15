@@ -1,5 +1,5 @@
 use mlt_core::encoder::SortStrategy::Unsorted;
-use mlt_core::encoder::{EncoderConfig, StagedLayer, stage_tile};
+use mlt_core::encoder::{EncoderConfig, StagedLayer, Tessellation, stage_tile};
 
 use crate::roundtrip::encode_decode;
 
@@ -32,7 +32,12 @@ impl DecodedLayerInput {
 
 /// Re-stage an already-decoded layer and run it through the same wire version again.
 fn restage_roundtrip(tile: &mlt_core::TileLayer, cfg: EncoderConfig) -> mlt_core::TileLayer {
-    let staged = stage_tile(tile, Unsorted, cfg.allow_shared_dict(), cfg.tessellate());
+    let staged = stage_tile(
+        tile,
+        Unsorted,
+        cfg.allow_shared_dict(),
+        cfg.tessellation() != Tessellation::Off,
+    );
     encode_decode(staged, cfg).expect("re-encoding a layer this version already produced")
 }
 

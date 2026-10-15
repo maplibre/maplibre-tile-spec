@@ -426,12 +426,24 @@ impl WireVersion {
     }
 }
 
+/// When the encoder stores the earcut triangles of a layer's polygons.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum Tessellation {
+    /// Store no triangles, so the client cuts every polygon itself.
+    Off,
+    /// Store a layer's triangles when they save this client more CPU time than their bytes cost on this network.
+    Auto(Client, Network),
+    /// Store the triangles of every layer with polygons.
+    Always,
+}
+
 /// Encoder defaults for one kind of tile consumer, which explicit settings override.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Profile {
     /// `MapLibre GL JS`: no triangles, which it ignores, and no `FastPFOR` or `FSST` unless [`Network::Offline`], since they lose bytes after HTTP compression.
     Web(Network),
-    /// `MapLibre Native`: every codec.
+    /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
     Native(Network),
     /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas and rANS vertices.
     MinSize,
@@ -447,7 +459,17 @@ impl Default for Profile {
     }
 }
 
-/// How tiles reach the client.
+/// The renderer that draws the tiles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum Client {
+    /// `MapLibre GL JS`.
+    GlJs,
+    /// `MapLibre Native`.
+    Native,
+}
+
+/// How tiles reach the client, which prices a stored byte against the client CPU time it spares.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum Network {
@@ -472,8 +494,8 @@ pub struct EncoderConfig {
     /// The wire format to encode layers to.
     #[cfg(feature = "unstable-v2")]
     wire_version: WireVersion,
-    /// Generate tessellation data for polygons and multi-polygons.
-    tessellate: bool,
+    /// When to store the triangles of polygons and multi-polygons.
+    tessellation: Tessellation,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
     attempt_spatial_morton_sort: bool,
     /// Try sorting features by the Hilbert curve index of their first vertex.
@@ -514,10 +536,10 @@ impl EncoderConfig {
     pub fn from_profile(profile: Profile) -> Self {
         // Float dictionaries and ALP stay off in every preset while they are still being measured.
         match profile {
-            Profile::Native(_) => Self {
+            Profile::Native(network) => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                tessellate: false,
+                tessellation: Tessellation::Auto(Client::Native, network),
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,
@@ -542,7 +564,7 @@ impl EncoderConfig {
             Profile::Web(network) => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                tessellate: false,
+                tessellation: Tessellation::Off,
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,
@@ -567,7 +589,7 @@ impl EncoderConfig {
             Profile::MinSize => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                tessellate: false,
+                tessellation: Tessellation::Off,
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: true,
                 attempt_id_sort: true,
@@ -592,7 +614,7 @@ impl EncoderConfig {
             Profile::Diffable => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                tessellate: false,
+                tessellation: Tessellation::Off,
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,
@@ -617,7 +639,7 @@ impl EncoderConfig {
             Profile::FastEncoding => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                tessellate: false,
+                tessellation: Tessellation::Off,
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,
@@ -649,8 +671,8 @@ impl EncoderConfig {
     }
 
     #[must_use]
-    pub fn tessellate(self) -> bool {
-        self.tessellate
+    pub fn tessellation(self) -> Tessellation {
+        self.tessellation
     }
 
     #[must_use]
@@ -740,8 +762,8 @@ impl EncoderConfig {
     }
 
     #[must_use]
-    pub fn with_tessellation(mut self, enabled: bool) -> Self {
-        self.tessellate = enabled;
+    pub fn with_tessellation(mut self, tessellation: Tessellation) -> Self {
+        self.tessellation = tessellation;
         self
     }
 

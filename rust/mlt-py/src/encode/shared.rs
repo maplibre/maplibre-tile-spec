@@ -1,6 +1,7 @@
 //! Helpers shared across the encoding entry points (independent of input format).
 
-use mlt_core::encoder::{EncoderConfig, Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Tessellation};
+use mlt_core::encoder::{Network, Profile};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -37,7 +38,11 @@ pub(crate) fn encoder_config(
     };
     Ok(
         EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
-            .with_tessellation(tessellate)
+            .with_tessellation(if tessellate {
+                Tessellation::Always
+            } else {
+                Tessellation::Off
+            })
             .with_spatial_morton_sort(morton)
             .with_spatial_hilbert_sort(hilbert)
             .with_id_sort(id)

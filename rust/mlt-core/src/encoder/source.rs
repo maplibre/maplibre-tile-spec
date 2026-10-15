@@ -1,8 +1,10 @@
 //! The encoder's view of a layer: its features one at a time, however they are stored.
 
+use std::{iter, slice};
+
 use fast_mvt::{MvtFeatureBuilder, MvtLayerBuilder};
 use geo::CoordsIter as _;
-use geo_types::{Coord, Geometry};
+use geo_types::{Coord, Geometry, Polygon};
 
 use crate::decoder::GeometryValues;
 use crate::encoder::geometry::coord_count;
@@ -31,6 +33,11 @@ pub(crate) trait LayerSource {
     /// How many coordinates the feature holds, to size the geometry buffers up front.
     fn coord_count(&self, feature: usize) -> usize;
     fn push_geometry(&self, feature: usize, geometry: &mut GeometryValues);
+    /// The rings of each of the feature's polygons, exterior first, and none for points and lines.
+    fn polygons(
+        &self,
+        feature: usize,
+    ) -> impl Iterator<Item = impl Iterator<Item = &[Coord<i32>]> + '_> + '_;
     /// Starts the feature in an MVT `layer`, with its geometry written.
     fn mvt_feature(&self, feature: usize, layer: MvtLayerBuilder) -> MltResult<MvtFeatureBuilder>;
 
@@ -142,6 +149,29 @@ impl LayerSource for TileLayer {
 
     fn push_geometry(&self, feature: usize, geometry: &mut GeometryValues) {
         geometry.push_geom(&self.features[feature].geometry);
+    }
+
+    fn polygons(
+        &self,
+        feature: usize,
+    ) -> impl Iterator<Item = impl Iterator<Item = &[Coord<i32>]> + '_> + '_ {
+        let polygons: &[Polygon<i32>] = match &self.features[feature].geometry {
+            Geometry::Polygon(polygon) => slice::from_ref(polygon),
+            Geometry::MultiPolygon(multi) => &multi.0,
+            Geometry::Point(_)
+            | Geometry::Line(_)
+            | Geometry::LineString(_)
+            | Geometry::MultiPoint(_)
+            | Geometry::MultiLineString(_)
+            | Geometry::GeometryCollection(_)
+            | Geometry::Rect(_)
+            | Geometry::Triangle(_) => &[],
+        };
+        polygons.iter().map(|polygon| {
+            iter::once(polygon.exterior())
+                .chain(polygon.interiors())
+                .map(|ring| ring.0.as_slice())
+        })
     }
 
     fn mvt_feature(&self, feature: usize, layer: MvtLayerBuilder) -> MltResult<MvtFeatureBuilder> {
