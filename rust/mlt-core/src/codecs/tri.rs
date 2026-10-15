@@ -38,8 +38,7 @@ pub(crate) fn encode_trees(indices: &[u32], tri_offsets: &[u32]) -> TriTrees {
                 .unwrap_or(0);
             outline.rotate_left(start);
             forest.symbols(outline[0], &mut out.symbols);
-            out.cycles
-                .extend(outline.iter().map(|&side| forest.ends(side).0));
+            out.cycles.extend(outline.iter().map(|&s| forest.ends(s).0));
         }
     }
     out
@@ -98,8 +97,8 @@ impl<'a> Forest<'a> {
             self.claimed[root.into_usize()] = true;
             self.roots.push(root);
             self.stack.push(root * 3);
-            while let Some(gate) = self.stack.pop() {
-                for side in other_sides(gate) {
+            while let Some(entry) = self.stack.pop() {
+                for side in other_sides(entry) {
                     let (from, to) = self.ends(side);
                     if let Some(child) = self.first_side(to, from)
                         && !self.claimed[(child / 3).into_usize()]
@@ -164,18 +163,18 @@ impl<'a> Forest<'a> {
         self.by_from[self.starts[bucket].into_usize()..self.starts[bucket + 1].into_usize()]
             .iter()
             .find(|&&(k, _)| k == key)
-            .map(|&(_, side)| side)
+            .map(|&(_, s)| s)
     }
 
     fn joins(&self, side: u32) -> bool {
         self.twins[side.into_usize()] != NO_TWIN
     }
 
-    /// Append the symbol of each triangle of the tree entered across `gate`, in preorder.
-    fn symbols(&mut self, gate: u32, out: &mut Vec<u32>) {
-        self.stack.push(gate);
-        while let Some(gate) = self.stack.pop() {
-            let [left, right] = other_sides(gate);
+    /// Append the symbol of each triangle of the tree entered across `entry`, in preorder.
+    fn symbols(&mut self, entry: u32, out: &mut Vec<u32>) {
+        self.stack.push(entry);
+        while let Some(entry) = self.stack.pop() {
+            let [left, right] = other_sides(entry);
             out.push(u32::from(self.joins(left)) | (u32::from(self.joins(right)) << 1));
             for side in [right, left] {
                 if self.joins(side) {
@@ -185,11 +184,11 @@ impl<'a> Forest<'a> {
         }
     }
 
-    /// The sides of the tree entered across `gate` that join nothing, in winding order from `gate`.
-    fn outline(&mut self, gate: u32, outline: &mut Vec<u32>) {
+    /// The sides of the tree entered across `entry` that join nothing, in winding order from `entry`.
+    fn outline(&mut self, entry: u32, outline: &mut Vec<u32>) {
         outline.clear();
-        outline.push(gate);
-        let [left, right] = other_sides(gate);
+        outline.push(entry);
+        let [left, right] = other_sides(entry);
         self.stack.extend([right, left]);
         while let Some(side) = self.stack.pop() {
             match self.twins[side.into_usize()] {
@@ -212,10 +211,10 @@ fn edge_key(from: u32, to: u32) -> u64 {
 /// Branch-free over the symbols: a node's flags move the stack pointer instead of choosing a path.
 pub(crate) fn decode_trees(
     symbols: &[u32],
-    cycles: &[u32],
+    mut cycles: &[u32],
     dec: &mut Decoder,
 ) -> MltResult<Vec<u32>> {
-    if symbols.iter().any(|&symbol| symbol > 3) {
+    if symbols.iter().any(|&s| s > 3) {
         return Err(MalformedTriangles("symbol above 3"));
     }
     let triangles = symbols.len();
@@ -225,22 +224,16 @@ pub(crate) fn decode_trees(
     let mut out = Vec::with_capacity(triangles * 3);
     // The stack grows only as deep as a tree goes, so it is not sized by the triangle count.
     let mut frames = vec![Frame::default(); 64];
-    let (mut root, mut cycles) = (0, cycles);
+    let mut root = 0;
+    let inside = || MalformedTriangles("cycles end inside a tree");
     while root < triangles {
-        let tree_size = sizes[root].into_usize();
-        let (cycle, later) = cycles
-            .split_at_checked(tree_size + 2)
-            .ok_or(MalformedTriangles("cycles end inside a tree"))?;
-        unfold(
-            symbols,
-            &sizes,
-            root,
-            tree_size,
-            cycle,
-            &mut frames,
-            &mut out,
-        );
-        (root, cycles) = (root + tree_size, later);
+        let (&entry, rest) = cycles.split_first_chunk().ok_or_else(inside)?;
+        let (apexes, later) = rest
+            .split_at_checked(sizes[root].into_usize())
+            .ok_or_else(inside)?;
+        unfold(symbols, &sizes, root, entry, apexes, &mut frames, &mut out);
+        root += apexes.len();
+        cycles = later;
     }
     if !cycles.is_empty() {
         return Err(MalformedTriangles(
@@ -264,8 +257,8 @@ fn subtree_sizes(symbols: &[u32]) -> MltResult<Vec<u32>> {
         let left_size = sizes[node + 1] * has_left;
         let right_root = node + 1 + left_size.into_usize();
         let right_size = sizes[right_root] * has_right;
-        unfinished |=
-            (has_left & u32::from(node + 1 == end)) | (has_right & u32::from(right_root == end));
+        unfinished |= has_left & u32::from(node + 1 == end);
+        unfinished |= has_right & u32::from(right_root == end);
         sizes[node] = 1 + left_size + right_size;
     }
     if unfinished == 0 {
@@ -275,38 +268,34 @@ fn subtree_sizes(symbols: &[u32]) -> MltResult<Vec<u32>> {
     }
 }
 
-/// A subtree still to unfold: the edge `from -> to` it is entered across, and where its apexes start.
+/// A subtree still to unfold: the edge it is entered across, and where its apexes start.
 #[derive(Clone, Copy, Default)]
 struct Frame {
-    from: u32,
-    to: u32,
+    entry: [u32; 2],
     first_apex: u32,
 }
 
-/// Append the `tree_size` triangles from `root`, taking each apex from `cycle` by the left subtree's size.
+/// Append the tree at `root`, entered across `from -> to`, taking each apex by the left subtree's size.
 ///
 /// The frames pop in preorder, so the node a frame enters is the next one.
 fn unfold(
     symbols: &[u32],
     sizes: &[u32],
     root: usize,
-    tree_size: usize,
-    cycle: &[u32],
+    entry: [u32; 2],
+    apexes: &[u32],
     frames: &mut Vec<Frame>,
     out: &mut Vec<u32>,
 ) {
-    let apexes = &cycle[2..];
     frames[0] = Frame {
-        from: cycle[0],
-        to: cycle[1],
+        entry,
         first_apex: 0,
     };
     let mut pending = 1;
-    for node in root..root + tree_size {
+    for node in root..root + apexes.len() {
         pending -= 1;
         let Frame {
-            from,
-            to,
+            entry: [from, to],
             first_apex,
         } = frames[pending];
         let symbol = symbols[node];
@@ -317,16 +306,14 @@ fn unfold(
         if pending + 2 > frames.len() {
             frames.resize(frames.len() * 2, Frame::default());
         }
-        // The left child is entered across apex -> to, the right one across from -> apex.
+        // The right child goes under the left one, so the left one pops first.
         frames[pending] = Frame {
-            from,
-            to: apex,
+            entry: [from, apex],
             first_apex: first_apex + left_size + 1,
         };
         pending += has_right.into_usize();
         frames[pending] = Frame {
-            from: apex,
-            to,
+            entry: [apex, to],
             first_apex,
         };
         pending += has_left.into_usize();
@@ -524,6 +511,7 @@ mod tests {
     #[rstest::rstest]
     #[case::symbol_above_3(&[4], &[0, 1, 2], "symbol above 3")]
     #[case::symbols_end_inside_a_tree(&[1], &[0, 1, 2, 3], "symbols end inside a tree")]
+    #[case::cycles_end_before_the_root_edge(&[0], &[0], "cycles end inside a tree")]
     #[case::cycles_end_inside_a_tree(&[0], &[0, 1], "cycles end inside a tree")]
     #[case::cycles_too_long(&[0], &[0, 1, 2, 3], "cycles hold more entries than the trees take")]
     #[case::cycles_without_symbols(&[], &[0, 1, 2], "cycles hold more entries than the trees take")]

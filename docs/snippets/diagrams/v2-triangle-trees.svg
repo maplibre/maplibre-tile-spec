@@ -90,12 +90,12 @@
 <circle class="dot" cx="685" cy="30" r="3.5"/>
 <text class="vert halo" x="698" y="22">5</text>
 <text class="row" x="400" y="440">cycle</text>
+<path class="bracket" d="M497 422V416H541V422"/>
+<text class="muted mid" x="519" y="408"><tspan class="math">from <tspan class="op">→</tspan> to</tspan></text>
 <rect class="f0" x="496" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="507" y="440">3</text>
-<text class="muted mid" x="507" y="466"><tspan class="small">from</tspan></text>
 <rect class="f0" x="520" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="531" y="440">6</text>
-<text class="muted mid" x="531" y="466"><tspan class="small">to</tspan></text>
 <rect class="f1" x="544" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="555" y="440">8</text>
 <text class="muted mid" x="555" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">0</tspan></text>

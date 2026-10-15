@@ -23,22 +23,22 @@
 <text class="math halo" x="318" y="100">to</text>
 <circle class="dot" cx="210" cy="270" r="3.5"/>
 <text class="vert math halo" x="210" y="287">apex</text>
-<text class="row" x="450" y="30">symbol</text>
-<polygon class="implicit" points="545,62 570,121.5 505,130"/>
-<polygon class="implicit" points="505,130 440,121.5 465,62"/>
-<polygon class="f1" points="465,62 545,62 505,130"/>
-<text class="tri t1 halo" x="505" y="84.7">0</text>
-<text class="muted small mid" x="505" y="154">no child</text>
+<text class="row" x="430" y="30">symbol</text>
+<polygon class="implicit" points="525,62 550,121.5 485,130"/>
+<polygon class="implicit" points="485,130 420,121.5 445,62"/>
+<polygon class="f1" points="445,62 525,62 485,130"/>
+<text class="tri t1 halo" x="485" y="84.7">0</text>
+<text class="muted small mid" x="485" y="154">no child</text>
 <polygon class="f1" points="680,62 705,121.5 640,130"/>
 <polygon class="implicit" points="640,130 575,121.5 600,62"/>
 <polygon class="f1" points="600,62 680,62 640,130"/>
 <text class="tri t1 halo" x="640" y="84.7">1</text>
 <text class="muted small mid" x="640" y="154">bit 0</text>
-<polygon class="implicit" points="545,197 570,256.5 505,265"/>
-<polygon class="f1" points="505,265 440,256.5 465,197"/>
-<polygon class="f1" points="465,197 545,197 505,265"/>
-<text class="tri t1 halo" x="505" y="219.7">2</text>
-<text class="muted small mid" x="505" y="289">bit 1</text>
+<polygon class="implicit" points="525,197 550,256.5 485,265"/>
+<polygon class="f1" points="485,265 420,256.5 445,197"/>
+<polygon class="f1" points="445,197 525,197 485,265"/>
+<text class="tri t1 halo" x="485" y="219.7">2</text>
+<text class="muted small mid" x="485" y="289">bit 1</text>
 <polygon class="f1" points="680,197 705,256.5 640,265"/>
 <polygon class="f1" points="640,265 575,256.5 600,197"/>
 <polygon class="f1" points="600,197 680,197 640,265"/>
