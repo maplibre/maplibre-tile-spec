@@ -1,0 +1,46 @@
+<svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="A triangle u, v, w entered across u to v. Its bit 0 child lies across v to w and is entered across w to v, its bit 1 child lies across w to u and is entered across u to w. Then the four symbols 0 to 3 as a triangle with no child, the bit 0 child, the bit 1 child, and both" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="tsym" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="tsym0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="tsym1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<polygon class="implicit" points="110,100 210,6.5 310,100"/>
+<polygon class="f1" points="310,100 372.5,248.8 210,270"/>
+<polygon class="f1" points="210,270 47.5,248.8 110,100"/>
+<polygon class="f1" points="110,100 310,100 210,270"/>
+<path class="link t0" d="M122,107L298,107" marker-end="url(#tsym0)"/>
+<path class="link t0" d="M222.2,263.1L310,113.8" marker-end="url(#tsym0)"/>
+<path class="link t0" d="M110,113.8L197.8,263.1" marker-end="url(#tsym0)"/>
+<text class="muted small mid" x="210" y="62.8">parent</text>
+<text class="bold mid" x="210" y="150.7">entered</text>
+<text class="small mid" x="210" y="166.7">across <tspan class="math">u <tspan class="op">→</tspan> v</tspan></text>
+<text class="t1 bold mid halo" x="316.6" y="201.1">bit 0 child</text>
+<text class="small mid halo" x="316.6" y="219.1">entered</text>
+<text class="small mid halo" x="316.6" y="233.1">across <tspan class="math">w <tspan class="op">→</tspan> v</tspan></text>
+<text class="t1 bold mid halo" x="103.4" y="201.1">bit 1 child</text>
+<text class="small mid halo" x="103.4" y="219.1">entered</text>
+<text class="small mid halo" x="103.4" y="233.1">across <tspan class="math">u <tspan class="op">→</tspan> w</tspan></text>
+<circle class="dot" cx="110" cy="100" r="3.5"/>
+<text class="vert math halo" x="96" y="100">u</text>
+<circle class="dot" cx="310" cy="100" r="3.5"/>
+<text class="vert math halo" x="324" y="100">v</text>
+<circle class="dot" cx="210" cy="270" r="3.5"/>
+<text class="vert math halo" x="210" y="287">w</text>
+<text class="row" x="450" y="30">symbol</text>
+<polygon class="implicit" points="545,62 570,121.5 505,130"/>
+<polygon class="implicit" points="505,130 440,121.5 465,62"/>
+<polygon class="f1" points="465,62 545,62 505,130"/>
+<text class="tri t1 halo" x="505" y="84.7">0</text>
+<text class="muted small mid" x="505" y="154">no child</text>
+<polygon class="f1" points="680,62 705,121.5 640,130"/>
+<polygon class="implicit" points="640,130 575,121.5 600,62"/>
+<polygon class="f1" points="600,62 680,62 640,130"/>
+<text class="tri t1 halo" x="640" y="84.7">1</text>
+<text class="muted small mid" x="640" y="154">bit 0</text>
+<polygon class="implicit" points="545,197 570,256.5 505,265"/>
+<polygon class="f1" points="505,265 440,256.5 465,197"/>
+<polygon class="f1" points="465,197 545,197 505,265"/>
+<text class="tri t1 halo" x="505" y="219.7">2</text>
+<text class="muted small mid" x="505" y="289">bit 1</text>
+<polygon class="f1" points="680,197 705,256.5 640,265"/>
+<polygon class="f1" points="640,265 575,256.5 600,197"/>
+<polygon class="f1" points="600,197 680,197 640,265"/>
+<text class="tri t1 halo" x="640" y="219.7">3</text>
+<text class="muted small mid" x="640" y="289">both</text>
+</svg>

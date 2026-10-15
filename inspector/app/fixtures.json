@@ -20768,7 +20768,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -20849,7 +20850,7 @@
   {
     "name": "mix_2_line_poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 54,
+    "bytes": 58,
     "facets": {
       "extent": [
         "64"
@@ -20873,7 +20874,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -20920,7 +20922,7 @@
   {
     "name": "mix_2_line_polyh_tes.mlt",
     "directory": "0x02",
-    "bytes": 76,
+    "bytes": 75,
     "facets": {
       "extent": [
         "64"
@@ -20944,7 +20946,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21048,7 +21051,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21094,7 +21098,7 @@
   {
     "name": "mix_2_mpoly_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 121,
+    "bytes": 118,
     "facets": {
       "extent": [
         "64"
@@ -21116,7 +21120,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21129,7 +21134,7 @@
   {
     "name": "mix_2_mpoly_mpoly_tri.mlt",
     "directory": "0x02",
-    "bytes": 101,
+    "bytes": 98,
     "facets": {
       "extent": [
         "64"
@@ -21148,7 +21153,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21296,7 +21302,7 @@
   {
     "name": "mix_2_poly_mline_tes.mlt",
     "directory": "0x02",
-    "bytes": 60,
+    "bytes": 64,
     "facets": {
       "extent": [
         "64"
@@ -21320,7 +21326,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21368,7 +21375,7 @@
   {
     "name": "mix_2_poly_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 92,
+    "bytes": 93,
     "facets": {
       "extent": [
         "64"
@@ -21392,7 +21399,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21405,7 +21413,7 @@
   {
     "name": "mix_2_poly_mpoly_tri.mlt",
     "directory": "0x02",
-    "bytes": 75,
+    "bytes": 76,
     "facets": {
       "extent": [
         "64"
@@ -21426,7 +21434,8 @@
         "data[vertex]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21506,7 +21515,7 @@
   {
     "name": "mix_2_poly_poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 52,
+    "bytes": 56,
     "facets": {
       "extent": [
         "64"
@@ -21528,7 +21537,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21541,7 +21551,7 @@
   {
     "name": "mix_2_poly_poly_tri.mlt",
     "directory": "0x02",
-    "bytes": 41,
+    "bytes": 45,
     "facets": {
       "extent": [
         "64"
@@ -21560,7 +21570,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21627,7 +21638,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21659,7 +21671,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21707,7 +21720,7 @@
   {
     "name": "mix_2_polyh_mline_tes.mlt",
     "directory": "0x02",
-    "bytes": 82,
+    "bytes": 81,
     "facets": {
       "extent": [
         "64"
@@ -21731,7 +21744,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21779,7 +21793,7 @@
   {
     "name": "mix_2_polyh_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 114,
+    "bytes": 110,
     "facets": {
       "extent": [
         "64"
@@ -21803,7 +21817,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21816,7 +21831,7 @@
   {
     "name": "mix_2_polyh_mpoly_tri.mlt",
     "directory": "0x02",
-    "bytes": 96,
+    "bytes": 92,
     "facets": {
       "extent": [
         "64"
@@ -21837,7 +21852,8 @@
         "data[vertex]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21917,7 +21933,7 @@
   {
     "name": "mix_2_polyh_polyh_tes.mlt",
     "directory": "0x02",
-    "bytes": 97,
+    "bytes": 92,
     "facets": {
       "extent": [
         "64"
@@ -21939,7 +21955,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -21952,7 +21969,7 @@
   {
     "name": "mix_2_polyh_polyh_tri.mlt",
     "directory": "0x02",
-    "bytes": 83,
+    "bytes": 78,
     "facets": {
       "extent": [
         "64"
@@ -21971,7 +21988,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -22312,7 +22330,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -22384,7 +22403,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -22536,7 +22556,7 @@
   {
     "name": "mix_3_line_poly_line_tes.mlt",
     "directory": "0x02",
-    "bytes": 61,
+    "bytes": 65,
     "facets": {
       "extent": [
         "64"
@@ -22560,7 +22580,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -22609,7 +22630,7 @@
   {
     "name": "mix_3_line_poly_mline_tes.mlt",
     "directory": "0x02",
-    "bytes": 68,
+    "bytes": 72,
     "facets": {
       "extent": [
         "64"
@@ -22634,7 +22655,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -22683,7 +22705,7 @@
   {
     "name": "mix_3_line_poly_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 101,
+    "bytes": 102,
     "facets": {
       "extent": [
         "64"
@@ -22708,7 +22730,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -22815,7 +22838,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -22862,7 +22886,7 @@
   {
     "name": "mix_3_line_polyh_line_tes.mlt",
     "directory": "0x02",
-    "bytes": 84,
+    "bytes": 83,
     "facets": {
       "extent": [
         "64"
@@ -22886,7 +22910,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -22935,7 +22960,7 @@
   {
     "name": "mix_3_line_polyh_mline_tes.mlt",
     "directory": "0x02",
-    "bytes": 90,
+    "bytes": 89,
     "facets": {
       "extent": [
         "64"
@@ -22960,7 +22985,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23009,7 +23035,7 @@
   {
     "name": "mix_3_line_polyh_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 122,
+    "bytes": 118,
     "facets": {
       "extent": [
         "64"
@@ -23034,7 +23060,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23209,7 +23236,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23291,7 +23319,7 @@
   {
     "name": "mix_3_mline_poly_mline_tes.mlt",
     "directory": "0x02",
-    "bytes": 73,
+    "bytes": 77,
     "facets": {
       "extent": [
         "64"
@@ -23315,7 +23343,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23363,7 +23392,7 @@
   {
     "name": "mix_3_mline_polyh_mline_tes.mlt",
     "directory": "0x02",
-    "bytes": 96,
+    "bytes": 95,
     "facets": {
       "extent": [
         "64"
@@ -23387,7 +23416,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23469,7 +23499,7 @@
   {
     "name": "mix_3_mpoly_line_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 137,
+    "bytes": 134,
     "facets": {
       "extent": [
         "64"
@@ -23493,7 +23523,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23541,7 +23572,7 @@
   {
     "name": "mix_3_mpoly_mline_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 141,
+    "bytes": 138,
     "facets": {
       "extent": [
         "64"
@@ -23565,7 +23596,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23648,7 +23680,7 @@
   {
     "name": "mix_3_mpoly_poly_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 140,
+    "bytes": 138,
     "facets": {
       "extent": [
         "64"
@@ -23672,7 +23704,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23685,7 +23718,7 @@
   {
     "name": "mix_3_mpoly_poly_mpoly_tri.mlt",
     "directory": "0x02",
-    "bytes": 116,
+    "bytes": 114,
     "facets": {
       "extent": [
         "64"
@@ -23706,7 +23739,8 @@
         "data[vertex]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23754,7 +23788,7 @@
   {
     "name": "mix_3_mpoly_polyh_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 162,
+    "bytes": 155,
     "facets": {
       "extent": [
         "64"
@@ -23778,7 +23812,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -23791,7 +23826,7 @@
   {
     "name": "mix_3_mpoly_polyh_mpoly_tri.mlt",
     "directory": "0x02",
-    "bytes": 138,
+    "bytes": 131,
     "facets": {
       "extent": [
         "64"
@@ -23812,7 +23847,8 @@
         "data[vertex]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24136,7 +24172,7 @@
   {
     "name": "mix_3_poly_line_poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 67,
+    "bytes": 72,
     "facets": {
       "extent": [
         "64"
@@ -24160,7 +24196,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24209,7 +24246,7 @@
   {
     "name": "mix_3_poly_mline_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 106,
+    "bytes": 107,
     "facets": {
       "extent": [
         "64"
@@ -24234,7 +24271,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24282,7 +24320,7 @@
   {
     "name": "mix_3_poly_mline_poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 73,
+    "bytes": 78,
     "facets": {
       "extent": [
         "64"
@@ -24306,7 +24344,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24354,7 +24393,7 @@
   {
     "name": "mix_3_poly_mpoly_poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 105,
+    "bytes": 107,
     "facets": {
       "extent": [
         "64"
@@ -24378,7 +24417,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24391,7 +24431,7 @@
   {
     "name": "mix_3_poly_mpoly_poly_tri.mlt",
     "directory": "0x02",
-    "bytes": 86,
+    "bytes": 88,
     "facets": {
       "extent": [
         "64"
@@ -24412,7 +24452,8 @@
         "data[vertex]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24591,7 +24632,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24639,7 +24681,7 @@
   {
     "name": "mix_3_poly_polyh_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 127,
+    "bytes": 124,
     "facets": {
       "extent": [
         "64"
@@ -24663,7 +24705,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24676,7 +24719,7 @@
   {
     "name": "mix_3_poly_polyh_mpoly_tri.mlt",
     "directory": "0x02",
-    "bytes": 107,
+    "bytes": 104,
     "facets": {
       "extent": [
         "64"
@@ -24697,7 +24740,8 @@
         "data[vertex]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24777,7 +24821,7 @@
   {
     "name": "mix_3_poly_polyh_poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 87,
+    "bytes": 88,
     "facets": {
       "extent": [
         "64"
@@ -24799,7 +24843,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24812,7 +24857,7 @@
   {
     "name": "mix_3_poly_polyh_poly_tri.mlt",
     "directory": "0x02",
-    "bytes": 72,
+    "bytes": 73,
     "facets": {
       "extent": [
         "64"
@@ -24831,7 +24876,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24912,7 +24958,7 @@
   {
     "name": "mix_3_polyh_line_polyh_tes.mlt",
     "directory": "0x02",
-    "bytes": 111,
+    "bytes": 106,
     "facets": {
       "extent": [
         "64"
@@ -24936,7 +24982,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -24985,7 +25032,7 @@
   {
     "name": "mix_3_polyh_mline_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 128,
+    "bytes": 124,
     "facets": {
       "extent": [
         "64"
@@ -25010,7 +25057,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -25058,7 +25106,7 @@
   {
     "name": "mix_3_polyh_mline_polyh_tes.mlt",
     "directory": "0x02",
-    "bytes": 117,
+    "bytes": 112,
     "facets": {
       "extent": [
         "64"
@@ -25082,7 +25130,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -25130,7 +25179,7 @@
   {
     "name": "mix_3_polyh_mpoly_polyh_tes.mlt",
     "directory": "0x02",
-    "bytes": 150,
+    "bytes": 142,
     "facets": {
       "extent": [
         "64"
@@ -25154,7 +25203,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -25167,7 +25217,7 @@
   {
     "name": "mix_3_polyh_mpoly_polyh_tri.mlt",
     "directory": "0x02",
-    "bytes": 128,
+    "bytes": 120,
     "facets": {
       "extent": [
         "64"
@@ -25188,7 +25238,8 @@
         "data[vertex]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -25340,7 +25391,7 @@
   {
     "name": "mix_3_polyh_poly_polyh_tes.mlt",
     "directory": "0x02",
-    "bytes": 109,
+    "bytes": 105,
     "facets": {
       "extent": [
         "64"
@@ -25362,7 +25413,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -25375,7 +25427,7 @@
   {
     "name": "mix_3_polyh_poly_polyh_tri.mlt",
     "directory": "0x02",
-    "bytes": 93,
+    "bytes": 89,
     "facets": {
       "extent": [
         "64"
@@ -25394,7 +25446,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -26251,7 +26304,7 @@
   {
     "name": "mix_4_line_poly_mline_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 116,
+    "bytes": 117,
     "facets": {
       "extent": [
         "64"
@@ -26277,7 +26330,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -26425,7 +26479,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -26474,7 +26529,7 @@
   {
     "name": "mix_4_line_poly_polyh_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 137,
+    "bytes": 134,
     "facets": {
       "extent": [
         "64"
@@ -26499,7 +26554,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -26585,7 +26641,7 @@
   {
     "name": "mix_4_line_polyh_mline_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 138,
+    "bytes": 134,
     "facets": {
       "extent": [
         "64"
@@ -26611,7 +26667,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -26771,7 +26828,7 @@
   {
     "name": "mix_4_poly_polyh_mline_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 142,
+    "bytes": 139,
     "facets": {
       "extent": [
         "64"
@@ -26796,7 +26853,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -27727,7 +27785,7 @@
   {
     "name": "mix_5_line_poly_polyh_mline_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 152,
+    "bytes": 149,
     "facets": {
       "extent": [
         "64"
@@ -27753,7 +27811,8 @@
         "length[rings]",
         "length[triangles]",
         "length[var-binary]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -30127,7 +30186,7 @@
   {
     "name": "mvalues_tes.mlt",
     "directory": "0x02",
-    "bytes": 67,
+    "bytes": 71,
     "facets": {
       "extent": [
         "64"
@@ -30152,7 +30211,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -30665,7 +30725,7 @@
   {
     "name": "poly_fpf_tes.mlt",
     "directory": "0x02",
-    "bytes": 72,
+    "bytes": 82,
     "facets": {
       "extent": [
         "64"
@@ -30687,7 +30747,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "fastpfor[128le]"
@@ -30764,7 +30825,7 @@
   {
     "name": "poly_hole_fpf_tes.mlt",
     "directory": "0x02",
-    "bytes": 93,
+    "bytes": 96,
     "facets": {
       "extent": [
         "64"
@@ -30786,7 +30847,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "fastpfor[128le]"
@@ -30831,7 +30893,7 @@
   {
     "name": "poly_hole_tes.mlt",
     "directory": "0x02",
-    "bytes": 63,
+    "bytes": 62,
     "facets": {
       "extent": [
         "64"
@@ -30853,7 +30915,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -30866,7 +30929,7 @@
   {
     "name": "poly_hole_tes_rans.mlt",
     "directory": "0x02",
-    "bytes": 98,
+    "bytes": 97,
     "facets": {
       "extent": [
         "64"
@@ -30888,7 +30951,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -30965,7 +31029,7 @@
   {
     "name": "poly_hole_touching_fpf_tes.mlt",
     "directory": "0x02",
-    "bytes": 93,
+    "bytes": 100,
     "facets": {
       "extent": [
         "64"
@@ -30987,7 +31051,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "fastpfor[128le]"
@@ -31022,7 +31087,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -31054,7 +31120,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -31067,7 +31134,7 @@
   {
     "name": "poly_hole_tri.mlt",
     "directory": "0x02",
-    "bytes": 52,
+    "bytes": 51,
     "facets": {
       "extent": [
         "64"
@@ -31086,7 +31153,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -31338,7 +31406,7 @@
   {
     "name": "poly_multi_tes.mlt",
     "directory": "0x02",
-    "bytes": 53,
+    "bytes": 58,
     "facets": {
       "extent": [
         "64"
@@ -31360,7 +31428,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -31374,7 +31443,7 @@
   {
     "name": "poly_multi_tri.mlt",
     "directory": "0x02",
-    "bytes": 40,
+    "bytes": 45,
     "facets": {
       "extent": [
         "64"
@@ -31393,7 +31462,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -31470,7 +31540,7 @@
   {
     "name": "poly_self_intersect_fpf_tes.mlt",
     "directory": "0x02",
-    "bytes": 72,
+    "bytes": 82,
     "facets": {
       "extent": [
         "64"
@@ -31492,7 +31562,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "fastpfor[128le]"
@@ -31505,7 +31576,7 @@
   {
     "name": "poly_self_intersect_tes.mlt",
     "directory": "0x02",
-    "bytes": 42,
+    "bytes": 45,
     "facets": {
       "extent": [
         "64"
@@ -31527,7 +31598,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -31540,7 +31612,7 @@
   {
     "name": "poly_self_intersect_tri.mlt",
     "directory": "0x02",
-    "bytes": 33,
+    "bytes": 36,
     "facets": {
       "extent": [
         "64"
@@ -31559,7 +31631,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -31572,7 +31645,7 @@
   {
     "name": "poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 40,
+    "bytes": 43,
     "facets": {
       "extent": [
         "64"
@@ -31594,7 +31667,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -31607,7 +31681,7 @@
   {
     "name": "poly_tri.mlt",
     "directory": "0x02",
-    "bytes": 31,
+    "bytes": 34,
     "facets": {
       "extent": [
         "64"
@@ -31626,7 +31700,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -40141,7 +40216,7 @@
   {
     "name": "z_poly_hole_tes.mlt",
     "directory": "0x02",
-    "bytes": 73,
+    "bytes": 72,
     "facets": {
       "extent": [
         "64"
@@ -40165,7 +40240,8 @@
         "length[parts]",
         "length[rings]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"
@@ -40178,7 +40254,7 @@
   {
     "name": "z_poly_hole_tri.mlt",
     "directory": "0x02",
-    "bytes": 62,
+    "bytes": 61,
     "facets": {
       "extent": [
         "64"
@@ -40199,7 +40275,8 @@
       "streamType": [
         "data[vertex]",
         "length[triangles]",
-        "offset[index]"
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "varint"

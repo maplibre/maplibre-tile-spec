@@ -15,11 +15,11 @@
 <polygon class="f1" points="654,188 630,80 678,164"/>
 <text class="tri t0 halo" x="132" y="240">0</text>
 <text class="tri t1 halo" x="426" y="232">1</text>
-<text class="tri t1 halo" x="434" y="192">2</text>
-<text class="tri t1 halo" x="450" y="276">3</text>
-<text class="tri t1 halo" x="478" y="148">4</text>
-<text class="tri t1 halo" x="526" y="232">5</text>
-<text class="tri t1 halo" x="522" y="168">6</text>
+<text class="tri t1 halo" x="434" y="192">6</text>
+<text class="tri t1 halo" x="450" y="276">2</text>
+<text class="tri t1 halo" x="478" y="148">5</text>
+<text class="tri t1 halo" x="526" y="232">3</text>
+<text class="tri t1 halo" x="522" y="168">4</text>
 <text class="tri t1 halo" x="654" y="144">7</text>
 <circle class="dot" cx="40" cy="80" r="3.5"/>
 <text class="vert halo" x="28" y="80">0</text>
@@ -46,5 +46,5 @@
 <circle class="dot" cx="678" cy="164" r="3.5"/>
 <text class="vert halo" x="692" y="164">11</text>
 <text class="muted" x="40" y="410"><tspan class="fg">0-11</tspan> vertex position in the layer</text>
-<text class="muted" x="40" y="432"><tspan class="t0 bold">0</tspan><tspan class="t1 bold">-7</tspan> triangle in index buffer order</text>
+<text class="muted" x="40" y="432"><tspan class="t0 bold">0</tspan><tspan class="t1 bold">-7</tspan> triangle in decoded order</text>
 </svg>

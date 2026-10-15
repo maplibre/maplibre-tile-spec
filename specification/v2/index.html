@@ -979,6 +979,7 @@ It also changes the byte layout to make tiles smaller.</p>
 <li><strong>Extent in four bits.</strong> Powers of two from <code>64</code> to <code>2097152</code> fit in the layer header byte. See <a href="#extent">extent</a>.</li>
 <li><strong>Uniform geometry type.</strong> A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See <a href="#uniform-geometry-type">uniform geometry type</a>.</li>
 <li><strong>Cheaper nulls.</strong> The presence of a column is stored as a bitmap, run list or sparse bitmap, whichever is smallest, and can be shared between columns. See <a href="#presence-encodings">presence encodings</a>.</li>
+<li><strong>Smaller triangles.</strong> A tessellated layer stores about two bits per triangle and one index per outline vertex, instead of three indices per triangle. See <a href="#triangle-trees">triangle trees</a>.</li>
 <li><strong>More encodings.</strong> Bit packing, <code>Int8</code> and <code>UInt8</code> columns, <a href="../../encodings/#alp">ALP</a> for floats, <a href="../../encodings/#front-coding">front coding</a> for strings and optional <a href="../../encodings/#rans">rANS</a> for vertices.</li>
 </ul>
 <p>Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT.
@@ -1405,10 +1406,11 @@ Which streams it contains is given by the geometry layout nibble.</p>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>                    [geo lengths]               \
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                    [part lengths]               } present per the layout
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>                    [ring lengths]              /
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                    [triangle lengths]          \ tessellated layouts only
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                    [index buffer]              /
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>                    [vertex stream]             every vertex, or the distinct ones
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>                    [vertex offsets]            dictionary layouts only
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                    [triangle lengths]          \
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                    [tree symbols]               } tessellated layouts only
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>                    [tree cycles]               /
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>                    [vertex stream]             every vertex, or the distinct ones
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>                    [vertex offsets]            dictionary layouts only
 </span></code></pre></div>
 <p>Streams appear in exactly this order.
 Each stream's role is given by its position.</p>
@@ -1454,7 +1456,8 @@ The streams it writes after that, in column order:</p>
 <th style="text-align: center;">PartLengths</th>
 <th style="text-align: center;">RingLengths</th>
 <th style="text-align: center;">TriLengths</th>
-<th style="text-align: center;">IndexBuffer</th>
+<th style="text-align: center;">TreeSymbols</th>
+<th style="text-align: center;">TreeCycles</th>
 <th style="text-align: center;">Vertices</th>
 <th style="text-align: center;">VertexOffsets</th>
 </tr>
@@ -1463,6 +1466,7 @@ The streams it writes after that, in column order:</p>
 <tr>
 <td style="text-align: right;"><code>0x0</code></td>
 <td>Points</td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
@@ -1479,6 +1483,7 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;">distinct</td>
 <td style="text-align: center;">●</td>
 </tr>
@@ -1486,6 +1491,7 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: right;"><code>0x2</code></td>
 <td>MultiPoints</td>
 <td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
@@ -1501,6 +1507,7 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;">distinct</td>
 <td style="text-align: center;">●</td>
 </tr>
@@ -1509,6 +1516,7 @@ The streams it writes after that, in column order:</p>
 <td>Lines</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
@@ -1523,6 +1531,7 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;">distinct</td>
 <td style="text-align: center;">●</td>
 </tr>
@@ -1531,6 +1540,7 @@ The streams it writes after that, in column order:</p>
 <td>MultiLines</td>
 <td style="text-align: center;">●</td>
 <td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
@@ -1545,6 +1555,7 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;">distinct</td>
 <td style="text-align: center;">●</td>
 </tr>
@@ -1554,6 +1565,7 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;"></td>
 <td style="text-align: center;">●</td>
 <td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;">all</td>
@@ -1567,6 +1579,7 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;">●</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;">distinct</td>
 <td style="text-align: center;">●</td>
 </tr>
@@ -1576,6 +1589,7 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;">●</td>
 <td style="text-align: center;">●</td>
 <td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;">all</td>
@@ -1589,6 +1603,7 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;">●</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;">distinct</td>
 <td style="text-align: center;">●</td>
 </tr>
@@ -1600,12 +1615,14 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;"></td>
 <td style="text-align: center;">●</td>
 <td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
 <td style="text-align: center;">all</td>
 <td style="text-align: center;"></td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>0xD</code></td>
 <td>TessPolygonsWithOutlines</td>
+<td style="text-align: center;">●</td>
 <td style="text-align: center;">●</td>
 <td style="text-align: center;">●</td>
 <td style="text-align: center;">●</td>
@@ -1656,19 +1673,97 @@ Decoders MAY rely on this and need not check it.</p>
 <h3 id="tessellation">Tessellation<a class="headerlink" href="#tessellation" title="Link to this section">&para;</a></h3>
 <p>A tessellated layer stores the triangles its polygons were cut into, next to their vertices.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=tri_lengths" target="_blank">View example</a> - the triangles and vertices drawn below.</p>
-<p>Two streams carry the triangles:</p>
-<ul>
-<li><strong>Triangle lengths</strong> hold one triangle count per polygon feature, in feature order.
-  A <code>MultiPolygon</code> has one count for all its polygons together.
-  A feature that is not a polygon has no count.</li>
-<li><strong>The index buffer</strong> holds three vertex indices per triangle.
-  The triangles of each feature follow those of the one before it.</li>
-</ul>
+<p>Three streams carry the triangles of the example below:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 250" role="img" aria-label="Triangle lengths 1 and 7, one per polygon feature, each spanning that many symbols. Symbols, one per triangle, numbered 0 to 7. Cycles, one run of vertex indices per tree: tree 0 of 1 triangle holds 3, tree 1 of 6 triangles holds 8, tree 2 of 1 triangle holds 3" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="trole" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="trole0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="trole1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="60">triangle lengths</text>
+<text class="muted small" x="560" y="60">triangles per feature</text>
+<text class="row" x="0" y="140">tree symbols</text>
+<text class="muted small" x="560" y="140">one per triangle</text>
+<text class="row" x="0" y="200">tree cycles</text>
+<text class="muted small" x="560" y="200">vertex indices,</text>
+<text class="muted small" x="560" y="216"><tspan class="math">n</tspan> + 2 per tree</text>
+<rect class="f0" x="150" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="161" y="140">0</text>
+<text class="muted small mid" x="161" y="164">0</text>
+<rect class="f0" x="150" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="161" y="200">0</text>
+<rect class="f0" x="174" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="185" y="200">2</text>
+<rect class="f0" x="198" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="209" y="200">1</text>
+<path class="bracket" d="M150 220V226H220V220"/>
+<text class="muted small mid" x="185" y="240">tree 0</text>
+<rect class="f1" x="236" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="247" y="140">2</text>
+<text class="muted small mid" x="247" y="164">1</text>
+<rect class="f1" x="260" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="271" y="140">1</text>
+<text class="muted small mid" x="271" y="164">2</text>
+<rect class="f1" x="284" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="295" y="140">1</text>
+<text class="muted small mid" x="295" y="164">3</text>
+<rect class="f1" x="308" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="319" y="140">2</text>
+<text class="muted small mid" x="319" y="164">4</text>
+<rect class="f1" x="332" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="343" y="140">1</text>
+<text class="muted small mid" x="343" y="164">5</text>
+<rect class="f1" x="356" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="367" y="140">0</text>
+<text class="muted small mid" x="367" y="164">6</text>
+<rect class="f1" x="236" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="247" y="200">3</text>
+<rect class="f1" x="260" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="271" y="200">6</text>
+<rect class="f1" x="284" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="295" y="200">8</text>
+<rect class="f1" x="308" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="319" y="200">7</text>
+<rect class="f1" x="332" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="343" y="200">6</text>
+<rect class="f1" x="356" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="367" y="200">3</text>
+<rect class="f1" x="380" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="391" y="200">5</text>
+<rect class="f1" x="404" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="415" y="200">4</text>
+<path class="bracket" d="M236 220V226H426V220"/>
+<text class="muted small mid" x="331" y="240">tree 1</text>
+<rect class="f1" x="442" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="453" y="140">0</text>
+<text class="muted small mid" x="453" y="164">7</text>
+<rect class="f1" x="442" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="453" y="200">9</text>
+<rect class="f1" x="466" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="477" y="200">11</text>
+<rect class="f1" x="490" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="501" y="200">10</text>
+<path class="bracket" d="M442 220V226H512V220"/>
+<text class="muted small mid" x="477" y="240">tree 2</text>
+<text class="t0 bold mid" x="161" y="14">feature 0</text>
+<rect class="f0" x="147.0" y="46" width="28" height="28" rx="3"/>
+<text class="cell" x="161" y="60">1</text>
+<path class="bracket t0" d="M150 120V114H172V120"/>
+<path class="link" d="M161 74V112" marker-end="url(#trole)"/>
+<text class="t1 bold mid" x="350" y="14">feature 1</text>
+<rect class="f1" x="336.0" y="46" width="28" height="28" rx="3"/>
+<text class="cell" x="350" y="60">7</text>
+<path class="bracket t1" d="M236 120V114H464V120"/>
+<path class="link" d="M350 74V112" marker-end="url(#trole)"/>
+</svg></p>
+<p>Triangle lengths are in feature order.
+A <code>MultiPolygon</code> has one count for all its polygons together.
+A feature that is not a polygon has no count.</p>
+<p>Symbols and cycles decode to a list of triangles, three vertex indices each, see <a href="#triangle-trees">triangle trees</a>.
+The triangles of each feature follow those of the one before it.</p>
 <p>Each index is a position in the vertex stream.
-Indices count from the layer's first vertex, not the feature's, so the vertex stream and the index buffer go to a GPU as they are.
+Indices count from the layer's first vertex, not the feature's, so the vertex stream and the decoded triangles go to a GPU as they are.
 An index MUST name a vertex of the layer.</p>
-<p>A feature's triangles are one contiguous run of the index buffer.
-Feature <code>i</code> starts at three times the sum of the triangle lengths before it, and spans three times its own length.</p>
+<p>The trees decode without the triangle lengths, which only split the decoded triangles into features.
+A feature's triangles are one contiguous run of the decoded triangles.
+Feature <code>i</code> starts at the sum of the triangle lengths before it, and spans its own length.
+The triangle lengths MUST sum to the number of symbols.</p>
 <p>A tessellated layer either stores only the triangles (<code>0xC</code>) or keeps the outlines next to them (<code>0xD</code>).</p>
 <p>A <code>Polygon</code> triangle, then a <code>MultiPolygon</code> of a polygon with a hole and a second triangle, from <a href="#examples"><code>mix_2_poly_mpoly_tes</code></a>:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Triangles</label><label for="__tabbed_1_2">Streams</label><label for="__tabbed_1_3">v1 and v2</label><label for="__tabbed_1_4">Values</label></div>
@@ -1691,11 +1786,11 @@ Feature <code>i</code> starts at three times the sum of the triangle lengths bef
 <polygon class="f1" points="654,188 630,80 678,164"/>
 <text class="tri t0 halo" x="132" y="240">0</text>
 <text class="tri t1 halo" x="426" y="232">1</text>
-<text class="tri t1 halo" x="434" y="192">2</text>
-<text class="tri t1 halo" x="450" y="276">3</text>
-<text class="tri t1 halo" x="478" y="148">4</text>
-<text class="tri t1 halo" x="526" y="232">5</text>
-<text class="tri t1 halo" x="522" y="168">6</text>
+<text class="tri t1 halo" x="434" y="192">6</text>
+<text class="tri t1 halo" x="450" y="276">2</text>
+<text class="tri t1 halo" x="478" y="148">5</text>
+<text class="tri t1 halo" x="526" y="232">3</text>
+<text class="tri t1 halo" x="522" y="168">4</text>
 <text class="tri t1 halo" x="654" y="144">7</text>
 <circle class="dot" cx="40" cy="80" r="3.5"/>
 <text class="vert halo" x="28" y="80">0</text>
@@ -1722,13 +1817,12 @@ Feature <code>i</code> starts at three times the sum of the triangle lengths bef
 <circle class="dot" cx="678" cy="164" r="3.5"/>
 <text class="vert halo" x="692" y="164">11</text>
 <text class="muted" x="40" y="410"><tspan class="fg">0-11</tspan> vertex position in the layer</text>
-<text class="muted" x="40" y="432"><tspan class="t0 bold">0</tspan><tspan class="t1 bold">-7</tspan> triangle in index buffer order</text>
+<text class="muted" x="40" y="432"><tspan class="t0 bold">0</tspan><tspan class="t1 bold">-7</tspan> triangle in decoded order</text>
 </svg></p>
 </div>
 <div class="tabbed-block">
-<p><svg class="mlt-diagram" viewBox="0 0 710 632" role="img" aria-label="The two features and their triangles, then triangle lengths pointing into the index buffer, whose entries name x,y vertices of the layer" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="tess-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
-<defs><marker id="tess-arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<p><svg class="mlt-diagram" viewBox="0 0 710 822" role="img" aria-label="The two features and their triangles, then triangle lengths over the tree symbols, the tree cycles under them, the triangles they decode to, and the x,y vertices those name" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="tess" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="tess0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="tess1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
 <polygon class="f0" points="192.5,227 165.5,20 345.5,173"/>
 <polygon class="f1" points="400.5,119 472.5,119 499.5,164"/>
 <polygon class="f1" points="517.5,74 472.5,119 400.5,119"/>
@@ -1762,132 +1856,186 @@ Feature <code>i</code> starts at three times the sum of the triangle lengths bef
 <circle class="dot" cx="662.5" cy="83" r="3.5"/>
 <text class="vert halo" x="673.5" y="92">11</text>
 <text class="row" x="0" y="290">lengths</text>
-<rect class="f0" x="126" y="276" width="28" height="28" rx="3"/>
-<text class="cell" x="140" y="290">1</text>
-<path class="link" d="M140 304V350" marker-end="url(#tess-arrow)"/>
-<text class="muted small" x="147" y="332">3 × 1</text>
-<rect class="f1" x="198" y="276" width="28" height="28" rx="3"/>
-<text class="cell" x="212" y="290">7</text>
-<path class="link" d="M212 304V350" marker-end="url(#tess-arrow)"/>
-<text class="muted small" x="219" y="332">3 × 7</text>
-<text class="row" x="0" y="370">index buffer</text>
-<rect class="f0" x="130" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="140" y="370">1</text>
-<rect class="f0" x="152" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="162" y="370">0</text>
-<rect class="f0" x="174" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="184" y="370">2</text>
-<rect class="f1" x="202" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="212" y="370">3</text>
-<rect class="f1" x="224" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="234" y="370">6</text>
-<rect class="f1" x="246" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="256" y="370">8</text>
-<rect class="f1" x="274" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="284" y="370">7</text>
-<rect class="f1" x="296" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="306" y="370">6</text>
-<rect class="f1" x="318" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="328" y="370">3</text>
-<rect class="f1" x="346" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="356" y="370">4</text>
-<rect class="f1" x="368" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="378" y="370">3</text>
-<rect class="f1" x="390" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="400" y="370">8</text>
-<rect class="f1" x="418" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="428" y="370">7</text>
-<rect class="f1" x="440" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="450" y="370">3</text>
-<rect class="f1" x="462" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="472" y="370">5</text>
-<rect class="f1" x="490" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="500" y="370">5</text>
-<rect class="f1" x="512" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="522" y="370">4</text>
-<rect class="f1" x="534" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="544" y="370">8</text>
-<rect class="f1" x="562" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="572" y="370">8</text>
-<rect class="f1" x="584" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="594" y="370">7</text>
-<rect class="f1" x="606" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="616" y="370">5</text>
-<rect class="f1" x="634" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="644" y="370">10</text>
-<rect class="f1" x="656" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="666" y="370">9</text>
-<rect class="f1" x="678" y="356" width="20" height="28" rx="3"/>
-<text class="cell" x="688" y="370">11</text>
-<rect class="pick" x="199" y="353" width="70" height="34" rx="5"/>
-<path class="link t1" d="M212 387C212 441 292 441 292 492" marker-end="url(#tess-arrow1)"/>
-<path class="link t1" d="M234 387C234 441 434 441 434 492" marker-end="url(#tess-arrow1)"/>
-<path class="link t1" d="M256 387C256 441 522 441 522 492" marker-end="url(#tess-arrow1)"/>
-<rect class="pick" x="631" y="353" width="70" height="34" rx="5"/>
-<path class="link t1" d="M644 387C644 441 620 441 620 492" marker-end="url(#tess-arrow1)"/>
-<path class="link t1" d="M666 387C666 441 576 441 576 492" marker-end="url(#tess-arrow1)"/>
-<path class="link t1" d="M688 387C688 441 664 441 664 492" marker-end="url(#tess-arrow1)"/>
-<text class="row" x="0" y="516">vertices</text>
-<text class="muted small" x="122" y="510" text-anchor="end">x</text>
-<text class="muted small" x="122" y="524" text-anchor="end">y</text>
-<rect class="f0" x="130" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="150" y="510">55</text>
-<text class="cell small" x="150" y="524">5</text>
-<text class="muted small mid" x="150" y="550">0</text>
-<rect class="f0" x="174" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="194" y="510">58</text>
-<text class="cell small" x="194" y="524">28</text>
-<text class="muted small mid" x="194" y="550">1</text>
-<rect class="f0" x="218" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="238" y="510">75</text>
-<text class="cell small" x="238" y="524">22</text>
-<text class="muted small mid" x="238" y="550">2</text>
-<rect class="f1" x="272" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="292" y="510">7</text>
-<text class="cell small" x="292" y="524">20</text>
-<text class="muted small mid" x="292" y="550">3</text>
-<rect class="f1" x="316" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="336" y="510">21</text>
-<text class="cell small" x="336" y="524">31</text>
-<text class="muted small mid" x="336" y="550">4</text>
-<rect class="f1" x="360" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="380" y="510">26</text>
-<text class="cell small" x="380" y="524">9</text>
-<text class="muted small mid" x="380" y="550">5</text>
-<rect class="f1" x="414" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="434" y="510">15</text>
-<text class="cell small" x="434" y="524">20</text>
-<text class="muted small mid" x="434" y="550">6</text>
-<rect class="f1" x="458" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="478" y="510">20</text>
-<text class="cell small" x="478" y="524">15</text>
-<text class="muted small mid" x="478" y="550">7</text>
-<rect class="f1" x="502" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="522" y="510">18</text>
-<text class="cell small" x="522" y="524">25</text>
-<text class="muted small mid" x="522" y="550">8</text>
-<rect class="f1" x="556" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="576" y="510">69</text>
-<text class="cell small" x="576" y="524">57</text>
-<text class="muted small mid" x="576" y="550">9</text>
-<rect class="f1" x="600" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="620" y="510">71</text>
-<text class="cell small" x="620" y="524">66</text>
-<text class="muted small mid" x="620" y="550">10</text>
-<rect class="f1" x="644" y="496" width="40" height="40" rx="3"/>
-<text class="cell small" x="664" y="510">73</text>
-<text class="cell small" x="664" y="524">64</text>
-<text class="muted small mid" x="664" y="550">11</text>
-<path class="bracket" d="M272 562V568H400V562"/>
-<text class="muted small mid" x="336" y="585">shell</text>
-<path class="bracket" d="M414 562V568H542V562"/>
-<text class="muted small mid" x="478" y="585">hole</text>
-<path class="bracket" d="M556 562V568H684V562"/>
-<text class="muted small mid" x="620" y="585">2nd polygon</text>
-<path class="bracket t0" d="M130 598V604H258V598"/>
-<text class="t0 bold" x="130" y="619">feature 0</text>
-<path class="bracket t1" d="M272 598V604H684V598"/>
-<text class="t1 bold" x="272" y="619">feature 1</text>
+<text class="row" x="0" y="370">symbols</text>
+<text class="row" x="0" y="420">cycles</text>
+<rect class="f0" x="130" y="356" width="22" height="28" rx="3"/>
+<text class="cell" x="141" y="370">0</text>
+<rect class="f0" x="130" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="141" y="420">0</text>
+<rect class="f0" x="154" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="165" y="420">2</text>
+<rect class="f0" x="178" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="189" y="420">1</text>
+<path class="bracket" d="M130 440V446H200V440"/>
+<text class="muted small mid" x="165" y="460">tree 0</text>
+<rect class="f1" x="216" y="356" width="22" height="28" rx="3"/>
+<text class="cell" x="227" y="370">2</text>
+<rect class="f1" x="240" y="356" width="22" height="28" rx="3"/>
+<text class="cell" x="251" y="370">1</text>
+<rect class="f1" x="264" y="356" width="22" height="28" rx="3"/>
+<text class="cell" x="275" y="370">1</text>
+<rect class="f1" x="288" y="356" width="22" height="28" rx="3"/>
+<text class="cell" x="299" y="370">2</text>
+<rect class="f1" x="312" y="356" width="22" height="28" rx="3"/>
+<text class="cell" x="323" y="370">1</text>
+<rect class="f1" x="336" y="356" width="22" height="28" rx="3"/>
+<text class="cell" x="347" y="370">0</text>
+<rect class="f1" x="216" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="227" y="420">3</text>
+<rect class="f1" x="240" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="251" y="420">6</text>
+<rect class="f1" x="264" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="275" y="420">8</text>
+<rect class="f1" x="288" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="299" y="420">7</text>
+<rect class="f1" x="312" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="323" y="420">6</text>
+<rect class="f1" x="336" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="347" y="420">3</text>
+<rect class="f1" x="360" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="371" y="420">5</text>
+<rect class="f1" x="384" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="395" y="420">4</text>
+<path class="bracket" d="M216 440V446H406V440"/>
+<text class="muted small mid" x="311" y="460">tree 1</text>
+<rect class="f1" x="422" y="356" width="22" height="28" rx="3"/>
+<text class="cell" x="433" y="370">0</text>
+<rect class="f1" x="422" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="433" y="420">9</text>
+<rect class="f1" x="446" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="457" y="420">11</text>
+<rect class="f1" x="470" y="406" width="22" height="28" rx="3"/>
+<text class="cell" x="481" y="420">10</text>
+<path class="bracket" d="M422 440V446H492V440"/>
+<text class="muted small mid" x="457" y="460">tree 2</text>
+<rect class="f0" x="127.0" y="276" width="28" height="28" rx="3"/>
+<text class="cell" x="141" y="290">1</text>
+<path class="bracket" d="M130 350V344H152V350"/>
+<path class="link" d="M141 304V342" marker-end="url(#tess)"/>
+<rect class="f1" x="316.0" y="276" width="28" height="28" rx="3"/>
+<text class="cell" x="330" y="290">7</text>
+<path class="bracket" d="M216 350V344H444V350"/>
+<path class="link" d="M330 304V342" marker-end="url(#tess)"/>
+<text class="row" x="0" y="540">triangles</text>
+<rect class="f0" x="130" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="140" y="540">0</text>
+<rect class="f0" x="152" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="162" y="540">2</text>
+<rect class="f0" x="174" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="184" y="540">1</text>
+<rect class="f1" x="202" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="212" y="540">3</text>
+<rect class="f1" x="224" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="234" y="540">6</text>
+<rect class="f1" x="246" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="256" y="540">8</text>
+<rect class="f1" x="274" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="284" y="540">3</text>
+<rect class="f1" x="296" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="306" y="540">8</text>
+<rect class="f1" x="318" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="328" y="540">4</text>
+<rect class="f1" x="346" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="356" y="540">4</text>
+<rect class="f1" x="368" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="378" y="540">8</text>
+<rect class="f1" x="390" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="400" y="540">5</text>
+<rect class="f1" x="418" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="428" y="540">5</text>
+<rect class="f1" x="440" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="450" y="540">8</text>
+<rect class="f1" x="462" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="472" y="540">7</text>
+<rect class="f1" x="490" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="500" y="540">5</text>
+<rect class="f1" x="512" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="522" y="540">7</text>
+<rect class="f1" x="534" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="544" y="540">3</text>
+<rect class="f1" x="562" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="572" y="540">3</text>
+<rect class="f1" x="584" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="594" y="540">7</text>
+<rect class="f1" x="606" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="616" y="540">6</text>
+<rect class="f1" x="634" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="644" y="540">9</text>
+<rect class="f1" x="656" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="666" y="540">11</text>
+<rect class="f1" x="678" y="526" width="20" height="28" rx="3"/>
+<text class="cell" x="688" y="540">10</text>
+<path class="link" d="M338 470V520" marker-end="url(#tess)"/>
+<text class="muted small" x="346" y="495">decode</text>
+<rect class="pick" x="199" y="523" width="70" height="34" rx="5"/>
+<path class="link t1" d="M212 557C212 611 292 611 292 682" marker-end="url(#tess1)"/>
+<path class="link t1" d="M234 557C234 611 434 611 434 682" marker-end="url(#tess1)"/>
+<path class="link t1" d="M256 557C256 611 522 611 522 682" marker-end="url(#tess1)"/>
+<rect class="pick" x="631" y="523" width="70" height="34" rx="5"/>
+<path class="link t1" d="M644 557C644 611 576 611 576 682" marker-end="url(#tess1)"/>
+<path class="link t1" d="M666 557C666 611 664 611 664 682" marker-end="url(#tess1)"/>
+<path class="link t1" d="M688 557C688 611 620 611 620 682" marker-end="url(#tess1)"/>
+<text class="row" x="0" y="706">vertices</text>
+<text class="muted small" x="122" y="700" text-anchor="end">x</text>
+<text class="muted small" x="122" y="714" text-anchor="end">y</text>
+<rect class="f0" x="130" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="150" y="700">55</text>
+<text class="cell small" x="150" y="714">5</text>
+<text class="muted small mid" x="150" y="740">0</text>
+<rect class="f0" x="174" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="194" y="700">58</text>
+<text class="cell small" x="194" y="714">28</text>
+<text class="muted small mid" x="194" y="740">1</text>
+<rect class="f0" x="218" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="238" y="700">75</text>
+<text class="cell small" x="238" y="714">22</text>
+<text class="muted small mid" x="238" y="740">2</text>
+<rect class="f1" x="272" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="292" y="700">7</text>
+<text class="cell small" x="292" y="714">20</text>
+<text class="muted small mid" x="292" y="740">3</text>
+<rect class="f1" x="316" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="336" y="700">21</text>
+<text class="cell small" x="336" y="714">31</text>
+<text class="muted small mid" x="336" y="740">4</text>
+<rect class="f1" x="360" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="380" y="700">26</text>
+<text class="cell small" x="380" y="714">9</text>
+<text class="muted small mid" x="380" y="740">5</text>
+<rect class="f1" x="414" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="434" y="700">15</text>
+<text class="cell small" x="434" y="714">20</text>
+<text class="muted small mid" x="434" y="740">6</text>
+<rect class="f1" x="458" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="478" y="700">20</text>
+<text class="cell small" x="478" y="714">15</text>
+<text class="muted small mid" x="478" y="740">7</text>
+<rect class="f1" x="502" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="522" y="700">18</text>
+<text class="cell small" x="522" y="714">25</text>
+<text class="muted small mid" x="522" y="740">8</text>
+<rect class="f1" x="556" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="576" y="700">69</text>
+<text class="cell small" x="576" y="714">57</text>
+<text class="muted small mid" x="576" y="740">9</text>
+<rect class="f1" x="600" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="620" y="700">71</text>
+<text class="cell small" x="620" y="714">66</text>
+<text class="muted small mid" x="620" y="740">10</text>
+<rect class="f1" x="644" y="686" width="40" height="40" rx="3"/>
+<text class="cell small" x="664" y="700">73</text>
+<text class="cell small" x="664" y="714">64</text>
+<text class="muted small mid" x="664" y="740">11</text>
+<path class="bracket" d="M272 752V758H400V752"/>
+<text class="muted small mid" x="336" y="775">shell</text>
+<path class="bracket" d="M414 752V758H542V752"/>
+<text class="muted small mid" x="478" y="775">hole</text>
+<path class="bracket" d="M556 752V758H684V752"/>
+<text class="muted small mid" x="620" y="775">2nd polygon</text>
+<path class="bracket t0" d="M130 788V794H258V788"/>
+<text class="t0 bold" x="130" y="809">feature 0</text>
+<path class="bracket t1" d="M272 788V794H684V788"/>
+<text class="t1 bold" x="272" y="809">feature 1</text>
 </svg></p>
 </div>
 <div class="tabbed-block">
@@ -1990,7 +2138,7 @@ Feature <code>i</code> starts at three times the sum of the triangle lengths bef
 <text class="cell muted small" x="666" y="98">+3</text>
 <rect class="plain" x="678" y="84" width="20" height="28" rx="3"/>
 <text class="cell muted small" x="688" y="98">+3</text>
-<text class="row" x="0" y="150">v2 index</text>
+<text class="row" x="0" y="150">v2 triangles</text>
 <rect class="f0" x="130" y="136" width="20" height="28" rx="3"/>
 <text class="cell" x="140" y="150">1</text>
 <rect class="f0" x="152" y="136" width="20" height="28" rx="3"/>
@@ -2099,19 +2247,312 @@ Feature <code>i</code> starts at three times the sum of the triangle lengths bef
 </tbody>
 </table>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>triangle lengths: [1, 7]
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>index buffer:     [1, 0, 2,                       feature 0: 1 triangle, entries 0..3
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>                   3, 6, 8,  7, 6, 3,  4, 3, 8,   feature 1: 7 triangles, entries 3..24
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>                   7, 3, 5,  5, 4, 8,  8, 7, 5,
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>                   10, 9, 11]
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>tree symbols:     [0,  2, 1, 1, 2, 1, 0,  0]
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>tree cycles:      [0, 2, 1,  3, 6, 8, 7, 6, 3, 5, 4,  9, 11, 10]
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>triangles:        [0, 2, 1,                       feature 0: tree 0
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>                   3, 6, 8,  3, 8, 4,  4, 8, 5,   feature 1: tree 1
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>                   5, 8, 7,  5, 7, 3,  3, 7, 6,
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>                   9, 11, 10]                     feature 1: tree 2
 </span></code></pre></div>
 </div>
 </div>
 </div>
-<details class="note">
-<summary>Converting from v1</summary>
-<p><a href="../v1/#tessellation-data-optional">v1</a> counts each index from the first vertex of its own feature instead.
-Its indices convert to v2's by adding that vertex's position, which v1 reads from the outlines.</p>
-</details>
+<h4 id="triangle-trees">Triangle Trees<a class="headerlink" href="#triangle-trees" title="Link to this section">&para;</a></h4>
+<div class="admonition question">
+<p class="admonition-title">Why trees</p>
+<p>Earcut adds no vertex inside a polygon, so every triangle it cuts has a corner on the outline of the triangles before it.
+That makes two bits per triangle and one index per outline vertex enough, instead of three indices per triangle.</p>
+</div>
+<p>A triangle <span class="arithmatex">\((u, v, w)\)</span> has the edges <span class="arithmatex">\(u \to v\)</span>, <span class="arithmatex">\(v \to w\)</span> and <span class="arithmatex">\(w \to u\)</span>.
+Two triangles are neighbours when one has the edge <span class="arithmatex">\(a \to b\)</span> and the other <span class="arithmatex">\(b \to a\)</span>.
+The triangles are stored as trees of neighbours, one after another.
+Each triangle of a tree but its root is the neighbour of its parent.</p>
+<p>A triangle is entered across its edge <span class="arithmatex">\(u \to v\)</span>, from its parent or, for a root, from the tree's cycle.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 262" role="img" aria-label="A triangle u, v, w entered across u to v: on the left from its parent, which lies across that edge, on the right as a root, whose u and v are cycle[0] and cycle[1] on the outline" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="tent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="tent0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="tent1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="bold mid" x="190" y="14">from its parent</text>
+<polygon class="implicit" points="90,110 190,40 290,110"/>
+<text class="muted small mid" x="190" y="86">parent</text>
+<polygon class="f1" points="90,110 290,110 190,230"/>
+<path class="link t0" d="M102,117L278,117" marker-end="url(#tent0)"/>
+<circle class="dot" cx="90" cy="110" r="3.5"/>
+<text class="vert math halo" x="76" y="110">u</text>
+<circle class="dot" cx="290" cy="110" r="3.5"/>
+<text class="vert math halo" x="304" y="110">v</text>
+<circle class="dot" cx="190" cy="230" r="3.5"/>
+<text class="vert math halo" x="190" y="247">w</text>
+<text class="bold mid" x="500" y="14">as a root</text>
+<path class="line" d="M360 110H630"/>
+<text class="muted small" x="636" y="110">outline</text>
+<polygon class="f1" points="400,110 600,110 500,230"/>
+<path class="link t0" d="M412,117L588,117" marker-end="url(#tent0)"/>
+<circle class="dot" cx="400" cy="110" r="3.5"/>
+<text class="vert math halo" x="400" y="90">u <tspan class="op">=</tspan> cycle<tspan class="op">[0]</tspan></text>
+<circle class="dot" cx="600" cy="110" r="3.5"/>
+<text class="vert math halo" x="600" y="90">v <tspan class="op">=</tspan> cycle<tspan class="op">[1]</tspan></text>
+<circle class="dot" cx="500" cy="230" r="3.5"/>
+<text class="vert math halo" x="500" y="247">w</text>
+</svg></p>
+<p>Bit <code>0</code> of its symbol is set when a child lies across <span class="arithmatex">\(v \to w\)</span>, and bit <code>1</code> when a child lies across <span class="arithmatex">\(w \to u\)</span>.
+A child has that edge the other way round, so the bit <code>0</code> child is entered across <span class="arithmatex">\(w \to v\)</span> and the bit <code>1</code> child across <span class="arithmatex">\(u \to w\)</span>.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="A triangle u, v, w entered across u to v. Its bit 0 child lies across v to w and is entered across w to v, its bit 1 child lies across w to u and is entered across u to w. Then the four symbols 0 to 3 as a triangle with no child, the bit 0 child, the bit 1 child, and both" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="tsym" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="tsym0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="tsym1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<polygon class="implicit" points="110,100 210,6.5 310,100"/>
+<polygon class="f1" points="310,100 372.5,248.8 210,270"/>
+<polygon class="f1" points="210,270 47.5,248.8 110,100"/>
+<polygon class="f1" points="110,100 310,100 210,270"/>
+<path class="link t0" d="M122,107L298,107" marker-end="url(#tsym0)"/>
+<path class="link t0" d="M222.2,263.1L310,113.8" marker-end="url(#tsym0)"/>
+<path class="link t0" d="M110,113.8L197.8,263.1" marker-end="url(#tsym0)"/>
+<text class="muted small mid" x="210" y="62.8">parent</text>
+<text class="bold mid" x="210" y="150.7">entered</text>
+<text class="small mid" x="210" y="166.7">across <tspan class="math">u <tspan class="op">→</tspan> v</tspan></text>
+<text class="t1 bold mid halo" x="316.6" y="201.1">bit 0 child</text>
+<text class="small mid halo" x="316.6" y="219.1">entered</text>
+<text class="small mid halo" x="316.6" y="233.1">across <tspan class="math">w <tspan class="op">→</tspan> v</tspan></text>
+<text class="t1 bold mid halo" x="103.4" y="201.1">bit 1 child</text>
+<text class="small mid halo" x="103.4" y="219.1">entered</text>
+<text class="small mid halo" x="103.4" y="233.1">across <tspan class="math">u <tspan class="op">→</tspan> w</tspan></text>
+<circle class="dot" cx="110" cy="100" r="3.5"/>
+<text class="vert math halo" x="96" y="100">u</text>
+<circle class="dot" cx="310" cy="100" r="3.5"/>
+<text class="vert math halo" x="324" y="100">v</text>
+<circle class="dot" cx="210" cy="270" r="3.5"/>
+<text class="vert math halo" x="210" y="287">w</text>
+<text class="row" x="450" y="30">symbol</text>
+<polygon class="implicit" points="545,62 570,121.5 505,130"/>
+<polygon class="implicit" points="505,130 440,121.5 465,62"/>
+<polygon class="f1" points="465,62 545,62 505,130"/>
+<text class="tri t1 halo" x="505" y="84.7">0</text>
+<text class="muted small mid" x="505" y="154">no child</text>
+<polygon class="f1" points="680,62 705,121.5 640,130"/>
+<polygon class="implicit" points="640,130 575,121.5 600,62"/>
+<polygon class="f1" points="600,62 680,62 640,130"/>
+<text class="tri t1 halo" x="640" y="84.7">1</text>
+<text class="muted small mid" x="640" y="154">bit 0</text>
+<polygon class="implicit" points="545,197 570,256.5 505,265"/>
+<polygon class="f1" points="505,265 440,256.5 465,197"/>
+<polygon class="f1" points="465,197 545,197 505,265"/>
+<text class="tri t1 halo" x="505" y="219.7">2</text>
+<text class="muted small mid" x="505" y="289">bit 1</text>
+<polygon class="f1" points="680,197 705,256.5 640,265"/>
+<polygon class="f1" points="640,265 575,256.5 600,197"/>
+<polygon class="f1" points="600,197 680,197 640,265"/>
+<text class="tri t1 halo" x="640" y="219.7">3</text>
+<text class="muted small mid" x="640" y="289">both</text>
+</svg></p>
+<p>A tree's symbols are in preorder: a triangle, then the subtree of its bit <code>0</code> child, then the subtree of its bit <code>1</code> child.
+A tree ends once its symbols have entered every child they name.
+A symbol MUST be at most <code>3</code>.</p>
+<p>A tree of <span class="arithmatex">\(n\)</span> triangles has <span class="arithmatex">\(n + 2\)</span> cycle entries: the root's <span class="arithmatex">\(u\)</span> and <span class="arithmatex">\(v\)</span>, then the <span class="arithmatex">\(w\)</span> of each triangle in order.
+That order is the subtree of the bit <code>0</code> child, then the triangle, then the subtree of the bit <code>1</code> child.
+The entries walk the outline of the tree's triangles from <span class="arithmatex">\(u\)</span> to <span class="arithmatex">\(v\)</span> and on around.
+A vertex the outline passes twice, such as either end of the cut into a hole, is entered twice.</p>
+<p>A decoder MUST reject symbols that end inside a tree, and cycles holding more or fewer entries than the trees take.</p>
+<p>To decode a tree, let <span class="arithmatex">\(p\)</span> be its cycle entries after the first two, and <span class="arithmatex">\(\operatorname{size}(t)\)</span> the number of triangles in the subtree of <span class="arithmatex">\(t\)</span>.
+Visit the root entered across <span class="arithmatex">\(\mathit{cycle}[0] \to \mathit{cycle}[1]\)</span>, with <span class="arithmatex">\(\mathit{lo} = 0\)</span>.
+To visit a triangle entered across <span class="arithmatex">\(u \to v\)</span>:</p>
+<ol>
+<li>Let <span class="arithmatex">\(a\)</span> be the size of its bit <code>0</code> child, or <code>0</code> without one.</li>
+<li>Let <span class="arithmatex">\(w = p[\mathit{lo} + a]\)</span>, and output <span class="arithmatex">\((u, v, w)\)</span>.</li>
+<li>Visit its bit <code>0</code> child entered across <span class="arithmatex">\(w \to v\)</span>, with the same <span class="arithmatex">\(\mathit{lo}\)</span>.</li>
+<li>Visit its bit <code>1</code> child entered across <span class="arithmatex">\(u \to w\)</span>, with <span class="arithmatex">\(\mathit{lo} + a + 1\)</span>.</li>
+</ol>
+<p>Triangles come out in symbol order.
+A triangle with no neighbour in its tree is a tree of its own, with symbol <code>0</code> and three cycle entries.</p>
+<p>Decoding keeps each feature's triangles and their winding.
+It does not keep their order within the feature, or the corner each starts at.</p>
+<p>Encoders SHOULD join every triangle to a tree that it neighbours.
+Encoders SHOULD root each tree so that its cycle starts at its smallest index, so that consecutive cycles run on.</p>
+<p>Tree 1 of the <a href="#tessellation">example</a>, the polygon with a hole:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 480" role="img" aria-label="Tree 1 of the example: its six triangles numbered in symbol order and joined across shared edges, entered across 3 to 6. Then the same triangles with the cycle walking their outline from u = 3 and v = 6 through p0 to p5" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ttree" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="ttree0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="ttree1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<polygon class="f1" points="40,195 160,195 205,270"/>
+<polygon class="f1" points="40,195 205,270 250,360"/>
+<polygon class="f1" points="250,360 205,270 325,30"/>
+<polygon class="f1" points="325,30 205,270 235,120"/>
+<polygon class="f1" points="325,30 235,120 40,195"/>
+<polygon class="f1" points="40,195 235,120 160,195"/>
+<path class="link t0" d="M54.9,198.5L154.9,198.5" marker-end="url(#ttree0)"/>
+<path class="link" d="M135,220L122.5,232.5L165,275"/>
+<path class="link" d="M165,275L227.5,315L260,220"/>
+<path class="link" d="M260,220L265,150L255,140"/>
+<path class="link" d="M255,140L280,75L200,115"/>
+<path class="link" d="M200,115L137.5,157.5L145,170"/>
+<circle class="node" cx="135" cy="220" r="9"/>
+<text class="tri t1" x="135" y="220">1</text>
+<circle class="node" cx="165" cy="275" r="9"/>
+<text class="tri t1" x="165" y="275">2</text>
+<circle class="node" cx="260" cy="220" r="9"/>
+<text class="tri t1" x="260" y="220">3</text>
+<circle class="node" cx="255" cy="140" r="9"/>
+<text class="tri t1" x="255" y="140">4</text>
+<circle class="node" cx="200" cy="115" r="9"/>
+<text class="tri t1" x="200" y="115">5</text>
+<circle class="node" cx="145" cy="170" r="9"/>
+<text class="tri t1" x="145" y="170">6</text>
+<circle class="dot" cx="40" cy="195" r="3.5"/>
+<text class="vert halo" x="26" y="195">3</text>
+<circle class="dot" cx="160" cy="195" r="3.5"/>
+<text class="vert halo" x="164" y="180">6</text>
+<circle class="dot" cx="235" cy="120" r="3.5"/>
+<text class="vert halo" x="247" y="107">7</text>
+<circle class="dot" cx="205" cy="270" r="3.5"/>
+<text class="vert halo" x="201" y="288">8</text>
+<circle class="dot" cx="250" cy="360" r="3.5"/>
+<text class="vert halo" x="250" y="378">4</text>
+<circle class="dot" cx="325" cy="30" r="3.5"/>
+<text class="vert halo" x="338" y="22">5</text>
+<text class="row" x="40" y="440">symbols</text>
+<rect class="f1" x="136" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="147" y="440">2</text>
+<text class="muted mid" x="147" y="466"><tspan class="small">1</tspan></text>
+<rect class="f1" x="160" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="171" y="440">1</text>
+<text class="muted mid" x="171" y="466"><tspan class="small">2</tspan></text>
+<rect class="f1" x="184" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="195" y="440">1</text>
+<text class="muted mid" x="195" y="466"><tspan class="small">3</tspan></text>
+<rect class="f1" x="208" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="219" y="440">2</text>
+<text class="muted mid" x="219" y="466"><tspan class="small">4</tspan></text>
+<rect class="f1" x="232" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="243" y="440">1</text>
+<text class="muted mid" x="243" y="466"><tspan class="small">5</tspan></text>
+<rect class="f1" x="256" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="267" y="440">0</text>
+<text class="muted mid" x="267" y="466"><tspan class="small">6</tspan></text>
+<polygon class="f1 area" points="400,195 520,195 565,270"/>
+<polygon class="f1 area" points="400,195 565,270 610,360"/>
+<polygon class="f1 area" points="610,360 565,270 685,30"/>
+<polygon class="f1 area" points="685,30 565,270 595,120"/>
+<polygon class="f1 area" points="685,30 595,120 400,195"/>
+<polygon class="f1 area" points="400,195 595,120 520,195"/>
+<path class="link t0" d="M400,197L460,197" marker-end="url(#ttree0)"/>
+<path class="link t0" d="M460,197L520,197"/>
+<path class="link" d="M520,195L542.5,232.5" marker-end="url(#ttree)"/>
+<path class="link" d="M542.5,232.5L565,270"/>
+<path class="link" d="M565,270L580,195" marker-end="url(#ttree)"/>
+<path class="link" d="M580,195L595,120"/>
+<path class="link" d="M595,120L557.5,157.5" marker-end="url(#ttree)"/>
+<path class="link" d="M557.5,157.5L520,195"/>
+<path class="link" d="M520,193L460,193" marker-end="url(#ttree)"/>
+<path class="link" d="M460,193L400,193"/>
+<path class="link" d="M400,195L542.5,112.5" marker-end="url(#ttree)"/>
+<path class="link" d="M542.5,112.5L685,30"/>
+<path class="link" d="M685,30L647.5,195" marker-end="url(#ttree)"/>
+<path class="link" d="M647.5,195L610,360"/>
+<path class="link" d="M610,360L505,277.5" marker-end="url(#ttree)"/>
+<path class="link" d="M505,277.5L400,195"/>
+<circle class="dot" cx="400" cy="195" r="3.5"/>
+<text class="vert halo" x="386" y="195">3</text>
+<circle class="dot" cx="520" cy="195" r="3.5"/>
+<text class="vert halo" x="524" y="180">6</text>
+<circle class="dot" cx="595" cy="120" r="3.5"/>
+<text class="vert halo" x="607" y="107">7</text>
+<circle class="dot" cx="565" cy="270" r="3.5"/>
+<text class="vert halo" x="561" y="288">8</text>
+<circle class="dot" cx="610" cy="360" r="3.5"/>
+<text class="vert halo" x="610" y="378">4</text>
+<circle class="dot" cx="685" cy="30" r="3.5"/>
+<text class="vert halo" x="698" y="22">5</text>
+<text class="row" x="400" y="440">cycle</text>
+<rect class="f0" x="496" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="507" y="440">3</text>
+<text class="muted mid" x="507" y="466"><tspan class="math">u</tspan></text>
+<rect class="f0" x="520" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="531" y="440">6</text>
+<text class="muted mid" x="531" y="466"><tspan class="math">v</tspan></text>
+<rect class="f1" x="544" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="555" y="440">8</text>
+<text class="muted mid" x="555" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">0</tspan></text>
+<rect class="f1" x="568" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="579" y="440">7</text>
+<text class="muted mid" x="579" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">1</tspan></text>
+<rect class="f1" x="592" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="603" y="440">6</text>
+<text class="muted mid" x="603" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">2</tspan></text>
+<rect class="f1" x="616" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="627" y="440">3</text>
+<text class="muted mid" x="627" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">3</tspan></text>
+<rect class="f1" x="640" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="651" y="440">5</text>
+<text class="muted mid" x="651" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">4</tspan></text>
+<rect class="f1" x="664" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="675" y="440">4</text>
+<text class="muted mid" x="675" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">5</tspan></text>
+</svg></p>
+<p>Its decode, with <span class="arithmatex">\(p = [8, 7, 6, 3, 5, 4]\)</span>:</p>
+<table>
+<thead>
+<tr>
+<th>Triangle</th>
+<th>Symbol</th>
+<th>Entered across</th>
+<th><span class="arithmatex">\(\mathit{lo}\)</span></th>
+<th><span class="arithmatex">\(a\)</span></th>
+<th><span class="arithmatex">\(w\)</span></th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>1</code></td>
+<td><code>2</code></td>
+<td><span class="arithmatex">\(3 \to 6\)</span></td>
+<td><code>0</code></td>
+<td><code>0</code></td>
+<td><span class="arithmatex">\(p[0] = 8\)</span></td>
+<td><code>3, 6, 8</code></td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td><code>1</code></td>
+<td><span class="arithmatex">\(3 \to 8\)</span></td>
+<td><code>1</code></td>
+<td><code>4</code></td>
+<td><span class="arithmatex">\(p[5] = 4\)</span></td>
+<td><code>3, 8, 4</code></td>
+</tr>
+<tr>
+<td><code>3</code></td>
+<td><code>1</code></td>
+<td><span class="arithmatex">\(4 \to 8\)</span></td>
+<td><code>1</code></td>
+<td><code>3</code></td>
+<td><span class="arithmatex">\(p[4] = 5\)</span></td>
+<td><code>4, 8, 5</code></td>
+</tr>
+<tr>
+<td><code>4</code></td>
+<td><code>2</code></td>
+<td><span class="arithmatex">\(5 \to 8\)</span></td>
+<td><code>1</code></td>
+<td><code>0</code></td>
+<td><span class="arithmatex">\(p[1] = 7\)</span></td>
+<td><code>5, 8, 7</code></td>
+</tr>
+<tr>
+<td><code>5</code></td>
+<td><code>1</code></td>
+<td><span class="arithmatex">\(5 \to 7\)</span></td>
+<td><code>2</code></td>
+<td><code>1</code></td>
+<td><span class="arithmatex">\(p[3] = 3\)</span></td>
+<td><code>5, 7, 3</code></td>
+</tr>
+<tr>
+<td><code>6</code></td>
+<td><code>0</code></td>
+<td><span class="arithmatex">\(3 \to 7\)</span></td>
+<td><code>2</code></td>
+<td><code>0</code></td>
+<td><span class="arithmatex">\(p[2] = 6\)</span></td>
+<td><code>3, 7, 6</code></td>
+</tr>
+</tbody>
+</table>
 <h4 id="outlines">Outlines<a class="headerlink" href="#outlines" title="Link to this section">&para;</a></h4>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Without outlines (<code>0xC</code>)</label><label for="__tabbed_2_2">With outlines (<code>0xD</code>)</label></div>
 <div class="tabbed-content">
@@ -2138,8 +2579,13 @@ Its indices convert to v2's by adding that vertex's position, which v1 reads fro
 <td><code>feature_count</code></td>
 </tr>
 <tr>
-<td>Index buffer</td>
-<td>Three vertex indices per triangle</td>
+<td>Tree symbols</td>
+<td>One <a href="#triangle-trees">symbol</a> per triangle</td>
+<td>Explicit</td>
+</tr>
+<tr>
+<td>Tree cycles</td>
+<td>The <a href="#triangle-trees">outline</a> of each tree of triangles</td>
 <td>Explicit</td>
 </tr>
 <tr>
@@ -2152,9 +2598,9 @@ Its indices convert to v2's by adding that vertex's position, which v1 reads fro
 <p>Every feature MUST be a <code>Polygon</code> or a <code>MultiPolygon</code>, so every feature has a triangle count.
 A decoder MUST reject any other type.</p>
 <p>No topology stream says which vertices belong to which feature.
-The index buffer is the only reader of the vertex stream, so a vertex belongs to whichever triangles name it.</p>
-<p>A feature decodes as a <code>MultiPolygon</code> holding one polygon per triangle, in index buffer order.
-Each polygon is a single ring: the triangle's three vertices in index order, then the first one again to close it.
+The triangles are the only reader of the vertex stream, so a vertex belongs to whichever triangles name it.</p>
+<p>A feature decodes as a <code>MultiPolygon</code> holding one polygon per triangle, in decoded order.
+Each polygon is a single ring: the triangle's three vertices in decoded order, then the first one again to close it.
 A <code>Polygon</code> feature decodes as a <code>MultiPolygon</code> too, since its shell and holes are not stored.
 A feature with a triangle count of <code>0</code>, such as a polygon whose vertices are collinear, decodes as an empty <code>MultiPolygon</code>.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
@@ -2176,7 +2622,7 @@ That is why <code>0xC</code> cannot carry <a href="#m-values">m-values</a>.</p>
 Each feature decodes as the geometry it was encoded from, and the triangles come on top.</p>
 <p>The vertex stream is the outline vertices, in feature order, as the topology streams lay them out.
 A ring's <a href="#polygon-rings">closing vertex is not stored</a>, so no index names it.
-A feature that is not a polygon stores no triangle count and owns no run of the index buffer.</p>
+A feature that is not a polygon stores no triangle count and owns no triangles.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
 <text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> with outlines</tspan></text>
 <text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> without outlines</tspan></text>
@@ -2292,9 +2738,9 @@ Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
 <li>Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them.
   Two vertices share an entry only when their <code>x</code>, <code>y</code> and <code>z</code> are identical.
   <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict" target="_blank">View example</a> - five points in four entries: a repeat at the same height shares one, a new height does not.</li>
-<li>Under a tessellated layout, the index buffer names triples.
-  A <code>TessPolygons</code> feature holds the <code>z</code> of each triangle corner, in index buffer order.
-  <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole_tri.mlt&amp;at=tri_indexes" target="_blank">View example</a> - a polygon with a hole, cut into six triangles over six <code>(x, y, z)</code> vertices.</li>
+<li>Under a tessellated layout, the triangles name triples.
+  A <code>TessPolygons</code> feature holds the <code>z</code> of each triangle corner, in decoded order.
+  <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole_tri.mlt&amp;at=tri_cycles" target="_blank">View example</a> - a polygon with a hole, cut into six triangles over six <code>(x, y, z)</code> vertices.</li>
 <li>An <a href="#m-values">m-value</a> runs over the same vertex sequence it does without <code>z</code>.
   <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mvalues.mlt&amp;at=vertices" target="_blank">View example</a> - a line whose three vertices carry both a <code>z</code> and an m-value.</li>
 </ul>
@@ -3938,7 +4384,7 @@ Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> ver
 <li>A polygon ring's <a href="#polygon-rings">closing vertex is not stored</a>, so it has no m-value.</li>
 <li>Under a dictionary layout the sequence is the one the vertex offsets stream spells out, not the distinct vertices the vertex stream holds.
   Two vertices that share a dictionary entry still have an m-value each.</li>
-<li>Under <code>TessPolygonsWithOutlines</code> the sequence is the outline vertices, which the index buffer indexes into.</li>
+<li>Under <code>TessPolygonsWithOutlines</code> the sequence is the outline vertices, which the triangles index into.</li>
 </ul>
 <h4 id="nulls">Nulls<a class="headerlink" href="#nulls" title="Link to this section">&para;</a></h4>
 <p>M-value columns are nullable at the feature level, not the vertex level.
@@ -4391,9 +4837,9 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<p>The <code>TessPolygons</code> geometry layout: triangle lengths, the index buffer and the vertices, and no topology.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>00000000                                                                     | layer[0] "layer1" (75 B)
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>00000000  4a                                                J                |   size: 74 (varint) - tag + body
+<p>The <code>TessPolygons</code> geometry layout: triangle lengths, tree symbols, tree cycles and the vertices, and no topology.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>00000000                                                                     | layer[0] "layer1" (76 B)
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>00000000  4b                                                K                |   size: 75 (varint) - tag + body
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 </span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>00000009  00                                                .                |   header: extent = 64
@@ -4405,7 +4851,7 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>                                                                             |     └ bit 7 = 0 -&gt; shared bitfields are bitmaps
 </span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>                                                                             |     └ bits 6-4 = 000 -&gt; shared presence bitfields = 0
 </span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>                                                                             |     └ bits 3-0 = 1100 -&gt; geometry layout = TessPolygons
-</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>0000000c                                                                     |   geometry (62 B)
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>0000000c                                                                     |   geometry (63 B)
 </span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>0000000c                                                                     |     types (4 B)
 </span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a>0000000c  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
 </span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 2 values from context
@@ -4424,29 +4870,38 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-15-30"><a id="__codelineno-15-30" name="__codelineno-15-30" href="#__codelineno-15-30"></a>00000011  02                                                .                |       byte_length: 2
 </span><span id="__span-15-31"><a id="__codelineno-15-31" name="__codelineno-15-31" href="#__codelineno-15-31"></a>00000012  01 07                                             ..               |       data [Length(Triangles) Int(None)/VarInt, 2 values, 2 B]
 </span><span id="__span-15-32"><a id="__codelineno-15-32" name="__codelineno-15-32" href="#__codelineno-15-32"></a>                                                                             |         decoded: [1, 7]
-</span><span id="__span-15-33"><a id="__codelineno-15-33" name="__codelineno-15-33" href="#__codelineno-15-33"></a>00000014                                                                     |     tri_indexes (27 B)
+</span><span id="__span-15-33"><a id="__codelineno-15-33" name="__codelineno-15-33" href="#__codelineno-15-33"></a>00000014                                                                     |     tri_symbols (11 B)
 </span><span id="__span-15-34"><a id="__codelineno-15-34" name="__codelineno-15-34" href="#__codelineno-15-34"></a>00000014  88                                                .                |       encoding: 0x88 logical=None physical=VarInt
 </span><span id="__span-15-35"><a id="__codelineno-15-35" name="__codelineno-15-35" href="#__codelineno-15-35"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
 </span><span id="__span-15-36"><a id="__codelineno-15-36" name="__codelineno-15-36" href="#__codelineno-15-36"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
 </span><span id="__span-15-37"><a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-15-38"><a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
-</span><span id="__span-15-39"><a id="__codelineno-15-39" name="__codelineno-15-39" href="#__codelineno-15-39"></a>00000015  18                                                .                |       num_values: 24
-</span><span id="__span-15-40"><a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a>00000016  18                                                .                |       byte_length: 24
-</span><span id="__span-15-41"><a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a>00000017  01 02 00 03 06 07 08 06 03 05 03 07 08 03 04 04   ................ |       data [Offset(Index) Int(None)/VarInt, 24 values, 24 B]
-</span><span id="__span-15-42"><a id="__codelineno-15-42" name="__codelineno-15-42" href="#__codelineno-15-42"></a>00000027  05 07 07 08 04 0a 0b 09                           ........         |
-</span><span id="__span-15-43"><a id="__codelineno-15-43" name="__codelineno-15-43" href="#__codelineno-15-43"></a>                                                                             |         decoded: [1, 2, 0, 3, 6, 7, 8, 6, 3, 5, 3, 7, 8, 3, 4, 4, 5, 7, 7, 8, 4, 10, 11, 9]
-</span><span id="__span-15-44"><a id="__codelineno-15-44" name="__codelineno-15-44" href="#__codelineno-15-44"></a>0000002f                                                                     |     vertices (27 B)
-</span><span id="__span-15-45"><a id="__codelineno-15-45" name="__codelineno-15-45" href="#__codelineno-15-45"></a>0000002f  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
-</span><span id="__span-15-46"><a id="__codelineno-15-46" name="__codelineno-15-46" href="#__codelineno-15-46"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
-</span><span id="__span-15-47"><a id="__codelineno-15-47" name="__codelineno-15-47" href="#__codelineno-15-47"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
-</span><span id="__span-15-48"><a id="__codelineno-15-48" name="__codelineno-15-48" href="#__codelineno-15-48"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
-</span><span id="__span-15-49"><a id="__codelineno-15-49" name="__codelineno-15-49" href="#__codelineno-15-49"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
-</span><span id="__span-15-50"><a id="__codelineno-15-50" name="__codelineno-15-50" href="#__codelineno-15-50"></a>00000030  0c                                                .                |       num_values: 12
-</span><span id="__span-15-51"><a id="__codelineno-15-51" name="__codelineno-15-51" href="#__codelineno-15-51"></a>00000031  18                                                .                |       byte_length: 24
-</span><span id="__span-15-52"><a id="__codelineno-15-52" name="__codelineno-15-52" href="#__codelineno-15-52"></a>00000032  6e 0a 28 22 21 0c 65 0f 26 15 09 2c 0b 15 06 0a   n.("!.e.&amp;..,.... |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 24 B]
-</span><span id="__span-15-53"><a id="__codelineno-15-53" name="__codelineno-15-53" href="#__codelineno-15-53"></a>00000042  04 13 62 54 08 0e 03 04                           ..bT....         |
-</span><span id="__span-15-54"><a id="__codelineno-15-54" name="__codelineno-15-54" href="#__codelineno-15-54"></a>                                                                             |         decoded: [55, 5, 75, 22, 58, 28, 7, 20, 26, 9, 21, 31, 15, 20, 18, 25, 20, 15, 69, 57, 73, 64, 71, 66]
-</span><span id="__span-15-55"><a id="__codelineno-15-55" name="__codelineno-15-55" href="#__codelineno-15-55"></a>0000004a  00                                                .                |   column_count: 0
+</span><span id="__span-15-39"><a id="__codelineno-15-39" name="__codelineno-15-39" href="#__codelineno-15-39"></a>00000015  08                                                .                |       num_values: 8
+</span><span id="__span-15-40"><a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a>00000016  08                                                .                |       byte_length: 8
+</span><span id="__span-15-41"><a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a>00000017  00 03 01 02 02 00 00 00                           ........         |       data [Offset(TreeSymbols) Int(None)/VarInt, 8 values, 8 B]
+</span><span id="__span-15-42"><a id="__codelineno-15-42" name="__codelineno-15-42" href="#__codelineno-15-42"></a>                                                                             |         decoded: [0, 3, 1, 2, 2, 0, 0, 0]
+</span><span id="__span-15-43"><a id="__codelineno-15-43" name="__codelineno-15-43" href="#__codelineno-15-43"></a>0000001f                                                                     |     tri_cycles (17 B)
+</span><span id="__span-15-44"><a id="__codelineno-15-44" name="__codelineno-15-44" href="#__codelineno-15-44"></a>0000001f  88                                                .                |       encoding: 0x88 logical=None physical=VarInt
+</span><span id="__span-15-45"><a id="__codelineno-15-45" name="__codelineno-15-45" href="#__codelineno-15-45"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-15-46"><a id="__codelineno-15-46" name="__codelineno-15-46" href="#__codelineno-15-46"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-15-47"><a id="__codelineno-15-47" name="__codelineno-15-47" href="#__codelineno-15-47"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-15-48"><a id="__codelineno-15-48" name="__codelineno-15-48" href="#__codelineno-15-48"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-15-49"><a id="__codelineno-15-49" name="__codelineno-15-49" href="#__codelineno-15-49"></a>00000020  0e                                                .                |       num_values: 14
+</span><span id="__span-15-50"><a id="__codelineno-15-50" name="__codelineno-15-50" href="#__codelineno-15-50"></a>00000021  0e                                                .                |       byte_length: 14
+</span><span id="__span-15-51"><a id="__codelineno-15-51" name="__codelineno-15-51" href="#__codelineno-15-51"></a>00000022  00 01 02 03 04 05 03 06 07 08 06 09 0a 0b         ..............   |       data [Offset(TreeCycles) Int(None)/VarInt, 14 values, 14 B]
+</span><span id="__span-15-52"><a id="__codelineno-15-52" name="__codelineno-15-52" href="#__codelineno-15-52"></a>                                                                             |         decoded: [0, 1, 2, 3, 4, 5, 3, 6, 7, 8, 6, 9, 10, 11]
+</span><span id="__span-15-53"><a id="__codelineno-15-53" name="__codelineno-15-53" href="#__codelineno-15-53"></a>00000030                                                                     |     vertices (27 B)
+</span><span id="__span-15-54"><a id="__codelineno-15-54" name="__codelineno-15-54" href="#__codelineno-15-54"></a>00000030  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-15-55"><a id="__codelineno-15-55" name="__codelineno-15-55" href="#__codelineno-15-55"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-15-56"><a id="__codelineno-15-56" name="__codelineno-15-56" href="#__codelineno-15-56"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-15-57"><a id="__codelineno-15-57" name="__codelineno-15-57" href="#__codelineno-15-57"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-15-58"><a id="__codelineno-15-58" name="__codelineno-15-58" href="#__codelineno-15-58"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-15-59"><a id="__codelineno-15-59" name="__codelineno-15-59" href="#__codelineno-15-59"></a>00000031  0c                                                .                |       num_values: 12
+</span><span id="__span-15-60"><a id="__codelineno-15-60" name="__codelineno-15-60" href="#__codelineno-15-60"></a>00000032  18                                                .                |       byte_length: 24
+</span><span id="__span-15-61"><a id="__codelineno-15-61" name="__codelineno-15-61" href="#__codelineno-15-61"></a>00000033  6e 0a 28 22 21 0c 65 0f 26 15 09 2c 0b 15 06 0a   n.("!.e.&amp;..,.... |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 24 B]
+</span><span id="__span-15-62"><a id="__codelineno-15-62" name="__codelineno-15-62" href="#__codelineno-15-62"></a>00000043  04 13 62 54 08 0e 03 04                           ..bT....         |
+</span><span id="__span-15-63"><a id="__codelineno-15-63" name="__codelineno-15-63" href="#__codelineno-15-63"></a>                                                                             |         decoded: [55, 5, 75, 22, 58, 28, 7, 20, 26, 9, 21, 31, 15, 20, 18, 25, 20, 15, 69, 57, 73, 64, 71, 66]
+</span><span id="__span-15-64"><a id="__codelineno-15-64" name="__codelineno-15-64" href="#__codelineno-15-64"></a>0000004b  00                                                .                |   column_count: 0
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
