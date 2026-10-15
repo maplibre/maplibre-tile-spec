@@ -5,8 +5,6 @@
 //! cycles    per tree of n triangles: the root's u and v, then n apexes in in-order
 //! ```
 
-use std::collections::HashMap;
-
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::MalformedTriangles;
@@ -23,13 +21,14 @@ pub(crate) struct TriTrees {
 /// Code the triangles of each feature as trees, `tri_offsets` cumulative in triangles.
 pub(crate) fn encode_trees(indices: &[u32], tri_offsets: &[u32]) -> TriTrees {
     let mut out = TriTrees::default();
+    let mut forest = Forest::default();
+    let mut outline = Vec::new();
     for &[lo, hi] in tri_offsets.array_windows() {
-        let tris = &indices[lo.into_usize() * 3..hi.into_usize() * 3];
-        let forest = Forest::grow(tris.as_chunks::<3>().0);
-        for &root in &forest.roots {
+        forest.grow(&indices[lo.into_usize() * 3..hi.into_usize() * 3]);
+        for i in 0..forest.roots.len() {
             // Rerooting a tree only rotates its outline, so each tree starts at its smallest vertex.
             // Consecutive trees' cycles then run on.
-            let mut outline = forest.outline(Side { tri: root, edge: 0 });
+            forest.outline(forest.roots[i] * 3, &mut outline);
             let k = (0..outline.len())
                 .min_by_key(|&i| {
                     let (from, to) = forest.ends(outline[i]);
@@ -44,112 +43,171 @@ pub(crate) fn encode_trees(indices: &[u32], tri_offsets: &[u32]) -> TriTrees {
     out
 }
 
-/// Side `edge` of triangle `tri`, running from its vertex `edge` to the next.
-#[derive(Clone, Copy, Debug)]
-struct Side {
-    tri: usize,
-    edge: usize,
+/// No side: the twin of a side that joins nothing.
+const NONE: u32 = u32::MAX;
+
+/// The side after side `side` of its triangle, side `3 * tri + k` running from vertex `k` to the next.
+fn next(side: u32) -> u32 {
+    if side % 3 == 2 { side - 2 } else { side + 1 }
 }
 
-impl Side {
-    /// The other two sides of the triangle, in winding order after this one.
-    fn rest(self) -> [Self; 2] {
-        [1, 2].map(|k| Self {
-            tri: self.tri,
-            edge: (self.edge + k) % 3,
-        })
-    }
+/// The other two sides of the triangle, in winding order after this one.
+fn rest(side: u32) -> [u32; 2] {
+    let after = next(side);
+    [after, next(after)]
 }
 
-/// A spanning forest over the triangles of one feature.
+/// A spanning forest over the triangles of one feature, its buffers kept for the next feature.
+#[derive(Default)]
 struct Forest<'a> {
-    tris: &'a [[u32; 3]],
-    /// The side of the tree neighbour across each side.
-    twins: Vec<[Option<Side>; 3]>,
+    indices: &'a [u32],
+    /// The side of the tree neighbour across each side, or [`NONE`].
+    twins: Vec<u32>,
     /// The triangle each tree was claimed from, in claim order.
-    roots: Vec<usize>,
+    roots: Vec<u32>,
+    /// The sides by the bucket of their first vertex, each bucket in side order.
+    by_from: Vec<(u64, u32)>,
+    /// Where each bucket of [`Self::by_from`] starts, then where the last one ends.
+    starts: Vec<u32>,
+    /// The first vertex of the feature, and the bucket mask over vertices counted from it.
+    min: u32,
+    mask: u32,
+    claimed: Vec<bool>,
+    stack: Vec<u32>,
 }
 
 impl<'a> Forest<'a> {
     /// Claim a tree from each unclaimed triangle in turn.
     ///
     /// A side joins the first triangle holding the same edge reversed, unless that one is claimed already.
-    fn grow(tris: &'a [[u32; 3]]) -> Self {
-        let mut forest = Self {
-            tris,
-            twins: vec![[None; 3]; tris.len()],
-            roots: Vec::new(),
-        };
-        let mut holder = HashMap::with_capacity(tris.len() * 3);
-        for tri in 0..tris.len() {
-            for edge in 0..3 {
-                let side = Side { tri, edge };
-                holder.entry(forest.ends(side)).or_insert(side);
-            }
-        }
-        let mut claimed = vec![false; tris.len()];
-        let mut stack = Vec::new();
-        for root in 0..tris.len() {
-            if claimed[root] {
+    fn grow(&mut self, indices: &'a [u32]) {
+        self.indices = indices;
+        let tris = u32::try_from(indices.len() / 3).expect("fewer than 2^32 triangles");
+        self.twins.clear();
+        self.twins.resize(indices.len(), NONE);
+        self.roots.clear();
+        self.bucket_sides();
+        self.claimed.clear();
+        self.claimed.resize(indices.len() / 3, false);
+        for root in 0..tris {
+            if self.claimed[root.into_usize()] {
                 continue;
             }
-            claimed[root] = true;
-            forest.roots.push(root);
-            stack.push(Side { tri: root, edge: 0 });
-            while let Some(entry) = stack.pop() {
-                for side in entry.rest() {
-                    let (from, to) = forest.ends(side);
-                    if let Some(&child) = holder.get(&(to, from))
-                        && !claimed[child.tri]
+            self.claimed[root.into_usize()] = true;
+            self.roots.push(root);
+            self.stack.push(root * 3);
+            while let Some(entry) = self.stack.pop() {
+                for side in rest(entry) {
+                    let (from, to) = self.ends(side);
+                    if let Some(child) = self.holder(pair(to, from))
+                        && !self.claimed[(child / 3).into_usize()]
                     {
-                        claimed[child.tri] = true;
-                        forest.twins[side.tri][side.edge] = Some(child);
-                        forest.twins[child.tri][child.edge] = Some(side);
-                        stack.push(child);
+                        self.claimed[(child / 3).into_usize()] = true;
+                        self.twins[side.into_usize()] = child;
+                        self.twins[child.into_usize()] = side;
+                        self.stack.push(child);
                     }
                 }
             }
         }
-        forest
     }
 
-    fn ends(&self, side: Side) -> (u32, u32) {
-        let t = self.tris[side.tri];
-        (t[side.edge], t[(side.edge + 1) % 3])
+    fn ends(&self, side: u32) -> (u32, u32) {
+        (
+            self.indices[side.into_usize()],
+            self.indices[next(side).into_usize()],
+        )
     }
 
-    fn twin(&self, side: Side) -> Option<Side> {
-        self.twins[side.tri][side.edge]
+    fn key(&self, side: u32) -> u64 {
+        let (from, to) = self.ends(side);
+        pair(from, to)
+    }
+
+    fn bucket(&self, vertex: u32) -> usize {
+        (vertex.wrapping_sub(self.min) & self.mask).into_usize()
+    }
+
+    /// Counting-sort the sides into buckets by their first vertex.
+    ///
+    /// The vertices of an earcut feature are consecutive, so a bucket rarely holds more than one vertex.
+    fn bucket_sides(&mut self) {
+        let sides = u32::try_from(self.indices.len()).expect("fewer than 2^32 sides");
+        self.min = self.indices.iter().copied().min().unwrap_or(0);
+        self.mask = sides.next_power_of_two() - 1;
+        self.starts.clear();
+        self.starts.resize(self.mask.into_usize() + 3, 0);
+        for &v in self.indices {
+            let b = self.bucket(v);
+            self.starts[b + 2] += 1;
+        }
+        for b in 2..self.starts.len() {
+            self.starts[b] += self.starts[b - 1];
+        }
+        self.by_from.clear();
+        self.by_from.resize(self.indices.len(), (0, 0));
+        for side in 0..sides {
+            let b = self.bucket(self.indices[side.into_usize()]);
+            let key = self.key(side);
+            let at = self.starts[b + 1];
+            self.by_from[at.into_usize()] = (key, side);
+            self.starts[b + 1] = at + 1;
+        }
+    }
+
+    /// The first side running from `key`'s first vertex to its second.
+    fn holder(&self, key: u64) -> Option<u32> {
+        let b = self.bucket((key >> 32) as u32);
+        let bucket = &self.by_from[self.starts[b].into_usize()..self.starts[b + 1].into_usize()];
+        bucket
+            .iter()
+            .find(|&&(k, _)| k == key)
+            .map(|&(_, side)| side)
+    }
+
+    fn joins(&self, side: u32) -> bool {
+        self.twins[side.into_usize()] != NONE
     }
 
     /// Append the symbol of each triangle of the tree entered across `gate`, in preorder.
-    fn symbols(&self, gate: Side, out: &mut Vec<u32>) {
-        let mut stack = vec![gate];
-        while let Some(entry) = stack.pop() {
-            let [left, right] = entry.rest().map(|s| self.twin(s));
-            out.push(u32::from(left.is_some()) | (u32::from(right.is_some()) << 1));
-            stack.extend(right);
-            stack.extend(left);
+    fn symbols(&mut self, gate: u32, out: &mut Vec<u32>) {
+        self.stack.push(gate);
+        while let Some(entry) = self.stack.pop() {
+            let [left, right] = rest(entry);
+            out.push(u32::from(self.joins(left)) | (u32::from(self.joins(right)) << 1));
+            for side in [right, left] {
+                if self.joins(side) {
+                    self.stack.push(self.twins[side.into_usize()]);
+                }
+            }
         }
     }
 
     /// The sides of the tree entered across `gate` that join nothing, in winding order from `gate`.
-    fn outline(&self, gate: Side) -> Vec<Side> {
-        let mut outline = vec![gate];
-        let mut stack: Vec<_> = gate.rest().into_iter().rev().collect();
-        while let Some(side) = stack.pop() {
-            match self.twin(side) {
-                Some(child) => stack.extend(child.rest().into_iter().rev()),
-                None => outline.push(side),
+    fn outline(&mut self, gate: u32, outline: &mut Vec<u32>) {
+        outline.clear();
+        outline.push(gate);
+        let [left, right] = rest(gate);
+        self.stack.extend([right, left]);
+        while let Some(side) = self.stack.pop() {
+            match self.twins[side.into_usize()] {
+                NONE => outline.push(side),
+                child => {
+                    let [left, right] = rest(child);
+                    self.stack.extend([right, left]);
+                }
             }
         }
-        outline
     }
+}
+
+fn pair(from: u32, to: u32) -> u64 {
+    u64::from(from) << 32 | u64::from(to)
 }
 
 /// Rebuild three vertex indices per symbol from the trees.
 ///
-/// Branch-free over the symbols: a node's flags move the stack pointers instead of choosing a path.
+/// Branch-free over the symbols: a node's flags move the stack pointer instead of choosing a path.
 pub(crate) fn decode_trees(
     symbols: &[u32],
     cycles: &[u32],
@@ -161,21 +219,18 @@ pub(crate) fn decode_trees(
     let triangles = symbols.len();
     u32::try_from(triangles).or_overflow()?;
     dec.consume_items::<u32>(triangles.saturating_mul(3))?;
+    let sizes = subtree_sizes(symbols)?;
     let mut out = Vec::with_capacity(triangles * 3);
-    // Both stacks grow only as deep as a tree goes, so no buffer is sized by the triangle count.
-    let mut size_stack = vec![0u32; 64];
+    // The stack grows only as deep as a tree goes, so it is not sized by the triangle count.
     let mut frames = vec![Frame::default(); 64];
-    let mut sizes = vec![0u32; triangles + 1];
-    let (mut symbols, mut cycles) = (symbols, cycles);
-    while !symbols.is_empty() {
-        let (tree, rest) = symbols.split_at(tree_len(symbols)?);
-        let (cycle, cycles_rest) = cycles
-            .split_at_checked(tree.len() + 2)
+    let (mut root, mut cycles) = (0, cycles);
+    while root < triangles {
+        let tree = sizes[root].into_usize();
+        let (cycle, rest) = cycles
+            .split_at_checked(tree + 2)
             .ok_or(MalformedTriangles("cycles end inside a tree"))?;
-        let sizes = &mut sizes[..=tree.len()];
-        subtree_sizes(tree, sizes, &mut size_stack);
-        unfold(tree, sizes, cycle, &mut frames, &mut out);
-        (symbols, cycles) = (rest, cycles_rest);
+        unfold(symbols, &sizes, root, tree, cycle, &mut frames, &mut out);
+        (root, cycles) = (root + tree, rest);
     }
     if !cycles.is_empty() {
         return Err(MalformedTriangles(
@@ -185,86 +240,75 @@ pub(crate) fn decode_trees(
     Ok(out)
 }
 
-/// The number of symbols in the tree at the front of `symbols`.
-fn tree_len(symbols: &[u32]) -> MltResult<usize> {
-    let mut pending = 1u32;
-    symbols
-        .iter()
-        .position(|&sym| {
-            pending = pending - 1 + sym.count_ones();
-            pending == 0
-        })
-        .map(|last| last + 1)
-        .ok_or(MalformedTriangles("symbols end inside a tree"))
-}
-
-/// Fill `sizes` with the triangle count of each node's subtree.
+/// The triangle count of each node's subtree, and a zero past the last node.
 ///
-/// Slot 0 of `stack` is a zero the pops of an absent child read.
-fn subtree_sizes(tree: &[u32], sizes: &mut [u32], stack: &mut Vec<u32>) {
-    let mut sp = 1;
-    for (node, &sym) in tree.iter().enumerate().rev() {
+/// A node's left subtree starts right after it and its right subtree right after that.
+/// No stack is needed: walking backwards, both are sized already.
+fn subtree_sizes(symbols: &[u32]) -> MltResult<Vec<u32>> {
+    let end = symbols.len();
+    let mut sizes = vec![0u32; end + 1];
+    let mut open = 0;
+    for (node, &sym) in symbols.iter().enumerate().rev() {
         let (has_left, has_right) = (sym & 1, sym >> 1);
-        debug_assert!(
-            sp > (has_left + has_right).into_usize(),
-            "the pending count proves every pop finds a subtree"
-        );
-        let left = stack[sp - 1] * has_left;
-        sp -= has_left.into_usize();
-        let right = stack[sp - 1] * has_right;
-        sp -= has_right.into_usize();
+        // Every size spans no further than the end, so the right child is at most one past it.
+        let left = sizes[node + 1] * has_left;
+        let right_at = node + 1 + left.into_usize();
+        let right = sizes[right_at] * has_right;
+        open |= (has_left & u32::from(node + 1 == end)) | (has_right & u32::from(right_at == end));
         sizes[node] = 1 + left + right;
-        if sp == stack.len() {
-            stack.resize(sp * 2, 0);
-        }
-        stack[sp] = sizes[node];
-        sp += 1;
+    }
+    if open == 0 {
+        Ok(sizes)
+    } else {
+        Err(MalformedTriangles("symbols end inside a tree"))
     }
 }
 
-/// A subtree still to unfold: its first node, the edge it is entered across, and its first apex.
+/// A subtree still to unfold: the edge it is entered across, and its first apex.
 #[derive(Clone, Copy, Default)]
 struct Frame {
-    node: u32,
     u: u32,
     v: u32,
     apex: u32,
 }
 
-/// Append the triangles of `tree` to `out`, taking each apex from `cycle` by the left subtree's size.
-fn unfold(tree: &[u32], sizes: &[u32], cycle: &[u32], frames: &mut Vec<Frame>, out: &mut Vec<u32>) {
+/// Append the `tree` triangles from `root`, taking each apex from `cycle` by the left subtree's size.
+///
+/// The frames pop in preorder, so the node a frame enters is the next one.
+fn unfold(
+    symbols: &[u32],
+    sizes: &[u32],
+    root: usize,
+    tree: usize,
+    cycle: &[u32],
+    frames: &mut Vec<Frame>,
+    out: &mut Vec<u32>,
+) {
     let apexes = &cycle[2..];
     frames[0] = Frame {
-        node: 0,
         u: cycle[0],
         v: cycle[1],
         apex: 0,
     };
     let mut fp = 1;
-    while fp > 0 {
+    for node in root..root + tree {
         fp -= 1;
-        let Frame { node, u, v, apex } = frames[fp];
-        let sym = tree[node.into_usize()];
+        let Frame { u, v, apex } = frames[fp];
+        let sym = symbols[node];
         let (has_left, has_right) = (sym & 1, sym >> 1);
-        let left = sizes[node.into_usize() + 1] * has_left;
+        let left = sizes[node + 1] * has_left;
         let w = apexes[(apex + left).into_usize()];
         out.extend_from_slice(&[u, v, w]);
         if fp + 2 > frames.len() {
             frames.resize(frames.len() * 2, Frame::default());
         }
         frames[fp] = Frame {
-            node: node + 1 + left,
             u,
             v: w,
             apex: apex + left + 1,
         };
         fp += has_right.into_usize();
-        frames[fp] = Frame {
-            node: node + 1,
-            u: w,
-            v,
-            apex,
-        };
+        frames[fp] = Frame { u: w, v, apex };
         fp += has_left.into_usize();
     }
 }
