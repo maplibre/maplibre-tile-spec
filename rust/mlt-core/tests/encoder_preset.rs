@@ -1,11 +1,11 @@
-use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
+use mlt_core::encoder::{Client, EncoderConfig, Network, Profile, Tessellation, WireVersion};
 
 #[test]
 fn the_native_preset_tessellates_automatically_on_its_network() {
     let native_on_3g = EncoderConfig::from_profile(Profile::Native(Network::Cellular3G));
     assert_eq!(
         native_on_3g.tessellation(),
-        Tessellation::Auto(Network::Cellular3G)
+        Tessellation::Auto(Client::Native, Network::Cellular3G)
     );
 }
 
@@ -147,10 +147,10 @@ fn fsst_set_on_the_web_preset_stays_on() {
 #[test]
 fn tessellation_set_on_the_web_preset_stays_auto() {
     let web_with_triangles = EncoderConfig::from_profile(Profile::Web(Network::Cellular4G))
-        .with_tessellation(Tessellation::Auto(Network::Cellular4G));
+        .with_tessellation(Tessellation::Auto(Client::GlJs, Network::Cellular4G));
     assert_eq!(
         web_with_triangles.tessellation(),
-        Tessellation::Auto(Network::Cellular4G)
+        Tessellation::Auto(Client::GlJs, Network::Cellular4G)
     );
 }
 

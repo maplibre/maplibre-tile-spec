@@ -5,15 +5,9 @@ use std::time::Duration;
 use usize_cast::FromUsize as _;
 
 use crate::decoder::GeometryValues;
-use crate::encoder::Network;
 use crate::encoder::source::LayerSource;
+use crate::encoder::{Client, Network};
 use crate::tile::stored_len;
-
-/// How long a client takes to decode one stored triangle.
-const DECODE_PER_TRIANGLE: Duration = Duration::from_nanos(20);
-
-/// How many times slower than a Ryzen 9 3900 core the client runs.
-const CLIENT_SLOWDOWN: u32 = 4;
 
 /// What a layer costs a client, in time on a Ryzen 9 3900 core, and its stored bytes to break a tie.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -25,12 +19,13 @@ pub(crate) struct Cost {
 /// Prices layer encodings for a client that fetches them over a [`Network`].
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ClientCost {
-    /// One byte's transfer, in the time a Ryzen 9 3900 core does the same share of a slower client's work.
+    client: Client,
+    /// Transfer time per byte, divided by the client's slowdown.
     per_byte: Duration,
 }
 
 impl ClientCost {
-    pub(crate) fn new(network: Network) -> Self {
+    pub(crate) fn new(client: Client, network: Network) -> Self {
         // How long 8 bits take to arrive at each network's rate.
         let transfer = match network {
             Network::Offline => Duration::ZERO,
@@ -39,7 +34,8 @@ impl ClientCost {
             Network::Cellular5G => Duration::from_nanos(40),
         };
         Self {
-            per_byte: transfer / CLIENT_SLOWDOWN,
+            client,
+            per_byte: transfer / client.slowdown(),
         }
     }
 
@@ -47,65 +43,103 @@ impl ClientCost {
     pub(crate) fn price(self, work: &impl ClientWork) -> Price {
         Price {
             per_byte: self.per_byte,
-            work: work.client_time(),
+            work: work.client_time(self.client),
+        }
+    }
+}
+
+impl Client {
+    /// How many times slower than a Ryzen 9 3900 core the client runs.
+    fn slowdown(self) -> u32 {
+        match self {
+            // A laptop or desktop.
+            Self::GlJs => 1,
+            // A mid-range phone or car head unit.
+            Self::Native => 2,
+        }
+    }
+
+    /// How long the client takes to decode one stored triangle.
+    fn decode_per_triangle(self) -> Duration {
+        match self {
+            // The Rust decoder in wasm.
+            Self::GlJs => Duration::from_nanos(30),
+            Self::Native => Duration::from_nanos(20),
         }
     }
 }
 
 /// Work a client does on a layer after fetching it and before drawing it.
 pub(crate) trait ClientWork {
-    /// How long this work takes on a Ryzen 9 3900 core.
-    fn client_time(&self) -> Duration;
+    /// How long `client` takes for this work on a Ryzen 9 3900 core.
+    fn client_time(&self, client: Client) -> Duration;
 }
 
 /// Decoding the stored triangles of the polygons.
 impl ClientWork for GeometryValues {
-    fn client_time(&self) -> Duration {
+    fn client_time(&self, client: Client) -> Duration {
         let indices = self.index_buffer.as_ref().map_or(0, Vec::len);
         let triangles =
             u32::try_from(indices / 3).expect("a layer stores fewer triangles than its u32 bytes");
-        DECODE_PER_TRIANGLE * triangles
+        client.decode_per_triangle() * triangles
     }
 }
 
-/// Cutting every polygon of a layer into triangles with `mapbox::earcut`, which no feature order changes.
-#[derive(Debug, Clone, Copy)]
+/// Cutting every polygon of a layer into triangles on the client, which no feature order changes.
+///
+/// `n` is a polygon's vertex count, closing points included.
+#[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct Earcut {
-    time: Duration,
+    polygons: u64,
+    /// The sum of `n`.
+    vertices: u64,
+    /// The sum of `n * min(n, 80)`.
+    quadratic: u64,
+    /// The sum of `n * holes`.
+    hole_vertices: u64,
 }
 
 impl Earcut {
     pub(crate) fn of(source: &impl LayerSource) -> Self {
-        let time = (0..source.feature_count())
-            .flat_map(|feature| source.polygons(feature))
-            .map(|rings| {
-                let (mut vertices, mut ring_count) = (0, 0);
-                for ring in rings {
-                    vertices += stored_len(ring);
-                    ring_count += 1;
-                }
-                polygon_earcut(vertices + ring_count, ring_count.saturating_sub(1))
-            })
-            .sum();
-        Self { time }
+        let mut earcut = Self::default();
+        for rings in (0..source.feature_count()).flat_map(|feature| source.polygons(feature)) {
+            let (mut vertices, mut ring_count) = (0, 0);
+            for ring in rings {
+                vertices += stored_len(ring);
+                ring_count += 1;
+            }
+            let n = u64::from_usize(vertices + ring_count);
+            let holes = u64::from_usize(ring_count.saturating_sub(1));
+            earcut.polygons += 1;
+            earcut.vertices += n;
+            earcut.quadratic += n * n.min(80);
+            earcut.hole_vertices += n * holes;
+        }
+        earcut
     }
 }
 
 impl ClientWork for Earcut {
-    fn client_time(&self) -> Duration {
-        self.time
+    fn client_time(&self, client: Client) -> Duration {
+        let Self {
+            polygons,
+            vertices,
+            quadratic,
+            hole_vertices,
+        } = *self;
+        // Fitted per polygon on five tilesets, in hundredths of a nanosecond.
+        let centi_ns = match client {
+            // `126 + n * (3.46 * min(n, 80) + 22.2) + 3.6 * n * holes` ns, `earcut` 3.2.4 in Chromium.
+            Client::GlJs => {
+                12_600 * polygons + 346 * quadratic + 2_220 * vertices + 360 * hole_vertices
+            }
+            // `135 + n * (2.04 * min(n, 80) - 15.7) + 6.9 * n * holes` ns, `mapbox::earcut`.
+            Client::Native => {
+                13_500 * polygons + 204 * quadratic + 690 * hole_vertices - 1_570 * vertices
+            }
+        };
+        Duration::from_nanos(centi_ns / 100)
     }
-}
-
-/// How long `mapbox::earcut` takes on a Ryzen 9 3900 core for one polygon.
-///
-/// `n` counts its vertices as a client holds them, with each ring's closing point.
-/// Fitted per polygon over five basemap and building tilesets, within 10% either way on the median layer.
-fn polygon_earcut(n: usize, holes: usize) -> Duration {
-    let (n, holes) = (u64::from_usize(n), u64::from_usize(holes));
-    // `135 + n * (2.04 * min(n, 80) - 15.7) + 6.9 * n * holes` ns, in hundredths of a nanosecond.
-    let centi_ns = 13_500 + 204 * n * n.min(80) + 690 * n * holes - 1_570 * n;
-    Duration::from_nanos(centi_ns / 100)
 }
 
 /// What one layer costs a client per stored byte, on top of the work it does on them.

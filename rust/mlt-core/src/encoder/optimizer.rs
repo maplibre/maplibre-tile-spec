@@ -11,7 +11,7 @@ use crate::encoder::sort::{curve_params, sort_order};
 use crate::encoder::source::LayerSource;
 use crate::encoder::tile::{StageOptions, stage_layer};
 use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, Network, SortStrategy, Tessellation, encode01,
+    Client, Codecs, Encoder, EncoderConfig, Network, SortStrategy, Tessellation, encode01,
 };
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::{WireVersion, encode02};
@@ -144,20 +144,26 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     seed_curve_caches(&mut enc, curve_params);
     let mut codecs = PooledCodecs::take();
     let earcut = Earcut::of(source);
-    // Trials that store the same triangles differ only in bytes, so any network ranks them alike.
-    let (tessellations, network): (&[bool], _) = match cfg.tessellation() {
-        Tessellation::Off => (&[false], Network::Offline),
-        Tessellation::Always => (&[true], Network::Offline),
+    // Trials that store the same triangles differ only in bytes, so any client and network rank them alike.
+    let bytes_only = (Client::Native, Network::Offline);
+    let (tessellations, (client, network)): (&[bool], _) = match cfg.tessellation() {
+        Tessellation::Off => (&[false], bytes_only),
+        Tessellation::Always => (&[true], bytes_only),
+        // FIXME: GL JS ignores stored triangles.
+        // Remove this arm once it reads them.
+        Tessellation::Auto(Client::GlJs, _) => (&[false], bytes_only),
         // A layer without polygons has no triangles to store.
-        Tessellation::Auto(_) if earcut.client_time().is_zero() => (&[false], Network::Offline),
-        Tessellation::Auto(network) => (&[false, true], network),
+        Tessellation::Auto(client, _) if earcut.client_time(client).is_zero() => {
+            (&[false], bytes_only)
+        }
+        Tessellation::Auto(client, network) => (&[false, true], (client, network)),
     };
     if let ([sort], [tessellate]) = (&sort_by[..], tessellations) {
         return stage(*sort, *tessellate)
             .encode_into(enc, &mut codecs)?
             .into_layer_bytes();
     }
-    let client = ClientCost::new(network);
+    let client = ClientCost::new(client, network);
     let mut best: Option<Best> = None;
     for &sort in &sort_by {
         // Triangles add about the same bytes in every order, so the source order alone decides on them.

@@ -432,8 +432,8 @@ impl WireVersion {
 pub enum Tessellation {
     /// Store no triangles, so the client cuts every polygon itself.
     Off,
-    /// Store a layer's triangles when the client CPU time they spare outweighs the bytes they add on this network.
-    Auto(Network),
+    /// Store a layer's triangles when they save this client more CPU time than their bytes cost on this network.
+    Auto(Client, Network),
     /// Store the triangles of every layer with polygons.
     Always,
 }
@@ -457,6 +457,16 @@ impl Default for Profile {
     fn default() -> Self {
         Self::Native(Network::default())
     }
+}
+
+/// The renderer that draws the tiles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum Client {
+    /// `MapLibre GL JS`.
+    GlJs,
+    /// `MapLibre Native`.
+    Native,
 }
 
 /// How tiles reach the client, which prices a stored byte against the client CPU time it spares.
@@ -529,7 +539,7 @@ impl EncoderConfig {
             Profile::Native(network) => Self {
                 #[cfg(feature = "unstable-v2")]
                 wire_version: WireVersion::V01,
-                tessellation: Tessellation::Auto(network),
+                tessellation: Tessellation::Auto(Client::Native, network),
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,

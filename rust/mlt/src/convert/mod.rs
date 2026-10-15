@@ -18,7 +18,7 @@ use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
 use mlt_core::encoder::{
-    EncodedUnknown, Encoder, EncoderConfig, Network as CoreNetwork, Profile as CoreProfile,
+    Client, EncodedUnknown, Encoder, EncoderConfig, Network as CoreNetwork, Profile as CoreProfile,
     Tessellation, WireVersion,
 };
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
@@ -305,7 +305,7 @@ pub struct ConvertArgs {
     profile: Option<Profile>,
     /// How tiles reach the client, which prices `--tessellate=auto` and decides `--profile web` (default: 4g)
     ///
-    /// `--tessellate=auto` weighs the bytes against `mapbox::earcut` on a client 4x slower than a Ryzen 9 3900 core.
+    /// `--tessellate=auto` prices for GL JS under `--profile web`, and for Native otherwise.
     #[clap(long)]
     network: Option<Network>,
     /// Store polygon triangles, so clients skip earcut (default: auto, or off under `--profile web`, `min_size` and `diffable`)
@@ -426,6 +426,11 @@ impl ConvertArgs {
         let network = self
             .network
             .map_or_else(CoreNetwork::default, CoreNetwork::from);
+        let client = if self.profile == Some(Profile::Web) {
+            Client::GlJs
+        } else {
+            Client::Native
+        };
         let profile = match self.profile {
             None | Some(Profile::Native) => CoreProfile::Native(network),
             Some(Profile::Web) => CoreProfile::Web(network),
@@ -440,12 +445,12 @@ impl ConvertArgs {
         }
         if let Some(mode) = self.tessellate {
             encoder = encoder.with_tessellation(match mode {
-                TessellateMode::Auto => Tessellation::Auto(network),
+                TessellateMode::Auto => Tessellation::Auto(client, network),
                 TessellateMode::Always => Tessellation::Always,
                 TessellateMode::Off => Tessellation::Off,
             });
         }
-        let reads_network = matches!(encoder.tessellation(), Tessellation::Auto(_))
+        let reads_network = matches!(encoder.tessellation(), Tessellation::Auto(..))
             || self.profile == Some(Profile::Web);
         if self.network.is_some() && !reads_network {
             bail!(
@@ -1001,7 +1006,7 @@ mod tests {
         let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular4G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
         );
     }
 
@@ -1012,7 +1017,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular4G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
         );
     }
 
@@ -1021,7 +1026,7 @@ mod tests {
         let encoder = parse_args(&["-t", "src", "dst"]).encoder().unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular4G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
         );
     }
 
@@ -1032,7 +1037,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular4G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
         );
     }
 
@@ -1053,13 +1058,13 @@ mod tests {
     }
 
     #[test]
-    fn tessellate_auto_overrides_the_web_profile() {
+    fn tessellate_auto_under_the_web_profile_prices_gl_js() {
         let encoder = parse_args(&["--profile", "web", "--tessellate=auto", "src", "dst"])
             .encoder()
             .unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular4G)
+            Tessellation::Auto(Client::GlJs, CoreNetwork::Cellular4G)
         );
     }
 
@@ -1084,7 +1089,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular4G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
         );
     }
 
@@ -1125,7 +1130,7 @@ mod tests {
         let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular4G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
         );
     }
 
@@ -1136,7 +1141,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Offline)
+            Tessellation::Auto(Client::Native, CoreNetwork::Offline)
         );
     }
 
@@ -1147,7 +1152,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular3G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular3G)
         );
     }
 
@@ -1158,7 +1163,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular4G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
         );
     }
 
@@ -1169,7 +1174,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular5G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular5G)
         );
     }
 
@@ -1215,7 +1220,7 @@ mod tests {
         let encoder = parse_args(&flags).encoder().unwrap();
         assert_eq!(
             encoder.tessellation(),
-            Tessellation::Auto(CoreNetwork::Cellular3G)
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular3G)
         );
     }
 
