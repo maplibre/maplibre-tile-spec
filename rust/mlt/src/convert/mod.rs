@@ -429,13 +429,14 @@ impl ConvertArgs {
     }
     /// The profile's encoder, with the explicit encoder flags applied on top.
     fn encoder(&self) -> AnyResult<EncoderConfig> {
-        let mut encoder = EncoderConfig::default().with_wire_version(self.mlt_version.into());
-        if let Some(profile) = self.profile {
-            encoder = encoder.with_profile(profile.into());
-        }
-        if let Some(network) = self.network {
-            encoder = encoder.with_network(network.into());
-        }
+        let profile = self
+            .profile
+            .map_or_else(CoreProfile::default, CoreProfile::from);
+        let network = self
+            .network
+            .map_or_else(CoreNetwork::default, CoreNetwork::from);
+        let mut encoder =
+            EncoderConfig::from_preset(profile, network).with_wire_version(self.mlt_version.into());
         if let Some(sort) = self.sort {
             encoder = sort.apply(encoder);
         }
@@ -991,7 +992,9 @@ mod tests {
 
     #[test]
     fn tessellate_alone_means_auto() {
-        let encoder = parse_args(&["--tessellate", "src", "dst"]).encoder().unwrap();
+        let encoder = parse_args(&["--tessellate", "src", "dst"])
+            .encoder()
+            .unwrap();
         assert_eq!(encoder.tessellation(), Tessellation::Auto);
     }
 
@@ -1034,49 +1037,57 @@ mod tests {
     }
 
     #[test]
-    fn convert_without_profile_selects_native() {
+    fn convert_without_profile_keeps_fastpfor() {
         let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
-        assert_eq!(encoder.profile(), CoreProfile::Native);
+        assert!(encoder.allow_fastpfor());
     }
 
     #[test]
-    fn profile_web_selects_the_web_profile() {
+    fn profile_web_switches_fastpfor_off() {
         let encoder = parse_args(&["--profile", "web", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.profile(), CoreProfile::Web);
+        assert!(!encoder.allow_fastpfor());
     }
 
     #[test]
-    fn profile_native_selects_the_native_profile() {
+    fn profile_native_tessellates_automatically() {
         let encoder = parse_args(&["--profile", "native", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.profile(), CoreProfile::Native);
+        assert_eq!(encoder.tessellation(), Tessellation::Auto);
     }
 
     #[test]
-    fn profile_min_size_selects_the_min_size_profile() {
+    fn profile_min_size_tries_hilbert_sort() {
         let encoder = parse_args(&["--profile", "min_size", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.profile(), CoreProfile::MinSize);
+        assert!(encoder.attempt_spatial_hilbert_sort());
     }
 
     #[test]
-    fn profile_min_dash_size_selects_the_min_size_profile() {
+    fn profile_min_dash_size_tries_hilbert_sort() {
         let encoder = parse_args(&["--profile", "min-size", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.profile(), CoreProfile::MinSize);
+        assert!(encoder.attempt_spatial_hilbert_sort());
     }
 
     #[test]
-    fn profile_diffable_selects_the_diffable_profile() {
+    fn profile_diffable_switches_shared_dictionaries_off() {
         let encoder = parse_args(&["--profile", "diffable", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(encoder.profile(), CoreProfile::Diffable);
+        assert!(!encoder.allow_shared_dict());
+    }
+
+    #[test]
+    fn profile_web_keeps_fastpfor_on_network_offline() {
+        let encoder = parse_args(&["--profile", "web", "--network", "offline", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.allow_fastpfor());
     }
 
     #[test]
@@ -1123,7 +1134,10 @@ mod tests {
             .encoder()
             .unwrap();
         assert_eq!(
-            (encoder.attempt_spatial_hilbert_sort(), encoder.attempt_id_sort()),
+            (
+                encoder.attempt_spatial_hilbert_sort(),
+                encoder.attempt_id_sort()
+            ),
             (false, false)
         );
     }

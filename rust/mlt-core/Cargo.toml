@@ -151,5 +151,5 @@ name = "tessellation_auto"
 required-features = ["unstable-v2"]
 
 [[test]]
-name = "encoder_profile"
+name = "encoder_preset"
 required-features = ["unstable-v2"]

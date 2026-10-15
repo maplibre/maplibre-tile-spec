@@ -5,7 +5,7 @@ use strum::EnumCount as _;
 
 use crate::encoder::model::StagedLayer;
 use crate::encoder::optimizer::Presence;
-use crate::encoder::{EncoderConfig, StagedId, StagedProperty, StagedSharedDict};
+use crate::encoder::{EncoderConfig, Profile, StagedId, StagedProperty, StagedSharedDict};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::{
     StagedInterior, StagedLeaf, StagedList, StagedMValue, StagedNested, StagedNode, StagedStruct,
@@ -14,8 +14,7 @@ use crate::encoder::{
 
 impl Arbitrary<'_> for EncoderConfig {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
-        let config = Self::default()
-            .with_network(u.arbitrary()?)
+        let config = Self::from_preset(Profile::default(), u.arbitrary()?)
             .with_tessellation(u.arbitrary()?)
             .with_spatial_morton_sort(u.arbitrary()?)
             .with_spatial_hilbert_sort(u.arbitrary()?)

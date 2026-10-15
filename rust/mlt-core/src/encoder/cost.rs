@@ -1,9 +1,11 @@
 //! What a client pays for a layer: fetching its bytes, and the work it does on them before drawing.
 
-use usize_cast::{FromUsize as _, IntoUsize as _};
+use usize_cast::FromUsize as _;
 
-use crate::decoder::{GeometryType, GeometryValues};
+use crate::decoder::GeometryValues;
+use crate::encoder::source::LayerSource;
 use crate::encoder::{EncoderConfig, Network};
+use crate::tile::stored_len;
 
 /// Nanoseconds a client spends decoding one stored triangle.
 const DECODE_NS_PER_TRIANGLE: u64 = 20;
@@ -52,16 +54,58 @@ pub(crate) trait ClientWork {
     fn client_ns(&self) -> u64;
 }
 
-/// Getting the triangles of the polygons: decoding the stored ones, or cutting its own.
+/// Decoding the stored triangles of the polygons.
 impl ClientWork for GeometryValues {
     fn client_ns(&self) -> u64 {
-        if self.triangle_offsets.is_some() {
-            let indices = self.index_buffer.as_ref().map_or(0, Vec::len);
-            DECODE_NS_PER_TRIANGLE * u64::from_usize(indices / 3)
-        } else {
-            earcut_ns_of_layer(self)
-        }
+        let indices = self.index_buffer.as_ref().map_or(0, Vec::len);
+        DECODE_NS_PER_TRIANGLE * u64::from_usize(indices / 3)
     }
+}
+
+/// Cutting every polygon of a layer into triangles with `mapbox::earcut`, which no feature order changes.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Earcut {
+    ns: u64,
+}
+
+impl Earcut {
+    pub(crate) fn of(source: &impl LayerSource) -> Self {
+        let ns = (0..source.feature_count())
+            .flat_map(|feature| source.polygons(feature))
+            .map(|rings| {
+                let (mut vertices, mut ring_count) = (0, 0);
+                for ring in rings {
+                    vertices += stored_len(ring);
+                    ring_count += 1;
+                }
+                polygon_earcut_ns(vertices + ring_count, ring_count.saturating_sub(1))
+            })
+            .sum();
+        Self { ns }
+    }
+}
+
+impl ClientWork for Earcut {
+    fn client_ns(&self) -> u64 {
+        self.ns
+    }
+}
+
+/// Nanoseconds `mapbox::earcut` takes on a Ryzen 9 3900 core for one polygon.
+///
+/// `n` counts its vertices as a client holds them, with each ring's closing point.
+/// Fitted per polygon over five basemap and building tilesets, within ±10% on the median layer.
+fn polygon_earcut_ns(n: usize, holes: usize) -> u64 {
+    #[expect(clippy::cast_precision_loss, reason = "an estimate")]
+    let (n, holes) = (n as f64, holes as f64);
+    let ns = 135.0 + n * (2.04 * n.min(80.0) - 15.7) + 6.9 * n * holes;
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "the fit is above 100 ns for every n"
+    )]
+    let ns = ns.round() as u64;
+    ns
 }
 
 /// What one layer costs a client per stored byte, on top of the work it does on them.
@@ -79,76 +123,4 @@ impl Price {
             bytes,
         }
     }
-}
-
-/// Nanoseconds `mapbox::earcut` takes on a Ryzen 9 3900 core for one polygon.
-///
-/// `n` counts its vertices as a client holds them, with each ring's closing point.
-/// Fitted per polygon over five basemap and building tilesets, within ±10% on the median layer.
-/// Rounding each polygon to whole nanoseconds keeps a layer's sum the same in every feature order.
-fn earcut_ns(n: usize, holes: usize) -> u64 {
-    #[expect(clippy::cast_precision_loss, reason = "an estimate")]
-    let (n, holes) = (n as f64, holes as f64);
-    let ns = 135.0 + n * (2.04 * n.min(80.0) - 15.7) + 6.9 * n * holes;
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "the fit is above 100 ns for every n"
-    )]
-    let ns = ns.round() as u64;
-    ns
-}
-
-/// The earcut nanoseconds of every polygon in `geometry`.
-///
-/// Staging gives a multi geometry one geometry offset and a line one ring, so the walk steps through them in feature order.
-fn earcut_ns_of_layer(geometry: &GeometryValues) -> u64 {
-    let (Some(parts), Some(rings)) = (&geometry.part_offsets, &geometry.ring_offsets) else {
-        return 0;
-    };
-    let geoms = geometry.geometry_offsets.as_deref().unwrap_or(&[]);
-    let span = |level: &[u32], at: usize| -> usize {
-        match (level.get(at), level.get(at + 1)) {
-            (Some(&start), Some(&end)) => end.saturating_sub(start).into_usize(),
-            _ => 0,
-        }
-    };
-    let (mut geom, mut part, mut ring) = (0, 0, 0);
-    let mut total = 0;
-    for kind in &geometry.vector_types {
-        let polygons = match kind {
-            GeometryType::Point => 0,
-            GeometryType::LineString => {
-                ring += 1;
-                0
-            }
-            GeometryType::Polygon => 1,
-            GeometryType::MultiPoint => {
-                geom += 1;
-                0
-            }
-            GeometryType::MultiLineString => {
-                ring += span(geoms, geom);
-                geom += 1;
-                0
-            }
-            GeometryType::MultiPolygon => {
-                geom += 1;
-                span(geoms, geom - 1)
-            }
-        };
-        for _ in 0..polygons {
-            let ring_count = span(parts, part);
-            let vertices: usize = (ring..ring + ring_count).map(|r| span(rings, r)).sum();
-            total += earcut_ns(vertices + ring_count, ring_count.saturating_sub(1));
-            part += 1;
-            ring += ring_count;
-        }
-    }
-    debug_assert_eq!(
-        (part + 1, ring + 1),
-        (parts.len(), rings.len()),
-        "the walk ends where staging did"
-    );
-    total
 }

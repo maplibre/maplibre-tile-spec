@@ -468,103 +468,32 @@ pub enum Network {
     Cellular5G,
 }
 
-/// The settings a [`Profile`] picks for the ones left unset.
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "mirrors the EncoderConfig switches it fills in"
-)]
-struct Preset {
-    tessellation: Tessellation,
-    morton_sort: bool,
-    hilbert_sort: bool,
-    id_sort: bool,
-    fsst: bool,
-    fastpfor: bool,
-    shared_dict: bool,
-    #[cfg(feature = "unstable-v2")]
-    delta2: bool,
-    #[cfg(feature = "unstable-v2")]
-    rans_vertices: bool,
-}
-
-impl Preset {
-    fn of(profile: Profile, network: Network) -> Self {
-        let native = Self {
-            tessellation: Tessellation::Auto,
-            morton_sort: false,
-            hilbert_sort: false,
-            id_sort: false,
-            fsst: true,
-            fastpfor: true,
-            shared_dict: true,
-            #[cfg(feature = "unstable-v2")]
-            delta2: false,
-            #[cfg(feature = "unstable-v2")]
-            rans_vertices: false,
-        };
-        let untessellated = Self {
-            tessellation: Tessellation::Off,
-            ..native
-        };
-        match profile {
-            Profile::Native => native,
-            Profile::Web if network == Network::Offline => untessellated,
-            Profile::Web => Self {
-                fsst: false,
-                fastpfor: false,
-                ..untessellated
-            },
-            Profile::MinSize => Self {
-                hilbert_sort: true,
-                id_sort: true,
-                #[cfg(feature = "unstable-v2")]
-                delta2: true,
-                #[cfg(feature = "unstable-v2")]
-                rans_vertices: true,
-                ..untessellated
-            },
-            Profile::Diffable => Self {
-                fsst: false,
-                shared_dict: false,
-                #[cfg(feature = "unstable-v2")]
-                delta2: true,
-                ..untessellated
-            },
-        }
-    }
-}
-
 /// Global encoder settings controlling which optimization strategies are attempted.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
-#[cfg_attr(
-    feature = "unstable-v2",
-    expect(
-        clippy::struct_excessive_bools,
-        reason = "enums would not model this better, not a state machine"
-    )
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "enums would not model this better, not a state machine"
 )]
 pub struct EncoderConfig {
     /// The wire format to encode layers to.
     #[cfg(feature = "unstable-v2")]
     wire_version: WireVersion,
-    /// The consumer whose defaults the settings left `None` take.
-    profile: Profile,
     /// How tiles reach the client.
     network: Network,
     /// When to store the triangles of polygons and multi-polygons.
-    tessellation: Option<Tessellation>,
+    tessellation: Tessellation,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
-    attempt_spatial_morton_sort: Option<bool>,
+    attempt_spatial_morton_sort: bool,
     /// Try sorting features by the Hilbert curve index of their first vertex.
-    attempt_spatial_hilbert_sort: Option<bool>,
+    attempt_spatial_hilbert_sort: bool,
     /// Try sorting features by their feature ID in ascending order.
-    attempt_id_sort: Option<bool>,
+    attempt_id_sort: bool,
     /// Allow `FSST` string compression
-    allow_fsst: Option<bool>,
+    allow_fsst: bool,
     /// Allow `FastPFOR` integer compression
-    allow_fastpfor: Option<bool>,
+    allow_fastpfor: bool,
     /// Allow string grouping into shared dictionaries
-    allow_shared_dict: Option<bool>,
+    allow_shared_dict: bool,
     /// Allow the v2-only float dictionary encoding
     #[cfg(feature = "unstable-v2")]
     allow_float_dict: bool,
@@ -582,29 +511,32 @@ pub struct EncoderConfig {
     allow_triangles_only: bool,
     /// Allow the v2-only second-order delta encodings of integer and vertex streams
     #[cfg(feature = "unstable-v2")]
-    allow_delta2: Option<bool>,
+    allow_delta2: bool,
     /// Allow the v2-only rANS vertex encoding
     #[cfg(feature = "unstable-v2")]
-    allow_rans_vertices: Option<bool>,
+    allow_rans_vertices: bool,
 }
-#[cfg_attr(
-    not(feature = "unstable-v2"),
-    expect(clippy::derivable_impls, reason = "v2 adds switches that start on")
-)]
 impl Default for EncoderConfig {
     fn default() -> Self {
-        Self {
+        Self::from_preset(Profile::default(), Network::default())
+    }
+}
+
+impl EncoderConfig {
+    /// The settings `profile` picks for tiles that reach the client over `network`, which the `with_*` methods override.
+    #[must_use]
+    pub fn from_preset(profile: Profile, network: Network) -> Self {
+        let native = Self {
             #[cfg(feature = "unstable-v2")]
             wire_version: WireVersion::V01,
-            profile: Profile::default(),
-            network: Network::default(),
-            tessellation: None,
-            attempt_spatial_morton_sort: None,
-            attempt_spatial_hilbert_sort: None,
-            attempt_id_sort: None,
-            allow_fsst: None,
-            allow_fastpfor: None,
-            allow_shared_dict: None,
+            network,
+            tessellation: Tessellation::Auto,
+            attempt_spatial_morton_sort: false,
+            attempt_spatial_hilbert_sort: false,
+            attempt_id_sort: false,
+            allow_fsst: true,
+            allow_fastpfor: true,
+            allow_shared_dict: true,
             // Off by default while the encoding is still being measured.
             #[cfg(feature = "unstable-v2")]
             allow_float_dict: false,
@@ -617,14 +549,41 @@ impl Default for EncoderConfig {
             #[cfg(feature = "unstable-v2")]
             allow_triangles_only: false,
             #[cfg(feature = "unstable-v2")]
-            allow_delta2: None,
+            allow_delta2: false,
             #[cfg(feature = "unstable-v2")]
-            allow_rans_vertices: None,
+            allow_rans_vertices: false,
+        };
+        let untessellated = Self {
+            tessellation: Tessellation::Off,
+            ..native
+        };
+        match profile {
+            Profile::Native => native,
+            Profile::Web if network == Network::Offline => untessellated,
+            Profile::Web => Self {
+                allow_fsst: false,
+                allow_fastpfor: false,
+                ..untessellated
+            },
+            Profile::MinSize => Self {
+                attempt_spatial_hilbert_sort: true,
+                attempt_id_sort: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: true,
+                ..untessellated
+            },
+            Profile::Diffable => Self {
+                allow_fsst: false,
+                allow_shared_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: true,
+                ..untessellated
+            },
         }
     }
-}
 
-impl EncoderConfig {
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn wire_version(self) -> WireVersion {
@@ -632,49 +591,38 @@ impl EncoderConfig {
     }
 
     #[must_use]
-    pub fn profile(self) -> Profile {
-        self.profile
-    }
-
-    #[must_use]
     pub fn network(self) -> Network {
         self.network
     }
 
-    fn preset(self) -> Preset {
-        Preset::of(self.profile, self.network)
-    }
-
     #[must_use]
     pub fn tessellation(self) -> Tessellation {
-        self.tessellation.unwrap_or(self.preset().tessellation)
+        self.tessellation
     }
 
     #[must_use]
     pub fn attempt_spatial_morton_sort(self) -> bool {
         self.attempt_spatial_morton_sort
-            .unwrap_or(self.preset().morton_sort)
     }
 
     #[must_use]
     pub fn attempt_spatial_hilbert_sort(self) -> bool {
         self.attempt_spatial_hilbert_sort
-            .unwrap_or(self.preset().hilbert_sort)
     }
 
     #[must_use]
     pub fn attempt_id_sort(self) -> bool {
-        self.attempt_id_sort.unwrap_or(self.preset().id_sort)
+        self.attempt_id_sort
     }
 
     #[must_use]
     pub fn allow_fsst(self) -> bool {
-        self.allow_fsst.unwrap_or(self.preset().fsst)
+        self.allow_fsst
     }
 
     #[must_use]
     pub fn allow_fastpfor(self) -> bool {
-        self.allow_fastpfor.unwrap_or(self.preset().fastpfor)
+        self.allow_fastpfor
     }
 
     /// The `FastPFor` encoding to race, or `None` when `FastPFor` is switched off.
@@ -684,13 +632,13 @@ impl EncoderConfig {
         let kind = self.wire_version.fastpfor_kind();
         #[cfg(not(feature = "unstable-v2"))]
         let kind = FastPForKind::Block256Be;
-        self.allow_fastpfor()
+        self.allow_fastpfor
             .then_some(PhysicalEncoding::FastPFor(kind))
     }
 
     #[must_use]
     pub fn allow_shared_dict(self) -> bool {
-        self.allow_shared_dict.unwrap_or(self.preset().shared_dict)
+        self.allow_shared_dict
     }
 
     /// Whether a nested struct or map may code its row shapes, which only v2 can express.
@@ -738,22 +686,9 @@ impl EncoderConfig {
         self
     }
 
-    /// Take the defaults of `profile` for every setting not set explicitly, before or after.
-    #[must_use]
-    pub fn with_profile(mut self, profile: Profile) -> Self {
-        self.profile = profile;
-        self
-    }
-
-    #[must_use]
-    pub fn with_network(mut self, network: Network) -> Self {
-        self.network = network;
-        self
-    }
-
     #[must_use]
     pub fn with_tessellation(mut self, tessellation: Tessellation) -> Self {
-        self.tessellation = Some(tessellation);
+        self.tessellation = tessellation;
         self
     }
 
@@ -777,50 +712,50 @@ impl EncoderConfig {
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn allow_delta2(self) -> bool {
-        self.allow_delta2.unwrap_or(self.preset().delta2) && self.wire_version != WireVersion::V01
+        self.allow_delta2 && self.wire_version != WireVersion::V01
     }
 
     /// Allow integer and vertex streams to store the deltas of their deltas.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn with_delta2(mut self, enabled: bool) -> Self {
-        self.allow_delta2 = Some(enabled);
+        self.allow_delta2 = enabled;
         self
     }
 
     #[must_use]
     pub fn with_spatial_morton_sort(mut self, enabled: bool) -> Self {
-        self.attempt_spatial_morton_sort = Some(enabled);
+        self.attempt_spatial_morton_sort = enabled;
         self
     }
 
     #[must_use]
     pub fn with_spatial_hilbert_sort(mut self, enabled: bool) -> Self {
-        self.attempt_spatial_hilbert_sort = Some(enabled);
+        self.attempt_spatial_hilbert_sort = enabled;
         self
     }
 
     #[must_use]
     pub fn with_id_sort(mut self, enabled: bool) -> Self {
-        self.attempt_id_sort = Some(enabled);
+        self.attempt_id_sort = enabled;
         self
     }
 
     #[must_use]
     pub fn with_fsst(mut self, enabled: bool) -> Self {
-        self.allow_fsst = Some(enabled);
+        self.allow_fsst = enabled;
         self
     }
 
     #[must_use]
     pub fn with_fastpfor(mut self, enabled: bool) -> Self {
-        self.allow_fastpfor = Some(enabled);
+        self.allow_fastpfor = enabled;
         self
     }
 
     #[must_use]
     pub fn with_shared_dict(mut self, enabled: bool) -> Self {
-        self.allow_shared_dict = Some(enabled);
+        self.allow_shared_dict = enabled;
         self
     }
 
@@ -862,16 +797,14 @@ impl EncoderConfig {
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn allow_rans_vertices(self) -> bool {
-        self.allow_rans_vertices
-            .unwrap_or(self.preset().rans_vertices)
-            && self.wire_version != WireVersion::V01
+        self.allow_rans_vertices && self.wire_version != WireVersion::V01
     }
 
     /// Allow plain vertex streams to be rANS-coded over the layer's vertex runs.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn with_rans_vertices(mut self, enabled: bool) -> Self {
-        self.allow_rans_vertices = Some(enabled);
+        self.allow_rans_vertices = enabled;
         self
     }
 }

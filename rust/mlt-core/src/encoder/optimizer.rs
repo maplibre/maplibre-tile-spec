@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
-use crate::encoder::cost::{ClientCost, Cost};
+use crate::encoder::cost::{ClientCost, Cost, Earcut};
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::property::group_string_properties;
 use crate::encoder::sort::{curve_params, sort_order};
@@ -152,6 +152,7 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
             .into_layer_bytes();
     }
     let client = ClientCost::new(cfg);
+    let earcut = Earcut::of(source);
     let mut best: Option<Best> = None;
     for &sort in &sort_by {
         // Triangles add about the same bytes in every order, so the source order alone decides on them.
@@ -162,7 +163,11 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
         };
         for &tessellate in tessellations {
             let layer = stage(sort, tessellate);
-            let price = client.price(&layer.geometry);
+            let price = if tessellate {
+                client.price(&layer.geometry)
+            } else {
+                client.price(&earcut)
+            };
             // Even at the size of the layer without them, triangles that spare no client CPU would lose.
             if let Some(best) = &best
                 && tessellate != best.tessellated

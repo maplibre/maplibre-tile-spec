@@ -549,6 +549,23 @@ impl LayerSource for LayerWriter<'_> {
         }
     }
 
+    fn polygons(
+        &self,
+        feature: usize,
+    ) -> impl Iterator<Item = impl Iterator<Item = &[Coord<i32>]> + '_> + '_ {
+        let geometry = &self.geometry;
+        // Each polygon is one group, whose parts are its rings.
+        let groups = match Family::of(geometry.types[feature]).0 {
+            Family::Polygons => geometry.groups(feature),
+            Family::Points | Family::Lines => 0..0,
+        };
+        groups.map(move |group| {
+            geometry
+                .parts(group..group + 1)
+                .map(move |part| geometry.part(part))
+        })
+    }
+
     fn mvt_feature(&self, feature: usize, layer: MvtLayerBuilder) -> MltResult<MvtFeatureBuilder> {
         let geometry = &self.geometry;
         let groups = geometry.groups(feature);

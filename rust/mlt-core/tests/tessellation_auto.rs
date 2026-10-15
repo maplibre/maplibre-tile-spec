@@ -1,7 +1,7 @@
 use std::f64::consts::TAU;
 
 use mlt_core::TileLayer;
-use mlt_core::encoder::{EncoderConfig, Network, Tessellation, WireVersion};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
@@ -100,9 +100,9 @@ fn buildings_store_no_triangles_on_4g(
     let buildings = layer("buildings", buildings(200));
     let base = EncoderConfig::default().with_wire_version(wire);
 
-    let auto_on_4g = base
-        .with_tessellation(Tessellation::Auto)
-        .with_network(Network::Cellular4G);
+    let auto_on_4g = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(wire)
+        .with_tessellation(Tessellation::Auto);
     let without_triangles = base.with_tessellation(Tessellation::Off);
 
     assert_eq!(
@@ -118,9 +118,9 @@ fn buildings_store_triangles_offline(
     let buildings = layer("buildings", buildings(200));
     let base = EncoderConfig::default().with_wire_version(wire);
 
-    let auto_offline = base
-        .with_tessellation(Tessellation::Auto)
-        .with_network(Network::Offline);
+    let auto_offline = EncoderConfig::from_preset(Profile::Native, Network::Offline)
+        .with_wire_version(wire)
+        .with_tessellation(Tessellation::Auto);
     let with_triangles = base.with_tessellation(Tessellation::Always);
 
     assert_eq!(
@@ -134,9 +134,9 @@ fn a_lake_with_islands_stores_triangles_on_4g_in_v2() {
     let lake = layer("water", [lake_with_islands()]);
     let base = EncoderConfig::default().with_wire_version(WireVersion::V02);
 
-    let auto_on_4g = base
-        .with_tessellation(Tessellation::Auto)
-        .with_network(Network::Cellular4G);
+    let auto_on_4g = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(WireVersion::V02)
+        .with_tessellation(Tessellation::Auto);
     let with_triangles = base.with_tessellation(Tessellation::Always);
 
     assert_eq!(
@@ -152,9 +152,9 @@ fn a_lake_with_islands_stores_no_triangles_on_3g(
     let lake = layer("water", [lake_with_islands()]);
     let base = EncoderConfig::default().with_wire_version(wire);
 
-    let auto_on_3g = base
-        .with_tessellation(Tessellation::Auto)
-        .with_network(Network::Cellular3G);
+    let auto_on_3g = EncoderConfig::from_preset(Profile::Native, Network::Cellular3G)
+        .with_wire_version(wire)
+        .with_tessellation(Tessellation::Auto);
     let without_triangles = base.with_tessellation(Tessellation::Off);
 
     assert_eq!(
@@ -174,9 +174,9 @@ fn a_lake_among_every_geometry_type_stores_triangles_on_4g_in_v2() {
     );
     let base = EncoderConfig::default().with_wire_version(WireVersion::V02);
 
-    let auto_on_4g = base
-        .with_tessellation(Tessellation::Auto)
-        .with_network(Network::Cellular4G);
+    let auto_on_4g = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(WireVersion::V02)
+        .with_tessellation(Tessellation::Auto);
     let with_triangles = base.with_tessellation(Tessellation::Always);
 
     assert_eq!(
@@ -196,9 +196,9 @@ fn a_lake_among_every_geometry_type_stores_no_triangles_on_3g() {
     );
     let base = EncoderConfig::default().with_wire_version(WireVersion::V02);
 
-    let auto_on_3g = base
-        .with_tessellation(Tessellation::Auto)
-        .with_network(Network::Cellular3G);
+    let auto_on_3g = EncoderConfig::from_preset(Profile::Native, Network::Cellular3G)
+        .with_wire_version(WireVersion::V02)
+        .with_tessellation(Tessellation::Auto);
     let without_triangles = base.with_tessellation(Tessellation::Off);
 
     assert_eq!(
@@ -214,9 +214,9 @@ fn roads_store_no_triangles_even_offline(
     let roads = layer("roads", roads());
     let base = EncoderConfig::default().with_wire_version(wire);
 
-    let auto_offline = base
-        .with_tessellation(Tessellation::Auto)
-        .with_network(Network::Offline);
+    let auto_offline = EncoderConfig::from_preset(Profile::Native, Network::Offline)
+        .with_wire_version(wire)
+        .with_tessellation(Tessellation::Auto);
     let without_triangles = base.with_tessellation(Tessellation::Off);
 
     assert_eq!(
@@ -231,9 +231,8 @@ fn sorted_trials_store_no_triangles_when_the_source_order_on_3g_does_not() {
         "landcover",
         [lake_with_islands()].into_iter().chain(buildings(50)),
     );
-    let sorted = EncoderConfig::default()
+    let sorted = EncoderConfig::from_preset(Profile::Native, Network::Cellular3G)
         .with_wire_version(WireVersion::V02)
-        .with_network(Network::Cellular3G)
         .with_spatial_hilbert_sort(true)
         .with_id_sort(true);
 
@@ -252,9 +251,8 @@ fn sorted_trials_store_triangles_when_the_source_order_offline_does() {
         "landcover",
         [lake_with_islands()].into_iter().chain(buildings(50)),
     );
-    let sorted = EncoderConfig::default()
+    let sorted = EncoderConfig::from_preset(Profile::Native, Network::Offline)
         .with_wire_version(WireVersion::V02)
-        .with_network(Network::Offline)
         .with_spatial_hilbert_sort(true)
         .with_id_sort(true);
 
@@ -275,14 +273,16 @@ fn the_network_changes_nothing_without_tessellation(
         "landcover",
         [lake_with_islands()].into_iter().chain(buildings(50)),
     );
-    let sorted_without_triangles = EncoderConfig::default()
+    let on_network = EncoderConfig::from_preset(Profile::Native, network)
         .with_wire_version(WireVersion::V02)
         .with_tessellation(Tessellation::Off)
         .with_spatial_hilbert_sort(true)
         .with_id_sort(true);
-
-    let on_network = sorted_without_triangles.with_network(network);
-    let on_4g = sorted_without_triangles.with_network(Network::Cellular4G);
+    let on_4g = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(WireVersion::V02)
+        .with_tessellation(Tessellation::Off)
+        .with_spatial_hilbert_sort(true)
+        .with_id_sort(true);
 
     assert_eq!(
         lake_and_buildings.encode(on_network).unwrap(),
