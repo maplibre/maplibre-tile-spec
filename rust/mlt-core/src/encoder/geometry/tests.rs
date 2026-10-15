@@ -165,10 +165,7 @@ fn forced_vertex_strategy_streams(
         vertex_buffer_type: strategy,
         ..ExplicitEncoder::all(IntEncoder::varint())
     };
-    let mut enc = Encoder::with_explicit(
-        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-        explicit,
-    );
+    let mut enc = Encoder::explicit(explicit);
     let mut codecs = Codecs::default();
     decoded
         .clone()

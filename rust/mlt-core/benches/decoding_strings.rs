@@ -3,10 +3,9 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use geo_types::Point;
 use mlt_core::encoder::{
-    Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
-    Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
+    Codecs, Encoder, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder, Presence,
+    StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
 };
-use mlt_core::encoder::{Network, Profile};
 use mlt_core::test_helpers::{IntoLayer01 as _, dec, parser};
 use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
@@ -87,13 +86,7 @@ fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> V
     let mut codecs = Codecs::default();
     StagedLayer::new("bench", 4096, StagedId::None, make_geometry(n), props)
         .expect("valid bench layer")
-        .encode_into(
-            Encoder::with_explicit(
-                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-                cfg,
-            ),
-            &mut codecs,
-        )
+        .encode_into(Encoder::explicit(cfg), &mut codecs)
         .expect("encode_layer failed")
         .into_layer_bytes()
         .expect("into_layer_bytes failed")

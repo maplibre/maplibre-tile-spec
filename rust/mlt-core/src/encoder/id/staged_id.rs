@@ -218,10 +218,7 @@ mod tests {
         }
         let staged =
             StagedLayer::new("id_roundtrip", 4096, decoded.clone(), geometry, vec![]).unwrap();
-        let enc = Encoder::with_explicit(
-            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-            ExplicitEncoder::for_id(int_enc),
-        );
+        let enc = Encoder::explicit(ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();
         let enc = staged.encode_into(enc, &mut codecs).expect("encode failed");
         let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
@@ -422,10 +419,7 @@ mod tests {
         let mut codecs = Codecs::default();
         ids.clone().write_to(&mut auto_enc, &mut codecs).unwrap();
 
-        let mut plain_enc = Encoder::with_explicit(
-            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-            ExplicitEncoder::for_id(IntEncoder::varint()),
-        );
+        let mut plain_enc = Encoder::explicit(ExplicitEncoder::for_id(IntEncoder::varint()));
         ids.write_to(&mut plain_enc, &mut codecs).unwrap();
 
         assert!(
@@ -589,10 +583,7 @@ mod tests {
             geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
         }
         let staged = StagedLayer::new("id_roundtrip", 4096, decoded.clone(), geometry, vec![])?;
-        let enc = Encoder::with_explicit(
-            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-            ExplicitEncoder::for_id(int_enc),
-        );
+        let enc = Encoder::explicit(ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();
         let enc = staged.encode_into(enc, &mut codecs)?;
         let buf = enc.into_layer_bytes()?;
@@ -625,10 +616,7 @@ mod tests {
             geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
         }
         let staged = StagedLayer::new("id_test", 4096, ids.clone(), geometry, vec![]).unwrap();
-        let enc = Encoder::with_explicit(
-            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-            ExplicitEncoder::for_id(int_enc),
-        );
+        let enc = Encoder::explicit(ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();
         let enc = staged.encode_into(enc, &mut codecs).expect("encode failed");
         let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");

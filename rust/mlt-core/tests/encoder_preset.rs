@@ -33,14 +33,9 @@ fn the_native_preset_allows_shared_dictionaries() {
 #[test]
 fn the_native_preset_keeps_the_source_order() {
     let native = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G);
-    assert_eq!(
-        (
-            native.attempt_spatial_morton_sort(),
-            native.attempt_spatial_hilbert_sort(),
-            native.attempt_id_sort()
-        ),
-        (false, false, false)
-    );
+    assert!(!native.attempt_spatial_morton_sort());
+    assert!(!native.attempt_spatial_hilbert_sort());
+    assert!(!native.attempt_id_sort());
 }
 
 #[test]
@@ -88,14 +83,9 @@ fn the_min_size_preset_stores_no_triangles() {
 #[test]
 fn the_min_size_preset_tries_hilbert_and_id_sorts() {
     let min_size = EncoderConfig::from_preset(Profile::MinSize, Network::Cellular4G);
-    assert_eq!(
-        (
-            min_size.attempt_spatial_morton_sort(),
-            min_size.attempt_spatial_hilbert_sort(),
-            min_size.attempt_id_sort()
-        ),
-        (false, true, true)
-    );
+    assert!(!min_size.attempt_spatial_morton_sort());
+    assert!(min_size.attempt_spatial_hilbert_sort());
+    assert!(min_size.attempt_id_sort());
 }
 
 #[test]

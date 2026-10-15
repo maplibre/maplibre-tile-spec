@@ -12,7 +12,7 @@ use crate::decoder::{ColumnType, Morton};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::model::FloatEncoding;
 use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
-use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
+use crate::encoder::{EncoderConfig, IntEncoder, Network, Profile, VertexBufferType};
 use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
@@ -179,6 +179,14 @@ impl Encoder {
             family_context: Family::default(),
             alt_stack: Vec::new(),
         }
+    }
+
+    /// An encoder on the v1 wire whose `explicit` callbacks pick every stream encoding.
+    #[inline]
+    #[must_use]
+    pub fn explicit(explicit: ExplicitEncoder) -> Self {
+        let cfg = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G);
+        Self::with_explicit(cfg, explicit)
     }
 
     /// Like [`Self::new`] but with the explicit encoder set for deterministic encoding

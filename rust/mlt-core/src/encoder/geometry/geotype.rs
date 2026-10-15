@@ -996,10 +996,7 @@ mod tests {
         // Assemble, serialize, parse, decode - same wire layout as geometry encoder:
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut codecs = Codecs::default();
-        let mut enc = Encoder::with_explicit(
-            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-            ExplicitEncoder::all(IntEncoder::varint()),
-        );
+        let mut enc = Encoder::explicit(ExplicitEncoder::all(IntEncoder::varint()));
         enc.write_varint(4u32).unwrap();
         codecs
             .write_int_stream(

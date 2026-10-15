@@ -166,10 +166,7 @@ fn test_decode_u32(
 #[case::edge_values(vec![0, 1, 2, 4, 8, 16, 1024, 65535, 1_000_000_000, u32::MAX])]
 #[case::empty(vec![])]
 fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
-    let mut enc = Encoder::with_explicit(
-        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-        ExplicitEncoder::all(IntEncoder::fastpfor()),
-    );
+    let mut enc = Encoder::explicit(ExplicitEncoder::all(IntEncoder::fastpfor()));
     let codecs = &mut Codecs::default();
     let ctx = StreamCtx::prop_data("test");
     codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
@@ -434,7 +431,7 @@ proptest! {
         encoding in any::<IntEncoder>(),
     ) {
         let widened: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
-        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::explicit(ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
@@ -449,7 +446,7 @@ proptest! {
         encoding in any::<IntEncoder>()
     ) {
         let widened: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
-        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::explicit(ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
@@ -463,7 +460,7 @@ proptest! {
         values in prop::collection::vec(any::<u32>(), 0..100),
         encoding in any::<IntEncoder>()
     ) {
-        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::explicit(ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let decoded_values = roundtrip_stream_u32s(enc.data());
@@ -475,7 +472,7 @@ proptest! {
         values in prop::collection::vec(any::<i32>(), 0..100),
         encoding in any::<IntEncoder>(),
     ) {
-        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::explicit(ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
@@ -489,7 +486,7 @@ proptest! {
         values in prop::collection::vec(any::<u64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::explicit(ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
@@ -503,7 +500,7 @@ proptest! {
         values in prop::collection::vec(any::<i64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::explicit(ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));

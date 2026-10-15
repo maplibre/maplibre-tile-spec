@@ -155,10 +155,7 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
 fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
     let n = props.iter().map(staged_len).max().unwrap_or(0);
     let layer = StagedLayer::new("test", 4096, StagedId::None, n_point_geometry(n), props).unwrap();
-    let enc = Encoder::with_explicit(
-        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-        cfg,
-    );
+    let enc = Encoder::explicit(cfg);
     let mut codecs = Codecs::default();
     let enc = layer
         .encode_into(enc, &mut codecs)

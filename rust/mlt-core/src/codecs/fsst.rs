@@ -224,7 +224,7 @@ pub fn compress_fsst_with<S: AsRef<str>>(
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{Network, Profile};
+
     use rstest::rstest;
 
     use super::*;
@@ -232,9 +232,7 @@ mod tests {
     use crate::decoder::stream::header01;
     use crate::decoder::{DictionaryType, LengthType, RawFsstData, StreamType, ValueKind};
     use crate::encoder::model::StreamCtx;
-    use crate::encoder::{
-        Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder,
-    };
+    use crate::encoder::{Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -250,10 +248,7 @@ mod tests {
         use crate::decoder::StreamMeta;
 
         let int_stream = |values: &[u32], ty: StreamType, name: &'static str| {
-            let mut enc = Encoder::with_explicit(
-                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-                ExplicitEncoder::all(IntEncoder::varint()),
-            );
+            let mut enc = Encoder::explicit(ExplicitEncoder::all(IntEncoder::varint()));
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop(ty, name);
             codecs.write_int_stream(values, &ctx, &mut enc).unwrap();

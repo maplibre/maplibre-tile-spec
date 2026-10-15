@@ -58,14 +58,14 @@ pub enum LogicalEncoder {
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{Network, Profile};
+
     use proptest::prelude::*;
 
     use super::*;
     use crate::decoder::ValueKind;
     use crate::decoder::stream::header01;
     use crate::encoder::model::StreamCtx;
-    use crate::encoder::{Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder};
+    use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder};
     use crate::test_helpers::{assert_empty, dec, parser};
 
     proptest! {
@@ -74,10 +74,7 @@ mod tests {
             values in prop::collection::vec(any::<u32>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
-            let mut enc = Encoder::with_explicit(
-                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-                ExplicitEncoder::all(IntEncoder::varint_with(logical)),
-            );
+            let mut enc = Encoder::explicit(ExplicitEncoder::all(IntEncoder::varint_with(logical)));
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
@@ -91,10 +88,7 @@ mod tests {
             values in prop::collection::vec(any::<i32>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
-            let mut enc = Encoder::with_explicit(
-                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-                ExplicitEncoder::all(IntEncoder::varint_with(logical)),
-            );
+            let mut enc = Encoder::explicit(ExplicitEncoder::all(IntEncoder::varint_with(logical)));
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
@@ -108,10 +102,7 @@ mod tests {
             values in prop::collection::vec(any::<u64>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
-            let mut enc = Encoder::with_explicit(
-                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-                ExplicitEncoder::all(IntEncoder::varint_with(logical)),
-            );
+            let mut enc = Encoder::explicit(ExplicitEncoder::all(IntEncoder::varint_with(logical)));
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
@@ -125,10 +116,7 @@ mod tests {
             values in prop::collection::vec(any::<i64>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
-            let mut enc = Encoder::with_explicit(
-                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
-                ExplicitEncoder::all(IntEncoder::varint_with(logical)),
-            );
+            let mut enc = Encoder::explicit(ExplicitEncoder::all(IntEncoder::varint_with(logical)));
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();

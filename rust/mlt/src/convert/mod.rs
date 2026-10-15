@@ -1149,13 +1149,8 @@ mod tests {
         let encoder = parse_args(&["--profile", "min_size", "--sort", "none", "src", "dst"])
             .encoder()
             .unwrap();
-        assert_eq!(
-            (
-                encoder.attempt_spatial_hilbert_sort(),
-                encoder.attempt_id_sort()
-            ),
-            (false, false)
-        );
+        assert!(!encoder.attempt_spatial_hilbert_sort());
+        assert!(!encoder.attempt_id_sort());
     }
 
     #[test]
