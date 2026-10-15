@@ -97,7 +97,7 @@
 <text class="cell muted small" x="666" y="98">+3</text>
 <rect class="plain" x="678" y="84" width="20" height="28" rx="3"/>
 <text class="cell muted small" x="688" y="98">+3</text>
-<text class="row" x="0" y="150">v2 index</text>
+<text class="row" x="0" y="150">v2 triangles</text>
 <rect class="f0" x="130" y="136" width="20" height="28" rx="3"/>
 <text class="cell" x="140" y="150">1</text>
 <rect class="f0" x="152" y="136" width="20" height="28" rx="3"/>

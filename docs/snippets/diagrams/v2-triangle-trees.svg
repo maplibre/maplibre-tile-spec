@@ -1,0 +1,117 @@
+<svg class="mlt-diagram" viewBox="0 0 710 480" role="img" aria-label="Tree 1 of the example: its six triangles numbered in symbol order and joined across shared edges, entered across 3 to 6. Then the same triangles with the cycle walking their outline from u = 3 and v = 6 through p0 to p5" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ttree" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="ttree0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="ttree1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<polygon class="f1" points="40,195 160,195 205,270"/>
+<polygon class="f1" points="40,195 205,270 250,360"/>
+<polygon class="f1" points="250,360 205,270 325,30"/>
+<polygon class="f1" points="325,30 205,270 235,120"/>
+<polygon class="f1" points="325,30 235,120 40,195"/>
+<polygon class="f1" points="40,195 235,120 160,195"/>
+<path class="link t0" d="M54.9,198.5L154.9,198.5" marker-end="url(#ttree0)"/>
+<path class="link" d="M135,220L122.5,232.5L165,275"/>
+<path class="link" d="M165,275L227.5,315L260,220"/>
+<path class="link" d="M260,220L265,150L255,140"/>
+<path class="link" d="M255,140L280,75L200,115"/>
+<path class="link" d="M200,115L137.5,157.5L145,170"/>
+<circle class="node" cx="135" cy="220" r="9"/>
+<text class="tri t1" x="135" y="220">1</text>
+<circle class="node" cx="165" cy="275" r="9"/>
+<text class="tri t1" x="165" y="275">2</text>
+<circle class="node" cx="260" cy="220" r="9"/>
+<text class="tri t1" x="260" y="220">3</text>
+<circle class="node" cx="255" cy="140" r="9"/>
+<text class="tri t1" x="255" y="140">4</text>
+<circle class="node" cx="200" cy="115" r="9"/>
+<text class="tri t1" x="200" y="115">5</text>
+<circle class="node" cx="145" cy="170" r="9"/>
+<text class="tri t1" x="145" y="170">6</text>
+<circle class="dot" cx="40" cy="195" r="3.5"/>
+<text class="vert halo" x="26" y="195">3</text>
+<circle class="dot" cx="160" cy="195" r="3.5"/>
+<text class="vert halo" x="164" y="180">6</text>
+<circle class="dot" cx="235" cy="120" r="3.5"/>
+<text class="vert halo" x="247" y="107">7</text>
+<circle class="dot" cx="205" cy="270" r="3.5"/>
+<text class="vert halo" x="201" y="288">8</text>
+<circle class="dot" cx="250" cy="360" r="3.5"/>
+<text class="vert halo" x="250" y="378">4</text>
+<circle class="dot" cx="325" cy="30" r="3.5"/>
+<text class="vert halo" x="338" y="22">5</text>
+<text class="row" x="40" y="440">symbols</text>
+<rect class="f1" x="136" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="147" y="440">2</text>
+<text class="muted mid" x="147" y="466"><tspan class="small">1</tspan></text>
+<rect class="f1" x="160" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="171" y="440">1</text>
+<text class="muted mid" x="171" y="466"><tspan class="small">2</tspan></text>
+<rect class="f1" x="184" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="195" y="440">1</text>
+<text class="muted mid" x="195" y="466"><tspan class="small">3</tspan></text>
+<rect class="f1" x="208" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="219" y="440">2</text>
+<text class="muted mid" x="219" y="466"><tspan class="small">4</tspan></text>
+<rect class="f1" x="232" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="243" y="440">1</text>
+<text class="muted mid" x="243" y="466"><tspan class="small">5</tspan></text>
+<rect class="f1" x="256" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="267" y="440">0</text>
+<text class="muted mid" x="267" y="466"><tspan class="small">6</tspan></text>
+<polygon class="f1 area" points="400,195 520,195 565,270"/>
+<polygon class="f1 area" points="400,195 565,270 610,360"/>
+<polygon class="f1 area" points="610,360 565,270 685,30"/>
+<polygon class="f1 area" points="685,30 565,270 595,120"/>
+<polygon class="f1 area" points="685,30 595,120 400,195"/>
+<polygon class="f1 area" points="400,195 595,120 520,195"/>
+<path class="link t0" d="M400,197L460,197" marker-end="url(#ttree0)"/>
+<path class="link t0" d="M460,197L520,197"/>
+<path class="link" d="M520,195L542.5,232.5" marker-end="url(#ttree)"/>
+<path class="link" d="M542.5,232.5L565,270"/>
+<path class="link" d="M565,270L580,195" marker-end="url(#ttree)"/>
+<path class="link" d="M580,195L595,120"/>
+<path class="link" d="M595,120L557.5,157.5" marker-end="url(#ttree)"/>
+<path class="link" d="M557.5,157.5L520,195"/>
+<path class="link" d="M520,193L460,193" marker-end="url(#ttree)"/>
+<path class="link" d="M460,193L400,193"/>
+<path class="link" d="M400,195L542.5,112.5" marker-end="url(#ttree)"/>
+<path class="link" d="M542.5,112.5L685,30"/>
+<path class="link" d="M685,30L647.5,195" marker-end="url(#ttree)"/>
+<path class="link" d="M647.5,195L610,360"/>
+<path class="link" d="M610,360L505,277.5" marker-end="url(#ttree)"/>
+<path class="link" d="M505,277.5L400,195"/>
+<circle class="dot" cx="400" cy="195" r="3.5"/>
+<text class="vert halo" x="386" y="195">3</text>
+<circle class="dot" cx="520" cy="195" r="3.5"/>
+<text class="vert halo" x="524" y="180">6</text>
+<circle class="dot" cx="595" cy="120" r="3.5"/>
+<text class="vert halo" x="607" y="107">7</text>
+<circle class="dot" cx="565" cy="270" r="3.5"/>
+<text class="vert halo" x="561" y="288">8</text>
+<circle class="dot" cx="610" cy="360" r="3.5"/>
+<text class="vert halo" x="610" y="378">4</text>
+<circle class="dot" cx="685" cy="30" r="3.5"/>
+<text class="vert halo" x="698" y="22">5</text>
+<text class="row" x="400" y="440">cycle</text>
+<rect class="f0" x="496" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="507" y="440">3</text>
+<text class="muted mid" x="507" y="466"><tspan class="math">u</tspan></text>
+<rect class="f0" x="520" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="531" y="440">6</text>
+<text class="muted mid" x="531" y="466"><tspan class="math">v</tspan></text>
+<rect class="f1" x="544" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="555" y="440">8</text>
+<text class="muted mid" x="555" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">0</tspan></text>
+<rect class="f1" x="568" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="579" y="440">7</text>
+<text class="muted mid" x="579" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">1</tspan></text>
+<rect class="f1" x="592" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="603" y="440">6</text>
+<text class="muted mid" x="603" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">2</tspan></text>
+<rect class="f1" x="616" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="627" y="440">3</text>
+<text class="muted mid" x="627" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">3</tspan></text>
+<rect class="f1" x="640" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="651" y="440">5</text>
+<text class="muted mid" x="651" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">4</tspan></text>
+<rect class="f1" x="664" y="426" width="22" height="28" rx="3"/>
+<text class="cell" x="675" y="440">4</text>
+<text class="muted mid" x="675" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">5</tspan></text>
+</svg>

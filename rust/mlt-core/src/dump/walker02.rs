@@ -176,13 +176,13 @@ impl<'a> Walker<'a> {
         if layout.is_tess() {
             let ctx = StreamCtx02::GeomOffsets(LengthType::Triangles);
             (input, _) = self.walk_stream02(input, ctx, count, "tri_lengths", DecodeHint::U32)?;
-            (input, _) = self.walk_stream02(
-                input,
-                StreamCtx02::GeomIndices,
-                count,
-                "tri_indexes",
-                DecodeHint::U32,
-            )?;
+            let trees = [
+                (StreamCtx02::GeomTreeSymbols, "tri_symbols"),
+                (StreamCtx02::GeomTreeCycles, "tri_cycles"),
+            ];
+            for (ctx, label) in trees {
+                (input, _) = self.walk_stream02(input, ctx, count, label, DecodeHint::U32)?;
+            }
         }
 
         let label = if layout.is_dict() {

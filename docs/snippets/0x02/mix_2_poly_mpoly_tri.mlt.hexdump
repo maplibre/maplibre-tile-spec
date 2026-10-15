@@ -1,5 +1,5 @@
-00000000                                                                     | layer[0] "layer1" (75 B)
-00000000  4a                                                J                |   size: 74 (varint) - tag + body
+00000000                                                                     | layer[0] "layer1" (76 B)
+00000000  4b                                                K                |   size: 75 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 00000009  00                                                .                |   header: extent = 64
@@ -11,7 +11,7 @@
                                                                              |     └ bit 7 = 0 -> shared bitfields are bitmaps
                                                                              |     └ bits 6-4 = 000 -> shared presence bitfields = 0
                                                                              |     └ bits 3-0 = 1100 -> geometry layout = TessPolygons
-0000000c                                                                     |   geometry (62 B)
+0000000c                                                                     |   geometry (63 B)
 0000000c                                                                     |     types (4 B)
 0000000c  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
@@ -30,26 +30,35 @@
 00000011  02                                                .                |       byte_length: 2
 00000012  01 07                                             ..               |       data [Length(Triangles) Int(None)/VarInt, 2 values, 2 B]
                                                                              |         decoded: [1, 7]
-00000014                                                                     |     tri_indexes (27 B)
+00000014                                                                     |     tri_symbols (11 B)
 00000014  88                                                .                |       encoding: 0x88 logical=None physical=VarInt
                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
                                                                              |         └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
                                                                              |         └ bits 1-0 = 00 -> extension = 0
-00000015  18                                                .                |       num_values: 24
-00000016  18                                                .                |       byte_length: 24
-00000017  01 02 00 03 06 07 08 06 03 05 03 07 08 03 04 04   ................ |       data [Offset(Index) Int(None)/VarInt, 24 values, 24 B]
-00000027  05 07 07 08 04 0a 0b 09                           ........         |
-                                                                             |         decoded: [1, 2, 0, 3, 6, 7, 8, 6, 3, 5, 3, 7, 8, 3, 4, 4, 5, 7, 7, 8, 4, 10, 11, 9]
-0000002f                                                                     |     vertices (27 B)
-0000002f  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+00000015  08                                                .                |       num_values: 8
+00000016  08                                                .                |       byte_length: 8
+00000017  00 03 01 02 02 00 00 00                           ........         |       data [Offset(TreeSymbols) Int(None)/VarInt, 8 values, 8 B]
+                                                                             |         decoded: [0, 3, 1, 2, 2, 0, 0, 0]
+0000001f                                                                     |     tri_cycles (17 B)
+0000001f  88                                                .                |       encoding: 0x88 logical=None physical=VarInt
+                                                                             |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |         └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |         └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |         └ bits 1-0 = 00 -> extension = 0
+00000020  0e                                                .                |       num_values: 14
+00000021  0e                                                .                |       byte_length: 14
+00000022  00 01 02 03 04 05 03 06 07 08 06 09 0a 0b         ..............   |       data [Offset(TreeCycles) Int(None)/VarInt, 14 values, 14 B]
+                                                                             |         decoded: [0, 1, 2, 3, 4, 5, 3, 6, 7, 8, 6, 9, 10, 11]
+00000030                                                                     |     vertices (27 B)
+00000030  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
                                                                              |         └ bits 1-0 = 00 -> extension = 0
-00000030  0c                                                .                |       num_values: 12
-00000031  18                                                .                |       byte_length: 24
-00000032  6e 0a 28 22 21 0c 65 0f 26 15 09 2c 0b 15 06 0a   n.("!.e.&..,.... |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 24 B]
-00000042  04 13 62 54 08 0e 03 04                           ..bT....         |
+00000031  0c                                                .                |       num_values: 12
+00000032  18                                                .                |       byte_length: 24
+00000033  6e 0a 28 22 21 0c 65 0f 26 15 09 2c 0b 15 06 0a   n.("!.e.&..,.... |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 24 B]
+00000043  04 13 62 54 08 0e 03 04                           ..bT....         |
                                                                              |         decoded: [55, 5, 75, 22, 58, 28, 7, 20, 26, 9, 21, 31, 15, 20, 18, 25, 20, 15, 69, 57, 73, 64, 71, 66]
-0000004a  00                                                .                |   column_count: 0
+0000004b  00                                                .                |   column_count: 0

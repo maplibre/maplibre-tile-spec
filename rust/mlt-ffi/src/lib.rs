@@ -537,7 +537,7 @@ mod tests {
                         id: Some(
                             1,
                         ),
-                        geometry: POLYGON((8 12,20 34,3 6,8 12)),
+                        geometry: POLYGON((3 6,8 12,20 34,3 6)),
                         properties: [
                             Bool(
                                 Some(

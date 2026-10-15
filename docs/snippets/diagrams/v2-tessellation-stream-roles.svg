@@ -1,0 +1,78 @@
+<svg class="mlt-diagram" viewBox="0 0 710 250" role="img" aria-label="Triangle lengths 1 and 7, one per polygon feature, each spanning that many symbols. Symbols, one per triangle, numbered 0 to 7. Cycles, one run of vertex indices per tree: tree 0 of 1 triangle holds 3, tree 1 of 6 triangles holds 8, tree 2 of 1 triangle holds 3" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="trole" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="trole0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="trole1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="60">triangle lengths</text>
+<text class="muted small" x="560" y="60">triangles per feature</text>
+<text class="row" x="0" y="140">tree symbols</text>
+<text class="muted small" x="560" y="140">one per triangle</text>
+<text class="row" x="0" y="200">tree cycles</text>
+<text class="muted small" x="560" y="200">vertex indices,</text>
+<text class="muted small" x="560" y="216"><tspan class="math">n</tspan> + 2 per tree</text>
+<rect class="f0" x="150" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="161" y="140">0</text>
+<text class="muted small mid" x="161" y="164">0</text>
+<rect class="f0" x="150" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="161" y="200">0</text>
+<rect class="f0" x="174" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="185" y="200">2</text>
+<rect class="f0" x="198" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="209" y="200">1</text>
+<path class="bracket" d="M150 220V226H220V220"/>
+<text class="muted small mid" x="185" y="240">tree 0</text>
+<rect class="f1" x="236" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="247" y="140">2</text>
+<text class="muted small mid" x="247" y="164">1</text>
+<rect class="f1" x="260" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="271" y="140">1</text>
+<text class="muted small mid" x="271" y="164">2</text>
+<rect class="f1" x="284" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="295" y="140">1</text>
+<text class="muted small mid" x="295" y="164">3</text>
+<rect class="f1" x="308" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="319" y="140">2</text>
+<text class="muted small mid" x="319" y="164">4</text>
+<rect class="f1" x="332" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="343" y="140">1</text>
+<text class="muted small mid" x="343" y="164">5</text>
+<rect class="f1" x="356" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="367" y="140">0</text>
+<text class="muted small mid" x="367" y="164">6</text>
+<rect class="f1" x="236" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="247" y="200">3</text>
+<rect class="f1" x="260" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="271" y="200">6</text>
+<rect class="f1" x="284" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="295" y="200">8</text>
+<rect class="f1" x="308" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="319" y="200">7</text>
+<rect class="f1" x="332" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="343" y="200">6</text>
+<rect class="f1" x="356" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="367" y="200">3</text>
+<rect class="f1" x="380" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="391" y="200">5</text>
+<rect class="f1" x="404" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="415" y="200">4</text>
+<path class="bracket" d="M236 220V226H426V220"/>
+<text class="muted small mid" x="331" y="240">tree 1</text>
+<rect class="f1" x="442" y="126" width="22" height="28" rx="3"/>
+<text class="cell" x="453" y="140">0</text>
+<text class="muted small mid" x="453" y="164">7</text>
+<rect class="f1" x="442" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="453" y="200">9</text>
+<rect class="f1" x="466" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="477" y="200">11</text>
+<rect class="f1" x="490" y="186" width="22" height="28" rx="3"/>
+<text class="cell" x="501" y="200">10</text>
+<path class="bracket" d="M442 220V226H512V220"/>
+<text class="muted small mid" x="477" y="240">tree 2</text>
+<text class="t0 bold mid" x="161" y="14">feature 0</text>
+<rect class="f0" x="147.0" y="46" width="28" height="28" rx="3"/>
+<text class="cell" x="161" y="60">1</text>
+<path class="bracket t0" d="M150 120V114H172V120"/>
+<path class="link" d="M161 74V112" marker-end="url(#trole)"/>
+<text class="t1 bold mid" x="350" y="14">feature 1</text>
+<rect class="f1" x="336.0" y="46" width="28" height="28" rx="3"/>
+<text class="cell" x="350" y="60">7</text>
+<path class="bracket t1" d="M236 120V114H464V120"/>
+<path class="link" d="M350 74V112" marker-end="url(#trole)"/>
+</svg>

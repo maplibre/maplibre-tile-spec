@@ -161,6 +161,8 @@ fn stream_token(stream: StreamType) -> &'static str {
             OffsetType::Index => "offset[index]",
             OffsetType::String => "offset[string]",
             OffsetType::Key => "offset[key]",
+            OffsetType::TreeSymbols => "offset[tree-symbols]",
+            OffsetType::TreeCycles => "offset[tree-cycles]",
         },
         StreamType::Length(v) => match v {
             LengthType::VarBinary => "length[var-binary]",

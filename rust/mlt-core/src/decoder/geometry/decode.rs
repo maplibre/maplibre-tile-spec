@@ -427,6 +427,10 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
         let mut vertex_stream: Option<RawStream<'_>> = None;
         #[cfg(feature = "unstable-v2")]
         let mut z_step = None;
+        #[cfg(feature = "unstable-v2")]
+        let mut tree_symbols: Option<Vec<u32>> = None;
+        #[cfg(feature = "unstable-v2")]
+        let mut tree_cycles: Option<Vec<u32>> = None;
 
         for stream in items {
             match stream.meta.stream_type {
@@ -452,6 +456,18 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                     let target = match v {
                         OffsetType::Vertex => &mut vertex_offsets,
                         OffsetType::Index => &mut index_buffer,
+                        #[cfg(feature = "unstable-v2")]
+                        OffsetType::TreeSymbols if index_base == IndexBase::Layer => {
+                            &mut tree_symbols
+                        }
+                        #[cfg(feature = "unstable-v2")]
+                        OffsetType::TreeCycles if index_base == IndexBase::Layer => {
+                            &mut tree_cycles
+                        }
+                        #[cfg(feature = "unstable-v2")]
+                        OffsetType::TreeSymbols | OffsetType::TreeCycles => {
+                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                        }
                         OffsetType::String | OffsetType::Key => {
                             Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
                         }
@@ -476,6 +492,18 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                 }
             }
         }
+
+        #[cfg(feature = "unstable-v2")]
+        let tree_cycles = match (tree_symbols, tree_cycles) {
+            (None, None) => None,
+            (Some(symbols), Some(cycles)) => {
+                index_buffer.set_once(crate::codecs::tri::decode_trees(&symbols, &cycles, dec)?)?;
+                Some(cycles)
+            }
+            _ => Err(MltError::MalformedTriangles(
+                "tree symbols and cycles come as a pair",
+            ))?,
+        };
 
         let triangles_only = index_buffer.is_some() && part_offsets.is_none();
         if triangles_only {
@@ -513,6 +541,21 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
         let triangle_offsets = triangles
             .map(|lengths| decode_triangle_offsets(&lengths, dec))
             .transpose()?;
+        #[cfg(feature = "unstable-v2")]
+        if let Some(cycles) = &tree_cycles {
+            let triangles = index_buffer.as_ref().map_or(0, |b| b.len() / 3);
+            let total = triangle_offsets.as_ref().and_then(|o| o.last()).copied();
+            if total.map_or(0, u32::into_usize) != triangles {
+                return Err(MltError::MalformedTriangles(
+                    "triangle lengths do not sum to the symbol count",
+                ));
+            }
+            let stride = if z_step.is_some() { 3 } else { 2 };
+            let vertex_count = vertices.as_ref().map_or(0, |v| v.len() / stride);
+            if let Some(&idx) = cycles.iter().find(|&&i| i.into_usize() >= vertex_count) {
+                return Err(MltError::TreeVertexOutOfBounds(idx, vertex_count));
+            }
+        }
 
         // Expand vertex dictionary:
         // If a vertex offset stream was present,

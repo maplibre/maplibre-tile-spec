@@ -645,9 +645,9 @@ pub enum GeoLayout {
     MultiPolygons = 0x0A,
     /// `Types`, `GeoLengths`, `PartLengths`, `RingLengths`, `VertexData` (dict), `VertexOffsets`
     MultiPolygonsDict = 0x0B,
-    /// `Types`, `TriLengths`, `IndexBuffer`, `Vertices`
+    /// `Types`, `TriLengths`, `TreeSymbols`, `TreeCycles`, `Vertices`
     TessPolygons = 0x0C,
-    /// `Types`, `GeoLengths`, `PartLengths`, `RingLengths`, `TriLengths`, `IndexBuffer`, `Vertices`
+    /// `Types`, `GeoLengths`, `PartLengths`, `RingLengths`, `TriLengths`, `TreeSymbols`, `TreeCycles`, `Vertices`
     TessPolygonsWithOutlines = 0x0D,
 }
 
@@ -809,7 +809,7 @@ impl GeoLayout {
         !matches!(self, Self::Points | Self::PointsDict | Self::TessPolygons)
     }
 
-    /// Whether tessellation streams (`TriLengths`, `IndexBuffer`) are present.
+    /// Whether tessellation streams (`TriLengths`, `TreeSymbols`, `TreeCycles`) are present.
     #[must_use]
     pub(crate) fn is_tess(self) -> bool {
         matches!(self, Self::TessPolygons | Self::TessPolygonsWithOutlines)

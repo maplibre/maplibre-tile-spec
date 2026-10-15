@@ -385,6 +385,12 @@ pub enum OffsetType {
     Index = 0b0000_0001,
     String = 0b0000_0010,
     Key = 0b0000_0011,
+    /// One triangle tree symbol per triangle of a tessellated layer.
+    #[cfg(feature = "unstable-v2")]
+    TreeSymbols = 0b0000_0100,
+    /// The outline cycle of each triangle tree of a tessellated layer.
+    #[cfg(feature = "unstable-v2")]
+    TreeCycles = 0b0000_0101,
 }
 
 /// Length type used for a column, as stored in the tile
@@ -555,6 +561,10 @@ impl Display for StreamType {
                     OffsetType::Index => "index",
                     OffsetType::String => "string",
                     OffsetType::Key => "key",
+                    #[cfg(feature = "unstable-v2")]
+                    OffsetType::TreeSymbols => "tree-symbols",
+                    #[cfg(feature = "unstable-v2")]
+                    OffsetType::TreeCycles => "tree-cycles",
                 };
                 write!(f, "offset[{name}]")
             }
@@ -705,12 +715,18 @@ mod tests {
     }
 
     #[cfg(feature = "unstable-v2")]
-    #[test]
-    fn a_nested_length_stream_renders_its_wire_label() {
-        assert_eq!(
-            StreamType::Length(LengthType::Nested).to_string(),
-            "length[nested]"
-        );
+    #[rstest]
+    #[case::length_nested(StreamType::Length(LengthType::Nested), "length[nested]")]
+    #[case::offset_tree_symbols(
+        StreamType::Offset(OffsetType::TreeSymbols),
+        "offset[tree-symbols]"
+    )]
+    #[case::offset_tree_cycles(StreamType::Offset(OffsetType::TreeCycles), "offset[tree-cycles]")]
+    fn every_v2_stream_type_renders_its_wire_label(
+        #[case] stream_type: StreamType,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(stream_type.to_string(), expected);
     }
 
     #[rstest]
