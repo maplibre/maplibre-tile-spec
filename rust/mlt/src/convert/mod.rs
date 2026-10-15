@@ -17,7 +17,10 @@ use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, Tessellation, WireVersion};
+use mlt_core::encoder::{
+    EncodedUnknown, Encoder, EncoderConfig, Network as CoreNetwork, Profile as CoreProfile,
+    Tessellation, WireVersion,
+};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
@@ -183,20 +186,23 @@ enum Profile {
     Diffable,
 }
 
-impl Profile {
-    fn apply(self, encoder: EncoderConfig, network: Option<Network>) -> EncoderConfig {
-        match self {
-            Self::Web if network == Some(Network::Offline) => encoder,
-            Self::Web => encoder.with_fastpfor(false).with_fsst(false),
-            Self::Native => encoder.with_tessellation(Tessellation::when_cheaper()),
-            Self::MinSize => SortMode::Auto
-                .apply(encoder)
-                .with_delta2(true)
-                .with_rans_vertices(true),
-            Self::Diffable => encoder
-                .with_fsst(false)
-                .with_shared_dict(false)
-                .with_delta2(true),
+impl From<TessellateMode> for Tessellation {
+    fn from(mode: TessellateMode) -> Self {
+        match mode {
+            TessellateMode::Auto => Self::Auto,
+            TessellateMode::Always => Self::Always,
+            TessellateMode::Off => Self::Off,
+        }
+    }
+}
+
+impl From<Profile> for CoreProfile {
+    fn from(profile: Profile) -> Self {
+        match profile {
+            Profile::Web => Self::Web,
+            Profile::Native => Self::Native,
+            Profile::MinSize => Self::MinSize,
+            Profile::Diffable => Self::Diffable,
         }
     }
 }
@@ -217,18 +223,14 @@ enum Network {
     Cellular5G,
 }
 
-impl Network {
-    /// How many times slower than a Ryzen 9 3900 core the client runs earcut.
-    const CLIENT_SLOWDOWN: u32 = 4;
-
-    fn ns_per_byte(self) -> u32 {
-        let mbit_per_s = match self {
-            Self::Offline => return 0,
-            Self::Cellular3G => 2,
-            Self::Cellular4G => 20,
-            Self::Cellular5G => 200,
-        };
-        8_000 / mbit_per_s / Self::CLIENT_SLOWDOWN
+impl From<Network> for CoreNetwork {
+    fn from(network: Network) -> Self {
+        match network {
+            Network::Offline => Self::Offline,
+            Network::Cellular3G => Self::Cellular3G,
+            Network::Cellular4G => Self::Cellular4G,
+            Network::Cellular5G => Self::Cellular5G,
+        }
     }
 }
 
@@ -429,40 +431,43 @@ impl ConvertArgs {
     fn encoder(&self) -> AnyResult<EncoderConfig> {
         let mut encoder = EncoderConfig::default().with_wire_version(self.mlt_version.into());
         if let Some(profile) = self.profile {
-            encoder = profile.apply(encoder, self.network);
+            encoder = encoder.with_profile(profile.into());
+        }
+        if let Some(network) = self.network {
+            encoder = encoder.with_network(network.into());
         }
         if let Some(sort) = self.sort {
             encoder = sort.apply(encoder);
         }
-        let tessellation = match self.tessellate {
-            None => encoder.tessellation(),
-            Some(TessellateMode::Auto) => Tessellation::when_cheaper(),
-            Some(TessellateMode::Always) => Tessellation::Always,
-            Some(TessellateMode::Off) => Tessellation::Off,
-        };
-        let tessellation = match (tessellation, self.network) {
-            (Tessellation::WhenCheaper { .. }, Some(network)) => Tessellation::WhenCheaper {
-                ns_per_byte: network.ns_per_byte(),
-            },
-            _ => tessellation,
-        };
+        if let Some(mode) = self.tessellate {
+            encoder = encoder.with_tessellation(mode.into());
+        }
         let v2 = &self.v2;
-        if v2.triangles_only && tessellation == Tessellation::Off {
+        if v2.triangles_only && encoder.tessellation() == Tessellation::Off {
             bail!(
                 "--triangles-only drops the outlines of tessellated layers, so it needs --tessellate"
             );
         }
+        if self.no_shared_dict {
+            encoder = encoder.with_shared_dict(false);
+        }
+        if self.no_fastpfor {
+            encoder = encoder.with_fastpfor(false);
+        }
+        if self.no_fsst {
+            encoder = encoder.with_fsst(false);
+        }
+        if v2.delta2 {
+            encoder = encoder.with_delta2(true);
+        }
+        if v2.rans_vertices {
+            encoder = encoder.with_rans_vertices(true);
+        }
         Ok(encoder
-            .with_tessellation(tessellation)
-            .with_shared_dict(encoder.allow_shared_dict() && !self.no_shared_dict)
-            .with_fastpfor(encoder.allow_fastpfor() && !self.no_fastpfor)
-            .with_fsst(encoder.allow_fsst() && !self.no_fsst)
             .with_float_alp(!v2.no_alp)
             .with_float_dict(!v2.no_float_dict)
             .with_packed_dict_codes(!v2.no_bitpacking)
-            .with_triangles_only(v2.triangles_only)
-            .with_delta2(encoder.allow_delta2() || v2.delta2)
-            .with_rans_vertices(encoder.allow_rans_vertices() || v2.rans_vertices))
+            .with_triangles_only(v2.triangles_only))
     }
 }
 
@@ -982,12 +987,12 @@ mod tests {
     fn tessellate_flags_pick_a_tessellation() {
         for (flags, expected) in [
             (&[][..], Tessellation::Off),
-            (&["--tessellate"], Tessellation::when_cheaper()),
-            (&["-t"], Tessellation::when_cheaper()),
-            (&["--tessellate=auto"], Tessellation::when_cheaper()),
+            (&["--tessellate"], Tessellation::Auto),
+            (&["-t"], Tessellation::Auto),
+            (&["--tessellate=auto"], Tessellation::Auto),
             (&["--tessellate=always"], Tessellation::Always),
             (&["--tessellate=off"], Tessellation::Off),
-            (&["--profile", "native"], Tessellation::when_cheaper()),
+            (&["--profile", "native"], Tessellation::Auto),
             (
                 &["--profile", "native", "--tessellate=off"],
                 Tessellation::Off,
@@ -1006,14 +1011,6 @@ mod tests {
                 "{flags:?}"
             );
         }
-    }
-
-    #[test]
-    fn the_4g_network_is_the_default_tessellation_rate() {
-        assert_eq!(
-            Network::Cellular4G.ns_per_byte(),
-            Tessellation::DEFAULT_NS_PER_BYTE
-        );
     }
 
     #[test]
@@ -1072,29 +1069,30 @@ mod tests {
                 sorts.join(",")
             };
             format!(
-                "convert {flags:<42} | {:?} | sort {sorts} | {}",
+                "convert {flags:<42} | {:?} | {:?} | sort {sorts} | {}",
+                e.network(),
                 e.tessellation(),
                 codecs.join(",")
             )
         })
         .collect();
         insta::assert_snapshot!(rows.join("\n"), @"
-        convert                                            | Off | sort none | fastpfor,fsst,shared-dict
-        convert --profile web                              | Off | sort none | shared-dict
-        convert --profile native                           | WhenCheaper { ns_per_byte: 100 } | sort none | fastpfor,fsst,shared-dict
-        convert --profile min_size                         | Off | sort hilbert,id | fastpfor,fsst,shared-dict,delta2,rans
-        convert --profile min-size                         | Off | sort hilbert,id | fastpfor,fsst,shared-dict,delta2,rans
-        convert --profile diffable                         | Off | sort none | fastpfor,delta2
-        convert --profile min_size --mlt-version 1         | Off | sort hilbert,id | fastpfor,fsst,shared-dict
-        convert --profile min_size --sort none             | Off | sort none | fastpfor,fsst,shared-dict,delta2,rans
-        convert --profile diffable --sort id --no-fastpfor | Off | sort id | delta2
-        convert --profile web --tessellate                 | WhenCheaper { ns_per_byte: 100 } | sort none | shared-dict
-        convert --profile web --network offline            | Off | sort none | fastpfor,fsst,shared-dict
-        convert --profile native --network offline         | WhenCheaper { ns_per_byte: 0 } | sort none | fastpfor,fsst,shared-dict
-        convert --profile native --network 3g              | WhenCheaper { ns_per_byte: 1000 } | sort none | fastpfor,fsst,shared-dict
-        convert --profile native --network 5g              | WhenCheaper { ns_per_byte: 10 } | sort none | fastpfor,fsst,shared-dict
-        convert --network 5g                               | Off | sort none | fastpfor,fsst,shared-dict
-        convert --tessellate --network 4g                  | WhenCheaper { ns_per_byte: 100 } | sort none | fastpfor,fsst,shared-dict
+        convert                                            | Cellular4G | Off | sort none | fastpfor,fsst,shared-dict
+        convert --profile web                              | Cellular4G | Off | sort none | shared-dict
+        convert --profile native                           | Cellular4G | Auto | sort none | fastpfor,fsst,shared-dict
+        convert --profile min_size                         | Cellular4G | Off | sort hilbert,id | fastpfor,fsst,shared-dict,delta2,rans
+        convert --profile min-size                         | Cellular4G | Off | sort hilbert,id | fastpfor,fsst,shared-dict,delta2,rans
+        convert --profile diffable                         | Cellular4G | Off | sort none | fastpfor,delta2
+        convert --profile min_size --mlt-version 1         | Cellular4G | Off | sort hilbert,id | fastpfor,fsst,shared-dict
+        convert --profile min_size --sort none             | Cellular4G | Off | sort none | fastpfor,fsst,shared-dict,delta2,rans
+        convert --profile diffable --sort id --no-fastpfor | Cellular4G | Off | sort id | delta2
+        convert --profile web --tessellate                 | Cellular4G | Auto | sort none | shared-dict
+        convert --profile web --network offline            | Offline | Off | sort none | fastpfor,fsst,shared-dict
+        convert --profile native --network offline         | Offline | Auto | sort none | fastpfor,fsst,shared-dict
+        convert --profile native --network 3g              | Cellular3G | Auto | sort none | fastpfor,fsst,shared-dict
+        convert --profile native --network 5g              | Cellular5G | Auto | sort none | fastpfor,fsst,shared-dict
+        convert --network 5g                               | Cellular5G | Off | sort none | fastpfor,fsst,shared-dict
+        convert --tessellate --network 4g                  | Cellular4G | Auto | sort none | fastpfor,fsst,shared-dict
         ");
     }
 

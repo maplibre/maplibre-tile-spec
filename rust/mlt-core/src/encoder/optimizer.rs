@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
-use crate::encoder::geometry::tessellation_saving_ns;
+use crate::encoder::cost::{ClientCost, Cost};
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::property::group_string_properties;
 use crate::encoder::sort::{curve_params, sort_order};
@@ -132,11 +132,7 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     let curve_params = curve_params(source);
     let stage = |sort, tessellate| {
         let order = sort_order(source, sort, curve_params);
-        let options = StageOptions {
-            tessellate,
-            ..cfg.into()
-        };
-        stage_layer(source, &order, &stats, options)
+        stage_layer(source, &order, &stats, StageOptions::new(cfg, tessellate))
     };
 
     // `Encoder::preserve_results` clears caches only on the moved-out
@@ -145,82 +141,61 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     let mut enc = Encoder::new(cfg);
     seed_curve_caches(&mut enc, curve_params);
     let mut codecs = PooledCodecs::take();
-    // The triangles cost about the same bytes in every order, so the source order alone decides on them.
-    let (tessellate, mut best, sort_by) = match cfg.tessellation() {
-        Tessellation::Off => (false, None, &sort_by[..]),
-        Tessellation::Always => (true, None, &sort_by[..]),
-        Tessellation::WhenCheaper { ns_per_byte } => {
-            let (&first, rest) = sort_by
-                .split_first()
-                .expect("the source order is always tried");
-            let (winner, tessellate);
-            (enc, winner, tessellate) = encode_cheaper_tessellation(
-                stage(first, true),
-                || stage(first, false),
-                ns_per_byte,
-                enc,
-                &mut codecs,
-            )?;
-            (tessellate, Some(winner), rest)
-        }
+    let tessellations: &[bool] = match cfg.tessellation() {
+        Tessellation::Off => &[false],
+        Tessellation::Always => &[true],
+        Tessellation::Auto => &[false, true],
     };
-    if best.is_none()
-        && let [sort] = sort_by[..]
-    {
-        return stage(sort, tessellate)
+    if let ([sort], [tessellate]) = (&sort_by[..], tessellations) {
+        return stage(*sort, *tessellate)
             .encode_into(enc, &mut codecs)?
             .into_layer_bytes();
     }
-    for &sort in sort_by {
-        enc = stage(sort, tessellate).encode_into(enc, &mut codecs)?;
-        if best
-            .as_ref()
-            .is_none_or(|best| enc.total_len() < best.total_len())
-        {
-            best = Some(enc.preserve_results());
-        } else {
-            // Drop the losing trial's bytes, or the next trial would append to them and overcount its total_len.
-            enc.clear_results();
+    let client = ClientCost::new(cfg);
+    let mut best: Option<Best> = None;
+    for &sort in &sort_by {
+        // Triangles add about the same bytes in every order, so the source order alone decides on them.
+        let tessellations: &[bool] = match best.as_ref().map(|best| best.tessellated) {
+            None => tessellations,
+            Some(true) => &[true],
+            Some(false) => &[false],
+        };
+        for &tessellate in tessellations {
+            let layer = stage(sort, tessellate);
+            let price = client.price(&layer.geometry);
+            // Even at the size of the layer without them, triangles that spare no client CPU would lose.
+            if let Some(best) = &best
+                && tessellate != best.tessellated
+                && price.at(best.enc.total_len()) >= best.cost
+            {
+                continue;
+            }
+            enc = layer.encode_into(enc, &mut codecs)?;
+            let cost = price.at(enc.total_len());
+            if best.as_ref().is_none_or(|best| cost < best.cost) {
+                let enc = enc.preserve_results();
+                best = Some(Best {
+                    cost,
+                    tessellated: tessellate,
+                    enc,
+                });
+            } else {
+                // Drop the losing trial's bytes, or the next trial would append to them and overcount its total_len.
+                enc.clear_results();
+            }
         }
     }
-    best.expect("at least one trial ran").into_layer_bytes()
+    best.expect("the source order is always tried")
+        .enc
+        .into_layer_bytes()
 }
 
-/// Encode `tessellated`, or `plain` when its triangles save the client less than their bytes cost at `ns_per_byte`.
-///
-/// Returns `enc` emptied for the next trial, the encoder holding the winner, and whether the winner kept its triangles.
-fn encode_cheaper_tessellation(
-    tessellated: StagedLayer,
-    plain: impl FnOnce() -> StagedLayer,
-    ns_per_byte: u32,
-    mut enc: Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<(Encoder, Encoder, bool)> {
-    let has_triangles = tessellated
-        .geometry
-        .index_buffer
-        .as_ref()
-        .is_some_and(|indices| !indices.is_empty());
-    let saving_ns = tessellation_saving_ns(&tessellated.geometry);
-    if !has_triangles || saving_ns <= 0.0 {
-        let layer = if has_triangles { plain() } else { tessellated };
-        enc = layer.encode_into(enc, codecs)?;
-        let winner = enc.preserve_results();
-        return Ok((enc, winner, false));
-    }
-    enc = tessellated.encode_into(enc, codecs)?;
-    let tessellated_len = enc.total_len();
-    let with_triangles = enc.preserve_results();
-    enc = plain().encode_into(enc, codecs)?;
-    #[expect(clippy::cast_precision_loss, reason = "an estimate")]
-    let added_bytes = tessellated_len as f64 - enc.total_len() as f64;
-    if saving_ns > f64::from(ns_per_byte) * added_bytes {
-        enc.clear_results();
-        Ok((enc, with_triangles, true))
-    } else {
-        let winner = enc.preserve_results();
-        Ok((enc, winner, false))
-    }
+/// The cheapest trial so far.
+struct Best {
+    cost: Cost,
+    tessellated: bool,
+    /// The encoder holding the trial's bytes.
+    enc: Encoder,
 }
 
 /// Row-order-independent presence classification for IDs and properties.

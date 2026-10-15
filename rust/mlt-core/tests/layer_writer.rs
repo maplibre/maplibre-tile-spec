@@ -26,7 +26,7 @@ fn writer_encodes_like_tile_layer([path]: [&Path; 1]) {
             base,
             sorted,
             base.with_tessellation(Tessellation::Always),
-            sorted.with_tessellation(Tessellation::when_cheaper()),
+            sorted.with_tessellation(Tessellation::Auto),
         ] {
             assert_eq!(
                 writer.encode(cfg).expect("encode writer"),

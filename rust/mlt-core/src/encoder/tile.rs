@@ -15,7 +15,7 @@ use crate::encoder::optimizer::{LayerStats, Presence, PropertyStats, SharedDictR
 #[cfg(any(test, feature = "__private"))]
 use crate::encoder::sort::sort_order;
 use crate::encoder::source::{LayerSource, Order};
-use crate::encoder::{EncoderConfig, StagedId, StagedProperty, StagedSharedDict, Tessellation};
+use crate::encoder::{EncoderConfig, StagedId, StagedProperty, StagedSharedDict};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::{
     StagedInterior, StagedLeaf, StagedList, StagedMValue, StagedNested, StagedNode, StagedStruct,
@@ -65,10 +65,11 @@ pub(crate) struct StageOptions {
     pub(crate) widen_8bit: bool,
 }
 
-impl From<EncoderConfig> for StageOptions {
-    fn from(cfg: EncoderConfig) -> Self {
+impl StageOptions {
+    /// Stage for `cfg`, with the triangles of polygons when `tessellate`.
+    pub(crate) fn new(cfg: EncoderConfig, tessellate: bool) -> Self {
         Self {
-            tessellate: cfg.tessellation() != Tessellation::Off,
+            tessellate,
             widen_8bit: !cfg.allow_8bit_ints(),
         }
     }

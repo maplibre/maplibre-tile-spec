@@ -1,4 +1,5 @@
 mod analyze;
+mod cost;
 mod encode01;
 #[cfg(feature = "unstable-v2")]
 mod encode02;
@@ -34,7 +35,7 @@ pub use model::WireVersion;
 pub use model::{
     ColumnKind, CurveParams, ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding, StreamCtx,
 };
-pub use model::{EncodedUnknown, EncoderConfig, Tessellation};
+pub use model::{EncodedUnknown, EncoderConfig, Network, Profile, Tessellation};
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use model::{ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding};
 #[cfg(all(feature = "unstable-v2", feature = "__private"))]
