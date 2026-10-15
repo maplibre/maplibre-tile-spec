@@ -6,6 +6,7 @@ use std::path::Path;
 
 use geo_types::{Geometry, Polygon};
 use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::fast_mvt::MvtTileBuilder;
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, TileLayer};
@@ -15,7 +16,7 @@ test_each_path! { for ["mvt"] in "../test/fixtures" as fixtures => writer_encode
 
 fn writer_encodes_like_tile_layer([path]: [&Path; 1]) {
     let layers = mvt_to_tile_layers(fs::read(path).expect("read fixture")).expect("decode fixture");
-    let base = EncoderConfig::default();
+    let base = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G));
     let sorted = base
         .with_spatial_morton_sort(true)
         .with_spatial_hilbert_sort(true)

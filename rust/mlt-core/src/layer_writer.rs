@@ -23,7 +23,7 @@ use crate::{MltError, MltResult, PropValueRef};
 /// A [`PropertyKey`] means nothing after [`LayerWriter::reset`].
 ///
 /// ```
-/// use mlt_core::encoder::EncoderConfig;
+/// use mlt_core::encoder::{EncoderConfig, Network, Profile};
 /// use mlt_core::geo_types::Coord;
 /// use mlt_core::{GeometryType, LayerWriter, PropKind};
 ///
@@ -32,7 +32,7 @@ use crate::{MltError, MltResult, PropValueRef};
 /// let mut feature = layer.feature(GeometryType::Point);
 /// feature.id(Some(1)).points([Coord { x: 10, y: 20 }])?.property(name, "Cafe")?;
 /// feature.finish()?;
-/// let mlt = layer.encode(EncoderConfig::default())?;
+/// let mlt = layer.encode(EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)))?;
 /// # Ok::<(), mlt_core::MltError>(())
 /// ```
 #[derive(Debug, Clone)]
@@ -632,6 +632,7 @@ mod tests {
     use geo_types::{Geometry, Point};
 
     use super::*;
+    use crate::encoder::{Network, Profile};
     use crate::{PropValue, TileLayer};
 
     fn c(x: i32, y: i32) -> Coord<i32> {
@@ -639,7 +640,11 @@ mod tests {
     }
 
     fn encode(writer: &LayerWriter<'_>) -> Vec<u8> {
-        writer.encode(EncoderConfig::default()).expect("encode")
+        writer
+            .encode(EncoderConfig::from_profile(Profile::Native(
+                Network::Cellular4G,
+            )))
+            .expect("encode")
     }
 
     fn two_points(writer: &mut LayerWriter<'static>) -> MltResult<()> {
@@ -784,7 +789,11 @@ mod tests {
         let layer = layer.finish();
         assert_eq!(
             encode(&writer),
-            layer.encode(EncoderConfig::default()).unwrap()
+            layer
+                .encode(EncoderConfig::from_profile(Profile::Native(
+                    Network::Cellular4G
+                )))
+                .unwrap()
         );
     }
 
@@ -810,7 +819,11 @@ mod tests {
         let layer = layer.finish();
         assert_eq!(
             encode(&writer),
-            layer.encode(EncoderConfig::default()).unwrap()
+            layer
+                .encode(EncoderConfig::from_profile(Profile::Native(
+                    Network::Cellular4G
+                )))
+                .unwrap()
         );
     }
 }

@@ -9,6 +9,7 @@ use mlt_core::encoder::{
     Presence, StagedId, StagedLayer, StagedMValue, StagedNested, StagedProperty, StagedSharedDict,
     StrEncoding, StreamCtx, VertexBufferType, WireVersion, wound_geometry,
 };
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
 use mlt_core::{GeometryValues, ZStep};
@@ -720,13 +721,13 @@ impl Layer {
             versions: _,
         } = self;
 
-        let enc_cfg = EncoderConfig::default()
+        let enc_cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
             .with_tessellation(tessellate)
             .with_triangles_only(triangles_only)
             .with_row_shapes(row_shapes)
             .with_wire_version(wire_version);
 
-        let mut geometry = if enc_cfg.tessellate() {
+        let mut geometry = if tessellate {
             GeometryValues::new_tessellated()
         } else {
             GeometryValues::default()

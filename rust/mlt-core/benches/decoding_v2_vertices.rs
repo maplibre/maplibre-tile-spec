@@ -5,6 +5,7 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::mvt::mvt_to_tile_layers;
 
 #[path = "bench_utils.rs"]
@@ -15,7 +16,7 @@ const CORPORA: [&str; 4] = ["omt", "amazon", "amazon_here", "bing"];
 
 /// The v2 encoding `mlt convert --mlt-version 2` writes by default.
 fn cfg_v2() -> EncoderConfig {
-    EncoderConfig::default()
+    EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_float_alp(true)
         .with_float_dict(true)

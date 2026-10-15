@@ -117,6 +117,7 @@ pub(crate) fn curve_params(source: &impl LayerSource) -> CurveParams {
 
 #[cfg(test)]
 mod tests {
+    use crate::encoder::{Network, Profile};
     use geo_types::{
         Coord, Geometry as GeoGeom, Geometry, GeometryCollection, Line, LineString,
         MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, Rect, Triangle,
@@ -164,7 +165,9 @@ mod tests {
 
     /// Encode + serialize + parse + decode a `GeometryValues` (round-trip).
     fn roundtrip_geom(decoded: &GeometryValues) -> GeometryValues {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
         let mut codecs = Codecs::default();
         decoded
             .clone()
@@ -374,7 +377,7 @@ mod tests {
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer`.
     /// This tests the full encode->decode roundtrip, verifying that sorting was applied.
     fn sort_encode_decode(tile: &TileLayer, sort: SortStrategy) -> TileLayer {
-        let enc_cfg = EncoderConfig::default();
+        let enc_cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G));
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));
         let mut codecs = Codecs::default();
         let enc = stage_tile(tile, sort, false, enc_cfg.tessellate())
@@ -421,7 +424,10 @@ mod tests {
     fn default_config_keeps_the_source_order() {
         let geoms = scattered_points(600);
         let ids: Vec<Option<u64>> = (0..600).rev().map(Some).collect();
-        let decoded = encode_decode(&build_tile_layer(&geoms, &ids), EncoderConfig::default());
+        let decoded = encode_decode(
+            &build_tile_layer(&geoms, &ids),
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)),
+        );
 
         let decoded_ids: Vec<Option<u64>> =
             decoded.features().iter().map(TileFeature::id).collect();
@@ -438,7 +444,8 @@ mod tests {
 
         let decoded = encode_decode(
             &build_tile_layer(&geoms, &ids),
-            EncoderConfig::default().with_spatial_hilbert_sort(true),
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+                .with_spatial_hilbert_sort(true),
         );
 
         assert_eq!(
