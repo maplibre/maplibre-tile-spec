@@ -5,9 +5,9 @@ use std::time::Duration;
 use usize_cast::FromUsize as _;
 
 use crate::decoder::GeometryValues;
-use crate::encoder::source::LayerSource;
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::WireVersion;
+use crate::encoder::source::LayerSource;
 use crate::encoder::{Client, EncoderConfig, Network};
 use crate::tile::stored_len;
 
