@@ -64,7 +64,8 @@ coverage-env file: (just 'cargo-install' 'cargo-llvm-cov')
     if ! rustup component list --installed | grep -q llvm-tools; then
         rustup component add llvm-tools-preview
     fi
-    cargo llvm-cov clean --profraw-only
+    # rust-cache restores workspace binaries built from older sources, whose never-run counters would read as missed lines
+    cargo llvm-cov clean --workspace
     cargo llvm-cov show-env | sed "s/'//g" >> {{quote(file)}}
 
 # Write the coverage recorded since `coverage-env` to `target/lcov-<suite>.info`

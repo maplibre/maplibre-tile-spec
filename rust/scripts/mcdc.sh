@@ -21,14 +21,17 @@ rm -rf "$profraw"
 mkdir -p "$profraw"
 
 export RUSTFLAGS="${RUSTFLAGS:-} -C instrument-coverage -Zcoverage-options=branch,condition"
+# Instrumented build scripts and proc macros also write profiles, so this keeps them out of the working directory
+export LLVM_PROFILE_FILE="$PWD/$profraw/%m-%p.profraw"
 args=(--tests -p mlt-core --features unstable-v2 --target-dir "$target")
-LLVM_PROFILE_FILE="$PWD/$profraw/%m-%p.profraw" cargo "+$toolchain" nextest run "${args[@]}"
 
-# binaries-only, so listing does not execute the binaries and scatter profraw files
+# List before running, so the binaries reported on are the ones that ran even if a source changes meanwhile
+# binaries-only, so listing builds the binaries without executing them
 mapfile -t bins < <(cargo "+$toolchain" nextest list "${args[@]}" --list-type binaries-only --message-format=json |
     python3 -c 'import json,sys
 for binary in json.load(sys.stdin)["rust-binaries"].values():
     print(binary["binary-path"])')
+cargo "+$toolchain" nextest run "${args[@]}"
 
 "$llvm/llvm-profdata" merge -sparse "$profraw"/*.profraw -o "$target/mcdc.profdata"
 objects=("${bins[@]:1}")
