@@ -64,7 +64,7 @@ coverage-env file: (just 'cargo-install' 'cargo-llvm-cov')
     if ! rustup component list --installed | grep -q llvm-tools; then
         rustup component add llvm-tools-preview
     fi
-    cargo llvm-cov clean --profraw-only
+    cargo llvm-cov clean --workspace
     cargo llvm-cov show-env | sed "s/'//g" >> {{quote(file)}}
 
 # Write the coverage recorded since `coverage-env` to `target/lcov-<suite>.info`
