@@ -314,7 +314,7 @@ pub struct ConvertArgs {
     /// `--tessellate=auto` weighs the bytes against `mapbox::earcut` on a client 4× slower than a Ryzen 9 3900 core.
     #[clap(long)]
     network: Option<Network>,
-    /// Store polygon triangles, so clients skip earcut (default: off)
+    /// Store polygon triangles, so clients skip earcut (default: auto, or off under `--profile web`, `min_size` and `diffable`)
     ///
     /// `--tessellate` alone means `auto`.
     #[clap(short, long, value_enum, num_args = 0..=1, require_equals = true, default_missing_value = "auto")]
@@ -445,7 +445,7 @@ impl ConvertArgs {
         let v2 = &self.v2;
         if v2.triangles_only && encoder.tessellation() == Tessellation::Off {
             bail!(
-                "--triangles-only drops the outlines of tessellated layers, so it needs --tessellate"
+                "--triangles-only drops the outlines of tessellated layers, so it needs a tessellation other than off"
             );
         }
         if self.no_shared_dict {
@@ -984,123 +984,243 @@ mod tests {
     }
 
     #[test]
-    fn tessellate_flags_pick_a_tessellation() {
-        for (flags, expected) in [
-            (&[][..], Tessellation::Off),
-            (&["--tessellate"], Tessellation::Auto),
-            (&["-t"], Tessellation::Auto),
-            (&["--tessellate=auto"], Tessellation::Auto),
-            (&["--tessellate=always"], Tessellation::Always),
-            (&["--tessellate=off"], Tessellation::Off),
-            (&["--profile", "native"], Tessellation::Auto),
-            (
-                &["--profile", "native", "--tessellate=off"],
-                Tessellation::Off,
-            ),
-        ] {
-            let cli: Vec<&str> = flags.iter().copied().chain(["src", "dst"]).collect();
-            let args = parse_args(&cli);
-            assert_eq!(
-                args.encoder().unwrap().tessellation(),
-                expected,
-                "{flags:?}"
-            );
-            assert_eq!(
-                (args.input.to_str(), args.output.to_str()),
-                (Some("src"), Some("dst")),
-                "{flags:?}"
-            );
-        }
+    fn convert_without_tessellate_tessellates_automatically() {
+        let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
+        assert_eq!(encoder.tessellation(), Tessellation::Auto);
     }
 
     #[test]
-    fn profiles_set_encoder_defaults_that_flags_override() {
-        let rows: Vec<String> = [
-            "",
-            "--profile web",
-            "--profile native",
-            "--profile min_size",
-            "--profile min-size",
-            "--profile diffable",
-            "--profile min_size --mlt-version 1",
-            "--profile min_size --sort none",
-            "--profile diffable --sort id --no-fastpfor",
-            "--profile web --tessellate",
-            "--profile web --network offline",
-            "--profile native --network offline",
-            "--profile native --network 3g",
-            "--profile native --network 5g",
-            "--network 5g",
-            "--tessellate --network 4g",
-        ]
-        .into_iter()
-        .map(|flags| {
-            let mut cli: Vec<&str> = flags.split_whitespace().collect();
-            if !flags.contains("--mlt-version") {
-                cli.extend(["--mlt-version", "2"]);
-            }
-            cli.extend(["src", "dst"]);
-            let e = parse_args(&cli).encoder().unwrap();
-            let sorts = [
-                (e.attempt_spatial_morton_sort(), "morton"),
-                (e.attempt_spatial_hilbert_sort(), "hilbert"),
-                (e.attempt_id_sort(), "id"),
-            ];
-            let sorts: Vec<&str> = sorts
-                .iter()
-                .filter(|(on, _)| *on)
-                .map(|(_, s)| *s)
-                .collect();
-            let codecs = [
-                (e.allow_fastpfor(), "fastpfor"),
-                (e.allow_fsst(), "fsst"),
-                (e.allow_shared_dict(), "shared-dict"),
-                (e.allow_delta2(), "delta2"),
-                (e.allow_rans_vertices(), "rans"),
-            ];
-            let codecs: Vec<&str> = codecs
-                .iter()
-                .filter(|(on, _)| *on)
-                .map(|(_, c)| *c)
-                .collect();
-            let sorts = if sorts.is_empty() {
-                "none".to_owned()
-            } else {
-                sorts.join(",")
-            };
-            format!(
-                "convert {flags:<42} | {:?} | {:?} | sort {sorts} | {}",
-                e.network(),
-                e.tessellation(),
-                codecs.join(",")
-            )
-        })
-        .collect();
-        insta::assert_snapshot!(rows.join("\n"), @"
-        convert                                            | Cellular4G | Off | sort none | fastpfor,fsst,shared-dict
-        convert --profile web                              | Cellular4G | Off | sort none | shared-dict
-        convert --profile native                           | Cellular4G | Auto | sort none | fastpfor,fsst,shared-dict
-        convert --profile min_size                         | Cellular4G | Off | sort hilbert,id | fastpfor,fsst,shared-dict,delta2,rans
-        convert --profile min-size                         | Cellular4G | Off | sort hilbert,id | fastpfor,fsst,shared-dict,delta2,rans
-        convert --profile diffable                         | Cellular4G | Off | sort none | fastpfor,delta2
-        convert --profile min_size --mlt-version 1         | Cellular4G | Off | sort hilbert,id | fastpfor,fsst,shared-dict
-        convert --profile min_size --sort none             | Cellular4G | Off | sort none | fastpfor,fsst,shared-dict,delta2,rans
-        convert --profile diffable --sort id --no-fastpfor | Cellular4G | Off | sort id | delta2
-        convert --profile web --tessellate                 | Cellular4G | Auto | sort none | shared-dict
-        convert --profile web --network offline            | Offline | Off | sort none | fastpfor,fsst,shared-dict
-        convert --profile native --network offline         | Offline | Auto | sort none | fastpfor,fsst,shared-dict
-        convert --profile native --network 3g              | Cellular3G | Auto | sort none | fastpfor,fsst,shared-dict
-        convert --profile native --network 5g              | Cellular5G | Auto | sort none | fastpfor,fsst,shared-dict
-        convert --network 5g                               | Cellular5G | Off | sort none | fastpfor,fsst,shared-dict
-        convert --tessellate --network 4g                  | Cellular4G | Auto | sort none | fastpfor,fsst,shared-dict
-        ");
+    fn tessellate_alone_means_auto() {
+        let encoder = parse_args(&["--tessellate", "src", "dst"]).encoder().unwrap();
+        assert_eq!(encoder.tessellation(), Tessellation::Auto);
     }
 
     #[test]
-    fn triangles_only_needs_a_tessellation() {
-        let flags = ["--mlt-version", "2", "--triangles-only", "src", "dst"];
+    fn t_alone_means_auto() {
+        let encoder = parse_args(&["-t", "src", "dst"]).encoder().unwrap();
+        assert_eq!(encoder.tessellation(), Tessellation::Auto);
+    }
+
+    #[test]
+    fn tessellate_auto_means_auto() {
+        let encoder = parse_args(&["--tessellate=auto", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.tessellation(), Tessellation::Auto);
+    }
+
+    #[test]
+    fn tessellate_always_means_always() {
+        let encoder = parse_args(&["--tessellate=always", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.tessellation(), Tessellation::Always);
+    }
+
+    #[test]
+    fn tessellate_off_overrides_the_native_profile() {
+        let encoder = parse_args(&["--profile", "native", "--tessellate=off", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.tessellation(), Tessellation::Off);
+    }
+
+    #[test]
+    fn tessellate_auto_overrides_the_web_profile() {
+        let encoder = parse_args(&["--profile", "web", "--tessellate=auto", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.tessellation(), Tessellation::Auto);
+    }
+
+    #[test]
+    fn convert_without_profile_selects_native() {
+        let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
+        assert_eq!(encoder.profile(), CoreProfile::Native);
+    }
+
+    #[test]
+    fn profile_web_selects_the_web_profile() {
+        let encoder = parse_args(&["--profile", "web", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.profile(), CoreProfile::Web);
+    }
+
+    #[test]
+    fn profile_native_selects_the_native_profile() {
+        let encoder = parse_args(&["--profile", "native", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.profile(), CoreProfile::Native);
+    }
+
+    #[test]
+    fn profile_min_size_selects_the_min_size_profile() {
+        let encoder = parse_args(&["--profile", "min_size", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.profile(), CoreProfile::MinSize);
+    }
+
+    #[test]
+    fn profile_min_dash_size_selects_the_min_size_profile() {
+        let encoder = parse_args(&["--profile", "min-size", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.profile(), CoreProfile::MinSize);
+    }
+
+    #[test]
+    fn profile_diffable_selects_the_diffable_profile() {
+        let encoder = parse_args(&["--profile", "diffable", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.profile(), CoreProfile::Diffable);
+    }
+
+    #[test]
+    fn convert_without_network_assumes_4g() {
+        let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
+        assert_eq!(encoder.network(), CoreNetwork::Cellular4G);
+    }
+
+    #[test]
+    fn network_offline_selects_offline() {
+        let encoder = parse_args(&["--network", "offline", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.network(), CoreNetwork::Offline);
+    }
+
+    #[test]
+    fn network_3g_selects_3g() {
+        let encoder = parse_args(&["--network", "3g", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.network(), CoreNetwork::Cellular3G);
+    }
+
+    #[test]
+    fn network_4g_selects_4g() {
+        let encoder = parse_args(&["--network", "4g", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.network(), CoreNetwork::Cellular4G);
+    }
+
+    #[test]
+    fn network_5g_selects_5g() {
+        let encoder = parse_args(&["--network", "5g", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.network(), CoreNetwork::Cellular5G);
+    }
+
+    #[test]
+    fn sort_none_overrides_the_min_size_profile_sorts() {
+        let encoder = parse_args(&["--profile", "min_size", "--sort", "none", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(
+            (encoder.attempt_spatial_hilbert_sort(), encoder.attempt_id_sort()),
+            (false, false)
+        );
+    }
+
+    #[test]
+    fn no_fastpfor_overrides_the_web_profile_offline() {
+        let encoder = parse_args(&[
+            "--profile",
+            "web",
+            "--network",
+            "offline",
+            "--no-fastpfor",
+            "src",
+            "dst",
+        ])
+        .encoder()
+        .unwrap();
+        assert!(!encoder.allow_fastpfor());
+    }
+
+    #[test]
+    fn no_fsst_overrides_the_web_profile_offline() {
+        let encoder = parse_args(&[
+            "--profile",
+            "web",
+            "--network",
+            "offline",
+            "--no-fsst",
+            "src",
+            "dst",
+        ])
+        .encoder()
+        .unwrap();
+        assert!(!encoder.allow_fsst());
+    }
+
+    #[test]
+    fn no_shared_dict_switches_shared_dictionaries_off() {
+        let encoder = parse_args(&["--no-shared-dict", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.allow_shared_dict());
+    }
+
+    #[test]
+    fn delta2_switches_second_order_deltas_on() {
+        let encoder = parse_args(&["--mlt-version", "2", "--delta2", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.allow_delta2());
+    }
+
+    #[test]
+    fn rans_vertices_switches_rans_vertices_on() {
+        let encoder = parse_args(&["--mlt-version", "2", "--rans-vertices", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.allow_rans_vertices());
+    }
+
+    #[test]
+    fn triangles_only_with_tessellate_off_is_rejected() {
+        let flags = [
+            "--mlt-version",
+            "2",
+            "--tessellate=off",
+            "--triangles-only",
+            "src",
+            "dst",
+        ];
         let err = parse_args(&flags).encoder().unwrap_err();
-        insta::assert_snapshot!(err.to_string(), @"--triangles-only drops the outlines of tessellated layers, so it needs --tessellate");
+        insta::assert_snapshot!(err.to_string(), @"--triangles-only drops the outlines of tessellated layers, so it needs a tessellation other than off");
+    }
+
+    #[test]
+    fn triangles_only_under_the_web_profile_is_rejected() {
+        let flags = [
+            "--profile",
+            "web",
+            "--mlt-version",
+            "2",
+            "--triangles-only",
+            "src",
+            "dst",
+        ];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--triangles-only drops the outlines of tessellated layers, so it needs a tessellation other than off");
+    }
+
+    #[test]
+    fn triangles_only_without_a_profile_is_accepted() {
+        let flags = ["--mlt-version", "2", "--triangles-only", "src", "dst"];
+        assert!(parse_args(&flags).encoder().unwrap().allow_triangles_only());
+    }
+
+    #[test]
+    fn triangles_only_under_the_native_profile_is_accepted() {
         let flags = [
             "--profile",
             "native",

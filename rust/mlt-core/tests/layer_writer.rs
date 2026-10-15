@@ -12,22 +12,37 @@ use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, TileLayer};
 use test_each_file::test_each_path;
 
 test_each_path! { for ["mvt"] in "../test/fixtures" as fixtures => writer_encodes_like_tile_layer }
+test_each_path! { for ["mvt"] in "../test/fixtures" as auto_tessellated_fixtures => writer_encodes_like_tile_layer_with_sorted_auto_tessellation }
+
+fn writer_encodes_like_tile_layer_with_sorted_auto_tessellation([path]: [&Path; 1]) {
+    let layers = mvt_to_tile_layers(fs::read(path).expect("read fixture")).expect("decode fixture");
+    let sorted_auto = EncoderConfig::default()
+        .with_tessellation(Tessellation::Auto)
+        .with_spatial_morton_sort(true)
+        .with_spatial_hilbert_sort(true)
+        .with_id_sort(true);
+    for layer in layers {
+        let writer = write(&layer).expect("write layer");
+        assert_eq!(
+            writer.encode(sorted_auto).expect("encode writer"),
+            layer.encode(sorted_auto).expect("encode layer"),
+            "{}: layer {}",
+            path.display(),
+            layer.name()
+        );
+    }
+}
 
 fn writer_encodes_like_tile_layer([path]: [&Path; 1]) {
     let layers = mvt_to_tile_layers(fs::read(path).expect("read fixture")).expect("decode fixture");
-    let base = EncoderConfig::default();
+    let base = EncoderConfig::default().with_tessellation(Tessellation::Off);
     let sorted = base
         .with_spatial_morton_sort(true)
         .with_spatial_hilbert_sort(true)
         .with_id_sort(true);
     for layer in layers {
         let writer = write(&layer).expect("write layer");
-        for cfg in [
-            base,
-            sorted,
-            base.with_tessellation(Tessellation::Always),
-            sorted.with_tessellation(Tessellation::Auto),
-        ] {
+        for cfg in [base, sorted, base.with_tessellation(Tessellation::Always)] {
             assert_eq!(
                 writer.encode(cfg).expect("encode writer"),
                 layer.encode(cfg).expect("encode layer"),

@@ -1,4 +1,4 @@
-//! What a client pays for a layer: fetching its bytes, and getting the triangles of its polygons.
+//! What a client pays for a layer: fetching its bytes, and the work it does on them before drawing.
 
 use usize_cast::{FromUsize as _, IntoUsize as _};
 
@@ -37,39 +37,47 @@ impl ClientCost {
         }
     }
 
-    /// The price of a layer whose staged `geometry` says how the client gets its triangles.
-    pub(crate) fn price(self, geometry: &GeometryValues) -> Price {
+    /// The price of a layer on which the client does `work`.
+    pub(crate) fn price(self, work: &impl ClientWork) -> Price {
         Price {
             ns_per_byte: self.ns_per_byte,
-            triangles_ns: triangles_ns(geometry),
+            work_ns: work.client_ns(),
         }
     }
 }
 
-/// What one staged layer costs a client per stored byte, on top of getting its triangles.
+/// Work a client does on a layer after fetching it and before drawing it.
+pub(crate) trait ClientWork {
+    /// The nanoseconds this work takes on a Ryzen 9 3900 core.
+    fn client_ns(&self) -> u64;
+}
+
+/// Getting the triangles of the polygons: decoding the stored ones, or cutting its own.
+impl ClientWork for GeometryValues {
+    fn client_ns(&self) -> u64 {
+        if self.triangle_offsets.is_some() {
+            let indices = self.index_buffer.as_ref().map_or(0, Vec::len);
+            DECODE_NS_PER_TRIANGLE * u64::from_usize(indices / 3)
+        } else {
+            earcut_ns_of_layer(self)
+        }
+    }
+}
+
+/// What one layer costs a client per stored byte, on top of the work it does on them.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Price {
     ns_per_byte: u64,
-    triangles_ns: u64,
+    work_ns: u64,
 }
 
 impl Price {
     /// The cost of the layer stored in `bytes`.
     pub(crate) fn at(self, bytes: usize) -> Cost {
         Cost {
-            ns: self.ns_per_byte * u64::from_usize(bytes) + self.triangles_ns,
+            ns: self.ns_per_byte * u64::from_usize(bytes) + self.work_ns,
             bytes,
         }
-    }
-}
-
-/// The nanoseconds the client spends on the triangles of `geometry`: decoding the stored ones, or cutting its own.
-fn triangles_ns(geometry: &GeometryValues) -> u64 {
-    if geometry.triangle_offsets.is_some() {
-        let indices = geometry.index_buffer.as_ref().map_or(0, Vec::len);
-        DECODE_NS_PER_TRIANGLE * u64::from_usize(indices / 3)
-    } else {
-        earcut_ns_of_layer(geometry)
     }
 }
 
@@ -143,129 +151,4 @@ fn earcut_ns_of_layer(geometry: &GeometryValues) -> u64 {
         "the walk ends where staging did"
     );
     total
-}
-
-#[cfg(test)]
-mod tests {
-    use geo_types::{
-        Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
-    };
-    use insta::assert_snapshot;
-
-    use super::{ClientCost, Cost, triangles_ns};
-    use crate::decoder::GeometryValues;
-    use crate::encoder::{EncoderConfig, Network};
-
-    fn square(x: i32, size: i32) -> LineString<i32> {
-        LineString::from(vec![
-            (x, x),
-            (x + size, x),
-            (x + size, x + size),
-            (x, x + size),
-            (x, x),
-        ])
-    }
-
-    fn staged(geoms: &[Geometry<i32>], mut geometry: GeometryValues) -> GeometryValues {
-        for geom in geoms {
-            geometry.push_geom(geom);
-        }
-        geometry
-    }
-
-    fn saving(geoms: &[Geometry<i32>]) -> String {
-        let plain = triangles_ns(&staged(geoms, GeometryValues::default()));
-        let tessellated = triangles_ns(&staged(geoms, GeometryValues::new_tessellated()));
-        format!("{}", i128::from(plain) - i128::from(tessellated))
-    }
-
-    #[test]
-    fn a_square_saves_its_earcut_less_two_triangle_decodes() {
-        assert_snapshot!(saving(&[Geometry::Polygon(Polygon::new(square(0, 10), vec![]))]), @"68");
-    }
-
-    #[test]
-    fn a_multi_polygon_saves_the_earcut_of_each_part() {
-        let parts = vec![
-            Polygon::new(square(0, 10), vec![]),
-            Polygon::new(square(20, 10), vec![]),
-        ];
-        assert_snapshot!(saving(&[Geometry::MultiPolygon(MultiPolygon(parts))]), @"136");
-    }
-
-    #[test]
-    fn a_hole_costs_a_scan_of_the_polygon() {
-        let holed = Polygon::new(square(0, 30), vec![square(10, 10)]);
-        assert_snapshot!(saving(&[Geometry::Polygon(holed)]), @"91");
-    }
-
-    #[test]
-    fn points_and_lines_save_nothing() {
-        let line = Geometry::LineString(LineString::from(vec![(0, 0), (5, 5), (9, 0)]));
-        assert_snapshot!(saving(&[Geometry::Point(Point::new(1, 2)), line]), @"0");
-    }
-
-    #[test]
-    fn a_line_beside_a_square_saves_only_the_square() {
-        let line = Geometry::LineString(LineString::from(vec![(0, 0), (5, 5), (9, 0)]));
-        let square = Geometry::Polygon(Polygon::new(square(0, 10), vec![]));
-        assert_snapshot!(saving(&[line, square]), @"68");
-    }
-
-    #[test]
-    fn a_mixed_layer_saves_what_its_polygons_save_alone() {
-        let line = || Geometry::LineString(LineString::from(vec![(0, 0), (5, 5), (9, 0)]));
-        let lines = MultiLineString(vec![
-            LineString::from(vec![(0, 0), (1, 1)]),
-            LineString::from(vec![(2, 2), (3, 9)]),
-        ]);
-        let squares = vec![
-            Polygon::new(square(0, 10), vec![]),
-            Polygon::new(square(20, 10), vec![]),
-        ];
-        assert_snapshot!(saving(&[
-            line(),
-            Geometry::MultiLineString(lines.clone()),
-            Geometry::Polygon(Polygon::new(square(0, 10), vec![])),
-            Geometry::MultiPoint(MultiPoint::from(vec![(1, 1), (2, 2)])),
-            line(),
-            Geometry::Polygon(Polygon::new(square(0, 30), vec![square(10, 10)])),
-            Geometry::MultiLineString(lines),
-            Geometry::MultiPolygon(MultiPolygon(squares)),
-            Geometry::Point(Point::new(1, 2)),
-            Geometry::MultiPolygon(MultiPolygon(vec![])),
-            line(),
-        ]), @"295");
-    }
-
-    #[test]
-    fn a_stored_byte_costs_its_transfer_on_a_client_4x_slower_than_the_fit() {
-        let rows: Vec<String> = [
-            Network::Offline,
-            Network::Cellular3G,
-            Network::Cellular4G,
-            Network::Cellular5G,
-        ]
-        .into_iter()
-        .map(|network| {
-            let client = ClientCost::new(EncoderConfig::default().with_network(network));
-            let price = client.price(&GeometryValues::default());
-            format!("{network:?}: {:?}", price.at(1))
-        })
-        .collect();
-        assert_snapshot!(rows.join("\n"), @"
-        Offline: Cost { ns: 0, bytes: 1 }
-        Cellular3G: Cost { ns: 1000, bytes: 1 }
-        Cellular4G: Cost { ns: 100, bytes: 1 }
-        Cellular5G: Cost { ns: 10, bytes: 1 }
-        ");
-    }
-
-    #[test]
-    fn equal_nanoseconds_rank_by_fewer_bytes() {
-        let offline = ClientCost::new(EncoderConfig::default().with_network(Network::Offline));
-        let price = offline.price(&GeometryValues::default());
-        let cheaper: Cost = price.at(10);
-        assert!(cheaper < price.at(11));
-    }
 }

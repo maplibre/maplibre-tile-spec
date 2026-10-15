@@ -147,7 +147,9 @@ mod ffi {
         /// Create encoder options with the default configuration.
         #[diplomat::attr(auto, constructor)]
         pub fn new() -> Box<MltEncoderOptions> {
-            Box::new(MltEncoderOptions(EncoderConfig::default()))
+            Box::new(MltEncoderOptions(
+                EncoderConfig::default().with_tessellation(Tessellation::Off),
+            ))
         }
 
         /// Generate tessellation data for polygons and multi-polygons.

@@ -147,5 +147,9 @@ name = "tag02_z"
 required-features = ["unstable-v2"]
 
 [[test]]
-name = "tessellation_gate"
+name = "tessellation_auto"
+required-features = ["unstable-v2"]
+
+[[test]]
+name = "encoder_profile"
 required-features = ["unstable-v2"]

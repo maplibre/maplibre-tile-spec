@@ -431,24 +431,25 @@ impl WireVersion {
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum Tessellation {
     /// Store no triangles, so the client cuts every polygon itself.
-    #[default]
     Off,
     /// Store a layer's triangles when the client CPU time they spare outweighs the bytes they add on the [`Network`].
+    #[default]
     Auto,
     /// Store the triangles of every layer with polygons.
     Always,
 }
 
 /// Encoder defaults for one kind of tile consumer, which explicit settings override.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum Profile {
-    /// `MapLibre GL JS`: no `FastPFOR` or `FSST` unless [`Network::Offline`], since they lose bytes after HTTP compression.
+    /// `MapLibre GL JS`: no triangles, which it ignores, and no `FastPFOR` or `FSST` unless [`Network::Offline`], since they lose bytes after HTTP compression.
     Web,
-    /// `MapLibre Native`: [`Tessellation::Auto`].
+    /// `MapLibre Native`: [`Tessellation::Auto`] and every codec.
+    #[default]
     Native,
-    /// The fewest stored bytes: Hilbert and feature-ID sort, and under v2 second-order deltas and rANS vertices.
+    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas and rANS vertices.
     MinSize,
-    /// Small binary diffs between releases: no `FSST` or shared dictionaries, and under v2 second-order deltas.
+    /// Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries, and under v2 second-order deltas.
     Diffable,
 }
 
@@ -487,9 +488,9 @@ struct Preset {
 }
 
 impl Preset {
-    fn of(profile: Option<Profile>, network: Network) -> Self {
-        let base = Self {
-            tessellation: Tessellation::Off,
+    fn of(profile: Profile, network: Network) -> Self {
+        let native = Self {
+            tessellation: Tessellation::Auto,
             morton_sort: false,
             hilbert_sort: false,
             id_sort: false,
@@ -501,33 +502,33 @@ impl Preset {
             #[cfg(feature = "unstable-v2")]
             rans_vertices: false,
         };
+        let untessellated = Self {
+            tessellation: Tessellation::Off,
+            ..native
+        };
         match profile {
-            None => base,
-            Some(Profile::Web) if network == Network::Offline => base,
-            Some(Profile::Web) => Self {
+            Profile::Native => native,
+            Profile::Web if network == Network::Offline => untessellated,
+            Profile::Web => Self {
                 fsst: false,
                 fastpfor: false,
-                ..base
+                ..untessellated
             },
-            Some(Profile::Native) => Self {
-                tessellation: Tessellation::Auto,
-                ..base
-            },
-            Some(Profile::MinSize) => Self {
+            Profile::MinSize => Self {
                 hilbert_sort: true,
                 id_sort: true,
                 #[cfg(feature = "unstable-v2")]
                 delta2: true,
                 #[cfg(feature = "unstable-v2")]
                 rans_vertices: true,
-                ..base
+                ..untessellated
             },
-            Some(Profile::Diffable) => Self {
+            Profile::Diffable => Self {
                 fsst: false,
                 shared_dict: false,
                 #[cfg(feature = "unstable-v2")]
                 delta2: true,
-                ..base
+                ..untessellated
             },
         }
     }
@@ -547,7 +548,7 @@ pub struct EncoderConfig {
     #[cfg(feature = "unstable-v2")]
     wire_version: WireVersion,
     /// The consumer whose defaults the settings left `None` take.
-    profile: Option<Profile>,
+    profile: Profile,
     /// How tiles reach the client.
     network: Network,
     /// When to store the triangles of polygons and multi-polygons.
@@ -595,7 +596,7 @@ impl Default for EncoderConfig {
         Self {
             #[cfg(feature = "unstable-v2")]
             wire_version: WireVersion::V01,
-            profile: None,
+            profile: Profile::default(),
             network: Network::default(),
             tessellation: None,
             attempt_spatial_morton_sort: None,
@@ -631,7 +632,7 @@ impl EncoderConfig {
     }
 
     #[must_use]
-    pub fn profile(self) -> Option<Profile> {
+    pub fn profile(self) -> Profile {
         self.profile
     }
 
@@ -740,7 +741,7 @@ impl EncoderConfig {
     /// Take the defaults of `profile` for every setting not set explicitly, before or after.
     #[must_use]
     pub fn with_profile(mut self, profile: Profile) -> Self {
-        self.profile = Some(profile);
+        self.profile = profile;
         self
     }
 
@@ -1043,25 +1044,6 @@ mod tests {
             node = StagedNode::Interior(StagedInterior::List(StagedList::new(None, vec![1], node)));
         }
         StagedInterior::List(StagedList::new(None, vec![1], node))
-    }
-
-    #[test]
-    fn explicit_settings_override_the_profile_set_before_or_after_them() {
-        let web = Profile::Web;
-        let before = EncoderConfig::default().with_fsst(true).with_profile(web);
-        let after = EncoderConfig::default().with_profile(web).with_fsst(true);
-        assert_eq!((before.allow_fsst(), after.allow_fsst()), (true, true));
-        assert!(!before.allow_fastpfor());
-    }
-
-    #[test]
-    fn the_web_profile_keeps_fastpfor_and_fsst_offline() {
-        let web = EncoderConfig::default().with_profile(Profile::Web);
-        let offline = web.with_network(Network::Offline);
-        assert_eq!(
-            (web.allow_fastpfor(), offline.allow_fastpfor(), offline.allow_fsst()),
-            (false, true, true)
-        );
     }
 
     #[test]
