@@ -1,8 +1,8 @@
 //! Statistics and stream walks over the layers a tile parses into.
 
 use mlt_core::encoder::{
-    Codecs, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder, StagedId,
-    StagedLayer, StagedProperty, StrEncoding, VertexBufferType, WireVersion,
+    Codecs, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder, Network, Profile,
+    StagedId, StagedLayer, StagedProperty, StrEncoding, VertexBufferType, WireVersion,
 };
 use mlt_core::geo_types::{Coord, Geometry, LineString, Point};
 use mlt_core::wire::{Analyze as _, StatType};
@@ -69,7 +69,7 @@ fn statistics(layer: &impl mlt_core::wire::Analyze) -> [usize; 3] {
 #[test]
 fn a_v1_layer_walks_every_stream_of_its_widened_ints_and_fsst_strings() {
     let bytes = narrow_ints_and_long_strings()
-        .encode(EncoderConfig::default().with_fsst(true))
+        .encode(EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_fsst(true))
         .unwrap();
     let layers = Parser::default().parse_layers(&bytes).unwrap();
 
@@ -108,7 +108,8 @@ fn a_plain_fsst_string_column_walks_and_decodes() {
         get_str_encoding: Box::new(|_| StrEncoding::Fsst),
         get_float_encoding: Box::new(|_| FloatEncoding::None),
     };
-    let cfg = EncoderConfig::default().with_wire_version(WireVersion::V02);
+    let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        .with_wire_version(WireVersion::V02);
     let bytes = staged
         .encode_into(
             Encoder::with_explicit(cfg, explicit),
@@ -151,7 +152,7 @@ fn a_plain_fsst_string_column_walks_and_decodes() {
 #[test]
 fn a_lazy_v1_layer_reports_only_its_metadata_until_decoded() {
     let bytes = narrow_ints_and_long_strings()
-        .encode(EncoderConfig::default().with_fsst(true))
+        .encode(EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_fsst(true))
         .unwrap();
     let mut layers = Parser::default().parse_layers(&bytes).unwrap();
     let Layer::Tag01(lazy) = layers.remove(0) else {
@@ -219,7 +220,10 @@ fn a_v2_layer_walks_the_streams_of_its_m_values_and_nested_leaves() {
     }
     let bytes = builder
         .finish()
-        .encode(EncoderConfig::default().with_wire_version(WireVersion::V02))
+        .encode(
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+                .with_wire_version(WireVersion::V02),
+        )
         .unwrap();
     let layers = Parser::default().parse_layers(&bytes).unwrap();
 

@@ -650,7 +650,7 @@ mod tests {
     #[cfg(feature = "unstable-v2")]
     #[test]
     fn prop_names_of_every_scalar_column_lazy() {
-        let cfg = crate::encoder::EncoderConfig::default()
+        let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
             .with_wire_version(crate::encoder::WireVersion::V02);
         let staged = staged_layer(
             "test",
