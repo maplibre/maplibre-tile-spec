@@ -21,14 +21,15 @@ rm -rf "$profraw"
 mkdir -p "$profraw"
 
 export RUSTFLAGS="${RUSTFLAGS:-} -C instrument-coverage -Zcoverage-options=branch,condition"
+export LLVM_PROFILE_FILE="$PWD/$profraw/%m-%p.profraw"
 args=(--tests -p mlt-core --features unstable-v2 --target-dir "$target")
-LLVM_PROFILE_FILE="$PWD/$profraw/%m-%p.profraw" cargo "+$toolchain" nextest run "${args[@]}"
 
 # binaries-only, so listing does not execute the binaries and scatter profraw files
 mapfile -t bins < <(cargo "+$toolchain" nextest list "${args[@]}" --list-type binaries-only --message-format=json |
     python3 -c 'import json,sys
 for binary in json.load(sys.stdin)["rust-binaries"].values():
     print(binary["binary-path"])')
+cargo "+$toolchain" nextest run "${args[@]}"
 
 "$llvm/llvm-profdata" merge -sparse "$profraw"/*.profraw -o "$target/mcdc.profdata"
 objects=("${bins[@]:1}")
