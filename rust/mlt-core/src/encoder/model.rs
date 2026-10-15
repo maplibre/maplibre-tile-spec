@@ -426,6 +426,42 @@ impl WireVersion {
     }
 }
 
+/// Encoder defaults for one kind of tile consumer, which explicit settings override.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Profile {
+    /// `MapLibre GL JS`: no triangles, which it ignores, and no `FastPFOR` or `FSST` unless [`Network::Offline`], since they lose bytes after HTTP compression.
+    Web(Network),
+    /// `MapLibre Native`: every codec.
+    Native(Network),
+    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas and rANS vertices.
+    MinSize,
+    /// Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries, and under v2 second-order deltas.
+    Diffable,
+    /// The quickest encode: no triangles, sorts or optional codecs, so tiles come out larger.
+    FastEncoding,
+}
+
+impl Default for Profile {
+    fn default() -> Self {
+        Self::Native(Network::default())
+    }
+}
+
+/// How tiles reach the client.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum Network {
+    /// Read from local storage, where a byte costs nothing.
+    Offline,
+    /// 2 Mbit/s.
+    Cellular3G,
+    /// 20 Mbit/s.
+    #[default]
+    Cellular4G,
+    /// 200 Mbit/s.
+    Cellular5G,
+}
+
 /// Global encoder settings controlling which optimization strategies are attempted.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 #[expect(
@@ -472,38 +508,140 @@ pub struct EncoderConfig {
     #[cfg(feature = "unstable-v2")]
     allow_rans_vertices: bool,
 }
-impl Default for EncoderConfig {
-    fn default() -> Self {
-        Self {
-            #[cfg(feature = "unstable-v2")]
-            wire_version: WireVersion::V01,
-            tessellate: false,
-            attempt_spatial_morton_sort: false,
-            attempt_spatial_hilbert_sort: false,
-            attempt_id_sort: false,
-            allow_fsst: true,
-            allow_fastpfor: true,
-            allow_shared_dict: true,
-            // Off by default while the encoding is still being measured.
-            #[cfg(feature = "unstable-v2")]
-            allow_float_dict: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_float_alp: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_row_shapes: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_packed_dict_codes: true,
-            #[cfg(feature = "unstable-v2")]
-            allow_triangles_only: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_delta2: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_rans_vertices: false,
+impl EncoderConfig {
+    /// The settings `profile` picks, which the `with_*` methods override.
+    #[must_use]
+    pub fn from_profile(profile: Profile) -> Self {
+        // Float dictionaries and ALP stay off in every preset while they are still being measured.
+        match profile {
+            Profile::Native(_) => Self {
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                tessellate: false,
+                attempt_spatial_morton_sort: false,
+                attempt_spatial_hilbert_sort: false,
+                attempt_id_sort: false,
+                allow_fsst: true,
+                allow_fastpfor: true,
+                allow_shared_dict: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: false,
+            },
+            Profile::Web(network) => Self {
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                tessellate: false,
+                attempt_spatial_morton_sort: false,
+                attempt_spatial_hilbert_sort: false,
+                attempt_id_sort: false,
+                allow_fsst: network == Network::Offline,
+                allow_fastpfor: network == Network::Offline,
+                allow_shared_dict: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: false,
+            },
+            Profile::MinSize => Self {
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                tessellate: false,
+                attempt_spatial_morton_sort: false,
+                attempt_spatial_hilbert_sort: true,
+                attempt_id_sort: true,
+                allow_fsst: true,
+                allow_fastpfor: true,
+                allow_shared_dict: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: true,
+            },
+            Profile::Diffable => Self {
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                tessellate: false,
+                attempt_spatial_morton_sort: false,
+                attempt_spatial_hilbert_sort: false,
+                attempt_id_sort: false,
+                allow_fsst: false,
+                allow_fastpfor: true,
+                allow_shared_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: false,
+            },
+            Profile::FastEncoding => Self {
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                tessellate: false,
+                attempt_spatial_morton_sort: false,
+                attempt_spatial_hilbert_sort: false,
+                attempt_id_sort: false,
+                allow_fsst: false,
+                allow_fastpfor: false,
+                allow_shared_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: false,
+            },
         }
     }
-}
 
-impl EncoderConfig {
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn wire_version(self) -> WireVersion {

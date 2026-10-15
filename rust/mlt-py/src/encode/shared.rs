@@ -1,6 +1,6 @@
 //! Helpers shared across the encoding entry points (independent of input format).
 
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -35,12 +35,14 @@ pub(crate) fn encoder_config(
             )));
         }
     };
-    Ok(EncoderConfig::default()
-        .with_tessellation(tessellate)
-        .with_spatial_morton_sort(morton)
-        .with_spatial_hilbert_sort(hilbert)
-        .with_id_sort(id)
-        .with_shared_dict(shared_dict)
-        .with_fsst(fsst)
-        .with_fastpfor(fastpfor))
+    Ok(
+        EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+            .with_tessellation(tessellate)
+            .with_spatial_morton_sort(morton)
+            .with_spatial_hilbert_sort(hilbert)
+            .with_id_sort(id)
+            .with_shared_dict(shared_dict)
+            .with_fsst(fsst)
+            .with_fastpfor(fastpfor),
+    )
 }

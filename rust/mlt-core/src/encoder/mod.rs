@@ -34,7 +34,7 @@ pub use model::WireVersion;
 pub use model::{
     ColumnKind, CurveParams, ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding, StreamCtx,
 };
-pub use model::{EncodedUnknown, EncoderConfig};
+pub use model::{EncodedUnknown, EncoderConfig, Network, Profile};
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use model::{ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding};
 #[cfg(all(feature = "unstable-v2", feature = "__private"))]

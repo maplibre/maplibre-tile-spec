@@ -12,7 +12,7 @@ use crate::decoder::{ColumnType, Morton};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::model::FloatEncoding;
 use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
-use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
+use crate::encoder::{EncoderConfig, IntEncoder, Network, Profile, VertexBufferType};
 use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
@@ -75,7 +75,6 @@ use crate::{MltError, MltResult};
 /// [`meta`]: Encoder::meta
 /// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
-#[derive(Default)]
 pub struct Encoder {
     /// Encoding configuration: controls which optimization strategies are tried
     /// (sort orders, compression algorithms, etc.).
@@ -162,15 +161,32 @@ pub struct Encoder {
 
 impl Encoder {
     /// Create a new encoder with the given [`EncoderConfig`].
-    ///
-    /// Use [`Encoder::default()`] when the default configuration is sufficient.
     #[inline]
     #[must_use]
     pub fn new(cfg: EncoderConfig) -> Self {
         Self {
             cfg,
-            ..Self::default()
+            explicit: None,
+            hdr: Vec::new(),
+            meta: Vec::new(),
+            data: Vec::new(),
+            morton_cache: None,
+            hilbert_cache: None,
+            fsst_cache: HashMap::new(),
+            #[cfg(feature = "unstable-v2")]
+            count_context: Count02::default(),
+            #[cfg(feature = "unstable-v2")]
+            family_context: Family::default(),
+            alt_stack: Vec::new(),
         }
+    }
+
+    /// An encoder on the v1 wire whose `explicit` callbacks pick every stream encoding.
+    #[inline]
+    #[must_use]
+    pub fn explicit(explicit: ExplicitEncoder) -> Self {
+        let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G));
+        Self::with_explicit(cfg, explicit)
     }
 
     /// Like [`Self::new`] but with the explicit encoder set for deterministic encoding
@@ -179,9 +195,8 @@ impl Encoder {
     #[must_use]
     pub fn with_explicit(cfg: EncoderConfig, explicit: ExplicitEncoder) -> Self {
         Self {
-            cfg,
             explicit: Some(explicit),
-            ..Self::default()
+            ..Self::new(cfg)
         }
     }
 
@@ -610,6 +625,7 @@ impl io::Write for Encoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::encoder::{EncoderConfig, Network, Profile};
 
     /// Helper: directly extend `enc.data` with raw bytes (simulates a stream write).
     fn push(enc: &mut Encoder, bytes: &[u8]) {
@@ -621,7 +637,9 @@ mod tests {
     /// The shortest candidate wins.
     #[test]
     fn alternatives_keeps_shortest() {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
         push(&mut enc, b"prefix");
 
         let mut alt = enc.try_alternatives();
@@ -648,7 +666,9 @@ mod tests {
     /// On a tie the first candidate is kept (strict `<`, not `<=`).
     #[test]
     fn alternatives_tie_keeps_first() {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
 
         let mut alt = enc.try_alternatives();
         alt.with(|enc| {
@@ -669,7 +689,9 @@ mod tests {
     /// A single candidate is unconditionally the winner.
     #[test]
     fn alternatives_single_candidate() {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
 
         let mut alt = enc.try_alternatives();
         alt.with(|enc| {
@@ -685,7 +707,9 @@ mod tests {
     /// Bytes written before `try_alternatives` are left intact throughout.
     #[test]
     fn prefix_bytes_are_preserved() {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
         push(&mut enc, b"HDR");
 
         let mut alt = enc.try_alternatives();
@@ -708,7 +732,9 @@ mod tests {
     /// Dropping the guard after all candidates are committed is a cheap stack-pop.
     #[test]
     fn drop_after_all_committed_is_noop() {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
 
         let mut alt = enc.try_alternatives();
         alt.with(|enc| {
@@ -727,7 +753,9 @@ mod tests {
     /// An inner competition is resolved before the outer candidate is committed.
     #[test]
     fn nested_alternatives() {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
 
         let mut outer = enc.try_alternatives();
 
@@ -765,7 +793,9 @@ mod tests {
     /// Stack depth tracks nesting level; inner guard drops before outer closure returns.
     #[test]
     fn nesting_depth_reflected_in_stack() {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
 
         assert_eq!(enc.alt_stack.len(), 0);
         let mut outer = enc.try_alternatives();
@@ -796,7 +826,9 @@ mod tests {
     /// candidate and kept for the winner, measured by total bytes.
     #[test]
     fn alternatives_tracks_meta_and_data() {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
         enc.data.extend_from_slice(b"D");
         enc.meta.extend_from_slice(b"M");
 
@@ -826,7 +858,9 @@ mod tests {
     /// A failing candidate is rolled back; prior best is preserved.
     #[test]
     fn error_candidate_is_rolled_back() {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
 
         let mut alt = enc.try_alternatives();
         alt.with(|enc| {

@@ -5,6 +5,7 @@ use std::path::Path;
 
 use mlt_core::dump::{DumpTree, annotate_tile};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, MltError, Parser, TileLayer};
 use rstest::rstest;
@@ -20,7 +21,7 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 }
 
 fn cfg(version: WireVersion) -> EncoderConfig {
-    EncoderConfig::default().with_wire_version(version)
+    EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_wire_version(version)
 }
 
 #[expect(clippy::wildcard_enum_match_arm, reason = "Layer is non_exhaustive")]
