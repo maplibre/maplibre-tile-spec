@@ -64,6 +64,7 @@ fast-mvt.workspace = true
 fastpfor.workspace = true
 fsst-rs.workspace = true
 geo = { workspace = true, features = ["earcut"] }
+geo-traits.workspace = true
 geo-types.workspace = true
 hex.workspace = true
 hilbert_2d.workspace = true
@@ -105,6 +106,14 @@ required-features = ["unstable-v2"]
 [[test]]
 name = "geojson"
 required-features = ["__private"]
+
+[[test]]
+name = "geometry_view"
+required-features = ["__private-v2"]
+
+[[test]]
+name = "geometry_view_alloc"
+required-features = ["__private-v2"]
 
 [[test]]
 name = "geojson02"

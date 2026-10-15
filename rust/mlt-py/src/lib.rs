@@ -2,13 +2,14 @@ mod encode;
 mod feature;
 mod tile_transform;
 
-use std::iter::once;
-
-use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
+use mlt_core::geo_traits::{
+    CoordTrait, Dimensions, GeometryTrait, GeometryType as GeoKind, LineStringTrait,
+    MultiLineStringTrait, MultiPointTrait, MultiPolygonTrait, PointTrait, PolygonTrait,
+};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{
-    Decoder, GeometryType, Layer, LendingIterator, MltError, MltResult, ParsedLayer01, Parser,
-    PropValueRef, ZStep,
+    Decoder, Layer, LendingIterator, MltError, MltResult, ParsedLayer01, Parser, PropValueRef,
+    ZStep,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -52,23 +53,22 @@ impl MltLayer {
     }
 }
 
-/// Writes WKB, taking the next z for each stored vertex when the layer has z.
-///
-/// Z follows xy: the grid value in tile coordinates, the elevation in metres once `xf` projects.
-struct WkbWriter<'a> {
+/// Writes one geometry as little-endian ISO WKB, in the Z variant when it has z.
+struct WkbWriter {
     buf: Vec<u8>,
     xf: Option<TileTransform>,
-    z: Option<(ZStep, &'a [i32])>,
-    vertex: usize,
+    /// The grid z sits on, needed to turn it into an elevation when `xf` transforms x and y.
+    z_step: Option<ZStep>,
+    has_z: bool,
 }
 
-impl<'a> WkbWriter<'a> {
-    fn new(xf: Option<TileTransform>, z: Option<(ZStep, &'a [i32])>) -> Self {
+impl WkbWriter {
+    fn new(xf: Option<TileTransform>, z_step: Option<ZStep>, has_z: bool) -> Self {
         Self {
             buf: Vec::with_capacity(128),
             xf,
-            z,
-            vertex: 0,
+            z_step,
+            has_z,
         }
     }
 
@@ -85,141 +85,123 @@ impl<'a> WkbWriter<'a> {
         Ok(())
     }
 
-    /// The byte order and type, in ISO WKB's Z variant when the layer has z.
+    /// The byte order and type, in ISO WKB's Z variant when the geometry has z.
     fn header(&mut self, ty: u32) {
         self.buf.push(0x01);
-        self.u32(if self.z.is_some() { ty + 1000 } else { ty });
+        self.u32(if self.has_z { ty + 1000 } else { ty });
     }
 
-    /// Write the next stored vertex, returning its z.
-    fn vertex(&mut self, coord: Coord<i32>) -> Option<i32> {
-        let z = self
-            .z
-            .map(|(_, z)| z.get(self.vertex).copied().unwrap_or_default());
-        self.vertex += 1;
-        self.coord(coord, z);
-        z
-    }
-
-    fn coord(&mut self, coord: Coord<i32>, z: Option<i32>) {
+    fn coord(&mut self, coord: &impl CoordTrait<T = i32>) -> MltResult<()> {
         let [x, y] = match self.xf {
-            Some(xf) => xf.apply(coord.into()),
-            None => [coord.x, coord.y].map(f64::from),
+            Some(xf) => xf.apply([coord.x(), coord.y()]),
+            None => [coord.x(), coord.y()].map(f64::from),
         };
         self.f64(x);
         self.f64(y);
-        if let (Some((step, _)), Some(z)) = (self.z, z) {
-            let z = if self.xf.is_some() {
-                step.elevation(z)
-            } else {
-                f64::from(z)
+        if self.has_z {
+            let z = coord.nth(2).ok_or(MltError::NotImplemented(
+                "a geometry with z whose coordinate has none",
+            ))?;
+            let z = match (self.xf, self.z_step) {
+                (Some(_), Some(step)) => step.elevation(z),
+                (Some(_), None) => {
+                    return Err(MltError::NotImplemented(
+                        "transforming z needs the layer's z step",
+                    ));
+                }
+                (None, _) => f64::from(z),
             };
             self.f64(z);
         }
+        Ok(())
     }
 
-    fn point(&mut self, coord: Coord<i32>) {
+    fn point(&mut self, point: &impl PointTrait<T = i32>) -> MltResult<()> {
         self.header(1);
-        self.vertex(coord);
+        match point.coord() {
+            Some(coord) => self.coord(&coord),
+            None => Err(MltError::NotImplemented("an empty point has no WKB")),
+        }
     }
 
-    fn line(&mut self, line: &LineString<i32>) -> MltResult<()> {
-        self.header(2);
-        self.len(line.0.len())?;
-        for &c in &line.0 {
-            self.vertex(c);
+    /// A line string, or a ring, whose closing position the view already repeats.
+    fn line(&mut self, line: &impl LineStringTrait<T = i32>) -> MltResult<()> {
+        self.len(line.num_coords())?;
+        for coord in line.coords() {
+            self.coord(&coord)?;
         }
         Ok(())
     }
 
-    /// A ring's closing position repeats its first, z included, because MLT does not store it.
-    fn ring(&mut self, ring: &LineString<i32>) -> MltResult<()> {
-        let coords = &ring.0;
-        self.len(coords.len())?;
-        let Some((&first, rest)) = coords.split_first() else {
-            return Ok(());
-        };
-        let first_z = self.vertex(first);
-        match rest.split_last() {
-            Some((&last, middle)) if last == first => {
-                for &c in middle {
-                    self.vertex(c);
-                }
-                self.coord(first, first_z);
-            }
-            _ => {
-                for &c in rest {
-                    self.vertex(c);
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn polygon(&mut self, poly: &Polygon<i32>) -> MltResult<()> {
+    fn polygon(&mut self, poly: &impl PolygonTrait<T = i32>) -> MltResult<()> {
         self.header(3);
-        self.len(poly.interiors().len() + 1)?;
-        for ring in once(poly.exterior()).chain(poly.interiors()) {
-            self.ring(ring)?;
+        match poly.exterior() {
+            Some(exterior) => {
+                self.len(poly.num_interiors() + 1)?;
+                self.line(&exterior)?;
+            }
+            None => self.len(0)?,
+        }
+        for ring in poly.interiors() {
+            self.line(&ring)?;
         }
         Ok(())
     }
 
-    fn geometry(&mut self, geom: &Geometry<i32>) -> MltResult<()> {
-        match geom {
-            Geometry::Point(p) => self.point(p.0),
-            Geometry::LineString(line) => self.line(line)?,
-            Geometry::Polygon(poly) => self.polygon(poly)?,
-            Geometry::MultiPoint(points) => {
+    fn geometry(&mut self, geom: &impl GeometryTrait<T = i32>) -> MltResult<()> {
+        match geom.as_type() {
+            GeoKind::Point(p) => self.point(p)?,
+            GeoKind::LineString(line) => {
+                self.header(2);
+                self.line(line)?;
+            }
+            GeoKind::Polygon(poly) => self.polygon(poly)?,
+            GeoKind::MultiPoint(points) => {
                 self.header(4);
-                self.len(points.0.len())?;
-                for p in &points.0 {
-                    self.point(p.0);
+                self.len(points.num_points())?;
+                for p in points.points() {
+                    self.point(&p)?;
                 }
             }
-            Geometry::MultiLineString(lines) => {
+            GeoKind::MultiLineString(lines) => {
                 self.header(5);
-                self.len(lines.0.len())?;
-                for line in &lines.0 {
-                    self.line(line)?;
+                self.len(lines.num_line_strings())?;
+                for line in lines.line_strings() {
+                    self.header(2);
+                    self.line(&line)?;
                 }
             }
-            Geometry::MultiPolygon(polygons) => {
+            GeoKind::MultiPolygon(polygons) => {
                 self.header(6);
-                self.len(polygons.0.len())?;
-                for polygon in &polygons.0 {
-                    self.polygon(polygon)?;
+                self.len(polygons.num_polygons())?;
+                for polygon in polygons.polygons() {
+                    self.polygon(&polygon)?;
                 }
             }
-            Geometry::Line(_)
-            | Geometry::GeometryCollection(_)
-            | Geometry::Rect(_)
-            | Geometry::Triangle(_) => {
+            GeoKind::Line(_)
+            | GeoKind::GeometryCollection(_)
+            | GeoKind::Rect(_)
+            | GeoKind::Triangle(_) => {
                 return Err(MltError::NotImplemented("unsupported geometry type"));
             }
         }
         Ok(())
     }
 
-    fn finish(self) -> MltResult<Vec<u8>> {
-        match self.z {
-            Some((_, z)) if z.len() != self.vertex => Err(MltError::ZVertexCountMismatch {
-                expected: self.vertex,
-                actual: z.len(),
-            }),
-            _ => Ok(self.buf),
-        }
+    fn finish(self) -> Vec<u8> {
+        self.buf
     }
 }
 
+/// `geom` as WKB. `z_step` is the layer's grid, which transforming z needs.
 fn geom32_to_wkb(
-    geom: &Geometry<i32>,
+    geom: &impl GeometryTrait<T = i32>,
     xf: Option<TileTransform>,
-    z: Option<(ZStep, &[i32])>,
+    z_step: Option<ZStep>,
 ) -> MltResult<Vec<u8>> {
-    let mut writer = WkbWriter::new(xf, z);
+    let mut writer = WkbWriter::new(xf, z_step, geom.dim() == Dimensions::Xyz);
     writer.geometry(geom)?;
-    writer.finish()
+    Ok(writer.finish())
 }
 
 fn prop_value_to_py(py: Python<'_>, v: PropValueRef<'_>) -> Py<PyAny> {
@@ -242,28 +224,24 @@ fn build_features(
     layer: &ParsedLayer01<'_>,
     xf: Option<TileTransform>,
 ) -> PyResult<Vec<Py<MltFeature>>> {
-    let geometry = layer.geometry_values();
-    let z_step = geometry.z_step();
+    let z_step = layer.geometry_values().z_step();
     let mut features = Vec::new();
     let mut feat_iter = layer.iter_features();
-    let mut index = 0;
     while let Some(feat_result) = feat_iter.next() {
         let feat = feat_result.map_err(mlt_err)?;
-        let geometry_type = GeometryType::try_from(feat.geometry())
-            .map_or_else(|()| "Unknown".to_string(), |gt| gt.to_string());
-        let z = z_step
-            .map(|step| geometry.z(index).map(|z| (step, z)))
-            .transpose()
-            .map_err(mlt_err)?;
-        index += 1;
-        let z = z.as_ref().map(|(step, z)| (*step, z.as_slice()));
-        let wkb_bytes = geom32_to_wkb(feat.geometry(), xf, z).map_err(mlt_err)?;
+        let geometry = feat.geometry();
+        let wkb_bytes = geom32_to_wkb(&geometry, xf, z_step).map_err(mlt_err)?;
         let wkb = PyBytes::new(py, &wkb_bytes).unbind();
         let prop_dict = PyDict::new(py);
         for p in feat.iter_properties() {
             prop_dict.set_item(p.name().to_string(), prop_value_to_py(py, p.value()))?;
         }
-        let feature = MltFeature::new(feat.id(), geometry_type, wkb, prop_dict.unbind());
+        let feature = MltFeature::new(
+            feat.id(),
+            geometry.geometry_type().to_string(),
+            wkb,
+            prop_dict.unbind(),
+        );
         features.push(Py::new(py, feature)?);
     }
     Ok(features)
@@ -382,7 +360,7 @@ mod tests {
         index: usize,
         xf: Option<TileTransform>,
     ) -> MltResult<Vec<u8>> {
-        geom32_to_wkb(&geom.to_geojson(index)?, xf, None)
+        geom32_to_wkb(&geom.geometry(index)?, xf, None)
     }
 
     #[test]

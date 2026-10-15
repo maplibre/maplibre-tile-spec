@@ -9,8 +9,9 @@ use usize_cast::FromUsize as _;
 mod bench_utils;
 use bench_utils::{
     BENCHMARKED_ZOOM_LEVELS, compress_gzip, decompress_gzip, load_mlt_tiles, load_tiles,
-    mvt_decode, total_bytes,
+    mvt_decode, total_bytes, walk_geometry,
 };
+use mlt_core::{LendingIterator as _, ParsedLayer};
 
 fn load_proto_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
     load_tiles(zoom, "fixtures/omt", ".mvt")
@@ -179,5 +180,55 @@ fn bench_decode_all(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_parse, bench_decode_all);
+/// Row access over decoded layers: every feature's geometry read through its view and
+/// every property touched, which is what `decode_all` leaves for a renderer to do.
+fn bench_iter_features(c: &mut Criterion) {
+    let mut group = c.benchmark_group("iter_features");
+
+    for zoom in BENCHMARKED_ZOOM_LEVELS {
+        let mlt_tiles = load_mlt_tiles(zoom);
+        group.throughput(Throughput::Bytes(u64::from_usize(total_bytes(&mlt_tiles))));
+        group.bench_with_input(BenchmarkId::new("mlt", zoom), &mlt_tiles, |b, tiles| {
+            b.iter_batched(
+                || {
+                    let mut d = dec();
+                    tiles
+                        .iter()
+                        .map(|(_, v)| {
+                            d.reset_budget();
+                            let layers = parser().parse_layers(v).expect("mlt parse failed");
+                            d.decode_all(layers).expect("mlt decode_all failed")
+                        })
+                        .collect::<Vec<_>>()
+                },
+                |decoded| {
+                    let mut sum = 0;
+                    for layers in &decoded {
+                        for layer in layers {
+                            let layer = match layer {
+                                ParsedLayer::Tag01(layer) => layer,
+                                // Unknown, and any tag a later version adds
+                                ParsedLayer::Unknown(_) | _ => continue,
+                            };
+                            let mut features = layer.iter_features();
+                            while let Some(feature) = features.next() {
+                                let feature = feature.expect("feature");
+                                sum += walk_geometry(&feature.geometry());
+                                for value in feature.iter_all_properties() {
+                                    black_box(value);
+                                }
+                            }
+                        }
+                    }
+                    black_box(sum);
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+
+    group.finish();
+}
+
+criterion_group!(benches, bench_parse, bench_decode_all, bench_iter_features);
 criterion_main!(benches);
