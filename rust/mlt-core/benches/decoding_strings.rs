@@ -6,6 +6,7 @@ use mlt_core::encoder::{
     Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
     Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
 };
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::test_helpers::{IntoLayer01 as _, dec, parser};
 use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
@@ -87,7 +88,10 @@ fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> V
     StagedLayer::new("bench", 4096, StagedId::None, make_geometry(n), props)
         .expect("valid bench layer")
         .encode_into(
-            Encoder::with_explicit(EncoderConfig::default(), cfg),
+            Encoder::with_explicit(
+                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
+                cfg,
+            ),
             &mut codecs,
         )
         .expect("encode_layer failed")

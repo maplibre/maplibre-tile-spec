@@ -82,7 +82,8 @@ fn tessellating_buildings_changes_their_encoding(
     #[values(WireVersion::V01, WireVersion::V02)] wire: WireVersion,
 ) {
     let buildings = layer("buildings", buildings(200));
-    let base = EncoderConfig::default().with_wire_version(wire);
+    let base =
+        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_wire_version(wire);
 
     let without_triangles = base.with_tessellation(Tessellation::Off);
     let with_triangles = base.with_tessellation(Tessellation::Always);
@@ -98,7 +99,8 @@ fn buildings_store_no_triangles_on_4g(
     #[values(WireVersion::V01, WireVersion::V02)] wire: WireVersion,
 ) {
     let buildings = layer("buildings", buildings(200));
-    let base = EncoderConfig::default().with_wire_version(wire);
+    let base =
+        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_wire_version(wire);
 
     let auto_on_4g = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
         .with_wire_version(wire)
@@ -116,7 +118,8 @@ fn buildings_store_triangles_offline(
     #[values(WireVersion::V01, WireVersion::V02)] wire: WireVersion,
 ) {
     let buildings = layer("buildings", buildings(200));
-    let base = EncoderConfig::default().with_wire_version(wire);
+    let base =
+        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_wire_version(wire);
 
     let auto_offline = EncoderConfig::from_preset(Profile::Native, Network::Offline)
         .with_wire_version(wire)
@@ -132,7 +135,8 @@ fn buildings_store_triangles_offline(
 #[test]
 fn a_lake_with_islands_stores_triangles_on_4g_in_v2() {
     let lake = layer("water", [lake_with_islands()]);
-    let base = EncoderConfig::default().with_wire_version(WireVersion::V02);
+    let base = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(WireVersion::V02);
 
     let auto_on_4g = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
         .with_wire_version(WireVersion::V02)
@@ -150,7 +154,8 @@ fn a_lake_with_islands_stores_no_triangles_on_3g(
     #[values(WireVersion::V01, WireVersion::V02)] wire: WireVersion,
 ) {
     let lake = layer("water", [lake_with_islands()]);
-    let base = EncoderConfig::default().with_wire_version(wire);
+    let base =
+        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_wire_version(wire);
 
     let auto_on_3g = EncoderConfig::from_preset(Profile::Native, Network::Cellular3G)
         .with_wire_version(wire)
@@ -172,7 +177,8 @@ fn a_lake_among_every_geometry_type_stores_triangles_on_4g_in_v2() {
             .chain([lake_with_islands()])
             .chain(one_of_each_geometry_type()),
     );
-    let base = EncoderConfig::default().with_wire_version(WireVersion::V02);
+    let base = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(WireVersion::V02);
 
     let auto_on_4g = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
         .with_wire_version(WireVersion::V02)
@@ -194,7 +200,8 @@ fn a_lake_among_every_geometry_type_stores_no_triangles_on_3g() {
             .chain([lake_with_islands()])
             .chain(one_of_each_geometry_type()),
     );
-    let base = EncoderConfig::default().with_wire_version(WireVersion::V02);
+    let base = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(WireVersion::V02);
 
     let auto_on_3g = EncoderConfig::from_preset(Profile::Native, Network::Cellular3G)
         .with_wire_version(WireVersion::V02)
@@ -212,7 +219,8 @@ fn roads_store_no_triangles_even_offline(
     #[values(WireVersion::V01, WireVersion::V02)] wire: WireVersion,
 ) {
     let roads = layer("roads", roads());
-    let base = EncoderConfig::default().with_wire_version(wire);
+    let base =
+        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_wire_version(wire);
 
     let auto_offline = EncoderConfig::from_preset(Profile::Native, Network::Offline)
         .with_wire_version(wire)

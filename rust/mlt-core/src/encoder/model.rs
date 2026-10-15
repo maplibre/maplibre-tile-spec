@@ -516,70 +516,115 @@ pub struct EncoderConfig {
     #[cfg(feature = "unstable-v2")]
     allow_rans_vertices: bool,
 }
-impl Default for EncoderConfig {
-    fn default() -> Self {
-        Self::from_preset(Profile::default(), Network::default())
-    }
-}
-
 impl EncoderConfig {
     /// The settings `profile` picks for tiles that reach the client over `network`, which the `with_*` methods override.
     #[must_use]
     pub fn from_preset(profile: Profile, network: Network) -> Self {
-        let native = Self {
-            #[cfg(feature = "unstable-v2")]
-            wire_version: WireVersion::V01,
-            network,
-            tessellation: Tessellation::Auto,
-            attempt_spatial_morton_sort: false,
-            attempt_spatial_hilbert_sort: false,
-            attempt_id_sort: false,
-            allow_fsst: true,
-            allow_fastpfor: true,
-            allow_shared_dict: true,
-            // Off by default while the encoding is still being measured.
-            #[cfg(feature = "unstable-v2")]
-            allow_float_dict: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_float_alp: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_row_shapes: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_packed_dict_codes: true,
-            #[cfg(feature = "unstable-v2")]
-            allow_triangles_only: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_delta2: false,
-            #[cfg(feature = "unstable-v2")]
-            allow_rans_vertices: false,
-        };
-        let untessellated = Self {
-            tessellation: Tessellation::Off,
-            ..native
-        };
+        // Float dictionaries and ALP stay off in every preset while they are still being measured.
         match profile {
-            Profile::Native => native,
-            Profile::Web if network == Network::Offline => untessellated,
+            Profile::Native => Self {
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                network,
+                tessellation: Tessellation::Auto,
+                attempt_spatial_morton_sort: false,
+                attempt_spatial_hilbert_sort: false,
+                attempt_id_sort: false,
+                allow_fsst: true,
+                allow_fastpfor: true,
+                allow_shared_dict: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: false,
+            },
             Profile::Web => Self {
-                allow_fsst: false,
-                allow_fastpfor: false,
-                ..untessellated
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                network,
+                tessellation: Tessellation::Off,
+                attempt_spatial_morton_sort: false,
+                attempt_spatial_hilbert_sort: false,
+                attempt_id_sort: false,
+                allow_fsst: network == Network::Offline,
+                allow_fastpfor: network == Network::Offline,
+                allow_shared_dict: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_delta2: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: false,
             },
             Profile::MinSize => Self {
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                network,
+                tessellation: Tessellation::Off,
+                attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: true,
                 attempt_id_sort: true,
+                allow_fsst: true,
+                allow_fastpfor: true,
+                allow_shared_dict: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: true,
                 #[cfg(feature = "unstable-v2")]
                 allow_rans_vertices: true,
-                ..untessellated
             },
             Profile::Diffable => Self {
+                #[cfg(feature = "unstable-v2")]
+                wire_version: WireVersion::V01,
+                network,
+                tessellation: Tessellation::Off,
+                attempt_spatial_morton_sort: false,
+                attempt_spatial_hilbert_sort: false,
+                attempt_id_sort: false,
                 allow_fsst: false,
+                allow_fastpfor: true,
                 allow_shared_dict: false,
                 #[cfg(feature = "unstable-v2")]
+                allow_float_dict: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_float_alp: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_row_shapes: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_packed_dict_codes: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_triangles_only: false,
+                #[cfg(feature = "unstable-v2")]
                 allow_delta2: true,
-                ..untessellated
+                #[cfg(feature = "unstable-v2")]
+                allow_rans_vertices: false,
             },
         }
     }

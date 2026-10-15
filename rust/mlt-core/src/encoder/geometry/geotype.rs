@@ -574,6 +574,7 @@ fn push_linestrings<'a>(
 
 #[cfg(test)]
 mod tests {
+    use crate::encoder::{Network, Profile};
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
     use insta::assert_snapshot;
     use integer_encoding::VarInt;
@@ -697,7 +698,10 @@ mod tests {
     /// The input must already be in the dense canonical form that `from_encoded`
     /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
     fn roundtrip(decoded: &GeometryValues) -> GeometryValues {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_preset(
+            Profile::Native,
+            Network::Cellular4G,
+        ));
         let mut codecs = Codecs::default();
         decoded
             .clone()
@@ -993,7 +997,7 @@ mod tests {
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut codecs = Codecs::default();
         let mut enc = Encoder::with_explicit(
-            EncoderConfig::default(),
+            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
             ExplicitEncoder::all(IntEncoder::varint()),
         );
         enc.write_varint(4u32).unwrap();

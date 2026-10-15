@@ -58,6 +58,7 @@ pub enum LogicalEncoder {
 
 #[cfg(test)]
 mod tests {
+    use crate::encoder::{Network, Profile};
     use proptest::prelude::*;
 
     use super::*;
@@ -74,7 +75,7 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut enc = Encoder::with_explicit(
-                EncoderConfig::default(),
+                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
                 ExplicitEncoder::all(IntEncoder::varint_with(logical)),
             );
             let mut codecs = Codecs::default();
@@ -91,7 +92,7 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut enc = Encoder::with_explicit(
-                EncoderConfig::default(),
+                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
                 ExplicitEncoder::all(IntEncoder::varint_with(logical)),
             );
             let mut codecs = Codecs::default();
@@ -108,7 +109,7 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut enc = Encoder::with_explicit(
-                EncoderConfig::default(),
+                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
                 ExplicitEncoder::all(IntEncoder::varint_with(logical)),
             );
             let mut codecs = Codecs::default();
@@ -125,7 +126,7 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut enc = Encoder::with_explicit(
-                EncoderConfig::default(),
+                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
                 ExplicitEncoder::all(IntEncoder::varint_with(logical)),
             );
             let mut codecs = Codecs::default();

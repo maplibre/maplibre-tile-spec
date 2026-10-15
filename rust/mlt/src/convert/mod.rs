@@ -274,12 +274,24 @@ fn update_mlt_pmtiles_metadata(
 }
 
 /// The encoder settings, field parsing and verification every layer is re-encoded with.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(crate) struct Reencoder {
     encoder: EncoderConfig,
     fields: Arc<FieldConfig>,
     /// Decode every encoded layer and require it to match its input.
     verify: bool,
+}
+
+/// What `convert` re-encodes with when no flag is given.
+#[cfg(test)]
+impl Default for Reencoder {
+    fn default() -> Self {
+        Self {
+            encoder: EncoderConfig::from_preset(CoreProfile::Native, CoreNetwork::Cellular4G),
+            fields: Arc::default(),
+            verify: false,
+        }
+    }
 }
 
 impl Reencoder {
@@ -311,7 +323,7 @@ pub struct ConvertArgs {
     profile: Option<Profile>,
     /// How tiles reach the client, which prices `--tessellate=auto` and decides `--profile web` (default: 4g)
     ///
-    /// `--tessellate=auto` weighs the bytes against `mapbox::earcut` on a client 4× slower than a Ryzen 9 3900 core.
+    /// `--tessellate=auto` weighs the bytes against `mapbox::earcut` on a client 4x slower than a Ryzen 9 3900 core.
     #[clap(long)]
     network: Option<Network>,
     /// Store polygon triangles, so clients skip earcut (default: auto, or off under `--profile web`, `min_size` and `diffable`)
@@ -655,7 +667,10 @@ fn convert_mlt_buffer(buffer: &[u8], reencoder: &Reencoder) -> AnyResult<Vec<u8>
         if let Layer::Unknown(u) = layer {
             out.extend(
                 EncodedUnknown::from(u)
-                    .write_to(Encoder::default())?
+                    .write_to(Encoder::new(EncoderConfig::from_preset(
+                        CoreProfile::Native,
+                        CoreNetwork::Cellular4G,
+                    )))?
                     .into_raw_bytes(),
             );
             continue;
@@ -819,7 +834,8 @@ mod tests {
 
     fn round_trip(mvt: Vec<u8>, version: WireVersion, to: TileFormat) -> Vec<u8> {
         let reencoder = Reencoder {
-            encoder: EncoderConfig::default().with_wire_version(version),
+            encoder: EncoderConfig::from_preset(CoreProfile::Native, CoreNetwork::Cellular4G)
+                .with_wire_version(version),
             ..Reencoder::default()
         };
         let mlt = convert_buffer(mvt, TileFormat::Mvt, TileFormat::Mlt, &reencoder).unwrap();

@@ -8,6 +8,7 @@ use rstest::rstest;
 use crate::decoder::{GeoTypes, RawGeometry, RawStream};
 use crate::encoder::model::EncoderConfig;
 use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder, VertexBufferType};
+use crate::encoder::{Network, Profile};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, StreamType};
 
@@ -17,7 +18,10 @@ use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, StreamType}
 #[case::polygon(push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 100, 0 0))).into()]))]
 #[case::multi_polygon(push_geoms(&[wkt!(MULTIPOLYGON(((0 0, 10 0, 10 10, 0 0),(5 5, 15 5, 15 15, 5 15)))).into()]))]
 fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     decoded
         .clone()
@@ -27,7 +31,10 @@ fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
 }
 
 fn auto_mode_streams(decoded: &GeometryValues) -> Vec<StreamType> {
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     decoded
         .clone()
@@ -103,7 +110,10 @@ fn automatic_optimization_repeated_points_picks_dict() {
 #[test]
 fn encoded_output_always_has_meta_stream() {
     let decoded = push_geoms(&[Geometry::<i32>::Point(Point(Coord::<i32> { x: 1, y: 1 }))]);
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     decoded
         .write_to(&mut enc, &mut codecs)
@@ -127,7 +137,10 @@ fn encoded_polygon_has_topology_streams() {
         LineString(coords),
         vec![],
     ))]);
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     decoded
         .write_to(&mut enc, &mut codecs)
@@ -152,7 +165,10 @@ fn forced_vertex_strategy_streams(
         vertex_buffer_type: strategy,
         ..ExplicitEncoder::all(IntEncoder::varint())
     };
-    let mut enc = Encoder::with_explicit(EncoderConfig::default(), explicit);
+    let mut enc = Encoder::with_explicit(
+        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
+        explicit,
+    );
     let mut codecs = Codecs::default();
     decoded
         .clone()
@@ -237,7 +253,10 @@ fn forced_hilbert_streams() {
 fn manual_encode_works() {
     let decoded = push_geoms(&[wkt!(POINT(10 20)).into()]);
 
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     decoded
         .clone()
@@ -295,7 +314,10 @@ fn geojson(values: &GeometryValues) -> Vec<Result<Geometry<i32>, String>> {
 /// Encode as v1, decode, and read every feature back as `GeoJSON`.
 fn v1_geojson_roundtrip(geoms: &[Geometry<i32>], tessellate: bool) -> Vec<Geometry<i32>> {
     let decoded = stage(geoms, tessellate);
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     decoded
         .write_to(&mut enc, &mut codecs)
@@ -405,7 +427,10 @@ fn triangle_indices_count_from_the_layer_first_vertex() {
 #[case::squares_after_a_point_and_a_line(squares_after_a_point_and_a_line())]
 fn triangle_indices_survive_a_v1_roundtrip(#[case] geoms: Vec<Geometry<i32>>) {
     let staged = push_geoms_tessellated(&geoms);
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     staged
         .clone()
@@ -459,7 +484,8 @@ mod v2 {
             vertex_buffer_type: strategy,
             ..ExplicitEncoder::all(IntEncoder::varint())
         };
-        let cfg = EncoderConfig::default().with_wire_version(version);
+        let cfg = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+            .with_wire_version(version);
         staged
             .encode_into(
                 Encoder::with_explicit(cfg, explicit),

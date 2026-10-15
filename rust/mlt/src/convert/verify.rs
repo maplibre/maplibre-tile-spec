@@ -364,8 +364,11 @@ mod tests {
             .unwrap();
         row.finish().unwrap();
         let layer = layer.finish();
-        let config = mlt_core::encoder::EncoderConfig::default()
-            .with_wire_version(mlt_core::encoder::WireVersion::V02);
+        let config = mlt_core::encoder::EncoderConfig::from_preset(
+            mlt_core::encoder::Profile::Native,
+            mlt_core::encoder::Network::Cellular4G,
+        )
+        .with_wire_version(mlt_core::encoder::WireVersion::V02);
         let encoded = layer.clone().encode(config).unwrap();
         check_round_trip(&layer, &encoded, Ok).unwrap();
     }

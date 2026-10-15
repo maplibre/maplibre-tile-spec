@@ -2,13 +2,15 @@
 
 use insta::assert_snapshot;
 use mlt_core::encoder::{EncoderConfig, WireVersion};
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{Coord, Geometry, LineString};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::{MValue, NestedKind, NestedValue, PropKind, PropValue, TileLayer};
 
 fn cfg_v2() -> EncoderConfig {
-    EncoderConfig::default().with_wire_version(WireVersion::V02)
+    EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(WireVersion::V02)
 }
 
 fn line(from: i32) -> Geometry<i32> {

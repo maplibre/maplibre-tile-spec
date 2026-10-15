@@ -6,6 +6,7 @@ use mlt_core::encoder::{
     StagedLayer, StagedMValue, StagedValues, StrEncoding, Tessellation, VertexBufferType,
     WireVersion,
 };
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
@@ -23,7 +24,8 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 }
 
 fn cfg_v2() -> EncoderConfig {
-    EncoderConfig::default().with_wire_version(WireVersion::V02)
+    EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(WireVersion::V02)
 }
 
 fn decode(bytes: &[u8]) -> TileLayer {

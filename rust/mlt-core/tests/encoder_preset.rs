@@ -1,19 +1,6 @@
 use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
 
 #[test]
-fn the_default_is_the_native_preset_on_4g() {
-    assert_eq!(
-        EncoderConfig::default(),
-        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
-    );
-}
-
-#[test]
-fn the_default_tessellation_is_auto() {
-    assert_eq!(EncoderConfig::default().tessellation(), Tessellation::Auto);
-}
-
-#[test]
 fn a_preset_keeps_its_network() {
     let native_on_3g = EncoderConfig::from_preset(Profile::Native, Network::Cellular3G);
     assert_eq!(native_on_3g.network(), Network::Cellular3G);

@@ -6,6 +6,7 @@ use std::path::Path;
 
 use geo_types::{Geometry, Polygon};
 use mlt_core::encoder::{EncoderConfig, Tessellation};
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::fast_mvt::MvtTileBuilder;
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, TileLayer};
@@ -16,7 +17,7 @@ test_each_path! { for ["mvt"] in "../test/fixtures" as auto_tessellated_fixtures
 
 fn writer_encodes_like_tile_layer_with_sorted_auto_tessellation([path]: [&Path; 1]) {
     let layers = mvt_to_tile_layers(fs::read(path).expect("read fixture")).expect("decode fixture");
-    let sorted_auto = EncoderConfig::default()
+    let sorted_auto = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
         .with_tessellation(Tessellation::Auto)
         .with_spatial_morton_sort(true)
         .with_spatial_hilbert_sort(true)
@@ -35,7 +36,8 @@ fn writer_encodes_like_tile_layer_with_sorted_auto_tessellation([path]: [&Path; 
 
 fn writer_encodes_like_tile_layer([path]: [&Path; 1]) {
     let layers = mvt_to_tile_layers(fs::read(path).expect("read fixture")).expect("decode fixture");
-    let base = EncoderConfig::default().with_tessellation(Tessellation::Off);
+    let base = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_tessellation(Tessellation::Off);
     let sorted = base
         .with_spatial_morton_sort(true)
         .with_spatial_hilbert_sort(true)

@@ -224,6 +224,7 @@ pub fn compress_fsst_with<S: AsRef<str>>(
 
 #[cfg(test)]
 mod tests {
+    use crate::encoder::{Network, Profile};
     use rstest::rstest;
 
     use super::*;
@@ -250,7 +251,7 @@ mod tests {
 
         let int_stream = |values: &[u32], ty: StreamType, name: &'static str| {
             let mut enc = Encoder::with_explicit(
-                EncoderConfig::default(),
+                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
                 ExplicitEncoder::all(IntEncoder::varint()),
             );
             let mut codecs = Codecs::default();

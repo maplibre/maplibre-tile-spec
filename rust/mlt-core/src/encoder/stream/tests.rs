@@ -12,6 +12,7 @@ use crate::encoder::model::StreamCtx;
 use crate::encoder::{
     Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, PhysicalEncoder,
 };
+use crate::encoder::{Network, Profile};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
 
@@ -166,7 +167,7 @@ fn test_decode_u32(
 #[case::empty(vec![])]
 fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let mut enc = Encoder::with_explicit(
-        EncoderConfig::default(),
+        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
         ExplicitEncoder::all(IntEncoder::fastpfor()),
     );
     let codecs = &mut Codecs::default();
@@ -202,7 +203,10 @@ fn single_value_u32_picks_smaller_physical(
     #[case] v: u32,
     #[case] expected_physical: PhysicalEncoding,
 ) {
-    let mut enc = Encoder::new(EncoderConfig::default());
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let codecs = &mut Codecs::default();
     let ctx = StreamCtx::prop_data("test");
     codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
@@ -231,7 +235,10 @@ fn single_value_i32_picks_smaller_physical(
     #[case] v: i32,
     #[case] expected_physical: PhysicalEncoding,
 ) {
-    let mut enc = Encoder::new(EncoderConfig::default());
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let codecs = &mut Codecs::default();
     let ctx = StreamCtx::prop_data("test");
     codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
@@ -258,8 +265,8 @@ fn allow_fastpfor_gates_fastpfor_selection() {
         .map(|i| i.wrapping_mul(2_654_435_761) % 4096)
         .collect();
 
-    let on = EncoderConfig::default().with_fastpfor(true);
-    let off = EncoderConfig::default().with_fastpfor(false);
+    let on = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_fastpfor(true);
+    let off = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_fastpfor(false);
 
     assert_eq!(
         auto_physical(&values, on),
@@ -427,7 +434,7 @@ proptest! {
         encoding in any::<IntEncoder>(),
     ) {
         let widened: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
-        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
@@ -442,7 +449,7 @@ proptest! {
         encoding in any::<IntEncoder>()
     ) {
         let widened: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
-        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
@@ -456,7 +463,7 @@ proptest! {
         values in prop::collection::vec(any::<u32>(), 0..100),
         encoding in any::<IntEncoder>()
     ) {
-        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let decoded_values = roundtrip_stream_u32s(enc.data());
@@ -468,7 +475,7 @@ proptest! {
         values in prop::collection::vec(any::<i32>(), 0..100),
         encoding in any::<IntEncoder>(),
     ) {
-        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
@@ -482,7 +489,7 @@ proptest! {
         values in prop::collection::vec(any::<u64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
@@ -496,7 +503,7 @@ proptest! {
         values in prop::collection::vec(any::<i64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut enc = Encoder::with_explicit(EncoderConfig::from_preset(Profile::Native, Network::Cellular4G), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));

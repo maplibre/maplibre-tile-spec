@@ -12,6 +12,7 @@ use crate::encoder::{
     Codecs, Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId,
     StagedProperty, StagedSharedDict, stage_tile,
 };
+use crate::encoder::{Network, Profile};
 use crate::test_helpers::{dec, parser};
 use crate::{
     DictRange, Extent, GeometryValues, Layer, MltError, MltResult, PropValue, TileFeature,
@@ -154,7 +155,10 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
 fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
     let n = props.iter().map(staged_len).max().unwrap_or(0);
     let layer = StagedLayer::new("test", 4096, StagedId::None, n_point_geometry(n), props).unwrap();
-    let enc = Encoder::with_explicit(EncoderConfig::default(), cfg);
+    let enc = Encoder::with_explicit(
+        EncoderConfig::from_preset(Profile::Native, Network::Cellular4G),
+        cfg,
+    );
     let mut codecs = Codecs::default();
     let enc = layer
         .encode_into(enc, &mut codecs)
@@ -416,8 +420,8 @@ fn allow_fsst_gates_fsst_selection() {
         .collect();
     let col = || StagedProperty::str("name", values.iter().map(String::as_str));
 
-    let on = EncoderConfig::default().with_fsst(true);
-    let off = EncoderConfig::default().with_fsst(false);
+    let on = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_fsst(true);
+    let off = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G).with_fsst(false);
 
     let bytes_on = encode_to_bytes_auto(vec![col()], on);
     let bytes_off = encode_to_bytes_auto(vec![col()], off);
@@ -848,7 +852,12 @@ fn narrowed_property_column_round_trips_values() {
             PropValue::I64(Some(0)),
         ],
     )]);
-    let bytes = tile.encode(EncoderConfig::default()).unwrap();
+    let bytes = tile
+        .encode(EncoderConfig::from_preset(
+            Profile::Native,
+            Network::Cellular4G,
+        ))
+        .unwrap();
 
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
     let Layer::Tag01(layer01) = layer else {
@@ -1192,7 +1201,10 @@ fn analyze_layer_records_shared_dict_roles_by_property_index() {
 #[test]
 fn no_nulls_produces_encoded_output() {
     let props = vec![StagedProperty::u32("pop", vec![1, 2, 3])];
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();
@@ -1209,14 +1221,25 @@ fn no_nulls_produces_encoded_output() {
 #[case::u8(StagedProperty::u8("x", vec![1]))]
 #[case::opt_u8(StagedProperty::opt_u8("x", vec![Some(1)]))]
 fn eight_bit_column_is_rejected_in_v1(#[case] prop: StagedProperty) {
-    let err = write_prop(&prop, &mut Encoder::default(), &mut Codecs::default()).unwrap_err();
+    let err = write_prop(
+        &prop,
+        &mut Encoder::new(EncoderConfig::from_preset(
+            Profile::Native,
+            Network::Cellular4G,
+        )),
+        &mut Codecs::default(),
+    )
+    .unwrap_err();
     assert!(matches!(err, MltError::EightBitNeedsV2(name) if name == "x"));
 }
 
 #[test]
 fn all_nulls_encodes_without_error() {
     let props = vec![StagedProperty::opt_i32("x", vec![None, None, None])];
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();
@@ -1226,7 +1249,10 @@ fn all_nulls_encodes_without_error() {
 #[test]
 fn sequential_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("id", (0u32..1_000).collect())];
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();
@@ -1237,7 +1263,10 @@ fn sequential_u32_encodes_successfully() {
 #[test]
 fn constant_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("val", vec![42u32; 500])];
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();
@@ -1403,7 +1432,10 @@ fn overlapping_name_columns_stay_grouped() {
 #[test]
 fn encode_with_explicit_encoder_works() {
     let props = vec![StagedProperty::u32("id", (1_000u32..2_000).collect())];
-    let mut enc = Encoder::default();
+    let mut enc = Encoder::new(EncoderConfig::from_preset(
+        Profile::Native,
+        Network::Cellular4G,
+    ));
     let mut codecs = Codecs::default();
     for prop in props {
         write_prop(&prop, &mut enc, &mut codecs).unwrap();

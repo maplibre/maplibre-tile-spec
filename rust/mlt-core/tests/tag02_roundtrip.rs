@@ -3,6 +3,7 @@
 use insta::{assert_snapshot, with_settings};
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{EncoderConfig, Tessellation, WireVersion};
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
@@ -18,7 +19,7 @@ fn annotate(bytes: &[u8]) -> DumpTree {
 
 fn cfg_v1() -> EncoderConfig {
     // sorting because sort trials could otherwise pick different winners per format.
-    EncoderConfig::default()
+    EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
 }
 
 fn cfg_v2() -> EncoderConfig {
@@ -486,14 +487,17 @@ fn multiple_layers() {
 }
 
 #[test]
-fn default_config_with_sort_trials() {
+fn native_preset_with_sort_trials() {
     let geoms: Vec<_> = (0..30).map(|i| pt(i * 13 % 100, i * 7 % 100)).collect();
     let ids = Some((0..30_u64).map(Some).collect());
     let l = layer(geoms, ids, &[]);
 
     let bytes = l
         .clone()
-        .encode(EncoderConfig::default().with_wire_version(WireVersion::V02))
+        .encode(
+            EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+                .with_wire_version(WireVersion::V02),
+        )
         .unwrap();
     let (tag, tile) = decode(&bytes);
     assert_eq!(tag, 2);

@@ -12,7 +12,7 @@ mod store;
 mod ffi {
     use std::fmt::Write as _;
 
-    use mlt_core::encoder::{EncoderConfig, Tessellation, WireVersion};
+    use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
     use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
     use mlt_core::wire::LayerBytes;
     use mlt_core::{Decoder, Parser};
@@ -148,7 +148,8 @@ mod ffi {
         #[diplomat::attr(auto, constructor)]
         pub fn new() -> Box<MltEncoderOptions> {
             Box::new(MltEncoderOptions(
-                EncoderConfig::default().with_tessellation(Tessellation::Off),
+                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+                    .with_tessellation(Tessellation::Off),
             ))
         }
 

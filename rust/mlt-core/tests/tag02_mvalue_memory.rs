@@ -3,6 +3,7 @@
 use mlt_core::encoder::{
     Codecs, Encoder, EncoderConfig, StagedId, StagedLayer, StagedMValue, StagedValues, WireVersion,
 };
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{Coord, Geometry, LineString};
 use mlt_core::{Decoder, GeometryValues, Layer, MltError, Parser};
 
@@ -31,7 +32,8 @@ fn absent_columns_tile() -> Vec<u8> {
             )
         })
         .collect();
-    let cfg = EncoderConfig::default().with_wire_version(WireVersion::V02);
+    let cfg = EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+        .with_wire_version(WireVersion::V02);
     StagedLayer::with_m_values(
         "test_layer",
         4096,

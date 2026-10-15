@@ -948,6 +948,7 @@ mod tests {
     use super::*;
     use crate::decoder::GeometryValues;
     use crate::encoder::{EncoderConfig, StagedStruct, WireVersion};
+    use crate::encoder::{Network, Profile};
     use crate::geo_types::{Geometry, Point};
 
     fn points(count: usize) -> GeometryValues {
@@ -977,7 +978,10 @@ mod tests {
         )
         .expect("staged layer")
         .encode_into(
-            Encoder::new(EncoderConfig::default().with_wire_version(WireVersion::V02)),
+            Encoder::new(
+                EncoderConfig::from_preset(Profile::Native, Network::Cellular4G)
+                    .with_wire_version(WireVersion::V02),
+            ),
             &mut Codecs::default(),
         )
         .expect("encode")
