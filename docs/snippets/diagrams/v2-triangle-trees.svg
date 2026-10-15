@@ -91,7 +91,7 @@
 <text class="vert halo" x="698" y="22">5</text>
 <text class="row" x="400" y="440">cycle</text>
 <path class="bracket" d="M497 422V416H541V422"/>
-<text class="muted mid" x="519" y="408"><tspan class="math">from <tspan class="op">→</tspan> to</tspan></text>
+<text class="muted mid" x="519" y="401"><tspan class="math">from <tspan class="op">→</tspan> to</tspan></text>
 <rect class="f0" x="496" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="507" y="440">3</text>
 <rect class="f0" x="520" y="426" width="22" height="28" rx="3"/>

@@ -17,9 +17,9 @@
 <polygon class="f1" points="400,110 600,110 500,230"/>
 <path class="link t0" d="M412,117L588,117" marker-end="url(#tent0)"/>
 <circle class="dot" cx="400" cy="110" r="3.5"/>
-<text class="vert math halo" x="400" y="90">from <tspan class="op">=</tspan> cycle<tspan class="op">[0]</tspan></text>
+<text class="vert math halo" x="400" y="90">from <tspan class="op">=</tspan> cycle<tspan class="op" dx="4">[0]</tspan></text>
 <circle class="dot" cx="600" cy="110" r="3.5"/>
-<text class="vert math halo" x="600" y="90">to <tspan class="op">=</tspan> cycle<tspan class="op">[1]</tspan></text>
+<text class="vert math halo" x="600" y="90">to <tspan class="op">=</tspan> cycle<tspan class="op" dx="4">[1]</tspan></text>
 <circle class="dot" cx="500" cy="230" r="3.5"/>
 <text class="vert math halo" x="500" y="247">apex</text>
 </svg>
