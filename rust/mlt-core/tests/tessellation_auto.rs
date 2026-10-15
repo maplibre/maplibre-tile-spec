@@ -130,6 +130,24 @@ fn buildings_store_triangles_offline(
     );
 }
 
+#[rstest]
+fn buildings_store_triangles_on_5g(
+    #[values(WireVersion::V01, WireVersion::V02)] wire: WireVersion,
+) {
+    let buildings = layer("buildings", buildings(200));
+    let base =
+        EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_wire_version(wire);
+
+    let auto_on_5g =
+        EncoderConfig::from_profile(Profile::Native(Network::Cellular5G)).with_wire_version(wire);
+    let with_triangles = base.with_tessellation(Tessellation::Always);
+
+    assert_eq!(
+        buildings.encode(auto_on_5g).unwrap(),
+        buildings.encode(with_triangles).unwrap()
+    );
+}
+
 #[test]
 fn a_lake_with_islands_stores_triangles_on_4g_in_v2() {
     let lake = layer("water", [lake_with_islands()]);

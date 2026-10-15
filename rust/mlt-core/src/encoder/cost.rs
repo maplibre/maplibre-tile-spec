@@ -53,9 +53,6 @@ impl ClientCost {
 
     /// How long the client takes to decode a layer's `triangles`.
     fn decode_triangles(self, triangles: u64) -> Duration {
-        if triangles == 0 {
-            return Duration::ZERO;
-        }
         // Fitted per layer on five tilesets, in hundredths of a nanosecond.
         let centi_ns = match (self.client, self.layout) {
             // `263 + 52.8 * min(t, 200) + 12.2 * max(t - 200, 0)` ns, the TypeScript decoder in Node.
