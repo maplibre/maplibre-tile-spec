@@ -2261,15 +2261,15 @@ The triangle lengths MUST sum to the number of symbols.</p>
 <h4 id="triangle-trees">Triangle Trees<a class="headerlink" href="#triangle-trees" title="Link to this section">&para;</a></h4>
 <div class="admonition question">
 <p class="admonition-title">Why trees</p>
-<p>Earcut adds no vertex inside a polygon, so every triangle it cuts has a corner on the outline of the triangles before it.
+<p>Earcut adds no vertex inside a polygon, so every triangle it emits has a corner on the outline of the triangles before it.
 That makes two bits per triangle and one index per outline vertex enough, instead of three indices per triangle.</p>
 </div>
-<p>A triangle <span class="arithmatex">\((u, v, w)\)</span> has the edges <span class="arithmatex">\(u \to v\)</span>, <span class="arithmatex">\(v \to w\)</span> and <span class="arithmatex">\(w \to u\)</span>.
+<p>A triangle <span class="arithmatex">\((\mathit{from}, \mathit{to}, \mathit{apex})\)</span> has the edges <span class="arithmatex">\(\mathit{from} \to \mathit{to}\)</span>, <span class="arithmatex">\(\mathit{to} \to \mathit{apex}\)</span> and <span class="arithmatex">\(\mathit{apex} \to \mathit{from}\)</span>.
 Two triangles are neighbours when one has the edge <span class="arithmatex">\(a \to b\)</span> and the other <span class="arithmatex">\(b \to a\)</span>.
 The triangles are stored as trees of neighbours, one after another.
 Each triangle of a tree but its root is the neighbour of its parent.</p>
-<p>A triangle is entered across its edge <span class="arithmatex">\(u \to v\)</span>, from its parent or, for a root, from the tree's cycle.</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 262" role="img" aria-label="A triangle u, v, w entered across u to v: on the left from its parent, which lies across that edge, on the right as a root, whose u and v are cycle[0] and cycle[1] on the outline" xmlns="http://www.w3.org/2000/svg">
+<p>A triangle is entered across its edge <span class="arithmatex">\(\mathit{from} \to \mathit{to}\)</span>, from its parent or, for a root, from the tree's cycle.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 262" role="img" aria-label="A triangle from, to, apex entered across from to to: on the left from its parent, which lies across that edge, on the right as a root, whose from and to are cycle[0] and cycle[1] on the outline" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="tent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="tent0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="tent1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
 <text class="bold mid" x="190" y="14">from its parent</text>
 <polygon class="implicit" points="90,110 190,40 290,110"/>
@@ -2277,26 +2277,26 @@ Each triangle of a tree but its root is the neighbour of its parent.</p>
 <polygon class="f1" points="90,110 290,110 190,230"/>
 <path class="link t0" d="M102,117L278,117" marker-end="url(#tent0)"/>
 <circle class="dot" cx="90" cy="110" r="3.5"/>
-<text class="vert math halo" x="76" y="110">u</text>
+<text class="math halo" x="82" y="110" text-anchor="end">from</text>
 <circle class="dot" cx="290" cy="110" r="3.5"/>
-<text class="vert math halo" x="304" y="110">v</text>
+<text class="math halo" x="298" y="110">to</text>
 <circle class="dot" cx="190" cy="230" r="3.5"/>
-<text class="vert math halo" x="190" y="247">w</text>
+<text class="vert math halo" x="190" y="247">apex</text>
 <text class="bold mid" x="500" y="14">as a root</text>
 <path class="line" d="M360 110H630"/>
 <text class="muted small" x="636" y="110">outline</text>
 <polygon class="f1" points="400,110 600,110 500,230"/>
 <path class="link t0" d="M412,117L588,117" marker-end="url(#tent0)"/>
 <circle class="dot" cx="400" cy="110" r="3.5"/>
-<text class="vert math halo" x="400" y="90">u <tspan class="op">=</tspan> cycle<tspan class="op">[0]</tspan></text>
+<text class="vert math halo" x="400" y="90">from <tspan class="op">=</tspan> cycle<tspan class="op" dx="4">[0]</tspan></text>
 <circle class="dot" cx="600" cy="110" r="3.5"/>
-<text class="vert math halo" x="600" y="90">v <tspan class="op">=</tspan> cycle<tspan class="op">[1]</tspan></text>
+<text class="vert math halo" x="600" y="90">to <tspan class="op">=</tspan> cycle<tspan class="op" dx="4">[1]</tspan></text>
 <circle class="dot" cx="500" cy="230" r="3.5"/>
-<text class="vert math halo" x="500" y="247">w</text>
+<text class="vert math halo" x="500" y="247">apex</text>
 </svg></p>
-<p>Bit <code>0</code> of its symbol is set when a child lies across <span class="arithmatex">\(v \to w\)</span>, and bit <code>1</code> when a child lies across <span class="arithmatex">\(w \to u\)</span>.
-A child has that edge the other way round, so the bit <code>0</code> child is entered across <span class="arithmatex">\(w \to v\)</span> and the bit <code>1</code> child across <span class="arithmatex">\(u \to w\)</span>.</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="A triangle u, v, w entered across u to v. Its bit 0 child lies across v to w and is entered across w to v, its bit 1 child lies across w to u and is entered across u to w. Then the four symbols 0 to 3 as a triangle with no child, the bit 0 child, the bit 1 child, and both" xmlns="http://www.w3.org/2000/svg">
+<p>Bit <code>0</code> of its symbol is set when a child lies across <span class="arithmatex">\(\mathit{to} \to \mathit{apex}\)</span>, and bit <code>1</code> when a child lies across <span class="arithmatex">\(\mathit{apex} \to \mathit{from}\)</span>.
+A child has that edge the other way round, so the bit <code>0</code> child is entered across <span class="arithmatex">\(\mathit{apex} \to \mathit{to}\)</span> and the bit <code>1</code> child across <span class="arithmatex">\(\mathit{from} \to \mathit{apex}\)</span>.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="A triangle from, to, apex entered across from to to. Its bit 0 child lies across to to apex and is entered across apex to to, its bit 1 child lies across apex to from and is entered across from to apex. Then the four symbols 0 to 3 as a triangle with no child, the bit 0 child, the bit 1 child, and both" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="tsym" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="tsym0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="tsym1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
 <polygon class="implicit" points="110,100 210,6.5 310,100"/>
 <polygon class="f1" points="310,100 372.5,248.8 210,270"/>
@@ -2307,35 +2307,36 @@ A child has that edge the other way round, so the bit <code>0</code> child is en
 <path class="link t0" d="M110,113.8L197.8,263.1" marker-end="url(#tsym0)"/>
 <text class="muted small mid" x="210" y="62.8">parent</text>
 <text class="bold mid" x="210" y="150.7">entered</text>
-<text class="small mid" x="210" y="166.7">across <tspan class="math">u <tspan class="op">→</tspan> v</tspan></text>
+<text class="small mid" x="210" y="166.7">across</text>
+<text class="math mid" x="210" y="185">from <tspan class="op">→</tspan> to</text>
 <text class="t1 bold mid halo" x="316.6" y="201.1">bit 0 child</text>
-<text class="small mid halo" x="316.6" y="219.1">entered</text>
-<text class="small mid halo" x="316.6" y="233.1">across <tspan class="math">w <tspan class="op">→</tspan> v</tspan></text>
+<text class="small mid halo" x="316.6" y="219.1">entered across</text>
+<text class="math mid halo" x="316.6" y="237">apex <tspan class="op">→</tspan> to</text>
 <text class="t1 bold mid halo" x="103.4" y="201.1">bit 1 child</text>
-<text class="small mid halo" x="103.4" y="219.1">entered</text>
-<text class="small mid halo" x="103.4" y="233.1">across <tspan class="math">u <tspan class="op">→</tspan> w</tspan></text>
+<text class="small mid halo" x="103.4" y="219.1">entered across</text>
+<text class="math mid halo" x="103.4" y="237">from <tspan class="op">→</tspan> apex</text>
 <circle class="dot" cx="110" cy="100" r="3.5"/>
-<text class="vert math halo" x="96" y="100">u</text>
+<text class="math halo" x="102" y="100" text-anchor="end">from</text>
 <circle class="dot" cx="310" cy="100" r="3.5"/>
-<text class="vert math halo" x="324" y="100">v</text>
+<text class="math halo" x="318" y="100">to</text>
 <circle class="dot" cx="210" cy="270" r="3.5"/>
-<text class="vert math halo" x="210" y="287">w</text>
-<text class="row" x="450" y="30">symbol</text>
-<polygon class="implicit" points="545,62 570,121.5 505,130"/>
-<polygon class="implicit" points="505,130 440,121.5 465,62"/>
-<polygon class="f1" points="465,62 545,62 505,130"/>
-<text class="tri t1 halo" x="505" y="84.7">0</text>
-<text class="muted small mid" x="505" y="154">no child</text>
+<text class="vert math halo" x="210" y="287">apex</text>
+<text class="row" x="430" y="30">symbol</text>
+<polygon class="implicit" points="525,62 550,121.5 485,130"/>
+<polygon class="implicit" points="485,130 420,121.5 445,62"/>
+<polygon class="f1" points="445,62 525,62 485,130"/>
+<text class="tri t1 halo" x="485" y="84.7">0</text>
+<text class="muted small mid" x="485" y="154">no child</text>
 <polygon class="f1" points="680,62 705,121.5 640,130"/>
 <polygon class="implicit" points="640,130 575,121.5 600,62"/>
 <polygon class="f1" points="600,62 680,62 640,130"/>
 <text class="tri t1 halo" x="640" y="84.7">1</text>
 <text class="muted small mid" x="640" y="154">bit 0</text>
-<polygon class="implicit" points="545,197 570,256.5 505,265"/>
-<polygon class="f1" points="505,265 440,256.5 465,197"/>
-<polygon class="f1" points="465,197 545,197 505,265"/>
-<text class="tri t1 halo" x="505" y="219.7">2</text>
-<text class="muted small mid" x="505" y="289">bit 1</text>
+<polygon class="implicit" points="525,197 550,256.5 485,265"/>
+<polygon class="f1" points="485,265 420,256.5 445,197"/>
+<polygon class="f1" points="445,197 525,197 485,265"/>
+<text class="tri t1 halo" x="485" y="219.7">2</text>
+<text class="muted small mid" x="485" y="289">bit 1</text>
 <polygon class="f1" points="680,197 705,256.5 640,265"/>
 <polygon class="f1" points="640,265 575,256.5 600,197"/>
 <polygon class="f1" points="600,197 680,197 640,265"/>
@@ -2345,28 +2346,28 @@ A child has that edge the other way round, so the bit <code>0</code> child is en
 <p>A tree's symbols are in preorder: a triangle, then the subtree of its bit <code>0</code> child, then the subtree of its bit <code>1</code> child.
 A tree ends once its symbols have entered every child they name.
 A symbol MUST be at most <code>3</code>.</p>
-<p>A tree of <span class="arithmatex">\(n\)</span> triangles has <span class="arithmatex">\(n + 2\)</span> cycle entries: the root's <span class="arithmatex">\(u\)</span> and <span class="arithmatex">\(v\)</span>, then the <span class="arithmatex">\(w\)</span> of each triangle in order.
+<p>A tree of <span class="arithmatex">\(n\)</span> triangles has <span class="arithmatex">\(n + 2\)</span> cycle entries: the root's <span class="arithmatex">\(\mathit{from}\)</span> and <span class="arithmatex">\(\mathit{to}\)</span>, then the <span class="arithmatex">\(\mathit{apex}\)</span> of each triangle in order.
 That order is the subtree of the bit <code>0</code> child, then the triangle, then the subtree of the bit <code>1</code> child.
-The entries walk the outline of the tree's triangles from <span class="arithmatex">\(u\)</span> to <span class="arithmatex">\(v\)</span> and on around.
+The entries are the outline of the tree's triangles in winding order, starting with the root's edge <span class="arithmatex">\(\mathit{from} \to \mathit{to}\)</span>.
 A vertex the outline passes twice, such as either end of the cut into a hole, is entered twice.</p>
 <p>A decoder MUST reject symbols that end inside a tree, and cycles holding more or fewer entries than the trees take.</p>
 <p>To decode a tree, let <span class="arithmatex">\(p\)</span> be its cycle entries after the first two, and <span class="arithmatex">\(\operatorname{size}(t)\)</span> the number of triangles in the subtree of <span class="arithmatex">\(t\)</span>.
 Visit the root entered across <span class="arithmatex">\(\mathit{cycle}[0] \to \mathit{cycle}[1]\)</span>, with <span class="arithmatex">\(\mathit{lo} = 0\)</span>.
-To visit a triangle entered across <span class="arithmatex">\(u \to v\)</span>:</p>
+To visit a triangle entered across <span class="arithmatex">\(\mathit{from} \to \mathit{to}\)</span>:</p>
 <ol>
 <li>Let <span class="arithmatex">\(a\)</span> be the size of its bit <code>0</code> child, or <code>0</code> without one.</li>
-<li>Let <span class="arithmatex">\(w = p[\mathit{lo} + a]\)</span>, and output <span class="arithmatex">\((u, v, w)\)</span>.</li>
-<li>Visit its bit <code>0</code> child entered across <span class="arithmatex">\(w \to v\)</span>, with the same <span class="arithmatex">\(\mathit{lo}\)</span>.</li>
-<li>Visit its bit <code>1</code> child entered across <span class="arithmatex">\(u \to w\)</span>, with <span class="arithmatex">\(\mathit{lo} + a + 1\)</span>.</li>
+<li>Let <span class="arithmatex">\(\mathit{apex} = p[\mathit{lo} + a]\)</span>, and output <span class="arithmatex">\((\mathit{from}, \mathit{to}, \mathit{apex})\)</span>.</li>
+<li>Visit its bit <code>0</code> child entered across <span class="arithmatex">\(\mathit{apex} \to \mathit{to}\)</span>, with the same <span class="arithmatex">\(\mathit{lo}\)</span>.</li>
+<li>Visit its bit <code>1</code> child entered across <span class="arithmatex">\(\mathit{from} \to \mathit{apex}\)</span>, with <span class="arithmatex">\(\mathit{lo} + a + 1\)</span>.</li>
 </ol>
 <p>Triangles come out in symbol order.
 A triangle with no neighbour in its tree is a tree of its own, with symbol <code>0</code> and three cycle entries.</p>
 <p>Decoding keeps each feature's triangles and their winding.
 It does not keep their order within the feature, or the corner each starts at.</p>
 <p>Encoders SHOULD join every triangle to a tree that it neighbours.
-Encoders SHOULD root each tree so that its cycle starts at its smallest index, so that consecutive cycles run on.</p>
+Encoders SHOULD root each tree so that its cycle starts at its smallest index, so that consecutive cycles have small index deltas.</p>
 <p>Tree 1 of the <a href="#tessellation">example</a>, the polygon with a hole:</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 480" role="img" aria-label="Tree 1 of the example: its six triangles numbered in symbol order and joined across shared edges, entered across 3 to 6. Then the same triangles with the cycle walking their outline from u = 3 and v = 6 through p0 to p5" xmlns="http://www.w3.org/2000/svg">
+<p><svg class="mlt-diagram" viewBox="0 0 710 480" role="img" aria-label="Tree 1 of the example: its six triangles numbered in symbol order and joined across shared edges, entered across 3 to 6. Then the same triangles with the cycle walking their outline from the root edge from = 3, to = 6 through p0 to p5" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="ttree" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="ttree0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="ttree1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
 <polygon class="f1" points="40,195 160,195 205,270"/>
 <polygon class="f1" points="40,195 205,270 250,360"/>
@@ -2458,12 +2459,12 @@ Encoders SHOULD root each tree so that its cycle starts at its smallest index, s
 <circle class="dot" cx="685" cy="30" r="3.5"/>
 <text class="vert halo" x="698" y="22">5</text>
 <text class="row" x="400" y="440">cycle</text>
+<path class="bracket" d="M497 422V416H541V422"/>
+<text class="muted mid" x="519" y="401"><tspan class="math">from <tspan class="op">→</tspan> to</tspan></text>
 <rect class="f0" x="496" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="507" y="440">3</text>
-<text class="muted mid" x="507" y="466"><tspan class="math">u</tspan></text>
 <rect class="f0" x="520" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="531" y="440">6</text>
-<text class="muted mid" x="531" y="466"><tspan class="math">v</tspan></text>
 <rect class="f1" x="544" y="426" width="22" height="28" rx="3"/>
 <text class="cell" x="555" y="440">8</text>
 <text class="muted mid" x="555" y="466"><tspan class="math">p</tspan><tspan class="small" dy="4">0</tspan></text>
@@ -2492,7 +2493,7 @@ Encoders SHOULD root each tree so that its cycle starts at its smallest index, s
 <th>Entered across</th>
 <th><span class="arithmatex">\(\mathit{lo}\)</span></th>
 <th><span class="arithmatex">\(a\)</span></th>
-<th><span class="arithmatex">\(w\)</span></th>
+<th><span class="arithmatex">\(\mathit{apex}\)</span></th>
 <th>Output</th>
 </tr>
 </thead>
@@ -2554,11 +2555,17 @@ Encoders SHOULD root each tree so that its cycle starts at its smallest index, s
 </tbody>
 </table>
 <h4 id="outlines">Outlines<a class="headerlink" href="#outlines" title="Link to this section">&para;</a></h4>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Without outlines (<code>0xC</code>)</label><label for="__tabbed_2_2">With outlines (<code>0xD</code>)</label></div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Stroking a <code>0xC</code> cycle draws cuts too.
+A decoder cannot rebuild the rings the encoder was given, or count their vertices.
+That is why <code>0xC</code> cannot carry <a href="#m-values">m-values</a>.</p>
+</div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Tree outlines (<code>0xC</code>)</label><label for="__tabbed_2_2">Source rings (<code>0xD</code>)</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_2_poly_mpoly_tri.mlt&amp;at=layout" target="_blank">View example</a> - the same two features as triangles alone, layout <code>0xC</code>.</p>
-<p><code>0xC</code> stores the triangles and nothing else about a polygon's shape:</p>
+<p><code>0xC</code> stores the triangles and no topology:</p>
 <table>
 <thead>
 <tr>
@@ -2603,37 +2610,45 @@ The triangles are the only reader of the vertex stream, so a vertex belongs to w
 Each polygon is a single ring: the triangle's three vertices in decoded order, then the first one again to close it.
 A <code>Polygon</code> feature decodes as a <code>MultiPolygon</code> too, since its shell and holes are not stored.
 A feature with a triangle count of <code>0</code>, such as a polygon whose vertices are collinear, decodes as an empty <code>MultiPolygon</code>.</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
-<text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> with outlines</tspan></text>
-<text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> without outlines</tspan></text>
+<p>A tree's cycle is the outline of its triangles, which differs from the feature's rings:</p>
+<ul>
+<li>A hole joins its shell through a cut, an edge the cycle holds in both directions.</li>
+<li>A vertex that no triangle names, such as one earcut drops as collinear, is in no cycle, and neither is a ring with no area.</li>
+<li>Parts of a <code>MultiPolygon</code> that share an edge can join into one tree, with one cycle around both.</li>
+</ul>
+<p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked: under TessPolygons along each tree's cycle, which reaches the hole through a cut walked both ways, under TessPolygonsWithOutlines along its rings" xmlns="http://www.w3.org/2000/svg">
+<text class="t1 bold" x="40" y="14">0xC<tspan class="muted"> tree outlines</tspan></text>
+<text class="t1 bold" x="420" y="14">0xD<tspan class="muted"> source rings</tspan></text>
 <text class="muted small" x="40" y="44">fill</text>
-<path class="fill" fill-rule="evenodd" d="M40,169.6L174.4,275.2L222.4,64ZM116.8,169.6L164.8,121.6L145.6,217.6ZM264,64L283.2,150.4L302.4,131.2Z"/>
-<path class="fill" d="M420,169.6L496.8,169.6L525.6,217.6ZM544.8,121.6L496.8,169.6L420,169.6ZM554.4,275.2L420,169.6L525.6,217.6ZM544.8,121.6L420,169.6L602.4,64ZM602.4,64L554.4,275.2L525.6,217.6ZM525.6,217.6L544.8,121.6L602.4,64ZM663.2,150.4L644,64L682.4,131.2Z"/>
+<path class="fill" fill-rule="evenodd" d="M420,169.6L554.4,275.2L602.4,64ZM496.8,169.6L544.8,121.6L525.6,217.6ZM644,64L663.2,150.4L682.4,131.2Z"/>
+<path class="fill" d="M40,169.6L116.8,169.6L145.6,217.6ZM164.8,121.6L116.8,169.6L40,169.6ZM174.4,275.2L40,169.6L145.6,217.6ZM164.8,121.6L40,169.6L222.4,64ZM222.4,64L174.4,275.2L145.6,217.6ZM145.6,217.6L164.8,121.6L222.4,64ZM283.2,150.4L264,64L302.4,131.2Z"/>
 <text class="muted small" x="40" y="312">stroke</text>
-<path class="line" d="M40,437.6L174.4,543.2L222.4,332ZM116.8,437.6L164.8,389.6L145.6,485.6ZM264,332L283.2,418.4L302.4,399.2Z"/>
-<path class="line" d="M420,437.6L496.8,437.6L525.6,485.6ZM544.8,389.6L496.8,437.6L420,437.6ZM554.4,543.2L420,437.6L525.6,485.6ZM544.8,389.6L420,437.6L602.4,332ZM602.4,332L554.4,543.2L525.6,485.6ZM525.6,485.6L544.8,389.6L602.4,332ZM663.2,418.4L644,332L682.4,399.2Z"/>
+<path class="line" d="M420,437.6L554.4,543.2L602.4,332ZM496.8,437.6L544.8,389.6L525.6,485.6ZM644,332L663.2,418.4L682.4,399.2Z"/>
+<path class="line" d="M40,437.6L116.8,437.6L145.6,485.6L164.8,389.6L116.8,437.6L40,437.6L222.4,332L174.4,543.2ZM283.2,418.4L264,332L302.4,399.2Z"/>
+<path class="link t0" d="M40,437.6L116.8,437.6"/>
+<text class="small t0 halo" x="72" y="431">cut</text>
 </svg></p>
-<p>A decoder cannot stroke an outline, count a feature's vertices, or rebuild the geometry the encoder was given.
-That is why <code>0xC</code> cannot carry <a href="#m-values">m-values</a>.</p>
 </div>
 <div class="tabbed-block">
-<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=layout" target="_blank">View example</a> - the same two features with their outlines kept, layout <code>0xD</code>.</p>
-<p><code>0xD</code> keeps the full outline topology next to the triangles.
-Each feature decodes as the geometry it was encoded from, and the triangles come on top.</p>
-<p>The vertex stream is the outline vertices, in feature order, as the topology streams lay them out.
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=layout" target="_blank">View example</a> - the same two features with their rings kept, layout <code>0xD</code>.</p>
+<p><code>0xD</code> keeps the full ring topology next to the triangles.
+Each feature decodes as the geometry it was encoded from, plus its triangles.</p>
+<p>The vertex stream is the ring vertices, in feature order, as the topology streams lay them out.
 A ring's <a href="#polygon-rings">closing vertex is not stored</a>, so no index names it.
 A feature that is not a polygon stores no triangle count and owns no triangles.</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
-<text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> with outlines</tspan></text>
-<text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> without outlines</tspan></text>
+<p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked: under TessPolygons along each tree's cycle, which reaches the hole through a cut walked both ways, under TessPolygonsWithOutlines along its rings" xmlns="http://www.w3.org/2000/svg">
+<text class="t1 bold" x="40" y="14">0xC<tspan class="muted"> tree outlines</tspan></text>
+<text class="t1 bold" x="420" y="14">0xD<tspan class="muted"> source rings</tspan></text>
 <text class="muted small" x="40" y="44">fill</text>
-<path class="fill" fill-rule="evenodd" d="M40,169.6L174.4,275.2L222.4,64ZM116.8,169.6L164.8,121.6L145.6,217.6ZM264,64L283.2,150.4L302.4,131.2Z"/>
-<path class="fill" d="M420,169.6L496.8,169.6L525.6,217.6ZM544.8,121.6L496.8,169.6L420,169.6ZM554.4,275.2L420,169.6L525.6,217.6ZM544.8,121.6L420,169.6L602.4,64ZM602.4,64L554.4,275.2L525.6,217.6ZM525.6,217.6L544.8,121.6L602.4,64ZM663.2,150.4L644,64L682.4,131.2Z"/>
+<path class="fill" fill-rule="evenodd" d="M420,169.6L554.4,275.2L602.4,64ZM496.8,169.6L544.8,121.6L525.6,217.6ZM644,64L663.2,150.4L682.4,131.2Z"/>
+<path class="fill" d="M40,169.6L116.8,169.6L145.6,217.6ZM164.8,121.6L116.8,169.6L40,169.6ZM174.4,275.2L40,169.6L145.6,217.6ZM164.8,121.6L40,169.6L222.4,64ZM222.4,64L174.4,275.2L145.6,217.6ZM145.6,217.6L164.8,121.6L222.4,64ZM283.2,150.4L264,64L302.4,131.2Z"/>
 <text class="muted small" x="40" y="312">stroke</text>
-<path class="line" d="M40,437.6L174.4,543.2L222.4,332ZM116.8,437.6L164.8,389.6L145.6,485.6ZM264,332L283.2,418.4L302.4,399.2Z"/>
-<path class="line" d="M420,437.6L496.8,437.6L525.6,485.6ZM544.8,389.6L496.8,437.6L420,437.6ZM554.4,543.2L420,437.6L525.6,485.6ZM544.8,389.6L420,437.6L602.4,332ZM602.4,332L554.4,543.2L525.6,485.6ZM525.6,485.6L544.8,389.6L602.4,332ZM663.2,418.4L644,332L682.4,399.2Z"/>
+<path class="line" d="M420,437.6L554.4,543.2L602.4,332ZM496.8,437.6L544.8,389.6L525.6,485.6ZM644,332L663.2,418.4L682.4,399.2Z"/>
+<path class="line" d="M40,437.6L116.8,437.6L145.6,485.6L164.8,389.6L116.8,437.6L40,437.6L222.4,332L174.4,543.2ZM283.2,418.4L264,332L302.4,399.2Z"/>
+<path class="link t0" d="M40,437.6L116.8,437.6"/>
+<text class="small t0 halo" x="72" y="431">cut</text>
 </svg></p>
-<p>A layer needs <code>0xD</code> to stroke its polygon outlines, to hold anything but polygons, or to carry <a href="#m-values">m-values</a>.</p>
+<p>A layer needs <code>0xD</code> to stroke its polygons' rings, to hold anything but polygons, or to carry <a href="#m-values">m-values</a>.</p>
 </div>
 </div>
 </div>
@@ -4743,7 +4758,7 @@ A decoder MUST produce the matching <code>.json</code> snapshot from each one.</
 </span></code></pre></div>
 <details class="example">
 <summary>Annotated hexdumps</summary>
-<div class="tabbed-set tabbed-alternate" data-tabs="5:11"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><input id="__tabbed_5_3" name="__tabbed_5" type="radio" /><input id="__tabbed_5_4" name="__tabbed_5" type="radio" /><input id="__tabbed_5_5" name="__tabbed_5" type="radio" /><input id="__tabbed_5_6" name="__tabbed_5" type="radio" /><input id="__tabbed_5_7" name="__tabbed_5" type="radio" /><input id="__tabbed_5_8" name="__tabbed_5" type="radio" /><input id="__tabbed_5_9" name="__tabbed_5" type="radio" /><input id="__tabbed_5_10" name="__tabbed_5" type="radio" /><input id="__tabbed_5_11" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Minimal layer</label><label for="__tabbed_5_2">Polygon with a hole</label><label for="__tabbed_5_3">Triangles without outlines</label><label for="__tabbed_5_4">Z coordinates</label><label for="__tabbed_5_5">Shared presence</label><label for="__tabbed_5_6">String dictionary</label><label for="__tabbed_5_7">Framed, Exception-Free ALP floats</label><label for="__tabbed_5_8">M-values</label><label for="__tabbed_5_9">Nested struct</label><label for="__tabbed_5_10">Nested list</label><label for="__tabbed_5_11">Nested map</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:11"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><input id="__tabbed_5_3" name="__tabbed_5" type="radio" /><input id="__tabbed_5_4" name="__tabbed_5" type="radio" /><input id="__tabbed_5_5" name="__tabbed_5" type="radio" /><input id="__tabbed_5_6" name="__tabbed_5" type="radio" /><input id="__tabbed_5_7" name="__tabbed_5" type="radio" /><input id="__tabbed_5_8" name="__tabbed_5" type="radio" /><input id="__tabbed_5_9" name="__tabbed_5" type="radio" /><input id="__tabbed_5_10" name="__tabbed_5" type="radio" /><input id="__tabbed_5_11" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Minimal layer</label><label for="__tabbed_5_2">Polygon with a hole</label><label for="__tabbed_5_3">Triangles without topology</label><label for="__tabbed_5_4">Z coordinates</label><label for="__tabbed_5_5">Shared presence</label><label for="__tabbed_5_6">String dictionary</label><label for="__tabbed_5_7">Framed, Exception-Free ALP floats</label><label for="__tabbed_5_8">M-values</label><label for="__tabbed_5_9">Nested struct</label><label for="__tabbed_5_10">Nested list</label><label for="__tabbed_5_11">Nested map</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>A single <code>Point</code> at <code>(13, 42)</code> with id <code>100</code>.</p>
