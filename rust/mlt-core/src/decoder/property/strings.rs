@@ -9,9 +9,9 @@ use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 use crate::codecs::front_coding::{FrontLengths, front_decode};
 use crate::codecs::fsst::{decode_fsst, decode_fsst_bytes};
 use crate::decoder::{
-    DictLayout, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
-    ParsedStrings, RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding, RawStream,
-    RawStrings, RawStringsEncoding, StreamType,
+    ColumnStorage, DictLayout, DictionaryType, LengthType, OffsetType, ParsedSharedDict,
+    ParsedSharedDictItem, ParsedStrings, RawFsstData, RawPlainData, RawPresence,
+    RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, StreamType, StringLayout,
 };
 use crate::errors::AsMltError as _;
 use crate::{Decoder, DictRange, MltError, MltResult, RawSharedDict, RawSharedDictItem};
@@ -310,6 +310,23 @@ impl<'a> RawStrings<'a> {
             name,
             presence,
             encoding,
+        }
+    }
+
+    /// How this column stores its strings.
+    #[must_use]
+    pub(crate) fn storage(&self) -> ColumnStorage {
+        let (string, dictionary) = match &self.encoding {
+            RawStringsEncoding::Plain(_) => (StringLayout::Plain, None),
+            RawStringsEncoding::Dictionary { dict, .. } => (StringLayout::Dict, Some(*dict)),
+            RawStringsEncoding::FsstPlain(_) => (StringLayout::Fsst, None),
+            RawStringsEncoding::FsstDictionary { dict, .. } => {
+                (StringLayout::FsstDict, Some(*dict))
+            }
+        };
+        ColumnStorage {
+            string: Some(string),
+            dictionary,
         }
     }
 

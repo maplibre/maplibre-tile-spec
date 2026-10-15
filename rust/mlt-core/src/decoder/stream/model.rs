@@ -734,7 +734,10 @@ mod tests {
     #[case::int_delta(LogicalEncoding::Int(IntLogical::Delta), "int/delta")]
     #[case::int_rle(LogicalEncoding::Int(IntLogical::Rle(rle())), "int/rle")]
     #[case::int_delta_rle(LogicalEncoding::Int(IntLogical::DeltaRle(rle())), "int/delta-rle")]
+    #[case::int_delta2(LogicalEncoding::Int(IntLogical::Delta2), "int/delta2")]
     #[case::bool_none(LogicalEncoding::Bool(BoolLogical::None), "bool/none")]
+    #[case::bool_runs(LogicalEncoding::Bool(BoolLogical::Runs), "bool/runs")]
+    #[case::bool_sparse(LogicalEncoding::Bool(BoolLogical::Sparse), "bool/sparse")]
     #[case::bool_byte_rle(LogicalEncoding::Bool(BoolLogical::ByteRle(rle())), "bool/byte-rle")]
     #[case::float_none(LogicalEncoding::Float(FloatLogical::None), "float/none")]
     #[case::float_dict(LogicalEncoding::Float(FloatLogical::Dict), "float/dict")]
@@ -745,6 +748,11 @@ mod tests {
         LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta),
         "vertex/componentwise-delta"
     )]
+    #[case::vertex_componentwise_delta2(
+        LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2),
+        "vertex/componentwise-delta2"
+    )]
+    #[case::vertex_rans(LogicalEncoding::Vertex(VertexLogical::Rans), "vertex/rans")]
     #[case::vertex_morton_delta(
         LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())),
         "vertex/morton-delta"

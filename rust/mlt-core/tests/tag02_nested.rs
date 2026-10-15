@@ -1172,3 +1172,113 @@ fn a_shape_id_per_row_count_the_node_disagrees_with_is_rejected() {
         decode_err(&bytes)
     );
 }
+
+#[test]
+fn a_map_node_reports_its_keys_and_its_values_as_string_columns() {
+    let keys: Vec<String> = (0..12).map(|i| format!("key{i}")).collect();
+    let refs: Vec<&str> = keys.iter().map(String::as_str).collect();
+    let geometries: Vec<Geometry<i32>> = (0..12).map(|i| point(i, i)).collect();
+    let values: Vec<NestedValue> = keys
+        .iter()
+        .map(|key| NestedValue::map([(key.clone(), str_value("v"))]))
+        .collect();
+    let bytes = nested_layer(struct_of_strings(&refs), &geometries, &values)
+        .encode(cfg_v2())
+        .expect("v2 encode");
+    assert_eq!(root_data_type(&bytes), "data type = Map");
+
+    let walked = walked(&bytes);
+
+    insta::assert_debug_snapshot!(walked, @"
+    (
+        8,
+        [
+            ColumnStorage {
+                string: Some(
+                    Dict,
+                ),
+                dictionary: Some(
+                    FrontCoded,
+                ),
+            },
+            ColumnStorage {
+                string: Some(
+                    Dict,
+                ),
+                dictionary: Some(
+                    Plain,
+                ),
+            },
+        ],
+    )
+    ");
+}
+
+#[test]
+fn a_list_of_structs_reports_the_string_fields_of_its_elements() {
+    let kind = NestedKind::list(map_kind(&[("a", leaf(PropKind::Str))]));
+    let value = NestedValue::list([entries(&[("a", str_value("x"))])]);
+    let bytes = nested_layer(kind, &two_points(), &[value.clone(), value])
+        .encode(cfg_v2())
+        .expect("v2 encode");
+
+    let walked = walked(&bytes);
+
+    insta::assert_debug_snapshot!(walked, @"
+    (
+        4,
+        [
+            ColumnStorage {
+                string: Some(
+                    Plain,
+                ),
+                dictionary: None,
+            },
+        ],
+    )
+    ");
+}
+
+fn struct_of_interiors_layer() -> TileLayer {
+    let keys: Vec<String> = (0..8).map(|i| format!("key{i}")).collect();
+    let refs: Vec<&str> = keys.iter().map(String::as_str).collect();
+    let kind = map_kind(&[
+        ("list", NestedKind::list(leaf(PropKind::I32))),
+        ("struct", map_kind(&[("x", leaf(PropKind::I32))])),
+        ("map", struct_of_strings(&refs)),
+        ("d", leaf(PropKind::Str)),
+        ("e", leaf(PropKind::Str)),
+        ("f", leaf(PropKind::Str)),
+    ]);
+    let geometries: Vec<Geometry<i32>> = (0..16).map(|i| point(i, i)).collect();
+    let values: Vec<NestedValue> = (0..16)
+        .map(|row| {
+            if row < 8 {
+                entries(&[
+                    ("list", NestedValue::list([i32_value(row)])),
+                    ("struct", entries(&[("x", i32_value(row))])),
+                    (
+                        "map",
+                        NestedValue::map([(
+                            keys[usize::try_from(row).unwrap()].clone(),
+                            str_value("v"),
+                        )]),
+                    ),
+                ])
+            } else {
+                entries(&[
+                    ("d", str_value("x")),
+                    ("e", str_value("y")),
+                    ("f", str_value("z")),
+                ])
+            }
+        })
+        .collect();
+    nested_layer(kind, &geometries, &values)
+}
+
+#[test]
+fn a_shape_coded_struct_hands_its_presence_to_interior_fields() {
+    let bytes = assert_round_trips_with(&struct_of_interiors_layer(), cfg_row_shapes());
+    assert_eq!(shape_labels(&bytes), ["shapes", "shape_table", "shape_ids"]);
+}

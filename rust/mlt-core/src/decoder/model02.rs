@@ -157,16 +157,6 @@ impl Interior02 {
     }
 }
 
-impl From<Interior02> for DataType02 {
-    fn from(interior: Interior02) -> Self {
-        match interior {
-            Interior02::Struct => Self::Struct,
-            Interior02::List => Self::List,
-            Interior02::Map => Self::Map,
-        }
-    }
-}
-
 /// Where a nested node's presence lives, the high nibble of its node type byte.
 ///
 /// A node below a nested column's root cannot use the layer's shared bitfields,

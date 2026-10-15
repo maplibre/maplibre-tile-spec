@@ -395,21 +395,17 @@ impl RawProperty<'_> {
     /// How this column stores its values, or `None` when it has no layout to report.
     #[must_use]
     pub(crate) fn storage(&self) -> Option<ColumnStorage> {
-        let (string, dictionary) = match self {
-            Self::Str(column) => match &column.encoding {
-                RawStringsEncoding::Plain(_) => (StringLayout::Plain, None),
-                RawStringsEncoding::Dictionary { dict, .. } => (StringLayout::Dict, Some(*dict)),
-                RawStringsEncoding::FsstPlain(_) => (StringLayout::Fsst, None),
-                RawStringsEncoding::FsstDictionary { dict, .. } => {
-                    (StringLayout::FsstDict, Some(*dict))
-                }
-            },
+        match self {
+            Self::Str(column) => Some(column.storage()),
             // A shared dictionary's children are dictionary-coded strings, so it reports
             // the layout its corpus is stored with, as a lone string column would.
-            Self::SharedDict(column) => match &column.encoding {
-                RawSharedDictEncoding::Plain(_) => (StringLayout::Dict, Some(column.dict)),
-                RawSharedDictEncoding::FsstPlain(_) => (StringLayout::FsstDict, Some(column.dict)),
-            },
+            Self::SharedDict(column) => Some(ColumnStorage {
+                string: Some(match &column.encoding {
+                    RawSharedDictEncoding::Plain(_) => StringLayout::Dict,
+                    RawSharedDictEncoding::FsstPlain(_) => StringLayout::FsstDict,
+                }),
+                dictionary: Some(column.dict),
+            }),
             Self::Bool(_)
             | Self::I8(_)
             | Self::U8(_)
@@ -418,12 +414,8 @@ impl RawProperty<'_> {
             | Self::I64(_)
             | Self::U64(_)
             | Self::F32(_)
-            | Self::F64(_) => return None,
-        };
-        Some(ColumnStorage {
-            string: Some(string),
-            dictionary,
-        })
+            | Self::F64(_) => None,
+        }
     }
 }
 

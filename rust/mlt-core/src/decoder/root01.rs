@@ -265,11 +265,7 @@ fn parse_str_column<'a>(
     };
     Ok((
         input,
-        RawProperty::Str(RawStrings {
-            name,
-            presence,
-            encoding,
-        }),
+        RawProperty::Str(RawStrings::new(name, presence, encoding)),
     ))
 }
 
