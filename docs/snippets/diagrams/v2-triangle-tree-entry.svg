@@ -1,4 +1,4 @@
-<svg class="mlt-diagram" viewBox="0 0 710 262" role="img" aria-label="A triangle u, v, w entered across u to v: on the left from its parent, which lies across that edge, on the right as a root, whose u and v are cycle[0] and cycle[1] on the outline" xmlns="http://www.w3.org/2000/svg">
+<svg class="mlt-diagram" viewBox="0 0 710 262" role="img" aria-label="A triangle from, to, apex entered across from to to: on the left from its parent, which lies across that edge, on the right as a root, whose from and to are cycle[0] and cycle[1] on the outline" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="tent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="tent0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="tent1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
 <text class="bold mid" x="190" y="14">from its parent</text>
 <polygon class="implicit" points="90,110 190,40 290,110"/>
@@ -6,20 +6,20 @@
 <polygon class="f1" points="90,110 290,110 190,230"/>
 <path class="link t0" d="M102,117L278,117" marker-end="url(#tent0)"/>
 <circle class="dot" cx="90" cy="110" r="3.5"/>
-<text class="vert math halo" x="76" y="110">u</text>
+<text class="math halo" x="82" y="110" text-anchor="end">from</text>
 <circle class="dot" cx="290" cy="110" r="3.5"/>
-<text class="vert math halo" x="304" y="110">v</text>
+<text class="math halo" x="298" y="110">to</text>
 <circle class="dot" cx="190" cy="230" r="3.5"/>
-<text class="vert math halo" x="190" y="247">w</text>
+<text class="vert math halo" x="190" y="247">apex</text>
 <text class="bold mid" x="500" y="14">as a root</text>
 <path class="line" d="M360 110H630"/>
 <text class="muted small" x="636" y="110">outline</text>
 <polygon class="f1" points="400,110 600,110 500,230"/>
 <path class="link t0" d="M412,117L588,117" marker-end="url(#tent0)"/>
 <circle class="dot" cx="400" cy="110" r="3.5"/>
-<text class="vert math halo" x="400" y="90">u <tspan class="op">=</tspan> cycle<tspan class="op">[0]</tspan></text>
+<text class="vert math halo" x="400" y="90">from <tspan class="op">=</tspan> cycle<tspan class="op">[0]</tspan></text>
 <circle class="dot" cx="600" cy="110" r="3.5"/>
-<text class="vert math halo" x="600" y="90">v <tspan class="op">=</tspan> cycle<tspan class="op">[1]</tspan></text>
+<text class="vert math halo" x="600" y="90">to <tspan class="op">=</tspan> cycle<tspan class="op">[1]</tspan></text>
 <circle class="dot" cx="500" cy="230" r="3.5"/>
-<text class="vert math halo" x="500" y="247">w</text>
+<text class="vert math halo" x="500" y="247">apex</text>
 </svg>

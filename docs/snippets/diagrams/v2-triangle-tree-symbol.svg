@@ -1,4 +1,4 @@
-<svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="A triangle u, v, w entered across u to v. Its bit 0 child lies across v to w and is entered across w to v, its bit 1 child lies across w to u and is entered across u to w. Then the four symbols 0 to 3 as a triangle with no child, the bit 0 child, the bit 1 child, and both" xmlns="http://www.w3.org/2000/svg">
+<svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="A triangle from, to, apex entered across from to to. Its bit 0 child lies across to to apex and is entered across apex to to, its bit 1 child lies across apex to from and is entered across from to apex. Then the four symbols 0 to 3 as a triangle with no child, the bit 0 child, the bit 1 child, and both" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="tsym" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="tsym0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="tsym1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
 <polygon class="implicit" points="110,100 210,6.5 310,100"/>
 <polygon class="f1" points="310,100 372.5,248.8 210,270"/>
@@ -9,19 +9,20 @@
 <path class="link t0" d="M110,113.8L197.8,263.1" marker-end="url(#tsym0)"/>
 <text class="muted small mid" x="210" y="62.8">parent</text>
 <text class="bold mid" x="210" y="150.7">entered</text>
-<text class="small mid" x="210" y="166.7">across <tspan class="math">u <tspan class="op">→</tspan> v</tspan></text>
+<text class="small mid" x="210" y="166.7">across</text>
+<text class="math mid" x="210" y="185">from <tspan class="op">→</tspan> to</text>
 <text class="t1 bold mid halo" x="316.6" y="201.1">bit 0 child</text>
-<text class="small mid halo" x="316.6" y="219.1">entered</text>
-<text class="small mid halo" x="316.6" y="233.1">across <tspan class="math">w <tspan class="op">→</tspan> v</tspan></text>
+<text class="small mid halo" x="316.6" y="219.1">entered across</text>
+<text class="math mid halo" x="316.6" y="237">apex <tspan class="op">→</tspan> to</text>
 <text class="t1 bold mid halo" x="103.4" y="201.1">bit 1 child</text>
-<text class="small mid halo" x="103.4" y="219.1">entered</text>
-<text class="small mid halo" x="103.4" y="233.1">across <tspan class="math">u <tspan class="op">→</tspan> w</tspan></text>
+<text class="small mid halo" x="103.4" y="219.1">entered across</text>
+<text class="math mid halo" x="103.4" y="237">from <tspan class="op">→</tspan> apex</text>
 <circle class="dot" cx="110" cy="100" r="3.5"/>
-<text class="vert math halo" x="96" y="100">u</text>
+<text class="math halo" x="102" y="100" text-anchor="end">from</text>
 <circle class="dot" cx="310" cy="100" r="3.5"/>
-<text class="vert math halo" x="324" y="100">v</text>
+<text class="math halo" x="318" y="100">to</text>
 <circle class="dot" cx="210" cy="270" r="3.5"/>
-<text class="vert math halo" x="210" y="287">w</text>
+<text class="vert math halo" x="210" y="287">apex</text>
 <text class="row" x="450" y="30">symbol</text>
 <polygon class="implicit" points="545,62 570,121.5 505,130"/>
 <polygon class="implicit" points="505,130 440,121.5 465,62"/>
