@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Tessellation};
 use mlt_core::encoder::{Network, Profile};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{MltResult, TileLayer};
@@ -34,8 +34,8 @@ fn parse_mvt_to_tile_layers(mvt_files: &[(String, Vec<u8>)]) -> Vec<TileLayer> {
 
 fn bench_encode_from_mvt(c: &mut Criterion) {
     let mut group = c.benchmark_group("mlt encode from mvt");
-    let cfg =
-        EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_tessellation(true);
+    let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        .with_tessellation(Tessellation::Always);
 
     for zoom in BENCHMARKED_ZOOM_LEVELS {
         let mvt_files = load_mvt_tiles(zoom);

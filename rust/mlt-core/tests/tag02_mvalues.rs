@@ -3,7 +3,8 @@
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{
     Codecs, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder, StagedId,
-    StagedLayer, StagedMValue, StagedValues, StrEncoding, VertexBufferType, WireVersion,
+    StagedLayer, StagedMValue, StagedValues, StrEncoding, Tessellation, VertexBufferType,
+    WireVersion,
 };
 use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{
@@ -416,7 +417,9 @@ fn m_values_keep_the_outlines_of_a_triangles_only_layer() {
         ))],
         &[("m", i32s(&[&[1, 2, 3, 4]]))],
     );
-    let cfg = cfg_v2().with_tessellation(true).with_triangles_only(true);
+    let cfg = cfg_v2()
+        .with_tessellation(Tessellation::Always)
+        .with_triangles_only(true);
     let bytes = l.encode(cfg).unwrap();
     assert_eq!(&decode(&bytes), &l);
     insta::assert_snapshot!(header_bits_and_column_types(&bytes), @r#"

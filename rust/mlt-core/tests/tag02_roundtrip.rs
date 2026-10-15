@@ -2,7 +2,7 @@
 
 use insta::{assert_snapshot, with_settings};
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, WireVersion};
+use mlt_core::encoder::{EncoderConfig, Tessellation, WireVersion};
 use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
@@ -668,7 +668,7 @@ mod geometry_layouts {
     use super::*;
 
     fn cfg_tessellated() -> EncoderConfig {
-        cfg_v1().with_tessellation(true)
+        cfg_v1().with_tessellation(Tessellation::Always)
     }
 
     fn square(x: i32, y: i32) -> Polygon<i32> {
@@ -2110,7 +2110,7 @@ mod rans_vertices {
     fn a_tessellated_layer_codes_its_vertices(#[values(false, true)] triangles_only: bool) {
         let l = layer(polygons(), None, &[]);
         let cfg = cfg_rans()
-            .with_tessellation(true)
+            .with_tessellation(Tessellation::Always)
             .with_triangles_only(triangles_only);
         let rans = l.encode(cfg).unwrap();
         assert_eq!(

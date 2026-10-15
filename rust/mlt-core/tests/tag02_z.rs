@@ -2,7 +2,7 @@
 
 use insta::assert_snapshot;
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, WireVersion};
+use mlt_core::encoder::{EncoderConfig, Tessellation, WireVersion};
 use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
@@ -134,7 +134,7 @@ fn z_round_trips_on_tessellated_outlines() {
         Geometry::MultiPolygon(MultiPolygon(vec![square(20, 20), square(40, 40)])),
         line(&[(0, 0), (5, 5)]),
     ]);
-    let bytes = assert_round_trips(&l, cfg_v2().with_tessellation(true));
+    let bytes = assert_round_trips(&l, cfg_v2().with_tessellation(Tessellation::Always));
     assert_eq!(
         geometry_layout(&bytes),
         "geometry layout = TessPolygonsWithOutlines"
@@ -145,7 +145,11 @@ fn z_round_trips_on_tessellated_outlines() {
 fn a_triangles_only_feature_carries_the_z_of_each_corner_in_decoded_order() {
     let l = z_layer(vec![Geometry::Polygon(square(0, 0))]);
     let bytes = l
-        .encode(cfg_v2().with_tessellation(true).with_triangles_only(true))
+        .encode(
+            cfg_v2()
+                .with_tessellation(Tessellation::Always)
+                .with_triangles_only(true),
+        )
         .unwrap();
     assert_eq!(geometry_layout(&bytes), "geometry layout = TessPolygons");
     let tile = decode(&bytes);

@@ -65,10 +65,11 @@ pub(crate) struct StageOptions {
     pub(crate) widen_8bit: bool,
 }
 
-impl From<EncoderConfig> for StageOptions {
-    fn from(cfg: EncoderConfig) -> Self {
+impl StageOptions {
+    /// Stage for `cfg`, with the triangles of polygons when `tessellate`.
+    pub(crate) fn new(cfg: EncoderConfig, tessellate: bool) -> Self {
         Self {
-            tessellate: cfg.tessellate(),
+            tessellate,
             widen_8bit: !cfg.allow_8bit_ints(),
         }
     }
