@@ -149,3 +149,7 @@ required-features = ["__private-v2"]
 [[test]]
 name = "tag02_z"
 required-features = ["unstable-v2"]
+
+[[test]]
+name = "encoder_preset"
+required-features = ["unstable-v2"]

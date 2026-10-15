@@ -12,7 +12,7 @@ mod store;
 mod ffi {
     use std::fmt::Write as _;
 
-    use mlt_core::encoder::{EncoderConfig, WireVersion};
+    use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
     use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
     use mlt_core::wire::LayerBytes;
     use mlt_core::{Decoder, Parser};
@@ -147,7 +147,9 @@ mod ffi {
         /// Create encoder options with the default configuration.
         #[diplomat::attr(auto, constructor)]
         pub fn new() -> Box<MltEncoderOptions> {
-            Box::new(MltEncoderOptions(EncoderConfig::default()))
+            Box::new(MltEncoderOptions(EncoderConfig::from_profile(
+                Profile::Native(Network::Cellular4G),
+            )))
         }
 
         /// Generate tessellation data for polygons and multi-polygons.

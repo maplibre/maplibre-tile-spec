@@ -584,6 +584,7 @@ impl<'layer> LendingIterator for Layer01FeatureIter<'layer, '_> {
 
 #[cfg(test)]
 mod tests {
+    use crate::encoder::{EncoderConfig, Network, Profile};
     use geo_types::Point;
     use serde_json::Value;
 
@@ -596,7 +597,12 @@ mod tests {
 
     fn layer_buf(staged: StagedLayer) -> Vec<u8> {
         staged
-            .encode_into(Encoder::default(), &mut Codecs::default())
+            .encode_into(
+                Encoder::new(EncoderConfig::from_profile(Profile::Native(
+                    Network::Cellular4G,
+                ))),
+                &mut Codecs::default(),
+            )
             .unwrap()
             .into_layer_bytes()
             .unwrap()

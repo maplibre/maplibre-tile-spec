@@ -4,6 +4,7 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::__private::{dec, parser};
 use mlt_core::Layer;
 use mlt_core::encoder::{EncoderConfig, LogicalEncoder, stage_tile};
+use mlt_core::encoder::{Network, Profile};
 use strum::IntoEnumIterator as _;
 use usize_cast::FromUsize as _;
 
@@ -54,7 +55,7 @@ fn bench_encode(c: &mut Criterion) {
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
         group.throughput(Throughput::Bytes(u64::from_usize(total_bytes)));
         for tessellate in [true, false] {
-            let enc_config = EncoderConfig::default().with_tessellation(tessellate);
+            let enc_config = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G));
             for physical in limit(PhysicalEncoder::iter()) {
                 for logical in limit(LogicalEncoder::iter()) {
                     let int_enc = IntEncoder::new(logical, physical);
@@ -66,7 +67,7 @@ fn bench_encode(c: &mut Criterion) {
                         &tiles,
                         |b, tiles| {
                             b.iter_batched(
-                                || decode_to_owned(tiles, enc_config.tessellate()),
+                                || decode_to_owned(tiles, tessellate),
                                 |layers| {
                                     let mut codecs = Codecs::default();
                                     for layer in layers {

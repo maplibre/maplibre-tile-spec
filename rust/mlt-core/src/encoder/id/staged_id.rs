@@ -193,6 +193,7 @@ impl StagedId {
 
 #[cfg(test)]
 mod tests {
+    use crate::encoder::{Network, Profile};
     use geo_types::Point;
     use proptest::prelude::*;
     use rstest::rstest;
@@ -217,8 +218,7 @@ mod tests {
         }
         let staged =
             StagedLayer::new("id_roundtrip", 4096, decoded.clone(), geometry, vec![]).unwrap();
-        let enc =
-            Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));
+        let enc = Encoder::explicit(ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();
         let enc = staged.encode_into(enc, &mut codecs).expect("encode failed");
         let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
@@ -246,7 +246,12 @@ mod tests {
             StagedLayer::new("id_roundtrip", 4096, decoded.clone(), geometry, vec![]).unwrap();
         let mut codecs = Codecs::default();
         let buf = staged
-            .encode_into(Encoder::default(), &mut codecs)
+            .encode_into(
+                Encoder::new(EncoderConfig::from_profile(Profile::Native(
+                    Network::Cellular4G,
+                ))),
+                &mut codecs,
+            )
             .expect("encode failed")
             .into_layer_bytes()
             .expect("into_layer_bytes failed");
@@ -322,7 +327,9 @@ mod tests {
     #[case::empty(StagedId::from_optional(vec![]))]
     #[case::all_nulls(StagedId::from_optional(vec![None, None]))]
     fn test_automatic_encoding_skipped(#[case] input: StagedId) {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
         let mut codecs = Codecs::default();
         input.write_to(&mut enc, &mut codecs).unwrap();
         assert_eq!(
@@ -340,7 +347,9 @@ mod tests {
     #[case::constant(create_constant_ids())]
     #[case::with_nulls(create_ids_with_nulls())]
     fn test_automatic_encoding_produces_output(#[case] input: StagedId) {
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
         let mut codecs = Codecs::default();
         input.write_to(&mut enc, &mut codecs).unwrap();
         assert!(
@@ -352,7 +361,9 @@ mod tests {
     #[test]
     fn test_automatic_optimization_roundtrip_empty() {
         let decoded = StagedId::from_optional(vec![]);
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
         let mut codecs = Codecs::default();
         decoded.write_to(&mut enc, &mut codecs).unwrap();
         assert_eq!(enc.meta().len(), 0, "empty ID list should write no column");
@@ -397,14 +408,13 @@ mod tests {
     fn test_auto_fastpfor_beats_varint_for_large_u32_ids() {
         let ids = StagedId::from_optional((0u64..1000).map(|i| Some(i * 13 + 5)).collect());
 
-        let mut auto_enc = Encoder::default();
+        let mut auto_enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
         let mut codecs = Codecs::default();
         ids.clone().write_to(&mut auto_enc, &mut codecs).unwrap();
 
-        let mut plain_enc = Encoder::with_explicit(
-            EncoderConfig::default(),
-            ExplicitEncoder::for_id(IntEncoder::varint()),
-        );
+        let mut plain_enc = Encoder::explicit(ExplicitEncoder::for_id(IntEncoder::varint()));
         ids.write_to(&mut plain_enc, &mut codecs).unwrap();
 
         assert!(
@@ -568,8 +578,7 @@ mod tests {
             geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
         }
         let staged = StagedLayer::new("id_roundtrip", 4096, decoded.clone(), geometry, vec![])?;
-        let enc =
-            Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));
+        let enc = Encoder::explicit(ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();
         let enc = staged.encode_into(enc, &mut codecs)?;
         let buf = enc.into_layer_bytes()?;
@@ -602,8 +611,7 @@ mod tests {
             geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
         }
         let staged = StagedLayer::new("id_test", 4096, ids.clone(), geometry, vec![]).unwrap();
-        let enc =
-            Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));
+        let enc = Encoder::explicit(ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();
         let enc = staged.encode_into(enc, &mut codecs).expect("encode failed");
         let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");

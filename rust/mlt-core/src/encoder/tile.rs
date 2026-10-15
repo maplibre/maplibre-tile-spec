@@ -452,6 +452,7 @@ fn build_shared_dict(
 
 #[cfg(test)]
 mod tests {
+    use crate::encoder::{EncoderConfig, Network, Profile};
     use geo_types::Point;
 
     use super::*;
@@ -463,7 +464,12 @@ mod tests {
     fn layer_tile(staged: StagedLayer) -> TileLayer {
         let mut codecs = Codecs::default();
         let buf = staged
-            .encode_into(Encoder::default(), &mut codecs)
+            .encode_into(
+                Encoder::new(EncoderConfig::from_profile(Profile::Native(
+                    Network::Cellular4G,
+                ))),
+                &mut codecs,
+            )
             .unwrap()
             .into_layer_bytes()
             .unwrap();

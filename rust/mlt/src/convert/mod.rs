@@ -17,7 +17,7 @@ use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, WireVersion};
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
@@ -190,12 +190,24 @@ fn update_mlt_pmtiles_metadata(
 }
 
 /// The encoder settings, field parsing and verification every layer is re-encoded with.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(crate) struct Reencoder {
     encoder: EncoderConfig,
     fields: Arc<FieldConfig>,
     /// Decode every encoded layer and require it to match its input.
     verify: bool,
+}
+
+/// What `convert` re-encodes with when no flag is given.
+#[cfg(test)]
+impl Default for Reencoder {
+    fn default() -> Self {
+        Self {
+            encoder: EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)),
+            fields: Arc::default(),
+            verify: false,
+        }
+    }
 }
 
 impl Reencoder {
@@ -360,7 +372,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         SortMode::All | SortMode::Auto | SortMode::Hilbert
     );
     let id_sort = matches!(args.sort, SortMode::All | SortMode::Auto | SortMode::Id);
-    let encoder = EncoderConfig::default()
+    let encoder = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_tessellation(args.tessellate)
         .with_spatial_morton_sort(morton)
         .with_spatial_hilbert_sort(hilbert)
@@ -539,7 +551,9 @@ fn convert_mlt_buffer(buffer: &[u8], reencoder: &Reencoder) -> AnyResult<Vec<u8>
         if let Layer::Unknown(u) = layer {
             out.extend(
                 EncodedUnknown::from(u)
-                    .write_to(Encoder::default())?
+                    .write_to(Encoder::new(EncoderConfig::from_profile(Profile::Native(
+                        Network::Cellular4G,
+                    ))))?
                     .into_raw_bytes(),
             );
             continue;
@@ -703,7 +717,8 @@ mod tests {
 
     fn round_trip(mvt: Vec<u8>, version: WireVersion, to: TileFormat) -> Vec<u8> {
         let reencoder = Reencoder {
-            encoder: EncoderConfig::default().with_wire_version(version),
+            encoder: EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+                .with_wire_version(version),
             ..Reencoder::default()
         };
         let mlt = convert_buffer(mvt, TileFormat::Mvt, TileFormat::Mlt, &reencoder).unwrap();

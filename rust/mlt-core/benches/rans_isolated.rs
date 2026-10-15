@@ -6,6 +6,7 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use mlt_core::__private::rans::{decode_vertices, encode_vertices};
 use mlt_core::__private::{Layer, ParsedLayer, dec, parser};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::wire::{LogicalEncoding, VertexLogical};
 
@@ -24,7 +25,7 @@ struct Stream {
 
 /// The v2 encoding `mlt convert --rans-vertices` writes.
 fn cfg_rans() -> EncoderConfig {
-    EncoderConfig::default()
+    EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_float_alp(true)
         .with_float_dict(true)

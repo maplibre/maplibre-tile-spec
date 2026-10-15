@@ -8,6 +8,7 @@ use std::{fs, thread};
 
 use mlt::convert::fields::FieldConfig;
 use mlt_core::encoder::{EncoderConfig, WireVersion};
+use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{Geometry, LineString, Point};
 use mlt_core::mvt::tile_layers_to_mvt;
 use mlt_core::{
@@ -772,7 +773,8 @@ fn convert(config: &str, layer: TileLayer) -> Result<TileLayer, String> {
 
 /// `layer` encoded as v2, converted with `--verify` and the `--fields` file `config`, and decoded again.
 fn run(config: Option<&str>, layer: TileLayer) -> Result<TileLayer, String> {
-    let v2 = EncoderConfig::default().with_wire_version(WireVersion::V02);
+    let v2 = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        .with_wire_version(WireVersion::V02);
     let bytes = run_tile(config, "tile.mlt", &layer.encode(v2).unwrap())?;
     let [layer] = <[_; 1]>::try_from(Parser::default().parse_layers(&bytes).unwrap()).unwrap();
     Ok(layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
