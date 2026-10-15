@@ -12,7 +12,7 @@ mod store;
 mod ffi {
     use std::fmt::Write as _;
 
-    use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
+    use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
     use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
     use mlt_core::wire::LayerBytes;
     use mlt_core::{Decoder, Parser};
@@ -147,14 +147,19 @@ mod ffi {
         /// Create encoder options with the default configuration.
         #[diplomat::attr(auto, constructor)]
         pub fn new() -> Box<MltEncoderOptions> {
-            Box::new(MltEncoderOptions(EncoderConfig::from_profile(
-                Profile::Native(Network::Cellular4G),
-            )))
+            Box::new(MltEncoderOptions(
+                EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+                    .with_tessellation(Tessellation::Off),
+            ))
         }
 
         /// Generate tessellation data for polygons and multi-polygons.
         pub fn set_tessellate(&mut self, enabled: bool) {
-            self.0 = self.0.with_tessellation(enabled);
+            self.0 = self.0.with_tessellation(if enabled {
+                Tessellation::Always
+            } else {
+                Tessellation::Off
+            });
         }
 
         /// Try sorting features by the Z-order (Morton) curve index.

@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 
 use geo_types::{Geometry, Polygon};
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Tessellation};
 use mlt_core::encoder::{Network, Profile};
 use mlt_core::fast_mvt::MvtTileBuilder;
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
@@ -13,17 +13,37 @@ use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, TileLayer};
 use test_each_file::test_each_path;
 
 test_each_path! { for ["mvt"] in "../test/fixtures" as fixtures => writer_encodes_like_tile_layer }
+test_each_path! { for ["mvt"] in "../test/fixtures" as auto_tessellated_fixtures => writer_encodes_like_tile_layer_with_sorted_auto_tessellation }
+
+fn writer_encodes_like_tile_layer_with_sorted_auto_tessellation([path]: [&Path; 1]) {
+    let layers = mvt_to_tile_layers(fs::read(path).expect("read fixture")).expect("decode fixture");
+    let sorted_auto = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        .with_spatial_morton_sort(true)
+        .with_spatial_hilbert_sort(true)
+        .with_id_sort(true);
+    for layer in layers {
+        let writer = write(&layer).expect("write layer");
+        assert_eq!(
+            writer.encode(sorted_auto).expect("encode writer"),
+            layer.encode(sorted_auto).expect("encode layer"),
+            "{}: layer {}",
+            path.display(),
+            layer.name()
+        );
+    }
+}
 
 fn writer_encodes_like_tile_layer([path]: [&Path; 1]) {
     let layers = mvt_to_tile_layers(fs::read(path).expect("read fixture")).expect("decode fixture");
-    let base = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G));
+    let base = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        .with_tessellation(Tessellation::Off);
     let sorted = base
         .with_spatial_morton_sort(true)
         .with_spatial_hilbert_sort(true)
         .with_id_sort(true);
     for layer in layers {
         let writer = write(&layer).expect("write layer");
-        for cfg in [base, sorted, base.with_tessellation(true)] {
+        for cfg in [base, sorted, base.with_tessellation(Tessellation::Always)] {
             assert_eq!(
                 writer.encode(cfg).expect("encode writer"),
                 layer.encode(cfg).expect("encode layer"),

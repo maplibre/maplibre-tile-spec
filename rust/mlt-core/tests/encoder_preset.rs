@@ -1,4 +1,13 @@
-use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
+use mlt_core::encoder::{Client, EncoderConfig, Network, Profile, Tessellation, WireVersion};
+
+#[test]
+fn the_native_preset_tessellates_automatically_on_its_network() {
+    let native_on_3g = EncoderConfig::from_profile(Profile::Native(Network::Cellular3G));
+    assert_eq!(
+        native_on_3g.tessellation(),
+        Tessellation::Auto(Client::Native, Network::Cellular3G)
+    );
+}
 
 #[test]
 fn the_native_preset_allows_fastpfor() {
@@ -24,6 +33,12 @@ fn the_native_preset_keeps_the_source_order() {
     assert!(!native.attempt_spatial_morton_sort());
     assert!(!native.attempt_spatial_hilbert_sort());
     assert!(!native.attempt_id_sort());
+}
+
+#[test]
+fn the_web_preset_stores_no_triangles() {
+    let web = EncoderConfig::from_profile(Profile::Web(Network::Cellular4G));
+    assert_eq!(web.tessellation(), Tessellation::Off);
 }
 
 #[test]
@@ -57,6 +72,12 @@ fn the_web_preset_keeps_fsst_offline() {
 }
 
 #[test]
+fn the_min_size_preset_stores_no_triangles() {
+    let min_size = EncoderConfig::from_profile(Profile::MinSize);
+    assert_eq!(min_size.tessellation(), Tessellation::Off);
+}
+
+#[test]
 fn the_min_size_preset_tries_hilbert_and_id_sorts() {
     let min_size = EncoderConfig::from_profile(Profile::MinSize);
     assert!(!min_size.attempt_spatial_morton_sort());
@@ -83,6 +104,12 @@ fn the_min_size_preset_allows_no_delta2_under_v1() {
     let min_size_v1 =
         EncoderConfig::from_profile(Profile::MinSize).with_wire_version(WireVersion::V01);
     assert!(!min_size_v1.allow_delta2());
+}
+
+#[test]
+fn the_diffable_preset_stores_no_triangles() {
+    let diffable = EncoderConfig::from_profile(Profile::Diffable);
+    assert_eq!(diffable.tessellation(), Tessellation::Off);
 }
 
 #[test]
@@ -115,6 +142,22 @@ fn fsst_set_on_the_web_preset_stays_on() {
     let web_with_fsst =
         EncoderConfig::from_profile(Profile::Web(Network::Cellular4G)).with_fsst(true);
     assert!(web_with_fsst.allow_fsst());
+}
+
+#[test]
+fn tessellation_set_on_the_web_preset_stays_auto() {
+    let web_with_triangles = EncoderConfig::from_profile(Profile::Web(Network::Cellular4G))
+        .with_tessellation(Tessellation::Auto(Client::GlJs, Network::Cellular4G));
+    assert_eq!(
+        web_with_triangles.tessellation(),
+        Tessellation::Auto(Client::GlJs, Network::Cellular4G)
+    );
+}
+
+#[test]
+fn the_fast_encoding_preset_stores_no_triangles() {
+    let fast = EncoderConfig::from_profile(Profile::FastEncoding);
+    assert_eq!(fast.tessellation(), Tessellation::Off);
 }
 
 #[test]
