@@ -426,6 +426,33 @@ impl WireVersion {
     }
 }
 
+/// When the encoder stores the earcut triangles of a layer's polygons.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum Tessellation {
+    /// Store no triangles, so the client cuts every polygon itself.
+    #[default]
+    Off,
+    /// Store a layer's triangles when the client CPU time they save outweighs the bytes they add.
+    /// A stored byte is worth `ns_per_byte` nanoseconds of `mapbox::earcut` on a Ryzen 9 3900 core.
+    WhenCheaper { ns_per_byte: u32 },
+    /// Store the triangles of every layer with polygons.
+    Always,
+}
+
+impl Tessellation {
+    /// A client 4× slower than a Ryzen 9 3900 core on 20 Mbit/s, or one as fast on 80 Mbit/s.
+    pub const DEFAULT_NS_PER_BYTE: u32 = 100;
+
+    /// [`Self::WhenCheaper`] at [`Self::DEFAULT_NS_PER_BYTE`].
+    #[must_use]
+    pub const fn when_cheaper() -> Self {
+        Self::WhenCheaper {
+            ns_per_byte: Self::DEFAULT_NS_PER_BYTE,
+        }
+    }
+}
+
 /// Global encoder settings controlling which optimization strategies are attempted.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 #[expect(
@@ -436,8 +463,8 @@ pub struct EncoderConfig {
     /// The wire format to encode layers to.
     #[cfg(feature = "unstable-v2")]
     wire_version: WireVersion,
-    /// Generate tessellation data for polygons and multi-polygons.
-    tessellate: bool,
+    /// When to store the triangles of polygons and multi-polygons.
+    tessellation: Tessellation,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
     attempt_spatial_morton_sort: bool,
     /// Try sorting features by the Hilbert curve index of their first vertex.
@@ -477,7 +504,7 @@ impl Default for EncoderConfig {
         Self {
             #[cfg(feature = "unstable-v2")]
             wire_version: WireVersion::V01,
-            tessellate: false,
+            tessellation: Tessellation::Off,
             attempt_spatial_morton_sort: false,
             attempt_spatial_hilbert_sort: false,
             attempt_id_sort: false,
@@ -511,8 +538,8 @@ impl EncoderConfig {
     }
 
     #[must_use]
-    pub fn tessellate(self) -> bool {
-        self.tessellate
+    pub fn tessellation(self) -> Tessellation {
+        self.tessellation
     }
 
     #[must_use]
@@ -602,8 +629,8 @@ impl EncoderConfig {
     }
 
     #[must_use]
-    pub fn with_tessellation(mut self, enabled: bool) -> Self {
-        self.tessellate = enabled;
+    pub fn with_tessellation(mut self, tessellation: Tessellation) -> Self {
+        self.tessellation = tessellation;
         self
     }
 

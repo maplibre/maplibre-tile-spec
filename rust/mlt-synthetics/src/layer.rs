@@ -7,7 +7,7 @@ use std::path::Path;
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
     Presence, StagedId, StagedLayer, StagedMValue, StagedNested, StagedProperty, StagedSharedDict,
-    StrEncoding, StreamCtx, VertexBufferType, WireVersion, wound_geometry,
+    StrEncoding, StreamCtx, Tessellation, VertexBufferType, WireVersion, wound_geometry,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -721,12 +721,16 @@ impl Layer {
         } = self;
 
         let enc_cfg = EncoderConfig::default()
-            .with_tessellation(tessellate)
+            .with_tessellation(if tessellate {
+                Tessellation::Always
+            } else {
+                Tessellation::Off
+            })
             .with_triangles_only(triangles_only)
             .with_row_shapes(row_shapes)
             .with_wire_version(wire_version);
 
-        let mut geometry = if enc_cfg.tessellate() {
+        let mut geometry = if tessellate {
             GeometryValues::new_tessellated()
         } else {
             GeometryValues::default()

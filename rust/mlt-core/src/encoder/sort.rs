@@ -377,7 +377,7 @@ mod tests {
         let enc_cfg = EncoderConfig::default();
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));
         let mut codecs = Codecs::default();
-        let enc = stage_tile(tile, sort, false, enc_cfg.tessellate())
+        let enc = stage_tile(tile, sort, false, false)
             .encode_into(enc, &mut codecs)
             .expect("encode failed");
 

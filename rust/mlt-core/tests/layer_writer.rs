@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 
 use geo_types::{Geometry, Polygon};
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Tessellation};
 use mlt_core::fast_mvt::MvtTileBuilder;
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, TileLayer};
@@ -22,7 +22,12 @@ fn writer_encodes_like_tile_layer([path]: [&Path; 1]) {
         .with_id_sort(true);
     for layer in layers {
         let writer = write(&layer).expect("write layer");
-        for cfg in [base, sorted, base.with_tessellation(true)] {
+        for cfg in [
+            base,
+            sorted,
+            base.with_tessellation(Tessellation::Always),
+            sorted.with_tessellation(Tessellation::when_cheaper()),
+        ] {
             assert_eq!(
                 writer.encode(cfg).expect("encode writer"),
                 layer.encode(cfg).expect("encode layer"),

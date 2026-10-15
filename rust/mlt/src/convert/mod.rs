@@ -17,7 +17,7 @@ use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, WireVersion};
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, Tessellation, WireVersion};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
@@ -130,7 +130,7 @@ impl From<MltVersion> for WireVersion {
     }
 }
 
-#[derive(Clone, Default, ValueEnum)]
+#[derive(Clone, Copy, Default, ValueEnum)]
 enum SortMode {
     /// Keep the source order, which is the draw order and the label priority
     #[default]
@@ -148,6 +148,88 @@ enum SortMode {
     Hilbert,
     /// Try feature-ID ascending sort
     Id,
+}
+
+impl SortMode {
+    fn apply(self, encoder: EncoderConfig) -> EncoderConfig {
+        encoder
+            .with_spatial_morton_sort(matches!(self, Self::All | Self::Morton))
+            .with_spatial_hilbert_sort(matches!(self, Self::All | Self::Auto | Self::Hilbert))
+            .with_id_sort(matches!(self, Self::All | Self::Auto | Self::Id))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum TessellateMode {
+    /// Store a layer's triangles when the client earcut they spare outweighs the bytes they add
+    Auto,
+    /// Store the triangles of every layer with polygons
+    Always,
+    /// Store no triangles
+    Off,
+}
+
+/// Encoder defaults for one kind of tile consumer.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum Profile {
+    /// `MapLibre GL JS`: online, `--no-fastpfor --no-fsst`, which lose bytes after gzip, brotli and zstd
+    Web,
+    /// `MapLibre Native`: `--tessellate=auto`
+    Native,
+    /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2 --rans-vertices`
+    #[value(name = "min_size", alias = "min-size")]
+    MinSize,
+    /// Small binary diffs between releases: `--no-fsst --no-shared-dict`, and under MLT version 2 `--delta2`
+    Diffable,
+}
+
+impl Profile {
+    fn apply(self, encoder: EncoderConfig, network: Option<Network>) -> EncoderConfig {
+        match self {
+            Self::Web if network == Some(Network::Offline) => encoder,
+            Self::Web => encoder.with_fastpfor(false).with_fsst(false),
+            Self::Native => encoder.with_tessellation(Tessellation::when_cheaper()),
+            Self::MinSize => SortMode::Auto
+                .apply(encoder)
+                .with_delta2(true)
+                .with_rans_vertices(true),
+            Self::Diffable => encoder
+                .with_fsst(false)
+                .with_shared_dict(false)
+                .with_delta2(true),
+        }
+    }
+}
+
+/// How tiles reach the client, which prices a stored byte against the client earcut it spares.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum Network {
+    /// Read from local storage, where a byte costs nothing
+    Offline,
+    /// 2 Mbit/s
+    #[value(name = "3g")]
+    Cellular3G,
+    /// 20 Mbit/s, the default
+    #[value(name = "4g")]
+    Cellular4G,
+    /// 200 Mbit/s
+    #[value(name = "5g")]
+    Cellular5G,
+}
+
+impl Network {
+    /// How many times slower than a Ryzen 9 3900 core the client runs earcut.
+    const CLIENT_SLOWDOWN: u32 = 4;
+
+    fn ns_per_byte(self) -> u32 {
+        let mbit_per_s = match self {
+            Self::Offline => return 0,
+            Self::Cellular3G => 2,
+            Self::Cellular4G => 20,
+            Self::Cellular5G => 200,
+        };
+        8_000 / mbit_per_s / Self::CLIENT_SLOWDOWN
+    }
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, ValueEnum)]
@@ -222,12 +304,22 @@ pub struct ConvertArgs {
     input: PathBuf,
     /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,
-    /// Add tessellation
-    #[clap(short, long)]
-    tessellate: bool,
-    /// Feature orders to try when re-encoding, each against the source order, keeping the smallest
-    #[clap(long, default_value = "none")]
-    sort: SortMode,
+    /// Encoder defaults for the tiles' consumer, which the other encoder flags override
+    #[clap(long)]
+    profile: Option<Profile>,
+    /// How tiles reach the client, which prices `--tessellate=auto` and decides `--profile web` (default: 4g)
+    ///
+    /// `--tessellate=auto` weighs the bytes against `mapbox::earcut` on a client 4× slower than a Ryzen 9 3900 core.
+    #[clap(long)]
+    network: Option<Network>,
+    /// Store polygon triangles, so clients skip earcut (default: off)
+    ///
+    /// `--tessellate` alone means `auto`.
+    #[clap(short, long, value_enum, num_args = 0..=1, require_equals = true, default_missing_value = "auto")]
+    tessellate: Option<TessellateMode>,
+    /// Feature orders to try when re-encoding, each against the source order, keeping the smallest (default: none)
+    #[clap(long)]
+    sort: Option<SortMode>,
     /// Schema type for the output `.mbtiles` file; defaults to the input file's schema
     #[clap(long)]
     mbtiles_format: Option<MbtFormat>,
@@ -309,7 +401,7 @@ struct V2EncoderArgs {
     #[clap(long)]
     no_bitpacking: bool,
     /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
-    #[clap(long, requires = "tessellate")]
+    #[clap(long)]
     triangles_only: bool,
     /// Let integer and vertex streams store the deltas of their deltas when that is shorter
     #[clap(long)]
@@ -333,6 +425,45 @@ impl ConvertArgs {
     pub fn output_container(&self) -> ContainerFormat {
         ContainerFormat::from_path(&self.output)
     }
+    /// The profile's encoder, with the explicit encoder flags applied on top.
+    fn encoder(&self) -> AnyResult<EncoderConfig> {
+        let mut encoder = EncoderConfig::default().with_wire_version(self.mlt_version.into());
+        if let Some(profile) = self.profile {
+            encoder = profile.apply(encoder, self.network);
+        }
+        if let Some(sort) = self.sort {
+            encoder = sort.apply(encoder);
+        }
+        let tessellation = match self.tessellate {
+            None => encoder.tessellation(),
+            Some(TessellateMode::Auto) => Tessellation::when_cheaper(),
+            Some(TessellateMode::Always) => Tessellation::Always,
+            Some(TessellateMode::Off) => Tessellation::Off,
+        };
+        let tessellation = match (tessellation, self.network) {
+            (Tessellation::WhenCheaper { .. }, Some(network)) => Tessellation::WhenCheaper {
+                ns_per_byte: network.ns_per_byte(),
+            },
+            _ => tessellation,
+        };
+        let v2 = &self.v2;
+        if v2.triangles_only && tessellation == Tessellation::Off {
+            bail!(
+                "--triangles-only drops the outlines of tessellated layers, so it needs --tessellate"
+            );
+        }
+        Ok(encoder
+            .with_tessellation(tessellation)
+            .with_shared_dict(encoder.allow_shared_dict() && !self.no_shared_dict)
+            .with_fastpfor(encoder.allow_fastpfor() && !self.no_fastpfor)
+            .with_fsst(encoder.allow_fsst() && !self.no_fsst)
+            .with_float_alp(!v2.no_alp)
+            .with_float_dict(!v2.no_float_dict)
+            .with_packed_dict_codes(!v2.no_bitpacking)
+            .with_triangles_only(v2.triangles_only)
+            .with_delta2(encoder.allow_delta2() || v2.delta2)
+            .with_rans_vertices(encoder.allow_rans_vertices() || v2.rans_vertices))
+    }
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
@@ -354,29 +485,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             bail!("--fields parses fields into MLT columns, so it needs --to mlt");
         }
     }
-    let morton = matches!(args.sort, SortMode::All | SortMode::Morton);
-    let hilbert = matches!(
-        args.sort,
-        SortMode::All | SortMode::Auto | SortMode::Hilbert
-    );
-    let id_sort = matches!(args.sort, SortMode::All | SortMode::Auto | SortMode::Id);
-    let encoder = EncoderConfig::default()
-        .with_tessellation(args.tessellate)
-        .with_spatial_morton_sort(morton)
-        .with_spatial_hilbert_sort(hilbert)
-        .with_id_sort(id_sort)
-        .with_shared_dict(!args.no_shared_dict)
-        .with_fastpfor(!args.no_fastpfor)
-        .with_fsst(!args.no_fsst)
-        .with_wire_version(args.mlt_version.into())
-        .with_float_alp(!v2.no_alp)
-        .with_float_dict(!v2.no_float_dict)
-        .with_packed_dict_codes(!v2.no_bitpacking)
-        .with_triangles_only(v2.triangles_only)
-        .with_delta2(v2.delta2)
-        .with_rans_vertices(v2.rans_vertices);
     let reencoder = Reencoder {
-        encoder,
+        encoder: args.encoder()?,
         fields: Arc::new(match &args.fields {
             Some(path) => FieldConfig::load(path)?,
             None => FieldConfig::default(),
@@ -866,6 +976,143 @@ mod tests {
     fn verifying_a_conversion_to_mvt_is_rejected() {
         let err = convert(&parse_args(&["--verify", "--to", "mvt", "src", "dst"])).unwrap_err();
         insta::assert_snapshot!(err.to_string(), @"--verify checks MLT encoding, so it needs --to mlt");
+    }
+
+    #[test]
+    fn tessellate_flags_pick_a_tessellation() {
+        for (flags, expected) in [
+            (&[][..], Tessellation::Off),
+            (&["--tessellate"], Tessellation::when_cheaper()),
+            (&["-t"], Tessellation::when_cheaper()),
+            (&["--tessellate=auto"], Tessellation::when_cheaper()),
+            (&["--tessellate=always"], Tessellation::Always),
+            (&["--tessellate=off"], Tessellation::Off),
+            (&["--profile", "native"], Tessellation::when_cheaper()),
+            (
+                &["--profile", "native", "--tessellate=off"],
+                Tessellation::Off,
+            ),
+        ] {
+            let cli: Vec<&str> = flags.iter().copied().chain(["src", "dst"]).collect();
+            let args = parse_args(&cli);
+            assert_eq!(
+                args.encoder().unwrap().tessellation(),
+                expected,
+                "{flags:?}"
+            );
+            assert_eq!(
+                (args.input.to_str(), args.output.to_str()),
+                (Some("src"), Some("dst")),
+                "{flags:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_4g_network_is_the_default_tessellation_rate() {
+        assert_eq!(
+            Network::Cellular4G.ns_per_byte(),
+            Tessellation::DEFAULT_NS_PER_BYTE
+        );
+    }
+
+    #[test]
+    fn profiles_set_encoder_defaults_that_flags_override() {
+        let rows: Vec<String> = [
+            "",
+            "--profile web",
+            "--profile native",
+            "--profile min_size",
+            "--profile min-size",
+            "--profile diffable",
+            "--profile min_size --mlt-version 1",
+            "--profile min_size --sort none",
+            "--profile diffable --sort id --no-fastpfor",
+            "--profile web --tessellate",
+            "--profile web --network offline",
+            "--profile native --network offline",
+            "--profile native --network 3g",
+            "--profile native --network 5g",
+            "--network 5g",
+            "--tessellate --network 4g",
+        ]
+        .into_iter()
+        .map(|flags| {
+            let mut cli: Vec<&str> = flags.split_whitespace().collect();
+            if !flags.contains("--mlt-version") {
+                cli.extend(["--mlt-version", "2"]);
+            }
+            cli.extend(["src", "dst"]);
+            let e = parse_args(&cli).encoder().unwrap();
+            let sorts = [
+                (e.attempt_spatial_morton_sort(), "morton"),
+                (e.attempt_spatial_hilbert_sort(), "hilbert"),
+                (e.attempt_id_sort(), "id"),
+            ];
+            let sorts: Vec<&str> = sorts
+                .iter()
+                .filter(|(on, _)| *on)
+                .map(|(_, s)| *s)
+                .collect();
+            let codecs = [
+                (e.allow_fastpfor(), "fastpfor"),
+                (e.allow_fsst(), "fsst"),
+                (e.allow_shared_dict(), "shared-dict"),
+                (e.allow_delta2(), "delta2"),
+                (e.allow_rans_vertices(), "rans"),
+            ];
+            let codecs: Vec<&str> = codecs
+                .iter()
+                .filter(|(on, _)| *on)
+                .map(|(_, c)| *c)
+                .collect();
+            let sorts = if sorts.is_empty() {
+                "none".to_owned()
+            } else {
+                sorts.join(",")
+            };
+            format!(
+                "convert {flags:<42} | {:?} | sort {sorts} | {}",
+                e.tessellation(),
+                codecs.join(",")
+            )
+        })
+        .collect();
+        insta::assert_snapshot!(rows.join("\n"), @"
+        convert                                            | Off | sort none | fastpfor,fsst,shared-dict
+        convert --profile web                              | Off | sort none | shared-dict
+        convert --profile native                           | WhenCheaper { ns_per_byte: 100 } | sort none | fastpfor,fsst,shared-dict
+        convert --profile min_size                         | Off | sort hilbert,id | fastpfor,fsst,shared-dict,delta2,rans
+        convert --profile min-size                         | Off | sort hilbert,id | fastpfor,fsst,shared-dict,delta2,rans
+        convert --profile diffable                         | Off | sort none | fastpfor,delta2
+        convert --profile min_size --mlt-version 1         | Off | sort hilbert,id | fastpfor,fsst,shared-dict
+        convert --profile min_size --sort none             | Off | sort none | fastpfor,fsst,shared-dict,delta2,rans
+        convert --profile diffable --sort id --no-fastpfor | Off | sort id | delta2
+        convert --profile web --tessellate                 | WhenCheaper { ns_per_byte: 100 } | sort none | shared-dict
+        convert --profile web --network offline            | Off | sort none | fastpfor,fsst,shared-dict
+        convert --profile native --network offline         | WhenCheaper { ns_per_byte: 0 } | sort none | fastpfor,fsst,shared-dict
+        convert --profile native --network 3g              | WhenCheaper { ns_per_byte: 1000 } | sort none | fastpfor,fsst,shared-dict
+        convert --profile native --network 5g              | WhenCheaper { ns_per_byte: 10 } | sort none | fastpfor,fsst,shared-dict
+        convert --network 5g                               | Off | sort none | fastpfor,fsst,shared-dict
+        convert --tessellate --network 4g                  | WhenCheaper { ns_per_byte: 100 } | sort none | fastpfor,fsst,shared-dict
+        ");
+    }
+
+    #[test]
+    fn triangles_only_needs_a_tessellation() {
+        let flags = ["--mlt-version", "2", "--triangles-only", "src", "dst"];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--triangles-only drops the outlines of tessellated layers, so it needs --tessellate");
+        let flags = [
+            "--profile",
+            "native",
+            "--mlt-version",
+            "2",
+            "--triangles-only",
+            "src",
+            "dst",
+        ];
+        assert!(parse_args(&flags).encoder().unwrap().allow_triangles_only());
     }
 
     #[test]

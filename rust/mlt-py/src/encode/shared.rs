@@ -1,6 +1,6 @@
 //! Helpers shared across the encoding entry points (independent of input format).
 
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Tessellation};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -36,7 +36,11 @@ pub(crate) fn encoder_config(
         }
     };
     Ok(EncoderConfig::default()
-        .with_tessellation(tessellate)
+        .with_tessellation(if tessellate {
+            Tessellation::Always
+        } else {
+            Tessellation::Off
+        })
         .with_spatial_morton_sort(morton)
         .with_spatial_hilbert_sort(hilbert)
         .with_id_sort(id)

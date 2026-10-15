@@ -4,12 +4,13 @@ use std::ops::{Deref, DerefMut};
 use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
+use crate::encoder::geometry::tessellation_saving_ns;
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::property::group_string_properties;
 use crate::encoder::sort::{curve_params, sort_order};
 use crate::encoder::source::LayerSource;
-use crate::encoder::tile::stage_layer;
-use crate::encoder::{Codecs, Encoder, EncoderConfig, SortStrategy, encode01};
+use crate::encoder::tile::{StageOptions, stage_layer};
+use crate::encoder::{Codecs, Encoder, EncoderConfig, SortStrategy, Tessellation, encode01};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::{WireVersion, encode02};
 use crate::tile::TileLayer;
@@ -129,9 +130,13 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     // Bounds are order-invariant, so this scan is shared across every
     // sort trial and the encoder's Hilbert/Morton dictionary builders.
     let curve_params = curve_params(source);
-    let stage = |sort| {
+    let stage = |sort, tessellate| {
         let order = sort_order(source, sort, curve_params);
-        stage_layer(source, &order, &stats, cfg.into())
+        let options = StageOptions {
+            tessellate,
+            ..cfg.into()
+        };
+        stage_layer(source, &order, &stats, options)
     };
 
     // `Encoder::preserve_results` clears caches only on the moved-out
@@ -140,14 +145,34 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     let mut enc = Encoder::new(cfg);
     seed_curve_caches(&mut enc, curve_params);
     let mut codecs = PooledCodecs::take();
-    if let [sort] = sort_by[..] {
-        return stage(sort)
+    // The triangles cost about the same bytes in every order, so the source order alone decides on them.
+    let (tessellate, mut best, sort_by) = match cfg.tessellation() {
+        Tessellation::Off => (false, None, &sort_by[..]),
+        Tessellation::Always => (true, None, &sort_by[..]),
+        Tessellation::WhenCheaper { ns_per_byte } => {
+            let (&first, rest) = sort_by
+                .split_first()
+                .expect("the source order is always tried");
+            let (winner, tessellate);
+            (enc, winner, tessellate) = encode_cheaper_tessellation(
+                stage(first, true),
+                || stage(first, false),
+                ns_per_byte,
+                enc,
+                &mut codecs,
+            )?;
+            (tessellate, Some(winner), rest)
+        }
+    };
+    if best.is_none()
+        && let [sort] = sort_by[..]
+    {
+        return stage(sort, tessellate)
             .encode_into(enc, &mut codecs)?
             .into_layer_bytes();
     }
-    let mut best: Option<Encoder> = None;
-    for &sort in &sort_by {
-        enc = stage(sort).encode_into(enc, &mut codecs)?;
+    for &sort in sort_by {
+        enc = stage(sort, tessellate).encode_into(enc, &mut codecs)?;
         if best
             .as_ref()
             .is_none_or(|best| enc.total_len() < best.total_len())
@@ -158,7 +183,44 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
             enc.clear_results();
         }
     }
-    best.expect("at least two trials ran").into_layer_bytes()
+    best.expect("at least one trial ran").into_layer_bytes()
+}
+
+/// Encode `tessellated`, or `plain` when its triangles save the client less than their bytes cost at `ns_per_byte`.
+///
+/// Returns `enc` emptied for the next trial, the encoder holding the winner, and whether the winner kept its triangles.
+fn encode_cheaper_tessellation(
+    tessellated: StagedLayer,
+    plain: impl FnOnce() -> StagedLayer,
+    ns_per_byte: u32,
+    mut enc: Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<(Encoder, Encoder, bool)> {
+    let has_triangles = tessellated
+        .geometry
+        .index_buffer
+        .as_ref()
+        .is_some_and(|indices| !indices.is_empty());
+    let saving_ns = tessellation_saving_ns(&tessellated.geometry);
+    if !has_triangles || saving_ns <= 0.0 {
+        let layer = if has_triangles { plain() } else { tessellated };
+        enc = layer.encode_into(enc, codecs)?;
+        let winner = enc.preserve_results();
+        return Ok((enc, winner, false));
+    }
+    enc = tessellated.encode_into(enc, codecs)?;
+    let tessellated_len = enc.total_len();
+    let with_triangles = enc.preserve_results();
+    enc = plain().encode_into(enc, codecs)?;
+    #[expect(clippy::cast_precision_loss, reason = "an estimate")]
+    let added_bytes = tessellated_len as f64 - enc.total_len() as f64;
+    if saving_ns > f64::from(ns_per_byte) * added_bytes {
+        enc.clear_results();
+        Ok((enc, with_triangles, true))
+    } else {
+        let winner = enc.preserve_results();
+        Ok((enc, winner, false))
+    }
 }
 
 /// Row-order-independent presence classification for IDs and properties.
