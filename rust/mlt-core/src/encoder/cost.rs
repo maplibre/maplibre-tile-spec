@@ -6,7 +6,9 @@ use usize_cast::FromUsize as _;
 
 use crate::decoder::GeometryValues;
 use crate::encoder::source::LayerSource;
-use crate::encoder::{Client, Network};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::WireVersion;
+use crate::encoder::{Client, EncoderConfig, Network};
 use crate::tile::stored_len;
 
 /// What a layer costs a client, in time on a Ryzen 9 3900 core, and its stored bytes to break a tie.
@@ -20,12 +22,13 @@ pub(crate) struct Cost {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ClientCost {
     client: Client,
+    layout: TriangleLayout,
     /// Transfer time per byte, divided by the client's slowdown.
     per_byte: Duration,
 }
 
 impl ClientCost {
-    pub(crate) fn new(client: Client, network: Network) -> Self {
+    pub(crate) fn new(client: Client, network: Network, cfg: EncoderConfig) -> Self {
         // How long 8 bits take to arrive at each network's rate.
         let transfer = match network {
             Network::Offline => Duration::ZERO,
@@ -35,6 +38,7 @@ impl ClientCost {
         };
         Self {
             client,
+            layout: TriangleLayout::of(cfg),
             per_byte: transfer / client.slowdown(),
         }
     }
@@ -43,8 +47,57 @@ impl ClientCost {
     pub(crate) fn price(self, work: &impl ClientWork) -> Price {
         Price {
             per_byte: self.per_byte,
-            work: work.client_time(self.client),
+            work: work.client_time(self),
         }
+    }
+
+    /// How long the client takes to decode a layer's `triangles`.
+    fn decode_triangles(self, triangles: u64) -> Duration {
+        if triangles == 0 {
+            return Duration::ZERO;
+        }
+        // Fitted per layer on five tilesets, in hundredths of a nanosecond.
+        let centi_ns = match (self.client, self.layout) {
+            // `263 + 52.8 * min(t, 200) + 12.2 * max(t - 200, 0)` ns, the TypeScript decoder in Node.
+            (Client::GlJs, TriangleLayout::IndexBuffer) => {
+                26_300 + 5_280 * triangles.min(200) + 1_220 * triangles.saturating_sub(200)
+            }
+            #[cfg(feature = "unstable-v2")]
+            (Client::GlJs, TriangleLayout::TriangleTree) => {
+                unreachable!("GL JS reads no v2 tiles, so its triangle tree decode is unmeasured")
+            }
+            // `143 + 3.98 * t` ns, the C++ decoder.
+            (Client::Native, TriangleLayout::IndexBuffer) => 14_300 + 398 * triangles,
+            // `20 * t` ns, the Rust decoder, since no C++ decoder reads v2.
+            #[cfg(feature = "unstable-v2")]
+            (Client::Native, TriangleLayout::TriangleTree) => 2_000 * triangles,
+        };
+        Duration::from_nanos(centi_ns / 100)
+    }
+}
+
+/// How a layer stores its triangles.
+#[derive(Debug, Clone, Copy)]
+enum TriangleLayout {
+    /// v1: three vertex indices per triangle.
+    IndexBuffer,
+    /// v2: triangle trees.
+    #[cfg(feature = "unstable-v2")]
+    TriangleTree,
+}
+
+impl TriangleLayout {
+    #[cfg(feature = "unstable-v2")]
+    fn of(cfg: EncoderConfig) -> Self {
+        match cfg.wire_version() {
+            WireVersion::V01 => Self::IndexBuffer,
+            WireVersion::V02 => Self::TriangleTree,
+        }
+    }
+
+    #[cfg(not(feature = "unstable-v2"))]
+    fn of(_cfg: EncoderConfig) -> Self {
+        Self::IndexBuffer
     }
 }
 
@@ -52,36 +105,23 @@ impl Client {
     /// How many times slower than a Ryzen 9 3900 core the client runs.
     fn slowdown(self) -> u32 {
         match self {
-            // A laptop or desktop.
-            Self::GlJs => 1,
-            // A mid-range phone or car head unit.
-            Self::Native => 2,
-        }
-    }
-
-    /// How long the client takes to decode one stored triangle.
-    fn decode_per_triangle(self) -> Duration {
-        match self {
-            // The Rust decoder in wasm.
-            Self::GlJs => Duration::from_nanos(30),
-            Self::Native => Duration::from_nanos(20),
+            // A mid-range phone, or for Native a car head unit.
+            Self::GlJs | Self::Native => 2,
         }
     }
 }
 
 /// Work a client does on a layer after fetching it and before drawing it.
 pub(crate) trait ClientWork {
-    /// How long `client` takes for this work on a Ryzen 9 3900 core.
-    fn client_time(&self, client: Client) -> Duration;
+    /// How long the priced client takes for this work on a Ryzen 9 3900 core.
+    fn client_time(&self, client: ClientCost) -> Duration;
 }
 
 /// Decoding the stored triangles of the polygons.
 impl ClientWork for GeometryValues {
-    fn client_time(&self, client: Client) -> Duration {
+    fn client_time(&self, client: ClientCost) -> Duration {
         let indices = self.index_buffer.as_ref().map_or(0, Vec::len);
-        let triangles =
-            u32::try_from(indices / 3).expect("a layer stores fewer triangles than its u32 bytes");
-        client.decode_per_triangle() * triangles
+        client.decode_triangles(u64::from_usize(indices / 3))
     }
 }
 
@@ -117,10 +157,14 @@ impl Earcut {
         }
         earcut
     }
+
+    pub(crate) fn is_empty(self) -> bool {
+        self.polygons == 0
+    }
 }
 
 impl ClientWork for Earcut {
-    fn client_time(&self, client: Client) -> Duration {
+    fn client_time(&self, client: ClientCost) -> Duration {
         let Self {
             polygons,
             vertices,
@@ -128,7 +172,7 @@ impl ClientWork for Earcut {
             hole_vertices,
         } = *self;
         // Fitted per polygon on five tilesets, in hundredths of a nanosecond.
-        let centi_ns = match client {
+        let centi_ns = match client.client {
             // `126 + n * (3.46 * min(n, 80) + 22.2) + 3.6 * n * holes` ns, `earcut` 3.2.4 in Chromium.
             Client::GlJs => {
                 12_600 * polygons + 346 * quadratic + 2_220 * vertices + 360 * hole_vertices

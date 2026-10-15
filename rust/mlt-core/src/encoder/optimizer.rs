@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
-use crate::encoder::cost::{ClientCost, ClientWork as _, Cost, Earcut};
+use crate::encoder::cost::{ClientCost, Cost, Earcut};
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::property::group_string_properties;
 use crate::encoder::sort::{curve_params, sort_order};
@@ -153,9 +153,7 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
         // Remove this arm once it reads them.
         Tessellation::Auto(Client::GlJs, _) => (&[false], bytes_only),
         // A layer without polygons has no triangles to store.
-        Tessellation::Auto(client, _) if earcut.client_time(client).is_zero() => {
-            (&[false], bytes_only)
-        }
+        Tessellation::Auto(..) if earcut.is_empty() => (&[false], bytes_only),
         Tessellation::Auto(client, network) => (&[false, true], (client, network)),
     };
     if let ([sort], [tessellate]) = (&sort_by[..], tessellations) {
@@ -163,7 +161,7 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
             .encode_into(enc, &mut codecs)?
             .into_layer_bytes();
     }
-    let client = ClientCost::new(client, network);
+    let client = ClientCost::new(client, network, cfg);
     let mut best: Option<Best> = None;
     for &sort in &sort_by {
         // Triangles add about the same bytes in every order, so the source order alone decides on them.
