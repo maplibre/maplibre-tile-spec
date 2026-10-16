@@ -100,7 +100,7 @@ workspace = true
 
 [[test]]
 name = "analyze"
-required-features = ["unstable-v2"]
+required-features = ["__private-v2"]
 
 [[test]]
 name = "columnar_access"
