@@ -40568,7 +40568,7 @@
   {
     "name": "0_0_0.mlt",
     "directory": "0x01-omt",
-    "bytes": 50096,
+    "bytes": 66727,
     "facets": {
       "extent": [
         "4096"
@@ -40608,7 +40608,9 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
+        "offset[index]",
         "offset[string]",
         "offset[vertex]",
         "present"
@@ -47818,7 +47820,7 @@
   {
     "name": "8_69_107_big_landuse.mlt",
     "directory": "0x01-omt",
-    "bytes": 215600,
+    "bytes": 236417,
     "facets": {
       "extent": [
         "4096"
@@ -47860,7 +47862,9 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
+        "offset[index]",
         "offset[string]",
         "present"
       ],
@@ -49625,7 +49629,7 @@
   {
     "name": "5_5_11.mlt",
     "directory": "0x01-amazon",
-    "bytes": 239289,
+    "bytes": 248171,
     "facets": {
       "extent": [
         "4096"
@@ -49664,7 +49668,9 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
+        "offset[index]",
         "offset[string]",
         "offset[vertex]"
       ],
@@ -49743,7 +49749,7 @@
   {
     "name": "5_8_12.mlt",
     "directory": "0x01-amazon",
-    "bytes": 236808,
+    "bytes": 243654,
     "facets": {
       "extent": [
         "4096"
@@ -49781,7 +49787,9 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
+        "offset[index]",
         "offset[string]"
       ],
       "physical": [
@@ -50424,7 +50432,7 @@
   {
     "name": "10_518_352.mlt",
     "directory": "0x02-amazon",
-    "bytes": 61264,
+    "bytes": 62672,
     "facets": {
       "extent": [
         "4096"
@@ -50441,7 +50449,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -50471,8 +50480,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -50493,7 +50505,7 @@
   {
     "name": "11_1037_704.mlt",
     "directory": "0x02-amazon",
-    "bytes": 49394,
+    "bytes": 49675,
     "facets": {
       "extent": [
         "4096"
@@ -50510,7 +50522,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -50537,8 +50550,11 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -50558,7 +50574,7 @@
   {
     "name": "5_16_11.mlt",
     "directory": "0x02-amazon",
-    "bytes": 162759,
+    "bytes": 198494,
     "facets": {
       "extent": [
         "4096"
@@ -50573,9 +50589,9 @@
       "geomLayout": [
         "lines",
         "multi-lines",
-        "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -50604,8 +50620,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -50626,7 +50645,7 @@
   {
     "name": "5_5_11.mlt",
     "directory": "0x02-amazon",
-    "bytes": 164315,
+    "bytes": 198079,
     "facets": {
       "extent": [
         "4096"
@@ -50643,7 +50662,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -50671,8 +50691,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -50693,7 +50716,7 @@
   {
     "name": "5_6_21.mlt",
     "directory": "0x02-amazon",
-    "bytes": 142982,
+    "bytes": 187180,
     "facets": {
       "extent": [
         "4096"
@@ -50711,7 +50734,8 @@
         "multi-lines-dict",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -50740,8 +50764,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -50754,6 +50781,7 @@
         "componentwise-delta2",
         "delta",
         "delta-rle",
+        "delta2",
         "morton-delta",
         "rans",
         "rle"
@@ -50763,7 +50791,7 @@
   {
     "name": "5_8_12.mlt",
     "directory": "0x02-amazon",
-    "bytes": 155357,
+    "bytes": 195404,
     "facets": {
       "extent": [
         "4096"
@@ -50780,7 +50808,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -50808,8 +50837,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -50821,6 +50853,7 @@
         "componentwise-delta2",
         "delta",
         "delta-rle",
+        "delta2",
         "rans",
         "rle"
       ]
@@ -50829,7 +50862,7 @@
   {
     "name": "6_33_21.mlt",
     "directory": "0x02-amazon",
-    "bytes": 155138,
+    "bytes": 167293,
     "facets": {
       "extent": [
         "4096"
@@ -50846,7 +50879,7 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -50875,8 +50908,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -50897,7 +50933,7 @@
   {
     "name": "6_33_22.mlt",
     "directory": "0x02-amazon",
-    "bytes": 169627,
+    "bytes": 190252,
     "facets": {
       "extent": [
         "4096"
@@ -50913,7 +50949,8 @@
         "lines",
         "multi-lines",
         "multi-polygons",
-        "points"
+        "points",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -50942,8 +50979,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -50964,7 +51004,7 @@
   {
     "name": "7_68_44.mlt",
     "directory": "0x02-amazon",
-    "bytes": 77175,
+    "bytes": 88427,
     "facets": {
       "extent": [
         "4096"
@@ -50981,7 +51021,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51010,8 +51051,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51032,7 +51076,7 @@
   {
     "name": "8_136_89.mlt",
     "directory": "0x02-amazon",
-    "bytes": 52808,
+    "bytes": 59977,
     "facets": {
       "extent": [
         "4096"
@@ -51049,7 +51093,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51079,8 +51124,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51100,7 +51148,7 @@
   {
     "name": "9_259_176.mlt",
     "directory": "0x02-amazon",
-    "bytes": 86776,
+    "bytes": 89153,
     "facets": {
       "extent": [
         "4096"
@@ -51116,7 +51164,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51146,8 +51195,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51167,7 +51219,7 @@
   {
     "name": "4_8_5.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 138456,
+    "bytes": 148393,
     "facets": {
       "extent": [
         "4096"
@@ -51183,7 +51235,8 @@
         "lines",
         "multi-lines",
         "multi-polygons",
-        "points"
+        "points",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51218,8 +51271,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51241,7 +51297,7 @@
   {
     "name": "4_9_4.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 77417,
+    "bytes": 93656,
     "facets": {
       "extent": [
         "4096"
@@ -51254,8 +51310,8 @@
       ],
       "geomLayout": [
         "multi-lines",
-        "multi-polygons",
-        "points"
+        "points",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51290,8 +51346,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51312,7 +51371,7 @@
   {
     "name": "5_16_10.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 77374,
+    "bytes": 82296,
     "facets": {
       "extent": [
         "4096"
@@ -51326,8 +51385,8 @@
       "geomLayout": [
         "lines",
         "multi-lines",
-        "multi-polygons",
-        "points"
+        "points",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51362,8 +51421,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51384,7 +51446,7 @@
   {
     "name": "6_33_22.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 116383,
+    "bytes": 130193,
     "facets": {
       "extent": [
         "4096"
@@ -51400,7 +51462,8 @@
         "lines",
         "multi-lines",
         "multi-polygons",
-        "points"
+        "points",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51436,8 +51499,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51459,7 +51525,7 @@
   {
     "name": "8_132_85.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 80348,
+    "bytes": 87064,
     "facets": {
       "extent": [
         "4096"
@@ -51474,8 +51540,8 @@
       "geomLayout": [
         "lines",
         "multi-lines",
-        "multi-polygons",
-        "points"
+        "points",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51509,8 +51575,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51532,7 +51601,7 @@
   {
     "name": "4-12-6.mlt",
     "directory": "0x02-bing",
-    "bytes": 139052,
+    "bytes": 139495,
     "facets": {
       "extent": [
         "4096"
@@ -51548,7 +51617,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51576,8 +51646,11 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51598,7 +51671,7 @@
   {
     "name": "4-13-6.mlt",
     "directory": "0x02-bing",
-    "bytes": 133581,
+    "bytes": 134164,
     "facets": {
       "extent": [
         "4096"
@@ -51615,7 +51688,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51647,8 +51721,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51670,7 +51747,7 @@
   {
     "name": "4-8-5.mlt",
     "directory": "0x02-bing",
-    "bytes": 130518,
+    "bytes": 131581,
     "facets": {
       "extent": [
         "4096"
@@ -51687,7 +51764,8 @@
         "multi-lines-dict",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51720,8 +51798,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -51745,7 +51826,7 @@
   {
     "name": "4-9-5.mlt",
     "directory": "0x02-bing",
-    "bytes": 45400,
+    "bytes": 46519,
     "facets": {
       "extent": [
         "4096"
@@ -51761,7 +51842,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51794,8 +51876,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51818,7 +51903,7 @@
   {
     "name": "5-15-10.mlt",
     "directory": "0x02-bing",
-    "bytes": 57331,
+    "bytes": 60778,
     "facets": {
       "extent": [
         "4096"
@@ -51835,7 +51920,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51868,8 +51954,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51891,7 +51980,7 @@
   {
     "name": "5-16-11.mlt",
     "directory": "0x02-bing",
-    "bytes": 106362,
+    "bytes": 108703,
     "facets": {
       "extent": [
         "4096"
@@ -51907,7 +51996,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -51939,8 +52029,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -51962,7 +52055,7 @@
   {
     "name": "5-16-9.mlt",
     "directory": "0x02-bing",
-    "bytes": 37185,
+    "bytes": 42630,
     "facets": {
       "extent": [
         "4096"
@@ -51979,7 +52072,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52008,8 +52102,11 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52029,7 +52126,7 @@
   {
     "name": "5-17-10.mlt",
     "directory": "0x02-bing",
-    "bytes": 69590,
+    "bytes": 71656,
     "facets": {
       "extent": [
         "4096"
@@ -52045,7 +52142,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52078,8 +52176,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52101,7 +52202,7 @@
   {
     "name": "5-17-11.mlt",
     "directory": "0x02-bing",
-    "bytes": 78762,
+    "bytes": 81017,
     "facets": {
       "extent": [
         "4096"
@@ -52117,7 +52218,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52150,8 +52252,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52173,7 +52278,7 @@
   {
     "name": "6-32-21.mlt",
     "directory": "0x02-bing",
-    "bytes": 36077,
+    "bytes": 36291,
     "facets": {
       "extent": [
         "4096"
@@ -52190,7 +52295,8 @@
         "multi-lines-dict",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52220,8 +52326,11 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -52245,7 +52354,7 @@
   {
     "name": "6-32-22.mlt",
     "directory": "0x02-bing",
-    "bytes": 38771,
+    "bytes": 42003,
     "facets": {
       "extent": [
         "4096"
@@ -52261,7 +52370,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52292,8 +52402,11 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52315,7 +52428,7 @@
   {
     "name": "6-32-23.mlt",
     "directory": "0x02-bing",
-    "bytes": 34521,
+    "bytes": 37566,
     "facets": {
       "extent": [
         "4096"
@@ -52331,7 +52444,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52361,8 +52475,11 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52384,7 +52501,7 @@
   {
     "name": "6-33-22.mlt",
     "directory": "0x02-bing",
-    "bytes": 49228,
+    "bytes": 50354,
     "facets": {
       "extent": [
         "4096"
@@ -52400,7 +52517,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52431,8 +52549,11 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52453,7 +52574,7 @@
   {
     "name": "7-65-42.mlt",
     "directory": "0x02-bing",
-    "bytes": 80907,
+    "bytes": 83263,
     "facets": {
       "extent": [
         "4096"
@@ -52469,7 +52590,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52503,8 +52625,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52525,7 +52650,7 @@
   {
     "name": "7-66-42.mlt",
     "directory": "0x02-bing",
-    "bytes": 83353,
+    "bytes": 85320,
     "facets": {
       "extent": [
         "4096"
@@ -52541,7 +52666,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52574,8 +52700,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52597,7 +52726,7 @@
   {
     "name": "7-66-43.mlt",
     "directory": "0x02-bing",
-    "bytes": 77670,
+    "bytes": 81234,
     "facets": {
       "extent": [
         "4096"
@@ -52613,7 +52742,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52647,8 +52777,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52671,7 +52804,7 @@
   {
     "name": "7-66-44.mlt",
     "directory": "0x02-bing",
-    "bytes": 74436,
+    "bytes": 80125,
     "facets": {
       "extent": [
         "4096"
@@ -52687,7 +52820,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52721,8 +52855,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -52744,7 +52881,7 @@
   {
     "name": "0_0_0.mlt",
     "directory": "0x02-omt",
-    "bytes": 40947,
+    "bytes": 45450,
     "facets": {
       "extent": [
         "4096"
@@ -52757,9 +52894,8 @@
       ],
       "geomLayout": [
         "lines",
-        "multi-polygons",
         "points-dict",
-        "polygons"
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -52789,8 +52925,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -53156,7 +53295,7 @@
   {
     "name": "10_531_684.mlt",
     "directory": "0x02-omt",
-    "bytes": 35427,
+    "bytes": 36165,
     "facets": {
       "extent": [
         "4096"
@@ -53171,7 +53310,8 @@
         "lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -53203,8 +53343,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -53366,7 +53509,7 @@
   {
     "name": "10_532_684.mlt",
     "directory": "0x02-omt",
-    "bytes": 38250,
+    "bytes": 38877,
     "facets": {
       "extent": [
         "4096"
@@ -53381,7 +53524,8 @@
         "lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -53414,8 +53558,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -53784,7 +53931,7 @@
   {
     "name": "11_1062_1368.mlt",
     "directory": "0x02-omt",
-    "bytes": 17754,
+    "bytes": 18047,
     "facets": {
       "extent": [
         "4096"
@@ -53801,7 +53948,8 @@
         "multi-lines-dict",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -53833,8 +53981,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -53995,7 +54146,7 @@
   {
     "name": "11_1063_1368.mlt",
     "directory": "0x02-omt",
-    "bytes": 20607,
+    "bytes": 20876,
     "facets": {
       "extent": [
         "4096"
@@ -54011,7 +54162,8 @@
         "lines-dict",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -54041,8 +54193,11 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -55164,7 +55319,7 @@
   {
     "name": "12_3229_2032_big_transportation.mlt",
     "directory": "0x02-omt",
-    "bytes": 137763,
+    "bytes": 139289,
     "facets": {
       "extent": [
         "4096"
@@ -55181,7 +55336,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -55214,8 +55370,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -55236,7 +55395,7 @@
   {
     "name": "12_3415_1774_big_water.mlt",
     "directory": "0x02-omt",
-    "bytes": 62749,
+    "bytes": 62883,
     "facets": {
       "extent": [
         "4096"
@@ -55252,7 +55411,7 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -55284,8 +55443,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -58446,7 +58608,7 @@
   {
     "name": "1_1_1.mlt",
     "directory": "0x02-omt",
-    "bytes": 146656,
+    "bytes": 148198,
     "facets": {
       "extent": [
         "4096"
@@ -58460,8 +58622,8 @@
       ],
       "geomLayout": [
         "multi-lines",
-        "multi-polygons",
-        "points"
+        "points",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -58493,8 +58655,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -58514,7 +58679,7 @@
   {
     "name": "2_2_1_big_place.mlt",
     "directory": "0x02-omt",
-    "bytes": 516199,
+    "bytes": 517988,
     "facets": {
       "extent": [
         "4096"
@@ -58527,9 +58692,9 @@
       ],
       "geomLayout": [
         "multi-lines",
-        "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -58562,8 +58727,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -58582,7 +58750,7 @@
   {
     "name": "2_2_2.mlt",
     "directory": "0x02-omt",
-    "bytes": 229020,
+    "bytes": 232999,
     "facets": {
       "extent": [
         "4096"
@@ -58596,9 +58764,9 @@
       ],
       "geomLayout": [
         "multi-lines",
-        "multi-polygons",
         "points-dict",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -58629,8 +58797,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -58651,7 +58822,7 @@
   {
     "name": "3_4_5.mlt",
     "directory": "0x02-omt",
-    "bytes": 170484,
+    "bytes": 173224,
     "facets": {
       "extent": [
         "4096"
@@ -58666,9 +58837,9 @@
       "geomLayout": [
         "lines-dict",
         "multi-lines",
-        "multi-polygons",
         "points-dict",
-        "polygons-dict"
+        "polygons-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -58699,8 +58870,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -58864,7 +59038,7 @@
   {
     "name": "5_16_11.mlt",
     "directory": "0x02-omt",
-    "bytes": 158891,
+    "bytes": 159769,
     "facets": {
       "extent": [
         "4096"
@@ -58882,7 +59056,8 @@
         "multi-lines-dict",
         "multi-polygons",
         "points-dict",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -58914,8 +59089,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -58936,7 +59114,7 @@
   {
     "name": "5_16_20.mlt",
     "directory": "0x02-omt",
-    "bytes": 158891,
+    "bytes": 159769,
     "facets": {
       "extent": [
         "4096"
@@ -58954,7 +59132,8 @@
         "multi-lines-dict",
         "multi-polygons",
         "points-dict",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -58986,8 +59165,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59008,7 +59190,7 @@
   {
     "name": "5_16_21.mlt",
     "directory": "0x02-omt",
-    "bytes": 180933,
+    "bytes": 182409,
     "facets": {
       "extent": [
         "4096"
@@ -59024,7 +59206,8 @@
         "multi-lines",
         "multi-lines-dict",
         "multi-polygons",
-        "points-dict"
+        "points-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59055,8 +59238,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59077,7 +59263,7 @@
   {
     "name": "5_17_20.mlt",
     "directory": "0x02-omt",
-    "bytes": 150086,
+    "bytes": 151665,
     "facets": {
       "extent": [
         "4096"
@@ -59094,7 +59280,8 @@
         "multi-lines-dict",
         "multi-polygons",
         "points-dict",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59125,8 +59312,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59147,7 +59337,7 @@
   {
     "name": "5_17_21.mlt",
     "directory": "0x02-omt",
-    "bytes": 114266,
+    "bytes": 115118,
     "facets": {
       "extent": [
         "4096"
@@ -59163,7 +59353,8 @@
         "lines",
         "multi-lines-dict",
         "multi-polygons",
-        "points-dict"
+        "points-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59194,8 +59385,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59216,7 +59410,7 @@
   {
     "name": "5_5_11_big_park.mlt",
     "directory": "0x02-omt",
-    "bytes": 150790,
+    "bytes": 166944,
     "facets": {
       "extent": [
         "4096"
@@ -59232,7 +59426,8 @@
         "multi-lines",
         "multi-polygons",
         "points",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59266,8 +59461,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",
@@ -59286,7 +59484,7 @@
   {
     "name": "6_32_41.mlt",
     "directory": "0x02-omt",
-    "bytes": 92593,
+    "bytes": 95529,
     "facets": {
       "extent": [
         "4096"
@@ -59304,7 +59502,8 @@
         "multi-polygons",
         "multi-polygons-dict",
         "points",
-        "points-dict"
+        "points-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59336,8 +59535,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59358,7 +59560,7 @@
   {
     "name": "6_32_42.mlt",
     "directory": "0x02-omt",
-    "bytes": 144274,
+    "bytes": 149160,
     "facets": {
       "extent": [
         "4096"
@@ -59374,7 +59576,8 @@
         "lines-dict",
         "multi-lines",
         "multi-polygons",
-        "points-dict"
+        "points-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59405,8 +59608,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59427,7 +59633,7 @@
   {
     "name": "6_33_41.mlt",
     "directory": "0x02-omt",
-    "bytes": 152117,
+    "bytes": 157552,
     "facets": {
       "extent": [
         "4096"
@@ -59447,7 +59653,8 @@
         "multi-polygons-dict",
         "points",
         "points-dict",
-        "polygons"
+        "polygons",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59479,8 +59686,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59501,7 +59711,7 @@
   {
     "name": "6_33_42.mlt",
     "directory": "0x02-omt",
-    "bytes": 175290,
+    "bytes": 179961,
     "facets": {
       "extent": [
         "4096"
@@ -59519,7 +59729,8 @@
         "multi-lines",
         "multi-polygons",
         "multi-polygons-dict",
-        "points-dict"
+        "points-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59550,8 +59761,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59571,7 +59785,7 @@
   {
     "name": "6_34_41.mlt",
     "directory": "0x02-omt",
-    "bytes": 128290,
+    "bytes": 130743,
     "facets": {
       "extent": [
         "4096"
@@ -59589,7 +59803,8 @@
         "multi-lines-dict",
         "multi-polygons",
         "points",
-        "points-dict"
+        "points-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59621,8 +59836,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59643,7 +59861,7 @@
   {
     "name": "6_34_42.mlt",
     "directory": "0x02-omt",
-    "bytes": 112727,
+    "bytes": 116866,
     "facets": {
       "extent": [
         "4096"
@@ -59660,7 +59878,8 @@
         "lines-dict",
         "multi-lines-dict",
         "multi-polygons",
-        "points-dict"
+        "points-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -59691,8 +59910,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -59994,7 +60216,7 @@
   {
     "name": "7_67_84.mlt",
     "directory": "0x02-omt",
-    "bytes": 129689,
+    "bytes": 130896,
     "facets": {
       "extent": [
         "4096"
@@ -60012,7 +60234,8 @@
         "multi-lines-dict",
         "multi-polygons",
         "multi-polygons-dict",
-        "points-dict"
+        "points-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -60043,8 +60266,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -60851,7 +61077,7 @@
   {
     "name": "8_135_171.mlt",
     "directory": "0x02-omt",
-    "bytes": 101535,
+    "bytes": 109437,
     "facets": {
       "extent": [
         "4096"
@@ -60868,7 +61094,8 @@
         "multi-lines",
         "multi-polygons",
         "multi-polygons-dict",
-        "points-dict"
+        "points-dict",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -60900,8 +61127,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
         "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
         "offset[vertex]"
       ],
       "physical": [
@@ -60922,7 +61152,7 @@
   {
     "name": "8_69_107_big_landuse.mlt",
     "directory": "0x02-omt",
-    "bytes": 181045,
+    "bytes": 205251,
     "facets": {
       "extent": [
         "4096"
@@ -60937,7 +61167,8 @@
       "geomLayout": [
         "multi-lines",
         "multi-polygons",
-        "points"
+        "points",
+        "tess-polygons-with-outlines"
       ],
       "zStep": [],
       "dataType": [
@@ -60969,8 +61200,11 @@
         "length[parts]",
         "length[rings]",
         "length[symbol]",
+        "length[triangles]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
       ],
       "physical": [
         "bit-packed",

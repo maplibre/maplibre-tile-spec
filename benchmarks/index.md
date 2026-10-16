@@ -46,8 +46,8 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 | `--no-bitpacking` | \- | \+0.7% | \- | \+1% |
 | `--delta2` | \- | \-0.5% | \- | 0% |
 | `--rans-vertices` | \- | \-5.4% | \- | \+16% |
-| `--tessellate` | \+21.9% | \+24.9% | \+27% | \+14% |
-| `--tessellate --triangles-only` | \- | \+23.2% | \- | \+10% |
+| `--tessellate=always` | \+21.9% | \+24.9% | \+27% | \+14% |
+| `--tessellate=always --triangles-only` | \- | \+23.2% | \- | \+10% |
 
 #### Decoding speed
 
@@ -93,8 +93,8 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 | `--no-bitpacking` | \- | \+0.3% | \- | 0% |
 | `--delta2` | \- | \-0.6% | \- | \+1% |
 | `--rans-vertices` | \- | \-5.3% | \- | \+88% |
-| `--tessellate` | \+32.4% | \+35.8% | \+145% | \+68% |
-| `--tessellate --triangles-only` | \- | \+33.5% | \- | \+59% |
+| `--tessellate=always` | \+32.4% | \+35.8% | \+145% | \+68% |
+| `--tessellate=always --triangles-only` | \- | \+33.5% | \- | \+59% |
 
 > [!TIP]
 >
@@ -122,7 +122,7 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 > | `--no-fastpfor` | Likely Avoid | The patch stays the same, and the tiles grow. *Good/bad for bsdiff may be different based on data.* |
 > | `--rans-vertices` | Avoid | Every byte of the rANS stream after the first changed symbol differs, which roughly doubles the patch. |
 > | `--tile-compression gzip` | Avoid | Deflate output differs after the first change. If wanted, compress the patch instead. |
-> | `--tessellate` | Avoid | Adds triangles that change with every polygon edit, and the tiles grow by a fifth or more. |
+> | `--tessellate` | Avoid | Adds triangles that change with every polygon edit, and `--tessellate=always` grows the tiles by a fifth or more. |
 > | `--no-bitpacking` | Avoid | Only string dictionary indexes are bit-packed. |
 
 ## Method

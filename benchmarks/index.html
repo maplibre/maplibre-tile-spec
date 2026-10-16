@@ -862,14 +862,14 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 <td style="text-align: right;">+16%</td>
 </tr>
 <tr>
-<td><code>--tessellate</code></td>
+<td><code>--tessellate=always</code></td>
 <td style="text-align: right;">+21.9%</td>
 <td style="text-align: right;">+24.9%</td>
 <td style="text-align: right;">+27%</td>
 <td style="text-align: right;">+14%</td>
 </tr>
 <tr>
-<td><code>--tessellate --triangles-only</code></td>
+<td><code>--tessellate=always --triangles-only</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+23.2%</td>
 <td style="text-align: right;">-</td>
@@ -1121,14 +1121,14 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 <td style="text-align: right;">+88%</td>
 </tr>
 <tr>
-<td><code>--tessellate</code></td>
+<td><code>--tessellate=always</code></td>
 <td style="text-align: right;">+32.4%</td>
 <td style="text-align: right;">+35.8%</td>
 <td style="text-align: right;">+145%</td>
 <td style="text-align: right;">+68%</td>
 </tr>
 <tr>
-<td><code>--tessellate --triangles-only</code></td>
+<td><code>--tessellate=always --triangles-only</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+33.5%</td>
 <td style="text-align: right;">-</td>
@@ -1215,7 +1215,7 @@ This means that encodings that keep edits local beat ones that make the tile sma
 <tr>
 <td><code>--tessellate</code></td>
 <td>Avoid</td>
-<td>Adds triangles that change with every polygon edit, and the tiles grow by a fifth or more.</td>
+<td>Adds triangles that change with every polygon edit, and <code>--tessellate=always</code> grows the tiles by a fifth or more.</td>
 </tr>
 <tr>
 <td><code>--no-bitpacking</code></td>
