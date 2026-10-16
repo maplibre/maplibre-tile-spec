@@ -18,7 +18,8 @@ use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
 use mlt_core::encoder::{
-    EncodedUnknown, Encoder, EncoderConfig, Network, Profile, Tessellation, WireVersion,
+    Client, EncodedUnknown, Encoder, EncoderConfig, Network as CoreNetwork, Profile as CoreProfile,
+    Tessellation, WireVersion,
 };
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
@@ -132,7 +133,7 @@ impl From<MltVersion> for WireVersion {
     }
 }
 
-#[derive(Clone, Default, ValueEnum)]
+#[derive(Clone, Copy, Default, ValueEnum)]
 enum SortMode {
     /// Keep the source order, which is the draw order and the label priority
     #[default]
@@ -150,6 +151,69 @@ enum SortMode {
     Hilbert,
     /// Try feature-ID ascending sort
     Id,
+}
+
+impl SortMode {
+    fn apply(self, encoder: EncoderConfig) -> EncoderConfig {
+        encoder
+            .with_spatial_morton_sort(matches!(self, Self::All | Self::Morton))
+            .with_spatial_hilbert_sort(matches!(self, Self::All | Self::Auto | Self::Hilbert))
+            .with_id_sort(matches!(self, Self::All | Self::Auto | Self::Id))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum TessellateMode {
+    /// Store a layer's triangles when the client earcut they spare outweighs the bytes they add
+    Auto,
+    /// Store the triangles of every layer with polygons
+    Always,
+    /// Store no triangles
+    Off,
+}
+
+/// Encoder defaults for one kind of tile consumer.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum Profile {
+    /// `MapLibre GL JS`: online, `--no-fastpfor --no-fsst`, which lose bytes after gzip, brotli and zstd
+    Web,
+    /// `MapLibre Native`: `--tessellate=auto`
+    Native,
+    /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2 --rans-vertices`
+    #[value(name = "min_size", alias = "min-size")]
+    MinSize,
+    /// Small binary diffs between releases: `--no-fsst --no-shared-dict`, and under MLT version 2 `--delta2`
+    Diffable,
+    /// The quickest encode: no triangles, sorts, `FSST`, `FastPFOR` or shared dictionaries, so tiles come out larger
+    #[value(name = "fast_encoding", alias = "fast-encoding")]
+    FastEncoding,
+}
+
+/// How tiles reach the client, which prices a stored byte against the client earcut it spares.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum Network {
+    /// Read from local storage, where a byte costs nothing
+    Offline,
+    /// 2 Mbit/s
+    #[value(name = "3g")]
+    Cellular3G,
+    /// 20 Mbit/s, the default
+    #[value(name = "4g")]
+    Cellular4G,
+    /// 200 Mbit/s
+    #[value(name = "5g")]
+    Cellular5G,
+}
+
+impl From<Network> for CoreNetwork {
+    fn from(network: Network) -> Self {
+        match network {
+            Network::Offline => Self::Offline,
+            Network::Cellular3G => Self::Cellular3G,
+            Network::Cellular4G => Self::Cellular4G,
+            Network::Cellular5G => Self::Cellular5G,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, ValueEnum)]
@@ -205,7 +269,7 @@ pub(crate) struct Reencoder {
 impl Default for Reencoder {
     fn default() -> Self {
         Self {
-            encoder: EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)),
+            encoder: EncoderConfig::from_profile(CoreProfile::Native(CoreNetwork::Cellular4G)),
             fields: Arc::default(),
             verify: false,
         }
@@ -236,12 +300,22 @@ pub struct ConvertArgs {
     input: PathBuf,
     /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,
-    /// Add tessellation
-    #[clap(short, long)]
-    tessellate: bool,
-    /// Feature orders to try when re-encoding, each against the source order, keeping the smallest
-    #[clap(long, default_value = "none")]
-    sort: SortMode,
+    /// Encoder defaults for the tiles' consumer, which the other encoder flags override
+    #[clap(long)]
+    profile: Option<Profile>,
+    /// How tiles reach the client, which prices `--tessellate=auto` and decides `--profile web` (default: 4g)
+    ///
+    /// `--tessellate=auto` prices for GL JS under `--profile web`, and for Native otherwise.
+    #[clap(long)]
+    network: Option<Network>,
+    /// Store polygon triangles, so clients skip earcut (default: auto, or off under `--profile web`, `min_size` and `diffable`)
+    ///
+    /// `--tessellate` alone means `auto`.
+    #[clap(short, long, value_enum, num_args = 0..=1, require_equals = true, default_missing_value = "auto")]
+    tessellate: Option<TessellateMode>,
+    /// Feature orders to try when re-encoding, each against the source order, keeping the smallest (default: none)
+    #[clap(long)]
+    sort: Option<SortMode>,
     /// Schema type for the output `.mbtiles` file; defaults to the input file's schema
     #[clap(long)]
     mbtiles_format: Option<MbtFormat>,
@@ -323,7 +397,7 @@ struct V2EncoderArgs {
     #[clap(long)]
     no_bitpacking: bool,
     /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
-    #[clap(long, requires = "tessellate")]
+    #[clap(long)]
     triangles_only: bool,
     /// Let integer and vertex streams store the deltas of their deltas when that is shorter
     #[clap(long)]
@@ -347,6 +421,69 @@ impl ConvertArgs {
     pub fn output_container(&self) -> ContainerFormat {
         ContainerFormat::from_path(&self.output)
     }
+    /// The profile's encoder, with the explicit encoder flags applied on top.
+    fn encoder(&self) -> AnyResult<EncoderConfig> {
+        let network = self
+            .network
+            .map_or_else(CoreNetwork::default, CoreNetwork::from);
+        let client = if self.profile == Some(Profile::Web) {
+            Client::GlJs
+        } else {
+            Client::Native
+        };
+        let profile = match self.profile {
+            None | Some(Profile::Native) => CoreProfile::Native(network),
+            Some(Profile::Web) => CoreProfile::Web(network),
+            Some(Profile::MinSize) => CoreProfile::MinSize,
+            Some(Profile::Diffable) => CoreProfile::Diffable,
+            Some(Profile::FastEncoding) => CoreProfile::FastEncoding,
+        };
+        let mut encoder =
+            EncoderConfig::from_profile(profile).with_wire_version(self.mlt_version.into());
+        if let Some(sort) = self.sort {
+            encoder = sort.apply(encoder);
+        }
+        if let Some(mode) = self.tessellate {
+            encoder = encoder.with_tessellation(match mode {
+                TessellateMode::Auto => Tessellation::Auto(client, network),
+                TessellateMode::Always => Tessellation::Always,
+                TessellateMode::Off => Tessellation::Off,
+            });
+        }
+        let reads_network = matches!(encoder.tessellation(), Tessellation::Auto(..))
+            || self.profile == Some(Profile::Web);
+        if self.network.is_some() && !reads_network {
+            bail!(
+                "--network prices --tessellate=auto and decides --profile web, and this conversion uses neither"
+            );
+        }
+        let v2 = &self.v2;
+        if v2.triangles_only && encoder.tessellation() == Tessellation::Off {
+            bail!(
+                "--triangles-only drops the outlines of tessellated layers, so it needs a tessellation other than off"
+            );
+        }
+        if self.no_shared_dict {
+            encoder = encoder.with_shared_dict(false);
+        }
+        if self.no_fastpfor {
+            encoder = encoder.with_fastpfor(false);
+        }
+        if self.no_fsst {
+            encoder = encoder.with_fsst(false);
+        }
+        if v2.delta2 {
+            encoder = encoder.with_delta2(true);
+        }
+        if v2.rans_vertices {
+            encoder = encoder.with_rans_vertices(true);
+        }
+        Ok(encoder
+            .with_float_alp(!v2.no_alp)
+            .with_float_dict(!v2.no_float_dict)
+            .with_packed_dict_codes(!v2.no_bitpacking)
+            .with_triangles_only(v2.triangles_only))
+    }
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
@@ -368,33 +505,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             bail!("--fields parses fields into MLT columns, so it needs --to mlt");
         }
     }
-    let morton = matches!(args.sort, SortMode::All | SortMode::Morton);
-    let hilbert = matches!(
-        args.sort,
-        SortMode::All | SortMode::Auto | SortMode::Hilbert
-    );
-    let id_sort = matches!(args.sort, SortMode::All | SortMode::Auto | SortMode::Id);
-    let encoder = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
-        .with_tessellation(if args.tessellate {
-            Tessellation::Always
-        } else {
-            Tessellation::Off
-        })
-        .with_spatial_morton_sort(morton)
-        .with_spatial_hilbert_sort(hilbert)
-        .with_id_sort(id_sort)
-        .with_shared_dict(!args.no_shared_dict)
-        .with_fastpfor(!args.no_fastpfor)
-        .with_fsst(!args.no_fsst)
-        .with_wire_version(args.mlt_version.into())
-        .with_float_alp(!v2.no_alp)
-        .with_float_dict(!v2.no_float_dict)
-        .with_packed_dict_codes(!v2.no_bitpacking)
-        .with_triangles_only(v2.triangles_only)
-        .with_delta2(v2.delta2)
-        .with_rans_vertices(v2.rans_vertices);
     let reencoder = Reencoder {
-        encoder,
+        encoder: args.encoder()?,
         fields: Arc::new(match &args.fields {
             Some(path) => FieldConfig::load(path)?,
             None => FieldConfig::default(),
@@ -557,9 +669,9 @@ fn convert_mlt_buffer(buffer: &[u8], reencoder: &Reencoder) -> AnyResult<Vec<u8>
         if let Layer::Unknown(u) = layer {
             out.extend(
                 EncodedUnknown::from(u)
-                    .write_to(Encoder::new(EncoderConfig::from_profile(Profile::Native(
-                        Network::Cellular4G,
-                    ))))?
+                    .write_to(Encoder::new(EncoderConfig::from_profile(
+                        CoreProfile::Native(CoreNetwork::Cellular4G),
+                    )))?
                     .into_raw_bytes(),
             );
             continue;
@@ -723,7 +835,7 @@ mod tests {
 
     fn round_trip(mvt: Vec<u8>, version: WireVersion, to: TileFormat) -> Vec<u8> {
         let reencoder = Reencoder {
-            encoder: EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+            encoder: EncoderConfig::from_profile(CoreProfile::Native(CoreNetwork::Cellular4G))
                 .with_wire_version(version),
             ..Reencoder::default()
         };
@@ -887,6 +999,365 @@ mod tests {
     fn verifying_a_conversion_to_mvt_is_rejected() {
         let err = convert(&parse_args(&["--verify", "--to", "mvt", "src", "dst"])).unwrap_err();
         insta::assert_snapshot!(err.to_string(), @"--verify checks MLT encoding, so it needs --to mlt");
+    }
+
+    #[test]
+    fn convert_without_tessellate_tessellates_automatically() {
+        let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
+        );
+    }
+
+    #[test]
+    fn tessellate_alone_means_auto() {
+        let encoder = parse_args(&["--tessellate", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
+        );
+    }
+
+    #[test]
+    fn t_alone_means_auto() {
+        let encoder = parse_args(&["-t", "src", "dst"]).encoder().unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
+        );
+    }
+
+    #[test]
+    fn tessellate_auto_means_auto() {
+        let encoder = parse_args(&["--tessellate=auto", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
+        );
+    }
+
+    #[test]
+    fn tessellate_always_means_always() {
+        let encoder = parse_args(&["--tessellate=always", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.tessellation(), Tessellation::Always);
+    }
+
+    #[test]
+    fn tessellate_off_overrides_the_native_profile() {
+        let encoder = parse_args(&["--profile", "native", "--tessellate=off", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.tessellation(), Tessellation::Off);
+    }
+
+    #[test]
+    fn tessellate_auto_under_the_web_profile_prices_gl_js() {
+        let encoder = parse_args(&["--profile", "web", "--tessellate=auto", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::GlJs, CoreNetwork::Cellular4G)
+        );
+    }
+
+    #[test]
+    fn convert_without_profile_keeps_fastpfor() {
+        let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
+        assert!(encoder.allow_fastpfor());
+    }
+
+    #[test]
+    fn profile_web_switches_fastpfor_off() {
+        let encoder = parse_args(&["--profile", "web", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.allow_fastpfor());
+    }
+
+    #[test]
+    fn profile_native_tessellates_automatically() {
+        let encoder = parse_args(&["--profile", "native", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
+        );
+    }
+
+    #[test]
+    fn profile_min_size_tries_hilbert_sort() {
+        let encoder = parse_args(&["--profile", "min_size", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.attempt_spatial_hilbert_sort());
+    }
+
+    #[test]
+    fn profile_min_dash_size_tries_hilbert_sort() {
+        let encoder = parse_args(&["--profile", "min-size", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.attempt_spatial_hilbert_sort());
+    }
+
+    #[test]
+    fn profile_diffable_switches_shared_dictionaries_off() {
+        let encoder = parse_args(&["--profile", "diffable", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.allow_shared_dict());
+    }
+
+    #[test]
+    fn profile_web_keeps_fastpfor_on_network_offline() {
+        let encoder = parse_args(&["--profile", "web", "--network", "offline", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.allow_fastpfor());
+    }
+
+    #[test]
+    fn convert_without_network_prices_tessellation_on_4g() {
+        let encoder = parse_args(&["src", "dst"]).encoder().unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
+        );
+    }
+
+    #[test]
+    fn network_offline_prices_tessellation_offline() {
+        let encoder = parse_args(&["--network", "offline", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Offline)
+        );
+    }
+
+    #[test]
+    fn network_3g_prices_tessellation_on_3g() {
+        let encoder = parse_args(&["--network", "3g", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular3G)
+        );
+    }
+
+    #[test]
+    fn network_4g_prices_tessellation_on_4g() {
+        let encoder = parse_args(&["--network", "4g", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular4G)
+        );
+    }
+
+    #[test]
+    fn network_5g_prices_tessellation_on_5g() {
+        let encoder = parse_args(&["--network", "5g", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular5G)
+        );
+    }
+
+    #[test]
+    fn network_with_the_min_size_profile_is_rejected() {
+        let flags = ["--profile", "min_size", "--network", "3g", "src", "dst"];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--network prices --tessellate=auto and decides --profile web, and this conversion uses neither");
+    }
+
+    #[test]
+    fn network_with_the_fast_encoding_profile_is_rejected() {
+        let flags = [
+            "--profile",
+            "fast_encoding",
+            "--network",
+            "3g",
+            "src",
+            "dst",
+        ];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--network prices --tessellate=auto and decides --profile web, and this conversion uses neither");
+    }
+
+    #[test]
+    fn network_with_tessellate_off_is_rejected() {
+        let flags = ["--tessellate=off", "--network", "3g", "src", "dst"];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--network prices --tessellate=auto and decides --profile web, and this conversion uses neither");
+    }
+
+    #[test]
+    fn network_with_the_fast_encoding_profile_and_tessellate_auto_prices_tessellation() {
+        let flags = [
+            "--profile",
+            "fast_encoding",
+            "--tessellate=auto",
+            "--network",
+            "3g",
+            "src",
+            "dst",
+        ];
+        let encoder = parse_args(&flags).encoder().unwrap();
+        assert_eq!(
+            encoder.tessellation(),
+            Tessellation::Auto(Client::Native, CoreNetwork::Cellular3G)
+        );
+    }
+
+    #[test]
+    fn network_with_the_web_profile_is_accepted() {
+        let flags = ["--profile", "web", "--network", "5g", "src", "dst"];
+        assert!(parse_args(&flags).encoder().is_ok());
+    }
+
+    #[test]
+    fn profile_fast_encoding_switches_fsst_off() {
+        let encoder = parse_args(&["--profile", "fast_encoding", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.allow_fsst());
+    }
+
+    #[test]
+    fn profile_fast_dash_encoding_switches_fsst_off() {
+        let encoder = parse_args(&["--profile", "fast-encoding", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.allow_fsst());
+    }
+
+    #[test]
+    fn sort_none_overrides_the_min_size_profile_sorts() {
+        let encoder = parse_args(&["--profile", "min_size", "--sort", "none", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.attempt_spatial_hilbert_sort());
+        assert!(!encoder.attempt_id_sort());
+    }
+
+    #[test]
+    fn no_fastpfor_overrides_the_web_profile_offline() {
+        let encoder = parse_args(&[
+            "--profile",
+            "web",
+            "--network",
+            "offline",
+            "--no-fastpfor",
+            "src",
+            "dst",
+        ])
+        .encoder()
+        .unwrap();
+        assert!(!encoder.allow_fastpfor());
+    }
+
+    #[test]
+    fn no_fsst_overrides_the_web_profile_offline() {
+        let encoder = parse_args(&[
+            "--profile",
+            "web",
+            "--network",
+            "offline",
+            "--no-fsst",
+            "src",
+            "dst",
+        ])
+        .encoder()
+        .unwrap();
+        assert!(!encoder.allow_fsst());
+    }
+
+    #[test]
+    fn no_shared_dict_switches_shared_dictionaries_off() {
+        let encoder = parse_args(&["--no-shared-dict", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.allow_shared_dict());
+    }
+
+    #[test]
+    fn delta2_switches_second_order_deltas_on() {
+        let encoder = parse_args(&["--mlt-version", "2", "--delta2", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.allow_delta2());
+    }
+
+    #[test]
+    fn rans_vertices_switches_rans_vertices_on() {
+        let encoder = parse_args(&["--mlt-version", "2", "--rans-vertices", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.allow_rans_vertices());
+    }
+
+    #[test]
+    fn triangles_only_with_tessellate_off_is_rejected() {
+        let flags = [
+            "--mlt-version",
+            "2",
+            "--tessellate=off",
+            "--triangles-only",
+            "src",
+            "dst",
+        ];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--triangles-only drops the outlines of tessellated layers, so it needs a tessellation other than off");
+    }
+
+    #[test]
+    fn triangles_only_under_the_web_profile_is_rejected() {
+        let flags = [
+            "--profile",
+            "web",
+            "--mlt-version",
+            "2",
+            "--triangles-only",
+            "src",
+            "dst",
+        ];
+        let err = parse_args(&flags).encoder().unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--triangles-only drops the outlines of tessellated layers, so it needs a tessellation other than off");
+    }
+
+    #[test]
+    fn triangles_only_without_a_profile_is_accepted() {
+        let flags = ["--mlt-version", "2", "--triangles-only", "src", "dst"];
+        assert!(parse_args(&flags).encoder().unwrap().allow_triangles_only());
+    }
+
+    #[test]
+    fn triangles_only_under_the_native_profile_is_accepted() {
+        let flags = [
+            "--profile",
+            "native",
+            "--mlt-version",
+            "2",
+            "--triangles-only",
+            "src",
+            "dst",
+        ];
+        assert!(parse_args(&flags).encoder().unwrap().allow_triangles_only());
     }
 
     #[test]
