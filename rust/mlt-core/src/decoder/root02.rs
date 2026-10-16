@@ -597,14 +597,7 @@ pub(super) fn parse_strings<'a>(
             )
         }
     };
-    Ok((
-        input,
-        RawStrings {
-            name,
-            presence,
-            encoding,
-        },
-    ))
+    Ok((input, RawStrings::new(name, presence, encoding)))
 }
 
 /// What every column of a layer reads its type byte, presence bitfield and value counts against.

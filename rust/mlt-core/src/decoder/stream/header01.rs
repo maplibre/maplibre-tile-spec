@@ -693,6 +693,36 @@ mod tests {
         insta::assert_snapshot!(err, @"unsupported logical encoding Float(Dict) for v1, whose float columns are stored raw");
     }
 
+    #[rstest]
+    #[case::delta2(
+        LogicalEncoding::Int(IntLogical::Delta2),
+        "unsupported logical encoding Int(Delta2) for v1, which has no second-order deltas"
+    )]
+    #[case::componentwise_delta2(
+        LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2),
+        "unsupported logical encoding Vertex(ComponentwiseDelta2) for v1, which has no second-order deltas"
+    )]
+    #[case::rans(
+        LogicalEncoding::Vertex(VertexLogical::Rans),
+        "unsupported logical encoding Vertex(Rans) for v1, which has no rANS vertex coding"
+    )]
+    #[case::runs(
+        LogicalEncoding::Bool(BoolLogical::Runs),
+        "unsupported logical encoding Bool(Runs) for v1, whose bool streams are bitmaps or byte-RLE"
+    )]
+    #[case::sparse(
+        LogicalEncoding::Bool(BoolLogical::Sparse),
+        "unsupported logical encoding Bool(Sparse) for v1, whose bool streams are bitmaps or byte-RLE"
+    )]
+    fn write_rejects_a_v2_logical_encoding(
+        #[case] logical: LogicalEncoding,
+        #[case] expected: &str,
+    ) {
+        let meta = meta(DATA, logical, PhysicalEncoding::VarInt, 4);
+        let err = write_stream_meta(&meta, &mut Vec::new(), false, 0).unwrap_err();
+        assert_eq!(err.to_string(), expected);
+    }
+
     #[cfg(feature = "unstable-v2")]
     #[rstest]
     #[case::fastpfor_128le(

@@ -98,11 +98,6 @@ pub struct RawLeaf<'a> {
 }
 
 impl RawNested<'_> {
-    #[must_use]
-    pub fn name(&self) -> &str {
-        self.name
-    }
-
     pub(crate) fn for_each_stream(&self, cb: &mut dyn FnMut(crate::decoder::StreamMeta)) {
         use crate::Analyze as _;
         self.presence.for_each_stream(cb);
@@ -196,7 +191,7 @@ impl RawInterior<'_> {
             }
             Self::List(l) => l.element.for_each_string_storage(cb),
             Self::Map(m) => {
-                cb(strings_storage(&m.keys));
+                cb(m.keys.storage());
                 m.value.for_each_string_storage(cb);
             }
         }
@@ -206,22 +201,8 @@ impl RawInterior<'_> {
 impl RawLeaf<'_> {
     fn for_each_string_storage(&self, cb: &mut dyn FnMut(crate::decoder::ColumnStorage)) {
         if let ColumnValues::Str(s) = &*self.values {
-            cb(strings_storage(s));
+            cb(s.storage());
         }
-    }
-}
-
-fn strings_storage(s: &RawStrings<'_>) -> crate::decoder::ColumnStorage {
-    use crate::decoder::{ColumnStorage, RawStringsEncoding, StringLayout};
-    let (string, dictionary) = match &s.encoding {
-        RawStringsEncoding::Plain(_) => (StringLayout::Plain, None),
-        RawStringsEncoding::Dictionary { dict, .. } => (StringLayout::Dict, Some(*dict)),
-        RawStringsEncoding::FsstPlain(_) => (StringLayout::Fsst, None),
-        RawStringsEncoding::FsstDictionary { dict, .. } => (StringLayout::FsstDict, Some(*dict)),
-    };
-    ColumnStorage {
-        string: Some(string),
-        dictionary,
     }
 }
 

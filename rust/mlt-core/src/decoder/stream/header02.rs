@@ -1927,6 +1927,63 @@ mod tests {
     }
 
     #[test]
+    fn a_delta_vertex_byte_names_its_physical_codec() {
+        let byte = (Family::Vertex.code(Logical::Delta).unwrap() << LOGICAL_SHIFT)
+            | PhysicalInt::VarInt as u8;
+        let (logical, physical) = describe_encoding(Family::Vertex, byte);
+        assert_eq!(format!("{logical} {physical}"), "Delta VarInt");
+    }
+
+    #[test]
+    fn a_bool_byte_with_a_physical_field_names_it_invalid() {
+        let byte = PhysicalInt::VarInt as u8;
+        let (logical, physical) = describe_encoding(Family::Bool, byte);
+        assert_eq!(format!("{logical} {physical}"), "None invalid(2)");
+    }
+
+    #[test]
+    fn a_logical_code_past_the_family_names_it_unassigned() {
+        let code = u8::try_from(Family::Bool.members().len()).unwrap();
+        let (logical, physical) = describe_encoding(Family::Bool, code << LOGICAL_SHIFT);
+        assert_eq!(
+            format!("{logical} {physical}"),
+            format!("unassigned({code}) invalid(0)")
+        );
+    }
+
+    #[rstest]
+    #[case::explicit_count(HAS_EXPLICIT_COUNT | shared_coding_byte(PresenceCoding::Runs))]
+    #[case::physical_field(shared_coding_byte(PresenceCoding::Runs) | PhysicalInt::VarInt as u8)]
+    fn a_shared_bitfield_byte_that_names_no_coding_is_rejected(#[case] byte: u8) {
+        assert_eq!(shared_coding(byte), None);
+    }
+
+    #[rstest]
+    #[case::fastpfor_256_blocks(
+        int(IntLogical::None, PE::FastPFor(FastPForKind::Block256Be), 5),
+        INT_FAMILY
+    )]
+    #[case::varint_floats(float(FloatLogical::None, PE::VarInt, 5), FLOAT_FAMILY)]
+    #[case::varint_bools(boolean(BoolLogical::Runs, PE::VarInt, 5), Family::Bool)]
+    #[case::varint_rans(vertex(VertexLogical::Rans, PE::VarInt, 5), Family::Vertex)]
+    #[case::rle_without_varint(int(IntLogical::Rle(rle(5)), PE::None, 5), INT_FAMILY)]
+    fn write_rejects_a_physical_codec_the_encoding_cannot_carry(
+        #[case] meta: StreamMeta,
+        #[case] family: Family,
+    ) {
+        let mut buf = Vec::new();
+        let err = write_stream_meta(&meta, &mut buf, 0, Count02::Implied(5), family).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                MltError::UnsupportedPhysicalEncoding(_)
+                    | MltError::UnsupportedPhysicalEncodingForType(_, _)
+            ),
+            "{err:?}"
+        );
+    }
+
+    #[test]
     fn a_stream_with_neither_count_is_rejected() {
         // VarInt ints with the explicit-count bit clear, so only context could count them.
         let buf = [0b0000_1000, 0];

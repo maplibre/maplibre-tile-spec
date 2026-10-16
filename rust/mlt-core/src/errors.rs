@@ -487,3 +487,23 @@ pub(crate) fn fail_if_invalid_stream_size(actual: usize, expected: usize) -> Mlt
         Err(MltError::InvalidDecodingStreamSize(actual, expected))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_io_error_comes_back_out_as_itself() {
+        let io = std::io::Error::new(std::io::ErrorKind::NotFound, "gone");
+        let back = std::io::Error::from(MltError::Io(io));
+        assert_eq!(back.kind(), std::io::ErrorKind::NotFound);
+        assert_eq!(back.to_string(), "gone");
+    }
+
+    #[test]
+    fn any_other_error_becomes_an_other_io_error() {
+        let back = std::io::Error::from(MltError::IntegerOverflow);
+        assert_eq!(back.kind(), std::io::ErrorKind::Other);
+        assert_eq!(back.to_string(), MltError::IntegerOverflow.to_string());
+    }
+}
