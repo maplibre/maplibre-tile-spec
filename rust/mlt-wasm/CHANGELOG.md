@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.46...rust-mlt-wasm-v0.2.0) - 2026-10-16
+
+### Added
+
+- *(rust)* [**breaking**] rework tesselation layout ([#1923](https://github.com/maplibre/maplibre-tile-spec/pull/1923))
+
 ## [0.1.46](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.45...rust-mlt-wasm-v0.1.46) - 2026-10-13
 
 ### Other
