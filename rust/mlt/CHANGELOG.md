@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.4.4...rust-mlt-v0.5.0) - 2026-10-16
+
+### Added
+
+- *(cli)* add convert --profile, --network and --tessellate modes ([#1942](https://github.com/maplibre/maplibre-tile-spec/pull/1942))
+- *(rust)* price tessellation per layer ([#1941](https://github.com/maplibre/maplibre-tile-spec/pull/1941))
+- *(rust)* [**breaking**] pick encoder defaults by consumer profile ([#1940](https://github.com/maplibre/maplibre-tile-spec/pull/1940))
+- *(rust)* [**breaking**] rework tesselation layout ([#1923](https://github.com/maplibre/maplibre-tile-spec/pull/1923))
+
 ## [0.4.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.4.3...rust-mlt-v0.4.4) - 2026-10-13
 
 ### Added

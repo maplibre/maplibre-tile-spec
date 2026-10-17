@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.2.13...python-mlt-v0.3.0) - 2026-10-16
+
+### Added
+
+- *(rust)* price tessellation per layer ([#1941](https://github.com/maplibre/maplibre-tile-spec/pull/1941))
+- *(rust)* [**breaking**] pick encoder defaults by consumer profile ([#1940](https://github.com/maplibre/maplibre-tile-spec/pull/1940))
+
 ## [0.2.13](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.2.12...python-mlt-v0.2.13) - 2026-10-13
 
 ### Added
