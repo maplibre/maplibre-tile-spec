@@ -60,7 +60,7 @@ jobs:
               - 'rust/mlt/**'
               - 'rust/mlt-core/**'
 
-      - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with: { tool: 'just' }
 
       # TypeScript
@@ -96,7 +96,7 @@ jobs:
 
       - name: Setup Java for jextract
         if: steps.filter.outputs.ffi == 'true'
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: 'temurin'
           java-version: '25'
@@ -122,7 +122,7 @@ jobs:
       # Formatting tiebreaker for the generated files
       - name: Install uv
         if: steps.filter.outputs.ffi == 'true' || steps.filter.outputs.py == 'true'
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - if: steps.filter.outputs.ffi == 'true' || steps.filter.outputs.py == 'true'
         run: uvx pre-commit run --all-files
         continue-on-error: true
@@ -157,7 +157,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js
@@ -168,7 +168,7 @@ jobs:
 
       # run pre-commit as a formatting tiebreaker
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: uvx pre-commit run --all-files
         continue-on-error: true
 
