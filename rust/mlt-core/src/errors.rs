@@ -412,6 +412,12 @@ pub enum MltError {
         idx: usize,
         len: usize,
     },
+    #[error("geometry[{index}]: {field}[{idx}] runs past {field}[{idx}+1]")]
+    GeometryOffsetsNotMonotonic {
+        index: usize,
+        field: &'static str,
+        idx: usize,
+    },
     #[error("geometry[{index}]: vertex {vertex} out of bounds (count={count})")]
     GeometryVertexOutOfBounds {
         index: usize,

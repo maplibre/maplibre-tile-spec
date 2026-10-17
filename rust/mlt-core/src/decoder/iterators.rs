@@ -20,10 +20,11 @@ use std::fmt;
 use std::iter::FusedIterator;
 use std::ops::Range;
 
-use geo_types::Geometry;
 use usize_cast::IntoUsize as _;
 
-use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, Property, RawProperty};
+use crate::decoder::{
+    GeometryView, Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, Property, RawProperty,
+};
 pub use crate::tile::PropValueRef;
 use crate::{Lazy, LazyParsed, MltResult, Parsed};
 
@@ -181,8 +182,8 @@ impl<'a> ColumnRef<'a> {
 pub struct FeatureRef<'feat, 'layer: 'feat> {
     /// Optional feature ID.
     id: Option<u64>,
-    /// Geometry in [`Geometry<i32>`] form (owned, decoded on demand by the iterator).
-    geometry: Geometry<i32>,
+    /// The geometry, read in place from the layer.
+    geometry: GeometryView<'layer>,
     /// Borrowed slice of column descriptors from the layer; used to yield column names.
     columns: &'layer [ParsedProperty<'layer>],
     /// Per-feature values in column order, one per slot (scalar, string, or `SharedDict`
@@ -196,9 +197,11 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
         self.id
     }
 
+    /// The feature's geometry, borrowed from the layer rather than from this
+    /// `FeatureRef`, so it may be kept past the next [`LendingIterator::next`].
     #[must_use]
-    pub fn geometry(&self) -> &Geometry<i32> {
-        &self.geometry
+    pub fn geometry(&self) -> GeometryView<'layer> {
+        self.geometry
     }
 
     /// Iterate over every property slot for this feature, **values only**, in column order.
@@ -571,7 +574,7 @@ impl<'layer> LendingIterator for Layer01FeatureIter<'layer, '_> {
         Some(
             self.layer
                 .geometry
-                .to_geojson(index)
+                .geometry(index)
                 .map(|geometry| FeatureRef {
                     id,
                     geometry,
@@ -584,8 +587,10 @@ impl<'layer> LendingIterator for Layer01FeatureIter<'layer, '_> {
 
 #[cfg(test)]
 mod tests {
+    use geo_traits::to_geo::ToGeoGeometry as _;
+    use geo_types::{Geometry, Point};
+
     use crate::encoder::{EncoderConfig, Network, Profile};
-    use geo_types::Point;
     use serde_json::Value;
 
     use super::*;
@@ -821,7 +826,7 @@ mod tests {
         let mut geoms = Vec::new();
         let mut iter = parsed.iter_features();
         while let Some(r) = iter.next() {
-            geoms.push(r.unwrap().geometry);
+            geoms.push(r.unwrap().geometry.to_geometry());
         }
         assert_eq!(geoms[0], Geometry::<i32>::Point(Point::new(1, 2)));
         assert_eq!(geoms[1], Geometry::<i32>::Point(Point::new(3, 4)));

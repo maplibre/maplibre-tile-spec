@@ -30,7 +30,10 @@ pub(crate) mod stream;
 pub(crate) use geometry::decode::run_offsets;
 pub(crate) use geometry::decode::{Levels, decode_topology};
 pub(crate) use geometry::{GeoTypes, Geometry, IndexBase, RawGeometry};
-pub use geometry::{GeometryType, GeometryValues};
+pub use geometry::{
+    GeometryType, GeometryValues, GeometryView, LineView, MultiLineStringView, MultiPointView,
+    MultiPolygonView, PointView, PolygonView, Vertex, Vertices,
+};
 pub use id::ParsedId;
 // pub (not pub(crate)) so __private module can re-export it
 pub(crate) use id::{Id, RawId, RawIdValue};

@@ -29,6 +29,7 @@ macro_rules! with_kinds {
 }
 
 pub use fast_mvt;
+pub use geo_traits;
 pub use geo_types;
 
 pub(crate) mod codecs;
@@ -43,10 +44,11 @@ pub(crate) mod utils;
 
 pub use convert::{InferredKind, geojson, mvt};
 pub use decoder::{
-    ColNames, ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
-    Layer01FeatureIter, LendingIterator, ParsedId, ParsedLayer, ParsedLayer01, ParsedProperty,
-    ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, Parser, PropName,
-    PropNamesIter, PropValueRef, Unknown,
+    ColNames, ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, GeometryView, Layer,
+    Layer01, Layer01FeatureIter, LendingIterator, LineView, MultiLineStringView, MultiPointView,
+    MultiPolygonView, ParsedId, ParsedLayer, ParsedLayer01, ParsedProperty, ParsedScalar,
+    ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, Parser, PointView, PolygonView,
+    PropName, PropNamesIter, PropValueRef, Unknown, Vertex, Vertices,
 };
 // Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
 // without exposing these implementation details to external users.

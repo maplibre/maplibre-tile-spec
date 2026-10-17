@@ -5,6 +5,11 @@ use std::hint::black_box;
 use std::io::{Read as _, Write as _};
 use std::path::Path;
 
+use mlt_core::geo_traits::{
+    CoordTrait, GeometryTrait, GeometryType as GeoKind, LineStringTrait, MultiLineStringTrait,
+    MultiPointTrait, MultiPolygonTrait, PointTrait, PolygonTrait,
+};
+
 // This code runs in CI because of --all-targets, so make it run really fast.
 #[cfg(debug_assertions)]
 pub const BENCHMARKED_ZOOM_LEVELS: [u8; 1] = [0];
@@ -129,4 +134,32 @@ pub fn mvt_decode(data: &[u8]) {
         }
     }
     let _ = black_box(reader);
+}
+
+/// Read every coordinate of `g` through the geo-traits surface, as a renderer would.
+pub fn walk_geometry(g: &impl GeometryTrait<T = i32>) -> i64 {
+    fn coord(c: &impl CoordTrait<T = i32>) -> i64 {
+        i64::from(c.x()) + i64::from(c.y()) + c.nth(2).map_or(0, i64::from)
+    }
+    fn line(l: &impl LineStringTrait<T = i32>) -> i64 {
+        l.coords().map(|c| coord(&c)).sum()
+    }
+    fn polygon(p: &impl PolygonTrait<T = i32>) -> i64 {
+        p.exterior().map_or(0, |e| line(&e)) + p.interiors().map(|i| line(&i)).sum::<i64>()
+    }
+    match g.as_type() {
+        GeoKind::Point(p) => p.coord().map_or(0, |c| coord(&c)),
+        GeoKind::LineString(l) => line(l),
+        GeoKind::Polygon(p) => polygon(p),
+        GeoKind::MultiPoint(mp) => mp
+            .points()
+            .map(|p| p.coord().map_or(0, |c| coord(&c)))
+            .sum(),
+        GeoKind::MultiLineString(mls) => mls.line_strings().map(|l| line(&l)).sum(),
+        GeoKind::MultiPolygon(mpoly) => mpoly.polygons().map(|p| polygon(&p)).sum(),
+        GeoKind::GeometryCollection(_)
+        | GeoKind::Rect(_)
+        | GeoKind::Triangle(_)
+        | GeoKind::Line(_) => 0,
+    }
 }

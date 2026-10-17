@@ -5,6 +5,8 @@
 //! feature, owning its geometry and property values outright. That is the form
 //! the optimizer, the sorting pipeline, and the converters work in.
 
+use geo_traits::to_geo::ToGeoGeometry as _;
+
 use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::{Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested};
@@ -58,7 +60,7 @@ impl ParsedLayer01<'_> {
 
             features.push(TileFeature {
                 id: feat.id(),
-                geometry: feat.geometry().clone(),
+                geometry: feat.geometry().to_geometry(),
                 properties: values,
                 #[cfg(feature = "unstable-v2")]
                 m_values: Vec::new(),
