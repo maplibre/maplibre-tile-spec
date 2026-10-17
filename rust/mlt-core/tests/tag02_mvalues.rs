@@ -680,6 +680,39 @@ fn the_layer_reports_its_m_value_columns() {
 }
 
 #[test]
+fn a_string_m_value_reports_its_storage() {
+    let names = |a: &str, b: &str| MValue::Str(Some(vec![a.to_string(), b.to_string()]));
+    let l = layer(
+        vec![line(&[(0, 0), (1, 1)]), line(&[(2, 2), (3, 3)])],
+        &[
+            ("n", i32s(&[&[1, 2], &[3, 4]])),
+            ("s", vec![names("a", "b"), names("a", "b")]),
+        ],
+    );
+    let bytes = l.encode(cfg_v2()).unwrap();
+    let layers = Parser::default().parse_layers(&bytes).unwrap();
+    let Layer::Tag02(lazy) = &layers[0] else {
+        panic!("expected a v2 layer")
+    };
+    let mut storages = Vec::new();
+    lazy.for_each_column_storage(&mut |storage| storages.push(storage));
+    let parsed = lazy.clone().decode_all(&mut Decoder::default()).unwrap();
+    assert_eq!(parsed.m_values()[1].values().len(), 4);
+    assert!(!parsed.m_values()[1].values().is_empty());
+
+    insta::assert_debug_snapshot!(storages, @"
+    [
+        ColumnStorage {
+            string: Some(
+                Plain,
+            ),
+            dictionary: None,
+        },
+    ]
+    ");
+}
+
+#[test]
 fn a_feature_iterator_sees_the_same_geometry_as_the_m_values_describe() {
     let l = layer(
         vec![line(&[(0, 0), (1, 1), (2, 2)])],

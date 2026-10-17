@@ -105,8 +105,42 @@ mod tests {
 
     impl Decode<String> for RawWord {
         fn decode(self, _decoder: &mut Decoder) -> MltResult<String> {
+            if self.0.is_empty() {
+                return Err(MltError::IntegerOverflow);
+            }
             Ok(self.0.to_owned())
         }
+    }
+
+    #[test]
+    fn decode_replaces_raw_with_parsed() {
+        let mut lazy = LazyParsed::<RawWord, String>::Raw(RawWord("x"));
+        assert_eq!(lazy.decode(&mut Decoder::default()).unwrap(), "x");
+        assert_eq!(lazy.as_parsed().unwrap(), "x");
+        assert_eq!(lazy.decode(&mut Decoder::default()).unwrap(), "x");
+    }
+
+    #[test]
+    fn a_failed_decode_leaves_the_prior_failure_behind() {
+        let mut lazy = LazyParsed::<RawWord, String>::Raw(RawWord(""));
+        assert!(matches!(
+            lazy.decode(&mut Decoder::default()),
+            Err(MltError::IntegerOverflow)
+        ));
+        assert!(matches!(
+            lazy.decode(&mut Decoder::default()),
+            Err(MltError::PriorParseFailure)
+        ));
+        assert!(matches!(
+            lazy.into_parsed(&mut Decoder::default()),
+            Err(MltError::PriorParseFailure)
+        ));
+    }
+
+    #[test]
+    fn into_parsed_on_parsed_returns_the_value() {
+        let lazy = LazyParsed::<RawWord, String>::Parsed("x".to_owned());
+        assert_eq!(lazy.into_parsed(&mut Decoder::default()).unwrap(), "x");
     }
 
     #[test]

@@ -648,6 +648,43 @@ mod tests {
         assert_ne!(PropName("addr:", "city"), "addr:");
         assert_ne!(PropName("addr:", "city"), "city");
         assert_eq!(PropName("name", ""), "name");
+        assert_eq!(*"addr:city", PropName("addr:", "city"));
+        assert_ne!(*"addr:", PropName("addr:", "city"));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn prop_names_of_every_scalar_column_lazy() {
+        let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+            .with_wire_version(crate::encoder::WireVersion::V02);
+        let staged = staged_layer(
+            "test",
+            StagedId::None,
+            three_points(),
+            vec![
+                StagedProperty::bool("bool", vec![true, false, true]),
+                StagedProperty::i8("i8", vec![-1, 0, 1]),
+                StagedProperty::u8("u8", vec![0, 1, 2]),
+                StagedProperty::i32("i32", vec![-1, 0, 1]),
+                StagedProperty::u32("u32", vec![0, 1, 2]),
+                StagedProperty::i64("i64", vec![-1, 0, 1]),
+                StagedProperty::u64("u64", vec![0, 1, 2]),
+                StagedProperty::f32("f32", vec![0.5, 1.5, 2.5]),
+                StagedProperty::f64("f64", vec![0.5, 1.5, 2.5]),
+            ],
+        );
+        let buf = staged
+            .encode_into(Encoder::new(cfg), &mut Codecs::default())
+            .unwrap()
+            .into_layer_bytes()
+            .unwrap();
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag02(lazy) = layer else { panic!() };
+
+        assert_eq!(
+            strs(lazy.layer().iterate_prop_names()),
+            ["bool", "i8", "u8", "i32", "u32", "i64", "u64", "f32", "f64"]
+        );
     }
 
     #[test]

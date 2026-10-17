@@ -1642,6 +1642,21 @@ mod tests {
     #[case::str_into_str(PropValueRef::Str("a"), PropKind::Str, PropValue::Str(Some("a".into())))]
     #[case::str_into_int(PropValueRef::Str("1"), PropKind::I64, PropValue::I64(None))]
     #[case::f64_into_f32(PropValueRef::F64(1.0), PropKind::F32, PropValue::F32(None))]
+    #[case::u8_into_i8(PropValueRef::U8(127), PropKind::I8, PropValue::I8(Some(127)))]
+    #[case::u32_into_i32(PropValueRef::U32(7), PropKind::I32, PropValue::I32(Some(7)))]
+    #[case::i32_into_u32(PropValueRef::I32(7), PropKind::U32, PropValue::U32(Some(7)))]
+    #[case::i8_into_f64(PropValueRef::I8(-1), PropKind::F64, PropValue::F64(Some(-1.0)))]
+    #[case::u8_into_f64(PropValueRef::U8(1), PropKind::F64, PropValue::F64(Some(1.0)))]
+    #[case::i32_into_f64(PropValueRef::I32(-3), PropKind::F64, PropValue::F64(Some(-3.0)))]
+    #[case::u32_into_f64(PropValueRef::U32(3), PropKind::F64, PropValue::F64(Some(3.0)))]
+    #[case::bool_into_f64(PropValueRef::Bool(true), PropKind::F64, PropValue::F64(None))]
+    #[case::str_into_f64(PropValueRef::Str("1.5"), PropKind::F64, PropValue::F64(None))]
+    #[case::i8_into_str(PropValueRef::I8(-8), PropKind::Str, PropValue::Str(Some("-8".into())))]
+    #[case::u8_into_str(PropValueRef::U8(8), PropKind::Str, PropValue::Str(Some("8".into())))]
+    #[case::i32_into_str(PropValueRef::I32(-32), PropKind::Str, PropValue::Str(Some("-32".into())))]
+    #[case::u32_into_str(PropValueRef::U32(32), PropKind::Str, PropValue::Str(Some("32".into())))]
+    #[case::u64_into_str(PropValueRef::U64(64), PropKind::Str, PropValue::Str(Some("64".into())))]
+    #[case::f64_into_str(PropValueRef::F64(0.25), PropKind::Str, PropValue::Str(Some("0.25".into())))]
     fn coerce_to_kind(
         #[case] value: PropValueRef<'_>,
         #[case] kind: PropKind,
@@ -1973,6 +1988,176 @@ mod tests {
                 .to_string(),
             "nested column 0 was given a value of another shape"
         );
+    }
+
+    #[test]
+    fn from_parts_rejects_a_feature_with_another_property_count() {
+        let features = vec![point_feature(vec![PropValue::I32(Some(1))])];
+        assert!(matches!(
+            TileLayer::from_parts("layer", 4096, vec!["a".into(), "b".into()], features),
+            Err(MltError::PropertyLengthMismatch {
+                expected: 2,
+                actual: 1
+            })
+        ));
+    }
+
+    #[test]
+    fn set_property_rejects_an_unknown_key() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        let key = layer.add_property("a", PropKind::I32).unwrap();
+        let mut feature = point_feature(vec![]);
+        assert!(matches!(
+            feature.set_property(key, PropValue::I32(Some(1))),
+            Err(MltError::UnknownProperty { index: 0, count: 0 })
+        ));
+    }
+
+    #[test]
+    fn set_property_rejects_a_value_of_another_kind() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        let key = layer.add_property("a", PropKind::I32).unwrap();
+        let mut feature = point_feature(vec![PropValue::I32(None)]);
+        assert!(matches!(
+            feature.set_property(key, PropValue::Str(Some("x".into()))),
+            Err(MltError::PropertyKindMismatch {
+                index: 0,
+                expected: PropKind::I32,
+                actual: PropKind::Str,
+            })
+        ));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[rstest]
+    #[case::millimetre(-3, "1 mm")]
+    #[case::centimetre(-2, "1 cm")]
+    #[case::decimetre(-1, "1 dm")]
+    #[case::metre(0, "1 m")]
+    #[case::ten_metres(1, "10 m")]
+    #[case::hundred_metres(2, "100 m")]
+    #[case::kilometre(3, "1 km")]
+    #[case::ten_kilometres(4, "10 km")]
+    fn a_z_step_reads_as_the_spec_names_it(#[case] exponent: i8, #[case] name: &str) {
+        assert_eq!(ZStep::new(exponent).unwrap().to_string(), name);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[rstest]
+    #[case::line(Geometry::Line(geo_types::Line::new((0, 0), (1, 1))), 2)]
+    #[case::triangle(Geometry::Triangle(geo_types::Triangle::new((0, 0).into(), (1, 0).into(), (0, 1).into())), 3)]
+    #[case::rect(Geometry::Rect(geo_types::Rect::new((0, 0), (2, 2))), 4)]
+    #[case::collection(
+        Geometry::GeometryCollection(geo_types::GeometryCollection(vec![
+            Geometry::Point(Point::new(0, 0)),
+            Geometry::Line(geo_types::Line::new((0, 0), (1, 1))),
+        ])),
+        3
+    )]
+    fn a_geometry_counts_the_vertices_it_stores(
+        #[case] geometry: Geometry<i32>,
+        #[case] vertices: usize,
+    ) {
+        assert_eq!(TileFeature::new(geometry).vertex_count(), vertices);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn an_m_value_with_no_values_is_null() {
+        assert!(MValue::I32(None).is_null());
+        assert!(!MValue::I32(Some(vec![])).is_null());
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn add_m_value_gives_existing_features_a_null() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        layer.push_feature(point_feature(vec![])).unwrap();
+        layer.add_m_value("m", PropKind::I32).unwrap();
+        assert_eq!(layer.features()[0].m_values(), [MValue::I32(None)]);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn add_nested_gives_existing_features_a_null() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        layer.push_feature(point_feature(vec![])).unwrap();
+        layer.add_nested("n", list_kind()).unwrap();
+        assert_eq!(layer.features()[0].nested(), [NestedValue::List(None)]);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn push_feature_validates_m_value_kind() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        layer.add_m_value("m", PropKind::I32).unwrap();
+        let mut feature = point_feature(vec![]);
+        feature.m_values = vec![MValue::Str(None)];
+        assert!(matches!(
+            layer.push_feature(feature),
+            Err(MltError::MValueKindMismatch {
+                index: 0,
+                expected: PropKind::I32,
+                actual: PropKind::Str,
+            })
+        ));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn push_feature_validates_nested_count() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        layer.add_nested("n", list_kind()).unwrap();
+        assert!(matches!(
+            layer.push_feature(point_feature(vec![])),
+            Err(MltError::NestedColumnCountMismatch {
+                expected: 1,
+                actual: 0
+            })
+        ));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn push_feature_validates_nested_shape() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        layer.add_nested("n", list_kind()).unwrap();
+        let mut feature = point_feature(vec![]);
+        feature.nested = vec![NestedValue::Map(None)];
+        assert_eq!(
+            layer.push_feature(feature).unwrap_err().to_string(),
+            "nested column 0 (n) was given a value of another shape"
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn set_m_value_rejects_an_unknown_key() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        let key = layer.add_m_value("m", PropKind::I32).unwrap();
+        let mut feature = point_feature(vec![]);
+        assert!(matches!(
+            feature.set_m_value(key, MValue::I32(Some(vec![1]))),
+            Err(MltError::UnknownMValueKey {
+                index: 0,
+                columns: 0
+            })
+        ));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn set_nested_rejects_an_unknown_key() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        let key = layer.add_nested("n", list_kind()).unwrap();
+        let mut feature = point_feature(vec![]);
+        assert!(matches!(
+            feature.set_nested(key, NestedValue::List(None)),
+            Err(MltError::UnknownNestedKey {
+                index: 0,
+                columns: 0
+            })
+        ));
     }
 
     #[test]
