@@ -106,6 +106,28 @@ fn automatic_optimization_repeated_points_picks_dict() {
 }
 
 #[test]
+fn automatic_optimization_1500_distinct_points_each_repeated_twice_picks_dict() {
+    let decoded = push_geoms(
+        &(0i32..3000)
+            .map(|k| point! { x: k % 1500, y: k % 1500 }.into())
+            .collect::<Vec<_>>(),
+    );
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Offset(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+    ]
+    ");
+}
+
+#[test]
 fn encoded_output_always_has_meta_stream() {
     let decoded = push_geoms(&[Geometry::<i32>::Point(Point(Coord::<i32> { x: 1, y: 1 }))]);
     let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
@@ -237,6 +259,47 @@ fn forced_hilbert_streams() {
         ),
         Length(
             Geometries,
+        ),
+    ]
+    ");
+}
+
+#[rstest]
+fn a_forced_dictionary_on_a_tessellated_layer_writes_plain_vertices(
+    #[values(VertexBufferType::Morton, VertexBufferType::Hilbert)] strategy: VertexBufferType,
+) {
+    let decoded = push_geoms_tessellated(&two_squares());
+    assert_eq!(
+        forced_vertex_strategy_streams(&decoded, strategy),
+        forced_vertex_strategy_streams(&decoded, VertexBufferType::Vec2)
+    );
+}
+
+#[test]
+fn automatic_optimization_tessellated_repeated_squares_picks_vec2() {
+    let decoded = push_geoms_tessellated(
+        &std::iter::repeat_n(wkt!(POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))).into(), 20)
+            .collect::<Vec<_>>(),
+    );
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @"
+    [
+        Data(
+            Vertex,
+        ),
+        Offset(
+            Index,
+        ),
+        Length(
+            VarBinary,
+        ),
+        Length(
+            Parts,
+        ),
+        Length(
+            Rings,
+        ),
+        Length(
+            Triangles,
         ),
     ]
     ");

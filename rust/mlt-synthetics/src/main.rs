@@ -297,8 +297,16 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .geo(morton_poly)
+        .geo(morton_poly.clone())
         .write(w, "poly_morton_ring_morton");
+    // No layout pairs triangles with a vertex dictionary, so the vertices stay plain.
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .tessellate()
+        .no_v1()
+        .geo(morton_poly)
+        .write(w, "poly_morton_ring_morton_tes");
 
     // Split the Morton curve into two halves and close each into a ring to form a MultiPolygon.
     let mc = morton_curve();
