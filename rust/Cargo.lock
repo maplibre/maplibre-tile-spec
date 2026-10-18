@@ -1654,6 +1654,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "geo-traits"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e7c353d12a704ccfab1ba8bfb1a7fe6cb18b665bf89d37f4f7890edcd260206"
+dependencies = [
+ "geo-types",
+]
+
+[[package]]
 name = "geo-types"
 version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2844,6 +2853,7 @@ dependencies = [
  "flate2",
  "fsst-rs",
  "geo",
+ "geo-traits",
  "geo-types",
  "hex",
  "hilbert_2d",

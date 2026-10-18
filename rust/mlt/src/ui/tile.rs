@@ -5,7 +5,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
+use mlt_core::geo_traits::{
+    CoordTrait, GeometryTrait, GeometryType as GeoKind, LineStringTrait, MultiPolygonTrait,
+    PolygonTrait,
+};
+use mlt_core::geo_types::{Coord, Geometry, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::{Decoder, LendingIterator as _, ParsedLayer, Parser};
@@ -120,41 +124,45 @@ pub(crate) fn polygon_coord_count(poly: &Polygon<i32>) -> usize {
 
 /// Polygon vertices in the order the encoder tessellated them, plus where each part starts.
 /// Rings drop their closing vertex, and anything that is not a polygon yields `None`.
-fn tessellation_vertices(geom: &Geometry<i32>) -> Option<(Vec<Coord<i32>>, Vec<usize>)> {
-    fn push_ring(out: &mut Vec<Coord<i32>>, ring: &LineString<i32>) {
-        let coords = &ring.0;
-        let closed = coords.len() > 1 && coords.first() == coords.last();
-        let n = if closed {
-            coords.len() - 1
-        } else {
-            coords.len()
-        };
-        out.extend_from_slice(&coords[..n]);
+fn tessellation_vertices(
+    geom: &impl GeometryTrait<T = i32>,
+) -> Option<(Vec<Coord<i32>>, Vec<usize>)> {
+    fn push_ring(out: &mut Vec<Coord<i32>>, ring: &impl LineStringTrait<T = i32>) {
+        let n = ring.num_coords();
+        let closed = n > 1 && ring.coord(0).map(|c| c.x_y()) == ring.coord(n - 1).map(|c| c.x_y());
+        let n = if closed { n - 1 } else { n };
+        out.extend(ring.coords().take(n).map(|c| Coord { x: c.x(), y: c.y() }));
     }
-    fn push_polygon(out: &mut Vec<Coord<i32>>, starts: &mut Vec<usize>, poly: &Polygon<i32>) {
+    fn push_polygon(
+        out: &mut Vec<Coord<i32>>,
+        starts: &mut Vec<usize>,
+        poly: &impl PolygonTrait<T = i32>,
+    ) {
         starts.push(out.len());
-        push_ring(out, poly.exterior());
+        if let Some(exterior) = poly.exterior() {
+            push_ring(out, &exterior);
+        }
         for ring in poly.interiors() {
-            push_ring(out, ring);
+            push_ring(out, &ring);
         }
     }
     let mut out = Vec::new();
     let mut starts = Vec::new();
-    match geom {
-        Geometry::<i32>::Polygon(poly) => push_polygon(&mut out, &mut starts, poly),
-        Geometry::<i32>::MultiPolygon(mp) => {
-            for poly in mp {
-                push_polygon(&mut out, &mut starts, poly);
+    match geom.as_type() {
+        GeoKind::Polygon(poly) => push_polygon(&mut out, &mut starts, poly),
+        GeoKind::MultiPolygon(mp) => {
+            for poly in mp.polygons() {
+                push_polygon(&mut out, &mut starts, &poly);
             }
         }
-        Geometry::<i32>::Point(_)
-        | Geometry::<i32>::Line(_)
-        | Geometry::<i32>::LineString(_)
-        | Geometry::<i32>::MultiPoint(_)
-        | Geometry::<i32>::MultiLineString(_)
-        | Geometry::<i32>::GeometryCollection(_)
-        | Geometry::<i32>::Rect(_)
-        | Geometry::<i32>::Triangle(_) => return None,
+        GeoKind::Point(_)
+        | GeoKind::Line(_)
+        | GeoKind::LineString(_)
+        | GeoKind::MultiPoint(_)
+        | GeoKind::MultiLineString(_)
+        | GeoKind::GeometryCollection(_)
+        | GeoKind::Rect(_)
+        | GeoKind::Triangle(_) => return None,
     }
     Some((out, starts))
 }
@@ -190,7 +198,7 @@ fn layer_triangles(layers: &[ParsedLayer<'_>]) -> anyhow::Result<Vec<Option<Tess
             let Some(feat) = features.next() else { break };
             let feat = feat?;
             let starts = if has_outlines {
-                let Some((_, starts)) = tessellation_vertices(feat.geometry()) else {
+                let Some((_, starts)) = tessellation_vertices(&feat.geometry()) else {
                     out.push(None);
                     continue;
                 };

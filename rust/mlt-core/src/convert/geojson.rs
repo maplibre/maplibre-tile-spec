@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
+use geo_traits::to_geo::ToGeoGeometry as _;
 use geo_types::Geometry;
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize};
@@ -80,7 +81,7 @@ impl FeatureCollection {
                 properties.insert("_layer".into(), Value::String(layer_name.to_string()));
                 properties.insert("_extent".into(), Value::Number(extent.into()));
                 features.push(Feature {
-                    geometry: feat.geometry().clone(),
+                    geometry: feat.geometry().to_geometry(),
                     z: feature_z,
                     id: feat.id(),
                     properties,
