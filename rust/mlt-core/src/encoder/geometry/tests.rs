@@ -264,6 +264,47 @@ fn forced_hilbert_streams() {
     ");
 }
 
+#[rstest]
+fn a_forced_dictionary_on_a_tessellated_layer_writes_plain_vertices(
+    #[values(VertexBufferType::Morton, VertexBufferType::Hilbert)] strategy: VertexBufferType,
+) {
+    let decoded = push_geoms_tessellated(&two_squares());
+    assert_eq!(
+        forced_vertex_strategy_streams(&decoded, strategy),
+        forced_vertex_strategy_streams(&decoded, VertexBufferType::Vec2)
+    );
+}
+
+#[test]
+fn automatic_optimization_tessellated_repeated_squares_picks_vec2() {
+    let decoded = push_geoms_tessellated(
+        &std::iter::repeat_n(wkt!(POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))).into(), 20)
+            .collect::<Vec<_>>(),
+    );
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @"
+    [
+        Data(
+            Vertex,
+        ),
+        Offset(
+            Index,
+        ),
+        Length(
+            VarBinary,
+        ),
+        Length(
+            Parts,
+        ),
+        Length(
+            Rings,
+        ),
+        Length(
+            Triangles,
+        ),
+    ]
+    ");
+}
+
 #[test]
 fn manual_encode_works() {
     let decoded = push_geoms(&[wkt!(POINT(10 20)).into()]);

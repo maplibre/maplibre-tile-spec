@@ -169,19 +169,27 @@ impl GeometryValues {
         let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Index), "triangles_indexes");
         n += write_geo_u32_stream(&index_buffer, ctx, enc, codecs)?;
 
+        // Tessellated layers keep their vertices plain, as the v2 writer does.
+        // The TS and C++ decoders index the triangles straight into the vertex buffer.
+        let tessellated = !index_buffer.is_empty();
         if let Some(forced) = enc.override_vertex_buffer_type() {
             n += match forced {
-                VertexBufferType::Vec2 => encode_vec2_vertex_stream(&vertices, enc, codecs)?,
-                VertexBufferType::Morton => encode_morton_vertex_streams(&vertices, enc, codecs)?,
-                VertexBufferType::Hilbert => encode_hilbert_vertex_streams(&vertices, enc, codecs)?,
                 VertexBufferType::Rans => {
                     return Err(MltError::UnsupportedLogicalEncoding(
                         LogicalEncoding::Vertex(VertexLogical::Rans),
                         "v1, which has no rANS vertex coding",
                     ));
                 }
+                VertexBufferType::Vec2 | VertexBufferType::Morton | VertexBufferType::Hilbert
+                    if tessellated =>
+                {
+                    encode_vec2_vertex_stream(&vertices, enc, codecs)?
+                }
+                VertexBufferType::Vec2 => encode_vec2_vertex_stream(&vertices, enc, codecs)?,
+                VertexBufferType::Morton => encode_morton_vertex_streams(&vertices, enc, codecs)?,
+                VertexBufferType::Hilbert => encode_hilbert_vertex_streams(&vertices, enc, codecs)?,
             };
-        } else if dict_may_be_beneficial(&vertices, enc) {
+        } else if !tessellated && dict_may_be_beneficial(&vertices, enc) {
             // Morton fits (the gate above ensures it), so race all three.
             let mut winner_size: usize = usize::MAX;
             let mut winner_stream_cnt: u8 = 0;
