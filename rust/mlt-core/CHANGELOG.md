@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.21.0...rust-mlt-core-v0.21.1) - 2026-10-18
+
+### Fixed
+
+- *(rust)* replace the vertex dictionary HyperLogLog with an exact count ([#1951](https://github.com/maplibre/maplibre-tile-spec/pull/1951))
+
 ## [0.21.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.20.4...rust-mlt-core-v0.21.0) - 2026-10-16
 
 ### Added
