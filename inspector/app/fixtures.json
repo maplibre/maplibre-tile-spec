@@ -31233,6 +31233,42 @@
     }
   },
   {
+    "name": "poly_morton_ring_morton_tes.mlt",
+    "directory": "0x02",
+    "bytes": 92,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "poly_morton_ring_no_morton.mlt",
     "directory": "0x02",
     "bytes": 54,
@@ -40631,7 +40667,7 @@
   {
     "name": "10_530_682.mlt",
     "directory": "0x01-omt",
-    "bytes": 53971,
+    "bytes": 50162,
     "facets": {
       "extent": [
         "4096"
@@ -40665,6 +40701,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -40675,6 +40712,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -40685,6 +40723,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -40692,7 +40731,7 @@
   {
     "name": "10_530_683.mlt",
     "directory": "0x01-omt",
-    "bytes": 46863,
+    "bytes": 45035,
     "facets": {
       "extent": [
         "4096"
@@ -40727,6 +40766,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -40737,6 +40777,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -40747,6 +40788,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -40754,7 +40796,7 @@
   {
     "name": "10_530_684.mlt",
     "directory": "0x01-omt",
-    "bytes": 43695,
+    "bytes": 42480,
     "facets": {
       "extent": [
         "4096"
@@ -40788,6 +40830,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -40798,6 +40841,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -40808,6 +40852,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -40815,7 +40860,7 @@
   {
     "name": "10_531_682.mlt",
     "directory": "0x01-omt",
-    "bytes": 82021,
+    "bytes": 76472,
     "facets": {
       "extent": [
         "4096"
@@ -40850,6 +40895,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -40860,6 +40906,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -40870,6 +40917,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -40877,7 +40925,7 @@
   {
     "name": "10_531_683.mlt",
     "directory": "0x01-omt",
-    "bytes": 86045,
+    "bytes": 79151,
     "facets": {
       "extent": [
         "4096"
@@ -40909,6 +40957,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -40918,6 +40967,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -40928,6 +40978,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -40935,7 +40986,7 @@
   {
     "name": "10_531_684.mlt",
     "directory": "0x01-omt",
-    "bytes": 40841,
+    "bytes": 39768,
     "facets": {
       "extent": [
         "4096"
@@ -40966,6 +41017,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -40975,6 +41027,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -40985,6 +41038,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -40992,7 +41046,7 @@
   {
     "name": "10_532_682.mlt",
     "directory": "0x01-omt",
-    "bytes": 73092,
+    "bytes": 70247,
     "facets": {
       "extent": [
         "4096"
@@ -41027,6 +41081,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41037,6 +41092,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41047,6 +41103,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41054,7 +41111,7 @@
   {
     "name": "10_532_683.mlt",
     "directory": "0x01-omt",
-    "bytes": 87627,
+    "bytes": 81086,
     "facets": {
       "extent": [
         "4096"
@@ -41087,6 +41144,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41096,6 +41154,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41106,6 +41165,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41113,7 +41173,7 @@
   {
     "name": "10_532_684.mlt",
     "directory": "0x01-omt",
-    "bytes": 44156,
+    "bytes": 42666,
     "facets": {
       "extent": [
         "4096"
@@ -41145,6 +41205,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41154,6 +41215,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41164,6 +41226,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41171,7 +41234,7 @@
   {
     "name": "10_533_682.mlt",
     "directory": "0x01-omt",
-    "bytes": 58248,
+    "bytes": 56241,
     "facets": {
       "extent": [
         "4096"
@@ -41205,6 +41268,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41215,6 +41279,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41225,6 +41290,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41232,7 +41298,7 @@
   {
     "name": "10_533_683.mlt",
     "directory": "0x01-omt",
-    "bytes": 75278,
+    "bytes": 69591,
     "facets": {
       "extent": [
         "4096"
@@ -41265,6 +41331,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41274,6 +41341,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41284,6 +41352,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41353,7 +41422,7 @@
   {
     "name": "11_1062_1366.mlt",
     "directory": "0x01-omt",
-    "bytes": 51999,
+    "bytes": 46770,
     "facets": {
       "extent": [
         "4096"
@@ -41387,6 +41456,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41397,6 +41467,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41407,6 +41478,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41414,7 +41486,7 @@
   {
     "name": "11_1062_1367.mlt",
     "directory": "0x01-omt",
-    "bytes": 31535,
+    "bytes": 29833,
     "facets": {
       "extent": [
         "4096"
@@ -41447,6 +41519,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41456,6 +41529,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41466,6 +41540,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41534,7 +41609,7 @@
   {
     "name": "11_1063_1366.mlt",
     "directory": "0x01-omt",
-    "bytes": 60351,
+    "bytes": 54606,
     "facets": {
       "extent": [
         "4096"
@@ -41568,6 +41643,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41578,6 +41654,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41588,6 +41665,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41595,7 +41673,7 @@
   {
     "name": "11_1063_1367.mlt",
     "directory": "0x01-omt",
-    "bytes": 35942,
+    "bytes": 33735,
     "facets": {
       "extent": [
         "4096"
@@ -41630,6 +41708,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41640,6 +41719,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41650,6 +41730,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41718,7 +41799,7 @@
   {
     "name": "11_1064_1366.mlt",
     "directory": "0x01-omt",
-    "bytes": 49898,
+    "bytes": 46655,
     "facets": {
       "extent": [
         "4096"
@@ -41753,6 +41834,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41763,6 +41845,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41773,6 +41856,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41780,7 +41864,7 @@
   {
     "name": "11_1064_1367.mlt",
     "directory": "0x01-omt",
-    "bytes": 46613,
+    "bytes": 42306,
     "facets": {
       "extent": [
         "4096"
@@ -41815,6 +41899,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41825,6 +41910,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41835,6 +41921,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41842,7 +41929,7 @@
   {
     "name": "11_1064_1368.mlt",
     "directory": "0x01-omt",
-    "bytes": 28916,
+    "bytes": 27341,
     "facets": {
       "extent": [
         "4096"
@@ -41875,6 +41962,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41884,6 +41972,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41894,6 +41983,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41901,7 +41991,7 @@
   {
     "name": "11_1065_1366.mlt",
     "directory": "0x01-omt",
-    "bytes": 54454,
+    "bytes": 51064,
     "facets": {
       "extent": [
         "4096"
@@ -41936,6 +42026,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -41946,6 +42037,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -41956,6 +42048,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -41963,7 +42056,7 @@
   {
     "name": "11_1065_1367.mlt",
     "directory": "0x01-omt",
-    "bytes": 38896,
+    "bytes": 36502,
     "facets": {
       "extent": [
         "4096"
@@ -41998,6 +42091,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -42008,6 +42102,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -42018,6 +42113,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -42680,7 +42776,7 @@
   {
     "name": "12_3229_2032_big_transportation.mlt",
     "directory": "0x01-omt",
-    "bytes": 160930,
+    "bytes": 150759,
     "facets": {
       "extent": [
         "4096"
@@ -42715,6 +42811,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -42725,6 +42822,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -42735,6 +42833,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -42803,7 +42902,7 @@
   {
     "name": "13_1369_3194_big_landuse_not_optimized.mlt",
     "directory": "0x01-omt",
-    "bytes": 127661,
+    "bytes": 114310,
     "facets": {
       "extent": [
         "4096"
@@ -42835,6 +42934,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -42844,6 +42944,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -42854,6 +42955,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -42861,7 +42963,7 @@
   {
     "name": "13_1369_3194_big_landuse_optimized.mlt",
     "directory": "0x01-omt",
-    "bytes": 95951,
+    "bytes": 93585,
     "facets": {
       "extent": [
         "4096"
@@ -42893,6 +42995,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -42902,6 +43005,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -42912,6 +43016,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -43451,7 +43556,7 @@
   {
     "name": "14_13668_7135_big_housenumber_not_optimized.mlt",
     "directory": "0x01-omt",
-    "bytes": 391225,
+    "bytes": 391272,
     "facets": {
       "extent": [
         "4096"
@@ -43486,7 +43591,6 @@
       "streamType": [
         "data",
         "data[fsst]",
-        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -43497,7 +43601,6 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
-        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -43508,7 +43611,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "morton-delta",
         "rle"
       ]
     }
@@ -43516,7 +43618,7 @@
   {
     "name": "14_13668_7135_big_housenumber_optimized.mlt",
     "directory": "0x01-omt",
-    "bytes": 201003,
+    "bytes": 201050,
     "facets": {
       "extent": [
         "4096"
@@ -43552,7 +43654,6 @@
       "streamType": [
         "data",
         "data[fsst]",
-        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -43563,7 +43664,6 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
-        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -43574,7 +43674,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "morton-delta",
         "rle"
       ]
     }
@@ -44459,7 +44558,7 @@
   {
     "name": "14_8290_6118_big_building_not_optimized.mlt",
     "directory": "0x01-omt",
-    "bytes": 709051,
+    "bytes": 701164,
     "facets": {
       "extent": [
         "4096"
@@ -44494,6 +44593,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -44504,6 +44604,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -44514,6 +44615,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -45600,7 +45702,7 @@
   {
     "name": "1_1_1.mlt",
     "directory": "0x01-omt",
-    "bytes": 192490,
+    "bytes": 173763,
     "facets": {
       "extent": [
         "4096"
@@ -45633,6 +45735,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -45643,6 +45746,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -45653,6 +45757,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -45721,7 +45826,7 @@
   {
     "name": "2_2_2.mlt",
     "directory": "0x01-omt",
-    "bytes": 271269,
+    "bytes": 248544,
     "facets": {
       "extent": [
         "4096"
@@ -45757,7 +45862,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -45773,7 +45877,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -45784,7 +45887,7 @@
   {
     "name": "3_4_5.mlt",
     "directory": "0x01-omt",
-    "bytes": 197774,
+    "bytes": 185342,
     "facets": {
       "extent": [
         "4096"
@@ -45848,7 +45951,7 @@
   {
     "name": "4_3_9.mlt",
     "directory": "0x01-omt",
-    "bytes": 104606,
+    "bytes": 99680,
     "facets": {
       "extent": [
         "4096"
@@ -45912,7 +46015,7 @@
   {
     "name": "4_8_10.mlt",
     "directory": "0x01-omt",
-    "bytes": 363332,
+    "bytes": 315266,
     "facets": {
       "extent": [
         "4096"
@@ -45975,7 +46078,7 @@
   {
     "name": "5_16_11.mlt",
     "directory": "0x01-omt",
-    "bytes": 215897,
+    "bytes": 188260,
     "facets": {
       "extent": [
         "4096"
@@ -46039,7 +46142,7 @@
   {
     "name": "5_16_20.mlt",
     "directory": "0x01-omt",
-    "bytes": 215897,
+    "bytes": 188260,
     "facets": {
       "extent": [
         "4096"
@@ -46103,7 +46206,7 @@
   {
     "name": "5_16_21.mlt",
     "directory": "0x01-omt",
-    "bytes": 251507,
+    "bytes": 217923,
     "facets": {
       "extent": [
         "4096"
@@ -46166,7 +46269,7 @@
   {
     "name": "5_17_20.mlt",
     "directory": "0x01-omt",
-    "bytes": 205622,
+    "bytes": 178969,
     "facets": {
       "extent": [
         "4096"
@@ -46229,7 +46332,7 @@
   {
     "name": "5_17_21.mlt",
     "directory": "0x01-omt",
-    "bytes": 155612,
+    "bytes": 133986,
     "facets": {
       "extent": [
         "4096"
@@ -46354,7 +46457,7 @@
   {
     "name": "6_32_41.mlt",
     "directory": "0x01-omt",
-    "bytes": 115087,
+    "bytes": 100134,
     "facets": {
       "extent": [
         "4096"
@@ -46418,7 +46521,7 @@
   {
     "name": "6_32_42.mlt",
     "directory": "0x01-omt",
-    "bytes": 186218,
+    "bytes": 156917,
     "facets": {
       "extent": [
         "4096"
@@ -46454,7 +46557,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -46470,7 +46572,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -46481,7 +46582,7 @@
   {
     "name": "6_33_41.mlt",
     "directory": "0x01-omt",
-    "bytes": 195427,
+    "bytes": 168192,
     "facets": {
       "extent": [
         "4096"
@@ -46545,7 +46646,7 @@
   {
     "name": "6_33_42.mlt",
     "directory": "0x01-omt",
-    "bytes": 229438,
+    "bytes": 193927,
     "facets": {
       "extent": [
         "4096"
@@ -46581,7 +46682,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -46597,7 +46697,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -46608,7 +46707,7 @@
   {
     "name": "6_34_41.mlt",
     "directory": "0x01-omt",
-    "bytes": 168135,
+    "bytes": 144059,
     "facets": {
       "extent": [
         "4096"
@@ -46672,7 +46771,7 @@
   {
     "name": "6_34_42.mlt",
     "directory": "0x01-omt",
-    "bytes": 141439,
+    "bytes": 121990,
     "facets": {
       "extent": [
         "4096"
@@ -46708,7 +46807,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -46724,7 +46822,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -46735,7 +46832,7 @@
   {
     "name": "7_66_83.mlt",
     "directory": "0x01-omt",
-    "bytes": 186747,
+    "bytes": 161433,
     "facets": {
       "extent": [
         "4096"
@@ -46772,7 +46869,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -46788,7 +46884,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -46799,7 +46894,7 @@
   {
     "name": "7_66_84.mlt",
     "directory": "0x01-omt",
-    "bytes": 210035,
+    "bytes": 179687,
     "facets": {
       "extent": [
         "4096"
@@ -46836,7 +46931,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -46852,7 +46946,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -46863,7 +46956,7 @@
   {
     "name": "7_66_85.mlt",
     "directory": "0x01-omt",
-    "bytes": 238456,
+    "bytes": 200570,
     "facets": {
       "extent": [
         "4096"
@@ -46900,7 +46993,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -46916,7 +47008,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -46927,7 +47018,7 @@
   {
     "name": "7_67_83.mlt",
     "directory": "0x01-omt",
-    "bytes": 164998,
+    "bytes": 141431,
     "facets": {
       "extent": [
         "4096"
@@ -46964,7 +47055,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -46980,7 +47070,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -46991,7 +47080,7 @@
   {
     "name": "7_67_84.mlt",
     "directory": "0x01-omt",
-    "bytes": 160166,
+    "bytes": 137786,
     "facets": {
       "extent": [
         "4096"
@@ -47055,7 +47144,7 @@
   {
     "name": "7_67_85.mlt",
     "directory": "0x01-omt",
-    "bytes": 153119,
+    "bytes": 131668,
     "facets": {
       "extent": [
         "4096"
@@ -47091,7 +47180,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47107,7 +47195,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47118,7 +47205,7 @@
   {
     "name": "7_68_83.mlt",
     "directory": "0x01-omt",
-    "bytes": 147213,
+    "bytes": 127686,
     "facets": {
       "extent": [
         "4096"
@@ -47155,7 +47242,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47171,7 +47257,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47182,7 +47267,7 @@
   {
     "name": "7_68_84.mlt",
     "directory": "0x01-omt",
-    "bytes": 128637,
+    "bytes": 113227,
     "facets": {
       "extent": [
         "4096"
@@ -47219,7 +47304,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47235,7 +47319,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47246,7 +47329,7 @@
   {
     "name": "7_68_85.mlt",
     "directory": "0x01-omt",
-    "bytes": 132501,
+    "bytes": 113230,
     "facets": {
       "extent": [
         "4096"
@@ -47283,7 +47366,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47299,7 +47381,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47310,7 +47391,7 @@
   {
     "name": "8_132_170.mlt",
     "directory": "0x01-omt",
-    "bytes": 228983,
+    "bytes": 171406,
     "facets": {
       "extent": [
         "4096"
@@ -47346,7 +47427,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47362,7 +47442,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47373,7 +47452,7 @@
   {
     "name": "8_132_171.mlt",
     "directory": "0x01-omt",
-    "bytes": 133534,
+    "bytes": 109758,
     "facets": {
       "extent": [
         "4096"
@@ -47409,7 +47488,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47425,7 +47503,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47436,7 +47513,7 @@
   {
     "name": "8_133_170.mlt",
     "directory": "0x01-omt",
-    "bytes": 195444,
+    "bytes": 150619,
     "facets": {
       "extent": [
         "4096"
@@ -47500,7 +47577,7 @@
   {
     "name": "8_133_171.mlt",
     "directory": "0x01-omt",
-    "bytes": 99235,
+    "bytes": 77622,
     "facets": {
       "extent": [
         "4096"
@@ -47537,7 +47614,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47553,7 +47629,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47564,7 +47639,7 @@
   {
     "name": "8_134_170.mlt",
     "directory": "0x01-omt",
-    "bytes": 107044,
+    "bytes": 89716,
     "facets": {
       "extent": [
         "4096"
@@ -47601,7 +47676,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47617,7 +47691,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47628,7 +47701,7 @@
   {
     "name": "8_134_171.mlt",
     "directory": "0x01-omt",
-    "bytes": 125458,
+    "bytes": 98103,
     "facets": {
       "extent": [
         "4096"
@@ -47692,7 +47765,7 @@
   {
     "name": "8_135_170.mlt",
     "directory": "0x01-omt",
-    "bytes": 101792,
+    "bytes": 82398,
     "facets": {
       "extent": [
         "4096"
@@ -47729,7 +47802,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47745,7 +47817,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47756,7 +47827,7 @@
   {
     "name": "8_135_171.mlt",
     "directory": "0x01-omt",
-    "bytes": 122564,
+    "bytes": 96274,
     "facets": {
       "extent": [
         "4096"
@@ -47793,7 +47864,6 @@
         "data[morton]",
         "data[shared]",
         "data[single]",
-        "data[vertex]",
         "length[dictionary]",
         "length[geometries]",
         "length[parts]",
@@ -47809,7 +47879,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -47883,7 +47952,7 @@
   {
     "name": "9_264_340.mlt",
     "directory": "0x01-omt",
-    "bytes": 96706,
+    "bytes": 88811,
     "facets": {
       "extent": [
         "4096"
@@ -47918,6 +47987,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -47928,6 +47998,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -47938,6 +48009,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -47945,7 +48017,7 @@
   {
     "name": "9_264_341.mlt",
     "directory": "0x01-omt",
-    "bytes": 64930,
+    "bytes": 60246,
     "facets": {
       "extent": [
         "4096"
@@ -47979,6 +48051,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -47989,6 +48062,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -47999,6 +48073,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48006,7 +48081,7 @@
   {
     "name": "9_264_342.mlt",
     "directory": "0x01-omt",
-    "bytes": 77745,
+    "bytes": 71356,
     "facets": {
       "extent": [
         "4096"
@@ -48040,6 +48115,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -48050,6 +48126,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48060,6 +48137,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48067,7 +48145,7 @@
   {
     "name": "9_265_340.mlt",
     "directory": "0x01-omt",
-    "bytes": 125905,
+    "bytes": 113500,
     "facets": {
       "extent": [
         "4096"
@@ -48102,6 +48180,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -48112,6 +48191,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48122,6 +48202,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48129,7 +48210,7 @@
   {
     "name": "9_265_341.mlt",
     "directory": "0x01-omt",
-    "bytes": 154100,
+    "bytes": 138911,
     "facets": {
       "extent": [
         "4096"
@@ -48164,6 +48245,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -48174,6 +48256,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48184,6 +48267,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48191,7 +48275,7 @@
   {
     "name": "9_265_342.mlt",
     "directory": "0x01-omt",
-    "bytes": 58855,
+    "bytes": 55106,
     "facets": {
       "extent": [
         "4096"
@@ -48226,6 +48310,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -48236,6 +48321,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48246,6 +48332,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48253,7 +48340,7 @@
   {
     "name": "9_266_340.mlt",
     "directory": "0x01-omt",
-    "bytes": 98878,
+    "bytes": 91949,
     "facets": {
       "extent": [
         "4096"
@@ -48288,6 +48375,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -48298,6 +48386,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48308,6 +48397,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48315,7 +48405,7 @@
   {
     "name": "9_266_341.mlt",
     "directory": "0x01-omt",
-    "bytes": 164462,
+    "bytes": 149945,
     "facets": {
       "extent": [
         "4096"
@@ -48350,6 +48440,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -48360,6 +48451,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48370,6 +48462,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48377,7 +48470,7 @@
   {
     "name": "9_266_342.mlt",
     "directory": "0x01-omt",
-    "bytes": 72472,
+    "bytes": 66525,
     "facets": {
       "extent": [
         "4096"
@@ -48412,6 +48505,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -48422,6 +48516,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48432,6 +48527,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48439,7 +48535,7 @@
   {
     "name": "4-12-6.mlt",
     "directory": "0x01-bing",
-    "bytes": 177020,
+    "bytes": 159287,
     "facets": {
       "extent": [
         "4096"
@@ -48472,6 +48568,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[single]",
         "data[vertex]",
         "length[dictionary]",
@@ -48480,6 +48577,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48490,6 +48588,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48497,7 +48596,7 @@
   {
     "name": "4-13-6.mlt",
     "directory": "0x01-bing",
-    "bytes": 170692,
+    "bytes": 159844,
     "facets": {
       "extent": [
         "4096"
@@ -48530,6 +48629,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[single]",
         "data[vertex]",
         "length[dictionary]",
@@ -48538,6 +48638,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48548,6 +48649,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48555,7 +48657,7 @@
   {
     "name": "4-8-5.mlt",
     "directory": "0x01-bing",
-    "bytes": 165946,
+    "bytes": 162443,
     "facets": {
       "extent": [
         "4096"
@@ -48617,7 +48719,7 @@
   {
     "name": "4-9-5.mlt",
     "directory": "0x01-bing",
-    "bytes": 56142,
+    "bytes": 54220,
     "facets": {
       "extent": [
         "4096"
@@ -48651,6 +48753,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[single]",
         "data[vertex]",
         "length[dictionary]",
@@ -48659,6 +48762,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48669,6 +48773,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48676,7 +48781,7 @@
   {
     "name": "5-15-10.mlt",
     "directory": "0x01-bing",
-    "bytes": 72066,
+    "bytes": 67264,
     "facets": {
       "extent": [
         "4096"
@@ -48710,6 +48815,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[single]",
         "data[vertex]",
         "length[dictionary]",
@@ -48718,6 +48824,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48728,6 +48835,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48735,7 +48843,7 @@
   {
     "name": "5-16-11.mlt",
     "directory": "0x01-bing",
-    "bytes": 130368,
+    "bytes": 125467,
     "facets": {
       "extent": [
         "4096"
@@ -48768,6 +48876,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[single]",
         "data[vertex]",
         "length[dictionary]",
@@ -48776,6 +48885,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48786,6 +48896,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48793,7 +48904,7 @@
   {
     "name": "5-16-9.mlt",
     "directory": "0x01-bing",
-    "bytes": 44924,
+    "bytes": 42983,
     "facets": {
       "extent": [
         "4096"
@@ -48827,6 +48938,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[single]",
         "data[vertex]",
         "length[dictionary]",
@@ -48835,6 +48947,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48845,6 +48958,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48852,7 +48966,7 @@
   {
     "name": "5-17-10.mlt",
     "directory": "0x01-bing",
-    "bytes": 86029,
+    "bytes": 79531,
     "facets": {
       "extent": [
         "4096"
@@ -48886,6 +49000,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[single]",
         "data[vertex]",
         "length[dictionary]",
@@ -48894,6 +49009,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48904,6 +49020,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48911,7 +49028,7 @@
   {
     "name": "5-17-11.mlt",
     "directory": "0x01-bing",
-    "bytes": 99109,
+    "bytes": 91281,
     "facets": {
       "extent": [
         "4096"
@@ -48945,6 +49062,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[single]",
         "data[vertex]",
         "length[dictionary]",
@@ -48953,6 +49071,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -48963,6 +49082,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -48970,7 +49090,7 @@
   {
     "name": "6-32-21.mlt",
     "directory": "0x01-bing",
-    "bytes": 43777,
+    "bytes": 40585,
     "facets": {
       "extent": [
         "4096"
@@ -49032,7 +49152,7 @@
   {
     "name": "6-32-22.mlt",
     "directory": "0x01-bing",
-    "bytes": 45892,
+    "bytes": 43622,
     "facets": {
       "extent": [
         "4096"
@@ -49066,6 +49186,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -49075,6 +49196,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -49085,6 +49207,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -49092,7 +49215,7 @@
   {
     "name": "6-32-23.mlt",
     "directory": "0x01-bing",
-    "bytes": 40931,
+    "bytes": 38625,
     "facets": {
       "extent": [
         "4096"
@@ -49126,6 +49249,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[single]",
         "data[vertex]",
         "length[dictionary]",
@@ -49134,6 +49258,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -49144,6 +49269,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -49151,7 +49277,7 @@
   {
     "name": "6-33-22.mlt",
     "directory": "0x01-bing",
-    "bytes": 59643,
+    "bytes": 55057,
     "facets": {
       "extent": [
         "4096"
@@ -49185,6 +49311,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -49194,6 +49321,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -49204,6 +49332,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -49211,7 +49340,7 @@
   {
     "name": "7-65-42.mlt",
     "directory": "0x01-bing",
-    "bytes": 98271,
+    "bytes": 93092,
     "facets": {
       "extent": [
         "4096"
@@ -49245,6 +49374,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -49254,6 +49384,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -49264,6 +49395,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -49271,7 +49403,7 @@
   {
     "name": "7-66-42.mlt",
     "directory": "0x01-bing",
-    "bytes": 101514,
+    "bytes": 95889,
     "facets": {
       "extent": [
         "4096"
@@ -49304,6 +49436,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -49313,6 +49446,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -49323,6 +49457,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -49330,7 +49465,7 @@
   {
     "name": "7-66-43.mlt",
     "directory": "0x01-bing",
-    "bytes": 94033,
+    "bytes": 89927,
     "facets": {
       "extent": [
         "4096"
@@ -49364,6 +49499,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -49373,6 +49509,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -49383,6 +49520,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -49390,7 +49528,7 @@
   {
     "name": "7-66-44.mlt",
     "directory": "0x01-bing",
-    "bytes": 89698,
+    "bytes": 85188,
     "facets": {
       "extent": [
         "4096"
@@ -49424,6 +49562,7 @@
       ],
       "streamType": [
         "data",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -49433,6 +49572,7 @@
         "length[rings]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -49443,6 +49583,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -49450,7 +49591,7 @@
   {
     "name": "10_518_352.mlt",
     "directory": "0x01-amazon",
-    "bytes": 89545,
+    "bytes": 85059,
     "facets": {
       "extent": [
         "4096"
@@ -49509,7 +49650,7 @@
   {
     "name": "11_1037_704.mlt",
     "directory": "0x01-amazon",
-    "bytes": 68046,
+    "bytes": 63289,
     "facets": {
       "extent": [
         "4096"
@@ -49568,7 +49709,7 @@
   {
     "name": "5_16_11.mlt",
     "directory": "0x01-amazon",
-    "bytes": 252328,
+    "bytes": 248797,
     "facets": {
       "extent": [
         "4096"
@@ -49749,7 +49890,7 @@
   {
     "name": "5_8_12.mlt",
     "directory": "0x01-amazon",
-    "bytes": 243654,
+    "bytes": 241091,
     "facets": {
       "extent": [
         "4096"
@@ -49779,6 +49920,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -49790,7 +49932,8 @@
         "length[triangles]",
         "length[var-binary]",
         "offset[index]",
-        "offset[string]"
+        "offset[string]",
+        "offset[vertex]"
       ],
       "physical": [
         "fastpfor[256be]",
@@ -49800,6 +49943,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -49807,7 +49951,7 @@
   {
     "name": "6_33_21.mlt",
     "directory": "0x01-amazon",
-    "bytes": 227266,
+    "bytes": 209270,
     "facets": {
       "extent": [
         "4096"
@@ -49868,7 +50012,7 @@
   {
     "name": "6_33_22.mlt",
     "directory": "0x01-amazon",
-    "bytes": 237886,
+    "bytes": 225319,
     "facets": {
       "extent": [
         "4096"
@@ -49899,6 +50043,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -49909,6 +50054,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -49919,6 +50065,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -49926,7 +50073,7 @@
   {
     "name": "7_68_44.mlt",
     "directory": "0x01-amazon",
-    "bytes": 103983,
+    "bytes": 99537,
     "facets": {
       "extent": [
         "4096"
@@ -49984,7 +50131,7 @@
   {
     "name": "8_136_89.mlt",
     "directory": "0x01-amazon",
-    "bytes": 70644,
+    "bytes": 67882,
     "facets": {
       "extent": [
         "4096"
@@ -50043,7 +50190,7 @@
   {
     "name": "9_259_176.mlt",
     "directory": "0x01-amazon",
-    "bytes": 136484,
+    "bytes": 131092,
     "facets": {
       "extent": [
         "4096"
@@ -50105,7 +50252,7 @@
   {
     "name": "4_8_5.mlt",
     "directory": "0x01-amazon_here",
-    "bytes": 171257,
+    "bytes": 167045,
     "facets": {
       "extent": [
         "4096"
@@ -50142,6 +50289,7 @@
       "streamType": [
         "data",
         "data[fsst]",
+        "data[morton]",
         "data[shared]",
         "data[single]",
         "data[vertex]",
@@ -50152,6 +50300,7 @@
         "length[symbol]",
         "length[var-binary]",
         "offset[string]",
+        "offset[vertex]",
         "present"
       ],
       "physical": [
@@ -50162,6 +50311,7 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rle"
       ]
     }
@@ -50235,7 +50385,7 @@
   {
     "name": "5_16_10.mlt",
     "directory": "0x01-amazon_here",
-    "bytes": 95480,
+    "bytes": 95182,
     "facets": {
       "extent": [
         "4096"
@@ -50862,7 +51012,7 @@
   {
     "name": "6_33_21.mlt",
     "directory": "0x02-amazon",
-    "bytes": 167293,
+    "bytes": 165376,
     "facets": {
       "extent": [
         "4096"
@@ -50877,6 +51027,7 @@
       "geomLayout": [
         "lines",
         "multi-lines",
+        "multi-lines-dict",
         "multi-polygons",
         "points",
         "tess-polygons-with-outlines"
@@ -50912,7 +51063,8 @@
         "length[var-binary]",
         "offset[string]",
         "offset[tree-cycles]",
-        "offset[tree-symbols]"
+        "offset[tree-symbols]",
+        "offset[vertex]"
       ],
       "physical": [
         "bit-packed",
@@ -50925,6 +51077,7 @@
         "delta",
         "delta-rle",
         "delta2",
+        "morton-delta",
         "rans",
         "rle"
       ]
@@ -50933,7 +51086,7 @@
   {
     "name": "6_33_22.mlt",
     "directory": "0x02-amazon",
-    "bytes": 190252,
+    "bytes": 187602,
     "facets": {
       "extent": [
         "4096"
@@ -50948,6 +51101,7 @@
       "geomLayout": [
         "lines",
         "multi-lines",
+        "multi-lines-dict",
         "multi-polygons",
         "points",
         "tess-polygons-with-outlines"
@@ -50983,7 +51137,8 @@
         "length[var-binary]",
         "offset[string]",
         "offset[tree-cycles]",
-        "offset[tree-symbols]"
+        "offset[tree-symbols]",
+        "offset[vertex]"
       ],
       "physical": [
         "bit-packed",
@@ -50996,6 +51151,7 @@
         "delta",
         "delta-rle",
         "delta2",
+        "morton-delta",
         "rans",
         "rle"
       ]
@@ -51004,7 +51160,7 @@
   {
     "name": "7_68_44.mlt",
     "directory": "0x02-amazon",
-    "bytes": 88427,
+    "bytes": 87636,
     "facets": {
       "extent": [
         "4096"
@@ -51019,6 +51175,7 @@
       "geomLayout": [
         "lines",
         "multi-lines",
+        "multi-lines-dict",
         "multi-polygons",
         "points",
         "polygons",
@@ -51055,7 +51212,8 @@
         "length[var-binary]",
         "offset[string]",
         "offset[tree-cycles]",
-        "offset[tree-symbols]"
+        "offset[tree-symbols]",
+        "offset[vertex]"
       ],
       "physical": [
         "bit-packed",
@@ -51068,6 +51226,7 @@
         "delta",
         "delta-rle",
         "delta2",
+        "morton-delta",
         "rans",
         "rle"
       ]
@@ -53794,7 +53953,7 @@
   {
     "name": "11_1062_1366.mlt",
     "directory": "0x02-omt",
-    "bytes": 44644,
+    "bytes": 44389,
     "facets": {
       "extent": [
         "4096"
@@ -53807,6 +53966,7 @@
       ],
       "geomLayout": [
         "lines",
+        "lines-dict",
         "multi-polygons",
         "points",
         "polygons"
@@ -53843,7 +54003,8 @@
         "length[rings]",
         "length[symbol]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[vertex]"
       ],
       "physical": [
         "bit-packed",
@@ -53855,6 +54016,7 @@
         "componentwise-delta2",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rans",
         "rle"
       ]
@@ -54006,7 +54168,7 @@
   {
     "name": "11_1063_1366.mlt",
     "directory": "0x02-omt",
-    "bytes": 51986,
+    "bytes": 51926,
     "facets": {
       "extent": [
         "4096"
@@ -54019,6 +54181,7 @@
       ],
       "geomLayout": [
         "lines",
+        "lines-dict",
         "multi-polygons",
         "points",
         "polygons"
@@ -54055,7 +54218,8 @@
         "length[rings]",
         "length[symbol]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[vertex]"
       ],
       "physical": [
         "bit-packed",
@@ -54067,6 +54231,7 @@
         "componentwise-delta2",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rans",
         "rle"
       ]
@@ -54075,7 +54240,7 @@
   {
     "name": "11_1063_1367.mlt",
     "directory": "0x02-omt",
-    "bytes": 31183,
+    "bytes": 31172,
     "facets": {
       "extent": [
         "4096"
@@ -54089,7 +54254,7 @@
       ],
       "geomLayout": [
         "lines",
-        "multi-lines",
+        "multi-lines-dict",
         "multi-polygons",
         "points",
         "polygons"
@@ -54126,7 +54291,8 @@
         "length[rings]",
         "length[symbol]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[vertex]"
       ],
       "physical": [
         "bit-packed",
@@ -54138,6 +54304,7 @@
         "componentwise-delta2",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rans",
         "rle"
       ]
@@ -54289,7 +54456,7 @@
   {
     "name": "11_1064_1367.mlt",
     "directory": "0x02-omt",
-    "bytes": 40035,
+    "bytes": 39738,
     "facets": {
       "extent": [
         "4096"
@@ -54303,7 +54470,7 @@
       ],
       "geomLayout": [
         "lines",
-        "multi-lines",
+        "multi-lines-dict",
         "multi-polygons",
         "points",
         "polygons"
@@ -54340,7 +54507,8 @@
         "length[rings]",
         "length[symbol]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[vertex]"
       ],
       "physical": [
         "bit-packed",
@@ -54352,6 +54520,7 @@
         "componentwise-delta2",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rans",
         "rle"
       ]
@@ -54360,7 +54529,7 @@
   {
     "name": "11_1064_1368.mlt",
     "directory": "0x02-omt",
-    "bytes": 25246,
+    "bytes": 25143,
     "facets": {
       "extent": [
         "4096"
@@ -54374,6 +54543,7 @@
       ],
       "geomLayout": [
         "lines",
+        "lines-dict",
         "multi-lines",
         "multi-polygons",
         "points",
@@ -54408,7 +54578,8 @@
         "length[parts]",
         "length[rings]",
         "length[var-binary]",
-        "offset[string]"
+        "offset[string]",
+        "offset[vertex]"
       ],
       "physical": [
         "bit-packed",
@@ -54420,6 +54591,7 @@
         "componentwise-delta2",
         "delta",
         "delta-rle",
+        "morton-delta",
         "rans",
         "rle"
       ]
@@ -57901,7 +58073,7 @@
   {
     "name": "14_8299_10748.mlt",
     "directory": "0x02-omt",
-    "bytes": 349698,
+    "bytes": 349699,
     "facets": {
       "extent": [
         "4096"
@@ -57914,7 +58086,7 @@
         "polygon"
       ],
       "geomLayout": [
-        "lines-dict",
+        "lines",
         "multi-lines",
         "multi-polygons",
         "points",
@@ -57954,8 +58126,7 @@
         "length[rings]",
         "length[symbol]",
         "length[var-binary]",
-        "offset[string]",
-        "offset[vertex]"
+        "offset[string]"
       ],
       "physical": [
         "bit-packed",
@@ -57966,7 +58137,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "morton-delta",
         "rans",
         "rle"
       ]
@@ -58822,7 +58992,7 @@
   {
     "name": "3_4_5.mlt",
     "directory": "0x02-omt",
-    "bytes": 173224,
+    "bytes": 172588,
     "facets": {
       "extent": [
         "4096"
@@ -58836,7 +59006,7 @@
       ],
       "geomLayout": [
         "lines-dict",
-        "multi-lines",
+        "multi-lines-dict",
         "points-dict",
         "polygons-dict",
         "tess-polygons-with-outlines"
@@ -58966,7 +59136,7 @@
   {
     "name": "4_8_10.mlt",
     "directory": "0x02-omt",
-    "bytes": 264631,
+    "bytes": 263331,
     "facets": {
       "extent": [
         "4096"
@@ -58980,7 +59150,6 @@
       ],
       "geomLayout": [
         "lines",
-        "multi-lines",
         "multi-lines-dict",
         "multi-polygons-dict",
         "points-dict",
@@ -59484,7 +59653,7 @@
   {
     "name": "6_32_41.mlt",
     "directory": "0x02-omt",
-    "bytes": 95529,
+    "bytes": 93831,
     "facets": {
       "extent": [
         "4096"
@@ -59499,6 +59668,7 @@
       "geomLayout": [
         "lines-dict",
         "multi-lines",
+        "multi-lines-dict",
         "multi-polygons",
         "multi-polygons-dict",
         "points",
@@ -59861,7 +60031,7 @@
   {
     "name": "6_34_42.mlt",
     "directory": "0x02-omt",
-    "bytes": 116866,
+    "bytes": 116328,
     "facets": {
       "extent": [
         "4096"
@@ -59874,7 +60044,6 @@
         "polygon"
       ],
       "geomLayout": [
-        "lines",
         "lines-dict",
         "multi-lines-dict",
         "multi-polygons",
@@ -60434,7 +60603,7 @@
   {
     "name": "7_68_84.mlt",
     "directory": "0x02-omt",
-    "bytes": 107692,
+    "bytes": 107571,
     "facets": {
       "extent": [
         "4096"
@@ -60505,7 +60674,7 @@
   {
     "name": "7_68_85.mlt",
     "directory": "0x02-omt",
-    "bytes": 108909,
+    "bytes": 108788,
     "facets": {
       "extent": [
         "4096"
@@ -60518,7 +60687,6 @@
         "polygon"
       ],
       "geomLayout": [
-        "lines",
         "lines-dict",
         "multi-lines-dict",
         "multi-polygons",
@@ -60577,7 +60745,7 @@
   {
     "name": "8_132_170.mlt",
     "directory": "0x02-omt",
-    "bytes": 180774,
+    "bytes": 169945,
     "facets": {
       "extent": [
         "4096"
@@ -60589,7 +60757,6 @@
         "polygon"
       ],
       "geomLayout": [
-        "lines",
         "lines-dict",
         "multi-polygons",
         "multi-polygons-dict",
@@ -60647,7 +60814,7 @@
   {
     "name": "8_132_171.mlt",
     "directory": "0x02-omt",
-    "bytes": 110007,
+    "bytes": 107022,
     "facets": {
       "extent": [
         "4096"
@@ -60659,7 +60826,6 @@
         "polygon"
       ],
       "geomLayout": [
-        "lines",
         "lines-dict",
         "multi-polygons",
         "multi-polygons-dict",
@@ -60718,7 +60884,7 @@
   {
     "name": "8_133_170.mlt",
     "directory": "0x02-omt",
-    "bytes": 157767,
+    "bytes": 148160,
     "facets": {
       "extent": [
         "4096"
@@ -60732,7 +60898,6 @@
       ],
       "geomLayout": [
         "lines-dict",
-        "multi-lines",
         "multi-lines-dict",
         "multi-polygons",
         "multi-polygons-dict",
@@ -60790,7 +60955,7 @@
   {
     "name": "8_133_171.mlt",
     "directory": "0x02-omt",
-    "bytes": 80680,
+    "bytes": 74992,
     "facets": {
       "extent": [
         "4096"
@@ -60804,7 +60969,7 @@
       ],
       "geomLayout": [
         "lines-dict",
-        "multi-lines",
+        "multi-lines-dict",
         "multi-polygons",
         "multi-polygons-dict",
         "points-dict"
@@ -60861,7 +61026,7 @@
   {
     "name": "8_134_170.mlt",
     "directory": "0x02-omt",
-    "bytes": 90831,
+    "bytes": 87299,
     "facets": {
       "extent": [
         "4096"
@@ -60875,7 +61040,6 @@
       ],
       "geomLayout": [
         "lines-dict",
-        "multi-lines",
         "multi-lines-dict",
         "multi-polygons",
         "multi-polygons-dict",
@@ -60933,7 +61097,7 @@
   {
     "name": "8_134_171.mlt",
     "directory": "0x02-omt",
-    "bytes": 103911,
+    "bytes": 96033,
     "facets": {
       "extent": [
         "4096"
@@ -60947,7 +61111,7 @@
       ],
       "geomLayout": [
         "lines-dict",
-        "multi-lines",
+        "multi-lines-dict",
         "multi-polygons",
         "multi-polygons-dict",
         "points-dict"
@@ -61005,7 +61169,7 @@
   {
     "name": "8_135_170.mlt",
     "directory": "0x02-omt",
-    "bytes": 84291,
+    "bytes": 79402,
     "facets": {
       "extent": [
         "4096"
@@ -61019,8 +61183,7 @@
       ],
       "geomLayout": [
         "lines",
-        "multi-lines",
-        "multi-polygons",
+        "multi-lines-dict",
         "multi-polygons-dict",
         "points-dict",
         "polygons-dict"
@@ -61077,7 +61240,7 @@
   {
     "name": "8_135_171.mlt",
     "directory": "0x02-omt",
-    "bytes": 109437,
+    "bytes": 104797,
     "facets": {
       "extent": [
         "4096"
@@ -61091,7 +61254,7 @@
       ],
       "geomLayout": [
         "lines-dict",
-        "multi-lines",
+        "multi-lines-dict",
         "multi-polygons",
         "multi-polygons-dict",
         "points-dict",
