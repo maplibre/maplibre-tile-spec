@@ -106,6 +106,28 @@ fn automatic_optimization_repeated_points_picks_dict() {
 }
 
 #[test]
+fn automatic_optimization_1500_distinct_points_each_repeated_twice_picks_dict() {
+    let decoded = push_geoms(
+        &(0i32..3000)
+            .map(|k| point! { x: k % 1500, y: k % 1500 }.into())
+            .collect::<Vec<_>>(),
+    );
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Offset(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+    ]
+    ");
+}
+
+#[test]
 fn encoded_output_always_has_meta_stream() {
     let decoded = push_geoms(&[Geometry::<i32>::Point(Point(Coord::<i32> { x: 1, y: 1 }))]);
     let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(

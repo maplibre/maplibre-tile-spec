@@ -1,11 +1,11 @@
 //! Geometry stream builders shared by the v1 and v2 layer writers.
 
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::mem;
 
 use geo_types::Coord;
-use probabilistic_collections::SipHasherBuilder;
-use probabilistic_collections::hyperloglog::HyperLogLog;
+use rustc_hash::{FxBuildHasher, FxHashSet};
 use usize_cast::{FromUsize as _, IntoUsize as _};
 
 use crate::MltResult;
@@ -361,34 +361,47 @@ pub(super) fn normalize_part_offsets_for_rings(
 /// Profiling showed unconditional racing is ~2× slower overall: most layers
 /// have high vertex uniqueness, where the dict layouts cannot win and the
 /// extra sort + `HashMap` build is wasted. Gate on Morton fitting in 16 bits
-/// per axis (required by the spec) and on a `HyperLogLog`-estimated
-/// uniqueness ratio below the threshold.
+/// per axis (required by the spec) and on the exact uniqueness ratio being
+/// below the threshold.
 #[hotpath::measure]
 pub(super) fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
-    enc.morton_cache.is_some() && mostly_repeated(vertices.as_chunks::<2>().0)
+    enc.morton_cache.is_some()
+        && mostly_repeated(
+            vertices
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&[x, y]| u64::from(x.cast_unsigned()) | (u64::from(y.cast_unsigned()) << 32)),
+        )
 }
 
 /// [`dict_may_be_beneficial`] for `(x, y, z)` triples, which a dictionary shares only when all three repeat.
 #[cfg(feature = "unstable-v2")]
 pub(super) fn xyz_dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
-    enc.morton_cache.is_some() && mostly_repeated(vertices.as_chunks::<3>().0)
+    enc.morton_cache.is_some()
+        && mostly_repeated(vertices.as_chunks::<3>().0.iter().map(|&[x, y, z]| {
+            u128::from(x.cast_unsigned())
+                | (u128::from(y.cast_unsigned()) << 32)
+                | (u128::from(z.cast_unsigned()) << 64)
+        }))
 }
 
-/// Whether a `HyperLogLog` estimate puts the distinct share of `vertices` below the dictionary threshold.
-fn mostly_repeated<const N: usize>(vertices: &[[i32; N]]) -> bool {
-    const MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT: f64 = 0.66;
-
-    if vertices.is_empty() {
+/// Whether fewer than 66% of the packed `vertices` are distinct.
+///
+/// Counts exactly, and stops as soon as the distinct count reaches that share.
+fn mostly_repeated<K: Hash + Eq>(vertices: impl ExactSizeIterator<Item = K>) -> bool {
+    let limit = (vertices.len() * 33).div_ceil(50);
+    if limit == 0 {
         return false;
     }
-    let mut hll = HyperLogLog::<[i32; N]>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
+    let mut distinct = FxHashSet::with_capacity_and_hasher(limit, FxBuildHasher);
     for vertex in vertices {
-        hll.insert(vertex);
+        distinct.insert(vertex);
+        if distinct.len() == limit {
+            return false;
+        }
     }
-    #[expect(clippy::cast_precision_loss)]
-    let count = vertices.len() as f64;
-    let estimated_unique = hll.len().clamp(0.0, count);
-    estimated_unique / count < MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT
+    true
 }
 
 /// Derive the curve parameters from `vertices` unless they are already cached.
