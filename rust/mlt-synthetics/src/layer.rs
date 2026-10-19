@@ -813,12 +813,6 @@ impl Layer {
     pub(crate) fn versions(&self) -> &'static [WireVersion] {
         self.versions
     }
-
-    pub(crate) fn has_polygons(&self) -> bool {
-        self.geometry_items
-            .iter()
-            .any(|g| matches!(g, Geometry::Polygon(_) | Geometry::MultiPolygon(_)))
-    }
 }
 
 /// Builder for a shared dictionary struct column with multiple string sub-properties.
