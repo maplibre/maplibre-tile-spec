@@ -167,19 +167,15 @@ public final class CompareHelper {
               .build());
     }
 
-    // Allow features to be sorted by ID and still match if all features have IDs
-    final var sortableIDs =
-        allowFeatureSort
-            && mvtFeatures.stream().allMatch(Feature::hasId)
-            && mltFeatures.stream().allMatch(Feature::hasId);
+    // Allow features to be sorted by ID and still match. This uses the same stable order as the
+    // encoder, which puts features without an ID first and keeps their relative order.
+    // `getId` of a feature without an ID is meaningless, e.g. left over from a reused builder.
+    final Comparator<Feature> idOrder =
+        Comparator.comparing(Feature::idOrNull, Comparator.nullsFirst(Comparator.naturalOrder()));
     final var maybeSortedMvtFeatures =
-        sortableIDs
-            ? mvtFeatures.stream().sorted(Comparator.comparing(Feature::getId))
-            : mvtFeatures.stream();
+        allowFeatureSort ? mvtFeatures.stream().sorted(idOrder) : mvtFeatures.stream();
     final var maybeSortedMltFeatures =
-        sortableIDs
-            ? mltFeatures.stream().sorted(Comparator.comparing(Feature::getId))
-            : mltFeatures.stream();
+        allowFeatureSort ? mltFeatures.stream().sorted(idOrder) : mltFeatures.stream();
 
     return StreamUtil.zip(
             maybeSortedMltFeatures,

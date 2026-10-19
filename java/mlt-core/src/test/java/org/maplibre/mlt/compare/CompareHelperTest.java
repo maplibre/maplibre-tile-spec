@@ -284,6 +284,30 @@ class CompareHelperTest {
   }
 
   @Test
+  void featuresSortedByIdMatchWhenSomeHaveNoId() {
+    // The encoder sorts features without an ID first, keeping their relative order. The decoder
+    // reuses its feature builder, so features without an ID can carry a leftover ID value.
+    final var mlt =
+        mltOf(
+            createLayer(
+                "roads",
+                createPointFeatureWithLeftoverId(Map.of("name", "no id 1"), 9),
+                createPointFeatureWithLeftoverId(Map.of("name", "no id 2"), 3),
+                createPointFeature(1, Map.of("name", "first")),
+                createPointFeature(2, Map.of("name", "second"))));
+    final var mvt =
+        mvtOf(
+            createLayer(
+                "roads",
+                createPointFeature(2, Map.of("name", "second")),
+                createPointFeature(Map.of("name", "no id 1")),
+                createPointFeature(1, Map.of("name", "first")),
+                createPointFeature(Map.of("name", "no id 2"))));
+    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.All);
+    assertFalse(result.isPresent());
+  }
+
+  @Test
   void featuresWithoutIdsDoNotMatchWhenOrderDiffers() {
     final var mlt =
         mltOf(
@@ -359,6 +383,16 @@ class CompareHelperTest {
   private static MVTFeature createPointFeature(Map<String, Object> props, int index) {
     return MVTFeature.builder()
         .index(index)
+        .geometry(FACTORY.createPoint(new Coordinate(1, 2)))
+        .properties(props)
+        .build();
+  }
+
+  private static MVTFeature createPointFeatureWithLeftoverId(
+      Map<String, Object> props, long leftoverId) {
+    return MVTFeature.builder()
+        .id(leftoverId)
+        .id((Long) null)
         .geometry(FACTORY.createPoint(new Coordinate(1, 2)))
         .properties(props)
         .build();
