@@ -226,8 +226,14 @@ public final class CompareHelper {
   private static Optional<Difference> compareGeometry(
       Feature mltFeature, Feature mvtFeature, int featureIndex, String layerName) {
     final var mltGeometry = mltFeature.getGeometry();
-    final var mltGeomValid = mltGeometry.isValid();
     final var mvtGeometry = mvtFeature.getGeometry();
+    // A lossless round trip normally yields the same structure, so skip the costly validity and
+    // topological checks, which can take seconds on large polygons, when that is the case.
+    if (mltGeometry.equalsExact(mvtGeometry)) {
+      return Optional.empty();
+    }
+
+    final var mltGeomValid = mltGeometry.isValid();
     final var mvtGeomValid = mvtGeometry.isValid();
     if (mltGeomValid != mvtGeomValid) {
       return Optional.of(
