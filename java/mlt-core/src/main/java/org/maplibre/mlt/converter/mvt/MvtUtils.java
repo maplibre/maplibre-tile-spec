@@ -4,11 +4,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import no.ecc.vectortile.VectorTileDecoder;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
@@ -54,12 +53,14 @@ public class MvtUtils {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
     mvtDecoder.setAutoScale(false);
 
-    final var mvtFeatures = mvtDecoder.decode(mvtTile);
-    final var featuresByLayer =
-        StreamSupport.stream(mvtFeatures.spliterator(), false)
-            .collect(
-                Collectors.groupingBy(
-                    f -> f.getLayerName(), LinkedHashMap::new, Collectors.toList()));
+    final var featureHasId = getFeatureIdPresence(mvtTile);
+    final var featuresByLayer = new LinkedHashMap<String, List<DecodedFeature>>();
+    var featureIndex = 0;
+    for (var mvtFeature : mvtDecoder.decode(mvtTile)) {
+      featuresByLayer
+          .computeIfAbsent(mvtFeature.getLayerName(), k -> new ArrayList<>())
+          .add(new DecodedFeature(mvtFeature, featureHasId.get(featureIndex++)));
+    }
 
     var layers = new ArrayList<Layer>(featuresByLayer.size());
     for (var layerGroup : featuresByLayer.entrySet()) {
@@ -68,12 +69,12 @@ public class MvtUtils {
 
       var tileExtent = 0;
       final var features = new ArrayList<Feature>(layerFeatures.size());
-      final var builder = MVTFeature.builder();
-      for (var mvtFeature : layerFeatures) {
+      for (var decodedFeature : layerFeatures) {
+        final var mvtFeature = decodedFeature.feature();
         features.add(
-            builder
+            MVTFeature.builder()
                 .index(features.size())
-                .id(mvtFeature.getId())
+                .id(decodedFeature.hasId() ? mvtFeature.getId() : null)
                 .geometry(mvtFeature.getGeometry())
                 .properties(mvtFeature.getAttributes())
                 .build());
@@ -84,5 +85,20 @@ public class MvtUtils {
     }
 
     return new MapboxVectorTile(layers);
+  }
+
+  private record DecodedFeature(VectorTileDecoder.Feature feature, boolean hasId) {}
+
+  /// java-vector-tile reports a missing feature ID as 0, so read which features have one, in the
+  /// order in which its decoder returns them
+  private static BitSet getFeatureIdPresence(byte[] mvtTile) throws IOException {
+    final var hasId = new BitSet();
+    var index = 0;
+    for (var layer : vector_tile.VectorTile.Tile.parseFrom(mvtTile).getLayersList()) {
+      for (var feature : layer.getFeaturesList()) {
+        hasId.set(index++, feature.hasId());
+      }
+    }
+    return hasId;
   }
 }
