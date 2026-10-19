@@ -107,6 +107,8 @@ jobs:
           - target: differential
     env:
       MLT_CPP_JSON_BIN: ${{ github.workspace }}/cpp/build/tool/mlt-cpp-json
+      CC_x86_64_unknown_linux_gnu: clang
+      CXX_x86_64_unknown_linux_gnu: clang++
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
