@@ -687,12 +687,11 @@ public class MltConverter {
               config, layerMetadata, sortedFeatures, featureTableOptimizations, fastPforCodec);
 
       final var featureTableBodyBuffer = new ArrayList<byte[]>(20);
-      if (config.includeIds()) {
-        final var idMetadata =
-            layerMetadata.columns().stream()
-                .filter(MltTypeMap.Tag0x02::isID)
-                .findFirst()
-                .orElseThrow();
+      // A layer in which no feature has an ID has no ID column
+      final var idColumn =
+          layerMetadata.columns().stream().filter(MltTypeMap.Tag0x02::isID).findFirst();
+      if (config.includeIds() && idColumn.isPresent()) {
+        final var idMetadata = idColumn.get();
 
         // Write ID as a 32- or 64-bit scalar depending on the flag stored in the column metadata.
         // The decoding assumes unsigned (no zigzag)
