@@ -38,7 +38,7 @@
     "@types/node": "^26.6.5",
     "@types/pbf": "^3.0.5",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "@vitest/coverage-v8": "^5.0.4",
+    "@vitest/coverage-v8": "^5.0.5",
     "bytebuffer": "^5.0.1",
     "earcut": "^3.2.4",
     "eslint": "^10.12.0",
