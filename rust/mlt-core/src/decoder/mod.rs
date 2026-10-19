@@ -29,48 +29,49 @@ pub(crate) mod stream;
 #[cfg(feature = "unstable-v2")]
 pub(crate) use geometry::decode::run_offsets;
 pub(crate) use geometry::decode::{Levels, decode_topology};
-pub(crate) use geometry::{GeoTypes, Geometry, IndexBase, RawGeometry};
-pub use geometry::{GeometryType, GeometryValues};
-pub use id::ParsedId;
-// pub (not pub(crate)) so __private module can re-export it
-pub(crate) use id::{Id, RawId, RawIdValue};
-pub use iterators::{
-    ColNames, ColumnRef, FeatureRef, Layer01FeatureIter, LendingIterator, PropName, PropNamesIter,
-    PropValueRef,
-};
-pub use limits::{Decoder, Parser};
-pub use model::{Layer, LayerBytes, ParsedLayer, Unknown};
-pub(crate) use model01::{BASE_TYPE_MASK, Column, OPTIONAL_FLAG};
-pub use model01::{ColumnType, Layer01, ParsedLayer01};
 #[cfg(feature = "unstable-v2")]
 pub(crate) use model02::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Extent02, IdWidth02,
     Interior02, LayerHeader02, NodeKind02, NodePresence, NodeType02, Presence02, SharedDictKind,
     Topology, ValueType02, ValuesColumn02, VertexStorage,
 };
+// Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
+pub(crate) use property::strings;
+
+pub(crate) use crate::decoder::geometry::{GeoTypes, Geometry, IndexBase, RawGeometry};
+pub use crate::decoder::geometry::{GeometryType, GeometryValues};
+pub use crate::decoder::id::ParsedId;
+// pub (not pub(crate)) so __private module can re-export it
+pub(crate) use crate::decoder::id::{Id, RawId, RawIdValue};
+pub use crate::decoder::iterators::{
+    ColNames, ColumnRef, FeatureRef, Layer01FeatureIter, LendingIterator, PropName, PropNamesIter,
+    PropValueRef,
+};
+pub use crate::decoder::limits::{Decoder, Parser};
+pub use crate::decoder::model::{Layer, LayerBytes, ParsedLayer, Unknown};
+pub(crate) use crate::decoder::model01::{BASE_TYPE_MASK, Column, OPTIONAL_FLAG};
+pub use crate::decoder::model01::{ColumnType, Layer01, ParsedLayer01};
 #[cfg(feature = "unstable-v2")]
-pub use model02::{GeoLayout, Layer02, LayerLayout, ParsedLayer02};
+pub use crate::decoder::model02::{GeoLayout, Layer02, LayerLayout, ParsedLayer02};
 #[cfg(feature = "unstable-v2")]
-pub use mvalue::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
+pub use crate::decoder::mvalue::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
 #[cfg(feature = "unstable-v2")]
-pub use nested::{
+pub use crate::decoder::nested::{
     Nested, ParsedInterior, ParsedLeaf, ParsedList, ParsedMap, ParsedNested, ParsedNode,
     ParsedStruct, RawInterior, RawLeaf, RawList, RawMap, RawNested, RawNode, RawStruct,
 };
-// Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
-pub(crate) use property::strings;
-pub use property::{
+pub use crate::decoder::property::{
     ColumnDecl, ColumnStorage, DictLayout, ParsedProperty, ParsedScalar, ParsedSharedDict,
     ParsedSharedDictItem, ParsedStrings, StringLayout,
 };
-pub(crate) use property::{
+pub(crate) use crate::decoder::property::{
     DictRange, Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence,
     RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
     RawStringsEncoding,
 };
 #[cfg(feature = "unstable-v2")]
-pub(crate) use stream::model::{Alp, AlpScale, XyzLogical};
-pub(crate) use stream::model::{
+pub(crate) use crate::decoder::stream::model::{Alp, AlpScale, XyzLogical};
+pub(crate) use crate::decoder::stream::model::{
     BoolLogical, DictionaryType, FastPForKind, FloatLogical, IntEncoding, IntLogical, LengthType,
     LogicalCombination, LogicalEncoding, LogicalTechnique, LogicalValue, Morton, OffsetType,
     PhysicalEncoding, RawStream, RleLayout, RleMeta, StreamMeta, StreamType, ValueKind,

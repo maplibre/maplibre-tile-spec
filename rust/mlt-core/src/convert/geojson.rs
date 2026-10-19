@@ -17,7 +17,7 @@ use crate::{
 };
 
 mod schema;
-pub use schema::PropertySchema;
+pub use crate::convert::geojson::schema::PropertySchema;
 
 /// `GeoJSON` [`FeatureCollection`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

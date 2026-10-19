@@ -7,7 +7,7 @@ use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
-use bench_utils::{
+use crate::bench_utils::{
     BENCHMARKED_ZOOM_LEVELS, compress_gzip, decompress_gzip, load_mlt_tiles, load_tiles,
     mvt_decode, total_bytes,
 };

@@ -1,4 +1,4 @@
 pub mod geojson;
 mod infer;
-pub use infer::InferredKind;
+pub use crate::convert::infer::InferredKind;
 pub mod mvt;

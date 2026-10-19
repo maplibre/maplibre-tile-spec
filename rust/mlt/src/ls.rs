@@ -85,7 +85,7 @@ pub struct LsFlags {
 
 impl From<&LsArgs> for LsFlags {
     fn from(args: &LsArgs) -> Self {
-        use Detail::{Algorithms, All, GZip};
+        use crate::ls::Detail::{Algorithms, All, GZip};
         let details = args.details.as_slice();
         Self {
             gzip: details.contains(&GZip) || details.contains(&All),

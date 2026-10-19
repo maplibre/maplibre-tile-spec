@@ -7,8 +7,9 @@ mod strings;
 #[cfg(test)]
 mod tests;
 
-pub use model::{
+pub(crate) use shared_dict::group_string_properties;
+
+pub use crate::encoder::property::model::{
     StagedOptScalar, StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem,
     StagedStrings,
 };
-pub(crate) use shared_dict::group_string_properties;

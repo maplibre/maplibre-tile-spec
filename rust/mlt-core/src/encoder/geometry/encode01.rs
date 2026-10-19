@@ -1,6 +1,5 @@
 //! Geometry section writer for tag `0x01` (v1) layers.
 
-use super::model::VertexBufferType;
 use super::streams::{
     dict_may_be_beneficial, encode_hilbert_vertex_streams, encode_level1_length_stream,
     encode_level1_without_ring_buffer_length_stream, encode_level2_length_stream,
@@ -13,6 +12,7 @@ use crate::decoder::{
     ColumnType, GeometryType, GeometryValues, LengthType, Levels, LogicalEncoding, OffsetType,
     StreamType, VertexLogical, decode_topology,
 };
+use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
 use crate::{Decoder, MltError, MltResult};

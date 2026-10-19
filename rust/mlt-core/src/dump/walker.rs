@@ -4,9 +4,9 @@
 //! `walker01` / `walker02` modules mirror their wire layout.
 //! Tile and layer framing is shared - only the layer body differs per tag.
 
-use super::UNANNOTATED;
-use super::model::{BitField, BlobInfo, DumpTree, Region, RegionKind};
 use crate::codecs::varint::parse_varint;
+use crate::dump::UNANNOTATED;
+use crate::dump::model::{BitField, BlobInfo, DumpTree, Region, RegionKind};
 use crate::utils::{parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 

@@ -165,9 +165,8 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled("Geometry Types:", STYLE_BOLD)));
 
-        let sel_geoms: HashSet<_> = sel_info
-            .map(|i| i.geometries.iter().copied().collect())
-            .unwrap_or_default();
+        let sel_geoms: HashSet<_> =
+            sel_info.map_or_default(|i| i.geometries.iter().copied().collect());
         for g in &geoms {
             lines.push(Line::from(Span::styled(
                 format!("  {}{g}", check(app.geom_filters.contains(g))),
@@ -179,9 +178,8 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled("Algorithms:", STYLE_BOLD)));
 
-        let sel_algos: HashSet<_> = sel_info
-            .map(|i| i.algorithms.iter().copied().collect())
-            .unwrap_or_default();
+        let sel_algos: HashSet<_> =
+            sel_info.map_or_default(|i| i.algorithms.iter().copied().collect());
         for a in &algos {
             lines.push(Line::from(Span::styled(
                 format!("  {}{a}", check(app.algo_filters.contains(a))),

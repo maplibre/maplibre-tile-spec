@@ -5,14 +5,13 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::rans::{decode_vertices, encode_vertices};
 use mlt_core::__private::{Layer, ParsedLayer, dec, parser};
-use mlt_core::encoder::{EncoderConfig, WireVersion};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::wire::{LogicalEncoding, VertexLogical};
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
-use bench_utils::load_all_tiles;
+use crate::bench_utils::load_all_tiles;
 
 const CORPORA: [&str; 4] = ["omt", "amazon", "amazon_here", "bing"];
 

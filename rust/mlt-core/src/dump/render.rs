@@ -5,9 +5,9 @@ use std::io::{self, Write};
 #[cfg(feature = "unstable-v2")]
 use usize_cast::IntoUsize as _;
 
-use super::model::{BlobInfo, DecodeHint, DumpTree, Region, RegionKind};
 use crate::Decoder;
 use crate::decoder::RawStream;
+use crate::dump::model::{BlobInfo, DecodeHint, DumpTree, Region, RegionKind};
 
 /// How data-payload blobs are shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

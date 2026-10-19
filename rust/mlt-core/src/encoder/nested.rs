@@ -318,6 +318,148 @@ macro_rules! impl_gather {
 
 with_kinds!(impl_gather);
 
+/// Which keys each row of a struct or a map holds, coded once per distinct key set.
+///
+/// A struct spends one presence bit per (row, field) and a map one key per entry.
+/// Both say the same thing along the wrong axis: real key sets barely vary, so one
+/// id per row into a table of key-set bitmaps replaces either.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct RowShapes {
+    /// The distinct key sets, each a bitmap over the key list, LSB-first.
+    pub(crate) table: Vec<Vec<bool>>,
+    /// One index into [`Self::table`] per row the node marks present.
+    pub(crate) ids: Vec<u32>,
+    /// The keys the bitmaps run over, in bit order. Empty for a struct, whose fields are the keys.
+    pub(crate) keys: Vec<String>,
+}
+
+impl RowShapes {
+    /// The table as one run of `shape_count * width` bits.
+    pub(crate) fn table_bits(&self) -> Vec<bool> {
+        self.table.concat()
+    }
+
+    /// Intern one row's key set, returning its id.
+    fn intern(table: &mut Vec<Vec<bool>>, shape: Vec<bool>) -> MltResult<u32> {
+        let id = table
+            .iter()
+            .position(|known| *known == shape)
+            .unwrap_or_else(|| {
+                table.push(shape);
+                table.len() - 1
+            });
+        Ok(u32::try_from(id)?)
+    }
+}
+
+impl StagedStruct {
+    /// This struct's field presence as one shape id per row, or [`None`] when there is nothing to code.
+    ///
+    /// A struct whose every field is present on every row already stores no presence at all.
+    pub(crate) fn row_shapes(&self) -> Option<RowShapes> {
+        if self.fields.len() < 2 || self.fields.iter().all(|(_, f)| f.presence().is_none()) {
+            return None;
+        }
+        let rows = self.present_count();
+        let mut table = Vec::new();
+        let mut ids = Vec::with_capacity(rows);
+        for row in 0..rows {
+            let shape = self
+                .fields
+                .iter()
+                .map(|(_, field)| {
+                    field
+                        .presence()
+                        .is_none_or(|bits| bits.get(row).copied().unwrap_or(false))
+                })
+                .collect();
+            ids.push(RowShapes::intern(&mut table, shape).ok()?);
+        }
+        Some(RowShapes {
+            table,
+            ids,
+            keys: Vec::new(),
+        })
+    }
+}
+
+impl StagedMap {
+    /// This map's per-entry keys as one shape id per row, or [`None`] when no key order says it.
+    ///
+    /// A bitmap names each key once, in key-list order, so it can only stand in for
+    /// a row whose entries run in that order and repeat no key. Two orders are worth
+    /// trying: sorted, which is the order a map built from the model arrives in, and
+    /// first-seen, which is the order a struct reshreds its fields in.
+    pub(crate) fn row_shapes(&self) -> Option<RowShapes> {
+        let mut sorted: Vec<String> = self.keys.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        if sorted.len() < 2 {
+            return None;
+        }
+        self.shapes_over(&sorted).or_else(|| {
+            let mut seen: Vec<String> = Vec::with_capacity(sorted.len());
+            for key in &self.keys {
+                if !seen.contains(key) {
+                    seen.push(key.clone());
+                }
+            }
+            self.shapes_over(&seen)
+        })
+    }
+
+    /// The shapes this map's rows have over `keys`, or [`None`] when a row does not run in that order.
+    fn shapes_over(&self, keys: &[String]) -> Option<RowShapes> {
+        let index: Vec<usize> = self
+            .keys
+            .iter()
+            .map(|key| keys.iter().position(|known| known == key))
+            .collect::<Option<_>>()?;
+
+        let mut table = Vec::new();
+        let mut ids = Vec::with_capacity(self.lengths.len());
+        let mut at = 0_usize;
+        for &length in &self.lengths {
+            let entries = index.get(at..at + length as usize)?;
+            if entries.windows(2).any(|pair| pair[0] >= pair[1]) {
+                return None;
+            }
+            let mut shape = vec![false; keys.len()];
+            for &key in entries {
+                shape[key] = true;
+            }
+            ids.push(RowShapes::intern(&mut table, shape).ok()?);
+            at += length as usize;
+        }
+        Some(RowShapes {
+            table,
+            ids,
+            keys: keys.to_vec(),
+        })
+    }
+}
+
+impl StagedInterior {
+    /// This node's children's structure as one shape id per row, for the kinds that have one.
+    pub(crate) fn row_shapes(&self) -> Option<RowShapes> {
+        match self {
+            Self::Struct(node) => node.row_shapes(),
+            Self::Map(node) => node.row_shapes(),
+            Self::List(_) => None,
+        }
+    }
+}
+
+impl StagedNode {
+    /// This node's presence over the values its parent hands it.
+    fn presence(&self) -> Option<&Vec<bool>> {
+        match self {
+            Self::Interior(interior) => interior.presence(),
+            Self::Leaf(leaf) => leaf.presence.as_ref(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -516,147 +658,5 @@ mod tests {
         )));
         let node = StagedStruct::new(None, vec![("a", inner)]);
         assert_eq!(node.as_map(), None);
-    }
-}
-
-/// Which keys each row of a struct or a map holds, coded once per distinct key set.
-///
-/// A struct spends one presence bit per (row, field) and a map one key per entry.
-/// Both say the same thing along the wrong axis: real key sets barely vary, so one
-/// id per row into a table of key-set bitmaps replaces either.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct RowShapes {
-    /// The distinct key sets, each a bitmap over the key list, LSB-first.
-    pub(crate) table: Vec<Vec<bool>>,
-    /// One index into [`Self::table`] per row the node marks present.
-    pub(crate) ids: Vec<u32>,
-    /// The keys the bitmaps run over, in bit order. Empty for a struct, whose fields are the keys.
-    pub(crate) keys: Vec<String>,
-}
-
-impl RowShapes {
-    /// The table as one run of `shape_count * width` bits.
-    pub(crate) fn table_bits(&self) -> Vec<bool> {
-        self.table.concat()
-    }
-
-    /// Intern one row's key set, returning its id.
-    fn intern(table: &mut Vec<Vec<bool>>, shape: Vec<bool>) -> MltResult<u32> {
-        let id = table
-            .iter()
-            .position(|known| *known == shape)
-            .unwrap_or_else(|| {
-                table.push(shape);
-                table.len() - 1
-            });
-        Ok(u32::try_from(id)?)
-    }
-}
-
-impl StagedStruct {
-    /// This struct's field presence as one shape id per row, or [`None`] when there is nothing to code.
-    ///
-    /// A struct whose every field is present on every row already stores no presence at all.
-    pub(crate) fn row_shapes(&self) -> Option<RowShapes> {
-        if self.fields.len() < 2 || self.fields.iter().all(|(_, f)| f.presence().is_none()) {
-            return None;
-        }
-        let rows = self.present_count();
-        let mut table = Vec::new();
-        let mut ids = Vec::with_capacity(rows);
-        for row in 0..rows {
-            let shape = self
-                .fields
-                .iter()
-                .map(|(_, field)| {
-                    field
-                        .presence()
-                        .is_none_or(|bits| bits.get(row).copied().unwrap_or(false))
-                })
-                .collect();
-            ids.push(RowShapes::intern(&mut table, shape).ok()?);
-        }
-        Some(RowShapes {
-            table,
-            ids,
-            keys: Vec::new(),
-        })
-    }
-}
-
-impl StagedMap {
-    /// This map's per-entry keys as one shape id per row, or [`None`] when no key order says it.
-    ///
-    /// A bitmap names each key once, in key-list order, so it can only stand in for
-    /// a row whose entries run in that order and repeat no key. Two orders are worth
-    /// trying: sorted, which is the order a map built from the model arrives in, and
-    /// first-seen, which is the order a struct reshreds its fields in.
-    pub(crate) fn row_shapes(&self) -> Option<RowShapes> {
-        let mut sorted: Vec<String> = self.keys.clone();
-        sorted.sort_unstable();
-        sorted.dedup();
-        if sorted.len() < 2 {
-            return None;
-        }
-        self.shapes_over(&sorted).or_else(|| {
-            let mut seen: Vec<String> = Vec::with_capacity(sorted.len());
-            for key in &self.keys {
-                if !seen.contains(key) {
-                    seen.push(key.clone());
-                }
-            }
-            self.shapes_over(&seen)
-        })
-    }
-
-    /// The shapes this map's rows have over `keys`, or [`None`] when a row does not run in that order.
-    fn shapes_over(&self, keys: &[String]) -> Option<RowShapes> {
-        let index: Vec<usize> = self
-            .keys
-            .iter()
-            .map(|key| keys.iter().position(|known| known == key))
-            .collect::<Option<_>>()?;
-
-        let mut table = Vec::new();
-        let mut ids = Vec::with_capacity(self.lengths.len());
-        let mut at = 0_usize;
-        for &length in &self.lengths {
-            let entries = index.get(at..at + length as usize)?;
-            if entries.windows(2).any(|pair| pair[0] >= pair[1]) {
-                return None;
-            }
-            let mut shape = vec![false; keys.len()];
-            for &key in entries {
-                shape[key] = true;
-            }
-            ids.push(RowShapes::intern(&mut table, shape).ok()?);
-            at += length as usize;
-        }
-        Some(RowShapes {
-            table,
-            ids,
-            keys: keys.to_vec(),
-        })
-    }
-}
-
-impl StagedInterior {
-    /// This node's children's structure as one shape id per row, for the kinds that have one.
-    pub(crate) fn row_shapes(&self) -> Option<RowShapes> {
-        match self {
-            Self::Struct(node) => node.row_shapes(),
-            Self::Map(node) => node.row_shapes(),
-            Self::List(_) => None,
-        }
-    }
-}
-
-impl StagedNode {
-    /// This node's presence over the values its parent hands it.
-    fn presence(&self) -> Option<&Vec<bool>> {
-        match self {
-            Self::Interior(interior) => interior.presence(),
-            Self::Leaf(leaf) => leaf.presence.as_ref(),
-        }
     }
 }
