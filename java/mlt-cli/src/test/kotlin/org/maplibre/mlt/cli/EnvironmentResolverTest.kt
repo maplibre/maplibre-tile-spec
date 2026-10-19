@@ -179,6 +179,18 @@ class EnvironmentResolverTest {
     }
 
     @Test
+    fun `computeCacheBlockSize zero disables alignment`() {
+        envResolver = { name -> if (name == ENV_CACHE_BLOCK_SIZE) "0" else null }
+        assertEquals(0, computeCacheBlockSize())
+    }
+
+    @Test
+    fun `computeCacheBlockSize non power of 2 throws`() {
+        envResolver = { name -> if (name == ENV_CACHE_BLOCK_SIZE) "3000" else null }
+        assertThrows(illegalArgType) { computeCacheBlockSize() }.andContains("power of 2")
+    }
+
+    @Test
     fun `maxTileTrackSize success`() {
         envResolver = { name -> if (name == ENV_MAX_TILE_TRACK_SIZE) "12345" else null }
         assertEquals(12345, computeMaxTileTrackSize())

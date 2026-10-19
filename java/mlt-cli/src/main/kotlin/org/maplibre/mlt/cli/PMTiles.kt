@@ -19,6 +19,7 @@ import io.tileverse.io.ByteRange
 import io.tileverse.storage.AbstractRangeReader
 import io.tileverse.storage.RangeReader
 import io.tileverse.storage.StorageFactory
+import io.tileverse.storage.block.BlockAlignedRangeReader
 import io.tileverse.storage.cache.CachingRangeReader
 import org.apache.commons.lang3.ArrayUtils
 import org.apache.commons.lang3.mutable.MutableBoolean
@@ -68,10 +69,10 @@ fun encodePMTiles(
 }
 
 // To have any effect on the cache size limit, we have to entirely replace the cache setup.
-// See `io.tileverse.storage.cache.RangeReaderCache.buildSharedCache`
+// See `io.tileverse.storage.cache.ByteRangeCache.buildSharedCache`
 private fun getCacheManager(config: EncodeConfig) =
     CaffeineCacheManager().also {
-        // `RangeReaderCache.SHARED_CACHE_NAME` is private
+        // `ByteRangeCache.SHARED_CACHE_NAME` is package-private
         val cacheName = "tileverse-storage-cache"
         val maxMemory = Runtime.getRuntime().maxMemory()
         val cacheSize =
@@ -112,15 +113,18 @@ private fun getCacheManager(config: EncodeConfig) =
 
 private var rangeReaderCache: WeakReference<CaffeineCache<ByteRange, ByteBuffer>> = WeakReference(null)
 
+// Block alignment sits above the cache, so that whole blocks are fetched and cached on a miss
 private fun getCachingReader(
     rawReader: RangeReader,
     cacheManager: CacheManager,
-) = CachingRangeReader
-    .builder(rawReader)
-    .cacheManager(cacheManager)
-    .withoutHeaderBuffer()
-    .blockSize(cacheBlockSize)
-    .build()
+): AbstractRangeReader {
+    val cachingReader =
+        CachingRangeReader
+            .builder(rawReader)
+            .cacheManager(cacheManager)
+            .build()
+    return if (cacheBlockSize > 0) BlockAlignedRangeReader(cachingReader, cacheBlockSize) else cachingReader
+}
 
 private fun logCacheStats(cache: CaffeineCache<ByteRange, ByteBuffer>) {
     val stats = cache.stats()

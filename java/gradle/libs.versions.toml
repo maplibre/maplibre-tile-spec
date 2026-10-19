@@ -1,5 +1,5 @@
 [versions]
-tileverse = "2.0.3"
+tileverse = "2.1.0"
 jmh = "1.37"
 junit-jupiter = "6.1.3"
 kotlin-jvm = "2.4.21"

@@ -116,6 +116,9 @@ internal fun computeCacheBlockSize() =
         if (it < 0) {
             throw IllegalArgumentException("Cache block size must not be negative")
         }
+        if (it > 0 && it.countOneBits() != 1) {
+            throw IllegalArgumentException("Cache block size must be a power of 2")
+        }
     }
 
 internal fun computeMaxTileTrackSize() =
