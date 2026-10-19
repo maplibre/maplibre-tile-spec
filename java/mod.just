@@ -81,9 +81,8 @@ test:
 test-cli:
     #!/usr/bin/env bash
     set -euo pipefail
-    JAVA="java -Dcom.google.protobuf.use_unsafe_pre22_gencode"
-    ENCODE="$JAVA -jar ./mlt-cli/build/libs/encode.jar"
-    DECODE="$JAVA -jar ./mlt-cli/build/libs/decode.jar"
+    ENCODE="java -jar ./mlt-cli/build/libs/encode.jar"
+    DECODE="java -jar ./mlt-cli/build/libs/decode.jar"
     ./gradlew cli
     $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --mlt output/varint.mlt --decode
     $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --enable-fastpfor --enable-fsst --mlt output/advanced.mlt
@@ -117,7 +116,6 @@ bench:
 
 _generate-one-expected-mlt file:
     java \
-        -Dcom.google.protobuf.use_unsafe_pre22_gencode \
         -jar mlt-cli/build/libs/encode.jar \
         --mvt {{quote(file)}} \
         --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/0x01/'))}} \
