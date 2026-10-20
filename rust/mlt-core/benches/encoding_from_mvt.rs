@@ -1,15 +1,14 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use mlt_core::encoder::{EncoderConfig, Tessellation};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{MltResult, TileLayer};
 use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
-use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_tiles};
+use crate::bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_tiles};
 
 /// Load MVT tiles for a given zoom level from the OMT fixture directory.
 fn load_mvt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {

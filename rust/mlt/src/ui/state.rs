@@ -551,16 +551,14 @@ impl App {
         match self.mode {
             ViewMode::FileBrowser => {
                 let path = self.get_selected_file().map(|r| r.path().to_path_buf());
-                let (path_str, is_error, error_msg) = self
-                    .get_selected_file()
-                    .map(|r| {
+                let (path_str, is_error, error_msg) =
+                    self.get_selected_file().map_or_default(|r| {
                         let s = r.path().display().to_string();
                         match r {
                             LsRow::Error { error, .. } => (s, true, error.clone()),
                             LsRow::Info { .. } | LsRow::Loading { .. } => (s, false, String::new()),
                         }
-                    })
-                    .unwrap_or_default();
+                    });
                 if let Some(path) = path {
                     if is_error {
                         self.error_popup = Some((path_str, error_msg));
@@ -754,8 +752,7 @@ impl App {
                     .path()
                     .extension()
                     .and_then(|e| e.to_str())
-                    .map(str::to_lowercase)
-                    .unwrap_or_default();
+                    .map_or_default(str::to_lowercase);
                 if !self.ext_filters.is_empty()
                     && !self.ext_filters.iter().any(|f| f.as_str() == ext)
                 {
@@ -1039,17 +1036,14 @@ fn geometry_vertices(geom: &Geometry<i32>, part: Option<usize>) -> Vec<[f64; 2]>
             .collect(),
         (Geometry::<i32>::MultiPolygon(mpoly), None) => mpoly.iter().flat_map(poly_verts).collect(),
         (Geometry::<i32>::MultiPoint(mp), Some(p)) => {
-            mp.0.get(p)
-                .map(|pt| vec![coord_f64(pt.0)])
-                .unwrap_or_default()
+            mp.0.get(p).map_or_default(|pt| vec![coord_f64(pt.0)])
         }
         (Geometry::<i32>::MultiLineString(mls), Some(p)) => mls
             .0
             .get(p)
-            .map(|ls| ls.0.iter().copied().map(coord_f64).collect())
-            .unwrap_or_default(),
+            .map_or_default(|ls| ls.0.iter().copied().map(coord_f64).collect()),
         (Geometry::<i32>::MultiPolygon(mpoly), Some(p)) => {
-            mpoly.0.get(p).map(poly_verts).unwrap_or_default()
+            mpoly.0.get(p).map_or_default(poly_verts)
         }
         _ => Vec::new(),
     }

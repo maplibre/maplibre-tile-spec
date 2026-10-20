@@ -2,7 +2,6 @@
 
 use usize_cast::IntoUsize as _;
 
-use super::model::{BitField, BlobInfo, DecodeHint};
 use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01::{
@@ -12,6 +11,7 @@ use crate::decoder::stream::header01::{
 use crate::decoder::{
     BASE_TYPE_MASK, Column, ColumnType, DictionaryType, OPTIONAL_FLAG, StreamType,
 };
+use crate::dump::model::{BitField, BlobInfo, DecodeHint};
 use crate::utils::{parse_string, take};
 use crate::wire::{
     BoolLogical, IntLogical, LogicalEncoding, LogicalTechnique, StreamMeta, ValueKind,
@@ -107,7 +107,7 @@ impl<'a> Walker<'a> {
 
         // Worded as `column[N]` words it, since the two name the same column: the index
         // alone says nothing about what it holds.
-        let name_suffix = name.map(|n| format!(" {n:?}")).unwrap_or_default();
+        let name_suffix = name.map_or_default(|n| format!(" {n:?}"));
         self.out[ci].label = format!("column_schema[{i}] {typ:?}{name_suffix}");
 
         let mut children = Vec::new();
@@ -149,7 +149,7 @@ impl<'a> Walker<'a> {
     ) -> MltResult<&'a [u8]> {
         use ColumnType as C;
         let typ = col.typ;
-        let name_suffix = col.name.map(|n| format!(" {n:?}")).unwrap_or_default();
+        let name_suffix = col.name.map_or_default(|n| format!(" {n:?}"));
         let gi = self.open(input, format!("column[{ci}] {typ:?}{name_suffix}"));
 
         let mut input = input;

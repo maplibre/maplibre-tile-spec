@@ -4,13 +4,12 @@ use std::hint::black_box;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
-use mlt_core::encoder::{EncoderConfig, WireVersion};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::mvt::mvt_to_tile_layers;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
-use bench_utils::{compress_gzip, decompress_gzip, load_all_tiles, mvt_decode, total_bytes};
+use crate::bench_utils::{compress_gzip, decompress_gzip, load_all_tiles, mvt_decode, total_bytes};
 
 const CORPORA: [&str; 4] = ["omt", "amazon", "amazon_here", "bing"];
 

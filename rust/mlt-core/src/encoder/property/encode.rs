@@ -1,6 +1,6 @@
-use super::model::{StagedOptScalar, StagedProperty};
 use crate::decoder::{ColumnType, DictionaryType, StreamType};
 use crate::encoder::model::StreamCtx;
+use crate::encoder::property::model::{StagedOptScalar, StagedProperty};
 use crate::encoder::{
     Codecs, Encoder, LogicalCodecs, LogicalIntCodec, LogicalIntStreamKind, StagedScalar,
     StagedStrings,

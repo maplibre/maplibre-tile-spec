@@ -10,5 +10,6 @@ pub mod test_helpers;
 
 pub use extensions::*;
 pub(crate) use parse::*;
-pub use presence::*;
 pub use serialize::*;
+
+pub use crate::utils::presence::*;

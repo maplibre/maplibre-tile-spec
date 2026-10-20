@@ -2,7 +2,6 @@ use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 use usize_cast::IntoUsize as _;
 
-use super::model::StagedStrings;
 use crate::MltResult;
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::front_coding::{FrontCoded, front_code};
@@ -21,6 +20,7 @@ use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamT
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::model::StrAt;
 use crate::encoder::model::{StrEncoding, StreamCtx};
+use crate::encoder::property::model::StagedStrings;
 use crate::encoder::stream::{dedup_strings, write_stream_payload};
 use crate::encoder::{Codecs, Encoder};
 use crate::utils::strings_to_lengths;

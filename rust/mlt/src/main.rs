@@ -7,7 +7,8 @@ use clap::{Parser, Subcommand};
 #[cfg(not(feature = "hotpath-alloc"))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
+#[cfg(feature = "hotpath-alloc")]
+use mimalloc as _;
 use mlt::convert::{ConvertArgs, convert};
 use mlt::dump::{AfterDump, DumpArgs, dump};
 use mlt::hexdump::{HexdumpArgs, hexdump};

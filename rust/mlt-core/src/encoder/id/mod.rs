@@ -1,3 +1,3 @@
 mod staged_id;
 
-pub use staged_id::StagedId;
+pub use crate::encoder::id::staged_id::StagedId;

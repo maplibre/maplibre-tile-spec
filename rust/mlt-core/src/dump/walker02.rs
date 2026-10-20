@@ -7,7 +7,6 @@ use bitvec::order::Lsb0;
 use bitvec::vec::BitVec;
 use usize_cast::IntoUsize as _;
 
-use super::model::{BitField, BlobInfo, DecodeHint};
 use super::walker::Walker;
 use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::codecs::varint::parse_varint;
@@ -24,6 +23,7 @@ use crate::decoder::{
     GeoLayout, Interior02, LayerHeader02, LayerLayout, LengthType, NodeKind02, NodePresence,
     NodeType02, Presence02, SharedDictKind, StreamType, ValuesColumn02,
 };
+use crate::dump::model::{BitField, BlobInfo, DecodeHint};
 use crate::tile::{MAX_NESTED_DEPTH, ZStep};
 use crate::utils::{parse_string, parse_u8, take};
 use crate::wire::{

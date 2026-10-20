@@ -41,8 +41,10 @@ pub(crate) mod layer_writer;
 pub(crate) mod tile;
 pub(crate) mod utils;
 
-pub use convert::{InferredKind, geojson, mvt};
-pub use decoder::{
+pub(crate) use errors::MltRefResult;
+
+pub use crate::convert::{InferredKind, geojson, mvt};
+pub use crate::decoder::{
     ColNames, ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
     Layer01FeatureIter, LendingIterator, ParsedId, ParsedLayer, ParsedLayer01, ParsedProperty,
     ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, Parser, PropName,
@@ -50,28 +52,27 @@ pub use decoder::{
 };
 // Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
 // without exposing these implementation details to external users.
-pub(crate) use decoder::{
+pub(crate) use crate::decoder::{
     ColumnType, DictRange, DictionaryType, LengthType, OffsetType, RawPresence, RawSharedDict,
     RawSharedDictItem, StreamType,
 };
 #[cfg(feature = "unstable-v2")]
-pub use decoder::{
+pub use crate::decoder::{
     Layer02, MValueColumn, MValueSpans, MValues, Nested, ParsedInterior, ParsedLayer02, ParsedLeaf,
     ParsedList, ParsedMValue, ParsedMap, ParsedNested, ParsedNode, ParsedStruct, RawInterior,
     RawLeaf, RawList, RawMValue, RawMap, RawNested, RawNode, RawStruct,
 };
-pub(crate) use errors::MltRefResult;
-pub use errors::{MltError, MltResult};
-pub use layer_writer::{FeatureWriter, LayerWriter};
-pub use tile::{
+pub use crate::errors::{MltError, MltResult};
+pub use crate::layer_writer::{FeatureWriter, LayerWriter};
+pub use crate::tile::{
     ColumnRole, Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder,
     TileLayer, TileLayerBuilder,
 };
 #[cfg(feature = "unstable-v2")]
-pub use tile::{MValue, MValueKey, NestedKey, NestedKind, NestedValue, ZStep};
-pub(crate) use utils::analyze::{Analyze, StatType};
-pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
-pub use utils::{PresenceOptIter, PresentValues};
+pub use crate::tile::{MValue, MValueKey, NestedKey, NestedKind, NestedValue, ZStep};
+pub(crate) use crate::utils::analyze::{Analyze, StatType};
+pub(crate) use crate::utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
+pub use crate::utils::{PresenceOptIter, PresentValues};
 
 /// Wire-level encoding metadata - for tile analysis and tooling.
 ///

@@ -11,9 +11,9 @@ mod walker01;
 #[cfg(feature = "unstable-v2")]
 mod walker02;
 
-pub use decode::{DecodedBlob, decode_blob, decode_region};
-pub use model::{
+pub use crate::dump::decode::{DecodedBlob, decode_blob, decode_region};
+pub use crate::dump::model::{
     BitField, BlobInfo, DecodeHint, DumpTree, Region, RegionKind, UNANNOTATED, filter_layer,
 };
-pub use render::{DataMode, RenderOpts, render};
-pub use walker::annotate_tile;
+pub use crate::dump::render::{DataMode, RenderOpts, render};
+pub use crate::dump::walker::annotate_tile;

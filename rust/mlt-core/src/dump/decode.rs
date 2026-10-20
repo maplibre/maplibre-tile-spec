@@ -5,10 +5,10 @@ use std::borrow::Cow;
 use serde::Serialize;
 use usize_cast::IntoUsize as _;
 
-use super::model::{BlobInfo, DecodeHint, DumpTree, Region};
 use crate::codecs::fsst::decode_fsst_bytes;
 use crate::decoder::strings::rebuild_dictionary;
 use crate::decoder::{DictLayout, DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
+use crate::dump::model::{BlobInfo, DecodeHint, DumpTree, Region};
 use crate::{Decoder, GeometryType, MltError, MltResult};
 
 /// One data blob decoded for display, capped at the caller's value count.

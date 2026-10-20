@@ -10,8 +10,8 @@ use size_format::SizeFormatterSI;
 use tilejson::{Bounds, Center};
 use xxhash_rust::xxh3::Xxh3Builder;
 
-use super::bbox::{clip_bounds, clip_center};
 use super::{Reencoder, encode_one, whole_rate_per_sec};
+use crate::convert::bbox::{clip_bounds, clip_center};
 
 /// Geographic fields carried into a new `PMTiles` archive.
 /// Optional because sources like `MBTiles` may not have every value; unset fields keep the writer's defaults.

@@ -13,8 +13,8 @@ use mlt_core::mvt::mvt_to_feature_collection;
 use rstar::{AABB, PointDistance, RTree, RTreeObject};
 
 use super::group_by_layer;
-use super::state::LayerGroup;
 use super::tile::{CACHE_BYTES, fc_memory_estimate};
+use crate::ui::state::LayerGroup;
 
 type DecodedTile = (FeatureCollection, u32, Vec<LayerGroup>, RTree<MbtGeoEntry>);
 type BestHover = Option<(f64, (u8, u32, u32), usize, usize)>;

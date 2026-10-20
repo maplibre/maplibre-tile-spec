@@ -4,6 +4,7 @@
 mod decode;
 mod encode;
 
-pub use decode::{mvt_to_feature_collection, mvt_to_tile_layers};
-pub use encode::tile_layers_to_mvt;
 pub(crate) use encode::write_mvt_layer;
+
+pub use crate::convert::mvt::decode::{mvt_to_feature_collection, mvt_to_tile_layers};
+pub use crate::convert::mvt::encode::tile_layers_to_mvt;

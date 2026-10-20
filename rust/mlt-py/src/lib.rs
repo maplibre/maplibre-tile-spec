@@ -15,9 +15,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
 use pyo3_stub_gen::define_stub_info_gatherer;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
-use tile_transform::TileTransform;
 
 use crate::feature::MltFeature;
+use crate::tile_transform::TileTransform;
 
 #[expect(clippy::needless_pass_by_value, reason = "helper util")]
 fn mlt_err(e: MltError) -> PyErr {
@@ -352,8 +352,8 @@ fn maplibre_tiles(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decode_mlt, m)?)?;
     m.add_function(wrap_pyfunction!(decode_mlt_to_geojson, m)?)?;
     m.add_function(wrap_pyfunction!(list_layers, m)?)?;
-    m.add_function(wrap_pyfunction!(encode::geojson::encode_geojson, m)?)?;
-    m.add_function(wrap_pyfunction!(encode::mvt::encode_mvt, m)?)?;
+    m.add_function(wrap_pyfunction!(crate::encode::geojson::encode_geojson, m)?)?;
+    m.add_function(wrap_pyfunction!(crate::encode::mvt::encode_mvt, m)?)?;
     m.add_class::<MltLayer>()?;
     m.add_class::<MltFeature>()?;
     Ok(())

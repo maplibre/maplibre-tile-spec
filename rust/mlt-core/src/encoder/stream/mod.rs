@@ -5,22 +5,24 @@ mod float_alp;
 mod float_cost;
 #[cfg(feature = "unstable-v2")]
 mod float_dict;
-pub(crate) use codecs::LogicalCodecs;
-#[cfg(feature = "__private")]
-pub use codecs::{Codecs, PhysicalCodecs};
 #[cfg(not(feature = "__private"))]
 pub(crate) use codecs::{Codecs, PhysicalCodecs};
+
+pub(crate) use crate::encoder::stream::codecs::LogicalCodecs;
+#[cfg(feature = "__private")]
+pub use crate::encoder::stream::codecs::{Codecs, PhysicalCodecs};
 
 mod encode_stream;
 pub(crate) use encode_stream::dedup_strings;
 
 mod encoder;
-pub use encoder::IntEncoder;
+pub use crate::encoder::stream::encoder::IntEncoder;
 pub(crate) mod logical;
-#[cfg(feature = "__private")]
-pub use logical::LogicalEncoder;
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use logical::LogicalEncoder;
+
+#[cfg(feature = "__private")]
+pub use crate::encoder::stream::logical::LogicalEncoder;
 
 mod model;
 #[cfg(any(test, feature = "__private"))]
@@ -28,10 +30,11 @@ pub use model::*;
 
 mod optimizer;
 mod physical;
-#[cfg(feature = "__private")]
-pub use physical::PhysicalEncoder;
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use physical::PhysicalEncoder;
+
+#[cfg(feature = "__private")]
+pub use crate::encoder::stream::physical::PhysicalEncoder;
 
 #[cfg(test)]
 mod tests;

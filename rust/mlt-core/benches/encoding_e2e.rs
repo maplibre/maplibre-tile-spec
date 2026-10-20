@@ -3,18 +3,18 @@ use std::hint::black_box;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
 use mlt_core::Layer;
-use mlt_core::encoder::{EncoderConfig, LogicalEncoder, stage_tile};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, LogicalEncoder, Network, Profile, stage_tile};
 use strum::IntoEnumIterator as _;
 use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
-use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
 use mlt_core::encoder::SortStrategy::Unsorted;
 use mlt_core::encoder::{
     Codecs, Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer,
 };
+
+use crate::bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
 
 fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
     if cfg!(debug_assertions) {
