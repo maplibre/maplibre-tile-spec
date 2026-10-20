@@ -204,7 +204,7 @@ mod tests {
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, StagedId, StagedLayer,
     };
     use crate::test_helpers::{dec, into_layer01, parser};
-    use crate::{Layer, LazyParsed, MltError, MltResult};
+    use crate::{Layer, LazyParsed, MltErrorKind, MltResult};
 
     /// Round-trip `StagedId` via full layer bytes using an explicit encoder.
     fn id_roundtrip_via_layer(decoded: &StagedId, int_enc: IntEncoder) -> StagedId {
@@ -584,7 +584,7 @@ mod tests {
         let buf = enc.into_layer_bytes()?;
         let (_, layer) = Layer::from_bytes(&buf, &mut parser())?;
         let Layer::Tag01(layer01) = layer else {
-            return Err(MltError::NotDecoded("expected Tag01 layer"));
+            return Err(MltErrorKind::NotDecoded("expected Tag01 layer").into());
         };
         // When all source IDs were null, the encoder skips the ID column entirely.
         // On decode, the absent column is semantically identical to all-null IDs.

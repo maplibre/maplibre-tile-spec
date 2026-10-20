@@ -13,7 +13,7 @@ use crate::mvt::write_mvt_layer;
 use crate::tile::{
     ColumnRole, Extent, PropKind, PropertyKey, reject_taken_name, validate_layer_name,
 };
-use crate::{MltError, MltResult, PropValueRef};
+use crate::{MltErrorKind, MltResult, PropValueRef};
 
 /// A layer written feature by feature, straight from borrowed values, and encoded exactly as the
 /// same features in a [`TileLayer`](crate::TileLayer) would be.
@@ -254,18 +254,20 @@ impl<'a> FeatureWriter<'_, 'a> {
         let index = key.index();
         let layer = &mut *self.layer;
         let Some(&expected) = layer.property_kinds.get(index) else {
-            return Err(MltError::UnknownProperty {
+            return Err(MltErrorKind::UnknownProperty {
                 index,
                 count: layer.property_kinds.len(),
-            });
+            }
+            .into());
         };
         let actual = value.kind();
         if actual != expected {
-            return Err(MltError::PropertyKindMismatch {
+            return Err(MltErrorKind::PropertyKindMismatch {
                 index,
                 expected,
                 actual,
-            });
+            }
+            .into());
         }
         layer.columns[index].set(layer.ids.len(), value);
         Ok(self)
@@ -313,10 +315,11 @@ impl<'a> FeatureWriter<'_, 'a> {
     pub fn hole(&mut self, coords: impl IntoIterator<Item = Coord<i32>>) -> MltResult<&mut Self> {
         self.check_family(Family::Polygons, "rings")?;
         if self.layer.geometry.group_ends.len() == self.start.groups {
-            return Err(MltError::InvalidFeatureGeometry(
+            return Err(MltErrorKind::InvalidFeatureGeometry(
                 self.geometry_type,
                 "starts with a hole instead of an exterior ring",
-            ));
+            )
+            .into());
         }
         self.ring(coords)
     }
@@ -332,7 +335,7 @@ impl<'a> FeatureWriter<'_, 'a> {
         if Family::of(self.geometry_type).0 == family {
             Ok(())
         } else {
-            Err(MltError::InvalidFeatureGeometry(self.geometry_type, what))
+            Err(MltErrorKind::InvalidFeatureGeometry(self.geometry_type, what).into())
         }
     }
 
@@ -350,7 +353,7 @@ impl<'a> FeatureWriter<'_, 'a> {
                 .then_some("needs exactly one polygon"),
         };
         if let Some(reason) = invalid {
-            return Err(MltError::InvalidFeatureGeometry(self.geometry_type, reason));
+            return Err(MltErrorKind::InvalidFeatureGeometry(self.geometry_type, reason).into());
         }
         layer.geometry.finish_feature(self.geometry_type)?;
         let len = layer.ids.len() + 1;
@@ -641,7 +644,7 @@ fn item_range(ends: &[u32], index: usize) -> Range<usize> {
 
 /// A layer holds at most `u32::MAX` vertices.
 fn len32(len: usize) -> MltResult<u32> {
-    u32::try_from(len).map_err(|_| MltError::IntegerOverflow)
+    u32::try_from(len).map_err(|_| MltErrorKind::IntegerOverflow.into())
 }
 
 #[cfg(test)]

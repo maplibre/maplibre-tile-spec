@@ -6,7 +6,7 @@ use mlt_core::encoder::{EncoderConfig, Tessellation, WireVersion, stage_tile};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
-use mlt_core::{MltError, TileFeature, TileLayer, ZStep};
+use mlt_core::{MltError, MltErrorKind, TileFeature, TileLayer, ZStep};
 
 use crate::roundtrip::{decode, encode_decode};
 
@@ -207,9 +207,9 @@ fn stored_coords(geometry: &Geometry<i32>) -> Vec<Coord<i32>> {
 
 /// Encode through the row model and decode back, or `None` when v2 has no layout for the layer.
 fn encode(layer: &TileLayer, cfg: EncoderConfig) -> Option<TileLayer> {
-    match layer.encode(cfg) {
+    match layer.encode(cfg).map_err(MltError::into_kind) {
         Ok(bytes) => Some(decode(&bytes, 2)),
-        Err(MltError::NotImplemented(_)) => None,
+        Err(MltErrorKind::NotImplemented(_)) => None,
         Err(e) => panic!("encode should not fail: {e}"),
     }
 }

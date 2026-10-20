@@ -1,7 +1,7 @@
 //! Layer envelope and column ordering for tag `0x01` (v1) layers.
 
 #[cfg(feature = "unstable-v2")]
-use crate::MltError;
+use crate::MltErrorKind;
 use crate::MltResult;
 use crate::encoder::model::StagedLayer;
 use crate::encoder::property::encode::write_prop;
@@ -21,18 +21,18 @@ pub(crate) fn encode_into01(
     // writable as v1 - dropping them silently would lose data the caller staged.
     #[cfg(feature = "unstable-v2")]
     if !layer.m_values.is_empty() {
-        return Err(MltError::MValuesNeedV2(layer.name));
+        return Err(MltErrorKind::MValuesNeedV2(layer.name).into());
     }
     // A nested column has nowhere to go in v1 either, and flattening it would be
     // a different tile rather than the same one in another format.
     #[cfg(feature = "unstable-v2")]
     if !layer.nested.is_empty() {
-        return Err(MltError::NestedNeedsV2(layer.name));
+        return Err(MltErrorKind::NestedNeedsV2(layer.name).into());
     }
     // v1 vertices are (x, y) pairs, so a z coordinate has nowhere to go.
     #[cfg(feature = "unstable-v2")]
     if layer.geometry.z_step.is_some() {
-        return Err(MltError::ZNeedsV2(layer.name));
+        return Err(MltErrorKind::ZNeedsV2(layer.name).into());
     }
 
     let StagedLayer {

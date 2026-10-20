@@ -1909,7 +1909,10 @@ fn a_run_coded_presence_is_charged_to_the_parse_budget() {
     assert!(Parser::default().parse_layers(&tile).is_ok());
     let err = Parser::with_max_size(64).parse_layers(&tile).unwrap_err();
     assert!(
-        matches!(err, mlt_core::MltError::MemoryLimitExceeded { .. }),
+        matches!(
+            err.kind(),
+            mlt_core::MltErrorKind::MemoryLimitExceeded { .. }
+        ),
         "the bits should be refused by the budget, not by something else: {err}"
     );
 }

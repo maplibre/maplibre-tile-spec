@@ -31,7 +31,7 @@ use crate::encoder::stream::logical::LogicalEncoder;
 use crate::encoder::stream::optimizer::DataProfile;
 use crate::encoder::write::{LogicalIntCodec, LogicalIntStreamKind, PhysicalIntStreamKind};
 #[cfg(feature = "unstable-v2")]
-use crate::errors::MltError;
+use crate::errors::MltErrorKind;
 use crate::errors::MltResult;
 
 #[derive(Default)]
@@ -144,7 +144,8 @@ impl Codecs {
             match enc.override_float_enc(&ctx.qualified()) {
                 // A pinned encoding is written as asked, with nothing costed against it.
                 Some(FloatEncoding::Alp) => {
-                    let mut alp = AlpStream::smallest(values).ok_or(MltError::NoAlpParameters)?;
+                    let mut alp =
+                        AlpStream::smallest(values).ok_or(MltErrorKind::NoAlpParameters)?;
                     // The pin names the logical encoding; the physical one still races.
                     alp.race_fastpfor(&mut self.physical, enc.config())?;
                     return self.write_alp_stream(&alp, ctx.stream_type, enc);

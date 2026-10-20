@@ -6,7 +6,7 @@ use serde_json::{Map, Value};
 
 use crate::convert::infer::{ColumnInference, InferredKind};
 use crate::tile::{PropKind, PropValue};
-use crate::{MltError, MltResult};
+use crate::{MltErrorKind, MltResult};
 
 /// The property columns of a set of `GeoJSON` features: names in first-seen
 /// order, each with one [`PropKind`] shared by every feature.
@@ -84,7 +84,7 @@ fn kind_of(name: &str, value: &Value) -> MltResult<InferredKind> {
         Value::Number(_) => InferredKind::F64,
         Value::String(_) => InferredKind::Str,
         Value::Array(_) | Value::Object(_) => {
-            return Err(MltError::NestedPropertyValue { name: name.into() });
+            return Err(MltErrorKind::NestedPropertyValue { name: name.into() }.into());
         }
     })
 }
@@ -105,10 +105,13 @@ fn convert(kind: PropKind, name: &str, value: &Value) -> MltResult<PropValue> {
         // its widened column's range gets here.
         _ => None,
     };
-    converted.ok_or_else(|| MltError::PropertyValueMismatch {
-        name: name.into(),
-        value: value.to_string(),
-        kind,
+    converted.ok_or_else(|| {
+        MltErrorKind::PropertyValueMismatch {
+            name: name.into(),
+            value: value.to_string(),
+            kind,
+        }
+        .into()
     })
 }
 

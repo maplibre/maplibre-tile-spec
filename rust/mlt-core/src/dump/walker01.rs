@@ -17,7 +17,7 @@ use crate::wire::{
     BoolLogical, IntLogical, LogicalEncoding, LogicalTechnique, StreamMeta, ValueKind,
     VertexLogical,
 };
-use crate::{MltError, MltResult};
+use crate::{MltErrorKind, MltResult};
 
 impl<'a> Walker<'a> {
     /// Mirror [`crate::decoder::Layer01::from_bytes`].
@@ -59,7 +59,7 @@ impl<'a> Walker<'a> {
         column_count: u32,
     ) -> MltResult<(&'a [u8], Vec<Column<'a>>)> {
         if input.len() < column_count.into_usize() {
-            return Err(MltError::BufferUnderflow(column_count, input.len()));
+            return Err(MltErrorKind::BufferUnderflow(column_count, input.len()).into());
         }
         let mut cols = Vec::with_capacity(column_count.into_usize());
         for i in 0..column_count {
@@ -120,7 +120,7 @@ impl<'a> Walker<'a> {
             )?;
             input = rest;
             if input.len() < child_count.into_usize() {
-                return Err(MltError::BufferUnderflow(child_count, input.len()));
+                return Err(MltErrorKind::BufferUnderflow(child_count, input.len()).into());
             }
             children.reserve(child_count.into_usize());
             for j in 0..child_count {
@@ -211,7 +211,7 @@ impl<'a> Walker<'a> {
             |v| Some(v.to_string()),
         )?;
         if stream_count == 0 {
-            return Err(MltError::GeometryWithoutStreams);
+            return Err(MltErrorKind::GeometryWithoutStreams.into());
         }
         let types = |_| DecodeHint::GeometryType;
         input = self
@@ -242,7 +242,7 @@ impl<'a> Walker<'a> {
         let mut remaining = stream_count.into_usize();
         if typ.is_optional() {
             if remaining == 0 {
-                return Err(MltError::UnsupportedStringStreamCount(remaining));
+                return Err(MltErrorKind::UnsupportedStringStreamCount(remaining).into());
             }
             input = self
                 .walk_stream(
@@ -294,7 +294,7 @@ impl<'a> Walker<'a> {
                 break;
             }
             if taken >= 5 {
-                return Err(MltError::UnsupportedStringStreamCount(taken + 1));
+                return Err(MltErrorKind::UnsupportedStringStreamCount(taken + 1).into());
             }
         }
 
@@ -428,7 +428,7 @@ impl<'a> Walker<'a> {
 
         // Consistency guard: the hand re-walk must land exactly on the authoritative tail.
         if self.off(c) != self.off(after_hdr) {
-            return Err(MltError::NotImplemented("stream header re-walk desync"));
+            return Err(MltErrorKind::NotImplemented("stream header re-walk desync").into());
         }
 
         let (rest, payload) = take(after_hdr, byte_length)?;

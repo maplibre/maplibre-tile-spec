@@ -10,9 +10,78 @@ use crate::decoder::{
 pub type MltResult<T> = Result<T, MltError>;
 pub(crate) type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
+/// An error raised while parsing, decoding or encoding a tile, boxed to the size of one pointer.
+pub struct MltError(Box<MltErrorKind>);
+
+impl MltError {
+    /// The kind of error this is.
+    #[must_use]
+    pub fn kind(&self) -> &MltErrorKind {
+        &self.0
+    }
+
+    /// Unwraps the kind of error this is.
+    #[must_use]
+    pub fn into_kind(self) -> MltErrorKind {
+        *self.0
+    }
+}
+
+impl std::fmt::Debug for MltError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for MltError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::error::Error for MltError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
+
+impl From<MltErrorKind> for MltError {
+    #[cold]
+    #[inline(never)]
+    fn from(kind: MltErrorKind) -> Self {
+        Self(Box::new(kind))
+    }
+}
+
+macro_rules! impl_from_source {
+    ($($source:ty),* $(,)?) => {
+        $(
+            impl From<$source> for MltError {
+                #[cold]
+                fn from(source: $source) -> Self {
+                    MltErrorKind::from(source).into()
+                }
+            }
+        )*
+    };
+}
+
+impl_from_source!(
+    fastpfor::FastPForError,
+    std::io::Error,
+    serde_json::Error,
+    TryFromIntError,
+    TryFromPrimitiveError<GeometryType>,
+    std::str::Utf8Error,
+    std::string::FromUtf8Error,
+    fast_mvt::MvtError,
+    fast_mvt::MvtJsonValueError,
+);
+
+/// The kinds of error an [`MltError`] can hold.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
-pub enum MltError {
+pub enum MltErrorKind {
     #[error("cannot decode {0} as {1}")]
     DataWidthMismatch(&'static str, &'static str),
     #[error("dictionary index {0} out of bounds (len={1})")]
@@ -453,10 +522,11 @@ pub enum MltError {
 
 impl From<MltError> for std::io::Error {
     fn from(value: MltError) -> Self {
-        if let MltError::Io(e) = value {
+        let kind = value.into_kind();
+        if let MltErrorKind::Io(e) = kind {
             e
         } else {
-            Self::other(value)
+            Self::other(MltError::from(kind))
         }
     }
 }
@@ -468,14 +538,14 @@ pub(crate) trait AsMltError<T> {
 impl<T: Copy> AsMltError<T> for Option<T> {
     #[inline]
     fn or_overflow(&self) -> MltResult<T> {
-        self.ok_or(MltError::IntegerOverflow)
+        self.ok_or_else(|| MltErrorKind::IntegerOverflow.into())
     }
 }
 
 impl AsMltError<u32> for Result<u32, TryFromIntError> {
     #[inline]
     fn or_overflow(&self) -> MltResult<u32> {
-        self.map_err(|_| MltError::IntegerOverflow)
+        self.map_err(|_| MltErrorKind::IntegerOverflow.into())
     }
 }
 
@@ -484,7 +554,7 @@ pub(crate) fn fail_if_invalid_stream_size(actual: usize, expected: usize) -> Mlt
     if actual == expected {
         Ok(())
     } else {
-        Err(MltError::InvalidDecodingStreamSize(actual, expected))
+        Err(MltErrorKind::InvalidDecodingStreamSize(actual, expected).into())
     }
 }
 
@@ -495,15 +565,20 @@ mod tests {
     #[test]
     fn an_io_error_comes_back_out_as_itself() {
         let io = std::io::Error::new(std::io::ErrorKind::NotFound, "gone");
-        let back = std::io::Error::from(MltError::Io(io));
+        let back = std::io::Error::from(MltError::from(io));
         assert_eq!(back.kind(), std::io::ErrorKind::NotFound);
         assert_eq!(back.to_string(), "gone");
     }
 
     #[test]
     fn any_other_error_becomes_an_other_io_error() {
-        let back = std::io::Error::from(MltError::IntegerOverflow);
+        let back = std::io::Error::from(MltError::from(MltErrorKind::IntegerOverflow));
         assert_eq!(back.kind(), std::io::ErrorKind::Other);
-        assert_eq!(back.to_string(), MltError::IntegerOverflow.to_string());
+        assert_eq!(back.to_string(), MltErrorKind::IntegerOverflow.to_string());
+    }
+
+    #[test]
+    fn an_error_is_one_pointer_wide() {
+        assert_eq!(size_of::<MltError>(), size_of::<usize>());
     }
 }

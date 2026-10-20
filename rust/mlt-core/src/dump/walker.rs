@@ -8,7 +8,7 @@ use crate::codecs::varint::parse_varint;
 use crate::dump::UNANNOTATED;
 use crate::dump::model::{BitField, BlobInfo, DumpTree, Region, RegionKind};
 use crate::utils::{parse_u8, take};
-use crate::{MltError, MltRefResult, MltResult, Parser};
+use crate::{MltError, MltErrorKind, MltRefResult, MltResult, Parser};
 
 /// Walk a whole tile buffer, producing an annotated [`DumpTree`].
 ///
@@ -248,7 +248,7 @@ impl<'a> Walker<'a> {
         )?;
         let (input, tag) = self.field(input, "tag", parse_u8, |t| Some(tag_label(*t)))?;
 
-        let body_len = size.checked_sub(1).ok_or(MltError::ZeroLayerSize)?;
+        let body_len = size.checked_sub(1).ok_or(MltErrorKind::ZeroLayerSize)?;
         let (rest, body) = take(input, body_len)?;
 
         // The name is only known once the body has been read, so the layer takes its label

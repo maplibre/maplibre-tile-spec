@@ -3,7 +3,7 @@ use wide::u32x8;
 
 use crate::decoder::Morton;
 use crate::encoder::model::CurveParams;
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltErrorKind, MltResult};
 
 const LANES: usize = 8;
 
@@ -120,10 +120,11 @@ impl Morton {
         // Capped at 16: Morton codes are u32, so each axis may use at most 16 bits.
         let required_bits = extent.bit_width();
         if required_bits > 16 {
-            return Err(MltError::VertexMortonNotCompatibleWithExtent {
+            return Err(MltErrorKind::VertexMortonNotCompatibleWithExtent {
                 extent,
                 required_bits,
-            });
+            }
+            .into());
         }
         Self::new(required_bits, shift)
     }
@@ -528,7 +529,7 @@ mod tests {
             .decode_delta(&[0, 1], &mut starved_dec())
             .unwrap_err();
         assert!(
-            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            matches!(err.kind(), MltErrorKind::MemoryLimitExceeded { .. }),
             "{err:?}"
         );
     }
@@ -560,8 +561,8 @@ mod tests {
         let err = Morton::from_vertices(vertices).unwrap_err();
         assert!(
             matches!(
-                err,
-                MltError::VertexMortonNotCompatibleWithExtent {
+                err.kind(),
+                MltErrorKind::VertexMortonNotCompatibleWithExtent {
                     extent: 65_536,
                     required_bits: 17,
                 }
@@ -586,7 +587,10 @@ mod tests {
     #[case::y_below_the_shift(0, -20_000)]
     fn encode_morton_rejects_a_coordinate_the_shift_cannot_lift(#[case] x: i32, #[case] y: i32) {
         let err = MORTON.encode_morton(x, y).unwrap_err();
-        assert!(matches!(err, MltError::TryFromIntError(_)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::TryFromIntError(_)),
+            "{err:?}"
+        );
     }
 
     fn expected_coords(pairs: &[Coord<u32>]) -> Vec<i32> {

@@ -3,7 +3,7 @@
 use usize_cast::IntoUsize as _;
 
 use crate::LazyParsed::Raw;
-use crate::MltError::{
+use crate::MltErrorKind::{
     BufferUnderflow, GeometryWithoutStreams, InvalidSharedDictStreamCount, MissingGeometry,
     MissingLayerName, MultipleGeometryColumns, MultipleIdColumns, SharedDictRequiresStreams,
     TrailingLayerData, UnexpectedStructChildCount, UnsupportedStringStreamCount,
@@ -27,7 +27,7 @@ impl<'a> Layer01<'a, Lazy> {
         let mut bytes = LayerBytes::of_body(input.len());
         let (input, layer_name) = parse_string(input)?;
         if layer_name.is_empty() {
-            return Err(MissingLayerName);
+            return Err(MissingLayerName.into());
         }
         let (input, extent) = parse_varint::<u32>(input)?;
         let extent = Extent::new(extent)?;
@@ -35,7 +35,7 @@ impl<'a> Layer01<'a, Lazy> {
 
         // Each column requires at least 1 byte (column type)
         if input.len() < column_count.into_usize() {
-            return Err(BufferUnderflow(column_count, input.len()));
+            return Err(BufferUnderflow(column_count, input.len()).into());
         }
 
         // !!!!!!!
@@ -147,7 +147,7 @@ impl<'a> Layer01<'a, Lazy> {
                 layer_order,
             })
         } else {
-            Err(TrailingLayerData(input.len()))
+            Err(TrailingLayerData(input.len()).into())
         }
     }
 }
@@ -165,7 +165,7 @@ fn parse_shared_dict_children<'a>(
         if let Some(data_count) = sc.checked_sub(optional_stream_count)
             && data_count != 1
         {
-            return Err(UnexpectedStructChildCount(data_count));
+            return Err(UnexpectedStructChildCount(data_count).into());
         }
         let (inp, data) = header01::parse_stream(inp, ValueKind::Int, parser)?;
         children.push(RawSharedDictItem {
@@ -198,12 +198,12 @@ fn parse_geometry_column<'a>(
 ) -> MltResult<&'a [u8]> {
     let (input, stream_count) = parse_varint::<u32>(input)?;
     if stream_count == 0 {
-        return Err(GeometryWithoutStreams);
+        return Err(GeometryWithoutStreams.into());
     }
     // Each stream requires at least 1 byte (physical stream type)
     let stream_count_capa = stream_count.into_usize();
     if input.len() < stream_count_capa {
-        return Err(BufferUnderflow(stream_count, input.len()));
+        return Err(BufferUnderflow(stream_count, input.len()).into());
     }
     // metadata
     let (input, meta) = header01::parse_stream(input, ValueKind::Int, parser)?;
@@ -233,13 +233,13 @@ fn parse_str_column<'a>(
     (input, presence) = parse_optional(typ, input, parser)?;
     if presence.is_optional() {
         if stream_count == 0 {
-            return Err(UnsupportedStringStreamCount(stream_count));
+            return Err(UnsupportedStringStreamCount(stream_count).into());
         }
         stream_count -= 1;
     }
     let mut str_streams = [None, None, None, None, None];
     if stream_count > str_streams.len() {
-        return Err(UnsupportedStringStreamCount(stream_count));
+        return Err(UnsupportedStringStreamCount(stream_count).into());
     }
     for slot in str_streams.iter_mut().take(stream_count) {
         let stream;
@@ -291,7 +291,7 @@ fn parse_shared_dict_column<'a>(
         if is_last {
             break;
         } else if streams_taken >= dict_streams.len() {
-            return Err(UnsupportedStringStreamCount(streams_taken + 1));
+            return Err(UnsupportedStringStreamCount(streams_taken + 1).into());
         }
     }
     let children;
@@ -314,7 +314,8 @@ fn parse_shared_dict_column<'a>(
         return Err(InvalidSharedDictStreamCount {
             actual: stream_count,
             expected,
-        });
+        }
+        .into());
     }
 
     let name = column.name.unwrap_or("");
@@ -365,7 +366,7 @@ fn parse_columns_meta<'a>(
                 // Each column requires at least 1 byte (ColumnType without a name)
                 let child_col_capacity = child_column_count.into_usize();
                 if input.len() < child_col_capacity {
-                    return Err(BufferUnderflow(child_column_count, input.len()));
+                    return Err(BufferUnderflow(child_column_count, input.len()).into());
                 }
                 let mut children = Vec::with_capacity(child_col_capacity);
                 for _ in 0..child_column_count {
@@ -381,10 +382,10 @@ fn parse_columns_meta<'a>(
         col_info.push(typ);
     }
     if geometries > 1 {
-        return Err(MultipleGeometryColumns);
+        return Err(MultipleGeometryColumns.into());
     }
     if ids > 1 {
-        return Err(MultipleIdColumns);
+        return Err(MultipleIdColumns.into());
     }
 
     Ok((input, (col_info, column_count - geometries - ids)))
@@ -392,7 +393,7 @@ fn parse_columns_meta<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{MltError, Parser};
+    use crate::{MltError, MltErrorKind, Parser};
 
     #[test]
     fn parse_layers_rejects_empty_layer_name() {
@@ -405,8 +406,10 @@ mod tests {
         ];
 
         assert!(matches!(
-            Parser::default().parse_layers(&bytes),
-            Err(MltError::MissingLayerName)
+            Parser::default()
+                .parse_layers(&bytes)
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::MissingLayerName)
         ));
     }
 }

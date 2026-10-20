@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltError::DictIndexOutOfBounds;
+use crate::MltErrorKind::DictIndexOutOfBounds;
 use crate::codecs::front_coding::front_code;
 use crate::codecs::fsst::{compress_fsst_bytes, compress_fsst_with};
 use crate::decoder::stream::header02::{Count02, Family, StrLayout, WordWidth};

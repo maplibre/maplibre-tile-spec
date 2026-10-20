@@ -1,7 +1,7 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::MltError;
+use crate::MltErrorKind;
 use crate::decoder::stream::header01;
 use crate::decoder::{
     BoolLogical, DictionaryType, FastPForKind, IntEncoding, IntLogical, LengthType,
@@ -352,7 +352,7 @@ fn test_morton_parse_rejects_too_many_bits() {
     buffer.write_stream(&stream).unwrap();
 
     let err = header01::parse_stream(&buffer, ValueKind::Int, &mut parser()).unwrap_err();
-    assert!(matches!(err, MltError::InvalidMortonBits(17)));
+    assert!(matches!(err.kind(), MltErrorKind::InvalidMortonBits(17)));
 }
 
 /// OOM regression: `VarInt` stream with huge `num_values` but `byte_length=0`.

@@ -7,7 +7,7 @@ use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
 use crate::tile::ZStep;
 use crate::utils::formatter::{bytes_dbg, compact_dbg};
-use crate::{MltError, MltResult};
+use crate::{MltErrorKind, MltResult};
 
 /// Logical encoding technique used for a column, as stored in the tile
 ///
@@ -95,7 +95,7 @@ impl Morton {
         if bits <= 16 {
             Ok(Self { bits, shift })
         } else {
-            Err(MltError::InvalidMortonBits(bits))
+            Err(MltErrorKind::InvalidMortonBits(bits).into())
         }
     }
 }
@@ -145,7 +145,7 @@ impl AlpScale {
                 let f = byte.checked_sub(Self::row_start(e))?;
                 (f <= e).then_some(Self { e, f })
             })
-            .ok_or(MltError::InvalidAlpScale(byte))
+            .ok_or_else(|| MltErrorKind::InvalidAlpScale(byte).into())
     }
 
     /// First byte of the row for `e`, which is `e * (e + 1) / 2`.
@@ -175,7 +175,7 @@ impl Alp {
                 base,
             })
         } else {
-            Err(MltError::InvalidAlpParams(e, f))
+            Err(MltErrorKind::InvalidAlpParams(e, f).into())
         }
     }
 
@@ -497,7 +497,7 @@ impl StreamMeta {
         let num_words = u32::try_from(num_words)?;
         let per_value = logical.words_per_value();
         if !num_words.is_multiple_of(per_value) {
-            return Err(MltError::PartialVertex(num_words, per_value));
+            return Err(MltErrorKind::PartialVertex(num_words, per_value).into());
         }
         Ok(Self::new(stream_type, enc, num_words / per_value))
     }
@@ -853,7 +853,7 @@ mod tests {
         )
         .unwrap_err();
         assert!(
-            matches!(err, MltError::PartialVertex(w, p) if w == words && p == per_vertex),
+            matches!(err.kind(), MltErrorKind::PartialVertex(w, p) if *w == words && *p == per_vertex),
             "{err:?}"
         );
     }

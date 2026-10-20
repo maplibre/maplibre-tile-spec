@@ -1,7 +1,7 @@
 use std::any::type_name;
 use std::{fmt, mem};
 
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltErrorKind, MltResult};
 
 pub trait Decode<Parsed>: Sized {
     fn decode(self, decoder: &mut Decoder) -> MltResult<Parsed>;
@@ -75,7 +75,7 @@ impl<Raw: Decode<Parsed>, Parsed> LazyParsed<Raw, Parsed> {
                 };
                 Ok(v)
             }
-            Self::ParsingFailed => Err(MltError::PriorParseFailure),
+            Self::ParsingFailed => Err(MltErrorKind::PriorParseFailure.into()),
         }
     }
 
@@ -84,15 +84,15 @@ impl<Raw: Decode<Parsed>, Parsed> LazyParsed<Raw, Parsed> {
         match self {
             Self::Parsed(v) => Ok(v),
             Self::Raw(raw) => raw.decode(decoder),
-            Self::ParsingFailed => Err(MltError::PriorParseFailure),
+            Self::ParsingFailed => Err(MltErrorKind::PriorParseFailure.into()),
         }
     }
 
     pub fn as_parsed(&self) -> MltResult<&Parsed> {
         match self {
             Self::Parsed(v) => Ok(v),
-            Self::Raw(_) => Err(MltError::NotDecoded(type_name::<Parsed>())),
-            Self::ParsingFailed => Err(MltError::PriorParseFailure),
+            Self::Raw(_) => Err(MltErrorKind::NotDecoded(type_name::<Parsed>()).into()),
+            Self::ParsingFailed => Err(MltErrorKind::PriorParseFailure.into()),
         }
     }
 }
@@ -100,13 +100,14 @@ impl<Raw: Decode<Parsed>, Parsed> LazyParsed<Raw, Parsed> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::MltError;
 
     struct RawWord(&'static str);
 
     impl Decode<String> for RawWord {
         fn decode(self, _decoder: &mut Decoder) -> MltResult<String> {
             if self.0.is_empty() {
-                return Err(MltError::IntegerOverflow);
+                return Err(MltErrorKind::IntegerOverflow.into());
             }
             Ok(self.0.to_owned())
         }
@@ -124,16 +125,19 @@ mod tests {
     fn a_failed_decode_leaves_the_prior_failure_behind() {
         let mut lazy = LazyParsed::<RawWord, String>::Raw(RawWord(""));
         assert!(matches!(
-            lazy.decode(&mut Decoder::default()),
-            Err(MltError::IntegerOverflow)
+            lazy.decode(&mut Decoder::default())
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::IntegerOverflow)
         ));
         assert!(matches!(
-            lazy.decode(&mut Decoder::default()),
-            Err(MltError::PriorParseFailure)
+            lazy.decode(&mut Decoder::default())
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::PriorParseFailure)
         ));
         assert!(matches!(
-            lazy.into_parsed(&mut Decoder::default()),
-            Err(MltError::PriorParseFailure)
+            lazy.into_parsed(&mut Decoder::default())
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::PriorParseFailure)
         ));
     }
 

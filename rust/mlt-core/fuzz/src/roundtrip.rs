@@ -1,5 +1,5 @@
 use mlt_core::encoder::{Codecs, Encoder, EncoderConfig, StagedLayer, WireVersion};
-use mlt_core::{Decoder, Layer, MltError, Parser, TileLayer};
+use mlt_core::{Decoder, Layer, MltError, MltErrorKind, Parser, TileLayer};
 
 /// Encode `staged` with `cfg`, then parse and decode it back to a row-oriented [`TileLayer`].
 ///
@@ -15,19 +15,22 @@ pub fn encode_decode(staged: StagedLayer, cfg: EncoderConfig) -> Option<TileLaye
 /// Encode `staged` to a complete layer record, or `None` if `cfg`'s wire version lacks the feature.
 pub fn encode(staged: StagedLayer, cfg: EncoderConfig) -> Option<Vec<u8>> {
     let mut codecs = Codecs::default();
-    match staged.encode_into(Encoder::new(cfg), &mut codecs) {
+    match staged
+        .encode_into(Encoder::new(cfg), &mut codecs)
+        .map_err(MltError::into_kind)
+    {
         Ok(enc) => Some(
             enc.into_layer_bytes()
                 .expect("into_layer_bytes should not fail"),
         ),
         Err(
-            MltError::NotImplemented(_)
-            | MltError::MValuesNeedV2(_)
-            | MltError::MValuesNeedVertexCounts(_)
-            | MltError::NestedNeedsV2(_)
-            | MltError::EightBitNeedsV2(_)
-            | MltError::ZNeedsV2(_)
-            | MltError::UnsupportedExtent02(_),
+            MltErrorKind::NotImplemented(_)
+            | MltErrorKind::MValuesNeedV2(_)
+            | MltErrorKind::MValuesNeedVertexCounts(_)
+            | MltErrorKind::NestedNeedsV2(_)
+            | MltErrorKind::EightBitNeedsV2(_)
+            | MltErrorKind::ZNeedsV2(_)
+            | MltErrorKind::UnsupportedExtent02(_),
         ) => None,
         Err(e) => panic!("encode should not fail: {e}"),
     }

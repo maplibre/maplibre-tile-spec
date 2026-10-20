@@ -4,7 +4,7 @@ use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
+use crate::MltErrorKind::{BufferUnderflow, DictIndexOutOfBounds};
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::front_coding::{FrontLengths, front_decode};
 use crate::codecs::fsst::{decode_fsst, decode_fsst_bytes};
@@ -14,7 +14,7 @@ use crate::decoder::{
     RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, StreamType, StringLayout,
 };
 use crate::errors::AsMltError as _;
-use crate::{Decoder, DictRange, MltError, MltResult, RawSharedDict, RawSharedDictItem};
+use crate::{Decoder, DictRange, MltErrorKind, MltResult, RawSharedDict, RawSharedDictItem};
 
 impl<'a> ParsedStrings<'a> {
     #[must_use]
@@ -111,7 +111,8 @@ pub(crate) fn resolve_dict_spans(
     let mut next = offsets.iter().copied();
 
     if let Some(presence) = presence {
-        let fail = || MltError::PresenceValueCountMismatch(presence.count_ones(), offsets.len());
+        let fail =
+            || MltErrorKind::PresenceValueCountMismatch(presence.count_ones(), offsets.len());
         for present in presence.iter().by_vals() {
             if !present {
                 resolved.push(None);
@@ -126,7 +127,7 @@ pub(crate) fn resolve_dict_spans(
         }
 
         if next.next().is_some() {
-            return Err(fail());
+            return Err(fail().into());
         }
     } else {
         for &idx in offsets {
@@ -151,7 +152,7 @@ fn dict_span_str(dict_data: &str, span: (u32, u32)) -> MltResult<&str> {
     let bytes = dict_data.as_bytes();
     let Some(value) = bytes.get(start..end) else {
         let len = span.1.saturating_sub(span.0);
-        return Err(BufferUnderflow(len, bytes.len().saturating_sub(start)));
+        return Err(BufferUnderflow(len, bytes.len().saturating_sub(start)).into());
     };
     Ok(str::from_utf8(value)?)
 }
@@ -418,7 +419,7 @@ fn to_absolute_lengths(
     if let Some(presence) = presence {
         for present in presence.iter().by_vals() {
             if present {
-                let len = iter.next().ok_or(MltError::PresenceValueCountMismatch(
+                let len = iter.next().ok_or(MltErrorKind::PresenceValueCountMismatch(
                     presence.len(),
                     lengths.len(),
                 ))?;
@@ -429,10 +430,11 @@ fn to_absolute_lengths(
             }
         }
         if iter.next().is_some() {
-            return Err(MltError::PresenceValueCountMismatch(
+            return Err(MltErrorKind::PresenceValueCountMismatch(
                 presence.count_ones(),
                 lengths.len(),
-            ));
+            )
+            .into());
         }
     } else {
         for &len in lengths {
@@ -695,13 +697,13 @@ mod tests {
     #[test]
     fn dictionary_entry_past_the_dictionary() {
         let err = dictionary_rows(&[5], "ab", &[0]).expect_err("entry runs past the dictionary");
-        assert!(matches!(err, BufferUnderflow(5, 2)), "{err:?}");
+        assert!(matches!(err.kind(), BufferUnderflow(5, 2)), "{err:?}");
     }
 
     #[test]
     fn dictionary_entry_splitting_a_character() {
         let err = dictionary_rows(&[1, 1], "µ", &[0]).expect_err("entry splits a character");
-        assert!(matches!(err, MltError::Utf8(_)), "{err:?}");
+        assert!(matches!(err.kind(), MltErrorKind::Utf8(_)), "{err:?}");
     }
 
     #[test]

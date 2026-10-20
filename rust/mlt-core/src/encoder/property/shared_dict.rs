@@ -8,7 +8,7 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 use usize_cast::IntoUsize as _;
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::MltError::DictIndexOutOfBounds;
+use crate::MltErrorKind::DictIndexOutOfBounds;
 use crate::codecs::fsst::compress_fsst_with;
 use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range};
 use crate::encoder::model::{StrEncoding, StreamCtx};

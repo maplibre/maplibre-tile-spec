@@ -6,7 +6,8 @@ use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 use mlt_core::{
-    MValue, MltError, NestedKind, NestedValue, PropKind, PropValue, TileFeature, TileLayer, ZStep,
+    MValue, MltError, MltErrorKind, NestedKind, NestedValue, PropKind, PropValue, TileFeature,
+    TileLayer, ZStep,
 };
 
 use crate::fields_file::{SPLITS, fields_file, form_table, token};
@@ -197,9 +198,11 @@ impl FieldConfigInput {
         let Ok(parsed) = fields.apply(self.layer.clone()) else {
             return;
         };
-        let encoded = match parsed.encode(self.encoder) {
+        let encoded = match parsed.encode(self.encoder).map_err(MltError::into_kind) {
             Ok(encoded) => encoded,
-            Err(MltError::NotImplemented(_) | MltError::MValuesNeedVertexCounts(_)) => return,
+            Err(MltErrorKind::NotImplemented(_) | MltErrorKind::MValuesNeedVertexCounts(_)) => {
+                return;
+            }
             Err(e) => panic!("a parsed layer should encode: {e}"),
         };
         check_round_trip(&self.layer, &encoded, |decoded| fields.restore(decoded))

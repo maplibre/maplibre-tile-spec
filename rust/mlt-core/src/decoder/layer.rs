@@ -6,8 +6,8 @@ use crate::decoder::{ColumnDecl, ColumnStorage, Layer01, LayerBytes, ParsedLayer
 use crate::decoder::{Layer02, ParsedLayer02};
 use crate::utils::{parse_u8, take};
 use crate::{
-    DecodeState, Decoder, Layer, Lazy, LazyParsed, MltError, MltRefResult, MltResult, ParsedLayer,
-    Parser,
+    DecodeState, Decoder, Layer, Lazy, LazyParsed, MltErrorKind, MltRefResult, MltResult,
+    ParsedLayer, Parser,
 };
 
 impl<'a, S: DecodeState> Layer<'a, S> {
@@ -45,7 +45,7 @@ impl<'a> Layer<'a> {
         // so we can use a faster u8 and fail if it is bigger than 127.
         let (input, tag) = parse_u8(input)?;
         // 1 byte must be parsed for the tag, so if size is 0, it's invalid
-        let size = size.checked_sub(1).ok_or(MltError::ZeroLayerSize)?;
+        let size = size.checked_sub(1).ok_or(MltErrorKind::ZeroLayerSize)?;
         let (input, value) = take(input, size)?;
 
         let layer = match tag {

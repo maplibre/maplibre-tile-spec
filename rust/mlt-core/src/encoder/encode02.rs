@@ -38,7 +38,7 @@ use crate::encoder::{
     write_stream_payload,
 };
 use crate::utils::BinarySerializer as _;
-use crate::{MltError, MltResult};
+use crate::{MltErrorKind, MltResult};
 
 /// The presence masks the layer stores once for several columns to read.
 ///
@@ -262,7 +262,7 @@ pub(crate) fn encode_into02(
     // Only the geometry layout says whether a feature's vertex count can be read
     // back, which is the one thing an m-value column cannot do without.
     if !m_values.is_empty() && !geo.layout.allows_m_values() {
-        return Err(MltError::MValuesNeedVertexCounts(geo.layout.into()));
+        return Err(MltErrorKind::MValuesNeedVertexCounts(geo.layout.into()).into());
     }
     enc.data_mut()[layout_pos] =
         LayerLayout::new(geo.layout, shared.count(), shared.coded()).to_byte();
@@ -828,7 +828,7 @@ fn write_interior02(
     match interior {
         StagedInterior::Struct(node) => {
             if node.fields.is_empty() {
-                return Err(MltError::EmptyStructNode);
+                return Err(MltErrorKind::EmptyStructNode.into());
             }
             enc.data_mut()
                 .write_varint(u32::try_from(node.fields.len())?)?;

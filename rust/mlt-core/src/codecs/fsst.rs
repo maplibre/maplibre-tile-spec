@@ -1,7 +1,7 @@
 use usize_cast::IntoUsize as _;
 
 use crate::decoder::RawFsstData;
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltErrorKind, MltResult};
 
 /// The corpus byte announcing that the next byte is a literal.
 const ESCAPE_MARKER: u8 = 0xFF;
@@ -66,14 +66,14 @@ impl SymbolTable {
         for (index, &len) in sym_lens.iter().enumerate() {
             let len = len.into_usize();
             let Some((symbol, tail)) = rest.split_at_checked(len) else {
-                return Err(MltError::MalformedFsst(
-                    "symbol lengths overrun the symbol table",
-                ));
+                return Err(
+                    MltErrorKind::MalformedFsst("symbol lengths overrun the symbol table").into(),
+                );
             };
             if len > MAX_SYMBOL_LEN {
-                return Err(MltError::MalformedFsst(
-                    "a symbol is longer than eight bytes",
-                ));
+                return Err(
+                    MltErrorKind::MalformedFsst("a symbol is longer than eight bytes").into(),
+                );
             }
             if index < table.count {
                 table.words[index][..len].copy_from_slice(symbol);
@@ -96,16 +96,17 @@ impl SymbolTable {
                 output.resize(output.len() * 2, 0);
             }
             if code == ESCAPE_MARKER {
-                output[len] = *codes
-                    .next()
-                    .ok_or(MltError::MalformedFsst("corpus ends on an escape marker"))?;
+                output[len] = *codes.next().ok_or(MltErrorKind::MalformedFsst(
+                    "corpus ends on an escape marker",
+                ))?;
                 len += 1;
             } else {
                 let code = usize::from(code);
                 if code >= self.count {
-                    return Err(MltError::MalformedFsst(
+                    return Err(MltErrorKind::MalformedFsst(
                         "corpus references a symbol the symbol table does not have",
-                    ));
+                    )
+                    .into());
                 }
                 output[len..len + MAX_SYMBOL_LEN].copy_from_slice(&self.words[code]);
                 len += usize::from(self.lens[code]);
@@ -356,31 +357,46 @@ mod tests {
     #[case::after_a_symbol(&[0x00, 0xFF])]
     fn corpus_ending_on_an_escape_marker(#[case] corpus: &[u8]) {
         let err = decode_malformed(&[2], b"ab", &[1], corpus);
-        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::MalformedFsst(_)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn symbol_longer_than_the_symbol_table() {
         let err = decode_malformed(&[9], b"ab", &[1], &[0x00]);
-        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::MalformedFsst(_)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn later_symbol_reaching_past_the_symbol_table() {
         let err = decode_malformed(&[2, 2], b"abc", &[1], &[0x01]);
-        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::MalformedFsst(_)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn symbol_lengths_too_large_to_sum() {
         let err = decode_malformed(&[u32::MAX, u32::MAX, 1], b"ab", &[1], &[0x00]);
-        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::MalformedFsst(_)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn symbol_index_with_no_symbol_behind_it() {
         let err = decode_malformed(&[2], b"ab", &[1], &[0x07]);
-        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::MalformedFsst(_)),
+            "{err:?}"
+        );
     }
 
     #[test]
@@ -396,7 +412,10 @@ mod tests {
     #[test]
     fn symbol_longer_than_eight_bytes() {
         let err = decode_malformed(&[9], b"abcdefghi", &[9], &[0x00]);
-        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::MalformedFsst(_)),
+            "{err:?}"
+        );
     }
 
     #[test]
@@ -422,7 +441,7 @@ mod tests {
     #[test]
     fn a_corpus_expanding_to_invalid_utf8_is_rejected() {
         let err = decode_malformed(&[1], &[0xFF], &[1], &[0x00]);
-        assert!(matches!(err, MltError::FromUtf8(_)), "{err:?}");
+        assert!(matches!(err.kind(), MltErrorKind::FromUtf8(_)), "{err:?}");
     }
 
     #[test]
@@ -437,7 +456,7 @@ mod tests {
             let err = decode_fsst(parse_streams(&buffers), &mut Decoder::with_max_size(budget))
                 .expect_err("a budget below the threshold must be rejected");
             assert!(
-                matches!(err, MltError::MemoryLimitExceeded { .. }),
+                matches!(err.kind(), MltErrorKind::MemoryLimitExceeded { .. }),
                 "budget {budget}: {err:?}"
             );
         }

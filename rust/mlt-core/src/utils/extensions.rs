@@ -1,7 +1,7 @@
 use num_traits::CheckedAdd;
 
 use crate::errors::AsMltError as _;
-use crate::{MltError, MltResult};
+use crate::{MltErrorKind, MltResult};
 
 pub trait SetOptionOnce<T> {
     fn set_once(&mut self, value: T) -> MltResult<()>;
@@ -10,7 +10,7 @@ pub trait SetOptionOnce<T> {
 impl<T> SetOptionOnce<T> for Option<T> {
     fn set_once(&mut self, value: T) -> MltResult<()> {
         if self.replace(value).is_some() {
-            Err(MltError::DuplicateValue)
+            Err(MltErrorKind::DuplicateValue.into())
         } else {
             Ok(())
         }

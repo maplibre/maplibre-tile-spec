@@ -1,7 +1,7 @@
 use integer_encoding::VarInt;
 use usize_cast::IntoUsize as _;
 
-use crate::{Decoder, MltError, MltRefResult, MltResult};
+use crate::{Decoder, MltErrorKind, MltRefResult, MltResult};
 
 /// Parse a single varint (variable-length integer) from the input, returning
 /// the remaining bytes and the decoded value.
@@ -17,14 +17,15 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
             // For multibyte VarInts, the last byte (without a continuation bit) must be non-zero.
             // Using more bytes than necessary violates roundtrip-ability of MLT.
             if consumed > 1 && input[consumed - 1] == 0 {
-                return Err(MltError::NonCanonicalVarInt);
+                return Err(MltErrorKind::NonCanonicalVarInt.into());
             }
             Ok((&input[consumed..], value))
         }
-        None => Err(MltError::BufferUnderflow(
+        None => Err(MltErrorKind::BufferUnderflow(
             u32::try_from(input.len().saturating_add(1)).unwrap_or(u32::MAX),
             input.len(),
-        )),
+        )
+        .into()),
     }
 }
 
@@ -82,7 +83,6 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::MltResult;
     use crate::test_helpers::{dec, starved_dec};
 
     #[rstest]
@@ -92,11 +92,14 @@ mod tests {
     #[case::min_two_byte(&[0x80, 0x01], Ok((vec![], 128)))]
     #[case::max_two_byte(&[0xFF, 0x7F], Ok((vec![], 16383)))]
     #[case::min_three_byte(&[0x80, 0x80, 0x01], Ok((vec![], 16384)))]
-    #[case::non_canonical_two(&[0x82, 0x00], Err(MltError::NonCanonicalVarInt))]
-    #[case::non_canonical_three_byte(&[0x80, 0x80, 0x00], Err(MltError::NonCanonicalVarInt))]
+    #[case::non_canonical_two(&[0x82, 0x00], Err(MltErrorKind::NonCanonicalVarInt))]
+    #[case::non_canonical_three_byte(&[0x80, 0x80, 0x00], Err(MltErrorKind::NonCanonicalVarInt))]
     #[case::single_byte_with_trailing(&[0x01, 0x02, 0x03], Ok((vec![2, 3], 1)))]
-    #[case::underflow(&[0x80, 0x80, 0x80], Err(MltError::BufferUnderflow(4, 3)))]
-    fn test_varint_parsing(#[case] bytes: &[u8], #[case] expected: MltResult<(Vec<u8>, u32)>) {
+    #[case::underflow(&[0x80, 0x80, 0x80], Err(MltErrorKind::BufferUnderflow(4, 3)))]
+    fn test_varint_parsing(
+        #[case] bytes: &[u8],
+        #[case] expected: Result<(Vec<u8>, u32), MltErrorKind>,
+    ) {
         let actual = parse_varint::<u32>(bytes);
         match (actual, expected) {
             (Ok((v1, s1)), Ok((v2, s2))) => assert_eq!((v1, s1), (v2.as_slice(), s2)),
@@ -164,20 +167,26 @@ mod tests {
     #[test]
     fn a_truncated_varint_in_a_counted_vec_is_rejected() {
         let err = parse_varint_vec::<u32>(&[0x80], 1, &mut dec()).unwrap_err();
-        assert!(matches!(err, MltError::BufferUnderflow(2, 1)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::BufferUnderflow(2, 1)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn a_truncated_varint_in_an_unbounded_stream_is_rejected() {
         let err = parse_varint_vec_all::<u32>(&[0x80], &mut dec()).unwrap_err();
-        assert!(matches!(err, MltError::BufferUnderflow(2, 1)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::BufferUnderflow(2, 1)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn a_counted_vec_past_the_memory_budget_is_rejected() {
         let err = parse_varint_vec::<u32>(&[1, 2], 2, &mut starved_dec()).unwrap_err();
         assert!(
-            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            matches!(err.kind(), MltErrorKind::MemoryLimitExceeded { .. }),
             "{err:?}"
         );
     }
@@ -186,7 +195,7 @@ mod tests {
     fn an_unbounded_stream_past_the_memory_budget_is_rejected() {
         let err = parse_varint_vec_all::<u32>(&[1, 2], &mut starved_dec()).unwrap_err();
         assert!(
-            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            matches!(err.kind(), MltErrorKind::MemoryLimitExceeded { .. }),
             "{err:?}"
         );
     }

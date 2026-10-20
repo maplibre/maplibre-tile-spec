@@ -20,7 +20,7 @@ use crate::decoder::{
     BoolLogical, FloatLogical, LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltError, MltErrorKind, MltResult};
 
 impl<'a> RawStream<'a> {
     /// Decode a boolean stream (presence or bool data) into a packed bitvector.
@@ -62,7 +62,7 @@ impl<'a> RawStream<'a> {
             | LogicalEncoding::Int(_)
             | LogicalEncoding::Float(_)
             | LogicalEncoding::Vertex(_) => {
-                Err(MltError::NotImplemented("unsupported bool stream encoding"))
+                Err(MltErrorKind::NotImplemented("unsupported bool stream encoding").into())
             }
         }
     }
@@ -160,23 +160,24 @@ impl<'a> RawStream<'a> {
             | LogicalEncoding::Int(_)
             | LogicalEncoding::Bool(_)
             | LogicalEncoding::Vertex(_) => {
-                return Err(MltError::UnsupportedLogicalEncoding(
+                return Err(MltErrorKind::UnsupportedLogicalEncoding(
                     self.meta.encoding.logical,
                     "float streams, which are stored raw",
-                ));
+                )
+                .into());
             }
         }
         match self.meta.encoding.physical {
             PhysicalEncoding::None => {}
             PhysicalEncoding::VarInt => {
-                return Err(MltError::UnsupportedPhysicalEncoding("varint floats"));
+                return Err(MltErrorKind::UnsupportedPhysicalEncoding("varint floats").into());
             }
             PhysicalEncoding::FastPFor(_) => {
-                return Err(MltError::UnsupportedPhysicalEncoding("FastPFOR floats"));
+                return Err(MltErrorKind::UnsupportedPhysicalEncoding("FastPFOR floats").into());
             }
             #[cfg(feature = "unstable-v2")]
             PhysicalEncoding::BitPacked => {
-                return Err(MltError::UnsupportedPhysicalEncoding("bit-packed floats"));
+                return Err(MltErrorKind::UnsupportedPhysicalEncoding("bit-packed floats").into());
             }
         }
         let num = self.meta.num_values.into_usize();
@@ -427,7 +428,10 @@ mod tests {
         let err = raw_bitmap(&[0xFF], 9)
             .decode_bitvec(&mut dec())
             .unwrap_err();
-        assert!(matches!(err, MltError::InvalidDecodingStreamSize(1, 2)));
+        assert!(matches!(
+            err.kind(),
+            MltErrorKind::InvalidDecodingStreamSize(1, 2)
+        ));
     }
 
     #[test]
@@ -436,7 +440,10 @@ mod tests {
         let err = byte_rle(&[0xFF, 0b0101_0101], 9)
             .decode_bitvec(&mut dec())
             .unwrap_err();
-        assert!(matches!(err, MltError::InvalidDecodingStreamSize(1, 2)));
+        assert!(matches!(
+            err.kind(),
+            MltErrorKind::InvalidDecodingStreamSize(1, 2)
+        ));
     }
 
     #[test]
@@ -444,7 +451,10 @@ mod tests {
         let err = byte_rle(&[0xFF, 0b0101_0101], 9)
             .decode_bools(&mut dec())
             .unwrap_err();
-        assert!(matches!(err, MltError::InvalidDecodingStreamSize(1, 2)));
+        assert!(matches!(
+            err.kind(),
+            MltErrorKind::InvalidDecodingStreamSize(1, 2)
+        ));
     }
 
     #[test]
@@ -460,8 +470,8 @@ mod tests {
             .decode_bitvec(&mut dec())
             .unwrap_err();
         assert!(matches!(
-            err,
-            MltError::NotImplemented("unsupported bool stream encoding")
+            err.kind(),
+            MltErrorKind::NotImplemented("unsupported bool stream encoding")
         ));
     }
 
@@ -483,7 +493,10 @@ mod tests {
     fn decode_floats_rejects_non_raw_physical(#[case] physical: PhysicalEncoding) {
         let stream = float_stream(LogicalEncoding::Float(FloatLogical::None), physical);
         let err = stream.decode_floats::<f32>(&mut dec()).unwrap_err();
-        assert!(matches!(err, MltError::UnsupportedPhysicalEncoding(_)));
+        assert!(matches!(
+            err.kind(),
+            MltErrorKind::UnsupportedPhysicalEncoding(_)
+        ));
     }
 
     #[test]

@@ -24,7 +24,7 @@ use geojson::{Feature, FeatureCollection, GeoJson};
 use martin_tile_utils::MAX_ZOOM;
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::PropertySchema;
-use mlt_core::{Decoder, MltError, Parser, PropValue, TileLayer, ZStep};
+use mlt_core::{Decoder, MltError, MltErrorKind, Parser, PropValue, TileLayer, ZStep};
 use rayon::prelude::*;
 
 use self::clip::Rect;
@@ -371,8 +371,8 @@ impl Tiler<'_> {
 fn is_memory_limit(err: &anyhow::Error) -> bool {
     err.chain().any(|cause| {
         matches!(
-            cause.downcast_ref::<MltError>(),
-            Some(MltError::MemoryLimitExceeded { .. })
+            cause.downcast_ref::<MltError>().map(MltError::kind),
+            Some(MltErrorKind::MemoryLimitExceeded { .. })
         )
     })
 }

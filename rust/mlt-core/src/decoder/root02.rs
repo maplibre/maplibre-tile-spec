@@ -48,7 +48,7 @@ use std::borrow::Cow;
 use usize_cast::IntoUsize as _;
 
 use crate::LazyParsed::Raw;
-use crate::MltError::{BufferUnderflow, MissingLayerName, TrailingLayerData};
+use crate::MltErrorKind::{BufferUnderflow, MissingLayerName, TrailingLayerData};
 use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::nested::parse_nested;
@@ -67,7 +67,7 @@ use crate::decoder::{
 };
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8};
-use crate::{Lazy, MltError, MltRefResult, MltResult, Parser};
+use crate::{Lazy, MltErrorKind, MltRefResult, MltResult, Parser};
 
 /// Parse a v2 layer body (the bytes after the `tag = 2` byte).
 pub(crate) fn parse_layer02<'a>(
@@ -77,7 +77,7 @@ pub(crate) fn parse_layer02<'a>(
     let mut bytes = LayerBytes::of_body(input.len());
     let (input, layer_name) = parse_string(input)?;
     if layer_name.is_empty() {
-        return Err(MissingLayerName);
+        return Err(MissingLayerName.into());
     }
     let (input, header_byte) = parse_u8(input)?;
     let header = LayerHeader02::parse(header_byte)?;
@@ -87,7 +87,7 @@ pub(crate) fn parse_layer02<'a>(
     let layout = LayerLayout::parse(layout_byte)?;
 
     if header.m_values && !layout.geometry.allows_m_values() {
-        return Err(MltError::MValuesNeedVertexCounts(layout.geometry.into()));
+        return Err(MltErrorKind::MValuesNeedVertexCounts(layout.geometry.into()).into());
     }
 
     // ── Shared presence bitfields ─────────────────────────────────────────
@@ -103,7 +103,7 @@ pub(crate) fn parse_layer02<'a>(
     let column_count = counts.columns;
     // Each column requires at least 1 byte (column type).
     if input.len() < column_count.into_usize() {
-        return Err(BufferUnderflow(column_count, input.len()));
+        return Err(BufferUnderflow(column_count, input.len()).into());
     }
 
     let mut id_column: Option<Id> = None;
@@ -197,7 +197,7 @@ pub(crate) fn parse_layer02<'a>(
     bytes.add_properties(before - input.len())?;
 
     if !input.is_empty() {
-        return Err(TrailingLayerData(input.len()));
+        return Err(TrailingLayerData(input.len()).into());
     }
     Ok(Layer02 {
         layer: Layer01 {
@@ -324,10 +324,11 @@ pub(super) fn parse_column_values<'a>(
     if count == Count02::Explicit {
         let (_, enc_byte) = parse_u8(input)?;
         if enc_byte & HAS_EXPLICIT_COUNT == 0 {
-            return Err(MltError::MValueImplicitCount {
+            return Err(MltErrorKind::MValueImplicitCount {
                 name: name.to_string(),
                 byte: enc_byte,
-            });
+            }
+            .into());
         }
     }
     /// Read the one data stream a scalar column of `$type` holds.
@@ -382,7 +383,7 @@ fn parse_m_values<'a>(
 ) -> MltRefResult<'a, Vec<crate::decoder::MValueColumn<'a, Lazy>>> {
     // Each column requires at least 1 byte (column type).
     if input.len() < count.into_usize() {
-        return Err(BufferUnderflow(count, input.len()));
+        return Err(BufferUnderflow(count, input.len()).into());
     }
     parser.reserve(count)?;
 
@@ -464,7 +465,7 @@ fn parse_shared_dict02<'a>(
     let (input, child_count) = parse_varint::<u32>(input)?;
     // Each child requires at least 1 byte (column type).
     if input.len() < child_count.into_usize() {
-        return Err(BufferUnderflow(child_count, input.len()));
+        return Err(BufferUnderflow(child_count, input.len()).into());
     }
     parser.reserve(child_count)?;
 
@@ -504,7 +505,7 @@ fn parse_shared_dict02<'a>(
         (input, child_byte) = parse_u8(input)?;
         let child_typ = cols.column_type(child_byte)?;
         if child_typ.data != DataType02::Str {
-            return Err(MltError::ParsingColumnType(child_byte));
+            return Err(MltErrorKind::ParsingColumnType(child_byte).into());
         }
         let child_name;
         (input, child_name) = parse_string(input)?;
@@ -643,7 +644,7 @@ impl<'a> LayerCols<'a> {
                 .shared
                 .get(usize::from(index))
                 .map(|bits| (input, bits.clone()))
-                .ok_or_else(|| MltError::ParsingColumnType(typ.to_byte())),
+                .ok_or_else(|| MltErrorKind::ParsingColumnType(typ.to_byte()).into()),
         }
     }
 
@@ -675,7 +676,7 @@ fn parse_shared_presence<'a>(
         let coding = if layout.shared_coded {
             let byte;
             (input, byte) = parse_u8(input)?;
-            shared_coding(byte).ok_or(MltError::PresenceCodingByte(byte))?
+            shared_coding(byte).ok_or(MltErrorKind::PresenceCodingByte(byte))?
         } else {
             PresenceCoding::Bitmap
         };

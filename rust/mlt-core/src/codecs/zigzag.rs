@@ -1,7 +1,7 @@
 use num_traits::{AsPrimitive, WrappingAdd, WrappingSub};
 use zigzag::ZigZag;
 
-use crate::MltError::InvalidPairStreamSize;
+use crate::MltErrorKind::InvalidPairStreamSize;
 use crate::{Decoder, MltResult};
 
 /// ZigZag-encode `data` into `target`.
@@ -165,7 +165,7 @@ pub fn decode_componentwise_delta2_vec2s<T: ZigZag + WrappingAdd>(
     dec: &mut Decoder,
 ) -> MltResult<Vec<T>> {
     if !data.len().is_multiple_of(2) {
-        return Err(InvalidPairStreamSize(data.len()));
+        return Err(InvalidPairStreamSize(data.len()).into());
     }
     let mut result = dec.alloc(data.len())?;
     let (mut value, mut delta) = ([T::zero(); 2], [T::zero(); 2]);
@@ -187,7 +187,7 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
 ) -> MltResult<Vec<T>> {
     // Zero pairs is a well-formed pair stream: a layer can have no vertices at all.
     if !data.len().is_multiple_of(2) {
-        return Err(InvalidPairStreamSize(data.len()));
+        return Err(InvalidPairStreamSize(data.len()).into());
     }
 
     let alloc_size = data.len();
@@ -214,7 +214,7 @@ pub fn decode_componentwise_delta_vec3s<T: ZigZag + WrappingAdd>(
     dec: &mut Decoder,
 ) -> MltResult<Vec<T>> {
     if !data.len().is_multiple_of(3) {
-        return Err(crate::MltError::InvalidTripleStreamSize(data.len()));
+        return Err(crate::MltErrorKind::InvalidTripleStreamSize(data.len()).into());
     }
     let alloc_size = data.len();
     let mut result = dec.alloc(alloc_size)?;
@@ -322,7 +322,7 @@ mod tests {
     fn a_vec3_stream_of_partial_triples_is_rejected() {
         let err = decode_componentwise_delta_vec3s::<i32>(&[0, 1, 2, 3], &mut dec()).unwrap_err();
         assert!(
-            matches!(err, crate::MltError::InvalidTripleStreamSize(4)),
+            matches!(err.kind(), crate::MltErrorKind::InvalidTripleStreamSize(4)),
             "{err:?}"
         );
     }
@@ -375,14 +375,14 @@ mod tests {
     #[test]
     fn an_odd_length_pair_stream_is_rejected() {
         let err = decode_componentwise_delta_vec2s::<i32>(&[0, 1, 2], &mut dec()).unwrap_err();
-        assert!(matches!(err, InvalidPairStreamSize(3)), "{err:?}");
+        assert!(matches!(err.kind(), InvalidPairStreamSize(3)), "{err:?}");
     }
 
     #[test]
     fn zigzag_decoding_past_the_memory_budget_is_rejected() {
         let err = decode_zigzag::<i32>(&[0, 1], &mut starved_dec()).unwrap_err();
         assert!(
-            matches!(err, crate::MltError::MemoryLimitExceeded { .. }),
+            matches!(err.kind(), crate::MltErrorKind::MemoryLimitExceeded { .. }),
             "{err:?}"
         );
     }
@@ -391,7 +391,7 @@ mod tests {
     fn delta_decoding_past_the_memory_budget_is_rejected() {
         let err = decode_zigzag_delta::<i32, i32>(&[0, 1], &mut starved_dec()).unwrap_err();
         assert!(
-            matches!(err, crate::MltError::MemoryLimitExceeded { .. }),
+            matches!(err.kind(), crate::MltErrorKind::MemoryLimitExceeded { .. }),
             "{err:?}"
         );
     }
@@ -400,7 +400,7 @@ mod tests {
     fn pair_decoding_past_the_memory_budget_is_rejected() {
         let err = decode_componentwise_delta_vec2s::<i32>(&[0, 1], &mut starved_dec()).unwrap_err();
         assert!(
-            matches!(err, crate::MltError::MemoryLimitExceeded { .. }),
+            matches!(err.kind(), crate::MltErrorKind::MemoryLimitExceeded { .. }),
             "{err:?}"
         );
     }

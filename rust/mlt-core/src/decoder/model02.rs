@@ -7,7 +7,7 @@ use crate::codecs::presence_coding::PresenceCoding;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{ColumnStorage, GeometryType, ParsedMValue, ParsedNested, StreamMeta};
 use crate::{
-    Analyze as _, DecodeState, Layer01, Lazy, LazyParsed, MValueColumn, MltError, MltRefResult,
+    Analyze as _, DecodeState, Layer01, Lazy, LazyParsed, MValueColumn, MltErrorKind, MltRefResult,
     MltResult, Nested, Parsed,
 };
 
@@ -264,13 +264,13 @@ impl NodeType02 {
 
     /// Read a wire byte, rejecting the nibbles a node cannot hold.
     pub(crate) fn parse(byte: u8) -> MltResult<Self> {
-        let err = || MltError::ParsingColumnType(byte);
+        let err = || MltErrorKind::ParsingColumnType(byte);
         let (nibble, data) = ColumnType02::fields(byte);
         let presence = NodePresence::parse(nibble).ok_or_else(err)?;
         let shapes = nibble & NodePresence::SHAPES != 0;
         let data = DataType02::try_from(data).map_err(|_| err())?;
         let data = match data {
-            DataType02::Id | DataType02::LongId => return Err(err()),
+            DataType02::Id | DataType02::LongId => return Err(err().into()),
             DataType02::Struct => NodeKind02::Struct,
             DataType02::List => NodeKind02::List,
             DataType02::Map => NodeKind02::Map,
@@ -475,7 +475,7 @@ impl ColumnType02 {
     /// so a column pointing past the last shared bitfield is rejected here rather
     /// than resolved to a missing one later.
     pub(crate) fn parse(byte: u8, shared_count: u8) -> MltResult<Self> {
-        let err = || MltError::ParsingColumnType(byte);
+        let err = || MltErrorKind::ParsingColumnType(byte);
         let (presence, data) = Self::fields(byte);
         let data = DataType02::try_from(data).map_err(|_| err())?;
         let presence = Presence02::parse(presence, shared_count).ok_or_else(err)?;
@@ -563,7 +563,9 @@ impl ValuesColumn02 {
     pub(crate) fn parse_m_value(byte: u8, shared_count: u8) -> MltResult<Self> {
         match ColumnType02::parse(byte, shared_count)?.split() {
             ColumnKind02::Values(column) => Ok(column),
-            ColumnKind02::Id(_) | ColumnKind02::Nested(_) => Err(MltError::ParsingColumnType(byte)),
+            ColumnKind02::Id(_) | ColumnKind02::Nested(_) => {
+                Err(MltErrorKind::ParsingColumnType(byte).into())
+            }
         }
     }
 }
@@ -593,12 +595,11 @@ impl Column02 {
     ///
     /// `shared_count` is [`LayerLayout::shared_presence`] of the enclosing layer.
     pub(crate) fn parse(byte: u8, shared_count: u8) -> MltResult<Self> {
-        let err = || MltError::ParsingColumnType(byte);
         let (high, data) = ColumnType02::fields(byte);
         if data == Self::SHARED_DICT {
             return SharedDictKind::parse(high)
                 .map(Self::SharedDict)
-                .ok_or_else(err);
+                .ok_or_else(|| MltErrorKind::ParsingColumnType(byte).into());
         }
         ColumnType02::parse(byte, shared_count).map(Self::Values)
     }
@@ -831,7 +832,7 @@ impl Extent02 {
             #[expect(clippy::cast_possible_truncation, reason = "16 < 256")]
             Ok(Self(code as u8))
         } else {
-            Err(MltError::UnsupportedExtent02(extent))
+            Err(MltErrorKind::UnsupportedExtent02(extent).into())
         }
     }
 
@@ -913,7 +914,7 @@ impl LayerHeader02 {
         }
         GeometryType::try_from(nibble - 1)
             .map(Some)
-            .map_err(|_| MltError::ParsingLayerHeader02(byte))
+            .map_err(|_| MltErrorKind::ParsingLayerHeader02(byte).into())
     }
 
     /// Split a wire byte into its three fields, rejecting reserved bit patterns.
@@ -1002,10 +1003,10 @@ impl LayerLayout {
         let (shared_coded, shared_presence, geometry) = Self::fields(byte);
         // A coding flag with no bitfield to code has a canonical spelling without it.
         if shared_coded && shared_presence == 0 {
-            return Err(MltError::ParsingLayerLayout02(byte));
+            return Err(MltErrorKind::ParsingLayerLayout02(byte).into());
         }
         let geometry =
-            GeoLayout::try_from(geometry).map_err(|_| MltError::ParsingGeoLayout(geometry))?;
+            GeoLayout::try_from(geometry).map_err(|_| MltErrorKind::ParsingGeoLayout(geometry))?;
         Ok(Self {
             shared_presence,
             shared_coded,
@@ -1050,7 +1051,7 @@ impl ColumnCounts {
         let (input, code) = parse_varint::<u64>(input)?;
         let (columns, m_values) = deinterleave_u64(code);
         if m_values == 0 {
-            return Err(MltError::EmptyMValueSection);
+            return Err(MltErrorKind::EmptyMValueSection.into());
         }
         Ok((input, Self { columns, m_values }))
     }
@@ -1151,7 +1152,7 @@ mod tests {
     #[case::a_power_of_two_over_the_largest(4_194_304)]
     fn an_extent_outside_the_nibble_is_rejected(#[case] extent: u32) {
         let err = Extent02::new(extent).unwrap_err();
-        assert!(matches!(err, MltError::UnsupportedExtent02(e) if e == extent));
+        assert!(matches!(err.kind(), MltErrorKind::UnsupportedExtent02(e) if *e == extent));
     }
 
     #[rstest]
@@ -1181,7 +1182,7 @@ mod tests {
     #[case::reserved_uniform_type_with_m_values(0xF6)]
     fn layer_header_byte_rejects_the_reserved_uniform_type(#[case] byte: u8) {
         let err = LayerHeader02::parse(byte).unwrap_err();
-        assert!(matches!(err, MltError::ParsingLayerHeader02(b) if b == byte));
+        assert!(matches!(err.kind(), MltErrorKind::ParsingLayerHeader02(b) if *b == byte));
     }
 
     #[rstest]
@@ -1189,7 +1190,7 @@ mod tests {
     #[case::shared_ref_past_declared_count_over_a_nested_root(0b1001_1100, 4)]
     fn column_byte_rejects_unassigned(#[case] byte: u8, #[case] shared_count: u8) {
         let err = Column02::parse(byte, shared_count).unwrap_err();
-        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+        assert!(matches!(err.kind(), MltErrorKind::ParsingColumnType(b) if *b == byte));
     }
 
     #[rstest]
@@ -1203,7 +1204,7 @@ mod tests {
     #[case::unassigned_inline_coding(0b0101_0101, 0)]
     fn column_type_byte_rejects_unassigned(#[case] byte: u8, #[case] shared_count: u8) {
         let err = ColumnType02::parse(byte, shared_count).unwrap_err();
-        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+        assert!(matches!(err.kind(), MltErrorKind::ParsingColumnType(b) if *b == byte));
     }
 
     #[rstest]
@@ -1287,7 +1288,7 @@ mod tests {
     #[case::no_bitfield_over_a_geo_layout(0b1000_1010)]
     fn layer_layout_byte_rejects_a_coding_flag_with_nothing_to_code(#[case] byte: u8) {
         let err = LayerLayout::parse(byte).unwrap_err();
-        assert!(matches!(err, MltError::ParsingLayerLayout02(b) if b == byte));
+        assert!(matches!(err.kind(), MltErrorKind::ParsingLayerLayout02(b) if *b == byte));
     }
 
     #[rstest]
@@ -1311,14 +1312,14 @@ mod tests {
     #[case::map_root(0b0000_1110)]
     fn m_value_type_byte_rejects_what_a_vertex_cannot_hold(#[case] byte: u8) {
         let err = ValuesColumn02::parse_m_value(byte, ALL_SHARED).unwrap_err();
-        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+        assert!(matches!(err.kind(), MltErrorKind::ParsingColumnType(b) if *b == byte));
     }
 
     #[test]
     fn an_m_value_column_cannot_name_a_bitfield_the_layer_lacks() {
         let byte = 0b1001_0101;
         let err = ValuesColumn02::parse_m_value(byte, 4).unwrap_err();
-        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+        assert!(matches!(err.kind(), MltErrorKind::ParsingColumnType(b) if *b == byte));
     }
 
     #[rstest]
@@ -1382,7 +1383,7 @@ mod tests {
     #[case::reserved_node_presence_top(0b1111_0101)]
     fn node_type_byte_rejects_what_a_node_cannot_hold(#[case] byte: u8) {
         let err = NodeType02::parse(byte).unwrap_err();
-        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+        assert!(matches!(err.kind(), MltErrorKind::ParsingColumnType(b) if *b == byte));
     }
 
     #[rstest]
@@ -1437,7 +1438,7 @@ mod tests {
     #[case::columns_only(&[0x05])]
     fn column_counts_reject_a_flagged_section_without_m_values(#[case] bytes: &[u8]) {
         let err = ColumnCounts::parse(bytes, true).unwrap_err();
-        assert!(matches!(err, MltError::EmptyMValueSection));
+        assert!(matches!(err.kind(), MltErrorKind::EmptyMValueSection));
     }
 
     #[rstest]
@@ -1446,7 +1447,7 @@ mod tests {
     fn layer_layout_byte_rejects_unassigned_geo_layout(#[case] byte: u8) {
         let err = LayerLayout::parse(byte).unwrap_err();
         assert!(
-            matches!(err, MltError::ParsingGeoLayout(b) if b == byte & LayerLayout::GEO_LAYOUT_MASK)
+            matches!(err.kind(), MltErrorKind::ParsingGeoLayout(b) if *b == byte & LayerLayout::GEO_LAYOUT_MASK)
         );
     }
 }

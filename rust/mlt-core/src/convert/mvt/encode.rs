@@ -6,7 +6,7 @@ use fast_mvt::{MvtTileBuilder, MvtValueRef};
 
 use crate::encoder::LayerSource;
 use crate::tile::TileLayer;
-use crate::{MltError, MltResult, PropValueRef};
+use crate::{MltErrorKind, MltResult, PropValueRef};
 
 /// Encode row-oriented [`TileLayer`]s as MVT (Mapbox Vector Tile) bytes.
 pub fn tile_layers_to_mvt(
@@ -25,7 +25,7 @@ pub(crate) fn write_mvt_layer(
     tile: MvtTileBuilder,
 ) -> MltResult<MvtTileBuilder> {
     if source.name().is_empty() {
-        return Err(MltError::MissingLayerName);
+        return Err(MltErrorKind::MissingLayerName.into());
     }
     let mut layer = tile.layer(source.name())?;
     layer.extent(source.extent().into());
@@ -62,6 +62,7 @@ impl<'a> From<PropValueRef<'a>> for MvtValueRef<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::MltError;
     use crate::mvt::mvt_to_tile_layers;
     use crate::tile::{Extent, TileFeature};
 
@@ -93,8 +94,8 @@ mod tests {
         };
 
         assert!(matches!(
-            tile_layers_to_mvt(vec![layer]),
-            Err(MltError::MissingLayerName)
+            tile_layers_to_mvt(vec![layer]).map_err(MltError::into_kind),
+            Err(MltErrorKind::MissingLayerName)
         ));
     }
 

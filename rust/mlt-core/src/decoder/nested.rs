@@ -19,7 +19,7 @@ use crate::decoder::{
 };
 use crate::tile::{MAX_NESTED_DEPTH, NestedKind, NestedValue, PropValue};
 use crate::utils::{parse_string, parse_u8};
-use crate::{Decode, DecodeState, Decoder, Lazy, MltError, MltRefResult, MltResult, Parser};
+use crate::{Decode, DecodeState, Decoder, Lazy, MltErrorKind, MltRefResult, MltResult, Parser};
 
 /// A nested column, parameterized by decode state, mirroring `Property`.
 pub type Nested<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawNested<'a>, ParsedNested<'a>>;
@@ -224,14 +224,15 @@ impl RowShapes {
     /// The shapes a table of `width`-key bitmaps and one id per row name.
     fn new(table: Vec<bool>, width: usize, ids: Vec<u32>) -> MltResult<Self> {
         if width == 0 || !table.len().is_multiple_of(width) {
-            return Err(MltError::NestedRowShapeTableSize {
+            return Err(MltErrorKind::NestedRowShapeTableSize {
                 bits: table.len(),
                 keys: width,
-            });
+            }
+            .into());
         }
         let shapes = table.len() / width;
         if let Some(&id) = ids.iter().find(|&&id| id.into_usize() >= shapes) {
-            return Err(MltError::NestedRowShapeOutOfRange { id, len: shapes });
+            return Err(MltErrorKind::NestedRowShapeOutOfRange { id, len: shapes }.into());
         }
         Ok(Self { table, width, ids })
     }
@@ -371,7 +372,7 @@ fn parse_node<'a>(
     parser: &mut Parser,
 ) -> MltRefResult<'a, (&'a str, RawNode<'a>)> {
     if depth > MAX_NESTED_DEPTH {
-        return Err(MltError::NestedTooDeep(depth));
+        return Err(MltErrorKind::NestedTooDeep(depth).into());
     }
     parser.reserve(NODE_COST)?;
     let (input, typ_byte) = parse_u8(input)?;
@@ -412,10 +413,11 @@ fn parse_node<'a>(
     let (input, node) = match typ.data {
         NodeKind02::Leaf(values) => {
             if typ.shapes {
-                return Err(MltError::NestedRowShapeUnsupported {
+                return Err(MltErrorKind::NestedRowShapeUnsupported {
                     name: path,
                     kind: "leaf",
-                });
+                }
+                .into());
             }
             require_explicit_count(input, &path, body_count)?;
             let (input, values) = parse_column_values(
@@ -474,11 +476,11 @@ fn parse_interior<'a>(
         Interior02::Struct => {
             let (mut input, field_count) = parse_varint::<u32>(input)?;
             if field_count == 0 {
-                return Err(MltError::EmptyStructNode);
+                return Err(MltErrorKind::EmptyStructNode.into());
             }
             // Each field requires at least 1 byte (node type).
             if input.len() < field_count.into_usize() {
-                return Err(MltError::BufferUnderflow(field_count, input.len()));
+                return Err(MltErrorKind::BufferUnderflow(field_count, input.len()).into());
             }
             parser.reserve(field_count.saturating_mul(NODE_COST))?;
             let mut shapes = None;
@@ -502,7 +504,7 @@ fn parse_interior<'a>(
                 let field;
                 (input, field) = parse_node(input, path, true, count, depth + 1, parser)?;
                 if fields.iter().any(|(name, _)| *name == field.0) {
-                    return Err(MltError::DuplicateFieldName(field.0.to_string()));
+                    return Err(MltErrorKind::DuplicateFieldName(field.0.to_string()).into());
                 }
                 fields.push(field);
             }
@@ -517,10 +519,11 @@ fn parse_interior<'a>(
         }
         Interior02::List => {
             if per_row {
-                return Err(MltError::NestedRowShapeUnsupported {
+                return Err(MltErrorKind::NestedRowShapeUnsupported {
                     name: path.to_string(),
                     kind: "list",
-                });
+                }
+                .into());
             }
             require_explicit_count(input, path, count)?;
             let (input, lengths) =
@@ -620,11 +623,12 @@ pub(crate) fn parse_row_shapes<'a>(
     if let Count02::Implied(expected) = rows
         && u32::try_from(shapes.rows())? != expected
     {
-        return Err(MltError::NestedRowShapeCount {
+        return Err(MltErrorKind::NestedRowShapeCount {
             name: path.to_string(),
             expected,
             actual: u32::try_from(shapes.rows())?,
-        });
+        }
+        .into());
     }
     Ok((input, shapes))
 }
@@ -633,9 +637,10 @@ pub(crate) fn parse_row_shapes<'a>(
 pub(crate) fn reject_shaped_child_presence(input: &[u8], path: &str) -> MltResult<()> {
     let (_, typ_byte) = parse_u8(input)?;
     if NodeType02::parse(typ_byte)?.presence == NodePresence::Stream {
-        return Err(MltError::NestedRowShapeChildPresence {
+        return Err(MltErrorKind::NestedRowShapeChildPresence {
             name: path.to_string(),
-        });
+        }
+        .into());
     }
     Ok(())
 }
@@ -647,10 +652,11 @@ fn require_explicit_count(input: &[u8], path: &str, count: Count02) -> MltResult
     }
     let (_, enc_byte) = parse_u8(input)?;
     if enc_byte & HAS_EXPLICIT_COUNT == 0 {
-        return Err(MltError::NestedImplicitCount {
+        return Err(MltErrorKind::NestedImplicitCount {
             name: path.to_string(),
             byte: enc_byte,
-        });
+        }
+        .into());
     }
     Ok(())
 }
@@ -660,13 +666,14 @@ fn require_explicit_count(input: &[u8], path: &str, count: Count02) -> MltResult
 pub(crate) fn presence_popcount(stream: &RawStream<'_>) -> MltResult<u32> {
     let encoding = stream.meta.encoding;
     let LogicalEncoding::Bool(logical) = encoding.logical else {
-        return Err(MltError::UnsupportedLogicalEncoding(
+        return Err(MltErrorKind::UnsupportedLogicalEncoding(
             encoding.logical,
             "a nested presence stream, which is a bool stream",
-        ));
+        )
+        .into());
     };
     let coding =
-        PresenceCoding::of_logical(logical).ok_or(MltError::UnsupportedLogicalEncoding(
+        PresenceCoding::of_logical(logical).ok_or(MltErrorKind::UnsupportedLogicalEncoding(
             encoding.logical,
             "a nested presence stream, which is a bool stream",
         ))?;
@@ -778,11 +785,12 @@ impl<'a> Decode<ParsedNested<'a>> for RawNested<'a> {
         parsed.root.check_counts()?;
         let handed = parsed.root.parent_count();
         if handed != self.value_count.into_usize() {
-            return Err(MltError::NestedRootCountMismatch {
+            return Err(MltErrorKind::NestedRootCountMismatch {
                 name: self.name.to_string(),
                 expected: self.value_count,
                 actual: u32::try_from(handed)?,
-            });
+            }
+            .into());
         }
         Ok(parsed)
     }
@@ -1002,10 +1010,13 @@ impl ParsedInterior<'_> {
                 let span = span_of(&node.lengths, own)?;
                 let mut entries = BTreeMap::new();
                 for entry in span {
-                    let key = node.keys.key(entry).ok_or(MltError::NestedKeyOutOfRange {
-                        entry,
-                        len: node.keys.entry_count(),
-                    })?;
+                    let key = node
+                        .keys
+                        .key(entry)
+                        .ok_or(MltErrorKind::NestedKeyOutOfRange {
+                            entry,
+                            len: node.keys.entry_count(),
+                        })?;
                     if let Some(value) = node.value.row(entry)? {
                         entries.insert(key.to_string(), value);
                     }
@@ -1087,7 +1098,7 @@ fn span_of(lengths: &[u32], row: usize) -> MltResult<Range<usize>> {
     let len = lengths
         .get(row)
         .copied()
-        .ok_or(MltError::NestedRowOutOfRange {
+        .ok_or(MltErrorKind::NestedRowOutOfRange {
             row,
             len: lengths.len(),
         })?
@@ -1099,23 +1110,24 @@ fn sum_lengths(lengths: &[u32]) -> MltResult<u32> {
     lengths
         .iter()
         .try_fold(0_u32, |acc, &len| acc.checked_add(len))
-        .ok_or(MltError::IntegerOverflow)
+        .ok_or_else(|| MltErrorKind::IntegerOverflow.into())
 }
 
 fn expect_count(expected: usize, actual: usize) -> MltResult<()> {
     if expected == actual {
         return Ok(());
     }
-    Err(MltError::NestedCountMismatch {
+    Err(MltErrorKind::NestedCountMismatch {
         expected: u32::try_from(expected)?,
         actual: u32::try_from(actual)?,
-    })
+    }
+    .into())
 }
 
 impl MValues<'_> {
     /// The value at `index`, as the row model holds it.
     pub(crate) fn value(&self, index: usize) -> MltResult<PropValue> {
-        let missing = || MltError::NestedValueOutOfRange {
+        let missing = || MltErrorKind::NestedValueOutOfRange {
             index,
             len: self.len(),
         };

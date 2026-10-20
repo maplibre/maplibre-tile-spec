@@ -15,8 +15,8 @@ use crate::encoder::{
 use crate::encoder::{Network, Profile};
 use crate::test_helpers::{dec, parser};
 use crate::{
-    DictRange, Extent, GeometryValues, Layer, MltError, MltResult, PropValue, TileFeature,
-    TileLayer,
+    DictRange, Extent, GeometryValues, Layer, MltError, MltErrorKind, MltResult, PropValue,
+    TileFeature, TileLayer,
 };
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
@@ -1084,8 +1084,8 @@ fn analyze_layer_tracks_typed_property_stats() {
 #[case(vec![PropValue::U32(None), PropValue::Str(Some("x".into()))])]
 fn tile_layer_rejects_property_type_coercions(#[case] values: Vec<PropValue>) {
     assert!(matches!(
-        try_tile_from_cols(&[("mixed", values)]),
-        Err(MltError::PropertyKindMismatch { index: 0, .. })
+        try_tile_from_cols(&[("mixed", values)]).map_err(MltError::into_kind),
+        Err(MltErrorKind::PropertyKindMismatch { index: 0, .. })
     ));
 }
 
@@ -1224,7 +1224,7 @@ fn eight_bit_column_is_rejected_in_v1(#[case] prop: StagedProperty) {
         &mut Codecs::default(),
     )
     .unwrap_err();
-    assert!(matches!(err, MltError::EightBitNeedsV2(name) if name == "x"));
+    assert!(matches!(err.kind(), MltErrorKind::EightBitNeedsV2(name) if name == "x"));
 }
 
 #[test]

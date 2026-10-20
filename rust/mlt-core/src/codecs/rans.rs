@@ -10,7 +10,7 @@
 
 use integer_encoding::VarInt as _;
 
-use crate::MltError::MalformedRans;
+use crate::MltErrorKind::MalformedRans;
 use crate::codecs::varint::parse_varint;
 use crate::{Decoder, MltResult};
 
@@ -127,14 +127,14 @@ fn run_starts(offsets: Option<&[u32]>, vertex_count: usize) -> MltResult<Vec<u8>
     if offsets.first().is_some_and(|&o| o != 0)
         || offsets.last().map_or(0, |&o| o as usize) != vertex_count
     {
-        return Err(MalformedRans("runs do not cover the vertices"));
+        return Err(MalformedRans("runs do not cover the vertices").into());
     }
     let mut first = vec![0; vertex_count];
     for &o in offsets {
         match first.get_mut(o as usize) {
             Some(flag) => *flag = 1,
             None if o as usize == vertex_count => {}
-            None => return Err(MalformedRans("runs do not cover the vertices")),
+            None => return Err(MalformedRans("runs do not cover the vertices").into()),
         }
     }
     Ok(first)
@@ -217,7 +217,7 @@ impl BitReader<'_> {
     fn gamma(&mut self) -> MltResult<u32> {
         let zeros = self.peek().trailing_zeros();
         if zeros > MAX_PRECISION + 1 {
-            return Err(MalformedRans("frequency out of range"));
+            return Err(MalformedRans("frequency out of range").into());
         }
         self.bit += zeros as usize + 1;
         Ok((1 << zeros) | self.get(zeros))
@@ -250,7 +250,7 @@ impl Table {
         let precision = r.get(4);
         let max = r.get(9) as usize;
         if precision > MAX_PRECISION || max >= SYMBOLS {
-            return Err(MalformedRans("table out of range"));
+            return Err(MalformedRans("table out of range").into());
         }
         let mut freq = dec.alloc(max + 1)?;
         freq.resize(max + 1, 0);
@@ -266,7 +266,7 @@ impl Table {
             .enumerate()
             .any(|(s, &f)| f > 0 && info(s, depth).is_none());
         if freq.iter().sum::<u32>() != 1 << precision || freq[max] == 0 || names_invalid {
-            return Err(MalformedRans("table frequencies"));
+            return Err(MalformedRans("table frequencies").into());
         }
         Ok(Self { precision, freq })
     }
@@ -351,7 +351,7 @@ fn quantise(counts: &[u64], total: u64, precision: u32) -> Vec<u32> {
 /// or at every vertex when there are none.
 pub fn encode_vertices(vertices: &[i32], offsets: Option<&[u32]>) -> MltResult<Vec<u8>> {
     if !vertices.len().is_multiple_of(2) {
-        return Err(MalformedRans("odd vertex word count"));
+        return Err(MalformedRans("odd vertex word count").into());
     }
     let first = run_starts(offsets, vertices.len() / 2)?;
     Ok((0..=MAX_DEPTH)
@@ -644,7 +644,7 @@ pub(crate) fn split<'a>(data: &'a [u8], dec: &mut Decoder) -> MltResult<Parts<'a
     let (&depth, rest) = data.split_first().ok_or(MalformedRans("empty"))?;
     let depth = u32::from(depth);
     if depth > MAX_DEPTH {
-        return Err(MalformedRans("depth"));
+        return Err(MalformedRans("depth").into());
     }
 
     let mut r = BitReader {
@@ -659,7 +659,7 @@ pub(crate) fn split<'a>(data: &'a [u8], dec: &mut Decoder) -> MltResult<Parts<'a
             None
         });
         if r.overran() {
-            return Err(MalformedRans("tables truncated"));
+            return Err(MalformedRans("tables truncated").into());
         }
     }
 
@@ -672,7 +672,7 @@ pub(crate) fn split<'a>(data: &'a [u8], dec: &mut Decoder) -> MltResult<Parts<'a
     let mut lanes = [&[][..]; LANES];
     for (lane, len) in lanes.iter_mut().zip(lens) {
         if len < 4 || !len.is_multiple_of(2) {
-            return Err(MalformedRans("lane length"));
+            return Err(MalformedRans("lane length").into());
         }
         (*lane, rest) = rest
             .split_at_checked(len)
@@ -694,7 +694,7 @@ pub fn decode_vertices(
     dec: &mut Decoder,
 ) -> MltResult<Vec<i32>> {
     if !num_values.is_multiple_of(2) {
-        return Err(MalformedRans("odd vertex word count"));
+        return Err(MalformedRans("odd vertex word count").into());
     }
     let vertex_count = num_values as usize / 2;
     dec.consume_items::<u8>(vertex_count)?;
@@ -766,7 +766,7 @@ pub fn decode_vertices(
         _ => s.decode::<MAX_SLAB>(slab, &mut out),
     }?;
     if raw_bits.div_ceil(8) != raw.len() {
-        return Err(MalformedRans("raw bits length"));
+        return Err(MalformedRans("raw bits length").into());
     }
     Ok(out)
 }
@@ -828,10 +828,10 @@ impl Symbols<'_> {
             *py = y.wrapping_add(raw.value(ey0));
         }
         if invalid & INVALID != 0 {
-            return Err(MalformedRans("symbol from a missing table"));
+            return Err(MalformedRans("symbol from a missing table").into());
         }
         if ![l0, l1, l2, l3].iter().all(Lane::finished) {
-            return Err(MalformedRans("lanes do not end in the initial state"));
+            return Err(MalformedRans("lanes do not end in the initial state").into());
         }
         Ok(raw.bit)
     }

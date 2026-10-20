@@ -46,7 +46,7 @@ use crate::decoder::{
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::tile::ZStep;
 use crate::utils::{BinarySerializer as _, parse_u8, take};
-use crate::{MltError, MltRefResult, MltResult, Parser};
+use crate::{MltErrorKind, MltRefResult, MltResult, Parser};
 
 /// Bit 7 of the encoding byte: an explicit count varint follows.
 pub(crate) const HAS_EXPLICIT_COUNT: u8 = 0b1000_0000;
@@ -486,7 +486,7 @@ pub(crate) enum Encoding02 {
 /// Read the physical field as an integer codec, for an encoding that always writes its byte length.
 fn physical_int(enc_byte: u8) -> MltResult<PhysicalInt> {
     PhysicalInt::try_from(enc_byte & PHYSICAL_MASK)
-        .map_err(|_| MltError::ParsingEncodingByte(enc_byte))
+        .map_err(|_| MltErrorKind::ParsingEncodingByte(enc_byte).into())
 }
 
 /// Read the physical field of untransformed integer words, which alone may leave the byte length unwritten.
@@ -501,7 +501,7 @@ fn raw_int(enc_byte: u8) -> MltResult<RawInt> {
 /// Read the physical field of a fixed-width element stream.
 fn physical_bits(enc_byte: u8) -> MltResult<PhysicalBits> {
     PhysicalBits::try_from(enc_byte & PHYSICAL_MASK)
-        .map_err(|_| MltError::ParsingEncodingByte(enc_byte))
+        .map_err(|_| MltErrorKind::ParsingEncodingByte(enc_byte).into())
 }
 
 /// Require the physical field to be `bits`, for an encoding that admits one pattern.
@@ -509,7 +509,7 @@ fn require_physical(enc_byte: u8, bits: u8) -> MltResult<()> {
     if enc_byte & PHYSICAL_MASK == bits {
         Ok(())
     } else {
-        Err(MltError::ParsingEncodingByte(enc_byte))
+        Err(MltErrorKind::ParsingEncodingByte(enc_byte).into())
     }
 }
 
@@ -523,7 +523,7 @@ fn no_extension(enc_byte: u8) -> MltResult<()> {
     if enc_byte & EXTENSION_MASK == 0 {
         Ok(())
     } else {
-        Err(MltError::ParsingEncodingByte(enc_byte))
+        Err(MltErrorKind::ParsingEncodingByte(enc_byte).into())
     }
 }
 
@@ -569,7 +569,7 @@ impl Encoding02 {
         let code = (enc_byte & LOGICAL_MASK) >> LOGICAL_SHIFT;
         let logical = family
             .logical(code)
-            .ok_or(MltError::ParsingEncodingByte(enc_byte))?;
+            .ok_or(MltErrorKind::ParsingEncodingByte(enc_byte))?;
         // Only a string column's leading stream and a vertex stream assign anything to the extension field.
         if !matches!(family, Family::Str(_) | Family::Vertex) {
             no_extension(enc_byte)?;
@@ -579,7 +579,7 @@ impl Encoding02 {
             Family::Str(layout) => {
                 // The caller resolves the layout from this very byte, so a mismatch means it read another.
                 if StrLayout::from_bits(enc_byte) != layout {
-                    return Err(MltError::ParsingEncodingByte(enc_byte));
+                    return Err(MltErrorKind::ParsingEncodingByte(enc_byte).into());
                 }
                 Self::Str(logical_int(family, enc_byte, logical)?, layout)
             }
@@ -623,7 +623,7 @@ impl Encoding02 {
             }),
             Family::Float(_) => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
-                Logical::Rle => return Err(MltError::ParsingEncodingByte(enc_byte)),
+                Logical::Rle => return Err(MltErrorKind::ParsingEncodingByte(enc_byte).into()),
                 Logical::Alp => LogicalFloat::Alp(physical_int(enc_byte)?),
                 Logical::Dict => LogicalFloat::Dict(physical_int(enc_byte)?),
                 Logical::Delta
@@ -644,7 +644,7 @@ impl Encoding02 {
                 Logical::CwDelta => LogicalXyz::CwDelta(physical_int(enc_byte)?),
                 // A Morton code spans only x and y, and second-order deltas and rANS are defined over pairs.
                 Logical::Morton | Logical::CwDelta2 | Logical::Rans => {
-                    return Err(MltError::ParsingEncodingByte(enc_byte));
+                    return Err(MltErrorKind::ParsingEncodingByte(enc_byte).into());
                 }
                 Logical::Rle
                 | Logical::DeltaRle
@@ -658,7 +658,7 @@ impl Encoding02 {
             }),
             Family::Vertex => Self::Vertex(match logical {
                 _ if enc_byte & EXTENSION_MASK != 0 => {
-                    return Err(MltError::ParsingEncodingByte(enc_byte));
+                    return Err(MltErrorKind::ParsingEncodingByte(enc_byte).into());
                 }
                 Logical::None => LogicalVertex::None(raw_int(enc_byte)?),
                 Logical::Delta => LogicalVertex::Delta(physical_int(enc_byte)?),
@@ -913,17 +913,19 @@ fn physical_int_field(physical: PhysicalEncoding) -> MltResult<u8> {
         PhysicalEncoding::VarInt => PhysicalInt::VarInt as u8,
         PhysicalEncoding::FastPFor(FastPForKind::Block128Le) => PhysicalInt::FastPFor128 as u8,
         PhysicalEncoding::FastPFor(FastPForKind::Block256Be) => {
-            return Err(MltError::UnsupportedPhysicalEncodingForType(
+            return Err(MltErrorKind::UnsupportedPhysicalEncodingForType(
                 physical,
                 "v2, whose FastPFor streams are 128-value little-endian blocks",
-            ));
+            )
+            .into());
         }
         // Bit packing is named by the logical field, which `wire_fields` takes before this.
         PhysicalEncoding::BitPacked => {
-            return Err(MltError::UnsupportedPhysicalEncodingForType(
+            return Err(MltErrorKind::UnsupportedPhysicalEncodingForType(
                 physical,
                 "a v2 physical field, which has no code for bit packing",
-            ));
+            )
+            .into());
         }
     })
 }
@@ -957,9 +959,10 @@ fn wire_fields(
                 Ok(PhysicalBits::WithLen as u8)
             }
             (Family::Bool | Family::Float(_) | Family::Bytes, _) => {
-                Err(MltError::UnsupportedPhysicalEncoding(
+                Err(MltErrorKind::UnsupportedPhysicalEncoding(
                     "v2 float and blob streams store their elements as they are",
-                ))
+                )
+                .into())
             }
             _ => physical_int_field(encoding.physical),
         }
@@ -974,10 +977,11 @@ fn wire_fields(
     // Bit packing has a logical code of its own, since the physical field has no spare pattern.
     if encoding.physical == PhysicalEncoding::BitPacked {
         if encoding.logical != LE::Int(IL::None) {
-            return Err(MltError::UnsupportedLogicalEncoding(
+            return Err(MltErrorKind::UnsupportedLogicalEncoding(
                 encoding.logical,
                 "v2 bit packing, which stores values as they are",
-            ));
+            )
+            .into());
         }
         return Ok(with_length(Logical::BitPacked, 0));
     }
@@ -1008,23 +1012,25 @@ fn wire_fields(
         LE::Vertex(VL::ComponentwiseDelta2) => with_length(Logical::CwDelta2, physical(encoding)?),
         LE::Vertex(VL::Rans) => {
             if encoding.physical != PhysicalEncoding::None {
-                return Err(MltError::UnsupportedPhysicalEncoding(
+                return Err(MltErrorKind::UnsupportedPhysicalEncoding(
                     "v2 rANS, which defines its own payload",
-                ));
+                )
+                .into());
             }
             with_length(Logical::Rans, 0)
         }
         LE::Int(IL::Rle(rle) | IL::DeltaRle(rle)) => {
             if !matches!(rle, RleMeta::Interleaved { .. }) {
-                return Err(MltError::UnsupportedLogicalEncoding(
+                return Err(MltErrorKind::UnsupportedLogicalEncoding(
                     encoding.logical,
                     "v2 stream header codec requires the Interleaved RLE layout",
-                ));
+                )
+                .into());
             }
             if encoding.physical != PhysicalEncoding::VarInt {
-                return Err(MltError::UnsupportedPhysicalEncoding(
-                    "v2 RLE requires VarInt",
-                ));
+                return Err(
+                    MltErrorKind::UnsupportedPhysicalEncoding("v2 RLE requires VarInt").into(),
+                );
             }
             let logical = if matches!(encoding.logical, LE::Int(IL::Rle(_))) {
                 Logical::Rle
@@ -1039,9 +1045,10 @@ fn wire_fields(
         LE::Float(FL::Alp(_)) => with_length(Logical::Alp, physical_int_field(encoding.physical)?),
         LE::Bool(coding @ (BL::None | BL::Runs | BL::Sparse)) => {
             if encoding.physical != PhysicalEncoding::None {
-                return Err(MltError::UnsupportedPhysicalEncoding(
+                return Err(MltErrorKind::UnsupportedPhysicalEncoding(
                     "v2 bool streams, which every coding delimits itself",
-                ));
+                )
+                .into());
             }
             WireFields {
                 logical: match coding {
@@ -1054,10 +1061,11 @@ fn wire_fields(
             }
         }
         LE::Bool(BL::ByteRle(_)) => {
-            return Err(MltError::UnsupportedLogicalEncoding(
+            return Err(MltErrorKind::UnsupportedLogicalEncoding(
                 encoding.logical,
                 "v2, whose bool columns have no byte-RLE",
-            ));
+            )
+            .into());
         }
         // v2 stores Morton codes only as a sorted dictionary, whose deltas are always the shorter form.
         LE::Vertex(VL::MortonDelta(_)) => {
@@ -1095,7 +1103,7 @@ pub(crate) fn parse_stream<'a>(
     let explicit = enc_byte & HAS_EXPLICIT_COUNT != 0;
     // A blob's count is its byte length, so it has nothing for a count varint to say.
     if explicit && family == Family::Bytes {
-        return Err(MltError::ParsingEncodingByte(enc_byte));
+        return Err(MltErrorKind::ParsingEncodingByte(enc_byte).into());
     }
     let (input, explicit_count) = if explicit {
         let (input, explicit_count) = parse_varint::<u32>(input)?;
@@ -1114,7 +1122,9 @@ pub(crate) fn parse_stream<'a>(
             None => match count {
                 Count02::Implied(count) => count,
                 Count02::Explicit => {
-                    return Err(MltError::StreamWithoutCount(ctx.stream_type(), enc_byte));
+                    return Err(
+                        MltErrorKind::StreamWithoutCount(ctx.stream_type(), enc_byte).into(),
+                    );
                 }
             },
         };
@@ -1125,7 +1135,7 @@ pub(crate) fn parse_stream<'a>(
         } else if encoding.omits_byte_length() {
             let byte_length = family
                 .raw_byte_length(num_words(num_values)?)?
-                .ok_or(MltError::ParsingEncodingByte(enc_byte))?;
+                .ok_or(MltErrorKind::ParsingEncodingByte(enc_byte))?;
             (input, num_values, byte_length)
         } else {
             let (input, byte_length) = parse_varint::<u32>(input)?;
@@ -1171,7 +1181,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         .or_overflow()?;
     let fields = wire_fields(meta.encoding, family, num_words, byte_length)?;
     let code = family.code(fields.logical).ok_or_else(|| {
-        MltError::UnsupportedLogicalEncoding(meta.encoding.logical, family.into())
+        MltErrorKind::UnsupportedLogicalEncoding(meta.encoding.logical, family.into())
     })?;
     // A blob's count is its byte length, which its length varint already carries.
     let explicit = family != Family::Bytes && count != Count02::Implied(num_values);
@@ -1719,7 +1729,7 @@ mod tests {
         let buf = [enc_byte, 0];
         let err = parse_stream(&buf, BOOL, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(
-            matches!(err, MltError::ParsingEncodingByte(b) if b == enc_byte),
+            matches!(err.kind(), MltErrorKind::ParsingEncodingByte(b) if *b == enc_byte),
             "{err:?}"
         );
     }
@@ -1743,7 +1753,10 @@ mod tests {
         buf.write_varint(u32::MAX / 2).unwrap();
         buf.push(0);
         let err = parse_stream(&buf, VERTEX, Count02::Explicit, &mut parser()).unwrap_err();
-        assert!(matches!(err, MltError::IntegerOverflow), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::IntegerOverflow),
+            "{err:?}"
+        );
     }
 
     #[test]
@@ -1758,7 +1771,10 @@ mod tests {
     fn a_raw_stream_shorter_than_its_derived_length_is_rejected() {
         let buf = [0b0000_0000, 1, 0, 0, 0, 2, 0, 0];
         let err = parse_stream(&buf, INT, Count02::Implied(2), &mut parser()).unwrap_err();
-        assert!(matches!(err, MltError::UnableToTake(8)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::UnableToTake(8)),
+            "{err:?}"
+        );
     }
 
     #[test]
@@ -1766,7 +1782,10 @@ mod tests {
         let buf = [0b0000_0000];
         let count = Count02::Implied(u32::MAX);
         let err = parse_stream(&buf, LONG, count, &mut parser()).unwrap_err();
-        assert!(matches!(err, MltError::IntegerOverflow), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::IntegerOverflow),
+            "{err:?}"
+        );
     }
 
     #[test]
@@ -1802,7 +1821,7 @@ mod tests {
         let err = write_stream_meta(&meta, &mut buf, byte_length, Count02::Implied(2), family)
             .unwrap_err();
         assert!(
-            matches!(err, MltError::InvalidDecodingStreamSize(actual, e) if actual == byte_length.into_usize() && e == expected),
+            matches!(err.kind(), MltErrorKind::InvalidDecodingStreamSize(actual, e) if *actual == byte_length.into_usize() && *e == expected),
             "{err:?}"
         );
     }
@@ -1846,7 +1865,7 @@ mod tests {
         let buf = [enc_byte, 0];
         let err = parse_stream(&buf, ctx, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(
-            matches!(err, MltError::ParsingEncodingByte(b) if b == enc_byte),
+            matches!(err.kind(), MltErrorKind::ParsingEncodingByte(b) if *b == enc_byte),
             "{err:?}"
         );
     }
@@ -1858,7 +1877,7 @@ mod tests {
         let buf = [0b0010_1001, 0, code];
         let err = parse_stream(&buf, VERTEX, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(
-            matches!(err, MltError::InvalidZStepCode(c) if c == code),
+            matches!(err.kind(), MltErrorKind::InvalidZStepCode(c) if *c == code),
             "{err:?}"
         );
     }
@@ -1868,7 +1887,7 @@ mod tests {
         let buf = [0b0001_0000, 0];
         let err = parse_stream(&buf, FLOAT, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(
-            matches!(err, MltError::ParsingEncodingByte(0b0001_0000)),
+            matches!(err.kind(), MltErrorKind::ParsingEncodingByte(0b0001_0000)),
             "{err:?}"
         );
     }
@@ -1915,7 +1934,10 @@ mod tests {
         let buf = [0b0001_0000, 0];
         let as_float = parse_stream(&buf, FLOAT, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(
-            matches!(as_float, MltError::ParsingEncodingByte(0b0001_0000)),
+            matches!(
+                as_float.kind(),
+                MltErrorKind::ParsingEncodingByte(0b0001_0000)
+            ),
             "{as_float:?}"
         );
     }
@@ -1975,9 +1997,9 @@ mod tests {
         let err = write_stream_meta(&meta, &mut buf, 0, Count02::Implied(5), family).unwrap_err();
         assert!(
             matches!(
-                err,
-                MltError::UnsupportedPhysicalEncoding(_)
-                    | MltError::UnsupportedPhysicalEncodingForType(_, _)
+                err.kind(),
+                MltErrorKind::UnsupportedPhysicalEncoding(_)
+                    | MltErrorKind::UnsupportedPhysicalEncodingForType(_, _)
             ),
             "{err:?}"
         );
@@ -1989,7 +2011,7 @@ mod tests {
         let buf = [0b0000_1000, 0];
         let err = parse_stream(&buf, INT, Count02::Explicit, &mut parser()).unwrap_err();
         assert!(
-            matches!(err, MltError::StreamWithoutCount(t, b) if t == INT.stream_type() && b == buf[0]),
+            matches!(err.kind(), MltErrorKind::StreamWithoutCount(t, b) if *t == INT.stream_type() && *b == buf[0]),
             "{err:?}"
         );
     }
@@ -2045,7 +2067,10 @@ mod tests {
         let mut buf = Vec::new();
         let err =
             write_stream_meta(&meta, &mut buf, 0, Count02::Implied(5), INT_FAMILY).unwrap_err();
-        assert!(matches!(err, MltError::UnsupportedLogicalEncoding(_, _)));
+        assert!(matches!(
+            err.kind(),
+            MltErrorKind::UnsupportedLogicalEncoding(_, _)
+        ));
     }
 
     #[rstest]
@@ -2083,8 +2108,8 @@ mod tests {
         let err = write_stream_meta(&meta, &mut buf, 0, Count02::Implied(5), family).unwrap_err();
         assert!(
             matches!(
-                err,
-                MltError::UnsupportedLogicalEncoding(_, _) | MltError::NotImplemented(_)
+                err.kind(),
+                MltErrorKind::UnsupportedLogicalEncoding(_, _) | MltErrorKind::NotImplemented(_)
             ),
             "{err:?}"
         );

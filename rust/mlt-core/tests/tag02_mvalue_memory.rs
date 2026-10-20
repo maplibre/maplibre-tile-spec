@@ -5,7 +5,7 @@ use mlt_core::encoder::{
 };
 use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{Coord, Geometry, LineString};
-use mlt_core::{Decoder, GeometryValues, Layer, MltError, Parser};
+use mlt_core::{Decoder, GeometryValues, Layer, MltErrorKind, Parser};
 
 /// The budget the decode below is given, which is the default one.
 const BUDGET: usize = 64 * 1024 * 1024;
@@ -78,7 +78,7 @@ fn a_column_per_feature_cannot_allocate_past_the_decoder_budget() {
         .into_tile(&mut Decoder::with_max_size(budget))
         .expect_err("the budget has to stop this");
     assert!(
-        matches!(err, MltError::MemoryLimitExceeded { .. }),
+        matches!(err.kind(), MltErrorKind::MemoryLimitExceeded { .. }),
         "{err:?}"
     );
 

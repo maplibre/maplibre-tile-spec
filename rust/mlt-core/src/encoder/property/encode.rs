@@ -5,7 +5,7 @@ use crate::encoder::{
     Codecs, Encoder, LogicalCodecs, LogicalIntCodec, LogicalIntStreamKind, StagedScalar,
     StagedStrings,
 };
-use crate::{MltError, MltResult};
+use crate::{MltErrorKind, MltResult};
 
 /// Encode a single property column, dispatching on variant.
 #[hotpath::measure]
@@ -45,7 +45,7 @@ pub(crate) fn write_prop(
             codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
         D::I8(_) | D::OptI8(_) | D::U8(_) | D::OptU8(_) => {
-            Err(MltError::EightBitNeedsV2(prop.name().to_owned()))
+            Err(MltErrorKind::EightBitNeedsV2(prop.name().to_owned()).into())
         }
         D::I32(v) => codecs.write_scalar_col(CT::I32, Some(&v.name), v, enc),
         D::OptI32(v) => codecs.write_opt_scalar_col(CT::OptI32, Some(&v.name), v, enc),

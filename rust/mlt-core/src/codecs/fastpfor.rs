@@ -4,7 +4,7 @@ use fastpfor::{AnyLenCodec as _, FastPFor256};
 use usize_cast::IntoUsize as _;
 
 use crate::decoder::FastPForKind;
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltErrorKind, MltResult};
 
 /// Decode `FastPFOR`-compressed data using the composite codec protocol.
 ///
@@ -27,13 +27,13 @@ pub fn decode_fastpfor(
         return if data.is_empty() {
             Ok(vec![])
         } else {
-            Err(MltError::InvalidFastPforByteLength(0))
+            Err(MltErrorKind::InvalidFastPforByteLength(0).into())
         };
     }
 
     let (words, rest) = data.as_chunks::<4>();
     if !rest.is_empty() {
-        return Err(MltError::InvalidFastPforByteLength(data.len()));
+        return Err(MltErrorKind::InvalidFastPforByteLength(data.len()).into());
     }
     dec.consume_items::<u32>(words.len())?;
 
@@ -135,7 +135,7 @@ mod tests {
     fn a_zero_value_stream_carrying_a_payload_is_rejected(#[case] kind: FastPForKind) {
         let err = decode_fastpfor(&[0, 0, 0, 0], 0, kind, &mut dec()).unwrap_err();
         assert!(
-            matches!(err, MltError::InvalidFastPforByteLength(0)),
+            matches!(err.kind(), MltErrorKind::InvalidFastPforByteLength(0)),
             "{err:?}"
         );
     }
@@ -146,7 +146,7 @@ mod tests {
     fn a_payload_that_is_not_whole_words_is_rejected(#[case] kind: FastPForKind) {
         let err = decode_fastpfor(&[0, 0, 0], 1, kind, &mut dec()).unwrap_err();
         assert!(
-            matches!(err, MltError::InvalidFastPforByteLength(3)),
+            matches!(err.kind(), MltErrorKind::InvalidFastPforByteLength(3)),
             "{err:?}"
         );
     }
@@ -159,7 +159,7 @@ mod tests {
         let encoded = encode(kind, &data);
         let err = decode_fastpfor(&encoded, 600, kind, &mut dec()).unwrap_err();
         assert!(
-            matches!(err, MltError::FastPfor(_)),
+            matches!(err.kind(), MltErrorKind::FastPfor(_)),
             "the codec must reject a short decode itself: {err:?}"
         );
     }
@@ -172,7 +172,7 @@ mod tests {
         let encoded = encode(kind, &data);
         let err = decode_fastpfor(&encoded, 500, kind, &mut starved_dec()).unwrap_err();
         assert!(
-            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            matches!(err.kind(), MltErrorKind::MemoryLimitExceeded { .. }),
             "{err:?}"
         );
     }

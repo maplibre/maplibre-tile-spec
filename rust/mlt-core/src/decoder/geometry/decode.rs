@@ -10,7 +10,7 @@ use crate::decoder::{
 use crate::decoder::{LogicalEncoding, VertexLogical};
 use crate::errors::AsMltError as _;
 use crate::utils::SetOptionOnce as _;
-use crate::{Decode, Decoder, MltError, MltResult, Parser};
+use crate::{Decode, Decoder, MltErrorKind, MltResult, Parser};
 
 /// Advance `offset` by `count` and extend `buffer` with the consecutive values
 /// `old_offset + 1, old_offset + 2, …, new_offset`.
@@ -71,7 +71,7 @@ pub fn decode_root_length_stream(
         let increment = if geom_type > buffer_id {
             let val = *root_length_stream
                 .get(root_length_counter)
-                .ok_or(MltError::GeometryIndexOutOfBounds(root_length_counter))?;
+                .ok_or(MltErrorKind::GeometryIndexOutOfBounds(root_length_counter))?;
             // Safety: counter bounded by `geometry_types.len()`, which fits in usize.
             root_length_counter += 1;
             val
@@ -110,9 +110,9 @@ pub fn decode_level1_without_ring_buffer_length_stream(
         if geometry_type.is_linestring() {
             // For MultiLineString and LineString a value in the level1LengthBuffer exists
             for _j in 0..num_geometries {
-                let val = *level1_length_buffer
-                    .get(level1_length_counter)
-                    .ok_or(MltError::GeometryIndexOutOfBounds(level1_length_counter))?;
+                let val = *level1_length_buffer.get(level1_length_counter).ok_or(
+                    MltErrorKind::GeometryIndexOutOfBounds(level1_length_counter),
+                )?;
                 offset = offset.checked_add(val).or_overflow()?;
                 level1_buffer_offsets.push(offset);
                 // Safety: counter bounded by slice lengths, which fit in usize.
@@ -155,7 +155,7 @@ pub fn decode_level1_length_stream(
             for _j in 0..num_geometries {
                 let val = *level1_length_buffer
                     .get(level1_length_buffer_counter)
-                    .ok_or(MltError::GeometryIndexOutOfBounds(
+                    .ok_or(MltErrorKind::GeometryIndexOutOfBounds(
                         level1_length_buffer_counter,
                     ))?;
                 offset = offset.checked_add(val).or_overflow()?;
@@ -199,14 +199,14 @@ pub fn decode_level2_length_stream(
             // exists
             for _j in 0..num_geometries {
                 let [base, next, ..] = *level1_tail else {
-                    return Err(MltError::IntegerOverflow);
+                    return Err(MltErrorKind::IntegerOverflow.into());
                 };
                 let num_parts = next.checked_sub(base).or_overflow()?.into_usize();
                 level1_tail = &level1_tail[1..];
                 for _k in 0..num_parts {
                     let val = *level2_length_buffer
                         .get(level2_pos)
-                        .ok_or(MltError::GeometryIndexOutOfBounds(level2_pos))?;
+                        .ok_or(MltErrorKind::GeometryIndexOutOfBounds(level2_pos))?;
                     previous_offset = previous_offset.checked_add(val).or_overflow()?;
                     // Safety: counter bounded by slice lengths, which fit in usize.
                     level2_pos += 1;
@@ -221,7 +221,7 @@ pub fn decode_level2_length_stream(
                 num_geometries,
             )?;
             if num_geometries > level1_tail.len() {
-                return Err(MltError::IntegerOverflow);
+                return Err(MltErrorKind::IntegerOverflow.into());
             }
             level1_tail = &level1_tail[num_geometries..];
         }
@@ -352,10 +352,11 @@ fn decode_vertex_stream(
     #[cfg(feature = "unstable-v2")]
     if stream.meta.encoding.logical == LogicalEncoding::Vertex(VertexLogical::Rans) {
         if dictionary {
-            return Err(MltError::UnsupportedLogicalEncoding(
+            return Err(MltErrorKind::UnsupportedLogicalEncoding(
                 stream.meta.encoding.logical,
                 "a vertex dictionary",
-            ));
+            )
+            .into());
         }
         return crate::codecs::rans::decode_vertices(
             stream.data,
@@ -449,7 +450,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                     | DictionaryType::Single
                     | DictionaryType::Shared
                     | DictionaryType::Fsst => {
-                        Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?;
+                        Err(MltErrorKind::UnexpectedStreamType(stream.meta.stream_type))?;
                     }
                 },
                 StreamType::Offset(v) => {
@@ -466,10 +467,10 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                         }
                         #[cfg(feature = "unstable-v2")]
                         OffsetType::TreeSymbols | OffsetType::TreeCycles => {
-                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                            Err(MltErrorKind::UnexpectedStreamType(stream.meta.stream_type))?
                         }
                         OffsetType::String | OffsetType::Key => {
-                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                            Err(MltErrorKind::UnexpectedStreamType(stream.meta.stream_type))?
                         }
                     };
                     target.set_once(stream.decode_ints::<u32>(dec)?)?;
@@ -481,11 +482,11 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                         LengthType::Rings => &mut ring_offsets,
                         LengthType::Triangles => &mut triangles,
                         LengthType::VarBinary | LengthType::Symbol | LengthType::Dictionary => {
-                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                            Err(MltErrorKind::UnexpectedStreamType(stream.meta.stream_type))?
                         }
                         #[cfg(feature = "unstable-v2")]
                         LengthType::Nested => {
-                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                            Err(MltErrorKind::UnexpectedStreamType(stream.meta.stream_type))?
                         }
                     };
                     target.set_once(stream.decode_ints::<u32>(dec)?)?;
@@ -500,7 +501,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                 index_buffer.set_once(crate::codecs::tri::decode_trees(&symbols, &cycles, dec)?)?;
                 Some(cycles)
             }
-            _ => Err(MltError::MalformedTriangles(
+            _ => Err(MltErrorKind::MalformedTriangles(
                 "tree symbols and cycles come as a pair",
             ))?,
         };
@@ -508,16 +509,16 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
         let triangles_only = index_buffer.is_some() && part_offsets.is_none();
         if triangles_only {
             if index_base == IndexBase::Feature {
-                return Err(MltError::NotImplemented(
-                    "v1 triangles without outline topology",
-                ));
+                return Err(
+                    MltErrorKind::NotImplemented("v1 triangles without outline topology").into(),
+                );
             }
             if let Some((index, &geom_type)) = vector_types
                 .iter()
                 .enumerate()
                 .find(|(_, t)| !t.is_polygon())
             {
-                return Err(MltError::NonPolygonWithoutOutlines(index, geom_type));
+                return Err(MltErrorKind::NonPolygonWithoutOutlines(index, geom_type).into());
             }
         }
 
@@ -546,14 +547,15 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             let triangles = index_buffer.as_ref().map_or(0, |b| b.len() / 3);
             let total = triangle_offsets.as_ref().and_then(|o| o.last()).copied();
             if total.map_or(0, u32::into_usize) != triangles {
-                return Err(MltError::MalformedTriangles(
+                return Err(MltErrorKind::MalformedTriangles(
                     "triangle lengths do not sum to the symbol count",
-                ));
+                )
+                .into());
             }
             let stride = if z_step.is_some() { 3 } else { 2 };
             let vertex_count = vertices.as_ref().map_or(0, |v| v.len() / stride);
             if let Some(&idx) = cycles.iter().find(|&&i| i.into_usize() >= vertex_count) {
-                return Err(MltError::TreeVertexOutOfBounds(idx, vertex_count));
+                return Err(MltErrorKind::TreeVertexOutOfBounds(idx, vertex_count).into());
             }
         }
 
@@ -584,7 +586,9 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                 |mut acc, &idx| -> MltResult<_> {
                     let i = idx.into_usize();
                     if i >= dict_vertex_count {
-                        return Err(MltError::DictIndexOutOfBounds(idx, dict_vertex_count));
+                        return Err(
+                            MltErrorKind::DictIndexOutOfBounds(idx, dict_vertex_count).into()
+                        );
                     }
                     acc.extend_from_slice(&dict[i * stride..(i + 1) * stride]);
                     Ok(acc)

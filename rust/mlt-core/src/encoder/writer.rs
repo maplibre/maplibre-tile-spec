@@ -14,7 +14,7 @@ use crate::encoder::model::FloatEncoding;
 use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IntEncoder, Network, Profile, VertexBufferType};
 use crate::utils::BinarySerializer as _;
-use crate::{MltError, MltResult};
+use crate::{MltError, MltErrorKind, MltResult};
 
 /// Stateful encoder that accumulates encoded layer bytes.
 ///
@@ -289,7 +289,7 @@ impl Encoder {
         column_count: usize,
     ) -> MltResult<()> {
         if name.is_empty() {
-            return Err(MltError::MissingLayerName);
+            return Err(MltErrorKind::MissingLayerName.into());
         }
         debug_assert!(
             self.alt_stack.is_empty(),
@@ -319,7 +319,7 @@ impl Encoder {
         feature_count: u32,
     ) -> MltResult<()> {
         if name.is_empty() {
-            return Err(MltError::MissingLayerName);
+            return Err(MltErrorKind::MissingLayerName.into());
         }
         debug_assert!(
             self.alt_stack.is_empty(),
@@ -870,7 +870,7 @@ mod tests {
         .unwrap();
         let _ = alt.with(|enc| {
             push(enc, b"partial");
-            Err(MltError::IntegerOverflow) // simulated failure
+            Err(MltErrorKind::IntegerOverflow.into()) // simulated failure
         });
         drop(alt);
 

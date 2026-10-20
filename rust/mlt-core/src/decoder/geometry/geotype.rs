@@ -5,12 +5,12 @@ use geo_types::{
 };
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{
+use crate::MltErrorKind::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
     NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
 };
 #[cfg(feature = "unstable-v2")]
-use crate::MltError::{ZAlreadySet, ZVertexCountMismatch};
+use crate::MltErrorKind::{ZAlreadySet, ZVertexCountMismatch};
 use crate::MltResult;
 use crate::decoder::{GeometryType, GeometryValues};
 use crate::errors::AsMltError as _;
@@ -148,7 +148,7 @@ impl GeometryValues {
             .polygon_vertex_starts()
             .collect::<MltResult<Vec<_>>>()?;
         if offsets.len() != starts.len() + 1 {
-            return Err(GeometryIndexOutOfBounds(offsets.len().saturating_sub(1)));
+            return Err(GeometryIndexOutOfBounds(offsets.len().saturating_sub(1)).into());
         }
         for (run, start) in offsets.windows(2).zip(starts) {
             let [from, to] = [run[0], run[1]].map(|t| t.into_usize().saturating_mul(3));
@@ -206,7 +206,7 @@ impl GeometryValues {
     #[cfg(feature = "unstable-v2")]
     pub fn add_z(&mut self, step: ZStep, z: &[i32]) -> MltResult<()> {
         if self.z_step.is_some() {
-            return Err(ZAlreadySet);
+            return Err(ZAlreadySet.into());
         }
         let pairs = self.vertices.take().unwrap_or_default();
         let expected = pairs.len() / 2;
@@ -214,7 +214,8 @@ impl GeometryValues {
             return Err(ZVertexCountMismatch {
                 expected,
                 actual: z.len(),
-            });
+            }
+            .into());
         }
         let mut xyz = Vec::with_capacity(pairs.len() + z.len());
         for (&[x, y], &z) in pairs.as_chunks::<2>().0.iter().zip(z) {
@@ -247,10 +248,13 @@ impl GeometryValues {
                 .and_then(|w| w.checked_add(2))
                 .and_then(|w| verts.get(w))
                 .copied()
-                .ok_or(GeometryVertexOutOfBounds {
-                    index,
-                    vertex,
-                    count: verts.len() / 3,
+                .ok_or_else(|| {
+                    GeometryVertexOutOfBounds {
+                        index,
+                        vertex,
+                        count: verts.len() / 3,
+                    }
+                    .into()
                 })
         };
         let vertices = self.z_vertices(index)?;
@@ -296,15 +300,15 @@ impl GeometryValues {
     /// A ring's closing vertex is not stored, so it is not in the range either.
     pub fn vertex_range(&self, index: usize) -> MltResult<Range<usize>> {
         let entry = |level: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
-            level
-                .get(idx)
-                .map(|&v| v.into_usize())
-                .ok_or(GeometryOutOfBounds {
+            level.get(idx).map(|&v| v.into_usize()).ok_or_else(|| {
+                GeometryOutOfBounds {
                     index,
                     field,
                     idx,
                     len: level.len(),
-                })
+                }
+                .into()
+            })
         };
         // Every level addresses a contiguous run of the level below it, so descending
         // a range through them lands on the vertices without caring which shape it is.
@@ -342,14 +346,15 @@ impl GeometryValues {
         let rings = self.ring_offsets.as_deref();
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
-            s.get(idx)
-                .map(|&v| v.into_usize())
-                .ok_or(GeometryOutOfBounds {
+            s.get(idx).map(|&v| v.into_usize()).ok_or_else(|| {
+                GeometryOutOfBounds {
                     index,
                     field,
                     idx,
                     len: s.len(),
-                })
+                }
+                .into()
+            })
         };
         let off_pair = |s: &[u32], idx: usize, field: &'static str| -> MltResult<Range<usize>> {
             Ok(off(s, idx, field)?..off(s, idx + 1, field)?)
@@ -367,10 +372,13 @@ impl GeometryValues {
             idx.checked_mul(stride)
                 .and_then(|w| verts.get(w..w.checked_add(2)?))
                 .map(|s| Coord { x: s[0], y: s[1] })
-                .ok_or(GeometryVertexOutOfBounds {
-                    index,
-                    vertex: idx,
-                    count: verts.len() / stride,
+                .ok_or_else(|| {
+                    GeometryVertexOutOfBounds {
+                        index,
+                        vertex: idx,
+                        count: verts.len() / stride,
+                    }
+                    .into()
                 })
         };
         let line = |r: Range<usize>| -> MltResult<LineString<i32>> { r.map(&vert).collect() };
@@ -479,7 +487,7 @@ impl GeometryValues {
                 let geom_rng = geom_range(geoms, index)?;
                 // A multi with no sub-geometries never indexes the levels below it,
                 // so it does not need them to be present.
-                let parts = require(parts, &geom_rng, || NoPartOffsets(index, geom_type))?;
+                let parts = require(parts, &geom_rng, || NoPartOffsets(index, geom_type).into())?;
                 // geometry_offsets indexes into part_offsets for each linestring.
                 // When ring_offsets exist (polygon geometry present), part_offsets indexes
                 // into ring_offsets for vertex ranges. Otherwise, part_offsets directly
@@ -497,8 +505,8 @@ impl GeometryValues {
                 let geom_rng = geom_range(geoms, index)?;
                 // A multi with no sub-geometries never indexes the levels below it,
                 // so it does not need them to be present.
-                let parts = require(parts, &geom_rng, || NoPartOffsets(index, geom_type))?;
-                let rings = require(rings, &geom_rng, || NoRingOffsets(index, geom_type))?;
+                let parts = require(parts, &geom_rng, || NoPartOffsets(index, geom_type).into())?;
+                let rings = require(rings, &geom_rng, || NoRingOffsets(index, geom_type).into())?;
                 let polys: Vec<_> = geom_rng
                     .map(|idx| poly_from_rings(part_range(parts, idx)?, rings))
                     .collect::<Result<_, _>>()?;

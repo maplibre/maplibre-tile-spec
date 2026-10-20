@@ -1,12 +1,12 @@
 use crate::codecs::varint::parse_varint;
 use crate::utils::PresentValues;
-use crate::{Decoder, MltError, MltRefResult, MltResult, RawPresence};
+use crate::{Decoder, MltErrorKind, MltRefResult, MltResult, RawPresence};
 
 #[inline]
 pub fn take(input: &[u8], size: u32) -> MltRefResult<'_, &[u8]> {
     let (value, input) = input
         .split_at_checked(size.try_into()?)
-        .ok_or(MltError::UnableToTake(size))?;
+        .ok_or(MltErrorKind::UnableToTake(size))?;
     Ok((input, value))
 }
 
@@ -21,7 +21,7 @@ pub fn parse_string(input: &[u8]) -> MltRefResult<'_, &str> {
 /// Parse a single byte from the input
 pub fn parse_u8(input: &[u8]) -> MltRefResult<'_, u8> {
     if input.is_empty() {
-        Err(MltError::UnableToTake(1))
+        Err(MltErrorKind::UnableToTake(1).into())
     } else {
         Ok((&input[1..], input[0]))
     }
@@ -41,7 +41,7 @@ pub fn decode_presence<'a, T: Copy>(
     let set_count = bits.count_ones();
     let dense_count = values.len();
     if set_count != dense_count {
-        return Err(MltError::PresenceValueCountMismatch(set_count, dense_count));
+        return Err(MltErrorKind::PresenceValueCountMismatch(set_count, dense_count).into());
     }
     Ok(PresentValues::with_bits(bits, values))
 }

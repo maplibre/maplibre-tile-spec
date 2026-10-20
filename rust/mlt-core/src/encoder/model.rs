@@ -14,7 +14,7 @@ use crate::encoder::{StagedInterior, StagedMValue, StagedNested, StagedNode};
 #[cfg(feature = "unstable-v2")]
 use crate::tile::MAX_NESTED_DEPTH;
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
-use crate::{MltError, MltResult};
+use crate::{MltErrorKind, MltResult};
 
 /// Owned variant of `Unknown`.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -26,7 +26,7 @@ pub struct EncodedUnknown {
 impl EncodedUnknown {
     pub fn new(tag: u8, value: Vec<u8>) -> MltResult<Self> {
         if tag == 1 {
-            return Err(MltError::ParsingColumnType(tag));
+            return Err(MltErrorKind::ParsingColumnType(tag).into());
         }
         Ok(Self { tag, value })
     }
@@ -210,18 +210,19 @@ fn validate_staged<'p>(
 ) -> MltResult<(String, Extent, Vec<Cow<'p, str>>)> {
     let name = name.into();
     if name.is_empty() {
-        return Err(MltError::MissingLayerName);
+        return Err(MltErrorKind::MissingLayerName.into());
     }
     let extent = Extent::new(extent)?;
     let feature_count = geometry.feature_count();
     if let Some(actual) = id.feature_count()
         && actual != feature_count
     {
-        return Err(MltError::StagedFeatureCountMismatch {
+        return Err(MltErrorKind::StagedFeatureCountMismatch {
             column: "id".into(),
             expected: feature_count,
             actual,
-        });
+        }
+        .into());
     }
     // A shared dictionary's `name()` is only its prefix, which may repeat.
     // Its real columns are `{prefix}{suffix}`, so those are the names the layer's namespace holds.
@@ -229,11 +230,12 @@ fn validate_staged<'p>(
     for property in properties {
         let actual = property.feature_count();
         if actual != feature_count {
-            return Err(MltError::StagedFeatureCountMismatch {
+            return Err(MltErrorKind::StagedFeatureCountMismatch {
                 column: property.name().to_string(),
                 expected: feature_count,
                 actual,
-            });
+            }
+            .into());
         }
         if let StagedProperty::SharedDict(sd) = property {
             for item in &sd.items {
@@ -282,11 +284,12 @@ fn validate_m_values(
         if let Some(actual) = column.feature_count()
             && actual != feature_count
         {
-            return Err(MltError::StagedFeatureCountMismatch {
+            return Err(MltErrorKind::StagedFeatureCountMismatch {
                 column: column.name().to_string(),
                 expected: feature_count,
                 actual,
-            });
+            }
+            .into());
         }
         let mut expected = 0;
         for index in 0..feature_count {
@@ -299,11 +302,12 @@ fn validate_m_values(
             }
         }
         if expected != column.values().count() {
-            return Err(MltError::MValueColumnLengthMismatch {
+            return Err(MltErrorKind::MValueColumnLengthMismatch {
                 name: column.name().to_string(),
                 expected,
                 actual: column.values().count(),
-            });
+            }
+            .into());
         }
     }
     Ok(())
@@ -330,11 +334,12 @@ fn validate_nested(
         )?;
         seen.push(column.name());
         if column.root.parent_count() != feature_count {
-            return Err(MltError::StagedFeatureCountMismatch {
+            return Err(MltErrorKind::StagedFeatureCountMismatch {
                 column: column.name().to_string(),
                 expected: feature_count,
                 actual: column.root.parent_count(),
-            });
+            }
+            .into());
         }
         validate_nested_interior(&column.root, 1)?;
     }
@@ -345,7 +350,7 @@ fn validate_nested(
 #[cfg(feature = "unstable-v2")]
 fn validate_nested_node(node: &StagedNode, depth: usize) -> MltResult<()> {
     if depth > MAX_NESTED_DEPTH {
-        return Err(MltError::NestedTooDeep(depth));
+        return Err(MltErrorKind::NestedTooDeep(depth).into());
     }
     match node {
         StagedNode::Leaf(_) => Ok(()),
@@ -361,7 +366,7 @@ fn validate_nested_interior(interior: &StagedInterior, depth: usize) -> MltResul
             let mut seen: HashSet<&str> = HashSet::with_capacity(node.fields.len());
             for (name, field) in &node.fields {
                 if !seen.insert(name.as_str()) {
-                    return Err(MltError::DuplicateFieldName(name.clone()));
+                    return Err(MltErrorKind::DuplicateFieldName(name.clone()).into());
                 }
                 validate_nested_node(field, depth + 1)?;
             }

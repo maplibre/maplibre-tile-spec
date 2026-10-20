@@ -29,14 +29,14 @@ use crate::utils::{parse_string, parse_u8, take};
 use crate::wire::{
     FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind, VertexLogical,
 };
-use crate::{MltError, MltResult};
+use crate::{MltErrorKind, MltResult};
 
 impl<'a> Walker<'a> {
     /// Hands back the layer's name, which labels it.
     pub(super) fn walk_layer02(&mut self, input: &'a [u8]) -> MltResult<&'a str> {
         let (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
         if name.is_empty() {
-            return Err(MltError::MissingLayerName);
+            return Err(MltErrorKind::MissingLayerName.into());
         }
         let (_, header_byte) = parse_u8(input)?;
         let header = LayerHeader02::parse(header_byte)?;
@@ -75,7 +75,7 @@ impl<'a> Walker<'a> {
                             None => format!("0x{b:02X} unknown"),
                         })
                     })?;
-                    shared_coding(byte).ok_or(MltError::PresenceCodingByte(byte))?
+                    shared_coding(byte).ok_or(MltErrorKind::PresenceCodingByte(byte))?
                 } else {
                     PresenceCoding::Bitmap
                 };
@@ -115,7 +115,7 @@ impl<'a> Walker<'a> {
         input = rest;
         // Each column requires at least 1 byte (column type).
         if input.len() < column_count.into_usize() {
-            return Err(MltError::BufferUnderflow(column_count, input.len()));
+            return Err(MltErrorKind::BufferUnderflow(column_count, input.len()).into());
         }
 
         if column_count > 0 {
@@ -285,7 +285,7 @@ impl<'a> Walker<'a> {
                         Some(c.to_string())
                     })?;
                 if field_count == 0 {
-                    return Err(MltError::EmptyStructNode);
+                    return Err(MltErrorKind::EmptyStructNode.into());
                 }
                 let mut shapes = None;
                 if per_row {
@@ -309,10 +309,11 @@ impl<'a> Walker<'a> {
             }
             Interior02::List => {
                 if per_row {
-                    return Err(MltError::NestedRowShapeUnsupported {
+                    return Err(MltErrorKind::NestedRowShapeUnsupported {
                         name: path.to_string(),
                         kind: "list",
-                    });
+                    }
+                    .into());
                 }
                 let ctx = StreamCtx02::NestedLengths;
                 let (input, _) =
@@ -380,7 +381,7 @@ impl<'a> Walker<'a> {
         depth: usize,
     ) -> MltResult<&'a [u8]> {
         if depth >= MAX_NESTED_DEPTH {
-            return Err(MltError::NestedTooDeep(depth + 1));
+            return Err(MltErrorKind::NestedTooDeep(depth + 1).into());
         }
         let ni = self.open(input, label.to_string());
         let (_, typ_byte) = parse_u8(input)?;
@@ -427,10 +428,11 @@ impl<'a> Walker<'a> {
         let input = match typ.data {
             NodeKind02::Leaf(values) => {
                 if typ.shapes {
-                    return Err(MltError::NestedRowShapeUnsupported {
+                    return Err(MltErrorKind::NestedRowShapeUnsupported {
                         name: label.to_string(),
                         kind: "leaf",
-                    });
+                    }
+                    .into());
                 }
                 let typ = ColumnType02::new(Presence02::AllPresent, values.into());
                 self.walk_value_streams02(input, typ, present)?
@@ -549,7 +551,7 @@ impl<'a> Walker<'a> {
             Presence02::Shared(index) => {
                 let bits = shared
                     .get(usize::from(index))
-                    .ok_or(MltError::ParsingColumnType(typ_byte))?;
+                    .ok_or(MltErrorKind::ParsingColumnType(typ_byte))?;
                 u32::try_from(bits.count_ones())?
             }
         };
@@ -690,7 +692,7 @@ impl<'a> Walker<'a> {
                 Presence02::Shared(index) => {
                     let bits = shared
                         .get(usize::from(index))
-                        .ok_or(MltError::ParsingColumnType(child_byte))?;
+                        .ok_or(MltErrorKind::ParsingColumnType(child_byte))?;
                     u32::try_from(bits.count_ones())?
                 }
             };
@@ -898,7 +900,7 @@ impl<'a> Walker<'a> {
         let (after_payload, payload) = take(c, byte_length)?;
         // Consistency guard: the hand re-walk must land exactly on the authoritative tail.
         if self.off(after_payload) != self.off(rest) {
-            return Err(MltError::NotImplemented("v2 stream header re-walk desync"));
+            return Err(MltErrorKind::NotImplemented("v2 stream header re-walk desync").into());
         }
         // A dictionary's codes and Framed, Exception-Free ALP's integers are integer streams, whatever the column's type is.
         // A rANS payload needs the topology to decode, so the dump shows its parts.

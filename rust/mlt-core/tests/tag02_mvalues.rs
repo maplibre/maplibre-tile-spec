@@ -11,8 +11,8 @@ use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 use mlt_core::{
-    Decoder, GeometryValues, Layer, MValue, MltError, Parser, PropKind, PropValue, TileFeature,
-    TileLayer,
+    Decoder, GeometryValues, Layer, MValue, MltError, MltErrorKind, Parser, PropKind, PropValue,
+    TileFeature, TileLayer,
 };
 use rstest::rstest;
 
@@ -403,7 +403,7 @@ fn m_values_on_a_point_layer_are_rejected() {
 
     let err = builder.finish().encode(cfg_v2()).unwrap_err();
     assert!(
-        matches!(err, MltError::MValuesNeedVertexCounts("Points")),
+        matches!(err.kind(), MltErrorKind::MValuesNeedVertexCounts("Points")),
         "{err:?}"
     );
 }
@@ -440,7 +440,7 @@ fn a_layer_with_m_values_cannot_be_written_as_v1() {
         .encode(cfg_v2().with_wire_version(WireVersion::V01))
         .unwrap_err();
     assert!(
-        matches!(err, MltError::MValuesNeedV2(ref name) if name == "test_layer"),
+        matches!(err.kind(), MltErrorKind::MValuesNeedV2(name) if name == "test_layer"),
         "expected the v1 writer to refuse the layer"
     );
 }
@@ -456,8 +456,8 @@ fn a_column_holding_the_wrong_number_of_values_is_rejected() {
         .expect("a rejection");
     assert!(
         matches!(
-            err,
-            MltError::MValueVertexCountMismatch {
+            err.kind(),
+            MltErrorKind::MValueVertexCountMismatch {
                 index: 0,
                 expected: 3,
                 actual: 2,
@@ -478,8 +478,8 @@ fn a_column_of_the_wrong_kind_is_rejected() {
         .expect("a rejection");
     assert!(
         matches!(
-            err,
-            MltError::MValueKindMismatch {
+            err.kind(),
+            MltErrorKind::MValueKindMismatch {
                 index: 0,
                 expected: PropKind::I32,
                 actual: PropKind::U32,
@@ -520,7 +520,7 @@ fn a_leading_stream_without_its_own_count_is_rejected() {
 
     let err = decode_err(&bytes);
     assert!(
-        matches!(err, MltError::MValueImplicitCount { ref name, .. } if name == "m"),
+        matches!(err.kind(), MltErrorKind::MValueImplicitCount { name, .. } if name == "m"),
         "{err:?}"
     );
 }
@@ -540,9 +540,9 @@ fn a_count_the_geometry_disagrees_with_is_rejected() {
     let err = decode_err(&bytes);
     assert!(
         matches!(
-            err,
-            MltError::MValueColumnLengthMismatch {
-                ref name,
+            err.kind(),
+            MltErrorKind::MValueColumnLengthMismatch {
+                name,
                 expected: 4,
                 actual: 3,
             } if name == "m"
@@ -574,7 +574,7 @@ fn an_empty_m_value_section_is_rejected() {
     bytes[counts] = 0;
 
     assert!(
-        matches!(decode_err(&bytes), MltError::EmptyMValueSection),
+        matches!(decode_err(&bytes).kind(), MltErrorKind::EmptyMValueSection),
         "expected an empty section to be rejected"
     );
 }
@@ -591,7 +591,7 @@ fn a_type_byte_no_vertex_can_hold_is_rejected(#[case] data_type: u8) {
 
     let err = decode_err(&bytes);
     assert!(
-        matches!(err, MltError::ParsingColumnType(b) if b == bytes[typ]),
+        matches!(err.kind(), MltErrorKind::ParsingColumnType(b) if *b == bytes[typ]),
         "{err:?}"
     );
 }
@@ -795,7 +795,7 @@ fn a_geometry_layout_without_vertex_counts_is_rejected(#[case] geo_layout: u8, #
 
     let err = decode_err(&bytes);
     assert!(
-        matches!(err, MltError::MValuesNeedVertexCounts(n) if n == name),
+        matches!(err.kind(), MltErrorKind::MValuesNeedVertexCounts(n) if *n == name),
         "{err:?}"
     );
 }

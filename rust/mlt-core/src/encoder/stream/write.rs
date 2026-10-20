@@ -4,9 +4,9 @@ use integer_encoding::VarInt;
 use num_traits::{PrimInt, WrappingSub};
 use zigzag::ZigZag;
 
-use crate::MltError::UnsupportedPhysicalEncoding;
+use crate::MltErrorKind::UnsupportedPhysicalEncoding;
 #[cfg(feature = "unstable-v2")]
-use crate::MltError::UnsupportedPhysicalEncodingForType;
+use crate::MltErrorKind::UnsupportedPhysicalEncodingForType;
 use crate::MltResult;
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::bitpack;

@@ -1,7 +1,7 @@
 use num_traits::PrimInt;
 use usize_cast::IntoUsize as _;
 
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltErrorKind, MltResult};
 
 /// Generic run-length encode: returns `(run_lengths, values)`.
 #[must_use]
@@ -105,7 +105,7 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize, dec: &mut Decoder) -> Mlt
         if control >= 128 {
             let count = u32::from(control ^ 0xFF) + 1;
             let end = pos + count.into_usize();
-            let slice = input.get(pos..end).ok_or(MltError::BufferUnderflow(
+            let slice = input.get(pos..end).ok_or(MltErrorKind::BufferUnderflow(
                 count,
                 input.len().saturating_sub(pos),
             ))?;
@@ -113,7 +113,7 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize, dec: &mut Decoder) -> Mlt
             pos = end;
         } else {
             let count = usize::from(control) + 3;
-            let &value = input.get(pos).ok_or(MltError::BufferUnderflow(1, 0))?;
+            let &value = input.get(pos).ok_or(MltErrorKind::BufferUnderflow(1, 0))?;
             pos += 1;
             output.extend(std::iter::repeat_n(value, count));
         }
@@ -173,20 +173,26 @@ mod tests {
     #[test]
     fn a_truncated_literal_run_is_rejected() {
         let err = decode_byte_rle(&[0xFF], 1, &mut dec()).unwrap_err();
-        assert!(matches!(err, MltError::BufferUnderflow(1, 0)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::BufferUnderflow(1, 0)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn a_repeating_run_without_its_value_is_rejected() {
         let err = decode_byte_rle(&[0x00], 3, &mut dec()).unwrap_err();
-        assert!(matches!(err, MltError::BufferUnderflow(1, 0)), "{err:?}");
+        assert!(
+            matches!(err.kind(), MltErrorKind::BufferUnderflow(1, 0)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn a_run_overshooting_the_declared_length_is_rejected() {
         let err = decode_byte_rle(&[0x00, 0x41], 1, &mut dec()).unwrap_err();
         assert!(
-            matches!(err, MltError::InvalidDecodingStreamSize(3, 1)),
+            matches!(err.kind(), MltErrorKind::InvalidDecodingStreamSize(3, 1)),
             "{err:?}"
         );
     }
@@ -195,7 +201,7 @@ mod tests {
     fn decoding_past_the_memory_budget_is_rejected() {
         let err = decode_byte_rle(&[0x00, 0x41], 3, &mut starved_dec()).unwrap_err();
         assert!(
-            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            matches!(err.kind(), MltErrorKind::MemoryLimitExceeded { .. }),
             "{err:?}"
         );
     }

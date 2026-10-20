@@ -6,7 +6,7 @@ use bitvec::slice::BitSlice;
 use usize_cast::IntoUsize as _;
 
 #[cfg(feature = "unstable-v2")]
-use crate::MltError;
+use crate::MltErrorKind;
 use crate::decoder::{
     ParsedProperty, ParsedScalar, RawFloats, RawFloatsEncoding, RawPresence, RawProperty,
 };
@@ -71,12 +71,11 @@ impl<'a> RawFloats<'a> {
                 codes
                     .into_iter()
                     .map(|code| {
-                        dictionary
-                            .get(code.into_usize())
-                            .copied()
-                            .ok_or(MltError::DictionaryCodeOutOfRange(code, dictionary.len()))
+                        dictionary.get(code.into_usize()).copied().ok_or(
+                            MltErrorKind::DictionaryCodeOutOfRange(code, dictionary.len()),
+                        )
                     })
-                    .collect::<MltResult<Vec<T>>>()?
+                    .collect::<Result<Vec<T>, MltErrorKind>>()?
             }
         })
     }
@@ -205,7 +204,7 @@ mod tests {
         let column = floats(codes(&[0, 3]), dictionary(&[1.0, 2.0, 3.0]));
         let err = column.decode::<f64>(&mut dec()).unwrap_err();
         assert!(
-            matches!(err, MltError::DictionaryCodeOutOfRange(3, 3)),
+            matches!(err.kind(), MltErrorKind::DictionaryCodeOutOfRange(3, 3)),
             "{err:?}"
         );
     }

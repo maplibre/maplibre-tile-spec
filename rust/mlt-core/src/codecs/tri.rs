@@ -8,7 +8,7 @@
 
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::MalformedTriangles;
+use crate::MltErrorKind::MalformedTriangles;
 use crate::errors::AsMltError as _;
 use crate::{Decoder, MltResult};
 
@@ -215,7 +215,7 @@ pub(crate) fn decode_trees(
     dec: &mut Decoder,
 ) -> MltResult<Vec<u32>> {
     if symbols.iter().any(|&s| s > 3) {
-        return Err(MalformedTriangles("symbol above 3"));
+        return Err(MalformedTriangles("symbol above 3").into());
     }
     let triangles = symbols.len();
     u32::try_from(triangles).or_overflow()?;
@@ -236,9 +236,7 @@ pub(crate) fn decode_trees(
         cycles = later;
     }
     if !cycles.is_empty() {
-        return Err(MalformedTriangles(
-            "cycles hold more entries than the trees take",
-        ));
+        return Err(MalformedTriangles("cycles hold more entries than the trees take").into());
     }
     Ok(out)
 }
@@ -264,7 +262,7 @@ fn subtree_sizes(symbols: &[u32]) -> MltResult<Vec<u32>> {
     if unfinished == 0 {
         Ok(sizes)
     } else {
-        Err(MalformedTriangles("symbols end inside a tree"))
+        Err(MalformedTriangles("symbols end inside a tree").into())
     }
 }
 
@@ -440,7 +438,7 @@ mod tests {
     fn decoding_past_the_memory_budget_is_rejected() {
         let err = decode_trees(&[0], &[0, 1, 2], &mut starved_dec()).unwrap_err();
         assert!(
-            matches!(err, crate::MltError::MemoryLimitExceeded { .. }),
+            matches!(err.kind(), crate::MltErrorKind::MemoryLimitExceeded { .. }),
             "{err:?}"
         );
     }
@@ -521,6 +519,9 @@ mod tests {
         #[case] reason: &str,
     ) {
         let err = decode_trees(symbols, cycles, &mut dec()).unwrap_err();
-        assert!(matches!(err, MalformedTriangles(r) if r == reason), "{err}");
+        assert!(
+            matches!(err.kind(), MalformedTriangles(r) if *r == reason),
+            "{err}"
+        );
     }
 }

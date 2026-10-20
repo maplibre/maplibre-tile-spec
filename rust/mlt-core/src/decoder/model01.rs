@@ -8,7 +8,7 @@ use std::io::Write;
 
 use num_enum::TryFromPrimitive;
 
-use crate::MltError::ParsingColumnType;
+use crate::MltErrorKind::ParsingColumnType;
 use crate::decoder::{
     Geometry, GeometryValues, Id, LayerBytes, ParsedId, ParsedProperty, Property,
 };
@@ -206,11 +206,11 @@ mod tests {
     use rstest::rstest;
 
     use super::ColumnType;
-    use crate::MltError;
+    use crate::MltErrorKind;
 
     #[rstest]
     fn column_type_rejects_unassigned(#[values(5, 6, 7, 8, 9, 12, 13, 14, 15, 31)] byte: u8) {
         let err = ColumnType::from_bytes(&[byte]).unwrap_err();
-        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+        assert!(matches!(err.kind(), MltErrorKind::ParsingColumnType(b) if *b == byte));
     }
 }

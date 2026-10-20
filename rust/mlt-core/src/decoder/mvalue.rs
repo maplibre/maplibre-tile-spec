@@ -10,7 +10,7 @@ use crate::decoder::{
     GeometryValues, ParsedStrings, RawFloats, RawPresence, RawScalar, RawStrings,
 };
 use crate::tile::{MValue, PropKind};
-use crate::{Decode, DecodeState, Decoder, Lazy, MltError, MltResult};
+use crate::{Decode, DecodeState, Decoder, Lazy, MltErrorKind, MltResult};
 
 /// An m-value column, parameterized by decode state.
 pub type MValueColumn<'a, S = Lazy> =
@@ -103,7 +103,7 @@ impl MValues<'_> {
         let Some(span) = span else {
             return Ok(MValue::null(self.kind()));
         };
-        let out_of_range = || MltError::MValueRunOutOfRange {
+        let out_of_range = || MltErrorKind::MValueRunOutOfRange {
             name: name.to_string(),
             start: span.start,
             count: span.len(),
@@ -203,11 +203,12 @@ impl<'a> ParsedMValue<'a> {
             }
         }
         if expected != self.values.len() {
-            return Err(MltError::MValueColumnLengthMismatch {
+            return Err(MltErrorKind::MValueColumnLengthMismatch {
                 name: self.name.to_string(),
                 expected,
                 actual: self.values.len(),
-            });
+            }
+            .into());
         }
         Ok(())
     }
@@ -401,9 +402,9 @@ mod tests {
             .unwrap_err();
         assert!(
             matches!(
-                err,
-                MltError::MValueColumnLengthMismatch {
-                    ref name,
+                err.kind(),
+                MltErrorKind::MValueColumnLengthMismatch {
+                    name,
                     expected: 4,
                     actual: 5,
                 } if name == "m"
@@ -418,9 +419,9 @@ mod tests {
         let err = values.row("m", Some(0..3)).unwrap_err();
         assert!(
             matches!(
-                err,
-                MltError::MValueRunOutOfRange {
-                    ref name,
+                err.kind(),
+                MltErrorKind::MValueRunOutOfRange {
+                    name,
                     start: 0,
                     count: 3,
                     actual: 2,

@@ -6,7 +6,8 @@ use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{Coord, Geometry, LineString, Point};
 use mlt_core::wire::ColumnStorage;
 use mlt_core::{
-    Decoder, Layer, MltError, NestedKind, NestedValue, Parser, PropKind, PropValue, TileLayer,
+    Decoder, Layer, MltError, MltErrorKind, NestedKind, NestedValue, Parser, PropKind, PropValue,
+    TileLayer,
 };
 use rstest::rstest;
 
@@ -502,8 +503,8 @@ fn a_nested_column_becomes_a_json_object() {
 fn a_scalar_root_is_rejected(#[case] kind: NestedKind) {
     let mut layer = TileLayer::new("nested", 4096).expect("layer");
     assert!(matches!(
-        layer.add_nested("n", kind),
-        Err(MltError::NestedRootIsLeaf(name)) if name == "n"
+        layer.add_nested("n", kind).map_err(MltError::into_kind),
+        Err(MltErrorKind::NestedRootIsLeaf(name)) if name == "n"
     ));
 }
 
@@ -511,8 +512,10 @@ fn a_scalar_root_is_rejected(#[case] kind: NestedKind) {
 fn an_empty_struct_is_rejected() {
     let mut layer = TileLayer::new("nested", 4096).expect("layer");
     assert!(matches!(
-        layer.add_nested("n", NestedKind::Map(BTreeMap::new())),
-        Err(MltError::EmptyStructNode)
+        layer
+            .add_nested("n", NestedKind::Map(BTreeMap::new()))
+            .map_err(MltError::into_kind),
+        Err(MltErrorKind::EmptyStructNode)
     ));
 }
 
@@ -537,8 +540,8 @@ fn nesting_past_eight_levels_is_rejected() {
     }
     let mut layer = TileLayer::new("nested", 4096).expect("layer");
     assert!(matches!(
-        layer.add_nested("n", kind),
-        Err(MltError::NestedTooDeep(9))
+        layer.add_nested("n", kind).map_err(MltError::into_kind),
+        Err(MltErrorKind::NestedTooDeep(9))
     ));
 }
 
@@ -660,7 +663,7 @@ fn a_node_type_byte_the_format_has_no_meaning_for_is_rejected(#[case] byte: u8) 
     let (first_field_type, _) = region(&bytes, "type", 1);
     bytes[first_field_type] = byte;
     assert!(
-        matches!(decode_err(&bytes), MltError::ParsingColumnType(b) if b == byte),
+        matches!(decode_err(&bytes).kind(), MltErrorKind::ParsingColumnType(b) if *b == byte),
         "{:?}",
         decode_err(&bytes)
     );
@@ -672,7 +675,10 @@ fn a_struct_node_with_no_fields_is_rejected() {
     let (offset, len) = region(&bytes, "field_count", 0);
     assert_eq!(len, 1);
     bytes[offset] = 0;
-    assert!(matches!(decode_err(&bytes), MltError::EmptyStructNode));
+    assert!(matches!(
+        decode_err(&bytes).kind(),
+        MltErrorKind::EmptyStructNode
+    ));
 }
 
 #[test]
@@ -684,7 +690,7 @@ fn a_field_name_repeated_within_a_struct_is_rejected() {
         .expect("the second field's name");
     bytes[at + 2] = b'a';
     assert!(
-        matches!(decode_err(&bytes), MltError::DuplicateFieldName(ref n) if n == "aa"),
+        matches!(decode_err(&bytes).kind(), MltErrorKind::DuplicateFieldName(n) if n == "aa"),
         "{:?}",
         decode_err(&bytes)
     );
@@ -707,8 +713,8 @@ fn a_nested_column_in_the_m_value_section_is_rejected() {
     let (offset, _) = region(&bytes, "type", 0);
     bytes[offset] = 0x0C;
     assert!(matches!(
-        decode_err(&bytes),
-        MltError::ParsingColumnType(0x0C)
+        decode_err(&bytes).kind(),
+        MltErrorKind::ParsingColumnType(0x0C)
     ));
 }
 
@@ -725,7 +731,10 @@ fn a_leading_stream_with_no_count_where_none_is_implied_is_rejected() {
     assert_ne!(bytes[element_leaf_encoding] & 0b1000_0000, 0);
     bytes[element_leaf_encoding] &= 0b0111_1111;
     assert!(
-        matches!(decode_err(&bytes), MltError::NestedImplicitCount { .. }),
+        matches!(
+            decode_err(&bytes).kind(),
+            MltErrorKind::NestedImplicitCount { .. }
+        ),
         "{:?}",
         decode_err(&bytes)
     );
@@ -765,8 +774,8 @@ fn a_lengths_sum_the_node_below_disagrees_with_is_rejected() {
     bytes[offset] = zigzag_three;
     assert!(
         matches!(
-            decode_err(&bytes),
-            MltError::NestedCountMismatch {
+            decode_err(&bytes).kind(),
+            MltErrorKind::NestedCountMismatch {
                 expected: 5,
                 actual: 3
             }
@@ -854,9 +863,9 @@ fn a_root_holding_fewer_values_than_its_column_is_rejected() {
     bytes[offset] = 0b0000_0111;
     assert!(
         matches!(
-            decode_err(&bytes),
-            MltError::NestedRootCountMismatch {
-                ref name,
+            decode_err(&bytes).kind(),
+            MltErrorKind::NestedRootCountMismatch {
+                name,
                 expected: 3,
                 actual: 2,
             } if name == "n"
@@ -1082,8 +1091,8 @@ fn a_node_with_no_row_shapes_to_read_is_rejected(#[case] byte: u8, #[case] kind:
     bytes[first_field_type] = byte;
     assert!(
         matches!(
-            decode_err(&bytes),
-            MltError::NestedRowShapeUnsupported { kind: k, .. } if k == kind
+            decode_err(&bytes).kind(),
+            MltErrorKind::NestedRowShapeUnsupported { kind: k, .. } if *k == kind
         ),
         "{:?}",
         decode_err(&bytes)
@@ -1099,8 +1108,8 @@ fn a_field_of_a_shape_coded_struct_that_stores_its_own_presence_is_rejected() {
     bytes[first_field_type] |= 0x10;
     assert!(
         matches!(
-            decode_err(&bytes),
-            MltError::NestedRowShapeChildPresence { .. }
+            decode_err(&bytes).kind(),
+            MltErrorKind::NestedRowShapeChildPresence { .. }
         ),
         "{:?}",
         decode_err(&bytes)
@@ -1121,8 +1130,8 @@ fn a_shape_id_no_shape_answers_to_is_rejected() {
     bytes[first_value] = 5;
     assert!(
         matches!(
-            decode_err(&bytes),
-            MltError::NestedRowShapeOutOfRange { id: 5, len: 2 }
+            decode_err(&bytes).kind(),
+            MltErrorKind::NestedRowShapeOutOfRange { id: 5, len: 2 }
         ),
         "{:?}",
         decode_err(&bytes)
@@ -1139,8 +1148,8 @@ fn a_shape_table_that_does_not_divide_into_one_bitmap_per_key_is_rejected() {
     bytes[at] = 11;
     assert!(
         matches!(
-            decode_err(&bytes),
-            MltError::NestedRowShapeTableSize { bits: 11, keys: 6 }
+            decode_err(&bytes).kind(),
+            MltErrorKind::NestedRowShapeTableSize { bits: 11, keys: 6 }
         ),
         "{:?}",
         decode_err(&bytes)
@@ -1163,8 +1172,8 @@ fn a_shape_id_per_row_count_the_node_disagrees_with_is_rejected() {
     bytes[first_run] = 7;
     assert!(
         matches!(
-            decode_err(&bytes),
-            MltError::NestedRowShapeCount {
+            decode_err(&bytes).kind(),
+            MltErrorKind::NestedRowShapeCount {
                 expected: 16,
                 actual: 15,
                 ..

@@ -9,7 +9,7 @@ use crate::codecs::fsst::decode_fsst_bytes;
 use crate::decoder::strings::rebuild_dictionary;
 use crate::decoder::{DictLayout, DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
 use crate::dump::model::{BlobInfo, DecodeHint, DumpTree, Region};
-use crate::{Decoder, GeometryType, MltError, MltResult};
+use crate::{Decoder, GeometryType, MltError, MltErrorKind, MltResult};
 
 /// One data blob decoded for display, capped at the caller's value count.
 ///
@@ -265,11 +265,11 @@ fn fsst_strings(
     let stream = |r: &Region| -> MltResult<RawStream<'_>> {
         let meta = r
             .blob
-            .ok_or(MltError::MalformedFsst("a stream without metadata"))?
+            .ok_or(MltErrorKind::MalformedFsst("a stream without metadata"))?
             .meta;
         let bytes = buf
             .get(r.offset..r.offset + r.len)
-            .ok_or(MltError::MalformedFsst("a stream outside the tile"))?;
+            .ok_or(MltErrorKind::MalformedFsst("a stream outside the tile"))?;
         Ok(RawStream::new(meta, bytes))
     };
     let raw = RawFsstData::new(
@@ -288,9 +288,11 @@ fn fsst_strings(
     let mut rest = &*text;
     let mut values = dec.alloc(kept.len())?;
     for len in kept {
-        let (string, tail) = rest
-            .split_at_checked(len.into_usize())
-            .ok_or(MltError::MalformedFsst("string lengths overrun the corpus"))?;
+        let (string, tail) =
+            rest.split_at_checked(len.into_usize())
+                .ok_or(MltErrorKind::MalformedFsst(
+                    "string lengths overrun the corpus",
+                ))?;
         dec.consume_items::<u8>(string.len())?;
         values.push(string.to_owned());
         rest = tail;

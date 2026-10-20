@@ -13,7 +13,7 @@ use geo_types::{Coord, Geometry, LineString};
 #[cfg(feature = "unstable-v2")]
 use num_traits::ToPrimitive as _;
 
-use crate::{MltError, MltResult};
+use crate::{MltError, MltErrorKind, MltResult};
 
 /// Non-zero tile extent.
 ///
@@ -26,7 +26,7 @@ impl Extent {
     pub fn new(value: u32) -> MltResult<Self> {
         NonZeroU32::new(value)
             .map(Self)
-            .ok_or(MltError::InvalidExtent(value))
+            .ok_or_else(|| MltErrorKind::InvalidExtent(value).into())
     }
 
     #[must_use]
@@ -62,7 +62,7 @@ impl ZStep {
         if (Self::MIN_EXPONENT..=Self::MAX_EXPONENT).contains(&exponent) {
             Ok(Self(exponent))
         } else {
-            Err(MltError::InvalidZStep(exponent))
+            Err(MltErrorKind::InvalidZStep(exponent).into())
         }
     }
 
@@ -81,7 +81,7 @@ impl ZStep {
         i8::try_from(code)
             .ok()
             .and_then(|c| Self::new(c + Self::MIN_EXPONENT).ok())
-            .ok_or(MltError::InvalidZStepCode(code))
+            .ok_or_else(|| MltErrorKind::InvalidZStepCode(code).into())
     }
 
     /// The step in metres.
@@ -584,7 +584,7 @@ impl TileLayer {
     #[cfg(feature = "unstable-v2")]
     pub fn set_z_step(&mut self, step: ZStep) -> MltResult<()> {
         if !self.features.is_empty() {
-            return Err(MltError::ZStepOnNonEmptyLayer(self.name.clone()));
+            return Err(MltErrorKind::ZStepOnNonEmptyLayer(self.name.clone()).into());
         }
         self.z_step = Some(step);
         Ok(())
@@ -700,10 +700,11 @@ impl TileLayer {
         if feature.z.len() == expected {
             Ok(())
         } else {
-            Err(MltError::ZVertexCountMismatch {
+            Err(MltErrorKind::ZVertexCountMismatch {
                 expected,
                 actual: feature.z.len(),
-            })
+            }
+            .into())
         }
     }
 
@@ -712,17 +713,19 @@ impl TileLayer {
     #[cfg(feature = "unstable-v2")]
     fn validate_nested(&self, feature: &TileFeature) -> MltResult<()> {
         if feature.nested.len() != self.nested_kinds.len() {
-            return Err(MltError::NestedColumnCountMismatch {
+            return Err(MltErrorKind::NestedColumnCountMismatch {
                 expected: self.nested_kinds.len(),
                 actual: feature.nested.len(),
-            });
+            }
+            .into());
         }
         for (index, (value, kind)) in feature.nested.iter().zip(&self.nested_kinds).enumerate() {
             if !kind.accepts(value) {
-                return Err(MltError::NestedValueMismatch {
+                return Err(MltErrorKind::NestedValueMismatch {
                     index,
                     name: self.nested_names[index].clone(),
-                });
+                }
+                .into());
             }
         }
         Ok(())
@@ -738,11 +741,12 @@ impl TileLayer {
             if let Some(len) = m_value.count()
                 && len != vertices
             {
-                return Err(MltError::MValueVertexCountMismatch {
+                return Err(MltErrorKind::MValueVertexCountMismatch {
                     index,
                     expected: vertices,
                     actual: len,
-                });
+                }
+                .into());
             }
         }
         Ok(())
@@ -823,10 +827,11 @@ impl TileFeature {
     pub fn set_z(&mut self, z: Vec<i32>) -> MltResult<()> {
         let expected = self.vertex_count();
         if z.len() != expected {
-            return Err(MltError::ZVertexCountMismatch {
+            return Err(MltErrorKind::ZVertexCountMismatch {
                 expected,
                 actual: z.len(),
-            });
+            }
+            .into());
         }
         self.z = z;
         Ok(())
@@ -838,28 +843,31 @@ impl TileFeature {
     pub fn set_m_value(&mut self, key: MValueKey, value: MValue) -> MltResult<()> {
         let vertices = self.vertex_count();
         let Some(slot) = self.m_values.get_mut(key.index()) else {
-            return Err(MltError::UnknownMValueKey {
+            return Err(MltErrorKind::UnknownMValueKey {
                 index: key.index(),
                 columns: self.m_values.len(),
-            });
+            }
+            .into());
         };
         let expected = slot.kind();
         let actual = value.kind();
         if actual != expected {
-            return Err(MltError::MValueKindMismatch {
+            return Err(MltErrorKind::MValueKindMismatch {
                 index: key.index(),
                 expected,
                 actual,
-            });
+            }
+            .into());
         }
         if let Some(len) = value.count()
             && len != vertices
         {
-            return Err(MltError::MValueVertexCountMismatch {
+            return Err(MltErrorKind::MValueVertexCountMismatch {
                 index: key.index(),
                 expected: vertices,
                 actual: len,
-            });
+            }
+            .into());
         }
         *slot = value;
         Ok(())
@@ -880,13 +888,14 @@ impl TileFeature {
     pub fn set_nested(&mut self, key: NestedKey, value: NestedValue) -> MltResult<()> {
         let columns = self.nested.len();
         let Some(slot) = self.nested.get_mut(key.index()) else {
-            return Err(MltError::UnknownNestedKey {
+            return Err(MltErrorKind::UnknownNestedKey {
                 index: key.index(),
                 columns,
-            });
+            }
+            .into());
         };
         if !slot.same_shape(&value) {
-            return Err(MltError::NestedShapeMismatch { index: key.index() });
+            return Err(MltErrorKind::NestedShapeMismatch { index: key.index() }.into());
         }
         *slot = value;
         Ok(())
@@ -894,19 +903,21 @@ impl TileFeature {
 
     pub fn set_property(&mut self, key: PropertyKey, value: PropValue) -> MltResult<()> {
         let Some(prop) = self.properties.get_mut(key.index()) else {
-            return Err(MltError::UnknownProperty {
+            return Err(MltErrorKind::UnknownProperty {
                 index: key.index(),
                 count: self.properties.len(),
-            });
+            }
+            .into());
         };
         let expected = PropKind::from(&*prop);
         let actual = PropKind::from(&value);
         if actual != expected {
-            return Err(MltError::PropertyKindMismatch {
+            return Err(MltErrorKind::PropertyKindMismatch {
                 index: key.index(),
                 expected,
                 actual,
-            });
+            }
+            .into());
         }
         *prop = value;
         Ok(())
@@ -1453,21 +1464,21 @@ pub(crate) fn stored_vertex_count(geom: &Geometry<i32>) -> usize {
 #[cfg(feature = "unstable-v2")]
 fn validate_nested_kind(name: &str, kind: &NestedKind) -> MltResult<()> {
     if matches!(kind, NestedKind::Leaf(_)) {
-        return Err(MltError::NestedRootIsLeaf(name.to_string()));
+        return Err(MltErrorKind::NestedRootIsLeaf(name.to_string()).into());
     }
     if kind.has_empty_map() {
-        return Err(MltError::EmptyStructNode);
+        return Err(MltErrorKind::EmptyStructNode.into());
     }
     let depth = kind.depth();
     if depth > MAX_NESTED_DEPTH {
-        return Err(MltError::NestedTooDeep(depth));
+        return Err(MltErrorKind::NestedTooDeep(depth).into());
     }
     Ok(())
 }
 
 pub(crate) fn validate_layer_name(name: &str) -> MltResult<()> {
     if name.is_empty() {
-        Err(MltError::MissingLayerName)
+        Err(MltErrorKind::MissingLayerName.into())
     } else {
         Ok(())
     }
@@ -1483,11 +1494,12 @@ pub(crate) fn reject_taken_name<'a>(
 ) -> MltResult<()> {
     for (seen, taken_by) in taken {
         if seen == name {
-            return Err(MltError::DuplicateColumnName {
+            return Err(MltErrorKind::DuplicateColumnName {
                 name: name.to_string(),
                 role,
                 taken_by,
-            });
+            }
+            .into());
         }
     }
     Ok(())
@@ -1524,15 +1536,16 @@ impl FeatureColumn for PropValue {
     }
 
     fn count_mismatch(expected: usize, actual: usize) -> MltError {
-        MltError::PropertyLengthMismatch { expected, actual }
+        MltErrorKind::PropertyLengthMismatch { expected, actual }.into()
     }
 
     fn kind_mismatch(index: usize, expected: PropKind, actual: PropKind) -> MltError {
-        MltError::PropertyKindMismatch {
+        MltErrorKind::PropertyKindMismatch {
             index,
             expected,
             actual,
         }
+        .into()
     }
 }
 
@@ -1547,15 +1560,16 @@ impl FeatureColumn for MValue {
     }
 
     fn count_mismatch(expected: usize, actual: usize) -> MltError {
-        MltError::MValueColumnCountMismatch { expected, actual }
+        MltErrorKind::MValueColumnCountMismatch { expected, actual }.into()
     }
 
     fn kind_mismatch(index: usize, expected: PropKind, actual: PropKind) -> MltError {
-        MltError::MValueKindMismatch {
+        MltErrorKind::MValueKindMismatch {
             index,
             expected,
             actual,
         }
+        .into()
     }
 }
 
@@ -1695,16 +1709,16 @@ mod tests {
     #[test]
     fn tile_layer_constructor_rejects_empty_name() {
         assert!(matches!(
-            TileLayer::new("", 4096),
-            Err(MltError::MissingLayerName)
+            TileLayer::new("", 4096).map_err(MltError::into_kind),
+            Err(MltErrorKind::MissingLayerName)
         ));
     }
 
     #[test]
     fn tile_layer_constructor_rejects_zero_extent() {
         assert!(matches!(
-            TileLayer::new("layer", 0),
-            Err(MltError::InvalidExtent(0))
+            TileLayer::new("layer", 0).map_err(MltError::into_kind),
+            Err(MltErrorKind::InvalidExtent(0))
         ));
     }
 
@@ -1742,8 +1756,10 @@ mod tests {
         let mut layer = TileLayer::new("layer", 4096).unwrap();
         layer.add_property("name", PropKind::Str).unwrap();
         assert!(matches!(
-            layer.push_feature(point_feature(vec![])),
-            Err(MltError::PropertyLengthMismatch {
+            layer
+                .push_feature(point_feature(vec![]))
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::PropertyLengthMismatch {
                 expected: 1,
                 actual: 0
             })
@@ -1758,8 +1774,10 @@ mod tests {
             .push_feature(point_feature(vec![PropValue::Bool(Some(true))]))
             .unwrap();
         assert!(matches!(
-            layer.push_feature(point_feature(vec![PropValue::I32(Some(1))])),
-            Err(MltError::PropertyKindMismatch {
+            layer
+                .push_feature(point_feature(vec![PropValue::I32(Some(1))]))
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::PropertyKindMismatch {
                 index: 0,
                 expected: PropKind::Bool,
                 actual: PropKind::I32,
@@ -1772,8 +1790,10 @@ mod tests {
         let mut layer = TileLayer::new("layer", 4096).unwrap();
         layer.add_property("flag", PropKind::Bool).unwrap();
         assert!(matches!(
-            layer.push_feature(point_feature(vec![PropValue::I32(Some(1))])),
-            Err(MltError::PropertyKindMismatch {
+            layer
+                .push_feature(point_feature(vec![PropValue::I32(Some(1))]))
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::PropertyKindMismatch {
                 index: 0,
                 expected: PropKind::Bool,
                 actual: PropKind::I32,
@@ -1787,8 +1807,10 @@ mod tests {
         let mut layer = TileLayer::new("layer", 4096).unwrap();
         layer.add_m_value("m", PropKind::I32).unwrap();
         assert!(matches!(
-            layer.push_feature(point_feature(vec![])),
-            Err(MltError::MValueColumnCountMismatch {
+            layer
+                .push_feature(point_feature(vec![]))
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::MValueColumnCountMismatch {
                 expected: 1,
                 actual: 0
             })
@@ -1811,8 +1833,8 @@ mod tests {
         let mut feature = point_feature(vec![]);
         feature.m_values = vec![MValue::I32(Some(vec![1, 2]))];
         assert!(matches!(
-            layer.push_feature(feature),
-            Err(MltError::MValueVertexCountMismatch {
+            layer.push_feature(feature).map_err(MltError::into_kind),
+            Err(MltErrorKind::MValueVertexCountMismatch {
                 index: 0,
                 expected: 1,
                 actual: 2,
@@ -1994,8 +2016,9 @@ mod tests {
     fn from_parts_rejects_a_feature_with_another_property_count() {
         let features = vec![point_feature(vec![PropValue::I32(Some(1))])];
         assert!(matches!(
-            TileLayer::from_parts("layer", 4096, vec!["a".into(), "b".into()], features),
-            Err(MltError::PropertyLengthMismatch {
+            TileLayer::from_parts("layer", 4096, vec!["a".into(), "b".into()], features)
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::PropertyLengthMismatch {
                 expected: 2,
                 actual: 1
             })
@@ -2008,8 +2031,10 @@ mod tests {
         let key = layer.add_property("a", PropKind::I32).unwrap();
         let mut feature = point_feature(vec![]);
         assert!(matches!(
-            feature.set_property(key, PropValue::I32(Some(1))),
-            Err(MltError::UnknownProperty { index: 0, count: 0 })
+            feature
+                .set_property(key, PropValue::I32(Some(1)))
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::UnknownProperty { index: 0, count: 0 })
         ));
     }
 
@@ -2019,8 +2044,10 @@ mod tests {
         let key = layer.add_property("a", PropKind::I32).unwrap();
         let mut feature = point_feature(vec![PropValue::I32(None)]);
         assert!(matches!(
-            feature.set_property(key, PropValue::Str(Some("x".into()))),
-            Err(MltError::PropertyKindMismatch {
+            feature
+                .set_property(key, PropValue::Str(Some("x".into())))
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::PropertyKindMismatch {
                 index: 0,
                 expected: PropKind::I32,
                 actual: PropKind::Str,
@@ -2094,8 +2121,8 @@ mod tests {
         let mut feature = point_feature(vec![]);
         feature.m_values = vec![MValue::Str(None)];
         assert!(matches!(
-            layer.push_feature(feature),
-            Err(MltError::MValueKindMismatch {
+            layer.push_feature(feature).map_err(MltError::into_kind),
+            Err(MltErrorKind::MValueKindMismatch {
                 index: 0,
                 expected: PropKind::I32,
                 actual: PropKind::Str,
@@ -2109,8 +2136,10 @@ mod tests {
         let mut layer = TileLayer::new("layer", 4096).unwrap();
         layer.add_nested("n", list_kind()).unwrap();
         assert!(matches!(
-            layer.push_feature(point_feature(vec![])),
-            Err(MltError::NestedColumnCountMismatch {
+            layer
+                .push_feature(point_feature(vec![]))
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::NestedColumnCountMismatch {
                 expected: 1,
                 actual: 0
             })
@@ -2137,8 +2166,10 @@ mod tests {
         let key = layer.add_m_value("m", PropKind::I32).unwrap();
         let mut feature = point_feature(vec![]);
         assert!(matches!(
-            feature.set_m_value(key, MValue::I32(Some(vec![1]))),
-            Err(MltError::UnknownMValueKey {
+            feature
+                .set_m_value(key, MValue::I32(Some(vec![1])))
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::UnknownMValueKey {
                 index: 0,
                 columns: 0
             })
@@ -2152,8 +2183,10 @@ mod tests {
         let key = layer.add_nested("n", list_kind()).unwrap();
         let mut feature = point_feature(vec![]);
         assert!(matches!(
-            feature.set_nested(key, NestedValue::List(None)),
-            Err(MltError::UnknownNestedKey {
+            feature
+                .set_nested(key, NestedValue::List(None))
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::UnknownNestedKey {
                 index: 0,
                 columns: 0
             })

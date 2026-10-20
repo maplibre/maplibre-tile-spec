@@ -22,7 +22,7 @@ use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{ParsingStreamType, UnsupportedLogicalEncoding};
+use crate::MltErrorKind::{ParsingStreamType, UnsupportedLogicalEncoding};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     BoolLogical, DictionaryType, FastPForKind, FloatLogical, IntEncoding, IntLogical, LengthType,
@@ -31,7 +31,7 @@ use crate::decoder::{
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::{BinarySerializer as _, parse_u8, take};
-use crate::{MltError, MltRefResult, MltResult, Parser};
+use crate::{MltErrorKind, MltRefResult, MltResult, Parser};
 
 /// Mask of the `stream_type` byte holding the [`CategoryField`].
 pub(crate) const CATEGORY_MASK: u8 = 0b1111_0000;
@@ -68,7 +68,7 @@ impl PhysicalField {
     /// Read the physical field, for a caller that names the bits rather than decodes them.
     pub(crate) fn parse(encoding_byte: u8) -> MltResult<Self> {
         let field = encoding_byte & PHYSICAL_MASK;
-        Self::try_from(field).or(Err(MltError::ParsingPhysicalEncoding(field)))
+        Self::try_from(field).map_err(|_| MltErrorKind::ParsingPhysicalEncoding(field).into())
     }
 }
 
@@ -84,13 +84,13 @@ enum CategoryField {
 
 /// Read both logical fields of the encoding byte as the combination they spell out.
 ///
-/// Combinations that are not legal on the wire are reported as [`MltError::InvalidLogicalEncodings`]
+/// Combinations that are not legal on the wire are reported as [`MltErrorKind::InvalidLogicalEncodings`]
 /// naming both fields, so decompose the byte again on that path.
 fn parse_logical(encoding_byte: u8) -> MltResult<LogicalCombination> {
     LogicalCombination::try_from(encoding_byte & LOGICAL_MASK).or_else(|_| {
         let primary = LogicalTechnique::parse(encoding_byte & LOGICAL1_MASK)?;
         let secondary = LogicalTechnique::parse((encoding_byte & LOGICAL2_MASK) << LOGICAL2_SHIFT)?;
-        Err(MltError::InvalidLogicalEncodings(primary, secondary))
+        Err(MltErrorKind::InvalidLogicalEncodings(primary, secondary).into())
     })
 }
 
@@ -111,17 +111,19 @@ fn encoding_byte(logical: LogicalCombination, physical: PhysicalEncoding) -> Mlt
         PhysicalEncoding::VarInt => PhysicalField::VarInt,
         #[cfg(feature = "unstable-v2")]
         PhysicalEncoding::FastPFor(FastPForKind::Block128Le) => {
-            return Err(MltError::UnsupportedPhysicalEncodingForType(
+            return Err(MltErrorKind::UnsupportedPhysicalEncodingForType(
                 physical,
                 "v1, whose FastPFor streams are 256-value big-endian blocks",
-            ));
+            )
+            .into());
         }
         #[cfg(feature = "unstable-v2")]
         PhysicalEncoding::BitPacked => {
-            return Err(MltError::UnsupportedPhysicalEncodingForType(
+            return Err(MltErrorKind::UnsupportedPhysicalEncodingForType(
                 physical,
                 "v1, which has no bit-packed streams",
-            ));
+            )
+            .into());
         }
     };
     Ok(logical as u8 | field as u8)
@@ -198,7 +200,7 @@ pub(crate) fn parse_stream_meta<'a>(
     let (input, byte_length) = parse_varint::<u32>(input)?;
 
     let mut input = input;
-    let not_in_kind = || MltError::LogicalEncodingNotInKind(logical, kind);
+    let not_in_kind = || MltErrorKind::LogicalEncodingNotInKind(logical, kind);
     let logical_encoding = match logical {
         LC::None | LC::Delta | LC::ComponentwiseDelta => {
             // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
@@ -214,7 +216,7 @@ pub(crate) fn parse_stream_meta<'a>(
                 (ValueKind::Vertex, LC::ComponentwiseDelta) => {
                     LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta)
                 }
-                _ => return Err(not_in_kind()),
+                _ => return Err(not_in_kind().into()),
             }
         }
         LC::Rle | LC::DeltaRle => {
@@ -238,7 +240,7 @@ pub(crate) fn parse_stream_meta<'a>(
                 (ValueKind::Int, LC::Rle) => LogicalEncoding::Int(IntLogical::Rle(rle)),
                 (ValueKind::Int, LC::DeltaRle) => LogicalEncoding::Int(IntLogical::DeltaRle(rle)),
                 (ValueKind::Bool, LC::Rle) => LogicalEncoding::Bool(BoolLogical::ByteRle(rle)),
-                _ => return Err(not_in_kind()),
+                _ => return Err(not_in_kind().into()),
             }
         }
         LC::MortonDelta => {
@@ -251,7 +253,7 @@ pub(crate) fn parse_stream_meta<'a>(
             (input, shift) = parse_varint::<u32>(input)?;
             let morton = Morton::new(bits, shift)?;
             if kind != ValueKind::Vertex {
-                return Err(not_in_kind());
+                return Err(not_in_kind().into());
             }
             LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton))
         }
@@ -260,7 +262,7 @@ pub(crate) fn parse_stream_meta<'a>(
     // The v1 wire counts words, which a vertex stream holds in memory as vertices.
     let per_value = logical_encoding.words_per_value();
     if !num_values.is_multiple_of(per_value) {
-        return Err(MltError::PartialVertex(num_values, per_value));
+        return Err(MltErrorKind::PartialVertex(num_values, per_value).into());
     }
     let meta = StreamMeta::new(
         stream_type,
@@ -301,32 +303,37 @@ pub(crate) fn write_stream_meta<W: io::Write>(
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
                 "v1, whose float columns are stored raw",
-            ));
+            )
+            .into());
         }
         #[cfg(feature = "unstable-v2")]
         LE::Vertex(VL::Xyz(..)) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
                 "v1, whose vertices are (x, y) pairs",
-            ));
+            )
+            .into());
         }
         LE::Int(IL::Delta2) | LE::Vertex(VL::ComponentwiseDelta2) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
                 "v1, which has no second-order deltas",
-            ));
+            )
+            .into());
         }
         LE::Vertex(VL::Rans) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
                 "v1, which has no rANS vertex coding",
-            ));
+            )
+            .into());
         }
         LE::Bool(BL::Runs | BL::Sparse) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
                 "v1, whose bool streams are bitmaps or byte-RLE",
-            ));
+            )
+            .into());
         }
     };
     writer.write_u8(encoding_byte(logical, meta.encoding.physical)?)?;
@@ -363,7 +370,8 @@ pub(crate) fn write_stream_meta<W: io::Write>(
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
                 "v1 stream header codec requires the Split RLE layout",
-            ));
+            )
+            .into());
         }
         LE::Vertex(VL::MortonDelta(m)) => {
             writer.write_varint(m.bits)?;
@@ -463,7 +471,7 @@ fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> Ml
         sum = sum.checked_add(len.into()).or_overflow()?;
     }
     if sum != u64::from(num_rle_values) {
-        let sum_usize = usize::try_from(sum).map_err(|_| MltError::IntegerOverflow)?;
+        let sum_usize = usize::try_from(sum).map_err(|_| MltErrorKind::IntegerOverflow)?;
         fail_if_invalid_stream_size(sum_usize, num_rle_values.into_usize())?;
     }
     Ok(())
@@ -610,7 +618,10 @@ mod tests {
     ) {
         let buf = [stream_type_to_byte(DATA), logical as u8, 0, 0, 0, 0];
         let err = parse_stream(&buf, hint, &mut parser()).unwrap_err();
-        assert!(matches!(err, MltError::LogicalEncodingNotInKind(_, _)));
+        assert!(matches!(
+            err.kind(),
+            MltErrorKind::LogicalEncodingNotInKind(_, _)
+        ));
     }
 
     #[rstest]
@@ -788,7 +799,7 @@ mod tests {
         let meta = meta(DATA, logical, PhysicalEncoding::VarInt, 4);
         let mut buf = Vec::new();
         let err = write_stream_meta(&meta, &mut buf, false, 4).unwrap_err();
-        assert!(matches!(err, UnsupportedLogicalEncoding(_, _)));
+        assert!(matches!(err.kind(), UnsupportedLogicalEncoding(_, _)));
     }
 
     #[cfg(feature = "unstable-v2")]
@@ -815,6 +826,9 @@ mod tests {
         let enc_byte = logical_bits(primary, secondary);
         let buf = [0u8, enc_byte, 0, 0];
         let err = parse_stream(&buf, ValueKind::Vertex, &mut parser()).unwrap_err();
-        assert!(matches!(err, MltError::InvalidLogicalEncodings(_, _)));
+        assert!(matches!(
+            err.kind(),
+            MltErrorKind::InvalidLogicalEncodings(_, _)
+        ));
     }
 }

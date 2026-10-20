@@ -3,7 +3,7 @@
 //! The payload is `[u8 width][ceil(count * width / 8) bytes]`, the values laid
 //! LSB-first end to end, so value `i` occupies bits `i * width ..` of the byte run.
 
-use crate::MltError::{InvalidDecodingStreamSize, ParsingBitWidth};
+use crate::MltErrorKind::{InvalidDecodingStreamSize, ParsingBitWidth};
 use crate::MltResult;
 use crate::codecs::bytes::PhysicalWord;
 
@@ -54,12 +54,12 @@ pub fn unpack<T: PhysicalWord>(data: &[u8], count: u32) -> MltResult<Vec<T>> {
     let (&width, packed) = data.split_first().ok_or(InvalidDecodingStreamSize(0, 1))?;
     let width = u32::from(width);
     if !(1..=MAX_WIDTH).contains(&width) {
-        return Err(ParsingBitWidth(width));
+        return Err(ParsingBitWidth(width).into());
     }
     let count = count as usize;
     let expected = packed_len(count, width) - 1;
     if packed.len() != expected {
-        return Err(InvalidDecodingStreamSize(packed.len(), expected));
+        return Err(InvalidDecodingStreamSize(packed.len(), expected).into());
     }
     const { assert!(MAX_WIDTH < u64::BITS) };
     let mask = (1_u64 << width) - 1;
@@ -125,19 +125,25 @@ mod tests {
     #[case::past_max_width(&[33, 0])]
     fn a_width_outside_the_codec_is_rejected(#[case] payload: &[u8]) {
         let err = unpack::<u32>(payload, 1).unwrap_err();
-        assert!(matches!(err, ParsingBitWidth(_)), "{err:?}");
+        assert!(matches!(err.kind(), ParsingBitWidth(_)), "{err:?}");
     }
 
     #[test]
     fn a_payload_without_a_width_byte_is_rejected() {
         let err = unpack::<u32>(&[], 0).unwrap_err();
-        assert!(matches!(err, InvalidDecodingStreamSize(0, 1)), "{err:?}");
+        assert!(
+            matches!(err.kind(), InvalidDecodingStreamSize(0, 1)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn a_payload_of_the_wrong_length_is_rejected() {
         let err = unpack::<u32>(&[4, 0x21], 4).unwrap_err();
-        assert!(matches!(err, InvalidDecodingStreamSize(1, 2)), "{err:?}");
+        assert!(
+            matches!(err.kind(), InvalidDecodingStreamSize(1, 2)),
+            "{err:?}"
+        );
     }
 
     #[test]

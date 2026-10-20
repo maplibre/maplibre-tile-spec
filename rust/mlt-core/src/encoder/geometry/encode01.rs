@@ -15,7 +15,7 @@ use crate::decoder::{
 use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltErrorKind, MltResult};
 
 impl GeometryValues {
     /// Write the geometry column to `enc`.
@@ -175,10 +175,11 @@ impl GeometryValues {
         if let Some(forced) = enc.override_vertex_buffer_type() {
             n += match forced {
                 VertexBufferType::Rans => {
-                    return Err(MltError::UnsupportedLogicalEncoding(
+                    return Err(MltErrorKind::UnsupportedLogicalEncoding(
                         LogicalEncoding::Vertex(VertexLogical::Rans),
                         "v1, which has no rANS vertex coding",
-                    ));
+                    )
+                    .into());
                 }
                 VertexBufferType::Vec2 | VertexBufferType::Morton | VertexBufferType::Hilbert
                     if tessellated =>

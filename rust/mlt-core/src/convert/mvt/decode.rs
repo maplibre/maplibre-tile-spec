@@ -9,13 +9,13 @@ use usize_cast::IntoUsize as _;
 use crate::convert::infer::{ColumnInference, InferredKind};
 use crate::geojson::{Feature, FeatureCollection};
 use crate::tile::{PropKind, PropValue, TileFeature, TileLayer};
-use crate::{MltError, MltResult};
+use crate::{MltError, MltErrorKind, MltResult};
 
 /// Parse MVT bytes into a list of layers, each holding its raw features.
 fn read_mvt_layers(data: &[u8]) -> MltResult<Vec<MvtLayer>> {
     let layers = MvtReaderRef::new(data)?.to_tile()?.layers;
     if layers.iter().any(|layer| layer.name.is_empty()) {
-        return Err(MltError::MissingLayerName);
+        return Err(MltErrorKind::MissingLayerName.into());
     }
     Ok(layers)
 }
@@ -68,7 +68,7 @@ pub fn mvt_to_tile_layers(data: impl AsRef<[u8]>) -> MltResult<Vec<TileLayer>> {
 fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
     let name = layer.name();
     if name.is_empty() {
-        return Err(MltError::MissingLayerName);
+        return Err(MltErrorKind::MissingLayerName.into());
     }
 
     // First pass: collect property names (insertion-ordered) and infer column types.
@@ -134,7 +134,7 @@ impl TryFrom<MvtLayer> for TileLayer {
 
     fn try_from(layer: MvtLayer) -> Result<Self, Self::Error> {
         if layer.name.is_empty() {
-            return Err(MltError::MissingLayerName);
+            return Err(MltErrorKind::MissingLayerName.into());
         }
 
         // First pass: collect property names (insertion-ordered) and infer column types.
@@ -573,12 +573,12 @@ mod tests {
     #[test]
     fn unreadable_tile_bytes_are_reported() {
         assert!(matches!(
-            mvt_to_tile_layers([0xff_u8]),
-            Err(MltError::Mvt(_))
+            mvt_to_tile_layers([0xff_u8]).map_err(MltError::into_kind),
+            Err(MltErrorKind::Mvt(_))
         ));
         assert!(matches!(
-            mvt_to_feature_collection([0xff_u8]),
-            Err(MltError::Mvt(_))
+            mvt_to_feature_collection([0xff_u8]).map_err(MltError::into_kind),
+            Err(MltErrorKind::Mvt(_))
         ));
     }
 

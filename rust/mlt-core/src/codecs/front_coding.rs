@@ -2,7 +2,7 @@
 
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{
+use crate::MltErrorKind::{
     FrontCodedOddLengthCount, FrontCodedPrefixTooLong, FrontCodedSuffixOutOfBounds,
     FrontCodedTrailingSuffixBytes,
 };
@@ -74,7 +74,7 @@ impl<'a> FrontLengths<'a> {
     /// Split the combined stream [`FrontCoded::to_lengths`] wrote back into its two runs.
     pub(crate) fn split(lengths: &'a [u32]) -> MltResult<Self> {
         if !lengths.len().is_multiple_of(2) {
-            return Err(FrontCodedOddLengthCount(lengths.len()));
+            return Err(FrontCodedOddLengthCount(lengths.len()).into());
         }
         let (prefixes, suffixes) = lengths.split_at(lengths.len() / 2);
         Ok(Self { prefixes, suffixes })
@@ -112,7 +112,8 @@ pub(crate) fn front_decode(
                 index,
                 shared,
                 available,
-            });
+            }
+            .into());
         }
         let (suffix, rest) =
             remaining
@@ -134,7 +135,7 @@ pub(crate) fn front_decode(
         );
     }
     if !remaining.is_empty() {
-        return Err(FrontCodedTrailingSuffixBytes(remaining.len()));
+        return Err(FrontCodedTrailingSuffixBytes(remaining.len()).into());
     }
     Ok((String::from_utf8(entries)?, entry_lengths))
 }
@@ -149,7 +150,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::MltError;
+    use crate::MltErrorKind;
 
     fn decode(lengths: &[u32], suffixes: &[u8]) -> MltResult<(String, Vec<u32>)> {
         front_decode(FrontLengths::split(lengths)?, suffixes)
@@ -208,7 +209,7 @@ mod tests {
     #[test]
     fn splitting_rejects_an_odd_lengths_stream() {
         let err = FrontLengths::split(&[0, 1, 2]).unwrap_err();
-        assert!(matches!(err, FrontCodedOddLengthCount(3)), "{err:?}");
+        assert!(matches!(err.kind(), FrontCodedOddLengthCount(3)), "{err:?}");
     }
 
     #[test]
@@ -216,7 +217,7 @@ mod tests {
         let err = decode(&[0, 9, 2, 1], b"abc").unwrap_err();
         assert!(
             matches!(
-                err,
+                err.kind(),
                 FrontCodedPrefixTooLong {
                     index: 1,
                     shared: 9,
@@ -232,7 +233,7 @@ mod tests {
         let err = decode(&[0, 0, 2, 9], b"ab").unwrap_err();
         assert!(
             matches!(
-                err,
+                err.kind(),
                 FrontCodedSuffixOutOfBounds {
                     index: 1,
                     needed: 9,
@@ -246,18 +247,21 @@ mod tests {
     #[test]
     fn decode_rejects_suffix_bytes_after_the_last_entry() {
         let err = decode(&[0, 0, 2, 1], b"abcd").unwrap_err();
-        assert!(matches!(err, FrontCodedTrailingSuffixBytes(1)), "{err:?}");
+        assert!(
+            matches!(err.kind(), FrontCodedTrailingSuffixBytes(1)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn decode_rejects_an_odd_lengths_stream() {
         let err = decode(&[0, 1, 2], b"").unwrap_err();
-        assert!(matches!(err, FrontCodedOddLengthCount(3)), "{err:?}");
+        assert!(matches!(err.kind(), FrontCodedOddLengthCount(3)), "{err:?}");
     }
 
     #[test]
     fn decode_rejects_a_corpus_that_is_not_utf8() {
         let err = decode(&[0, 1], &[0xFF]).unwrap_err();
-        assert!(matches!(err, MltError::FromUtf8(_)), "{err:?}");
+        assert!(matches!(err.kind(), MltErrorKind::FromUtf8(_)), "{err:?}");
     }
 }

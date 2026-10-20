@@ -7,8 +7,8 @@ use std::iter::once;
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{
-    Decoder, GeometryType, Layer, LendingIterator, MltError, MltResult, ParsedLayer01, Parser,
-    PropValueRef, ZStep,
+    Decoder, GeometryType, Layer, LendingIterator, MltError, MltErrorKind, MltResult,
+    ParsedLayer01, Parser, PropValueRef, ZStep,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -81,7 +81,7 @@ impl<'a> WkbWriter<'a> {
     }
 
     fn len(&mut self, len: usize) -> MltResult<()> {
-        self.u32(u32::try_from(len).map_err(|_| MltError::IntegerOverflow)?);
+        self.u32(u32::try_from(len).map_err(|_| MltErrorKind::IntegerOverflow)?);
         Ok(())
     }
 
@@ -195,7 +195,7 @@ impl<'a> WkbWriter<'a> {
             | Geometry::GeometryCollection(_)
             | Geometry::Rect(_)
             | Geometry::Triangle(_) => {
-                return Err(MltError::NotImplemented("unsupported geometry type"));
+                return Err(MltErrorKind::NotImplemented("unsupported geometry type").into());
             }
         }
         Ok(())
@@ -203,10 +203,11 @@ impl<'a> WkbWriter<'a> {
 
     fn finish(self) -> MltResult<Vec<u8>> {
         match self.z {
-            Some((_, z)) if z.len() != self.vertex => Err(MltError::ZVertexCountMismatch {
+            Some((_, z)) if z.len() != self.vertex => Err(MltErrorKind::ZVertexCountMismatch {
                 expected: self.vertex,
                 actual: z.len(),
-            }),
+            }
+            .into()),
             _ => Ok(self.buf),
         }
     }

@@ -64,7 +64,7 @@ mod invariant_tests {
         StagedSharedDict, StagedValues,
     };
     use crate::encoder::{StagedId, StagedLayer, StagedProperty};
-    use crate::{MltError, TileLayer};
+    use crate::{MltError, MltErrorKind, TileLayer};
 
     #[cfg(feature = "unstable-v2")]
     fn empty_shared_dict(prefix: &str, suffix: &str) -> StagedProperty {
@@ -127,16 +127,17 @@ mod invariant_tests {
     #[test]
     fn tile_layer_constructor_rejects_empty_name() {
         assert!(matches!(
-            TileLayer::new("", 4096),
-            Err(MltError::MissingLayerName)
+            TileLayer::new("", 4096).map_err(MltError::into_kind),
+            Err(MltErrorKind::MissingLayerName)
         ));
     }
 
     #[test]
     fn staged_layer_constructor_rejects_empty_name() {
         assert!(matches!(
-            StagedLayer::new("", 4096, StagedId::None, GeometryValues::default(), vec![]),
-            Err(MltError::MissingLayerName)
+            StagedLayer::new("", 4096, StagedId::None, GeometryValues::default(), vec![])
+                .map_err(MltError::into_kind),
+            Err(MltErrorKind::MissingLayerName)
         ));
     }
 
@@ -149,8 +150,9 @@ mod invariant_tests {
                 StagedId::None,
                 GeometryValues::default(),
                 vec![]
-            ),
-            Err(MltError::InvalidExtent(0))
+            )
+            .map_err(MltError::into_kind),
+            Err(MltErrorKind::InvalidExtent(0))
         ));
     }
 

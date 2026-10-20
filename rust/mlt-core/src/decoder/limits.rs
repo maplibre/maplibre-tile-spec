@@ -1,7 +1,7 @@
 //! Memory-limit enforcement shared by every layer format.
 
 use crate::errors::AsMltError as _;
-use crate::{Layer, MltError, MltResult, ParsedLayer};
+use crate::{Layer, MltErrorKind, MltResult, ParsedLayer};
 
 /// Default memory budget: 64 MiB.
 const DEFAULT_MAX_BYTES: u32 = 64 * 1024 * 1024;
@@ -84,7 +84,7 @@ impl Decoder {
     #[inline]
     pub(crate) fn adjust_alloc<T>(&mut self, buf: &[T], alloc_size: usize) -> MltResult<()> {
         if buf.len() > alloc_size {
-            return Err(MltError::InvalidDecodingStreamSize(buf.len(), alloc_size));
+            return Err(MltErrorKind::InvalidDecodingStreamSize(buf.len(), alloc_size).into());
         }
         // Return the unused portion of the pre-charged budget.
         let unused = (alloc_size - buf.len()) * size_of::<T>();
@@ -230,11 +230,12 @@ impl MemBudget {
             *accumulator = new_value;
             Ok(())
         } else {
-            Err(MltError::MemoryLimitExceeded {
+            Err(MltErrorKind::MemoryLimitExceeded {
                 limit: max_bytes,
                 used: *accumulator,
                 requested: size,
-            })
+            }
+            .into())
         }
     }
 

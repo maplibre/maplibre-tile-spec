@@ -5,11 +5,12 @@ extern crate core;
 macro_rules! validate_stream {
     ($stream:expr, $expected:pat $(,)?) => {
         if !matches!($stream.meta.stream_type, $expected) {
-            return Err($crate::MltError::UnexpectedStreamType2(
+            return Err($crate::MltErrorKind::UnexpectedStreamType2(
                 $stream.meta.stream_type,
                 stringify!($expected),
                 stringify!($stream),
-            ));
+            )
+            .into());
         }
     };
 }
@@ -62,7 +63,7 @@ pub use crate::decoder::{
     ParsedList, ParsedMValue, ParsedMap, ParsedNested, ParsedNode, ParsedStruct, RawInterior,
     RawLeaf, RawList, RawMValue, RawMap, RawNested, RawNode, RawStruct,
 };
-pub use crate::errors::{MltError, MltResult};
+pub use crate::errors::{MltError, MltErrorKind, MltResult};
 pub use crate::layer_writer::{FeatureWriter, LayerWriter};
 pub use crate::tile::{
     ColumnRole, Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder,

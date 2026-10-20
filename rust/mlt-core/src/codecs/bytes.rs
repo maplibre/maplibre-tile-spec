@@ -1,7 +1,7 @@
 use integer_encoding::VarInt;
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::UnsupportedPhysicalEncoding;
+use crate::MltErrorKind::UnsupportedPhysicalEncoding;
 use crate::codecs::fastpfor::decode_fastpfor;
 use crate::decoder::FastPForKind;
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
@@ -85,7 +85,7 @@ impl PhysicalWord for u64 {
         _kind: FastPForKind,
         _dec: &mut Decoder,
     ) -> MltResult<Vec<Self>> {
-        Err(UnsupportedPhysicalEncoding("FastPFOR decoding u64"))
+        Err(UnsupportedPhysicalEncoding("FastPFOR decoding u64").into())
     }
 }
 
@@ -123,7 +123,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::MltError::{InvalidDecodingStreamSize, MemoryLimitExceeded};
+    use crate::MltErrorKind::{InvalidDecodingStreamSize, MemoryLimitExceeded};
     use crate::test_helpers::{dec, starved_dec};
 
     proptest! {
@@ -180,7 +180,10 @@ mod tests {
     fn too_few_bytes_for_the_word_count_is_an_error() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
         let err = decode_bytes_to_words::<u32>(&bytes, 2, &mut dec()).unwrap_err();
-        assert!(matches!(err, InvalidDecodingStreamSize(4, 8)), "{err:?}");
+        assert!(
+            matches!(err.kind(), InvalidDecodingStreamSize(4, 8)),
+            "{err:?}"
+        );
     }
 
     #[test]
@@ -189,14 +192,17 @@ mod tests {
             0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
         ];
         let err = decode_bytes_to_words::<u32>(&bytes, 2, &mut dec()).unwrap_err();
-        assert!(matches!(err, InvalidDecodingStreamSize(12, 8)), "{err:?}");
+        assert!(
+            matches!(err.kind(), InvalidDecodingStreamSize(12, 8)),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn a_maximal_word_count_fails_the_size_check_before_allocating() {
         let err = decode_bytes_to_words::<u32>(&[0, 0, 0, 0], u32::MAX, &mut dec()).unwrap_err();
         assert!(
-            matches!(err, InvalidDecodingStreamSize(4, 17_179_869_180)),
+            matches!(err.kind(), InvalidDecodingStreamSize(4, 17_179_869_180)),
             "{err:?}"
         );
     }
@@ -205,7 +211,7 @@ mod tests {
     fn decoding_past_the_memory_budget_is_rejected() {
         let bytes = [0; 8];
         let err = decode_bytes_to_words::<u32>(&bytes, 2, &mut starved_dec()).unwrap_err();
-        assert!(matches!(err, MemoryLimitExceeded { .. }), "{err:?}");
+        assert!(matches!(err.kind(), MemoryLimitExceeded { .. }), "{err:?}");
     }
 
     #[test]
@@ -214,7 +220,10 @@ mod tests {
             <u64 as PhysicalWord>::decode_fastpfor(&[], 0, FastPForKind::Block256Be, &mut dec())
                 .unwrap_err();
         assert!(
-            matches!(err, UnsupportedPhysicalEncoding("FastPFOR decoding u64")),
+            matches!(
+                err.kind(),
+                UnsupportedPhysicalEncoding("FastPFOR decoding u64")
+            ),
             "{err:?}"
         );
     }
@@ -223,6 +232,9 @@ mod tests {
     fn trailing_bytes_on_zero_words_are_an_error() {
         let bytes = [0x01];
         let err = decode_bytes_to_words::<u32>(&bytes, 0, &mut dec()).unwrap_err();
-        assert!(matches!(err, InvalidDecodingStreamSize(1, 0)), "{err:?}");
+        assert!(
+            matches!(err.kind(), InvalidDecodingStreamSize(1, 0)),
+            "{err:?}"
+        );
     }
 }

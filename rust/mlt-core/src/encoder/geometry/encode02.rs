@@ -19,7 +19,7 @@ use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
 use crate::tile::ZStep;
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltErrorKind, MltResult};
 
 /// Wrap a computed length stream: an empty stream is not written (and not
 /// declared by the layout), matching the v1 writer's skip-empty behavior.
@@ -185,7 +185,7 @@ pub(crate) fn encode_geometry02(
         (None, None) => Topology::Flat,
         (Some(parts), None) => Topology::Parts(parts),
         (Some(parts), Some(rings)) => Topology::PartsAndRings { parts, rings },
-        (None, Some(_)) => return Err(MltError::RingLengthsWithoutPartLengths),
+        (None, Some(_)) => return Err(MltErrorKind::RingLengthsWithoutPartLengths.into()),
     };
 
     // An empty index buffer means no polygon tessellated into a triangle, so the layer
@@ -456,12 +456,14 @@ fn write_xyz_vertices(
                 encode_hilbert_xyz_vertex_streams02(vertices, step, enc, codecs)?;
                 Ok(VertexStorage::Dict)
             }
-            VertexBufferType::Morton => Err(MltError::NotImplemented(
+            VertexBufferType::Morton => Err(MltErrorKind::NotImplemented(
                 "Morton vertices with z coordinates, since a Morton code spans only x and y",
-            )),
-            VertexBufferType::Rans => Err(MltError::NotImplemented(
+            )
+            .into()),
+            VertexBufferType::Rans => Err(MltErrorKind::NotImplemented(
                 "rANS vertices with z coordinates, since its tables are defined over pairs",
-            )),
+            )
+            .into()),
         };
     }
 

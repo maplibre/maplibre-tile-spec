@@ -16,7 +16,7 @@ use crate::encoder::{
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::{WireVersion, encode02};
 use crate::tile::TileLayer;
-use crate::{MltError, MltResult, PropValueRef};
+use crate::{MltErrorKind, MltResult, PropValueRef};
 
 impl StagedLayer {
     /// Encode and serialize the layer directly into `enc`, without creating any
@@ -28,7 +28,7 @@ impl StagedLayer {
     #[hotpath::measure]
     pub fn encode_into(self, enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
         if self.name.is_empty() {
-            return Err(MltError::MissingLayerName);
+            return Err(MltErrorKind::MissingLayerName.into());
         }
         #[cfg(feature = "unstable-v2")]
         match enc.config().wire_version() {
@@ -109,7 +109,7 @@ impl TileLayer {
 #[hotpath::measure]
 pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
     if source.name().is_empty() {
-        return Err(MltError::MissingLayerName);
+        return Err(MltErrorKind::MissingLayerName.into());
     }
     let len = source.feature_count();
     if len == 0 {
@@ -521,8 +521,5 @@ fn analyze_properties(
 
 #[inline]
 fn mixed_prop_err<T>(column_idx: usize, property_name: &str) -> MltResult<T> {
-    Err(MltError::MixedPropertyTypes(
-        column_idx,
-        property_name.to_owned(),
-    ))
+    Err(MltErrorKind::MixedPropertyTypes(column_idx, property_name.to_owned()).into())
 }

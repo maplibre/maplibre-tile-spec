@@ -19,7 +19,7 @@ use bitvec::view::BitView as _;
 use integer_encoding::VarIntWriter as _;
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{self, PresenceRunOverflow, PresenceSparseByte, PresenceSparseSummary};
+use crate::MltErrorKind::{self, PresenceRunOverflow, PresenceSparseByte, PresenceSparseSummary};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::BoolLogical;
 use crate::utils::take;
@@ -207,7 +207,7 @@ pub(crate) fn read<'a>(
             let (input, summary) = take(input, count.div_ceil(8).div_ceil(8))?;
             let summary = summary.view_bits::<Lsb0>();
             if summary[bytes..].any() {
-                return Err(PresenceSparseSummary(count));
+                return Err(PresenceSparseSummary(count).into());
             }
             let (input, stored) = take(input, u32::try_from(summary.count_ones())?)?;
             budget.reserve_bits(count)?;
@@ -216,7 +216,7 @@ pub(crate) fn read<'a>(
             for at in summary[..bytes].iter_ones() {
                 let byte = *stored.next().expect("one stored byte per set summary bit");
                 if byte == 0 {
-                    return Err(PresenceSparseByte(count));
+                    return Err(PresenceSparseByte(count).into());
                 }
                 plain[at] = byte;
             }
@@ -260,7 +260,9 @@ pub(crate) fn split(input: &[u8], count: u32, coding: PresenceCoding) -> MltRefR
         PresenceCoding::Bitmap => n.div_ceil(8),
         PresenceCoding::Sparse => {
             let summary = n.div_ceil(8).div_ceil(8);
-            let head = input.get(..summary).ok_or(MltError::UnableToTake(count))?;
+            let head = input
+                .get(..summary)
+                .ok_or(MltErrorKind::UnableToTake(count))?;
             summary + head.view_bits::<Lsb0>().count_ones()
         }
         PresenceCoding::Runs => {
@@ -290,7 +292,7 @@ pub(crate) fn popcount(payload: &[u8], count: u32, coding: PresenceCoding) -> Ml
     let bits = match coding {
         PresenceCoding::Bitmap => payload
             .get(..n.div_ceil(8))
-            .ok_or(MltError::UnableToTake(count))?
+            .ok_or(MltErrorKind::UnableToTake(count))?
             .view_bits::<Lsb0>()[..n]
             .count_ones(),
         PresenceCoding::Sparse => {
@@ -298,11 +300,11 @@ pub(crate) fn popcount(payload: &[u8], count: u32, coding: PresenceCoding) -> Ml
             let summary = bytes.div_ceil(8);
             let stored = payload
                 .get(summary..)
-                .ok_or(MltError::UnableToTake(count))?;
+                .ok_or(MltErrorKind::UnableToTake(count))?;
             let mut stored = stored.iter();
             let mut total = 0usize;
             for at in payload.view_bits::<Lsb0>()[..bytes].iter_ones() {
-                let byte = *stored.next().ok_or(MltError::UnableToTake(count))?;
+                let byte = *stored.next().ok_or(MltErrorKind::UnableToTake(count))?;
                 let valid = (n - at * 8).min(8);
                 total += (byte & (u8::MAX >> (8 - valid))).count_ones() as usize;
             }
@@ -347,6 +349,7 @@ pub(crate) fn round_trip(bits: &[bool], coding: PresenceCoding) -> Vec<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::MltError;
 
     fn cases() -> Vec<Vec<bool>> {
         vec![
@@ -403,7 +406,8 @@ mod tests {
     #[test]
     fn a_sparse_summary_past_the_bitmap_is_rejected() {
         assert!(matches!(
-            read(&[0b10, 1], 8, PresenceCoding::Sparse, &mut Unmetered),
+            read(&[0b10, 1], 8, PresenceCoding::Sparse, &mut Unmetered)
+                .map_err(MltError::into_kind),
             Err(PresenceSparseSummary(8))
         ));
     }
@@ -411,7 +415,7 @@ mod tests {
     #[test]
     fn a_stored_zero_byte_is_rejected() {
         assert!(matches!(
-            read(&[0b1, 0], 8, PresenceCoding::Sparse, &mut Unmetered),
+            read(&[0b1, 0], 8, PresenceCoding::Sparse, &mut Unmetered).map_err(MltError::into_kind),
             Err(PresenceSparseByte(8))
         ));
     }
@@ -448,7 +452,7 @@ mod tests {
         buf.write_varint(1u64).unwrap();
         buf.write_varint(u64::MAX).unwrap();
         assert!(matches!(
-            read(&buf, 8, PresenceCoding::Runs, &mut Unmetered),
+            read(&buf, 8, PresenceCoding::Runs, &mut Unmetered).map_err(MltError::into_kind),
             Err(PresenceRunOverflow(8))
         ));
     }
@@ -548,11 +552,12 @@ mod tests {
     struct Refused;
     impl PresenceBudget for Refused {
         fn reserve_bits(&mut self, count: u32) -> MltResult<()> {
-            Err(MltError::MemoryLimitExceeded {
+            Err(MltErrorKind::MemoryLimitExceeded {
                 limit: 0,
                 used: 0,
                 requested: count,
-            })
+            }
+            .into())
         }
     }
 
@@ -561,16 +566,16 @@ mod tests {
     #[case::sparse(PresenceCoding::Sparse)]
     fn a_refused_budget_is_an_error(#[case] coding: PresenceCoding) {
         assert!(matches!(
-            read(&[0], 8, coding, &mut Refused),
-            Err(MltError::MemoryLimitExceeded { requested: 8, .. })
+            read(&[0], 8, coding, &mut Refused).map_err(MltError::into_kind),
+            Err(MltErrorKind::MemoryLimitExceeded { requested: 8, .. })
         ));
     }
 
     #[test]
     fn a_short_bitmap_is_rejected() {
         assert!(matches!(
-            read(&[0], 9, PresenceCoding::Bitmap, &mut Unmetered),
-            Err(MltError::UnableToTake(2))
+            read(&[0], 9, PresenceCoding::Bitmap, &mut Unmetered).map_err(MltError::into_kind),
+            Err(MltErrorKind::UnableToTake(2))
         ));
     }
 }

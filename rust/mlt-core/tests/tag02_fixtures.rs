@@ -7,7 +7,7 @@ use mlt_core::dump::{DumpTree, annotate_tile};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::encoder::{Network, Profile};
 use mlt_core::mvt::mvt_to_tile_layers;
-use mlt_core::{Decoder, Layer, MltError, Parser, TileLayer};
+use mlt_core::{Decoder, Layer, MltError, MltErrorKind, Parser, TileLayer};
 use rstest::rstest;
 use test_each_file::test_each_path;
 
@@ -66,10 +66,13 @@ fn differential_fixture([path]: [&Path; 1]) {
         return;
     };
     for layer in layers {
-        let v2_bytes = match layer.encode(cfg(WireVersion::V02)) {
+        let v2_bytes = match layer
+            .encode(cfg(WireVersion::V02))
+            .map_err(MltError::into_kind)
+        {
             Ok(bytes) => bytes,
             // A stream set v2 has no layout code for.
-            Err(MltError::NotImplemented(_)) => continue,
+            Err(MltErrorKind::NotImplemented(_)) => continue,
             Err(e) => panic!("{}: v2 encode failed: {e}", path.display()),
         };
         // Both versions group string columns into shared dictionaries from the same analysis,

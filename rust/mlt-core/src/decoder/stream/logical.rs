@@ -4,7 +4,7 @@ use std::iter::repeat_n;
 use num_traits::{PrimInt, ToPrimitive as _};
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogicalEncoding};
+use crate::MltErrorKind::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogicalEncoding};
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::zigzag::decode_componentwise_delta_vec3s;
 use crate::codecs::zigzag::{
@@ -88,7 +88,7 @@ impl RleMeta {
         dec: &mut Decoder,
     ) -> MltResult<Vec<T>> {
         if !data.len().is_multiple_of(2) {
-            return Err(RleRunLenInvalid(data.len().to_i128().unwrap_or_default()));
+            return Err(RleRunLenInvalid(data.len().to_i128().unwrap_or_default()).into());
         }
         let alloc_size = num_rle_values.into_usize();
         let mut result = dec.alloc(alloc_size)?;
@@ -110,13 +110,13 @@ impl RleMeta {
             .iter()
             .try_fold(T::zero(), |a, v| a.checked_add(v))
             .and_then(|v| v.to_u32())
-            .ok_or_else(|| RleRunLenInvalid(run_lens.len().to_i128().unwrap_or_default()))
+            .ok_or_else(|| RleRunLenInvalid(run_lens.len().to_i128().unwrap_or_default()).into())
     }
 }
 
 impl LogicalTechnique {
     pub fn parse(value: u8) -> MltResult<Self> {
-        Self::try_from(value).or(Err(ParsingLogicalTechnique(value)))
+        Self::try_from(value).map_err(|_| ParsingLogicalTechnique(value).into())
     }
 }
 
@@ -150,11 +150,12 @@ impl LogicalValue {
             LE::Vertex(VL::Rans) => Err(UnsupportedLogicalEncoding(
                 self.meta.encoding.logical,
                 "a stream decoded without the layer's topology",
-            )),
+            )
+            .into()),
             #[cfg(feature = "unstable-v2")]
             LE::Vertex(VL::Xyz(_, xyz)) => {
                 if !data.len().is_multiple_of(3) {
-                    return Err(crate::MltError::InvalidTripleStreamSize(data.len()));
+                    return Err(crate::MltErrorKind::InvalidTripleStreamSize(data.len()).into());
                 }
                 match xyz {
                     XyzLogical::None => decode_zigzag(data, dec),
@@ -162,10 +163,9 @@ impl LogicalValue {
                     XyzLogical::ComponentwiseDelta => decode_componentwise_delta_vec3s(data, dec),
                 }
             }
-            LE::Bool(_) | LE::Float(_) => Err(UnsupportedLogicalEncoding(
-                self.meta.encoding.logical,
-                "i32",
-            )),
+            LE::Bool(_) | LE::Float(_) => {
+                Err(UnsupportedLogicalEncoding(self.meta.encoding.logical, "i32").into())
+            }
         }
     }
 
@@ -188,10 +188,7 @@ impl LogicalValue {
             }
             LogicalEncoding::Int(IntLogical::Delta2) => decode_zigzag_delta2::<i32, _>(data, dec),
             LogicalEncoding::Bool(_) | LogicalEncoding::Float(_) | LogicalEncoding::Vertex(_) => {
-                Err(UnsupportedLogicalEncoding(
-                    self.meta.encoding.logical,
-                    "u32",
-                ))
+                Err(UnsupportedLogicalEncoding(self.meta.encoding.logical, "u32").into())
             }
         }
     }
@@ -215,10 +212,7 @@ impl LogicalValue {
             }
             LogicalEncoding::Int(IntLogical::Delta2) => decode_zigzag_delta2::<i64, _>(data, dec),
             LogicalEncoding::Bool(_) | LogicalEncoding::Float(_) | LogicalEncoding::Vertex(_) => {
-                Err(UnsupportedLogicalEncoding(
-                    self.meta.encoding.logical,
-                    "i64",
-                ))
+                Err(UnsupportedLogicalEncoding(self.meta.encoding.logical, "i64").into())
             }
         }
     }
@@ -243,10 +237,7 @@ impl LogicalValue {
             }
             LogicalEncoding::Int(IntLogical::Delta2) => decode_zigzag_delta2::<i64, _>(data, dec),
             LogicalEncoding::Bool(_) | LogicalEncoding::Float(_) | LogicalEncoding::Vertex(_) => {
-                Err(UnsupportedLogicalEncoding(
-                    self.meta.encoding.logical,
-                    "u64",
-                ))
+                Err(UnsupportedLogicalEncoding(self.meta.encoding.logical, "u64").into())
             }
         }
     }
@@ -255,7 +246,7 @@ impl LogicalValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::MltError::InvalidDecodingStreamSize;
+    use crate::MltErrorKind::InvalidDecodingStreamSize;
     use crate::test_helpers::dec;
 
     #[test]
@@ -276,7 +267,7 @@ mod tests {
         };
         let data = [1u32, 2, 3];
         let err = rle.decode::<u32>(&data, &mut dec()).unwrap_err();
-        assert!(matches!(err, InvalidDecodingStreamSize(3, 4)));
+        assert!(matches!(err.kind(), InvalidDecodingStreamSize(3, 4)));
     }
 
     fn value(logical: LogicalEncoding) -> LogicalValue {
@@ -316,7 +307,9 @@ mod tests {
             _ => v.decode_i32(&[], &mut dec()).map(drop),
         }
         .unwrap_err();
-        assert!(matches!(err, UnsupportedLogicalEncoding(l, t) if l == logical && t == target));
+        assert!(
+            matches!(err.kind(), UnsupportedLogicalEncoding(l, t) if *l == logical && *t == target)
+        );
     }
 
     #[cfg(feature = "unstable-v2")]
@@ -400,6 +393,9 @@ mod tests {
         let err = xyz(XyzLogical::None)
             .decode_i32(&[2, 4, 1, 6], &mut dec())
             .unwrap_err();
-        assert!(matches!(err, crate::MltError::InvalidTripleStreamSize(4)));
+        assert!(matches!(
+            err.kind(),
+            crate::MltErrorKind::InvalidTripleStreamSize(4)
+        ));
     }
 }
