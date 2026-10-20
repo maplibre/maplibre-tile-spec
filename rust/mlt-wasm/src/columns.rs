@@ -1,13 +1,12 @@
-//! `decodeTileColumns`: every layer of a tile as typed arrays, read straight off the decoded
-//! columns without going through per-feature rows.
+//! `decodeTileColumns`: scalar typed arrays and nested values read from decoded columns.
 //!
 //! Each layer crosses the boundary as one plain object whose shape `js/columns.ts` types.
 //! Every array is copied out of WASM memory once: a view into it would be detached the next
 //! time that memory grows.
 
 use js_sys::{
-    Array, Float32Array, Float64Array, Int8Array, Int32Array, Object, Reflect, Uint8Array,
-    Uint32Array,
+    Array, BigInt64Array, BigUint64Array, Float32Array, Float64Array, Int8Array, Int32Array,
+    Object, Reflect, Uint8Array, Uint32Array,
 };
 use mlt_core::{
     Decoder, GeometryValues, ParsedLayer, ParsedLayer01, ParsedProperty, ParsedStrings, Parser,
@@ -21,12 +20,19 @@ use crate::to_js_err;
 /// `names`, only those with one of these names. A layer left out is never decoded.
 ///
 /// v2 layers are skipped unless the crate is built with the `unstable-v2` feature.
+/// With `exact_int64`, i64/u64 columns and ids use `BigInt` typed arrays, and nested
+/// 64-bit integer leaves use bigint. The default retains the numeric representation.
 #[wasm_bindgen(js_name = decodeTileColumns)]
 #[expect(
     clippy::needless_pass_by_value,
     reason = "wasm-bindgen hands a JS array over only as an owned Vec"
 )]
-pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Array, JsError> {
+pub fn decode_tile_columns(
+    data: &[u8],
+    names: Option<Vec<String>>,
+    exact_int64: Option<bool>,
+) -> Result<Array, JsError> {
+    let exact_int64 = exact_int64.unwrap_or(false);
     let mut parser = Parser::default();
     let raw_layers = parser.parse_layers(data).map_err(|e| to_js_err(&e))?;
     let mut dec = Decoder::default();
@@ -46,10 +52,17 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
         let parsed = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
         // `ParsedLayer` is non_exhaustive: a layer of a tag this binding does not know is skipped.
         let object = match &parsed {
-            ParsedLayer::Tag01(layer) => layer_object(layer, 1)?,
-            // A v2 layer's vertex-scoped and nested columns are not passed on.
+            ParsedLayer::Tag01(layer) => layer_object(layer, 1, exact_int64)?.0,
             #[cfg(feature = "unstable-v2")]
-            ParsedLayer::Tag02(layer) => layer_object(layer.layer(), 2)?,
+            ParsedLayer::Tag02(layer) => {
+                let (object, properties) = layer_object(layer.layer(), 2, exact_int64)?;
+                for nested in layer.nested() {
+                    let column =
+                        crate::nested::column(nested, layer.layer().feature_count(), exact_int64)?;
+                    properties.push(&column);
+                }
+                object
+            }
             _ => continue,
         };
         layers.push(&object);
@@ -58,7 +71,11 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
 }
 
 /// The columns every wire version has.
-fn layer_object(layer: &ParsedLayer01<'_>, version: u8) -> Result<Object, JsError> {
+fn layer_object(
+    layer: &ParsedLayer01<'_>,
+    version: u8,
+    exact_int64: bool,
+) -> Result<(Object, Array), JsError> {
     let object = Object::new();
     set(&object, "name", &layer.name().into());
     set(&object, "extent", &layer.extent().get().into());
@@ -70,14 +87,14 @@ fn layer_object(layer: &ParsedLayer01<'_>, version: u8) -> Result<Object, JsErro
         &geometry_object(layer.geometry_values()),
     );
     if let Some(ids) = layer.id() {
-        let (values, present) = scalar(ids);
+        let (values, present) = scalar(ids, exact_int64);
         set(&object, "ids", &column(None, &values, present.as_ref()));
     }
 
     let properties = Array::new();
     let mut names = layer.iterate_prop_names();
     for property in layer.properties() {
-        for (kind, values, present) in property_columns(property)? {
+        for (kind, values, present) in property_columns(property, exact_int64)? {
             let Some(name) = names.next() else {
                 return Err(JsError::new("a property column has no name"));
             };
@@ -92,7 +109,7 @@ fn layer_object(layer: &ParsedLayer01<'_>, version: u8) -> Result<Object, JsErro
         return Err(JsError::new("a property name has no column"));
     }
     set(&object, "properties", &properties);
-    Ok(object)
+    Ok((object, properties))
 }
 
 fn geometry_object(geometry: &GeometryValues) -> Object {
@@ -127,17 +144,20 @@ type ColumnParts = (&'static str, JsValue, Option<Uint8Array>);
 
 /// The values and presence of each column `property` holds: a shared dictionary holds one
 /// per child, every other property one.
-fn property_columns(property: &ParsedProperty<'_>) -> Result<Vec<ColumnParts>, JsError> {
+fn property_columns(
+    property: &ParsedProperty<'_>,
+    exact_int64: bool,
+) -> Result<Vec<ColumnParts>, JsError> {
     let (values, present) = match property {
-        ParsedProperty::Bool(v) => scalar(v),
-        ParsedProperty::I8(v) => scalar(v),
-        ParsedProperty::U8(v) => scalar(v),
-        ParsedProperty::I32(v) => scalar(v),
-        ParsedProperty::U32(v) => scalar(v),
-        ParsedProperty::I64(v) => scalar(v),
-        ParsedProperty::U64(v) => scalar(v),
-        ParsedProperty::F32(v) => scalar(v),
-        ParsedProperty::F64(v) => scalar(v),
+        ParsedProperty::Bool(v) => scalar(v, exact_int64),
+        ParsedProperty::I8(v) => scalar(v, exact_int64),
+        ParsedProperty::U8(v) => scalar(v, exact_int64),
+        ParsedProperty::I32(v) => scalar(v, exact_int64),
+        ParsedProperty::U32(v) => scalar(v, exact_int64),
+        ParsedProperty::I64(v) => scalar(v, exact_int64),
+        ParsedProperty::U64(v) => scalar(v, exact_int64),
+        ParsedProperty::F32(v) => scalar(v, exact_int64),
+        ParsedProperty::F64(v) => scalar(v, exact_int64),
         ParsedProperty::Str(s) => strings(s.feature_count(), |i| string_at(s, i)),
         ParsedProperty::SharedDict(dict) => {
             return Ok(dict
@@ -180,28 +200,34 @@ fn column(
 
 /// One value per feature, `T::default()` where a feature has none, and the presence if any
 /// has none.
-fn scalar<T: JsElement>(presence: &PresentValues<'_, T>) -> (JsValue, Option<Uint8Array>) {
+fn scalar<T: JsElement>(
+    presence: &PresentValues<'_, T>,
+    exact_int64: bool,
+) -> (JsValue, Option<Uint8Array>) {
     let n = presence.feature_count();
     let dense = presence.dense_values();
     if dense.len() == n {
-        return (T::js_array(dense), None);
+        return (T::js_array(dense, exact_int64), None);
     }
     let values: Vec<T> = presence
         .iter_optional()
         .map(Option::unwrap_or_default)
         .collect();
-    (T::js_array(&values), bitmap(n, |i| presence.is_present(i)))
+    (
+        T::js_array(&values, exact_int64),
+        bitmap(n, |i| presence.is_present(i)),
+    )
 }
 
 /// A value type and the typed array it crosses the boundary as.
 trait JsElement: Copy + Default {
-    fn js_array(values: &[Self]) -> JsValue;
+    fn js_array(values: &[Self], exact_int64: bool) -> JsValue;
 }
 
 macro_rules! js_element {
     ($($t:ty => $array:ty),* $(,)?) => {$(
         impl JsElement for $t {
-            fn js_array(values: &[Self]) -> JsValue {
+            fn js_array(values: &[Self], _exact_int64: bool) -> JsValue {
                 <$array>::from(values).into()
             }
         }
@@ -218,28 +244,30 @@ js_element!(
 
 impl JsElement for bool {
     /// `0`/`1` in a `Uint8Array`.
-    fn js_array(values: &[Self]) -> JsValue {
+    fn js_array(values: &[Self], _exact_int64: bool) -> JsValue {
         let values: Vec<u8> = values.iter().copied().map(u8::from).collect();
-        u8::js_array(&values)
+        u8::js_array(&values, false)
     }
 }
 
-macro_rules! js_element_as_f64 {
-    ($($t:ty),*) => {$(
+macro_rules! js_integer64 {
+    ($($t:ty => $array:ty),* $(,)?) => {$(
         impl JsElement for $t {
-            /// A `Float64Array`, so values above 2^53 lose precision.
-            #[expect(clippy::cast_precision_loss, reason = "64-bit integers come out as f64")]
-            fn js_array(values: &[Self]) -> JsValue {
+            #[expect(clippy::cast_precision_loss, reason = "the default numeric API retains its f64 representation")]
+            fn js_array(values: &[Self], exact_int64: bool) -> JsValue {
+                if exact_int64 {
+                    return <$array>::from(values).into();
+                }
                 let values: Vec<f64> = values.iter().map(|&v| v as f64).collect();
-                f64::js_array(&values)
+                f64::js_array(&values, false)
             }
         }
     )*};
 }
-js_element_as_f64!(i64, u64);
+js_integer64!(i64 => BigInt64Array, u64 => BigUint64Array);
 
 /// The `type` a column of `kind` reports.
-fn type_name(kind: PropKind) -> &'static str {
+pub(crate) fn type_name(kind: PropKind) -> &'static str {
     if kind == PropKind::Str {
         "string"
     } else {
@@ -277,7 +305,7 @@ fn bitmap(n: usize, mut present: impl FnMut(usize) -> bool) -> Option<Uint8Array
     (!all).then(|| Uint8Array::from(&bytes[..]))
 }
 
-fn set(object: &Object, key: &str, value: &JsValue) {
+pub(crate) fn set(object: &Object, key: &str, value: &JsValue) {
     Reflect::set(object, &JsValue::from_str(key), value)
         .expect("a plain object takes any string key");
 }
@@ -287,6 +315,6 @@ fn js_len(len: usize) -> JsValue {
     js_index(len).into()
 }
 
-fn js_index(i: usize) -> u32 {
+pub(crate) fn js_index(i: usize) -> u32 {
     u32::try_from(i).expect("an array index fits in u32")
 }

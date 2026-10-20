@@ -1,0 +1,5 @@
+{
+	"extends": "./tsconfig.json",
+	"include": ["js/columns.spec.ts", "js/vectorTile.spec.ts"],
+	"exclude": ["node_modules", "dist", "pkg"]
+}

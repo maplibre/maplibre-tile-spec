@@ -107,6 +107,47 @@ describe("layers keyed by name", () => {
   });
 });
 
+describe("feature property compatibility", () => {
+  it("keeps nested properties in the column API", async () => {
+    const data = new Uint8Array(
+      await readFile(
+        new URL(
+          "../../../test/synthetic/0x02/nested_nulls.mlt",
+          import.meta.url,
+        ),
+      ),
+    );
+    const tile = decodeTile(data);
+    expect(Object.getPrototypeOf(tile.layers)).toBeNull();
+    const [layer] = Object.values(tile.layers);
+    expect(layer.length).toBe(4);
+    expect(
+      decodeTileColumns(data).layers[0].properties.map((column) => column.type),
+    ).toEqual(["nested", "nested"]);
+    for (let i = 0; i < layer.length; i++) {
+      const properties = layer.feature(i).properties;
+      expect(properties).toEqual({});
+      expect(Object.getPrototypeOf(properties)).toBeNull();
+    }
+  });
+
+  it("preserves __proto__ as an ordinary scalar property", async () => {
+    const data = new Uint8Array(
+      await readFile(
+        new URL("../../../test/synthetic/0x02/prop_i32.mlt", import.meta.url),
+      ),
+    );
+    const [columns] = decodeTileColumns(data).layers;
+    const properties = new MltLayer({
+      ...columns,
+      properties: [{ ...columns.properties[0], name: "__proto__" }],
+    }).feature(0).properties;
+    expect(Object.getPrototypeOf(properties)).toBeNull();
+    expect(Object.hasOwn(properties, "__proto__")).toBe(true);
+    expect(properties.__proto__).toBe(42);
+  });
+});
+
 describe("feature indexes", () => {
   it("rejects an index that is not a feature, naming the layer", async () => {
     const read = async (name: string) =>

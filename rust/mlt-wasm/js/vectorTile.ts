@@ -99,6 +99,8 @@ function propertyValue(
   column: MltNamedColumn,
   index: number,
 ): number | string | boolean | undefined {
+  // VectorTileFeatureLike only admits scalar properties; decodeTileColumns exposes nested values.
+  if (column.type === "nested") return undefined;
   const value = columnValue(column, index);
   return column.type === "bool" && value !== undefined ? value === 1 : value;
 }
@@ -134,7 +136,8 @@ abstract class FeatureBase<V> {
   }
 
   get properties(): Record<string, number | string | boolean> {
-    const result: Record<string, number | string | boolean> = {};
+    const result: Record<string, number | string | boolean> =
+      Object.create(null);
     for (const column of this._layer.layer.properties) {
       const value = propertyValue(column, this._featureIdx);
       if (value !== undefined) result[column.name] = value;
@@ -368,7 +371,7 @@ function decodeLayers<L>(
   data: Uint8Array,
   Layer: new (layer: MltColumnLayer) => L,
 ): Record<string, L> {
-  const layers: Record<string, L> = {};
+  const layers: Record<string, L> = Object.create(null);
   for (const layer of decodeTileColumns(data).layers) {
     if (Object.hasOwn(layers, layer.name)) {
       throw new Error(

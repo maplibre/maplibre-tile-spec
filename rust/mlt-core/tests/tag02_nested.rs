@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, WireVersion};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::geo_types::{Coord, Geometry, LineString, Point};
 use mlt_core::wire::ColumnStorage;
 use mlt_core::{
-    Decoder, Layer, MltError, NestedKind, NestedValue, Parser, PropKind, PropValue, TileLayer,
+    Decoder, Layer, MValues, MltError, NestedKind, NestedValue, ParsedInterior, ParsedLayer02,
+    ParsedNode, Parser, PropKind, PropValue, TileLayer,
 };
 use rstest::rstest;
 
@@ -30,6 +30,16 @@ fn decode(bytes: &[u8]) -> TileLayer {
         panic!("expected a v2 layer")
     };
     layer.into_tile(&mut Decoder::default()).expect("into_tile")
+}
+
+fn decode_columns(bytes: &[u8]) -> ParsedLayer02<'_> {
+    let layers = Parser::default().parse_layers(bytes).expect("parse");
+    let Layer::Tag02(layer) = layers.into_iter().next().expect("a layer") else {
+        panic!("expected a v2 layer")
+    };
+    layer
+        .decode_all(&mut Decoder::default())
+        .expect("decode_all")
 }
 
 fn decode_err(bytes: &[u8]) -> MltError {
@@ -358,7 +368,14 @@ fn a_null_root_round_trips() {
         entries(&[("a", i32_value(3))]),
     ];
     let layer = nested_layer(kind, &[point(0, 0), point(1, 1), point(2, 2)], &values);
-    assert_round_trips_as_v2(&layer);
+    let bytes = assert_round_trips_as_v2(&layer);
+    let decoded = decode_columns(&bytes);
+    let column = &decoded.nested()[0];
+    assert_eq!(
+        (0..3).map(|i| column.is_present(i)).collect::<Vec<_>>(),
+        [true, false, true]
+    );
+    assert_eq!(column.root().parent_count(), 2);
 }
 
 #[test]
@@ -390,7 +407,24 @@ fn a_null_list_element_keeps_its_place() {
         NestedValue::list([i32_value(4)]),
     ];
     let layer = nested_layer(kind, &two_points(), &values);
-    assert_round_trips_as_v2(&layer);
+    let bytes = assert_round_trips_as_v2(&layer);
+    let decoded = decode_columns(&bytes);
+    let root = decoded.nested()[0].root();
+    assert_eq!(root.parent_count(), 2);
+    let ParsedInterior::List(list) = root else {
+        panic!("a list")
+    };
+    assert_eq!(list.presence(), None);
+    assert_eq!(list.lengths(), [3, 1]);
+    assert_eq!(list.element().parent_count(), 4);
+    let ParsedNode::Leaf(element) = list.element() else {
+        panic!("a scalar element")
+    };
+    assert_eq!(
+        element.presence(),
+        Some([true, false, true, true].as_slice())
+    );
+    assert_eq!(element.values(), &MValues::I32(vec![1, 3, 4]));
 }
 
 #[test]
@@ -928,6 +962,27 @@ fn a_struct_whose_rows_repeat_two_key_sets_is_coded_per_row() {
     let bytes = assert_round_trips_with(&six_field_struct_layer(), cfg_row_shapes());
     assert_eq!(root_data_type(&bytes), "data type = Struct");
     assert_eq!(shape_labels(&bytes), ["shapes", "shape_table", "shape_ids"]);
+
+    let decoded = decode_columns(&bytes);
+    let root = decoded.nested()[0].root();
+    assert_eq!(root.parent_count(), 16);
+    let ParsedInterior::Struct(node) = root else {
+        panic!("a struct")
+    };
+    assert_eq!(node.presence(), None);
+    assert_eq!(
+        node.fields()
+            .iter()
+            .map(|(name, _)| *name)
+            .collect::<Vec<_>>(),
+        ["a", "b", "c", "d", "e", "f"]
+    );
+    let ParsedNode::Leaf(first) = &node.fields()[0].1 else {
+        panic!("a scalar field")
+    };
+    let present: Vec<bool> = (0..16).map(|row| row < 8).collect();
+    assert_eq!(first.presence(), Some(present.as_slice()));
+    assert_eq!(first.values(), &MValues::I32((0..8).collect()));
 }
 
 #[test]
@@ -976,6 +1031,40 @@ fn a_map_whose_rows_repeat_three_key_sets_is_coded_per_row() {
     let bytes = assert_round_trips_with(&name_map_layer(), cfg_row_shapes());
     assert_eq!(root_data_type(&bytes), "data type = Map");
     assert_eq!(shape_labels(&bytes), ["shapes", "shape_table", "shape_ids"]);
+    assert_borrowed_map_entries(&bytes);
+}
+
+/// Row-shape keys align with the flat value run.
+fn assert_borrowed_map_entries(bytes: &[u8]) {
+    let decoded = decode_columns(bytes);
+    let root = decoded.nested()[0].root();
+    assert_eq!(root.parent_count(), 32);
+    let ParsedInterior::Map(map) = root else {
+        panic!("a map")
+    };
+    assert_eq!(map.presence(), None);
+    assert_eq!(&map.lengths()[..3], [2, 4, 4]);
+    let ParsedNode::Leaf(value) = map.value() else {
+        panic!("a scalar value")
+    };
+    let MValues::Str(values) = value.values() else {
+        panic!("string values")
+    };
+    let entries: Vec<_> = (0..6)
+        .map(|i| (map.key(i), values.get(u32::try_from(i).expect("small"))))
+        .collect();
+    assert_eq!(
+        entries,
+        [
+            (Some("name"), Some("name 0")),
+            (Some("name:de"), Some("name:de 0")),
+            (Some("name"), Some("name 1")),
+            (Some("name:de"), Some("name:de 1")),
+            (Some("name:en"), Some("name:en 1")),
+            (Some("name:es"), Some("name:es 1")),
+        ]
+    );
+    assert_eq!(map.key(map.value().parent_count()), None);
 }
 
 #[test]

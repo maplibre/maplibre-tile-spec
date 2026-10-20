@@ -26,7 +26,12 @@ export {
   type MltGeometryColumns2D,
   type MltGeometryColumns3D,
   MltGeometryType,
+  type MltInt64Mode,
   type MltNamedColumn,
+  type MltNestedColumn,
+  type MltNestedSchema,
+  type MltNestedValue,
+  type MltScalarType,
   toElevation,
 } from "./columns";
 export {

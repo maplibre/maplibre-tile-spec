@@ -1,0 +1,91 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "obj": {
+          "__proto__": "first",
+          "items": [
+            7,
+            null,
+            9
+          ],
+          "signed": -9223372036854775808,
+          "unsigned": 18446744073709551615
+        },
+        "tags": {
+          "present": "value"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "obj": null,
+        "tags": {
+          "__proto__": "safe"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11,
+          52
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "obj": {
+          "__proto__": "empty",
+          "items": [],
+          "signed": 0,
+          "unsigned": 0
+        },
+        "tags": {}
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          71,
+          72
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "obj": {
+          "__proto__": "last",
+          "signed": 9223372036854775807,
+          "unsigned": 1
+        },
+        "tags": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          61,
+          22
+        ]
+      }
+    }
+  ]
+}

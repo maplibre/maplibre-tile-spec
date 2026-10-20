@@ -331,7 +331,7 @@ function resolveStarts(geometry: MltGeometryColumns): MltGeometryStarts {
  * stores triangles and no outlines: read its `indexBuffer` and `triangleOffsets` instead.
  */
 export function featureGeometry(
-  layer: MltColumnLayer,
+  layer: Pick<MltColumnLayer, "name" | "featureCount" | "geometry">,
   index: number,
 ): MltFeatureGeometry {
   const { geometry } = layer;

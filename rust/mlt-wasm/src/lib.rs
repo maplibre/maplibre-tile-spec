@@ -14,8 +14,8 @@
 //! ## Ids and properties
 //!
 //! Each column is one value per feature with a presence bitmap beside it, rather than a
-//! sentinel. 64-bit integers come out as `f64`, so values above `Number.MAX_SAFE_INTEGER`
-//! lose precision.
+//! sentinel. By default 64-bit integers come out as `f64`; the opt-in exact mode uses
+//! `BigInt` typed arrays. Nested columns retain their schema, objects, arrays and nulls.
 //!
 //! ## Annotate
 //!
@@ -27,6 +27,8 @@ mod annotate;
 mod columns;
 #[cfg(feature = "coverage")]
 mod coverage;
+#[cfg(feature = "unstable-v2")]
+mod nested;
 
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{Decoder, MltError, Parser};

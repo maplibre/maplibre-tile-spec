@@ -32,7 +32,7 @@
     "build:wasm-gz": "gzip --best --no-name pkg/mlt_wasm_bg.wasm --keep --force && du -sh pkg/*.wasm*",
     "build:ts": "tsc",
     "build": "npm run build:wasm && npm run build:ts && npm run build:wasm-gz",
-    "test": "vitest --coverage --coverage.reportOnFailure --run",
+    "test": "tsc --noEmit -p tsconfig.test.json && vitest --coverage --coverage.reportOnFailure --run",
     "test:bless": "vitest --run --update",
     "test:watch": "vitest --coverage --coverage.reportOnFailure --ui",
     "bench": "node --expose-gc --no-liftoff --no-wasm-tier-up node_modules/.bin/vitest bench"

@@ -10,46 +10,89 @@ export enum MltGeometryType {
   MultiPolygon = 5,
 }
 
-/**
- * The array each column type comes as, one value per feature.
- *
- * `bool` comes as `0`/`1` in a `Uint8Array`. `i64` and `u64` come as `Float64Array`, so values
- * above `Number.MAX_SAFE_INTEGER` lose precision.
- */
-interface MltColumnValuesByType {
+/** How 64-bit integers cross the WASM boundary; the default is `number`. */
+export type MltInt64Mode = "number" | "bigint";
+
+/** The array each scalar column type comes as, one value per feature. */
+interface MltColumnValuesByType<Mode extends MltInt64Mode = "number"> {
   bool: Uint8Array;
   i8: Int8Array;
   u8: Uint8Array;
   i32: Int32Array;
   u32: Uint32Array;
-  i64: Float64Array;
-  u64: Float64Array;
+  i64: Mode extends "bigint" ? BigInt64Array : Float64Array;
+  u64: Mode extends "bigint" ? BigUint64Array : Float64Array;
   f32: Float32Array;
   f64: Float64Array;
   string: string[];
 }
 
-/** The type a property column was stored as. */
-export type MltColumnType = keyof MltColumnValuesByType;
+/** A scalar column's physical type, also used by nested schema leaves. */
+export type MltScalarType = keyof MltColumnValuesByType;
 
-export type MltColumnValues = MltColumnValuesByType[MltColumnType];
+/** The type a property column was stored as. */
+export type MltColumnType = MltScalarType | "nested";
+
+/** The declared shape of a nested column, including scalar leaf types. */
+export type MltNestedSchema =
+  | { readonly kind: "leaf"; readonly type: MltScalarType }
+  | {
+      readonly kind: "struct";
+      readonly fields: readonly {
+        readonly name: string;
+        readonly schema: MltNestedSchema;
+      }[];
+    }
+  | { readonly kind: "list"; readonly element: MltNestedSchema }
+  | { readonly kind: "map"; readonly value: MltNestedSchema };
 
 /**
- * A slot whose feature has no value holds `0` or `""`; `present` says which slots those are.
- * `present` is one bit per feature, LSB-first, and is left out when every feature has a value.
+ * A nested value. Objects have no prototype; nulls remain explicit, including struct
+ * fields and list elements. Only 64-bit integer leaves use bigint in exact mode.
  */
-export interface MltColumn<V extends MltColumnValues = MltColumnValues> {
+export type MltNestedValue<Mode extends MltInt64Mode = "number"> =
+  | null
+  | boolean
+  | number
+  | string
+  | (Mode extends "bigint" ? bigint : never)
+  | MltNestedValue<Mode>[]
+  | { [key: string]: MltNestedValue<Mode> };
+
+export type MltColumnValues<Mode extends MltInt64Mode = "number"> =
+  | MltColumnValuesByType<Mode>[MltScalarType]
+  | MltNestedValue<Mode>[];
+
+/**
+ * An absent scalar slot holds `0`, `0n` or `""`; `present` says which slots those are.
+ * `present` is one bit per feature, LSB-first, and is left out when every feature has a value.
+ * Nested columns hold their nulls directly and have no presence bitmap.
+ */
+export interface MltColumn<
+  V extends MltColumnValues<MltInt64Mode> = MltColumnValues,
+> {
   readonly values: V;
   readonly present?: Uint8Array;
 }
 
+/** A nested property column, with one value (possibly null) per feature. */
+export interface MltNestedColumn<Mode extends MltInt64Mode = "number">
+  extends MltColumn<MltNestedValue<Mode>[]> {
+  readonly name: string;
+  readonly type: "nested";
+  readonly schema: MltNestedSchema;
+  readonly present?: never;
+}
+
 /** A property column. Checking `type` narrows `values` to its array. */
-export type MltNamedColumn = {
-  [T in MltColumnType]: MltColumn<MltColumnValuesByType[T]> & {
-    readonly name: string;
-    readonly type: T;
-  };
-}[MltColumnType];
+export type MltNamedColumn<Mode extends MltInt64Mode = "number"> =
+  | {
+      [T in MltScalarType]: MltColumn<MltColumnValuesByType<Mode>[T]> & {
+        readonly name: string;
+        readonly type: T;
+      };
+    }[MltScalarType]
+  | MltNestedColumn<Mode>;
 
 /**
  * A layer's geometry as decoded, 2D or 3D by `dimension`.
@@ -90,7 +133,7 @@ export interface MltGeometryColumns3D extends MltGeometryColumnsBase {
   readonly zStep: number;
 }
 
-export interface MltColumnLayer {
+export interface MltColumnLayer<Mode extends MltInt64Mode = "number"> {
   readonly name: string;
   readonly extent: number;
   /** The wire version the layer was stored in. */
@@ -98,17 +141,17 @@ export interface MltColumnLayer {
   readonly featureCount: number;
   readonly geometry: MltGeometryColumns;
   /** Left out when the layer has no id column. */
-  readonly ids?: MltColumn<Float64Array>;
+  readonly ids?: MltColumn<MltColumnValuesByType<Mode>["u64"]>;
   /**
-   * In wire order, a shared dictionary's children named by its prefix and their own names.
-   * v2 vertex-scoped (m-value) and nested columns are not passed on.
+   * Scalar columns followed by nested columns. A shared dictionary's children are named
+   * by its prefix and their own names. v2 vertex-scoped (m-value) columns are not passed on.
    */
-  readonly properties: readonly MltNamedColumn[];
+  readonly properties: readonly MltNamedColumn<Mode>[];
 }
 
-export interface MltColumnTile {
+export interface MltColumnTile<Mode extends MltInt64Mode = "number"> {
   /** In wire order; layer names need not be unique. */
-  readonly layers: readonly MltColumnLayer[];
+  readonly layers: readonly MltColumnLayer<Mode>[];
 }
 
 export interface DecodeTileColumnsOptions {
@@ -117,24 +160,50 @@ export interface DecodeTileColumnsOptions {
    * layers are skipped without being decoded. Every layer is decoded when left out.
    */
   readonly layers?: readonly string[];
+  /**
+   * `number` (default) uses Float64Array for i64/u64 columns and ids, and numbers for
+   * nested integer leaves; values outside the safe integer range may lose precision.
+   * `bigint` uses BigInt64Array/BigUint64Array and bigint for nested i64/u64 leaves.
+   * Smaller integers and floating-point values remain numbers in both modes.
+   */
+  readonly int64?: MltInt64Mode;
 }
 
-/** Decode the layers of a tile into typed arrays. */
+/** Decode the layers of a tile into scalar arrays, nested values and integer tile geometry. */
+export function decodeTileColumns(
+  data: Uint8Array,
+  options?: DecodeTileColumnsOptions & { int64?: "number" },
+): MltColumnTile;
+export function decodeTileColumns(
+  data: Uint8Array,
+  options: DecodeTileColumnsOptions & { int64: "bigint" },
+): MltColumnTile<"bigint">;
+export function decodeTileColumns(
+  data: Uint8Array,
+  options?: DecodeTileColumnsOptions,
+): MltColumnTile<MltInt64Mode>;
 export function decodeTileColumns(
   data: Uint8Array,
   options: DecodeTileColumnsOptions = {},
-): MltColumnTile {
+): MltColumnTile<MltInt64Mode> {
   // wasm-bindgen copies the array into Rust, so it never sees the caller's readonly one.
   const names = options.layers as string[] | undefined;
-  return { layers: wasmDecodeTileColumns(data, names) as MltColumnLayer[] };
+  return {
+    layers: wasmDecodeTileColumns(
+      data,
+      names,
+      options.int64 === "bigint",
+    ) as MltColumnLayer<MltInt64Mode>[],
+  };
 }
 
 /**
- * Feature `index`'s value in `column`, or `undefined` when the feature has none.
+ * Feature `index`'s value in `column`, or `undefined` for an absent scalar value.
+ * An absent nested value is `null`, as it is in the column's values array.
  *
  * Throws when `index` is not a feature, so that `undefined` only ever means no value.
  */
-export function columnValue<C extends MltColumn>(
+export function columnValue<C extends MltColumn<MltColumnValues<MltInt64Mode>>>(
   column: C,
   index: number,
 ): C["values"][number] | undefined {

@@ -882,6 +882,12 @@ impl<'a> ParsedNested<'a> {
             .is_none_or(|bits| bits.get(index).as_deref().copied().unwrap_or(false))
     }
 
+    /// The decoded tree, indexed by the features this column marks present.
+    #[must_use]
+    pub fn root(&self) -> &ParsedInterior<'a> {
+        &self.root
+    }
+
     /// The shape every value of this column has, read back out of the tree.
     #[must_use]
     pub fn kind(&self) -> NestedKind {
@@ -905,8 +911,9 @@ impl<'a> ParsedNested<'a> {
 }
 
 impl ParsedInterior<'_> {
-    /// How many values the parent of this node hands it.
-    fn parent_count(&self) -> usize {
+    /// How many values the parent hands this node, including its nulls.
+    #[must_use]
+    pub fn parent_count(&self) -> usize {
         match self {
             Self::Struct(node) => node
                 .presence
@@ -1016,7 +1023,20 @@ impl ParsedInterior<'_> {
     }
 }
 
-impl ParsedStruct<'_> {
+impl<'a> ParsedStruct<'a> {
+    /// One bit per value handed by the parent, or [`None`] when all are present.
+    #[must_use]
+    pub fn presence(&self) -> Option<&[bool]> {
+        self.presence.as_deref()
+    }
+
+    /// The declared fields, each indexed by this struct's present values.
+    /// Row-shape coding has already been resolved into each field's presence.
+    #[must_use]
+    pub fn fields(&self) -> &[(&'a str, ParsedNode<'a>)] {
+        &self.fields
+    }
+
     /// How many values this node marks present, which is what its fields are handed.
     fn present_count(&self) -> usize {
         match &self.presence {
@@ -1027,8 +1047,71 @@ impl ParsedStruct<'_> {
     }
 }
 
+impl<'a> ParsedList<'a> {
+    /// One bit per value handed by the parent, or [`None`] when all are present.
+    #[must_use]
+    pub fn presence(&self) -> Option<&[bool]> {
+        self.presence.as_deref()
+    }
+
+    /// The number of elements in each present list, in list order.
+    #[must_use]
+    pub fn lengths(&self) -> &[u32] {
+        &self.lengths
+    }
+
+    /// The elements of all present lists, in one consecutive run.
+    #[must_use]
+    pub fn element(&self) -> &ParsedNode<'a> {
+        &self.element
+    }
+}
+
+impl<'a> ParsedMap<'a> {
+    /// One bit per value handed by the parent, or [`None`] when all are present.
+    #[must_use]
+    pub fn presence(&self) -> Option<&[bool]> {
+        self.presence.as_deref()
+    }
+
+    /// The number of entries in each present map, in map order.
+    #[must_use]
+    pub fn lengths(&self) -> &[u32] {
+        &self.lengths
+    }
+
+    /// The key of an entry in the consecutive run of all present maps' entries.
+    /// Returns [`None`] when `entry` is out of range.
+    #[must_use]
+    pub fn key(&self, entry: usize) -> Option<&str> {
+        self.keys.key(entry)
+    }
+
+    /// The values of all present maps' entries, in the same order as their keys.
+    #[must_use]
+    pub fn value(&self) -> &ParsedNode<'a> {
+        &self.value
+    }
+}
+
+impl<'a> ParsedLeaf<'a> {
+    /// One bit per value handed by the parent, or [`None`] when all are present.
+    #[must_use]
+    pub fn presence(&self) -> Option<&[bool]> {
+        self.presence.as_deref()
+    }
+
+    /// The present values, with nulls omitted, in parent order.
+    #[must_use]
+    pub fn values(&self) -> &MValues<'a> {
+        &self.values
+    }
+}
+
 impl ParsedNode<'_> {
-    fn parent_count(&self) -> usize {
+    /// How many values the parent hands this node, including its nulls.
+    #[must_use]
+    pub fn parent_count(&self) -> usize {
         match self {
             Self::Interior(interior) => interior.parent_count(),
             Self::Leaf(leaf) => leaf

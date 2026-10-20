@@ -61,8 +61,9 @@ for (const [name, layer] of Object.entries(tile.layers)) {
 
 ### Columns
 
-`decodeTileColumns` hands each layer over as the typed arrays it decodes to, for consumers that
-build their own buffers, such as a renderer. Nothing per feature crosses the WASM boundary.
+`decodeTileColumns` hands each layer over as scalar typed arrays, nested property values and
+integer geometry buffers, for consumers such as a renderer. Returned arrays and objects belong
+to the caller and remain valid after subsequent decodes.
 
 ```ts
 import { columnValue, decodeTileColumns } from '@maplibre/mlt-wasm';
@@ -73,22 +74,52 @@ for (const layer of decodeTileColumns(data).layers) {
     // geometryOffsets, partOffsets, ringOffsets: cumulative offsets, left out when not needed
     // triangleOffsets, indexBuffer: present on tessellated layers
     for (const column of layer.properties) {
-        // column.values has one slot per feature; a slot without a value holds 0 or ""
+        // One slot per feature: absent scalars use a bitmap; nested nulls are explicit.
         for (let f = 0; f < layer.featureCount; f++) {
-            const value = columnValue(column, f); // undefined when feature f has no value
+            const value = columnValue(column, f); // undefined for absent scalars, null for nested nulls
         }
     }
-    // v2 vertex-scoped (m-value) and nested columns are not passed on
+    // v2 vertex-scoped (m-value) columns are not passed on
 }
 ```
 
 `decodeTileColumns(data, { layers: ['roads', 'water'] })` decodes only the layers with those names,
 every one that has it, since layer names need not be unique. The other layers are skipped undecoded.
 
-Each column is `{ name, type, values, present? }`. `present` is a bitmap with one bit per
+Each scalar column is `{ name, type, values, present? }`. `present` is a bitmap with one bit per
 feature, LSB-first, left out when every feature has a value. `bool` comes as `0`/`1`, and
-64-bit integers, ids included, as `Float64Array`, so values above `Number.MAX_SAFE_INTEGER`
-lose precision.
+64-bit integers, ids included, default to `Float64Array`, so values outside the safe integer
+range may lose precision. Smaller integers and floating-point values keep their existing typed arrays.
+
+Use `decodeTileColumns(data, { int64: 'bigint' })` to preserve 64-bit integers exactly:
+`i64` columns use `BigInt64Array`, and `u64` columns and ids use `BigUint64Array`.
+Absent integer slots hold `0n`, distinguished by the same presence bitmap. Nested `i64`/`u64`
+leaves become `bigint`; smaller integers remain `number`. The returned TypeScript types reflect
+the selected mode. `decodeTile` and `decodeTile3D` retain their numeric id and integer behavior.
+
+Nested v2 columns are `{ name, type: 'nested', schema, values }`, with one recursive value per
+feature and no presence bitmap. `null` parents, empty lists, null list elements, order and
+duplicates remain distinct. Struct objects include every declared field, including null fields;
+maps include only the keys stored for that row, including entries whose value is null. Objects
+have no prototype, so names such as `__proto__` are ordinary own properties.
+
+The schema distinguishes fixed structs from maps and records each scalar leaf's physical type:
+
+```ts
+type MltNestedSchema =
+    | {kind: 'leaf'; type: MltScalarType}
+    | {kind: 'struct'; fields: {name: string; schema: MltNestedSchema}[]}
+    | {kind: 'list'; element: MltNestedSchema}
+    | {kind: 'map'; value: MltNestedSchema};
+```
+
+Use the schema when values alone cannot identify a leaf's type, for example to distinguish an
+integer from a floating-point value or to apply a consistent representation across tiles whose
+integer widths differ. Bigint values require an explicit conversion before JSON serialization.
+`decodeTile` and `decodeTile3D` implement the scalar-only `VectorTileFeatureLike` contract:
+`feature.properties` omits nested columns and absent scalar properties, and ids remain numbers.
+Use `decodeTileColumns` for native nested values or exact 64-bit integers. Feature properties and
+the tile's layer dictionary also have no prototype.
 
 A 3D layer's `zStep` is the power of ten of its z grid's step in metres; `toElevation(z, zStep)`
 converts one z to metres, exactly as `mlt-core` does.

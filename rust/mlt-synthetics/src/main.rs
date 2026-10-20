@@ -1216,6 +1216,54 @@ fn generate_nested(w: &mut SynthWriter) {
         ))
         .write(w, "nested_struct");
 
+    // Four rows distinguish null containers, empty containers and null members.
+    // The fixed field remains declared even though every value is null; integer
+    // extrema and prototype-named keys exercise lossless language bindings.
+    geo_varint()
+        .geos([P0, P1, P2, P3])
+        .no_v1()
+        .add_nested(StagedNested::new(
+            "obj",
+            StagedInterior::Struct(StagedStruct::new(
+                Some(vec![true, false, true, true]),
+                [
+                    ("fixed", str_leaf(Some(vec![false; 3]), [])),
+                    ("__proto__", str_leaf(None, ["first", "empty", "last"])),
+                    (
+                        "signed",
+                        StagedNode::Leaf(StagedLeaf::new(
+                            None,
+                            MV::I64(vec![i64::MIN, 0, i64::MAX]),
+                        )),
+                    ),
+                    (
+                        "unsigned",
+                        StagedNode::Leaf(StagedLeaf::new(None, MV::U64(vec![u64::MAX, 0, 1]))),
+                    ),
+                    (
+                        "items",
+                        StagedNode::Interior(StagedInterior::List(StagedList::new(
+                            Some(vec![true, true, false]),
+                            vec![3, 0],
+                            i32_leaf(Some(vec![true, false, true]), vec![7, 9]),
+                        ))),
+                    ),
+                ],
+            )),
+        ))
+        .add_nested(StagedNested::new(
+            "tags",
+            StagedInterior::Map(StagedMap::new(
+                Some(vec![true, true, true, false]),
+                vec![2, 1, 0],
+                ["present", "nil", "__proto__"]
+                    .map(ToString::to_string)
+                    .to_vec(),
+                str_leaf(Some(vec![true, false, true]), ["value", "safe"]),
+            )),
+        ))
+        .write(w, "nested_nulls");
+
     // Lists of 2 and 1 structs, so the lengths stream is not all ones.
     geo_varint()
         .geos([P1, P2])
