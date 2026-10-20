@@ -10,6 +10,7 @@
 #include <string_view>
 #include <type_traits>
 #include <variant>
+#include <vector>
 
 #if __cplusplus >= 202002L
 #include <span>
@@ -145,6 +146,72 @@ inline capi::DiplomatWrite WriteFromString(std::string& string) {
     return w;
 }
 
+extern "C" inline void _flush_u16string(capi::DiplomatWrite* w) {
+    std::u16string* string = reinterpret_cast<std::u16string*>(w->context);
+    string->resize(w->len / sizeof(char16_t));
+}
+
+extern "C" inline bool _grow_u16string_impl(capi::DiplomatWrite* w, uintptr_t requested) {
+    std::u16string* string = reinterpret_cast<std::u16string*>(w->context);
+    size_t requested_elements = (requested + sizeof(char16_t) - 1) / sizeof(char16_t);
+    string->resize(requested_elements);
+    w->cap = string->length() * sizeof(char16_t);
+    w->buf = reinterpret_cast<char*>(&(*string)[0]);
+    return true;
+}
+
+extern "C" inline bool _grow_u16string(capi::DiplomatWrite* w, size_t requested) {
+    return _grow_u16string_impl(w, static_cast<uintptr_t>(requested));
+}
+
+inline capi::DiplomatWrite WriteFromString16(std::u16string& string) {
+    capi::DiplomatWrite w;
+    w.context = &string;
+    w.buf = reinterpret_cast<char*>(&string[0]);
+    w.len = string.length() * sizeof(char16_t);
+    w.cap = string.length() * sizeof(char16_t);
+    // Will never become true, as _grow_u16string is infallible.
+    w.grow_failed = false;
+    w.flush = _flush_u16string;
+    w.grow = _grow_u16string;
+    return w;
+}
+
+template <typename T>
+inline void _flush_vector(capi::DiplomatWrite* w) {
+    std::vector<T>* vec = reinterpret_cast<std::vector<T>*>(w->context);
+    vec->resize(w->len / sizeof(T));
+}
+
+template <typename T>
+inline bool _grow_vector_impl(capi::DiplomatWrite* w, uintptr_t requested) {
+    std::vector<T>* vec = reinterpret_cast<std::vector<T>*>(w->context);
+    size_t requested_elements = (requested + sizeof(T) - 1) / sizeof(T);
+    vec->resize(requested_elements);
+    w->cap = vec->size() * sizeof(T);
+    w->buf = reinterpret_cast<char*>(vec->data());
+    return true;
+}
+
+template <typename T>
+inline bool _grow_vector(capi::DiplomatWrite* w, size_t requested) {
+    return _grow_vector_impl<T>(w, static_cast<uintptr_t>(requested));
+}
+
+template <typename T>
+inline capi::DiplomatWrite WriteFromVector(std::vector<T>& vec) {
+    capi::DiplomatWrite w;
+    w.context = &vec;
+    w.buf = reinterpret_cast<char*>(vec.data());
+    w.len = vec.size() * sizeof(T);
+    w.cap = vec.size() * sizeof(T);
+    // Will never become true, as _grow_vector is infallible.
+    w.grow_failed = false;
+    w.flush = _flush_vector<T>;
+    w.grow = _grow_vector<T>;
+    return w;
+}
+
 // This "trait" allows one to use _write() methods to efficiently
 // write to a custom string type. To do this you need to write a specialized
 // `WriteTrait<YourType>` (see WriteTrait<std::string> below)
@@ -159,6 +226,16 @@ struct WriteTrait {
 template <>
 struct WriteTrait<std::string> {
     static inline capi::DiplomatWrite Construct(std::string& t) { return diplomat::WriteFromString(t); }
+};
+
+template <>
+struct WriteTrait<std::u16string> {
+    static inline capi::DiplomatWrite Construct(std::u16string& t) { return diplomat::WriteFromString16(t); }
+};
+
+template <typename T>
+struct WriteTrait<std::vector<T>> {
+    static inline capi::DiplomatWrite Construct(std::vector<T>& t) { return diplomat::WriteFromVector(t); }
 };
 
 template <class T>
@@ -672,6 +749,10 @@ struct next_to_iter_helper {
     std::shared_ptr<T> _ptr; // shared to satisfy the copyable requirement
     next_type _curr;
 };
+
+/// The type may be a nullptr
+template <typename T>
+using maybe_null = T;
 
 } // namespace diplomat
 

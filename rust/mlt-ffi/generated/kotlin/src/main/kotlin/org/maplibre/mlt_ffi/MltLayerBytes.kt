@@ -11,27 +11,32 @@ internal interface MltLayerBytesLib : Library
 internal class MltLayerBytesNative :
     Structure(),
     Structure.ByValue {
-    /** The value of the layer's size varint: the tag and the body, without the varint itself.
+    /**
+     * The value of the layer's size varint: the tag and the body, without the varint itself.
      */
     @JvmField
     internal var size: FFIUint32 = FFIUint32()
 
-    /** The geometry column, or the v2 geometry section.
+    /**
+     * The geometry column, or the v2 geometry section.
      */
     @JvmField
     internal var geometry: FFIUint32 = FFIUint32()
 
-    /** Every column that is neither geometry nor the id.
+    /**
+     * Every column that is neither geometry nor the id.
      */
     @JvmField
     internal var properties: FFIUint32 = FFIUint32()
 
-    /** The id column.
+    /**
+     * The id column.
      */
     @JvmField
     internal var ids: FFIUint32 = FFIUint32()
 
-    /** What is left of `size` once every column is taken out.
+    /**
+     * What is left of `size` once every column is taken out.
      */
     @JvmField
     internal var metadata: FFIUint32 = FFIUint32()
@@ -72,8 +77,9 @@ internal class OptionMltLayerBytesNative constructor() :
         }
     }
 
-/** The bytes one layer spends, by what they hold.
-*/
+/**
+ * The bytes one layer spends, by what they hold.
+ */
 class MltLayerBytes(
     var size: UInt,
     var geometry: UInt,

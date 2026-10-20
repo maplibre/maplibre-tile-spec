@@ -17,11 +17,12 @@ internal interface MltBufferLib : Library {
     fun MltBuffer_len(handle: Pointer): FFISizet
 }
 
-/** Owned byte buffer returned from conversion functions.
-*
-*The caller borrows the contents via [as_bytes](MltBuffer::as_bytes)
-*and the buffer is freed when the handle is dropped.
-*/
+/**
+ * Owned byte buffer returned from conversion functions.
+ *
+ * The caller borrows the contents via [as_bytes](MltBuffer::as_bytes)
+ * and the buffer is freed when the handle is dropped.
+ */
 class MltBuffer internal constructor(
     internal val handle: Pointer,
     // These ensure that anything that is borrowed is kept alive and not cleaned
@@ -52,7 +53,8 @@ class MltBuffer internal constructor(
         internal val libClass: Class<MltBufferLib> = MltBufferLib::class.java
         internal val lib: MltBufferLib = Native.load("mlt_ffi", libClass)
 
-        /** An empty buffer, to collect the layers of one tile.
+        /**
+         * An empty buffer, to collect the layers of one tile.
          */
         @JvmStatic
         fun new_(): MltBuffer {
@@ -64,13 +66,15 @@ class MltBuffer internal constructor(
         }
     }
 
-    /** Empty the buffer, keeping its allocation for the next tile.
+    /**
+     * Empty the buffer, keeping its allocation for the next tile.
      */
     fun clear() {
         val returnVal = lib.MltBuffer_clear(handle)
     }
 
-    /** Borrow the contents as a byte slice.
+    /**
+     * Borrow the contents as a byte slice.
      */
     fun asBytes(): UByteArray {
         // This lifetime edge depends on lifetimes: 'a
@@ -80,7 +84,8 @@ class MltBuffer internal constructor(
         return PrimitiveArrayTools.getUByteArray(returnVal)
     }
 
-    /** Number of bytes in the buffer.
+    /**
+     * Number of bytes in the buffer.
      */
     fun len(): ULong {
         val returnVal = lib.MltBuffer_len(handle)
