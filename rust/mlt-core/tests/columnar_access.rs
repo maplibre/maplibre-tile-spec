@@ -36,11 +36,13 @@ fn assert_layer(layer: &ParsedLayer01<'_>) {
     let n = layer.feature_count();
 
     let mut row_ids = Vec::with_capacity(n);
+    let mut row_geometries = Vec::with_capacity(n);
     let mut rows: Vec<Vec<Option<PropValueRef<'_>>>> = Vec::with_capacity(n);
     let mut iter = layer.iter_features();
     while let Some(feature) = iter.next() {
         let feature = feature.unwrap();
         row_ids.push(feature.id());
+        row_geometries.push(feature.geometry().clone());
         rows.push(feature.iter_all_properties().collect());
     }
     assert_eq!(rows.len(), n);
@@ -48,6 +50,11 @@ fn assert_layer(layer: &ParsedLayer01<'_>) {
     let ids: Option<&ParsedId<'_>> = layer.id();
     let column_ids = ids.map_or_else(|| vec![None; n], |ids| ids.materialize());
     assert_eq!(column_ids, row_ids, "ids");
+
+    let column_geometries: Vec<_> = (0..n)
+        .map(|i| layer.geometry_values().to_geojson(i).unwrap())
+        .collect();
+    assert_eq!(column_geometries, row_geometries, "geometries");
 
     let columns: Vec<Vec<Option<PropValueRef<'_>>>> = layer
         .properties()

@@ -8,9 +8,9 @@
 //! # Iterator model
 //!
 //! Feature iteration uses [`LendingIterator`] rather than [`std::iter::Iterator`].
-//! This allows the iterator to reuse an internal buffer across steps - the
-//! [`FeatureRef`] borrows its property values from that buffer - eliminating a
-//! per-feature `Vec` allocation.
+//! This allows the iterator to reuse internal buffers across steps - the
+//! [`FeatureRef`] borrows its geometry and property values from them - eliminating
+//! per-feature allocations.
 //!
 //! The consequence is that each [`FeatureRef`] must be dropped before calling
 //! [`LendingIterator::next`] again, so standard adapters like `.map()` and
@@ -20,7 +20,7 @@ use std::fmt;
 use std::iter::FusedIterator;
 use std::ops::Range;
 
-use geo_types::Geometry;
+use geo_types::{Coord, Geometry, Point};
 use usize_cast::IntoUsize as _;
 
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, Property, RawProperty};
@@ -175,14 +175,14 @@ impl<'a> ColumnRef<'a> {
 
 /// A single map feature returned by [`ParsedLayer01::iter_features`].
 ///
-/// Borrows `values` from the outer [`Layer01FeatureIter`] buffer - it must be
+/// Borrows `geometry` and `values` from the outer [`Layer01FeatureIter`] buffers - it must be
 /// dropped before calling [`LendingIterator::next`] again.
 #[derive(Debug)]
 pub struct FeatureRef<'feat, 'layer: 'feat> {
     /// Optional feature ID.
     id: Option<u64>,
-    /// Geometry in [`Geometry<i32>`] form (owned, decoded on demand by the iterator).
-    geometry: Geometry<i32>,
+    /// Geometry in [`Geometry<i32>`] form, borrowed from the iterator's reused buffer.
+    geometry: &'feat Geometry<i32>,
     /// Borrowed slice of column descriptors from the layer; used to yield column names.
     columns: &'layer [ParsedProperty<'layer>],
     /// Per-feature values in column order, one per slot (scalar, string, or `SharedDict`
@@ -198,7 +198,7 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
 
     #[must_use]
     pub fn geometry(&self) -> &Geometry<i32> {
-        &self.geometry
+        self.geometry
     }
 
     /// Iterate over every property slot for this feature, **values only**, in column order.
@@ -507,8 +507,8 @@ where
 ///
 /// Holds one O(1)-per-step cursor per property column slot. On each step the
 /// per-column cursors are advanced and their results written into a reused
-/// `values_buf` - yielding a [`FeatureRef`] that borrows that buffer with no
-/// per-feature heap allocation.
+/// `values_buf`, and the geometry is decoded into a reused `geometry_buf` -
+/// yielding a [`FeatureRef`] that borrows both buffers.
 pub struct Layer01FeatureIter<'layer, 'data: 'layer> {
     layer: &'layer Layer01<'data, Parsed>,
     index: usize,
@@ -519,6 +519,8 @@ pub struct Layer01FeatureIter<'layer, 'data: 'layer> {
     col_iters: Vec<ColValIter<'layer>>,
     /// Reused buffer: filled on each `next()` call, borrowed by the yielded [`FeatureRef`].
     values_buf: Vec<Option<PropValueRef<'layer>>>,
+    /// Reused geometry: decoded into on each `next()` call, borrowed by the yielded [`FeatureRef`].
+    geometry_buf: Geometry<i32>,
 }
 
 impl<'layer, 'data: 'layer> Layer01FeatureIter<'layer, 'data> {
@@ -532,6 +534,7 @@ impl<'layer, 'data: 'layer> Layer01FeatureIter<'layer, 'data> {
             id_iter: layer.id.as_ref().map(|id| id.iter_optional()),
             col_iters,
             values_buf: Vec::with_capacity(cap),
+            geometry_buf: Geometry::Point(Point(Coord { x: 0, y: 0 })),
         }
     }
 
@@ -571,10 +574,10 @@ impl<'layer> LendingIterator for Layer01FeatureIter<'layer, '_> {
         Some(
             self.layer
                 .geometry
-                .to_geojson(index)
-                .map(|geometry| FeatureRef {
+                .to_geojson_into(index, &mut self.geometry_buf)
+                .map(|()| FeatureRef {
                     id,
-                    geometry,
+                    geometry: &self.geometry_buf,
                     columns: &self.layer.properties,
                     values: &self.values_buf,
                 }),
@@ -585,7 +588,6 @@ impl<'layer> LendingIterator for Layer01FeatureIter<'layer, '_> {
 #[cfg(test)]
 mod tests {
     use crate::encoder::{EncoderConfig, Network, Profile};
-    use geo_types::Point;
     use serde_json::Value;
 
     use super::*;
@@ -821,7 +823,7 @@ mod tests {
         let mut geoms = Vec::new();
         let mut iter = parsed.iter_features();
         while let Some(r) = iter.next() {
-            geoms.push(r.unwrap().geometry);
+            geoms.push(r.unwrap().geometry().clone());
         }
         assert_eq!(geoms[0], Geometry::<i32>::Point(Point::new(1, 2)));
         assert_eq!(geoms[1], Geometry::<i32>::Point(Point::new(3, 4)));

@@ -48,6 +48,60 @@ fn require<'a>(
     }
 }
 
+/// Run `fill` on the `T` that `out` holds, or on `empty()` when it holds another variant.
+fn reuse<T>(
+    out: &mut Geometry<i32>,
+    empty: fn() -> T,
+    fill: impl FnOnce(&mut T) -> MltResult<()>,
+) -> MltResult<()>
+where
+    T: TryFrom<Geometry<i32>> + Into<Geometry<i32>>,
+{
+    let taken = std::mem::replace(out, Geometry::Point(Point(Coord { x: 0, y: 0 })));
+    let mut payload = T::try_from(taken).unwrap_or_else(|_| empty());
+    let result = fill(&mut payload);
+    *out = payload.into();
+    result
+}
+
+fn empty_line() -> LineString<i32> {
+    LineString(Vec::new())
+}
+
+fn empty_polygon() -> Polygon<i32> {
+    Polygon::new(empty_line(), Vec::new())
+}
+
+fn empty_multi_point() -> MultiPoint<i32> {
+    MultiPoint(Vec::new())
+}
+
+fn empty_multi_line() -> MultiLineString<i32> {
+    MultiLineString(Vec::new())
+}
+
+fn empty_multi_polygon() -> MultiPolygon<i32> {
+    MultiPolygon(Vec::new())
+}
+
+/// Refill `items` with one entry per `ids`, reusing the entries already there.
+fn refill<T, I: ExactSizeIterator>(
+    items: &mut Vec<T>,
+    ids: I,
+    empty: fn() -> T,
+    mut fill: impl FnMut(&mut T, I::Item) -> MltResult<()>,
+) -> MltResult<()> {
+    items.truncate(ids.len());
+    items.reserve(ids.len() - items.len());
+    for (slot, id) in ids.enumerate() {
+        if slot == items.len() {
+            items.push(empty());
+        }
+        fill(&mut items[slot], id)?;
+    }
+    Ok(())
+}
+
 /// The vertices a feature's z run over: a range of the layer's, or the triangle corners of a triangles-only feature.
 #[cfg(feature = "unstable-v2")]
 enum ZVertices<'a> {
@@ -336,6 +390,14 @@ impl GeometryValues {
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
     pub fn to_geojson(&self, index: usize) -> MltResult<Geometry<i32>> {
+        let mut geometry = Geometry::Point(Point(Coord { x: 0, y: 0 }));
+        self.to_geojson_into(index, &mut geometry)?;
+        Ok(geometry)
+    }
+
+    /// Decode feature `index` like [`Self::to_geojson`], into `out`, reusing its allocations.
+    /// On error `out` holds an unspecified geometry.
+    pub fn to_geojson_into(&self, index: usize, out: &mut Geometry<i32>) -> MltResult<()> {
         let verts = self.vertices.as_deref().unwrap_or(&[]);
         let geoms = self.geometry_offsets.as_deref();
         let parts = self.part_offsets.as_deref();
@@ -373,26 +435,41 @@ impl GeometryValues {
                     count: verts.len() / stride,
                 })
         };
-        let line = |r: Range<usize>| -> MltResult<LineString<i32>> { r.map(&vert).collect() };
-        let closed_ring = |r: Range<usize>| -> MltResult<LineString<i32>> {
+        let line = |coords: &mut Vec<Coord<i32>>, r: Range<usize>| -> MltResult<()> {
+            coords.clear();
+            coords.reserve(r.len());
+            for idx in r {
+                coords.push(vert(idx)?);
+            }
+            Ok(())
+        };
+        let closed_ring = |coords: &mut Vec<Coord<i32>>, r: Range<usize>| -> MltResult<()> {
+            coords.clear();
             if r.is_empty() {
-                return Ok(LineString(vec![]));
+                return Ok(());
             }
             let first = r.start;
-            let mut coords: Vec<Coord<i32>> = r.map(&vert).collect::<Result<_, _>>()?;
+            coords.reserve(r.len() + 1);
+            for idx in r {
+                coords.push(vert(idx)?);
+            }
             coords.push(vert(first)?);
-            Ok(LineString(coords))
+            Ok(())
         };
-        let poly_from_rings = |part_rng: Range<usize>, r: &[u32]| -> MltResult<Polygon<i32>> {
-            let mut rings = part_rng
-                .map(|idx| closed_ring(ring_range(r, idx)?))
-                .collect::<Result<Vec<_>, _>>()?
-                .into_iter();
-            Ok(Polygon::new(
-                rings.next().unwrap_or_else(|| LineString(vec![])),
-                rings.collect(),
-            ))
-        };
+        let poly_from_rings =
+            |poly: &mut Polygon<i32>, mut part_rng: Range<usize>, r: &[u32]| -> MltResult<()> {
+                let (mut exterior, mut interiors) =
+                    std::mem::replace(poly, empty_polygon()).into_inner();
+                match part_rng.next() {
+                    Some(idx) => closed_ring(&mut exterior.0, ring_range(r, idx)?)?,
+                    None => exterior.0.clear(),
+                }
+                refill(&mut interiors, part_rng, empty_line, |ring, idx| {
+                    closed_ring(&mut ring.0, ring_range(r, idx)?)
+                })?;
+                *poly = Polygon::new(exterior, interiors);
+                Ok(())
+            };
 
         let geom_type = *self
             .vector_types
@@ -412,17 +489,20 @@ impl GeometryValues {
                 idx: run.end,
                 len,
             })?;
-            let triangles = corners
-                .as_chunks::<3>()
-                .0
-                .iter()
-                .map(|tri| {
+            let triangles = corners.as_chunks::<3>().0.iter();
+            return reuse(out, empty_multi_polygon, |polys| {
+                refill(&mut polys.0, triangles, empty_polygon, |poly, tri| {
                     let [a, b, c] = tri.map(|i| vert(i.into_usize()));
                     let (a, b, c) = (a?, b?, c?);
-                    Ok(Polygon::new(LineString(vec![a, b, c, a]), vec![]))
+                    let (mut exterior, mut interiors) =
+                        std::mem::replace(poly, empty_polygon()).into_inner();
+                    exterior.0.clear();
+                    exterior.0.extend([a, b, c, a]);
+                    interiors.clear();
+                    *poly = Polygon::new(exterior, interiors);
+                    Ok(())
                 })
-                .collect::<MltResult<_>>()?;
-            return Ok(Geometry::<i32>::MultiPolygon(MultiPolygon(triangles)));
+            });
         }
 
         match geom_type {
@@ -431,7 +511,8 @@ impl GeometryValues {
                 let idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
                 let idx = parts.map_or(Ok(idx), |p| part_off(p, idx))?;
                 let idx = rings.map_or(Ok(idx), |r| ring_off(r, idx))?;
-                Ok(Geometry::<i32>::Point(Point(vert(idx)?)))
+                *out = Geometry::Point(Point(vert(idx)?));
+                Ok(())
             }
             GeometryType::LineString => {
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
@@ -443,7 +524,7 @@ impl GeometryValues {
                     Some(ring) => ring_range(ring, part_off(parts, part_idx)?)?,
                     None => part_range(parts, part_idx)?,
                 };
-                line(vert_range).map(Geometry::<i32>::LineString)
+                reuse(out, empty_line, |l| line(&mut l.0, vert_range))
             }
             GeometryType::Polygon => {
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
@@ -452,7 +533,10 @@ impl GeometryValues {
                     .map(|geom| geom_off(geom, index))
                     .transpose()?
                     .unwrap_or(index);
-                poly_from_rings(part_range(parts, idx)?, rings).map(Geometry::<i32>::Polygon)
+                let part_rng = part_range(parts, idx)?;
+                reuse(out, empty_polygon, |poly| {
+                    poly_from_rings(poly, part_rng, rings)
+                })
             }
             GeometryType::MultiPoint => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
@@ -463,16 +547,19 @@ impl GeometryValues {
                 // When only part_offsets exist, geometry_offsets indexes into part_offsets
                 // which gives direct vertex indices.
                 // When neither exist, geometry_offsets gives direct vertex indices.
-                let coords: Result<Vec<_>, _> = match (parts, rings) {
-                    (Some(parts), Some(rings)) => geom_rng
-                        .map(|idx| vert(ring_off(rings, part_off(parts, idx)?)?))
-                        .collect(),
-                    (Some(part), None) => geom_rng.map(|idx| vert(part_off(part, idx)?)).collect(),
-                    (None, _) => geom_rng.map(&vert).collect(),
-                };
-                Ok(Geometry::<i32>::MultiPoint(MultiPoint(
-                    coords?.into_iter().map(Point).collect(),
-                )))
+                reuse(out, empty_multi_point, |points| {
+                    points.0.clear();
+                    points.0.reserve(geom_rng.len());
+                    for idx in geom_rng {
+                        let idx = match (parts, rings) {
+                            (Some(parts), Some(rings)) => ring_off(rings, part_off(parts, idx)?)?,
+                            (Some(part), None) => part_off(part, idx)?,
+                            (None, _) => idx,
+                        };
+                        points.0.push(Point(vert(idx)?));
+                    }
+                    Ok(())
+                })
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
@@ -484,13 +571,15 @@ impl GeometryValues {
                 // When ring_offsets exist (polygon geometry present), part_offsets indexes
                 // into ring_offsets for vertex ranges. Otherwise, part_offsets directly
                 // gives vertex ranges.
-                let lines: Result<Vec<_>, _> = match rings {
-                    Some(ring) => geom_rng
-                        .map(|idx| line(ring_range(ring, part_off(parts, idx)?)?))
-                        .collect(),
-                    None => geom_rng.map(|idx| line(part_range(parts, idx)?)).collect(),
-                };
-                Ok(Geometry::<i32>::MultiLineString(MultiLineString(lines?)))
+                reuse(out, empty_multi_line, |lines| {
+                    refill(&mut lines.0, geom_rng, empty_line, |l, idx| {
+                        let vert_range = match rings {
+                            Some(ring) => ring_range(ring, part_off(parts, idx)?)?,
+                            None => part_range(parts, idx)?,
+                        };
+                        line(&mut l.0, vert_range)
+                    })
+                })
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
@@ -499,10 +588,11 @@ impl GeometryValues {
                 // so it does not need them to be present.
                 let parts = require(parts, &geom_rng, || NoPartOffsets(index, geom_type))?;
                 let rings = require(rings, &geom_rng, || NoRingOffsets(index, geom_type))?;
-                let polys: Vec<_> = geom_rng
-                    .map(|idx| poly_from_rings(part_range(parts, idx)?, rings))
-                    .collect::<Result<_, _>>()?;
-                Ok(Geometry::<i32>::MultiPolygon(MultiPolygon(polys)))
+                reuse(out, empty_multi_polygon, |polys| {
+                    refill(&mut polys.0, geom_rng, empty_polygon, |poly, idx| {
+                        poly_from_rings(poly, part_range(parts, idx)?, rings)
+                    })
+                })
             }
         }
     }
