@@ -7,15 +7,19 @@ on:
 
 jobs:
   relay:
-    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@9b238fa84222efde573f29eb4bae76dcb5f700c0 # v0.28.6
+    strategy:
+      fail-fast: false
+      matrix:
+        benchmark: [mlt-convert, mlt-convert-v2, mlt-decode-v1, mlt-decode-v2]
+    uses: hotpath-rs/hotpath/.github/workflows/hotpath-relay.yml@9b238fa84222efde573f29eb4bae76dcb5f700c0 # v0.28.6
     permissions:
       actions: read # download the artifact of the benchmark run
       id-token: write # authenticate the upload
       pull-requests: read # find the pull request the run belongs to
     with:
-      benchmark: mlt-convert
+      benchmark: ${{ matrix.benchmark }}
       artifact_name: hotpath-report
-      report_file: report.json
+      report_file: ${{ matrix.benchmark }}.json
 
   size-diff:
     if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}

@@ -412,6 +412,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
     /// Decode into [`GeometryValues`], charging `dec` before each `Vec<T>`
     /// allocation.  All streams carry `num_values` in their metadata so every
     /// charge is pre-hoc.
+    #[hotpath::measure]
     fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
         let RawGeometry {
             types,

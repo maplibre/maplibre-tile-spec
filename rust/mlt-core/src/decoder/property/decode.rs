@@ -100,6 +100,7 @@ impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
     /// the budget is charged *before* decoding.  For string and shared-dict
     /// columns the exact decoded size depends on compression, so the budget is
     /// charged *after* decoding based on actual allocation sizes.
+    #[hotpath::measure]
     fn decode(self, dec: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
         use ParsedProperty as P;
         use ParsedScalar as S;

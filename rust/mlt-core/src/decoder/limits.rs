@@ -150,6 +150,7 @@ impl Parser {
     }
 
     /// Parse a sequence of binary layers, reserving decoded memory against this parser's budget.
+    #[hotpath::measure]
     pub fn parse_layers<'a>(&mut self, mut input: &'a [u8]) -> MltResult<Vec<Layer<'a>>> {
         let mut result = Vec::new();
         while !input.is_empty() {

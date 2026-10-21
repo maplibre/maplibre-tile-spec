@@ -775,6 +775,7 @@ pub struct ParsedLeaf<'a> {
 }
 
 impl<'a> Decode<ParsedNested<'a>> for RawNested<'a> {
+    #[hotpath::measure]
     fn decode(self, dec: &mut Decoder) -> MltResult<ParsedNested<'a>> {
         let root = self.root.decode(dec)?;
         let parsed = ParsedNested {

@@ -24,8 +24,9 @@ internal interface MltTileStatsLib : Library {
     ): OptionMltLayerBytesNative
 }
 
-/** The bytes each layer of a tile spends, read without decoding the tile.
-*/
+/**
+ * The bytes each layer of a tile spends, read without decoding the tile.
+ */
 class MltTileStats internal constructor(
     internal val handle: Pointer,
     // These ensure that anything that is borrowed is kept alive and not cleaned
@@ -56,7 +57,8 @@ class MltTileStats internal constructor(
         internal val libClass: Class<MltTileStatsLib> = MltTileStatsLib::class.java
         internal val lib: MltTileStatsLib = Native.load("mlt_ffi", libClass)
 
-        /** Parse the layers of an MLT tile, leaving out any with a tag this build does not know.
+        /**
+         * Parse the layers of an MLT tile, leaving out any with a tag this build does not know.
          */
         @JvmStatic
         fun fromBytes(mlt: UByteArray): Result<MltTileStats> {
@@ -82,14 +84,16 @@ class MltTileStats internal constructor(
         }
     }
 
-    /** Number of layers with a known tag, in tile order.
+    /**
+     * Number of layers with a known tag, in tile order.
      */
     fun layerCount(): ULong {
         val returnVal = lib.MltTileStats_layer_count(handle)
         return (returnVal.toULong())
     }
 
-    /** The name of the `i`-th layer with a known tag, or nothing past the last one.
+    /**
+     * The name of the `i`-th layer with a known tag, or nothing past the last one.
      */
     fun layerName(i: ULong): String {
         val write = DW.lib.diplomat_buffer_write_create(0)
@@ -99,7 +103,8 @@ class MltTileStats internal constructor(
         return returnString
     }
 
-    /** The bytes of the `i`-th layer with a known tag, or `None` past the last one.
+    /**
+     * The bytes of the `i`-th layer with a known tag, or `None` past the last one.
      */
     fun layerBytes(i: ULong): MltLayerBytes? {
         val returnVal = lib.MltTileStats_layer_bytes(handle, FFISizet(i))
