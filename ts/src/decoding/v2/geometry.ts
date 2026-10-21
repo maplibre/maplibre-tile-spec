@@ -1,5 +1,11 @@
 import type { HeightMode, MltGeometryColumns, MltGeometryLayout } from "../../columns";
-import { EMPTY_I32, EMPTY_U32, allocI32, allocU8, allocU32, checkScratchBytes } from "./binary";
+import {
+    decodeLevel1LengthStream,
+    decodeLevel1WithoutRingBufferLengthStream,
+    decodeLevel2LengthStream,
+    decodeRootLengthStream,
+} from "../geometryDecoder";
+import { EMPTY_I32, EMPTY_U32, allocI32, allocU8, allocU32, chargeBytes, checkScratchBytes } from "./binary";
 import { decodeRansVertices } from "./rans";
 import {
     LG_RANS,
@@ -114,83 +120,6 @@ function decodeTrees(symbols: Uint32Array, cycles: Uint32Array): Uint32Array {
     return out;
 }
 
-function decodeRootLengths(types: Uint8Array, lengths: Uint32Array, bufferId: number): Uint32Array {
-    const out = allocU32(types.length + 1);
-    let off = 0;
-    let k = 0;
-    for (let i = 0; i < types.length; i++) {
-        let inc = 1;
-        if (types[i] > bufferId) {
-            if (k >= lengths.length) throw new RangeError("geom oob");
-            inc = lengths[k++];
-        }
-        off += inc;
-        if (off > 0xffffffff) throw new RangeError("overflow");
-        out[i + 1] = off;
-    }
-    return out;
-}
-
-function decodeLevel1Lengths(
-    types: Uint8Array,
-    rootOffsets: Uint32Array,
-    lengths: Uint32Array,
-    hasLine: boolean,
-): Uint32Array {
-    const out = allocU32(rootOffsets[rootOffsets.length - 1] + 1);
-    let outPos = 1;
-    let off = 0;
-    let k = 0;
-    for (let i = 0; i < types.length; i++) {
-        const t = types[i];
-        const ng = rootOffsets[i + 1] - rootOffsets[i];
-        if (isPolygon(t) || (hasLine && isLine(t))) {
-            for (let j = 0; j < ng; j++) {
-                if (k >= lengths.length) throw new RangeError("geom oob");
-                off += lengths[k++];
-                if (off > 0xffffffff) throw new RangeError("overflow");
-                out[outPos++] = off;
-            }
-        } else {
-            for (let j = 0; j < ng; j++) out[outPos++] = ++off;
-        }
-    }
-    return out;
-}
-
-function decodeLevel2Lengths(
-    types: Uint8Array,
-    rootOffsets: Uint32Array,
-    l1Offsets: Uint32Array,
-    lengths: Uint32Array,
-): Uint32Array {
-    const out = allocU32(l1Offsets[l1Offsets.length - 1] + 1);
-    let outPos = 1;
-    let off = 0;
-    let l1Pos = 0;
-    let k = 0;
-    for (let i = 0; i < types.length; i++) {
-        const t = types[i];
-        const ng = rootOffsets[i + 1] - rootOffsets[i];
-        if (t !== GEOM_POINT && t !== GEOM_MULTIPOINT) {
-            for (let j = 0; j < ng; j++) {
-                const np = l1Offsets[l1Pos + 1] - l1Offsets[l1Pos];
-                l1Pos++;
-                for (let p = 0; p < np; p++) {
-                    if (k >= lengths.length) throw new RangeError("geom oob");
-                    off += lengths[k++];
-                    if (off > 0xffffffff) throw new RangeError("overflow");
-                    out[outPos++] = off;
-                }
-            }
-        } else {
-            for (let j = 0; j < ng; j++) out[outPos++] = ++off;
-            l1Pos += ng;
-        }
-    }
-    return out;
-}
-
 export function decodeTopology(
     types: Uint8Array,
     geoLengths: Uint32Array | undefined,
@@ -202,23 +131,30 @@ export function decodeTopology(
     let ringOffsets = ringLengths;
 
     if (geometryOffsets !== undefined) {
-        geometryOffsets = decodeRootLengths(types, geometryOffsets, GEOM_POLYGON);
+        geometryOffsets = decodeRootLengthStream(types, geometryOffsets, GEOM_POLYGON);
+        chargeBytes(geometryOffsets.byteLength);
         if (partOffsets !== undefined) {
             if (ringOffsets !== undefined) {
-                partOffsets = decodeLevel1Lengths(types, geometryOffsets, partOffsets, false);
-                ringOffsets = decodeLevel2Lengths(types, geometryOffsets, partOffsets, ringOffsets);
+                partOffsets = decodeLevel1LengthStream(types, geometryOffsets, partOffsets, false);
+                chargeBytes(partOffsets.byteLength);
+                ringOffsets = decodeLevel2LengthStream(types, geometryOffsets, partOffsets, ringOffsets);
+                chargeBytes(ringOffsets.byteLength);
             } else {
-                partOffsets = decodeLevel1Lengths(types, geometryOffsets, partOffsets, true);
+                partOffsets = decodeLevel1WithoutRingBufferLengthStream(types, geometryOffsets, partOffsets);
+                chargeBytes(partOffsets.byteLength);
             }
         }
     } else if (partOffsets !== undefined) {
         if (ringOffsets !== undefined) {
             let hasLine = false;
             for (let i = 0; i < types.length; i++) if (isLine(types[i])) hasLine = true;
-            partOffsets = decodeRootLengths(types, partOffsets, GEOM_LINESTRING);
-            ringOffsets = decodeLevel1Lengths(types, partOffsets, ringOffsets, hasLine);
+            partOffsets = decodeRootLengthStream(types, partOffsets, GEOM_LINESTRING);
+            chargeBytes(partOffsets.byteLength);
+            ringOffsets = decodeLevel1LengthStream(types, partOffsets, ringOffsets, hasLine);
+            chargeBytes(ringOffsets.byteLength);
         } else {
-            partOffsets = decodeRootLengths(types, partOffsets, GEOM_POINT);
+            partOffsets = decodeRootLengthStream(types, partOffsets, GEOM_POINT);
+            chargeBytes(partOffsets.byteLength);
         }
     }
     return { geometryOffsets, partOffsets, ringOffsets };
