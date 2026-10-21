@@ -35,6 +35,14 @@ describe("MLT Decoder - MVT comparison for Bing tiles", () => {
     testTiles(bingMltTileDir, bingMvtTileDir);
 }, 150000);
 
+// The same source tiles, re-encoded as MLT v2 by `mlt convert`: every layout and encoding the
+// reference encoder picks for real data goes through the v2 decoder here.
+for (const dataset of ["simple", "amazon", "amazon_here", "bing", "omt"]) {
+    describe(`MLT Decoder - MVT comparison for v2 ${dataset} tiles`, () => {
+        testTiles(`../test/expected/0x02/${dataset}`, `../test/fixtures/${dataset}`);
+    }, 150000);
+}
+
 describe("FeatureTable", () => {
     it("should iterate through features correctly", () => {
         const bytes = new Uint8Array(fs.readFileSync(ITERATOR_TILE));
@@ -118,7 +126,21 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
             //encoded anymore
             removeEmptyStrings(mvtProperties);
             removeEmptyStrings(mltProperties);
+            acceptStringifiedNumbers(mltProperties, mvtProperties);
             assert.deepEqual(mltProperties, mvtProperties);
+        }
+    }
+}
+
+/**
+ * An MLT column has one type across a layer, so a property that mixes numbers and strings in the
+ * MVT comes back as a string column. The converters write such a number as its decimal text.
+ */
+function acceptStringifiedNumbers(mltProperties: Record<string, any>, mvtProperties: Record<string, any>) {
+    for (const key of Object.keys(mvtProperties)) {
+        const mvtValue = mvtProperties[key];
+        if (typeof mvtValue === "number" && mltProperties[key] === String(mvtValue)) {
+            mvtProperties[key] = mltProperties[key];
         }
     }
 }
