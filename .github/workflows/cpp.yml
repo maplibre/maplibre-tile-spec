@@ -18,7 +18,7 @@ jobs:
       pull-requests: read
     strategy:
       matrix:
-        os: [ macos-15, ubuntu-24.04 ]
+        os: [ macos-15, ubuntu-26.04 ]
     runs-on: ${{ matrix.os }}
 
     steps:
