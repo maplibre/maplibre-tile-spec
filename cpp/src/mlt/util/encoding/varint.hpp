@@ -35,7 +35,7 @@ template <typename T>
 void encodeVarint(T value, std::vector<std::uint8_t>& out) {
     std::array<std::uint8_t, 10> buf;
     const auto n = encodeVarint(value, buf.data());
-    out.insert(out.end(), buf.data(), &buf[n]);
+    out.insert(out.end(), buf.data(), buf.data() + n);
 }
 
 template <typename T>
