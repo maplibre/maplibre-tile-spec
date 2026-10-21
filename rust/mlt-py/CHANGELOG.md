@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.3.1...python-mlt-v0.4.0) - 2026-10-21
+
+### Other
+
+- *(rust)* [**breaking**] store string property values as `CompactString` ([#1973](https://github.com/maplibre/maplibre-tile-spec/pull/1973))
+- *(rust)* import local items via `crate::` paths ([#1964](https://github.com/maplibre/maplibre-tile-spec/pull/1964))
+
 ## [0.3.1](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.3.0...python-mlt-v0.3.1) - 2026-10-18
 
 ### Other

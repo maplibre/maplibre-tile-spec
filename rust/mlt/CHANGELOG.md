@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.5.1...rust-mlt-v0.6.0) - 2026-10-21
+
+### Fixed
+
+- *(java)* wind polygon rings as MVT does ([#1980](https://github.com/maplibre/maplibre-tile-spec/pull/1980))
+
+### Other
+
+- *(rust)* [**breaking**] store string property values as `CompactString` ([#1973](https://github.com/maplibre/maplibre-tile-spec/pull/1973))
+- benchmark v2 encoding and v1/v2 decoding with hotpath ([#1974](https://github.com/maplibre/maplibre-tile-spec/pull/1974))
+- *(rust)* import local items via `crate::` paths ([#1964](https://github.com/maplibre/maplibre-tile-spec/pull/1964))
+
 ## [0.5.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.5.0...rust-mlt-v0.5.1) - 2026-10-18
 
 ### Other

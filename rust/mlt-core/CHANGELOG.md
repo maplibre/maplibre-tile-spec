@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.21.1...rust-mlt-core-v0.22.0) - 2026-10-21
+
+### Fixed
+
+- *(java)* wind polygon rings as MVT does ([#1980](https://github.com/maplibre/maplibre-tile-spec/pull/1980))
+
+### Other
+
+- *(rust)* build error values only when a lookup fails ([#1979](https://github.com/maplibre/maplibre-tile-spec/pull/1979))
+- *(rust)* expand the vertex dictionary with a plain loop ([#1978](https://github.com/maplibre/maplibre-tile-spec/pull/1978))
+- *(rust)* reuse the feature iterator's geometry buffer ([#1972](https://github.com/maplibre/maplibre-tile-spec/pull/1972))
+- *(rust)* [**breaking**] store string property values as `CompactString` ([#1973](https://github.com/maplibre/maplibre-tile-spec/pull/1973))
+- benchmark v2 encoding and v1/v2 decoding with hotpath ([#1974](https://github.com/maplibre/maplibre-tile-spec/pull/1974))
+- *(rust)* import local items via `crate::` paths ([#1964](https://github.com/maplibre/maplibre-tile-spec/pull/1964))
+
 ## [0.21.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.21.0...rust-mlt-core-v0.21.1) - 2026-10-18
 
 ### Fixed
