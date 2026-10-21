@@ -8,7 +8,8 @@ import com.sun.jna.Structure
 
 internal interface MltWireVersionLib : Library
 
-/** The wire format an encoded layer uses.
+/**
+ * The wire format an encoded layer uses.
 */
 enum class MltWireVersion {
     V01,

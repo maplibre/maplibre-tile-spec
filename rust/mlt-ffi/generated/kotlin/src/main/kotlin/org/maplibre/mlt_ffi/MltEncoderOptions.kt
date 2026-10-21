@@ -86,13 +86,14 @@ internal interface MltEncoderOptionsLib : Library {
     ): Unit
 }
 
-/** Encoder options controlling which optimisations are attempted for
-*MVT -> MLT conversion.
-*
-*Construct with [new](MltEncoderOptions::new) (FSST, `FastPFOR` and shared
-*dictionaries enabled, no sorting and no tessellation) and toggle individual flags with the
-*setter methods.
-*/
+/**
+ * Encoder options controlling which optimisations are attempted for
+ * MVT -> MLT conversion.
+ *
+ * Construct with [new](MltEncoderOptions::new) (FSST, `FastPFOR` and shared
+ * dictionaries enabled, no sorting and no tessellation) and toggle individual flags with the
+ * setter methods.
+ */
 class MltEncoderOptions internal constructor(
     internal val handle: Pointer,
     // These ensure that anything that is borrowed is kept alive and not cleaned
@@ -123,7 +124,8 @@ class MltEncoderOptions internal constructor(
         internal val libClass: Class<MltEncoderOptionsLib> = MltEncoderOptionsLib::class.java
         internal val lib: MltEncoderOptionsLib = Native.load("mlt_ffi", libClass)
 
-        /** Create encoder options with the default configuration.
+        /**
+         * Create encoder options with the default configuration.
          */
         @JvmStatic
         fun new_(): MltEncoderOptions {
@@ -135,94 +137,109 @@ class MltEncoderOptions internal constructor(
         }
     }
 
-    /** Generate tessellation data for polygons and multi-polygons.
+    /**
+     * Generate tessellation data for polygons and multi-polygons.
      */
     fun setTessellate(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_tessellate(handle, enabled)
     }
 
-    /** Try sorting features by the Z-order (Morton) curve index.
+    /**
+     * Try sorting features by the Z-order (Morton) curve index.
      */
     fun setAttemptSpatialMortonSort(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_attempt_spatial_morton_sort(handle, enabled)
     }
 
-    /** Try sorting features by the Hilbert curve index.
+    /**
+     * Try sorting features by the Hilbert curve index.
      */
     fun setAttemptSpatialHilbertSort(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_attempt_spatial_hilbert_sort(handle, enabled)
     }
 
-    /** Try sorting features by their feature ID in ascending order.
+    /**
+     * Try sorting features by their feature ID in ascending order.
      */
     fun setAttemptIdSort(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_attempt_id_sort(handle, enabled)
     }
 
-    /** Allow FSST string compression.
+    /**
+     * Allow FSST string compression.
      */
     fun setAllowFsst(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_fsst(handle, enabled)
     }
 
-    /** Allow `FastPFOR` integer compression.
+    /**
+     * Allow `FastPFOR` integer compression.
      */
     fun setAllowFastpfor(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_fastpfor(handle, enabled)
     }
 
-    /** Allow string grouping into shared dictionaries.
+    /**
+     * Allow string grouping into shared dictionaries.
      */
     fun setAllowSharedDict(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_shared_dict(handle, enabled)
     }
 
-    /** Select the wire format to encode to.
-     *Every setter marked v2 only has no effect on a v1 layer.
+    /**
+     * Select the wire format to encode to.
+     * Every setter marked v2 only has no effect on a v1 layer.
      */
     fun setWireVersion(version: MltWireVersion) {
         val returnVal = lib.MltEncoderOptions_set_wire_version(handle, version.toNative())
     }
 
-    /** v2 only: let a tessellated all-polygon layer store its triangles without the outlines.
-     *Each polygon then decodes as the triangles it was cut into.
-     *Requires tessellation.
+    /**
+     * v2 only: let a tessellated all-polygon layer store its triangles without the outlines.
+     * Each polygon then decodes as the triangles it was cut into.
+     * Requires tessellation.
      */
     fun setAllowTrianglesOnly(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_triangles_only(handle, enabled)
     }
 
-    /** v2 only: allow integer and vertex streams to store the deltas of their deltas.
+    /**
+     * v2 only: allow integer and vertex streams to store the deltas of their deltas.
      */
     fun setAllowDelta2(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_delta2(handle, enabled)
     }
 
-    /** v2 only: allow float columns to store one code per value into a dictionary.
+    /**
+     * v2 only: allow float columns to store one code per value into a dictionary.
      */
     fun setAllowFloatDict(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_float_dict(handle, enabled)
     }
 
-    /** v2 only: allow float columns to store each value as a decimal-scaled integer (ALP).
+    /**
+     * v2 only: allow float columns to store each value as a decimal-scaled integer (ALP).
      */
     fun setAllowFloatAlp(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_float_alp(handle, enabled)
     }
 
-    /** v2 only: allow dictionary code streams to be bit-packed.
+    /**
+     * v2 only: allow dictionary code streams to be bit-packed.
      */
     fun setAllowPackedDictCodes(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_packed_dict_codes(handle, enabled)
     }
 
-    /** v2 only: allow plain vertex streams to be rANS-coded.
+    /**
+     * v2 only: allow plain vertex streams to be rANS-coded.
      */
     fun setAllowRansVertices(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_rans_vertices(handle, enabled)
     }
 
-    /** v2 only: let a nested struct or map code its row shapes instead of per-field presence.
+    /**
+     * v2 only: let a nested struct or map code its row shapes instead of per-field presence.
      */
     fun setAllowRowShapes(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_row_shapes(handle, enabled)

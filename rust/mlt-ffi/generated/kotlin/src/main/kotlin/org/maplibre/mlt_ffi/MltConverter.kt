@@ -21,8 +21,9 @@ internal interface MltConverterLib : Library {
     ): ResultPointerPointer
 }
 
-/** Stateless FFI entry-points for MLT <-> MVT conversion.
-*/
+/**
+ * Stateless FFI entry-points for MLT <-> MVT conversion.
+ */
 class MltConverter internal constructor(
     internal val handle: Pointer,
     // These ensure that anything that is borrowed is kept alive and not cleaned
@@ -53,7 +54,8 @@ class MltConverter internal constructor(
         internal val libClass: Class<MltConverterLib> = MltConverterLib::class.java
         internal val lib: MltConverterLib = Native.load("mlt_ffi", libClass)
 
-        /** Decode MLT bytes into MVT bytes.
+        /**
+         * Decode MLT bytes into MVT bytes.
          */
         @JvmStatic
         fun mltToMvt(mlt: UByteArray): Result<MltBuffer> {
@@ -78,7 +80,8 @@ class MltConverter internal constructor(
             }
         }
 
-        /** Decode MLT bytes into MVT bytes within a memory budget.
+        /**
+         * Decode MLT bytes into MVT bytes within a memory budget.
          */
         @JvmStatic
         fun mltToMvtWithLimit(
@@ -106,7 +109,8 @@ class MltConverter internal constructor(
             }
         }
 
-        /** Encode MVT bytes into MLT bytes using the given encoder options.
+        /**
+         * Encode MVT bytes into MLT bytes using the given encoder options.
          */
         @JvmStatic
         fun mvtToMlt(

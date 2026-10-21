@@ -4,6 +4,7 @@ use crate::{Decode, Decoder, MltResult};
 
 impl<'a> Decode<ParsedId<'a>> for RawId<'a> {
     /// Decode into a [`ParsedId`], charging `dec` before each allocation.
+    #[hotpath::measure]
     fn decode(self, dec: &mut Decoder) -> MltResult<ParsedId<'a>> {
         let RawId { presence, value } = self;
 

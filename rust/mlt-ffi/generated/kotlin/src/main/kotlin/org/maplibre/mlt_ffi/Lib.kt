@@ -41,6 +41,24 @@ object DW {
             lib.diplomat_buffer_write_destroy(write)
         }
     }
+
+    fun writeToString16(write: Pointer): String {
+        try {
+            val pointer = lib.diplomat_buffer_write_get_bytes(write)
+            if (pointer == null) {
+                throw OutOfMemoryError()
+            }
+            val len = (lib.diplomat_buffer_write_len(write) / 2).toInt()
+            if (len == 0) {
+                return ""
+            }
+            val shorts = pointer.getShortArray(0, len)
+            val chars = CharArray(len) { shorts[it].toInt().toChar() }
+            return String(chars)
+        } finally {
+            lib.diplomat_buffer_write_destroy(write)
+        }
+    }
 }
 
 internal interface DiplomatJVMRuntimeLib : Library {
@@ -442,9 +460,15 @@ internal object PrimitiveArrayTools {
 
     fun moveUtf8(str: String): OwnedSlice = move(str.toByteArray())
 
-    fun borrowUtf16(str: String): GCSlice = borrow(str.map { it.code.toShort() }.toShortArray())
+    fun borrowUtf16(str: String): GCSlice {
+        val shortArray = ShortArray(str.length) { str[it].code.toShort() }
+        return borrow(shortArray)
+    }
 
-    fun moveUtf16(str: String): OwnedSlice = move(str.map { it.code.toShort() }.toShortArray())
+    fun moveUtf16(str: String): OwnedSlice {
+        val shortArray = ShortArray(str.length) { str[it].code.toShort() }
+        return move(shortArray)
+    }
 
     fun getUtf8(slice: Slice): String {
         val byteArray = slice.data.getByteArray(0, slice.len.toInt())
@@ -454,9 +478,9 @@ internal object PrimitiveArrayTools {
 
     fun getUtf16(slice: Slice): String {
         val shortArray = slice.data.getShortArray(0, slice.len.toInt())
-        val charArray = shortArray.map { it.toInt().toChar() }.joinToString("")
+        val charArray = CharArray(shortArray.size) { shortArray[it].toInt().toChar() }
 
-        return charArray
+        return String(charArray)
     }
 
     fun borrowUtf8s(array: Array<String>): GCSlices {

@@ -8,7 +8,8 @@ import com.sun.jna.Structure
 
 internal interface MltMvtGeometryTypeLib : Library
 
-/** The geometry type of an MVT feature, which also covers its multi variant.
+/**
+ * The geometry type of an MVT feature, which also covers its multi variant.
 */
 enum class MltMvtGeometryType {
     Point,

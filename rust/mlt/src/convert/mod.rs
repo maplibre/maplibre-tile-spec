@@ -698,6 +698,7 @@ fn convert_mvt_buffer(buffer: &[u8], reencoder: &Reencoder) -> AnyResult<Vec<u8>
 ///
 /// MVT has no equivalent for unknown/extension MLT layer tags, so conversion
 /// is rejected instead of silently dropping data.
+#[hotpath::measure]
 fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
