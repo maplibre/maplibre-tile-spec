@@ -325,7 +325,10 @@ fn str_scalar_with_nulls() {
     let tile = encode_and_tile(vec![StagedProperty::opt_str("city", values.clone())]);
     assert_eq!(tile.property_names(), &["city"]);
     for (i, ov) in values.into_iter().enumerate() {
-        assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(ov));
+        assert_eq!(
+            &tile.features()[i].properties()[0],
+            &PropValue::Str(ov.map(Into::into))
+        );
     }
 }
 
@@ -350,7 +353,7 @@ proptest! {
         let tile = encode_and_tile(vec![StagedProperty::str("name", values.clone())]);
         prop_assert_eq!(tile.property_names(), &["name"]);
         for (i, v) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(Some(v)));
+            prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(Some(v.into())));
         }
     }
 
@@ -362,7 +365,7 @@ proptest! {
         let tile = encode_and_tile(vec![StagedProperty::opt_str("name", values.clone())]);
         prop_assert_eq!(tile.property_names(), &["name"]);
         for (i, ov) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(ov));
+            prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(ov.map(Into::into)));
         }
     }
 }
@@ -378,7 +381,7 @@ fn fsst_scalar_string_roundtrip() {
     for (i, s) in values.iter().enumerate() {
         assert_eq!(
             &tile.features()[i].properties()[0],
-            &PropValue::Str(Some(s.to_string()))
+            &PropValue::Str(Some((*s).into()))
         );
     }
 }
@@ -448,8 +451,14 @@ fn check_two_col_dict(
         vec![format!("{name}{s1}"), format!("{name}{s2}")]
     );
     for (i, (v1, v2)) in vals1.into_iter().zip(vals2).enumerate() {
-        assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(v1));
-        assert_eq!(&tile.features()[i].properties()[1], &PropValue::Str(v2));
+        assert_eq!(
+            &tile.features()[i].properties()[0],
+            &PropValue::Str(v1.map(Into::into))
+        );
+        assert_eq!(
+            &tile.features()[i].properties()[1],
+            &PropValue::Str(v2.map(Into::into))
+        );
     }
 }
 
@@ -680,7 +689,7 @@ proptest! {
             for (col_idx, (_, values)) in children.iter().enumerate() {
                 prop_assert_eq!(
                     &feat.properties()[col_idx],
-                    &PropValue::Str(values[feat_idx].clone())
+                    &PropValue::Str(values[feat_idx].clone().map(Into::into))
                 );
             }
         }
@@ -751,7 +760,7 @@ fn tile_from_ids(ids: &[Option<u64>]) -> TileLayer {
 fn str_vals(values: &[&str]) -> Vec<PropValue> {
     values
         .iter()
-        .map(|s| PropValue::Str(Some((*s).to_string())))
+        .map(|s| PropValue::Str(Some((*s).into())))
         .collect()
 }
 
@@ -955,8 +964,8 @@ fn analyze_layer_records_matching_property_presence_as_aliases() {
                 "c",
                 vec![
                     PropValue::Str(None),
-                    PropValue::Str(Some("x".to_string())),
-                    PropValue::Str(Some("y".to_string())),
+                    PropValue::Str(Some("x".into())),
+                    PropValue::Str(Some("y".into())),
                     PropValue::Str(None),
                 ],
             ),
@@ -1028,8 +1037,8 @@ fn analyze_layer_tracks_typed_property_stats() {
         (
             "names",
             vec![
-                PropValue::Str(Some("a".to_string())),
-                PropValue::Str(Some("abcd".to_string())),
+                PropValue::Str(Some("a".into())),
+                PropValue::Str(Some("abcd".into())),
             ],
         ),
     ]);
@@ -1354,20 +1363,16 @@ fn mixed_scalars_and_grouped_strings() {
 fn high_cardinality_digit_columns_not_grouped() {
     let n = 5000;
     let col_a: Vec<PropValue> = (0..n)
-        .map(|i| PropValue::Str(Some(format!("way/{}", 100_000 + i))))
+        .map(|i| PropValue::Str(Some(format!("way/{}", 100_000 + i).into())))
         .collect();
     let col_b: Vec<PropValue> = (0..n)
-        .map(|i| PropValue::Str(Some(format!("{},{}", 200_000 + i, 300_000 + i))))
+        .map(|i| PropValue::Str(Some(format!("{},{}", 200_000 + i, 300_000 + i).into())))
         .collect();
     let col_c: Vec<PropValue> = (0..n)
         .map(|i| {
-            PropValue::Str(Some(format!(
-                "{}:{}|{}:{}",
-                200_000 + i,
-                4 + i,
-                300_000 + i,
-                8 + i
-            )))
+            PropValue::Str(Some(
+                format!("{}:{}|{}:{}", 200_000 + i, 4 + i, 300_000 + i, 8 + i).into(),
+            ))
         })
         .collect();
 
@@ -1393,16 +1398,16 @@ fn overlapping_name_columns_stay_grouped() {
     let shared_names: Vec<String> = (0..n).map(|i| format!("Place_{i}")).collect();
     let col_name: Vec<PropValue> = shared_names
         .iter()
-        .map(|s| PropValue::Str(Some(s.clone())))
+        .map(|s| PropValue::Str(Some(s.as_str().into())))
         .collect();
     let col_en: Vec<PropValue> = shared_names
         .iter()
         .enumerate()
         .map(|(i, s)| {
             if i % 10 == 0 {
-                PropValue::Str(Some(format!("{s} (EN)")))
+                PropValue::Str(Some(format!("{s} (EN)").into()))
             } else {
-                PropValue::Str(Some(s.clone()))
+                PropValue::Str(Some(s.as_str().into()))
             }
         })
         .collect();

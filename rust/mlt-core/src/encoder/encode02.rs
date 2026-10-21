@@ -945,6 +945,8 @@ fn write_leaf02(
 
 #[cfg(test)]
 mod tests {
+    use compact_str::CompactString;
+
     use super::*;
     use crate::decoder::GeometryValues;
     use crate::encoder::{EncoderConfig, StagedStruct, WireVersion};
@@ -960,7 +962,7 @@ mod tests {
     }
 
     fn str_leaf(presence: Option<Vec<bool>>, values: &[&str]) -> StagedNode {
-        let values = values.iter().map(|v| (*v).to_string()).collect();
+        let values = values.iter().copied().map(CompactString::from).collect();
         StagedNode::Leaf(StagedLeaf::new(presence, StagedValues::Str(values)))
     }
 

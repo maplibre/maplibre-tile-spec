@@ -461,7 +461,7 @@ fn nested_to_json(value: &NestedValue) -> Value {
         NestedValue::Map(Some(entries)) => Value::Object(
             entries
                 .iter()
-                .map(|(key, value)| (key.clone(), nested_to_json(value)))
+                .map(|(key, value)| (key.as_str().to_owned(), nested_to_json(value)))
                 .collect(),
         ),
     }
@@ -481,7 +481,7 @@ fn prop_to_json(value: &crate::PropValue) -> Value {
         P::U64(v) => v.map_or(Value::Null, Value::from),
         P::F32(v) => v.map_or(Value::Null, f32_to_json),
         P::F64(v) => v.map_or(Value::Null, f64_to_json),
-        P::Str(v) => v.clone().map_or(Value::Null, Value::String),
+        P::Str(v) => v.as_deref().map_or(Value::Null, Value::from),
     }
 }
 
@@ -507,7 +507,7 @@ fn m_value_to_json(values: &MValue) -> Option<Value> {
         MValue::Str(v) => Value::Array(
             v.as_ref()?
                 .iter()
-                .map(|s| Value::String(s.clone()))
+                .map(|s| Value::from(s.as_str()))
                 .collect(),
         ),
     })

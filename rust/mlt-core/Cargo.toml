@@ -58,6 +58,7 @@ __private-v2 = ["__private", "unstable-v2"]
 arbitrary = { workspace = true, optional = true }
 bitvec.workspace = true
 bytemuck.workspace = true
+compact_str.workspace = true
 derive-debug.workspace = true
 enum_dispatch.workspace = true
 fast-mvt.workspace = true

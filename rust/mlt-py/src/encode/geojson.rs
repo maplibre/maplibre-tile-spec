@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 
+use mlt_core::compact_str::{CompactString, ToCompactString as _};
 use mlt_core::encoder::WireVersion;
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::FeatureCollection;
@@ -117,13 +118,13 @@ fn validate_non_empty(g: &Geometry<i32>) -> PyResult<()> {
 }
 
 /// Stringify a scalar JSON value (without the quoting `Value::to_string` adds to strings).
-fn stringify(v: &Value) -> String {
+fn stringify(v: &Value) -> CompactString {
     use Value::{Array, Bool, Null, Number, Object, String};
     match v {
-        Bool(b) => b.to_string(),
-        Number(n) => n.to_string(),
-        String(s) => s.clone(),
-        other @ (Null | Array(_) | Object(_)) => other.to_string(),
+        Bool(b) => b.to_compact_string(),
+        Number(n) => n.to_compact_string(),
+        String(s) => s.as_str().into(),
+        other @ (Null | Array(_) | Object(_)) => other.to_compact_string(),
     }
 }
 
@@ -190,7 +191,7 @@ impl ColKind {
             (Self::I64, Value::Number(n)) if n.is_i64() => PropValue::I64(n.as_i64()),
             (Self::U64, Value::Number(n)) if n.is_u64() => PropValue::U64(n.as_u64()),
             (Self::F64, Value::Number(n)) => PropValue::F64(n.as_f64()),
-            (Self::Str, Value::String(s)) => PropValue::Str(Some(s.clone())),
+            (Self::Str, Value::String(s)) => PropValue::Str(Some(s.as_str().into())),
             _ => PropValue::Str(Some(stringify(v))),
         }
     }

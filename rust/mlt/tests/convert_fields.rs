@@ -758,7 +758,7 @@ fn restored(config: &str, items: &[&str]) -> anyhow::Result<TileLayer> {
     row.id(Some(1));
     let leaves = items
         .iter()
-        .map(|&item| NestedValue::Leaf(PropValue::Str(Some(item.to_owned()))));
+        .map(|&item| NestedValue::Leaf(PropValue::Str(Some(item.into()))));
     row.nested(f, NestedValue::list(leaves)).unwrap();
     row.finish().unwrap();
     config
@@ -845,7 +845,7 @@ fn strings_or_null(cases: &[(i32, Option<&str>)]) -> TileLayer {
         let mut row = layer.feature(Geometry::from(line));
         row.id(Some(id));
         row.z((0..vertices).map(|i| 100 + i).collect()).unwrap();
-        row.property(f, PropValue::Str(input.map(str::to_owned)))
+        row.property(f, PropValue::Str(input.map(Into::into)))
             .unwrap();
         row.property(name, PropValue::Str(Some("unparsed".into())))
             .unwrap();

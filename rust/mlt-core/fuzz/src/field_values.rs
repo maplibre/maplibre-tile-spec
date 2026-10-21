@@ -94,7 +94,9 @@ fn m_values(u: &mut Unstructured<'_>, kind: PropKind, n: usize) -> arbitrary::Re
         PropKind::I64 => MValue::I64(Some(values(u, n)?)),
         PropKind::U64 => MValue::U64(Some(values(u, n)?)),
         PropKind::Str => MValue::Str(Some(
-            (0..n).map(|_| token(u)).collect::<arbitrary::Result<_>>()?,
+            (0..n)
+                .map(|_| token(u).map(Into::into))
+                .collect::<arbitrary::Result<_>>()?,
         )),
         other => unreachable!("{other:?} is not generated"),
     })
@@ -110,7 +112,7 @@ fn leaf(u: &mut Unstructured<'_>, kind: PropKind) -> arbitrary::Result<PropValue
         PropKind::U32 => PropValue::U32(Some(u.arbitrary()?)),
         PropKind::I64 => PropValue::I64(Some(u.arbitrary()?)),
         PropKind::U64 => PropValue::U64(Some(u.arbitrary()?)),
-        PropKind::Str => PropValue::Str(Some(token(u)?)),
+        PropKind::Str => PropValue::Str(Some(token(u)?.into())),
         other => unreachable!("{other:?} is not generated"),
     })
 }

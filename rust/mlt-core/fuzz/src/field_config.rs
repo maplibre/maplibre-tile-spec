@@ -1,6 +1,7 @@
 use arbitrary::{Arbitrary, Unstructured};
 use mlt::convert::fields::FieldConfig;
 use mlt::convert::verify::check_round_trip;
+use mlt_core::compact_str::{CompactString, format_compact};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
@@ -100,7 +101,7 @@ fn layer(u: &mut Unstructured<'_>) -> arbitrary::Result<TileLayer> {
         for &(key, is_packed) in &properties {
             let value = if is_packed {
                 PropValue::Str(if u.arbitrary()? {
-                    Some(packed(u)?)
+                    Some(packed(u)?.into())
                 } else {
                     None
                 })
@@ -306,7 +307,8 @@ fn mutate(layer: &TileLayer, mutation: Mutation) -> Option<TileLayer> {
 fn changed(value: &PropValue) -> PropValue {
     match value {
         PropValue::Str(s) => PropValue::Str(Some(
-            s.as_ref().map_or_else(String::new, |s| s.clone() + "x"),
+            s.as_ref()
+                .map_or_else(CompactString::default, |s| format_compact!("{s}x")),
         )),
         PropValue::I64(v) => PropValue::I64(Some(v.map_or(0, |v| v.wrapping_add(1)))),
         PropValue::U64(v) => PropValue::U64(Some(v.map_or(0, |v| v.wrapping_add(1)))),

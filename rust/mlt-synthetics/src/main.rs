@@ -32,6 +32,7 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use clap::Parser;
+use mlt_core::compact_str::CompactString;
 use mlt_core::encoder::{
     FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedInterior,
     StagedLeaf, StagedList, StagedMValue as M, StagedMap, StagedNested, StagedNode,
@@ -1318,7 +1319,7 @@ fn str_leaf<'a>(
     presence: Option<Vec<bool>>,
     values: impl IntoIterator<Item = &'a str>,
 ) -> StagedNode {
-    let values = values.into_iter().map(ToString::to_string).collect();
+    let values = values.into_iter().map(CompactString::from).collect();
     StagedNode::Leaf(StagedLeaf::new(presence, MV::Str(values)))
 }
 
@@ -1463,12 +1464,12 @@ fn generate_m_value_types(w: &mut SynthWriter) {
 }
 
 /// Eight strings for a vertex-scoped string column, repeating so a dictionary has something to fold.
-fn m_strings() -> Vec<String> {
+fn m_strings() -> Vec<CompactString> {
     [
         "north", "east", "north", "south", "west", "east", "north", "",
     ]
     .into_iter()
-    .map(String::from)
+    .map(CompactString::from)
     .collect()
 }
 
@@ -1706,7 +1707,7 @@ fn generate_m_value_encodings(w: &mut SynthWriter) {
                         "park_zone_south",
                     ]
                     .into_iter()
-                    .map(String::from)
+                    .map(CompactString::from)
                     .collect(),
                 ),
             ),

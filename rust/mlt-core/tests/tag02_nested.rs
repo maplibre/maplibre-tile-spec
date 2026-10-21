@@ -102,7 +102,7 @@ fn entries(values: &[(&str, NestedValue)]) -> NestedValue {
 }
 
 fn str_value(value: &str) -> NestedValue {
-    NestedValue::Leaf(PropValue::Str(Some(value.to_string())))
+    NestedValue::Leaf(PropValue::Str(Some(value.into())))
 }
 
 fn i32_value(value: i32) -> NestedValue {

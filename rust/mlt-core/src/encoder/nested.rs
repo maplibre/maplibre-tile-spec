@@ -495,10 +495,7 @@ mod tests {
                 ("a", leaf(None, vec![1])),
                 (
                     "b",
-                    StagedNode::Leaf(StagedLeaf::new(
-                        None,
-                        StagedValues::Str(vec!["x".to_string()]),
-                    )),
+                    StagedNode::Leaf(StagedLeaf::new(None, StagedValues::Str(vec!["x".into()]))),
                 ),
             ],
         );

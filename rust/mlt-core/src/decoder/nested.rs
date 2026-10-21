@@ -6,6 +6,7 @@ use std::ops::Range;
 
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
+use compact_str::CompactString;
 use usize_cast::IntoUsize as _;
 
 use crate::codecs::presence_coding::{self, PresenceCoding};
@@ -975,7 +976,7 @@ impl ParsedInterior<'_> {
                 let mut entries = BTreeMap::new();
                 for (name, field) in &node.fields {
                     if let Some(value) = field.row(own)? {
-                        entries.insert((*name).to_string(), value);
+                        entries.insert(CompactString::from(*name), value);
                     }
                 }
                 Ok(Some(NestedValue::Map(Some(entries))))
@@ -1007,7 +1008,7 @@ impl ParsedInterior<'_> {
                         len: node.keys.entry_count(),
                     })?;
                     if let Some(value) = node.value.row(entry)? {
-                        entries.insert(key.to_string(), value);
+                        entries.insert(CompactString::from(key), value);
                     }
                 }
                 Ok(Some(NestedValue::Map(Some(entries))))
@@ -1137,7 +1138,7 @@ impl MValues<'_> {
             Self::F64(v) => one!(v, F64),
             Self::Str(v) => {
                 let value = v.get(u32::try_from(index)?).ok_or_else(missing)?;
-                PropValue::Str(Some(value.to_string()))
+                PropValue::Str(Some(CompactString::from(value)))
             }
         })
     }
