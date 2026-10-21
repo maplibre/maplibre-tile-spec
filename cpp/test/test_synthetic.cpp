@@ -110,6 +110,9 @@ const std::vector<ExceptionPattern>& binaryExceptionPatterns() {
          .reason = "FSST symbol selection is heuristic; byte comparison is not reliable"},
         {.pattern = std::regex{"^fpf_align_\\d+$"}, .reason = "sub-optimal java vertex encoding"},
         {.pattern = std::regex{"^props_u32_fpf_\\d+$"}, .reason = "sub-optimal java vertex encoding"},
+        {.pattern = std::regex{"^id_max$"}, .reason = "IDs above INT32_MAX use a 64-bit ID column in C++"},
+        {.pattern = std::regex{"^ids64_minmax_delta$"},
+         .reason = "C++ does not delta-encode 64-bit values above INT64_MAX"},
     };
     return patterns;
 }
@@ -218,7 +221,8 @@ TEST_P(SyntheticFixtureTest, MatchesGenerator) {
 #if MLT_WITH_JSON
     expectDecodedTilesEquivalent(name, fileContents, generated.bytes);
 #else
-#warning "MLT_WITH_JSON is disabled; skipping decoded semantic comparison and relying on byte-level comparison only"
+#pragma message( \
+    "MLT_WITH_JSON is disabled; skipping decoded semantic comparison and relying on byte-level comparison only")
 #endif
 
     if (!entry.binaryExceptionReason.empty()) {

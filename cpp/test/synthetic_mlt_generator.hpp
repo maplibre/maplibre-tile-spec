@@ -33,7 +33,7 @@ public:
     };
     using GeneratedTileVec = std::vector<GeneratedTile>;
 
-    static constexpr std::uint32_t defaultExtent = 80;
+    static constexpr std::uint32_t defaultExtent = 64;
     static constexpr const char* defaultLayerName = "layer1";
     static constexpr Vertex c0 = {.x = 13, .y = 42};
     // Additional coordinates matching Java SyntheticMltUtil
@@ -304,8 +304,10 @@ public:
         // Java poly/poly_fpf/poly_tes/poly_fpf_tes
         appendAll(generatePolyVariants("poly", feat(poly(Ring{c1, c2, c3}))));
 
-        // Java poly_collinear*
-        appendAll(generatePolyVariants("poly_collinear", feat(poly(Ring{c(0, 0), c(10, 0), c(20, 0)}))));
+        // Java poly_collinear and poly_collinear_fpf; there are no tessellated fixtures for a polygon without an area
+        auto collinear = generatePolyVariants("poly_collinear", feat(poly(Ring{c(0, 0), c(10, 0), c(20, 0)})));
+        std::erase_if(collinear, [](const auto& tile) { return tile.name.ends_with("_tes"); });
+        appendAll(std::move(collinear));
 
         // Java poly_self_intersect*
         appendAll(
@@ -476,7 +478,7 @@ public:
 
     static GeneratedTileVec generateExtents() {
         GeneratedTileVec tiles;
-        for (const auto e : {512U, 4096U, 131072U, 1073741824U}) {
+        for (const auto e : {32U, 512U, 4096U, 32768U, 131072U, 1073741824U}) {
             tiles.push_back(generateExtent(e));
             tiles.push_back(generateExtentBuf(e));
         }
@@ -546,6 +548,16 @@ public:
         };
     }
 
+    static GeneratedTile generateIdMax() {
+        const std::vector<std::optional<std::uint64_t>> ids{std::numeric_limits<std::uint32_t>::max()};
+        return generateIdsWithEncoding("id_max", ids, IntegerEncodingOption::PLAIN);
+    }
+
+    static GeneratedTile generateId64Max() {
+        const std::vector<std::optional<std::uint64_t>> ids{std::numeric_limits<std::uint64_t>::max()};
+        return generateIdsWithEncoding("id64_max", ids, IntegerEncodingOption::PLAIN);
+    }
+
     static GeneratedTile generateIdsSeries() {
         const std::vector<std::optional<std::uint64_t>> ids{103, 103, 103, 103};
         return generateIdsWithEncoding("ids", ids, IntegerEncodingOption::PLAIN);
@@ -606,12 +618,26 @@ public:
         return generateIdsWithEncoding("ids64_opt_delta", ids, IntegerEncodingOption::DELTA);
     }
 
+    static GeneratedTile generateIds64MinMax() {
+        constexpr auto max = std::numeric_limits<std::uint64_t>::max();
+        const std::vector<std::optional<std::uint64_t>> ids{0, max, 0, max};
+        return generateIdsWithEncoding("ids64_minmax", ids, IntegerEncodingOption::PLAIN);
+    }
+
+    static GeneratedTile generateIds64MinMaxDelta() {
+        constexpr auto max = std::numeric_limits<std::uint64_t>::max();
+        const std::vector<std::optional<std::uint64_t>> ids{0, max, 0, max};
+        return generateIdsWithEncoding("ids64_minmax_delta", ids, IntegerEncodingOption::DELTA);
+    }
+
     static GeneratedTileVec generateIdsCollection() {
         return {
             generateIds(),
             generateIdsSeries(),
             generateIdMin(),
+            generateIdMax(),
             generateId64(),
+            generateId64Max(),
             generateIdsDelta(),
             generateIdsRle(),
             generateIdsDeltaRle(),
@@ -623,14 +649,19 @@ public:
             generateIdsOptDelta(),
             generateIds64Opt(),
             generateIds64OptDelta(),
+            generateIds64MinMax(),
+            generateIds64MinMaxDelta(),
         };
     }
 
-    static GeneratedTile generatePropTile(std::string name, std::string key, PropertyValue value) {
+    static GeneratedTile generatePropTile(std::string name,
+                                          std::string key,
+                                          PropertyValue value,
+                                          IntegerEncodingOption integerEncodingOption = IntegerEncodingOption::PLAIN) {
         bool forceNullableColumns = true;
         const auto config = cfg([=](auto& c) {
             c.forceNullableColumns = forceNullableColumns;
-            c.integerEncodingOption = IntegerEncodingOption::PLAIN;
+            c.integerEncodingOption = integerEncodingOption;
         });
 
         return {
@@ -679,6 +710,7 @@ public:
             generatePropTileWithNull("prop_bool_null_false", false, false),
 
             generatePropTile("prop_i32", "val", static_cast<std::int32_t>(42)),
+            generatePropTile("prop_i32_delta", "val", static_cast<std::int32_t>(42), IntegerEncodingOption::DELTA),
             generatePropTile("prop_i32_neg", "val", static_cast<std::int32_t>(-42)),
             generatePropTile("prop_i32_min", "val", std::numeric_limits<std::int32_t>::min()),
             generatePropTile("prop_i32_max", "val", std::numeric_limits<std::int32_t>::max()),
@@ -686,12 +718,14 @@ public:
             generatePropTileWithNull("prop_i32_null_val", static_cast<std::int32_t>(42), false),
 
             generatePropTile("prop_u32", "val", static_cast<std::uint32_t>(42)),
+            generatePropTile("prop_u32_delta", "val", static_cast<std::uint32_t>(42), IntegerEncodingOption::DELTA),
             generatePropTile("prop_u32_min", "val", static_cast<std::uint32_t>(0)),
             generatePropTile("prop_u32_max", "val", std::numeric_limits<std::uint32_t>::max()),
             generatePropTileWithNull("prop_u32_val_null", static_cast<std::uint32_t>(42), true),
             generatePropTileWithNull("prop_u32_null_val", static_cast<std::uint32_t>(42), false),
 
             generatePropTile("prop_i64", "val", i64Value),
+            generatePropTile("prop_i64_delta", "val", i64Value, IntegerEncodingOption::DELTA),
             generatePropTile("prop_i64_neg", "val", i64NegValue),
             generatePropTile("prop_i64_min", "val", std::numeric_limits<std::int64_t>::min()),
             generatePropTile("prop_i64_max", "val", std::numeric_limits<std::int64_t>::max()),
@@ -699,6 +733,7 @@ public:
             generatePropTileWithNull("prop_i64_null_val", i64Value, false),
 
             generatePropTile("prop_u64", "bignum", u64Value),
+            generatePropTile("prop_u64_delta", "bignum", u64Value, IntegerEncodingOption::DELTA),
             generatePropTile("prop_u64_min", "bignum", static_cast<std::uint64_t>(0)),
             generatePropTile("prop_u64_max", "bignum", std::numeric_limits<std::uint64_t>::max()),
             generatePropTileWithNull("prop_u64_val_null", u64Value, true),
