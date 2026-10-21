@@ -264,6 +264,7 @@ impl<'a> Decode<ParsedMValue<'a>> for RawMValue<'a> {
     ///
     /// The presence bits are the feature's, so they never expand into the values
     /// the way a property column's nulls do.
+    #[hotpath::measure]
     fn decode(self, dec: &mut Decoder) -> MltResult<ParsedMValue<'a>> {
         use MValues as M;
 

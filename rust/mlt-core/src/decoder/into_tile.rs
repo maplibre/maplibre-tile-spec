@@ -37,6 +37,7 @@ impl ParsedLayer01<'_> {
 
     /// One [`TileFeature`] per map feature, carrying only the columns every version
     /// has. Borrows, so a version that adds its own can fill them in afterwards.
+    #[hotpath::measure]
     fn collect_parts(&self, dec: &mut Decoder) -> MltResult<TileParts> {
         let name = self.name().to_string();
         let extent = self.extent().get();
@@ -88,6 +89,7 @@ impl Layer01<'_> {
 impl ParsedLayer02<'_> {
     /// Decode and convert into a row-oriented [`TileLayer`], adding the m-value
     /// and nested columns only v2 carries.
+    #[hotpath::measure]
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
         let m_names: Vec<String> = self.m_values.iter().map(|m| m.name().to_string()).collect();
         let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();

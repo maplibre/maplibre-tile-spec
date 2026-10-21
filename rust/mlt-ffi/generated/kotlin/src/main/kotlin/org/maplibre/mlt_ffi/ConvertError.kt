@@ -16,8 +16,9 @@ internal interface ConvertErrorLib : Library {
     ): Unit
 }
 
-/** Error returned by FFI conversion functions.
-*/
+/**
+ * Error returned by FFI conversion functions.
+ */
 class ConvertError internal constructor(
     internal val handle: Pointer,
     // These ensure that anything that is borrowed is kept alive and not cleaned
@@ -49,14 +50,16 @@ class ConvertError internal constructor(
         internal val lib: ConvertErrorLib = Native.load("mlt_ffi", libClass)
     }
 
-    /** The stage that failed.
+    /**
+     * The stage that failed.
      */
     fun kind(): ConvertErrorKind {
         val returnVal = lib.ConvertError_kind(handle)
         return (ConvertErrorKind.fromNative(returnVal))
     }
 
-    /** Human-readable cause.
+    /**
+     * Human-readable cause.
      */
     fun message(): String {
         val write = DW.lib.diplomat_buffer_write_create(0)

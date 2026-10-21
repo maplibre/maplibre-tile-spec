@@ -27,6 +27,16 @@ updates:
         patterns:
           - "*"
 
+  # Maintain the hook revs in .pre-commit-config.yaml
+  - package-ecosystem: pre-commit
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      all-pre-commit-updates:
+        patterns:
+          - "*"
+
   - package-ecosystem: gradle  # should this be "maven" or "gradle"?
     directory: "/java"
     schedule:
