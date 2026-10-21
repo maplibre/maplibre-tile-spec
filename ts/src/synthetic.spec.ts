@@ -5,6 +5,7 @@ import {
     compareWithTolerance,
     expectUnsupported,
     getTestCases,
+    normalizeWinding,
     writeActualOutput,
 } from "../../test/synthetic/synthetic-test-utils";
 import decodeTile from "./mltDecoder";
@@ -23,7 +24,8 @@ describe("MLT Decoder - Synthetic tests", () => {
         it(name, async () => {
             const actual = await decodeMLT(fileName);
             writeActualOutput(fileName, actual);
-            expect(actual).toEqual(content);
+            // MLT v1 lets an encoder wind each ring either way, so the winding is not compared
+            expect(normalizeWinding(actual)).toEqual(normalizeWinding(content));
         });
     }
 

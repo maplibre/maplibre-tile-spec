@@ -102,3 +102,64 @@ export async function expectUnsupported(
     "decoded and matched the expected output - remove it from the exclusion list",
   ).not.toEqual(content);
 }
+
+type Position = number[];
+
+function ringArea(ring: Position[]): number {
+  let sum = 0;
+  for (let i = 0; i + 1 < ring.length; i++) {
+    sum += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+  }
+  return sum;
+}
+
+function windPolygon(rings: Position[][]): Position[][] {
+  return rings.map((ring, i) => {
+    const area = ringArea(ring);
+    return area !== 0 && area > 0 !== (i === 0) ? [...ring].reverse() : ring;
+  });
+}
+
+function windGeometry<G>(geometry: G): G {
+  const g = geometry as {
+    type?: string;
+    coordinates?: unknown;
+    geometries?: unknown[];
+  } | null;
+  if (g?.type === "Polygon") {
+    return {
+      ...g,
+      coordinates: windPolygon(g.coordinates as Position[][]),
+    } as G;
+  }
+  if (g?.type === "MultiPolygon") {
+    return {
+      ...g,
+      coordinates: (g.coordinates as Position[][][]).map(windPolygon),
+    } as G;
+  }
+  if (g?.type === "GeometryCollection") {
+    return { ...g, geometries: g.geometries?.map(windGeometry) } as G;
+  }
+  return geometry;
+}
+
+/**
+ * Winds the polygon rings of a GeoJSON feature collection as MVT does: the exterior of each polygon
+ * has a positive area and its holes a negative one. MLT v1 lets an encoder wind each ring either
+ * way and takes the exterior and the holes from the topology, which GeoJSON keeps in its nesting,
+ * so comparing collections after this ignores the winding.
+ */
+export function normalizeWinding<T extends object>(collection: T): T {
+  const { features } = collection as { features?: { geometry?: unknown }[] };
+  if (!Array.isArray(features)) {
+    return collection;
+  }
+  return {
+    ...collection,
+    features: features.map((feature) => ({
+      ...feature,
+      geometry: windGeometry(feature.geometry),
+    })),
+  };
+}

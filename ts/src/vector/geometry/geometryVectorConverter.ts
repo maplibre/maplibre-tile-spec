@@ -3,6 +3,7 @@ import { decodeZOrderCurve } from "./zOrderCurve";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
 import Point from "@mapbox/point-geometry";
+import { windPolygon } from "./windPolygon";
 
 export function convertGeometryVector(geometryVector: GeometryVector): CoordinatesArray[] {
     const geometries: CoordinatesArray[] = new Array(geometryVector.numGeometries);
@@ -163,7 +164,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                             vertexOffsetsOffset += numVertices;
                         }
                     }
-                    geometries[geometryCounter++] = [shell].concat(rings);
+                    geometries[geometryCounter++] = windPolygon([shell].concat(rings));
                     if (geometryOffsets) geometryOffsetsCounter++;
                 }
                 break;
@@ -250,7 +251,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                                 vertexOffsetsOffset += numRingVertices;
                             }
                         }
-                        polygons[j] = [shell].concat(rings);
+                        polygons[j] = windPolygon([shell].concat(rings));
                     }
                     geometries[geometryCounter++] = polygons.flat();
                 }

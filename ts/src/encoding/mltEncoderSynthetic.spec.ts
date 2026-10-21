@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { compareWithTolerance, getTestCases } from "../../../test/synthetic/synthetic-test-utils";
+import { compareWithTolerance, getTestCases, normalizeWinding } from "../../../test/synthetic/synthetic-test-utils";
 import decodeTile from "../mltDecoder";
 import { featureTablesToFeatureCollection, getGeometry } from "../vector/featureTablesToGeoJson";
 import type FeatureTable from "../vector/featureTable";
@@ -29,7 +29,8 @@ describe("encodeTile - synthetic fixtures round trip", () => {
     for (const { name, content, fileName } of active) {
         it(name, async () => {
             const actual = await reEncode(fileName);
-            expect(actual).toEqual(normalise(content as GeoJSON.FeatureCollection));
+            // MLT v1 lets an encoder wind each ring either way, so the winding is not compared
+            expect(normalizeWinding(actual)).toEqual(normalizeWinding(normalise(content as GeoJSON.FeatureCollection)));
         });
     }
 
@@ -41,8 +42,8 @@ describe("encodeTile - synthetic fixtures round trip", () => {
             } catch {
                 return;
             }
-            expect(actual, "round-tripped cleanly - remove it from the exclusion list").not.toEqual(
-                normalise(content as GeoJSON.FeatureCollection),
+            expect(normalizeWinding(actual), "round-tripped cleanly - remove it from the exclusion list").not.toEqual(
+                normalizeWinding(normalise(content as GeoJSON.FeatureCollection)),
             );
         });
     }
