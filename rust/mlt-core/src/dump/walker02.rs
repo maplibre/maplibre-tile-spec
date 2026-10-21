@@ -67,6 +67,10 @@ impl<'a> Walker<'a> {
         if layout.shared_presence > 0 {
             let pi = self.open(input, "shared_presence".to_string());
             for i in 0..layout.shared_presence {
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
                 let coding = if layout.shared_coded {
                     let byte;
                     (input, byte) = self.field(input, "coding", parse_u8, |b| {
@@ -75,7 +79,7 @@ impl<'a> Walker<'a> {
                             None => format!("0x{b:02X} unknown"),
                         })
                     })?;
-                    shared_coding(byte).ok_or(MltError::PresenceCodingByte(byte))?
+                    shared_coding(byte).ok_or_else(|| MltError::PresenceCodingByte(byte))?
                 } else {
                     PresenceCoding::Bitmap
                 };
@@ -547,9 +551,13 @@ impl<'a> Walker<'a> {
                 u32::try_from(bits.count_ones())?
             }
             Presence02::Shared(index) => {
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
                 let bits = shared
                     .get(usize::from(index))
-                    .ok_or(MltError::ParsingColumnType(typ_byte))?;
+                    .ok_or_else(|| MltError::ParsingColumnType(typ_byte))?;
                 u32::try_from(bits.count_ones())?
             }
         };
@@ -688,9 +696,13 @@ impl<'a> Walker<'a> {
                     u32::try_from(bits.count_ones())?
                 }
                 Presence02::Shared(index) => {
+                    #[expect(
+                        clippy::unnecessary_lazy_evaluations,
+                        reason = "an eager error is dropped on every success"
+                    )]
                     let bits = shared
                         .get(usize::from(index))
-                        .ok_or(MltError::ParsingColumnType(child_byte))?;
+                        .ok_or_else(|| MltError::ParsingColumnType(child_byte))?;
                     u32::try_from(bits.count_ones())?
                 }
             };

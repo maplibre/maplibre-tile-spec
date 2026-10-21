@@ -4,9 +4,13 @@ use crate::{Decoder, MltError, MltRefResult, MltResult, RawPresence};
 
 #[inline]
 pub fn take(input: &[u8], size: u32) -> MltRefResult<'_, &[u8]> {
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
     let (value, input) = input
         .split_at_checked(size.try_into()?)
-        .ok_or(MltError::UnableToTake(size))?;
+        .ok_or_else(|| MltError::UnableToTake(size))?;
     Ok((input, value))
 }
 

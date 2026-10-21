@@ -672,10 +672,14 @@ fn parse_shared_presence<'a>(
     let mut input = input;
     let mut shared = Vec::with_capacity(usize::from(layout.shared_presence));
     for _ in 0..layout.shared_presence {
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let coding = if layout.shared_coded {
             let byte;
             (input, byte) = parse_u8(input)?;
-            shared_coding(byte).ok_or(MltError::PresenceCodingByte(byte))?
+            shared_coding(byte).ok_or_else(|| MltError::PresenceCodingByte(byte))?
         } else {
             PresenceCoding::Bitmap
         };

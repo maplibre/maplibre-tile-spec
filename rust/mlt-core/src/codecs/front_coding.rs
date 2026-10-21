@@ -114,10 +114,14 @@ pub(crate) fn front_decode(
                 available,
             });
         }
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let (suffix, rest) =
             remaining
                 .split_at_checked(suffix_len)
-                .ok_or(FrontCodedSuffixOutOfBounds {
+                .ok_or_else(|| FrontCodedSuffixOutOfBounds {
                     index,
                     needed: suffix_len,
                     available: remaining.len(),

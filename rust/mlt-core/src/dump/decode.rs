@@ -263,13 +263,21 @@ fn fsst_strings(
     dec: &mut Decoder,
 ) -> MltResult<DecodedBlob> {
     let stream = |r: &Region| -> MltResult<RawStream<'_>> {
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let meta = r
             .blob
-            .ok_or(MltError::MalformedFsst("a stream without metadata"))?
+            .ok_or_else(|| MltError::MalformedFsst("a stream without metadata"))?
             .meta;
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let bytes = buf
             .get(r.offset..r.offset + r.len)
-            .ok_or(MltError::MalformedFsst("a stream outside the tile"))?;
+            .ok_or_else(|| MltError::MalformedFsst("a stream outside the tile"))?;
         Ok(RawStream::new(meta, bytes))
     };
     let raw = RawFsstData::new(
@@ -288,9 +296,13 @@ fn fsst_strings(
     let mut rest = &*text;
     let mut values = dec.alloc(kept.len())?;
     for len in kept {
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let (string, tail) = rest
             .split_at_checked(len.into_usize())
-            .ok_or(MltError::MalformedFsst("string lengths overrun the corpus"))?;
+            .ok_or_else(|| MltError::MalformedFsst("string lengths overrun the corpus"))?;
         dec.consume_items::<u8>(string.len())?;
         values.push(string.to_owned());
         rest = tail;

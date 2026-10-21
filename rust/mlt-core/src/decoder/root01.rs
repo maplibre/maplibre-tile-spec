@@ -23,6 +23,10 @@ use crate::{Lazy, MltRefResult, MltResult, Parser};
 
 impl<'a> Layer01<'a, Lazy> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
     pub(crate) fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltResult<Self> {
         let mut bytes = LayerBytes::of_body(input.len());
         let (input, layer_name) = parse_string(input)?;
@@ -140,7 +144,7 @@ impl<'a> Layer01<'a, Lazy> {
                 name: layer_name,
                 extent,
                 id: id_column,
-                geometry: geometry.ok_or(MissingGeometry)?,
+                geometry: geometry.ok_or_else(|| MissingGeometry)?,
                 properties,
                 bytes,
                 #[cfg(fuzzing)]

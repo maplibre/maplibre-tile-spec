@@ -69,9 +69,13 @@ pub fn decode_root_length_stream(
     let mut root_length_counter = 0_usize;
     for &geom_type in geometry_types {
         let increment = if geom_type > buffer_id {
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             let val = *root_length_stream
                 .get(root_length_counter)
-                .ok_or(MltError::GeometryIndexOutOfBounds(root_length_counter))?;
+                .ok_or_else(|| MltError::GeometryIndexOutOfBounds(root_length_counter))?;
             // Safety: counter bounded by `geometry_types.len()`, which fits in usize.
             root_length_counter += 1;
             val
@@ -110,9 +114,13 @@ pub fn decode_level1_without_ring_buffer_length_stream(
         if geometry_type.is_linestring() {
             // For MultiLineString and LineString a value in the level1LengthBuffer exists
             for _j in 0..num_geometries {
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
                 let val = *level1_length_buffer
                     .get(level1_length_counter)
-                    .ok_or(MltError::GeometryIndexOutOfBounds(level1_length_counter))?;
+                    .ok_or_else(|| MltError::GeometryIndexOutOfBounds(level1_length_counter))?;
                 offset = offset.checked_add(val).or_overflow()?;
                 level1_buffer_offsets.push(offset);
                 // Safety: counter bounded by slice lengths, which fit in usize.
@@ -153,11 +161,15 @@ pub fn decode_level1_length_stream(
             // For MultiPolygon, Polygon and in some cases for MultiLineString and LineString
             // a value in the level1LengthBuffer exists
             for _j in 0..num_geometries {
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
                 let val = *level1_length_buffer
                     .get(level1_length_buffer_counter)
-                    .ok_or(MltError::GeometryIndexOutOfBounds(
-                        level1_length_buffer_counter,
-                    ))?;
+                    .ok_or_else(|| {
+                        MltError::GeometryIndexOutOfBounds(level1_length_buffer_counter)
+                    })?;
                 offset = offset.checked_add(val).or_overflow()?;
                 level1_buffer_offsets.push(offset);
                 // Safety: counter bounded by slice lengths, which fit in usize.
@@ -204,9 +216,13 @@ pub fn decode_level2_length_stream(
                 let num_parts = next.checked_sub(base).or_overflow()?.into_usize();
                 level1_tail = &level1_tail[1..];
                 for _k in 0..num_parts {
+                    #[expect(
+                        clippy::unnecessary_lazy_evaluations,
+                        reason = "an eager error is dropped on every success"
+                    )]
                     let val = *level2_length_buffer
                         .get(level2_pos)
-                        .ok_or(MltError::GeometryIndexOutOfBounds(level2_pos))?;
+                        .ok_or_else(|| MltError::GeometryIndexOutOfBounds(level2_pos))?;
                     previous_offset = previous_offset.checked_add(val).or_overflow()?;
                     // Safety: counter bounded by slice lengths, which fit in usize.
                     level2_pos += 1;

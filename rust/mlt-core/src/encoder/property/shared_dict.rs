@@ -380,12 +380,16 @@ impl Codecs {
         enc: &mut Encoder,
     ) -> MltResult<()> {
         let dict_spans = collect_staged_shared_dict_spans(&shared_dict.items);
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let dict: Vec<&str> = dict_spans
             .iter()
             .map(|&span| {
                 shared_dict
                     .get(span)
-                    .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
+                    .ok_or_else(|| DictIndexOutOfBounds(span.0, dict_spans.len()))
             })
             .collect::<Result<_, _>>()?;
         let dict_index: HashMap<(u32, u32), u32> =
@@ -450,13 +454,17 @@ impl Codecs {
             }
             enc.write_column_name(&item.suffix)?;
 
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             let offsets: Vec<u32> = item
                 .dense_spans()
                 .map(|span| {
                     dict_index
                         .get(&span)
                         .copied()
-                        .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
+                        .ok_or_else(|| DictIndexOutOfBounds(span.0, dict_spans.len()))
                 })
                 .collect::<Result<_, _>>()?;
             let typ = StreamType::Offset(OffsetType::String);
