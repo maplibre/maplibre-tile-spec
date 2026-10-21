@@ -33,7 +33,7 @@ import {
     zigzagI32InPlace,
     zigzagI64InPlace,
 } from "./binary";
-import { decodeFastPfor128Into } from "./fastpfor";
+import { decodeFastPfor128 } from "../fastPfor128";
 import { PRES_BITMAP, PRES_RUNS, PRES_SPARSE, readPresenceBits } from "./presence";
 
 export const ST_PRESENT = 0;
@@ -271,7 +271,10 @@ export function decodeBoolValues(s: ParsedStream): Uint8Array {
 
 function decodePhysicalU32(s: ParsedStream, out: Uint32Array): Uint32Array {
     if (s.p === PH_NONE) return copyLittleEndian(Uint32Array, s.d, s.w, out);
-    if (s.p === PH_FPF128) return decodeFastPfor128Into(s.d, s.w, out);
+    if (s.p === PH_FPF128) {
+        out.set(decodeFastPfor128(s.d, 0, s.d.length, s.w));
+        return out;
+    }
     if (s.p === PH_BITPACK) return unpackBitpackU32Into(s.d, s.w, out);
     if (s.p === PH_VARINT) return decodeVarintU32Into(s.d, s.w, out);
     throw new Error("u32 phys");
