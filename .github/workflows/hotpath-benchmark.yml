@@ -36,18 +36,25 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: just rust::download-benchmark-tiles
 
-      - name: Run benchmark and upload report
+      - name: Run benchmarks and upload reports
         working-directory: rust
         env:
           HOTPATH_UPLOAD: fail-on-error
-          HOTPATH_BENCHMARK: mlt-convert
           HOTPATH_USER_METADATA: runner=${{ runner.os }}-${{ runner.arch }},toolchain=stable,profile=release
           HOTPATH_OUTPUT_FORMAT: none
         run: |
-          set -o pipefail
-          cargo run -q --release -p mlt --features hotpath,hotpath-alloc,hotpath-cloud -- \
-            convert /tmp/benchmark-tiles/ /tmp/mlt-out/ 2>&1 | tee run.log
-          grep -q '^hotpath: uploaded report ' run.log
+          set -euo pipefail
+          bench() {
+            local name=$1
+            shift
+            HOTPATH_BENCHMARK=$name cargo run -q --release -p mlt --features hotpath,hotpath-alloc,hotpath-cloud -- \
+              convert "$@" 2>&1 | tee "$name.log"
+            grep -q '^hotpath: uploaded report ' "$name.log"
+          }
+          bench mlt-convert /tmp/benchmark-tiles/ /tmp/mlt-out/
+          bench mlt-convert-v2 --mlt-version 2 /tmp/benchmark-tiles/ /tmp/mlt-v2-out/
+          bench mlt-decode-v1 --to mvt /tmp/mlt-out/ /tmp/mvt-from-v1/
+          bench mlt-decode-v2 --to mvt /tmp/mlt-v2-out/ /tmp/mvt-from-v2/
 
   report:
     name: hotpath benchmark (pull request)
@@ -75,22 +82,31 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: just rust::download-benchmark-tiles
 
-      - name: Run benchmark and write report
+      - name: Run benchmarks and write reports
         working-directory: rust
         env:
-          HOTPATH_BENCHMARK: mlt-convert
           HOTPATH_USER_METADATA: runner=${{ runner.os }}-${{ runner.arch }},toolchain=stable,profile=release
           HOTPATH_OUTPUT_FORMAT: json
-          HOTPATH_OUTPUT_PATH: ${{ github.workspace }}/report.json
+          REPORT_DIR: ${{ github.workspace }}/hotpath-reports
         run: |
-          cargo run -q --release -p mlt --features hotpath,hotpath-alloc,hotpath-cloud -- \
-            convert /tmp/benchmark-tiles/ /tmp/mlt-out/
-          test -s "$HOTPATH_OUTPUT_PATH"
+          set -euo pipefail
+          mkdir -p "$REPORT_DIR"
+          bench() {
+            local name=$1
+            shift
+            HOTPATH_BENCHMARK=$name HOTPATH_OUTPUT_PATH="$REPORT_DIR/$name.json" \
+              cargo run -q --release -p mlt --features hotpath,hotpath-alloc,hotpath-cloud -- convert "$@"
+            test -s "$REPORT_DIR/$name.json"
+          }
+          bench mlt-convert /tmp/benchmark-tiles/ /tmp/mlt-out/
+          bench mlt-convert-v2 --mlt-version 2 /tmp/benchmark-tiles/ /tmp/mlt-v2-out/
+          bench mlt-decode-v1 --to mvt /tmp/mlt-out/ /tmp/mvt-from-v1/
+          bench mlt-decode-v2 --to mvt /tmp/mlt-v2-out/ /tmp/mvt-from-v2/
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: hotpath-report
-          path: report.json
+          path: hotpath-reports/
           retention-days: 1
           if-no-files-found: error
 
