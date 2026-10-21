@@ -42,7 +42,7 @@ import { createFlatGpuVector } from "./vector/geometry/flatGpuVector";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
 import type { TopologyVector } from "./vector/geometry/topologyVector";
 import { VertexBufferType } from "./vector/geometry/vertexBufferType";
-import type Vector from "./vector/vector";
+import Vector from "./vector/vector";
 import { GpuVector } from "./vector/geometry/gpuVector";
 import {
     allocF32,
@@ -366,15 +366,30 @@ function packBoolBytes(bools: Uint8Array): Uint8Array {
     return out;
 }
 
+const utf8Enc = new TextEncoder();
+const pbfString = (s: string): string =>
+    s.charCodeAt(0) === 0xfeff && utf8Enc.encode(s).length >= 12 ? s.slice(1) : s;
+
+class DictStringVector extends Vector<Uint32Array, string> {
+    constructor(
+        name: string,
+        codes: Uint32Array,
+        private readonly dictionary: readonly string[],
+        sizeOrNull: number | BitVector,
+    ) {
+        super(name, codes, sizeOrNull);
+    }
+
+    protected getValueFromBuffer(index: number): string {
+        return pbfString(this.dictionary[this.dataBuffer[index]] ?? "");
+    }
+}
+
 function v2PropertyToVector(col: MltPropertyColumn, numFeatures: number): Vector {
     const nullability = col.present ? new BitVector(col.present, numFeatures) : undefined;
     const sizeOrNull = nullability ?? numFeatures;
     if ("codes" in col) {
-        return new ObjectFlatVector(
-            col.name,
-            Array.from(col.codes, (c) => col.dictionary[c] ?? ""),
-            nullability,
-        );
+        return new DictStringVector(col.name, col.codes, col.dictionary, sizeOrNull);
     }
     switch (col.kind) {
         case "i32":
@@ -393,7 +408,7 @@ function v2PropertyToVector(col: MltPropertyColumn, numFeatures: number): Vector
         case "bool":
             return new BooleanFlatVector(col.name, new BitVector(packBoolBytes(col.values), numFeatures), sizeOrNull);
         case "str":
-            return new ObjectFlatVector(col.name, [...col.values], nullability);
+            return new ObjectFlatVector(col.name, col.values.map(pbfString), nullability);
     }
 }
 

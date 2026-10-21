@@ -1,4 +1,4 @@
-const utf8 = new TextDecoder("utf-8", { fatal: true });
+const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 export const IS_LE = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
 export const DEFAULT_MAX_BYTES = 67108864;
 export const EMPTY_U32 = new Uint32Array(0);

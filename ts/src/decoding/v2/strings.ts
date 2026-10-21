@@ -1,4 +1,5 @@
 import type { MltStringPropertyColumn } from "../../columns";
+import { decodeFrontCoded } from "../frontCoding";
 import { decodeFsst } from "../fsstDecoder";
 import { type ByteReader, allocArray, allocU32, chargeBytes, decodeUtf8 } from "./binary";
 import { bitmapPopcount, normalizePresentBitmap, scatterPresent } from "./presence";
@@ -87,79 +88,26 @@ export function sliceStrings(bytes: Uint8Array, lengths: Uint32Array): string[] 
     const count = lengths.length;
     chargeBytes(bLen * 2);
     const entries = allocArray<string>(count);
-    const fullStr = decodeUtf8(bytes);
     let pos = 0;
-    if (fullStr.length === bLen) {
-        for (let i = 0; i < count; i++) {
-            const next = pos + lengths[i];
-            if (next > bLen) throw new RangeError("str eof");
-            entries[i] = fullStr.slice(pos, next);
-            pos = next;
-        }
-        return entries;
-    }
-    let u = 0;
     for (let i = 0; i < count; i++) {
-        const len = lengths[i];
-        if (pos + len > bLen) throw new RangeError("str eof");
-        pos += len;
-        const u0 = u;
-        let rem = len;
-        while (rem > 0) {
-            const c = fullStr.charCodeAt(u++);
-            if (c < 0x80) rem--;
-            else if (c < 0x800) rem -= 2;
-            else if (c >= 0xd800 && c <= 0xdbff) {
-                u++;
-                rem -= 4;
-            } else rem -= 3;
-        }
-        if (rem !== 0) throw new TypeError("utf8 split");
-        entries[i] = fullStr.slice(u0, u);
+        const next = pos + lengths[i];
+        if (next > bLen) throw new RangeError("str eof");
+        entries[i] = decodeUtf8(bytes.subarray(pos, next));
+        pos = next;
     }
     return entries;
 }
 
 function decodeDictEntries(front: number, lengths: Uint32Array, blobBytes: Uint8Array): string[] {
     if (front === 0) return sliceStrings(blobBytes, lengths);
-    if ((lengths.length & 1) !== 0) throw new Error("front odd");
-    const count = lengths.length >>> 1;
-    if (count === 0) {
-        if (blobBytes.length !== 0) throw new Error("front trailing");
-        return [];
-    }
-    if (lengths[0] !== 0) throw new Error("front first");
-    const entryLengths = allocU32(count);
-    let totalBytes = 0;
-    let sufSum = 0;
-    let prevLen = 0;
+    const { offsets, bytes } = decodeFrontCoded(lengths, blobBytes);
+    const count = offsets.length - 1;
+    chargeBytes(bytes.length * 2);
+    const entries = allocArray<string>(count);
     for (let i = 0; i < count; i++) {
-        const sh = lengths[i];
-        const sf = lengths[count + i];
-        if (sh > prevLen) throw new Error("front shared");
-        prevLen = sh + sf;
-        entryLengths[i] = prevLen;
-        totalBytes += prevLen;
-        sufSum += sf;
+        entries[i] = decodeUtf8(bytes.subarray(offsets[i], offsets[i + 1]));
     }
-    if (sufSum !== blobBytes.length) throw new Error("front suffixes");
-    chargeBytes(totalBytes);
-    const rebuilt = new Uint8Array(totalBytes);
-    let prevStart = 0;
-    let outPos = 0;
-    let sufPos = 0;
-    for (let i = 0; i < count; i++) {
-        const sh = lengths[i];
-        const sf = lengths[count + i];
-        const curStart = outPos;
-        if (sh > 0) rebuilt.set(rebuilt.subarray(prevStart, prevStart + sh), outPos);
-        outPos += sh;
-        if (sf > 0) rebuilt.set(blobBytes.subarray(sufPos, sufPos + sf), outPos);
-        outPos += sf;
-        sufPos += sf;
-        prevStart = curStart;
-    }
-    return sliceStrings(rebuilt, entryLengths);
+    return entries;
 }
 
 export function parseStrings02(r: ByteReader, impliedCount: number): RawStringsStreamSet {
