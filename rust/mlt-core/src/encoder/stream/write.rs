@@ -139,14 +139,19 @@ impl PhysicalCodecs {
             PhysicalEncoder::BitPacked if enc.config().wire_version() == WireVersion::V01 => {
                 (PE::VarInt, self.varint(values))
             }
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             #[cfg(feature = "unstable-v2")]
             PhysicalEncoder::BitPacked => (
                 PE::BitPacked,
-                self.bitpack(values)
-                    .ok_or(UnsupportedPhysicalEncodingForType(
+                self.bitpack(values).ok_or_else(|| {
+                    UnsupportedPhysicalEncodingForType(
                         PE::BitPacked,
                         "values that need more than 32 bits",
-                    ))?,
+                    )
+                })?,
             ),
             PhysicalEncoder::FastPFOR => {
                 #[cfg(feature = "unstable-v2")]

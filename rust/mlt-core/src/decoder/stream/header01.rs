@@ -187,7 +187,11 @@ pub(crate) fn parse_stream_meta<'a>(
     use LogicalCombination as LC;
 
     let (input, st_byte) = parse_u8(input)?;
-    let stream_type = stream_type_from_byte(st_byte).ok_or(ParsingStreamType(st_byte))?;
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
+    let stream_type = stream_type_from_byte(st_byte).ok_or_else(|| ParsingStreamType(st_byte))?;
     let kind = kind_of(stream_type, hint);
 
     let (input, val) = parse_u8(input)?;

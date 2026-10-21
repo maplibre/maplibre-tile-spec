@@ -206,11 +206,20 @@ impl GeometryValues {
         }
         for (run, start) in offsets.windows(2).zip(starts) {
             let [from, to] = [run[0], run[1]].map(|t| t.into_usize().saturating_mul(3));
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             let slice = indices
                 .get_mut(from..to)
-                .ok_or(GeometryIndexOutOfBounds(to))?;
+                .ok_or_else(|| GeometryIndexOutOfBounds(to))?;
             for idx in slice {
-                *idx = shift(*idx, start).ok_or(IntegerOverflow)?;
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let shifted = shift(*idx, start).ok_or_else(|| IntegerOverflow)?;
+                *idx = shifted;
             }
         }
         self.index_buffer = Some(indices);
@@ -295,13 +304,17 @@ impl GeometryValues {
         index: usize,
     ) -> MltResult<impl ExactSizeIterator<Item = MltResult<i32>> + '_> {
         let verts = self.vertices.as_deref().unwrap_or(&[]);
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let z_of = move |vertex: usize| -> MltResult<i32> {
             vertex
                 .checked_mul(3)
                 .and_then(|w| w.checked_add(2))
                 .and_then(|w| verts.get(w))
                 .copied()
-                .ok_or(GeometryVertexOutOfBounds {
+                .ok_or_else(|| GeometryVertexOutOfBounds {
                     index,
                     vertex,
                     count: verts.len() / 3,
@@ -321,10 +334,14 @@ impl GeometryValues {
             && let Some(indices) = self.index_buffer.as_deref()
         {
             let tris = self.triangle_offsets.as_deref().unwrap_or(&[]);
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             let run = |i: usize| {
                 tris.get(i)
                     .map(|&t| t.into_usize().saturating_mul(3))
-                    .ok_or(GeometryOutOfBounds {
+                    .ok_or_else(|| GeometryOutOfBounds {
                         index,
                         field: "triangle_offsets",
                         idx: i,
@@ -332,12 +349,18 @@ impl GeometryValues {
                     })
             };
             let run = run(index)?..run(index + 1)?;
-            let corners = indices.get(run.clone()).ok_or(GeometryOutOfBounds {
-                index,
-                field: "index_buffer",
-                idx: run.end,
-                len: indices.len(),
-            })?;
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
+            let corners = indices
+                .get(run.clone())
+                .ok_or_else(|| GeometryOutOfBounds {
+                    index,
+                    field: "index_buffer",
+                    idx: run.end,
+                    len: indices.len(),
+                })?;
             return Ok(ZVertices::Corners(corners.iter()));
         }
         Ok(ZVertices::Range(self.vertex_range(index)?))
@@ -349,11 +372,15 @@ impl GeometryValues {
     /// what the vertex buffer holds and what an m-value column runs over.
     /// A ring's closing vertex is not stored, so it is not in the range either.
     pub fn vertex_range(&self, index: usize) -> MltResult<Range<usize>> {
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let entry = |level: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
             level
                 .get(idx)
                 .map(|&v| v.into_usize())
-                .ok_or(GeometryOutOfBounds {
+                .ok_or_else(|| GeometryOutOfBounds {
                     index,
                     field,
                     idx,
@@ -403,10 +430,14 @@ impl GeometryValues {
         let parts = self.part_offsets.as_deref();
         let rings = self.ring_offsets.as_deref();
 
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let off = |s: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
             s.get(idx)
                 .map(|&v| v.into_usize())
-                .ok_or(GeometryOutOfBounds {
+                .ok_or_else(|| GeometryOutOfBounds {
                     index,
                     field,
                     idx,
@@ -429,7 +460,7 @@ impl GeometryValues {
             idx.checked_mul(stride)
                 .and_then(|w| verts.get(w..w.checked_add(2)?))
                 .map(|s| Coord { x: s[0], y: s[1] })
-                .ok_or(GeometryVertexOutOfBounds {
+                .ok_or_else(|| GeometryVertexOutOfBounds {
                     index,
                     vertex: idx,
                     count: verts.len() / stride,
@@ -471,10 +502,14 @@ impl GeometryValues {
                 Ok(())
             };
 
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let geom_type = *self
             .vector_types
             .get(index)
-            .ok_or(GeometryIndexOutOfBounds(index))?;
+            .ok_or_else(|| GeometryIndexOutOfBounds(index))?;
 
         if parts.is_none()
             && let Some(indices) = self.index_buffer.as_deref()
@@ -483,12 +518,18 @@ impl GeometryValues {
             let run = off_pair(tris, index, "triangle_offsets")?;
             let run = run.start.saturating_mul(3)..run.end.saturating_mul(3);
             let len = indices.len();
-            let corners = indices.get(run.clone()).ok_or(GeometryOutOfBounds {
-                index,
-                field: "index_buffer",
-                idx: run.end,
-                len,
-            })?;
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
+            let corners = indices
+                .get(run.clone())
+                .ok_or_else(|| GeometryOutOfBounds {
+                    index,
+                    field: "index_buffer",
+                    idx: run.end,
+                    len,
+                })?;
             let triangles = corners.as_chunks::<3>().0.iter();
             return reuse(out, empty_multi_polygon, |polys| {
                 refill(&mut polys.0, triangles, empty_polygon, |poly, tri| {
@@ -515,7 +556,11 @@ impl GeometryValues {
                 Ok(())
             }
             GeometryType::LineString => {
-                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let parts = parts.ok_or_else(|| NoPartOffsets(index, geom_type))?;
                 // Get part index: use geoms[index] if present, else index directly
                 let part_idx = geoms.map_or(Ok(index), |geom| geom_off(geom, index))?;
                 // With rings: parts[part_idx] gives ring index, use ring_offsets for vertex range
@@ -527,8 +572,16 @@ impl GeometryValues {
                 reuse(out, empty_line, |l| line(&mut l.0, vert_range))
             }
             GeometryType::Polygon => {
-                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
-                let rings = rings.ok_or(NoRingOffsets(index, geom_type))?;
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let parts = parts.ok_or_else(|| NoPartOffsets(index, geom_type))?;
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let rings = rings.ok_or_else(|| NoRingOffsets(index, geom_type))?;
                 let idx = geoms
                     .map(|geom| geom_off(geom, index))
                     .transpose()?
@@ -539,7 +592,11 @@ impl GeometryValues {
                 })
             }
             GeometryType::MultiPoint => {
-                let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let geoms = geoms.ok_or_else(|| NoGeometryOffsets(index, geom_type))?;
                 let geom_rng = geom_range(geoms, index)?;
                 // Resolve vertex index through parts?->rings? hierarchy
                 // When ring_offsets exist (polygon geometry present), geometry_offsets indexes
@@ -562,7 +619,11 @@ impl GeometryValues {
                 })
             }
             GeometryType::MultiLineString => {
-                let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let geoms = geoms.ok_or_else(|| NoGeometryOffsets(index, geom_type))?;
                 let geom_rng = geom_range(geoms, index)?;
                 // A multi with no sub-geometries never indexes the levels below it,
                 // so it does not need them to be present.
@@ -582,7 +643,11 @@ impl GeometryValues {
                 })
             }
             GeometryType::MultiPolygon => {
-                let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let geoms = geoms.ok_or_else(|| NoGeometryOffsets(index, geom_type))?;
                 let geom_rng = geom_range(geoms, index)?;
                 // A multi with no sub-geometries never indexes the levels below it,
                 // so it does not need them to be present.

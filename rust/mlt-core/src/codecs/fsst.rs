@@ -96,9 +96,14 @@ impl SymbolTable {
                 output.resize(output.len() * 2, 0);
             }
             if code == ESCAPE_MARKER {
-                output[len] = *codes
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let escaped = *codes
                     .next()
-                    .ok_or(MltError::MalformedFsst("corpus ends on an escape marker"))?;
+                    .ok_or_else(|| MltError::MalformedFsst("corpus ends on an escape marker"))?;
+                output[len] = escaped;
                 len += 1;
             } else {
                 let code = usize::from(code);

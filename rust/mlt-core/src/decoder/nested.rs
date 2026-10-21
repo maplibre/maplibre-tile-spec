@@ -666,11 +666,16 @@ pub(crate) fn presence_popcount(stream: &RawStream<'_>) -> MltResult<u32> {
             "a nested presence stream, which is a bool stream",
         ));
     };
-    let coding =
-        PresenceCoding::of_logical(logical).ok_or(MltError::UnsupportedLogicalEncoding(
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
+    let coding = PresenceCoding::of_logical(logical).ok_or_else(|| {
+        MltError::UnsupportedLogicalEncoding(
             encoding.logical,
             "a nested presence stream, which is a bool stream",
-        ))?;
+        )
+    })?;
     presence_coding::popcount(stream.data, stream.meta.num_values, coding)
 }
 
@@ -1004,10 +1009,13 @@ impl ParsedInterior<'_> {
                 let span = span_of(&node.lengths, own)?;
                 let mut entries = BTreeMap::new();
                 for entry in span {
-                    let key = node.keys.key(entry).ok_or(MltError::NestedKeyOutOfRange {
-                        entry,
-                        len: node.keys.entry_count(),
-                    })?;
+                    let key =
+                        node.keys
+                            .key(entry)
+                            .ok_or_else(|| MltError::NestedKeyOutOfRange {
+                                entry,
+                                len: node.keys.entry_count(),
+                            })?;
                     if let Some(value) = node.value.row(entry)? {
                         entries.insert(CompactString::from(key), value);
                     }
@@ -1086,10 +1094,14 @@ fn span_of(lengths: &[u32], row: usize) -> MltResult<Range<usize>> {
         .iter()
         .map(|&len| len.into_usize())
         .sum();
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
     let len = lengths
         .get(row)
         .copied()
-        .ok_or(MltError::NestedRowOutOfRange {
+        .ok_or_else(|| MltError::NestedRowOutOfRange {
             row,
             len: lengths.len(),
         })?
@@ -1097,11 +1109,15 @@ fn span_of(lengths: &[u32], row: usize) -> MltResult<Range<usize>> {
     Ok(start..start + len)
 }
 
+#[expect(
+    clippy::unnecessary_lazy_evaluations,
+    reason = "an eager error is dropped on every success"
+)]
 fn sum_lengths(lengths: &[u32]) -> MltResult<u32> {
     lengths
         .iter()
         .try_fold(0_u32, |acc, &len| acc.checked_add(len))
-        .ok_or(MltError::IntegerOverflow)
+        .ok_or_else(|| MltError::IntegerOverflow)
 }
 
 fn expect_count(expected: usize, actual: usize) -> MltResult<()> {

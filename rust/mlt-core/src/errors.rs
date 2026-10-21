@@ -468,7 +468,7 @@ pub(crate) trait AsMltError<T> {
 impl<T: Copy> AsMltError<T> for Option<T> {
     #[inline]
     fn or_overflow(&self) -> MltResult<T> {
-        self.ok_or(MltError::IntegerOverflow)
+        self.ok_or_else(|| MltError::IntegerOverflow)
     }
 }
 

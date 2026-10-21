@@ -139,13 +139,17 @@ impl AlpScale {
     }
 
     /// Read a scale back from its header byte, rejecting the codes past the last pair.
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
     pub(crate) fn from_byte(byte: u8) -> MltResult<Self> {
         (0..=Self::MAX_EXPONENT)
             .find_map(|e| {
                 let f = byte.checked_sub(Self::row_start(e))?;
                 (f <= e).then_some(Self { e, f })
             })
-            .ok_or(MltError::InvalidAlpScale(byte))
+            .ok_or_else(|| MltError::InvalidAlpScale(byte))
     }
 
     /// First byte of the row for `e`, which is `e * (e + 1) / 2`.

@@ -248,7 +248,11 @@ impl<'a> Walker<'a> {
         )?;
         let (input, tag) = self.field(input, "tag", parse_u8, |t| Some(tag_label(*t)))?;
 
-        let body_len = size.checked_sub(1).ok_or(MltError::ZeroLayerSize)?;
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
+        let body_len = size.checked_sub(1).ok_or_else(|| MltError::ZeroLayerSize)?;
         let (rest, body) = take(input, body_len)?;
 
         // The name is only known once the body has been read, so the layer takes its label

@@ -144,7 +144,12 @@ impl Codecs {
             match enc.override_float_enc(&ctx.qualified()) {
                 // A pinned encoding is written as asked, with nothing costed against it.
                 Some(FloatEncoding::Alp) => {
-                    let mut alp = AlpStream::smallest(values).ok_or(MltError::NoAlpParameters)?;
+                    #[expect(
+                        clippy::unnecessary_lazy_evaluations,
+                        reason = "an eager error is dropped on every success"
+                    )]
+                    let mut alp =
+                        AlpStream::smallest(values).ok_or_else(|| MltError::NoAlpParameters)?;
                     // The pin names the logical encoding; the physical one still races.
                     alp.race_fastpfor(&mut self.physical, enc.config())?;
                     return self.write_alp_stream(&alp, ctx.stream_type, enc);

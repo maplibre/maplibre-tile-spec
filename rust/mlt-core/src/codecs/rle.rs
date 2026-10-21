@@ -105,15 +105,20 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize, dec: &mut Decoder) -> Mlt
         if control >= 128 {
             let count = u32::from(control ^ 0xFF) + 1;
             let end = pos + count.into_usize();
-            let slice = input.get(pos..end).ok_or(MltError::BufferUnderflow(
-                count,
-                input.len().saturating_sub(pos),
-            ))?;
+            let slice = input
+                .get(pos..end)
+                .ok_or_else(|| MltError::BufferUnderflow(count, input.len().saturating_sub(pos)))?;
             output.extend_from_slice(slice);
             pos = end;
         } else {
             let count = usize::from(control) + 3;
-            let &value = input.get(pos).ok_or(MltError::BufferUnderflow(1, 0))?;
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
+            let &value = input
+                .get(pos)
+                .ok_or_else(|| MltError::BufferUnderflow(1, 0))?;
             pos += 1;
             output.extend(std::iter::repeat_n(value, count));
         }

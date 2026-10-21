@@ -233,11 +233,15 @@ pub(crate) fn read<'a>(
             while at < n {
                 let len: u64;
                 (input, len) = parse_varint(input)?;
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
                 let end = usize::try_from(len)
                     .ok()
                     .and_then(|len| at.checked_add(len))
                     .filter(|&end| end <= n)
-                    .ok_or(PresenceRunOverflow(count))?;
+                    .ok_or_else(|| PresenceRunOverflow(count))?;
                 if present {
                     bits[at..end].fill(true);
                 }
@@ -260,7 +264,13 @@ pub(crate) fn split(input: &[u8], count: u32, coding: PresenceCoding) -> MltRefR
         PresenceCoding::Bitmap => n.div_ceil(8),
         PresenceCoding::Sparse => {
             let summary = n.div_ceil(8).div_ceil(8);
-            let head = input.get(..summary).ok_or(MltError::UnableToTake(count))?;
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
+            let head = input
+                .get(..summary)
+                .ok_or_else(|| MltError::UnableToTake(count))?;
             summary + head.view_bits::<Lsb0>().count_ones()
         }
         PresenceCoding::Runs => {
@@ -269,11 +279,16 @@ pub(crate) fn split(input: &[u8], count: u32, coding: PresenceCoding) -> MltRefR
             while at < n {
                 let len: u64;
                 (rest, len) = parse_varint(rest)?;
-                at = usize::try_from(len)
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let end = usize::try_from(len)
                     .ok()
                     .and_then(|len| at.checked_add(len))
                     .filter(|&end| end <= n)
-                    .ok_or(PresenceRunOverflow(count))?;
+                    .ok_or_else(|| PresenceRunOverflow(count))?;
+                at = end;
             }
             input.len() - rest.len()
         }
@@ -288,21 +303,33 @@ pub(crate) fn split(input: &[u8], count: u32, coding: PresenceCoding) -> MltRefR
 pub(crate) fn popcount(payload: &[u8], count: u32, coding: PresenceCoding) -> MltResult<u32> {
     let n = count.into_usize();
     let bits = match coding {
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         PresenceCoding::Bitmap => payload
             .get(..n.div_ceil(8))
-            .ok_or(MltError::UnableToTake(count))?
+            .ok_or_else(|| MltError::UnableToTake(count))?
             .view_bits::<Lsb0>()[..n]
             .count_ones(),
         PresenceCoding::Sparse => {
             let bytes = n.div_ceil(8);
             let summary = bytes.div_ceil(8);
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             let stored = payload
                 .get(summary..)
-                .ok_or(MltError::UnableToTake(count))?;
+                .ok_or_else(|| MltError::UnableToTake(count))?;
             let mut stored = stored.iter();
             let mut total = 0usize;
             for at in payload.view_bits::<Lsb0>()[..bytes].iter_ones() {
-                let byte = *stored.next().ok_or(MltError::UnableToTake(count))?;
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let byte = *stored.next().ok_or_else(|| MltError::UnableToTake(count))?;
                 let valid = (n - at * 8).min(8);
                 total += (byte & (u8::MAX >> (8 - valid))).count_ones() as usize;
             }
@@ -317,10 +344,15 @@ pub(crate) fn popcount(payload: &[u8], count: u32, coding: PresenceCoding) -> Ml
                 let len: u64;
                 (rest, len) = parse_varint(rest)?;
                 let len = usize::try_from(len).map_err(|_| PresenceRunOverflow(count))?;
-                at = at
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let end = at
                     .checked_add(len)
                     .filter(|&end| end <= n)
-                    .ok_or(PresenceRunOverflow(count))?;
+                    .ok_or_else(|| PresenceRunOverflow(count))?;
+                at = end;
                 if present {
                     total += len;
                 }

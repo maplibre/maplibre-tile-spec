@@ -567,9 +567,13 @@ impl Encoding02 {
     /// Read the logical, physical and extension fields in `family`'s terms.
     fn parse(family: Family, enc_byte: u8) -> MltResult<Self> {
         let code = (enc_byte & LOGICAL_MASK) >> LOGICAL_SHIFT;
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
         let logical = family
             .logical(code)
-            .ok_or(MltError::ParsingEncodingByte(enc_byte))?;
+            .ok_or_else(|| MltError::ParsingEncodingByte(enc_byte))?;
         // Only a string column's leading stream and a vertex stream assign anything to the extension field.
         if !matches!(family, Family::Str(_) | Family::Vertex) {
             no_extension(enc_byte)?;
@@ -1123,9 +1127,13 @@ pub(crate) fn parse_stream<'a>(
             let (_, payload) = presence_coding::split(input, num_values, coding)?;
             (input, num_values, u32::try_from(payload.len())?)
         } else if encoding.omits_byte_length() {
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             let byte_length = family
                 .raw_byte_length(num_words(num_values)?)?
-                .ok_or(MltError::ParsingEncodingByte(enc_byte))?;
+                .ok_or_else(|| MltError::ParsingEncodingByte(enc_byte))?;
             (input, num_values, byte_length)
         } else {
             let (input, byte_length) = parse_varint::<u32>(input)?;

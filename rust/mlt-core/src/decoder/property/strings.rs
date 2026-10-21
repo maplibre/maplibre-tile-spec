@@ -118,10 +118,14 @@ pub(crate) fn resolve_dict_spans(
                 continue;
             }
             let idx = next.next().ok_or_else(fail)?;
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             let span = dict_spans
                 .get(idx.into_usize())
                 .copied()
-                .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
+                .ok_or_else(|| DictIndexOutOfBounds(idx, dict_spans.len()))?;
             resolved.push(Some(span));
         }
 
@@ -130,10 +134,14 @@ pub(crate) fn resolve_dict_spans(
         }
     } else {
         for &idx in offsets {
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             let span = dict_spans
                 .get(idx.into_usize())
                 .copied()
-                .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
+                .ok_or_else(|| DictIndexOutOfBounds(idx, dict_spans.len()))?;
             resolved.push(Some(span));
         }
     }
@@ -418,10 +426,9 @@ fn to_absolute_lengths(
     if let Some(presence) = presence {
         for present in presence.iter().by_vals() {
             if present {
-                let len = iter.next().ok_or(MltError::PresenceValueCountMismatch(
-                    presence.len(),
-                    lengths.len(),
-                ))?;
+                let len = iter.next().ok_or_else(|| {
+                    MltError::PresenceValueCountMismatch(presence.len(), lengths.len())
+                })?;
                 end = checked_absolute_end(end, len)?;
                 absolute.push(end);
             } else {

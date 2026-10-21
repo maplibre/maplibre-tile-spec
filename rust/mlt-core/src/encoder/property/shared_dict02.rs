@@ -94,16 +94,24 @@ impl Codecs {
 /// The distinct entries every child shares, and each child's codes into them.
 fn group(shared_dict: &StagedSharedDict) -> MltResult<Grouped<'_>> {
     let spans = collect_staged_shared_dict_spans(&shared_dict.items);
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
     let entries: Vec<&str> = spans
         .iter()
         .map(|&span| {
             shared_dict
                 .get(span)
-                .ok_or(DictIndexOutOfBounds(span.0, spans.len()))
+                .ok_or_else(|| DictIndexOutOfBounds(span.0, spans.len()))
         })
         .collect::<Result<_, _>>()?;
     let index: HashMap<(u32, u32), u32> = spans.iter().copied().zip(0_u32..).collect();
 
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
     let codes = shared_dict
         .items
         .iter()
@@ -113,7 +121,7 @@ fn group(shared_dict: &StagedSharedDict) -> MltResult<Grouped<'_>> {
                     index
                         .get(&span)
                         .copied()
-                        .ok_or(DictIndexOutOfBounds(span.0, spans.len()))
+                        .ok_or_else(|| DictIndexOutOfBounds(span.0, spans.len()))
                 })
                 .collect::<Result<Vec<_>, _>>()
         })

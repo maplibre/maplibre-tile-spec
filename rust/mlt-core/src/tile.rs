@@ -24,10 +24,14 @@ use crate::{MltError, MltResult};
 pub struct Extent(NonZeroU32);
 
 impl Extent {
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
     pub fn new(value: u32) -> MltResult<Self> {
         NonZeroU32::new(value)
             .map(Self)
-            .ok_or(MltError::InvalidExtent(value))
+            .ok_or_else(|| MltError::InvalidExtent(value))
     }
 
     #[must_use]
@@ -78,11 +82,15 @@ impl ZStep {
     }
 
     /// The step a vertex stream's byte names.
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
     pub(crate) fn from_code(code: u8) -> MltResult<Self> {
         i8::try_from(code)
             .ok()
             .and_then(|c| Self::new(c + Self::MIN_EXPONENT).ok())
-            .ok_or(MltError::InvalidZStepCode(code))
+            .ok_or_else(|| MltError::InvalidZStepCode(code))
     }
 
     /// The step in metres.

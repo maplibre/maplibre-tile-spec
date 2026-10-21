@@ -63,6 +63,10 @@ impl<'a> RawFloats<'a> {
                 dec.consume_items::<T>(codes.len())?;
                 crate::codecs::alp::decode::<T>(&codes, params.scale)
             }
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
             #[cfg(feature = "unstable-v2")]
             RawFloatsEncoding::Dictionary { codes, dictionary } => {
                 let dictionary = dictionary.decode_floats::<T>(dec)?;
@@ -71,10 +75,9 @@ impl<'a> RawFloats<'a> {
                 codes
                     .into_iter()
                     .map(|code| {
-                        dictionary
-                            .get(code.into_usize())
-                            .copied()
-                            .ok_or(MltError::DictionaryCodeOutOfRange(code, dictionary.len()))
+                        dictionary.get(code.into_usize()).copied().ok_or_else(|| {
+                            MltError::DictionaryCodeOutOfRange(code, dictionary.len())
+                        })
                     })
                     .collect::<MltResult<Vec<T>>>()?
             }

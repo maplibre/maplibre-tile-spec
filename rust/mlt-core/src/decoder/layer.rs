@@ -45,7 +45,11 @@ impl<'a> Layer<'a> {
         // so we can use a faster u8 and fail if it is bigger than 127.
         let (input, tag) = parse_u8(input)?;
         // 1 byte must be parsed for the tag, so if size is 0, it's invalid
-        let size = size.checked_sub(1).ok_or(MltError::ZeroLayerSize)?;
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
+        let size = size.checked_sub(1).ok_or_else(|| MltError::ZeroLayerSize)?;
         let (input, value) = take(input, size)?;
 
         let layer = match tag {

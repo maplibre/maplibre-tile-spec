@@ -641,7 +641,11 @@ impl Parts<'_> {
 
 /// Split `data` into its depth, tables, lanes and raw bits, charging `dec` for the tables.
 pub(crate) fn split<'a>(data: &'a [u8], dec: &mut Decoder) -> MltResult<Parts<'a>> {
-    let (&depth, rest) = data.split_first().ok_or(MalformedRans("empty"))?;
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
+    let (&depth, rest) = data.split_first().ok_or_else(|| MalformedRans("empty"))?;
     let depth = u32::from(depth);
     if depth > MAX_DEPTH {
         return Err(MalformedRans("depth"));
@@ -674,9 +678,14 @@ pub(crate) fn split<'a>(data: &'a [u8], dec: &mut Decoder) -> MltResult<Parts<'a
         if len < 4 || !len.is_multiple_of(2) {
             return Err(MalformedRans("lane length"));
         }
-        (*lane, rest) = rest
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
+        let split = rest
             .split_at_checked(len)
-            .ok_or(MalformedRans("lanes truncated"))?;
+            .ok_or_else(|| MalformedRans("lanes truncated"))?;
+        (*lane, rest) = split;
     }
     Ok(Parts {
         depth,
@@ -814,7 +823,13 @@ impl Symbols<'_> {
             l1.unstage(t1);
             l2.unstage(t2);
             l3.unstage(t3);
-            let mut w = raw.window().ok_or(MalformedRans("raw bits length"))?;
+            #[expect(
+                clippy::unnecessary_lazy_evaluations,
+                reason = "an eager error is dropped on every success"
+            )]
+            let mut w = raw
+                .window()
+                .ok_or_else(|| MalformedRans("raw bits length"))?;
             let slots = buf[..quads.len()].as_flattened();
             let out = quads.as_flattened_mut();
             invalid |= w.resolve(slots, out, &mut x, &mut y);

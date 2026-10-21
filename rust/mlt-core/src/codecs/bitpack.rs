@@ -51,7 +51,13 @@ pub(crate) fn pack<T: Copy + Into<u64>>(values: &[T], width: u32, out: &mut Vec<
 
 /// Read `count` values back out of a packed payload.
 pub fn unpack<T: PhysicalWord>(data: &[u8], count: u32) -> MltResult<Vec<T>> {
-    let (&width, packed) = data.split_first().ok_or(InvalidDecodingStreamSize(0, 1))?;
+    #[expect(
+        clippy::unnecessary_lazy_evaluations,
+        reason = "an eager error is dropped on every success"
+    )]
+    let (&width, packed) = data
+        .split_first()
+        .ok_or_else(|| InvalidDecodingStreamSize(0, 1))?;
     let width = u32::from(width);
     if !(1..=MAX_WIDTH).contains(&width) {
         return Err(ParsingBitWidth(width));
