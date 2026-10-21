@@ -8,7 +8,8 @@ import com.sun.jna.Structure
 
 internal interface ConvertErrorKindLib : Library
 
-/** Which stage of a conversion failed.
+/**
+ * Which stage of a conversion failed.
 */
 enum class ConvertErrorKind {
     InvalidInput,

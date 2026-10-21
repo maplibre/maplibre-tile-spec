@@ -68,8 +68,9 @@ internal interface MltLayerBuilderLib : Library {
     ): ResultUnitPointer
 }
 
-/** A layer written one feature at a time, then encoded without going through MVT.
-*/
+/**
+ * A layer written one feature at a time, then encoded without going through MVT.
+ */
 class MltLayerBuilder internal constructor(
     internal val handle: Pointer,
     // These ensure that anything that is borrowed is kept alive and not cleaned
@@ -100,7 +101,8 @@ class MltLayerBuilder internal constructor(
         internal val libClass: Class<MltLayerBuilderLib> = MltLayerBuilderLib::class.java
         internal val lib: MltLayerBuilderLib = Native.load("mlt_ffi", libClass)
 
-        /** Start a layer.
+        /**
+         * Start a layer.
          */
         @JvmStatic
         fun new_(
@@ -129,7 +131,8 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Start another layer, keeping the allocations of the last one.
+    /**
+     * Start another layer, keeping the allocations of the last one.
      */
     fun reset(
         name: String,
@@ -153,8 +156,9 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Declare a property column, returning the key to set it with.
-     *Declaring a name again returns its existing key.
+    /**
+     * Declare a property column, returning the key to set it with.
+     * Declaring a name again returns its existing key.
      */
     fun addProperty(name: String): UInt {
         val nameSliceMemory = PrimitiveArrayTools.borrowUtf8(name)
@@ -167,8 +171,9 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Start a feature with its geometry given as MVT commands, ending the previous one.
-     *A ring with positive area starts a polygon and any other ring is a hole of the last one.
+    /**
+     * Start a feature with its geometry given as MVT commands, ending the previous one.
+     * A ring with positive area starts a polygon and any other ring is a hole of the last one.
      */
     fun beginMvtFeature(
         geometry: MltMvtGeometryType,
@@ -201,7 +206,8 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Set a boolean property of the current feature.
+    /**
+     * Set a boolean property of the current feature.
      */
     fun setBool(
         key: UInt,
@@ -219,7 +225,8 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Set an integer property of the current feature.
+    /**
+     * Set an integer property of the current feature.
      */
     fun setI64(
         key: UInt,
@@ -237,7 +244,8 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Set a 32-bit float property of the current feature.
+    /**
+     * Set a 32-bit float property of the current feature.
      */
     fun setF32(
         key: UInt,
@@ -255,7 +263,8 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Set a 64-bit float property of the current feature.
+    /**
+     * Set a 64-bit float property of the current feature.
      */
     fun setF64(
         key: UInt,
@@ -273,7 +282,8 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Set a string property of the current feature.
+    /**
+     * Set a string property of the current feature.
      */
     fun setStr(
         key: UInt,
@@ -297,7 +307,8 @@ class MltLayerBuilder internal constructor(
         }
     }
 
-    /** Encode the layer and append it to `out`.
+    /**
+     * Encode the layer and append it to `out`.
      */
     fun encodeInto(
         options: MltEncoderOptions,

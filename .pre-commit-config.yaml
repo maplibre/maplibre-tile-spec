@@ -9,11 +9,6 @@ exclude: |
       |\.cursor/rules/.*
   )$
 
-ci:
-  autoupdate_schedule: monthly
-  # sometimes fails https://github.com/keith/pre-commit-buildifier/issues/13
-  skip: [ buildifier ]
-
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
