@@ -142,6 +142,13 @@ public class GeometryDecoder {
     var vertexBuffer = geometryColumn.vertexList.stream().mapToInt(i -> i).toArray();
 
     final var containsPolygon = containsPolygon(geometryTypes);
+    // Without outlines, a pre-tessellated column only has triangles, so the rings can't be rebuilt
+    if (containsPolygon
+        && geometryColumn.triangles() != null
+        && (partOffsets == null || ringOffsets == null)) {
+      throw new IllegalArgumentException(
+          "Pre-tessellated polygons can only be decoded when they are encoded with outlines");
+    }
 
     // TODO: refactor redundant code
     for (var geometryType : geometryTypes) {
