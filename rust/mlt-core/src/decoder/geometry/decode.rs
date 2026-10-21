@@ -580,17 +580,15 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             // dict_vertex_count <= isize::MAX / stride, meaning
             // i * stride + stride - 1 <= isize::MAX < usize::MAX.
             let dict_vertex_count = dict.len() / stride;
-            vertices = Some(offsets.iter().try_fold(
-                Vec::with_capacity(offsets.len() * stride),
-                |mut acc, &idx| -> MltResult<_> {
-                    let i = idx.into_usize();
-                    if i >= dict_vertex_count {
-                        return Err(MltError::DictIndexOutOfBounds(idx, dict_vertex_count));
-                    }
-                    acc.extend_from_slice(&dict[i * stride..(i + 1) * stride]);
-                    Ok(acc)
-                },
-            )?);
+            let mut expanded = Vec::with_capacity(offsets.len() * stride);
+            for &idx in &offsets {
+                let i = idx.into_usize();
+                if i >= dict_vertex_count {
+                    return Err(MltError::DictIndexOutOfBounds(idx, dict_vertex_count));
+                }
+                expanded.extend_from_slice(&dict[i * stride..(i + 1) * stride]);
+            }
+            vertices = Some(expanded);
         }
 
         let mut values = GeometryValues {
