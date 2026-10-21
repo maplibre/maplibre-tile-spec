@@ -6,5 +6,4 @@ paths:
 
 self-hosted-runner:
   labels:
-    # GitHub-hosted runners that this actionlint release does not know yet
     - ubuntu-26.04
