@@ -9,6 +9,7 @@
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
+use compact_str::{CompactString, ToCompactString as _};
 use geo_types::{Coord, Geometry, LineString};
 #[cfg(feature = "unstable-v2")]
 use num_traits::ToPrimitive as _;
@@ -312,9 +313,13 @@ impl NestedKind {
             (Self::List(element), NestedValue::List(Some(items))) => {
                 items.iter().all(|item| element.accepts(item))
             }
-            (Self::Map(fields), NestedValue::Map(Some(entries))) => entries
-                .iter()
-                .all(|(key, value)| fields.get(key).is_some_and(|kind| kind.accepts(value))),
+            (Self::Map(fields), NestedValue::Map(Some(entries))) => {
+                entries.iter().all(|(key, value)| {
+                    fields
+                        .get(key.as_str())
+                        .is_some_and(|kind| kind.accepts(value))
+                })
+            }
             _ => false,
         }
     }
@@ -337,14 +342,14 @@ impl NestedKind {
 pub enum NestedValue {
     Leaf(PropValue),
     List(Option<Vec<Self>>),
-    Map(Option<BTreeMap<String, Self>>),
+    Map(Option<BTreeMap<CompactString, Self>>),
 }
 
 #[cfg(feature = "unstable-v2")]
 impl NestedValue {
     /// A map of the given entries.
     #[must_use]
-    pub fn map<K: Into<String>>(entries: impl IntoIterator<Item = (K, Self)>) -> Self {
+    pub fn map<K: Into<CompactString>>(entries: impl IntoIterator<Item = (K, Self)>) -> Self {
         Self::Map(Some(
             entries.into_iter().map(|(k, v)| (k.into(), v)).collect(),
         ))
@@ -1083,7 +1088,7 @@ pub enum PropValue {
     U64(Option<u64>),
     F32(Option<f32>),
     F64(Option<f64>),
-    Str(Option<String>),
+    Str(Option<CompactString>),
 }
 
 impl PropValue {
@@ -1109,7 +1114,7 @@ pub enum MValue {
     U64(Option<Vec<u64>>),
     F32(Option<Vec<f32>>),
     F64(Option<Vec<f64>>),
-    Str(Option<Vec<String>>),
+    Str(Option<Vec<CompactString>>),
 }
 
 #[cfg(feature = "unstable-v2")]
@@ -1257,7 +1262,7 @@ macro_rules! kind_mappings {
             fn from(value: PropValueRef<'_>) -> Self {
                 match value {
                     $(PropValueRef::$sv(v) => Self::$sv(Some(v)),)*
-                    $(PropValueRef::$gv(v) => Self::$gv(Some(v.to_owned())),)*
+                    $(PropValueRef::$gv(v) => Self::$gv(Some(CompactString::from(v))),)*
                 }
             }
         }
@@ -1394,16 +1399,16 @@ impl PropValueRef<'_> {
                 | Self::U64(_) => int.map(|v| v as f64),
             }),
             PropKind::Str => PropValue::Str(Some(match self {
-                Self::Bool(v) => v.to_string(),
-                Self::I8(v) => v.to_string(),
-                Self::U8(v) => v.to_string(),
-                Self::I32(v) => v.to_string(),
-                Self::U32(v) => v.to_string(),
-                Self::I64(v) => v.to_string(),
-                Self::U64(v) => v.to_string(),
-                Self::F32(v) => v.to_string(),
-                Self::F64(v) => v.to_string(),
-                Self::Str(v) => v.to_string(),
+                Self::Bool(v) => v.to_compact_string(),
+                Self::I8(v) => v.to_compact_string(),
+                Self::U8(v) => v.to_compact_string(),
+                Self::I32(v) => v.to_compact_string(),
+                Self::U32(v) => v.to_compact_string(),
+                Self::I64(v) => v.to_compact_string(),
+                Self::U64(v) => v.to_compact_string(),
+                Self::F32(v) => v.to_compact_string(),
+                Self::F64(v) => v.to_compact_string(),
+                Self::Str(v) => v.to_compact_string(),
             })),
             PropKind::Bool | PropKind::F32 => PropValue::null(kind),
         }
@@ -1610,6 +1615,11 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+
+    #[test]
+    fn a_prop_value_is_as_small_as_a_string() {
+        assert_eq!(size_of::<PropValue>(), size_of::<String>());
+    }
 
     #[rstest]
     #[case::same_kind(PropKind::I32, PropKind::I32, PropKind::I32)]

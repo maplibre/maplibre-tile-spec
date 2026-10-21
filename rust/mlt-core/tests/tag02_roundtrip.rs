@@ -1035,7 +1035,10 @@ mod strings {
     type Values = fn(usize) -> Vec<String>;
 
     fn column(values: impl IntoIterator<Item = Option<String>>) -> TileLayer {
-        let values: Vec<PropValue> = values.into_iter().map(PropValue::Str).collect();
+        let values: Vec<PropValue> = values
+            .into_iter()
+            .map(|v| PropValue::Str(v.map(Into::into)))
+            .collect();
         layer(points(&"1".repeat(values.len())), None, &[("v", values)])
     }
 
@@ -1145,7 +1148,7 @@ mod strings {
         let strings: Vec<PropValue> = MASK
             .bytes()
             .enumerate()
-            .map(|(i, b)| PropValue::Str((b == b'1').then(|| format!("v{i}"))))
+            .map(|(i, b)| PropValue::Str((b == b'1').then(|| format!("v{i}").into())))
             .collect();
         let l = layer(points(MASK), None, &[("s", strings), ("n", opt_col(MASK))]);
         assert_differential(&l);
@@ -1159,7 +1162,7 @@ mod strings {
     fn shared_dict_layer() -> TileLayer {
         let shared: Vec<PropValue> = dict_values(6)
             .into_iter()
-            .map(|v| PropValue::Str(Some(v)))
+            .map(|v| PropValue::Str(Some(v.into())))
             .collect();
         layer(
             points(&"1".repeat(6)),
@@ -1249,7 +1252,7 @@ mod strings {
             mask.bytes()
                 .enumerate()
                 .map(|(i, b)| {
-                    PropValue::Str((b == b'1').then(|| format!("name:{}", (i + offset) % 3)))
+                    PropValue::Str((b == b'1').then(|| format!("name:{}", (i + offset) % 3).into()))
                 })
                 .collect()
         };
@@ -1281,7 +1284,7 @@ mod strings {
                     let column = mask
                         .bytes()
                         .zip(&values)
-                        .map(|(b, v)| PropValue::Str((b == b'1').then(|| v.clone())))
+                        .map(|(b, v)| PropValue::Str((b == b'1').then(|| v.as_str().into())))
                         .collect();
                     (format!("name:{child}"), column)
                 })
@@ -1829,7 +1832,7 @@ mod bit_packing {
         let values: Vec<PropValue> = (0..600_u32)
             .map(|i| {
                 let scrambled = i.wrapping_mul(2_654_435_761) >> 7;
-                PropValue::Str(Some(format!("value_{:04}", scrambled % 300)))
+                PropValue::Str(Some(format!("value_{:04}", scrambled % 300).into()))
             })
             .collect();
         let geoms = points(&"1".repeat(values.len()));

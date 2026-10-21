@@ -28,6 +28,7 @@ macro_rules! with_kinds {
     };
 }
 
+pub use compact_str;
 pub use fast_mvt;
 pub use geo_types;
 

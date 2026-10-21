@@ -1,5 +1,7 @@
 //! Columnar staging form of a layer's vertex-scoped columns.
 
+use compact_str::CompactString;
+
 use crate::encoder::StagedStrings;
 
 /// An m-value column prepared for encoding: one value per vertex of every
@@ -29,7 +31,7 @@ pub enum StagedValues {
     U64(Vec<u64>),
     F32(Vec<f32>),
     F64(Vec<f64>),
-    Str(Vec<String>),
+    Str(Vec<CompactString>),
 }
 
 macro_rules! impl_staged_m_values {
@@ -81,7 +83,7 @@ impl StagedMValue {
     }
 
     /// The string column this one's values make up, which the string writers take.
-    pub(crate) fn strings(&self, values: &[String]) -> StagedStrings {
+    pub(crate) fn strings(&self, values: &[CompactString]) -> StagedStrings {
         StagedStrings::from_strings(self.name.clone(), values)
     }
 }

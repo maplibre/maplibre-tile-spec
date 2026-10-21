@@ -4,6 +4,9 @@
 #[cfg(feature = "unstable-v2")]
 use std::collections::BTreeMap;
 
+#[cfg(feature = "unstable-v2")]
+use compact_str::CompactString;
+
 use crate::PropValueRef;
 use crate::decoder::GeometryValues;
 #[cfg(any(test, feature = "__private"))]
@@ -303,7 +306,7 @@ fn shred(kind: &NestedKind, inputs: &[Option<&NestedValue>]) -> StagedNode {
             )))
         }
         NestedKind::Map(fields) => {
-            let entries: Vec<&BTreeMap<String, NestedValue>> = dense
+            let entries: Vec<&BTreeMap<CompactString, NestedValue>> = dense
                 .iter()
                 .filter_map(|value| match value {
                     NestedValue::Map(entries) => entries.as_ref(),
@@ -313,8 +316,10 @@ fn shred(kind: &NestedKind, inputs: &[Option<&NestedValue>]) -> StagedNode {
             let fields = fields
                 .iter()
                 .map(|(key, kind)| {
-                    let values: Vec<Option<&NestedValue>> =
-                        entries.iter().map(|entry| entry.get(key)).collect();
+                    let values: Vec<Option<&NestedValue>> = entries
+                        .iter()
+                        .map(|entry| entry.get(key.as_str()))
+                        .collect();
                     (key.clone(), shred(kind, &values))
                 })
                 .collect::<Vec<_>>();

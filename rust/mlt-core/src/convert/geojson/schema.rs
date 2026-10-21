@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use compact_str::ToCompactString as _;
 use serde_json::{Map, Value};
 
 use crate::convert::infer::{ColumnInference, InferredKind};
@@ -96,10 +97,10 @@ fn convert(kind: PropKind, name: &str, value: &Value) -> MltResult<PropValue> {
         (PropKind::I64, Value::Number(n)) => n.as_i64().map(|i| PropValue::I64(Some(i))),
         (PropKind::U64, Value::Number(n)) => n.as_u64().map(|u| PropValue::U64(Some(u))),
         (PropKind::F64, Value::Number(n)) => n.as_f64().map(|f| PropValue::F64(Some(f))),
-        (PropKind::Str, Value::String(s)) => Some(PropValue::Str(Some(s.clone()))),
+        (PropKind::Str, Value::String(s)) => Some(PropValue::Str(Some(s.as_str().into()))),
         // A scalar in a column that widened to `Str` keeps its JSON text.
         (PropKind::Str, other @ (Value::Bool(_) | Value::Number(_))) => {
-            Some(PropValue::Str(Some(other.to_string())))
+            Some(PropValue::Str(Some(other.to_compact_string())))
         }
         // Inference merges every value a column holds, so only a number out of
         // its widened column's range gets here.

@@ -1,5 +1,7 @@
 use arbitrary::Error::IncorrectFormat;
 use arbitrary::{Arbitrary, Result, Unstructured};
+#[cfg(feature = "unstable-v2")]
+use compact_str::CompactString;
 use num_traits::Float;
 use strum::EnumCount as _;
 
@@ -208,7 +210,12 @@ fn generate_values(u: &mut Unstructured<'_>, count: usize) -> Result<StagedValue
         6 => StagedValues::U64(generate_scalars(u, count)?),
         7 => StagedValues::F32(generate_floats(u, count)?),
         8 => StagedValues::F64(generate_floats(u, count)?),
-        _ => StagedValues::Str(generate_strings(u, count)?),
+        _ => StagedValues::Str(
+            generate_strings(u, count)?
+                .into_iter()
+                .map(CompactString::from)
+                .collect(),
+        ),
     })
 }
 

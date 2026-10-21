@@ -1,11 +1,13 @@
 //! Typed columns parsed out of string properties that pack structured values, and the strings formatted back.
 
+use std::borrow::Borrow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::{Mutex, PoisonError};
 
 use anyhow::{Context as _, Result as AnyResult, anyhow, ensure};
+use mlt_core::compact_str::CompactString;
 use mlt_core::{
     MValue, MValueKey, MltResult, NestedKey, NestedKind, NestedValue, PropKind, PropValue,
     PropertyKey, TileFeature, TileFeatureBuilder, TileLayer, TileLayerBuilder,
@@ -166,12 +168,13 @@ impl Split {
         }
     }
 
-    fn join(self, tokens: &[String]) -> String {
+    fn join<S: Borrow<str>>(self, tokens: &[S]) -> String {
         match self {
             Self::At(c) => tokens.join(&c.to_string()),
             Self::Sign => {
                 let mut s = String::new();
                 for (i, token) in tokens.iter().enumerate() {
+                    let token = token.borrow();
                     if i > 0 && !token.starts_with('-') {
                         s.push('+');
                     }
@@ -253,7 +256,7 @@ impl Syntax {
                 kind, running_sum, ..
             } => Values::Numbers(kind, numbers(&tokens, kind, running_sum)?),
             Self::Strings { .. } => {
-                Values::Strings(tokens.into_iter().map(str::to_owned).collect())
+                Values::Strings(tokens.into_iter().map(CompactString::from).collect())
             }
         };
         let back = self.format(&values);
@@ -288,11 +291,10 @@ impl Syntax {
                 ..
             }
         );
-        let tokens = match values {
-            Values::Numbers(_, v) => number_tokens(v, running_sum),
-            Values::Strings(v) => v.clone(),
-        };
-        self.split().join(&tokens)
+        match values {
+            Values::Numbers(_, v) => self.split().join(&number_tokens(v, running_sum)),
+            Values::Strings(v) => self.split().join(v),
+        }
     }
 
     /// `numbers` read back for this syntax, or [`None`] for a null.
@@ -304,7 +306,7 @@ impl Syntax {
     }
 
     /// `strings` read back for this syntax, or [`None`] for a null.
-    fn strings(self, strings: Option<Vec<String>>) -> AnyResult<Option<Values>> {
+    fn strings(self, strings: Option<Vec<CompactString>>) -> AnyResult<Option<Values>> {
         match self {
             Self::Strings { .. } => Ok(strings.map(Values::Strings)),
             Self::Numbers { kind, .. } => {
@@ -318,7 +320,7 @@ impl Syntax {
 #[derive(Debug, PartialEq)]
 enum Values {
     Numbers(IntKind, Vec<i128>),
-    Strings(Vec<String>),
+    Strings(Vec<CompactString>),
 }
 
 impl Values {
@@ -400,7 +402,7 @@ impl Values {
     }
 }
 
-fn string(leaf: &PropValue) -> AnyResult<String> {
+fn string(leaf: &PropValue) -> AnyResult<CompactString> {
     let PropValue::Str(Some(s)) = leaf else {
         return Err(anyhow!("{leaf:?} is not a string"));
     };
@@ -695,7 +697,7 @@ fn restore_values<K: Copy, V>(
                 let s = read(syntax, value)
                     .and_then(|v| v.map(|v| syntax.write(&v)).transpose())
                     .with_context(|| field_context(name, feature))?;
-                row.property(key, PropValue::Str(s))?;
+                row.property(key, PropValue::Str(s.map(CompactString::from)))?;
             }
         }
     }

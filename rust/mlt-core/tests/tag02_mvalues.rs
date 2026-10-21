@@ -681,7 +681,7 @@ fn the_layer_reports_its_m_value_columns() {
 
 #[test]
 fn a_string_m_value_reports_its_storage() {
-    let names = |a: &str, b: &str| MValue::Str(Some(vec![a.to_string(), b.to_string()]));
+    let names = |a: &str, b: &str| MValue::Str(Some(vec![a.into(), b.into()]));
     let l = layer(
         vec![line(&[(0, 0), (1, 1)]), line(&[(2, 2), (3, 3)])],
         &[

@@ -5,6 +5,7 @@ use std::ops::Range;
 
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
+use compact_str::CompactString;
 
 use crate::decoder::{
     GeometryValues, ParsedStrings, RawFloats, RawPresence, RawScalar, RawStrings,
@@ -129,9 +130,9 @@ impl MValues<'_> {
                 span.clone()
                     .map(|i| {
                         let i = u32::try_from(i)?;
-                        Ok(v.get(i).ok_or_else(out_of_range)?.to_string())
+                        Ok(CompactString::from(v.get(i).ok_or_else(out_of_range)?))
                     })
-                    .collect::<MltResult<Vec<String>>>()?,
+                    .collect::<MltResult<Vec<CompactString>>>()?,
             )),
         })
     }

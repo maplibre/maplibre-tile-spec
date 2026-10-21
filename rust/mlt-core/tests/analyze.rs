@@ -36,7 +36,7 @@ fn narrow_ints_and_long_strings() -> TileLayer {
             "{i} long street name that repeats its words, long street name that repeats its words"
         );
         feature
-            .property(str_key, PropValue::Str(Some(name)))
+            .property(str_key, PropValue::Str(Some(name.into())))
             .unwrap();
         feature.finish().unwrap();
     }

@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use compact_str::ToCompactString as _;
 use fast_mvt::{MvtError, MvtLayer, MvtLayerRef, MvtReaderRef, MvtValue, MvtValueRef};
 use serde_json::Value;
 use usize_cast::IntoUsize as _;
@@ -110,7 +111,7 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
             if !matches!(value, MvtValueRef::Null) {
                 let idx =
                     key_cols[pair[0].into_usize()].expect("the first pass resolved every key");
-                properties[idx] = convert(col_kinds[idx], value.into_owned());
+                properties[idx] = convert(col_kinds[idx], value);
             }
         }
         tile_features.push(TileFeature {
@@ -157,7 +158,11 @@ impl TryFrom<MvtLayer> for TileLayer {
                 col_kinds.iter().map(|&k| PropValue::null(k)).collect();
             for ((_, val), idx) in feat.properties.into_iter().zip(&mut value_columns) {
                 if !matches!(val, MvtValue::Null) {
-                    properties[idx] = convert(col_kinds[idx], val);
+                    properties[idx] = if let MvtValue::String(s) = val {
+                        PropValue::Str(Some(s.into()))
+                    } else {
+                        convert(col_kinds[idx], as_value_ref(&val))
+                    };
                 }
             }
             tile_features.push(TileFeature {
@@ -204,38 +209,42 @@ fn kind_of(val: MvtValueRef<'_>) -> InferredKind {
     }
 }
 
-/// Convert an owned [`MvtValue`] into a [`PropValue`] of the column's kind.
-fn convert(kind: PropKind, val: MvtValue) -> PropValue {
+/// Convert a borrowed [`MvtValueRef`] into a [`PropValue`] of the column's kind.
+fn convert(kind: PropKind, val: MvtValueRef<'_>) -> PropValue {
     match (kind, val) {
-        (_, MvtValue::Null) => PropValue::null(kind),
-        (PropKind::Bool, MvtValue::Bool(b)) => PropValue::Bool(Some(b)),
-        (PropKind::I64, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::I64(Some(i)),
-        (PropKind::I64, MvtValue::UInt(u)) if i64::try_from(u).is_ok() => {
+        (_, MvtValueRef::Null) => PropValue::null(kind),
+        (PropKind::Bool, MvtValueRef::Bool(b)) => PropValue::Bool(Some(b)),
+        (PropKind::I64, MvtValueRef::Int(i) | MvtValueRef::SInt(i)) => PropValue::I64(Some(i)),
+        (PropKind::I64, MvtValueRef::UInt(u)) if i64::try_from(u).is_ok() => {
             // Value must be within 0..i64::MAX
             #[expect(clippy::cast_possible_wrap, reason = "checked above")]
             PropValue::I64(Some(u as i64))
         }
-        (PropKind::U64, MvtValue::UInt(u)) => PropValue::U64(Some(u)),
-        (PropKind::F32, MvtValue::Float(f)) => PropValue::F32(Some(f)),
-        (PropKind::F64, MvtValue::Double(f)) => PropValue::F64(Some(f)),
-        (PropKind::F64, MvtValue::Float(f)) => PropValue::F64(Some(f64::from(f))),
+        (PropKind::U64, MvtValueRef::UInt(u)) => PropValue::U64(Some(u)),
+        (PropKind::F32, MvtValueRef::Float(f)) => PropValue::F32(Some(f)),
+        (PropKind::F64, MvtValueRef::Double(f)) => PropValue::F64(Some(f)),
+        (PropKind::F64, MvtValueRef::Float(f)) => PropValue::F64(Some(f64::from(f))),
         #[expect(
             clippy::cast_precision_loss,
             reason = "integers in a float column are taken as floats"
         )]
-        (PropKind::F64, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::F64(Some(i as f64)),
+        (PropKind::F64, MvtValueRef::Int(i) | MvtValueRef::SInt(i)) => {
+            PropValue::F64(Some(i as f64))
+        }
         #[expect(
             clippy::cast_precision_loss,
             reason = "integers in a float column are taken as floats"
         )]
-        (PropKind::F64, MvtValue::UInt(u)) => PropValue::F64(Some(u as f64)),
-        (_, MvtValue::String(s)) => PropValue::Str(Some(s)),
+        (PropKind::F64, MvtValueRef::UInt(u)) => PropValue::F64(Some(u as f64)),
+        (_, MvtValueRef::String(s)) => PropValue::Str(Some(s.into())),
         // A column that mixes types keeps every value as its text form.
-        (_, MvtValue::Bool(b)) => PropValue::Str(Some(b.to_string())),
-        (_, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::Str(Some(i.to_string())),
-        (_, MvtValue::UInt(u)) => PropValue::Str(Some(u.to_string())),
-        (_, MvtValue::Float(f)) => PropValue::Str(Some(f.to_string())),
-        (_, MvtValue::Double(f)) => PropValue::Str(Some(f.to_string())),
+        (_, MvtValueRef::Bool(b)) => PropValue::Str(Some(b.to_compact_string())),
+        (_, MvtValueRef::Int(i) | MvtValueRef::SInt(i)) => {
+            PropValue::Str(Some(i.to_compact_string()))
+        }
+        (_, MvtValueRef::UInt(u)) => PropValue::Str(Some(u.to_compact_string())),
+        (_, MvtValueRef::Float(f)) => PropValue::Str(Some(f.to_compact_string())),
+        (_, MvtValueRef::Double(f)) => PropValue::Str(Some(f.to_compact_string())),
     }
 }
 

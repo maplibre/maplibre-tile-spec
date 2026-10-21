@@ -218,7 +218,7 @@ fn typed_nulls(properties: &[ParsedProperty<'_>]) -> Vec<PropValue> {
     nulls
 }
 
-/// Charge `dec` for the heap bytes of owned `String` values inside `PropValue::Str`.
+/// Charge `dec` for the bytes of the owned strings inside `PropValue::Str`.
 fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> MltResult<()> {
     let str_bytes = props
         .iter()
