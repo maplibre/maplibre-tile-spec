@@ -37,6 +37,7 @@ import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
 import org.maplibre.mlt.converter.geometry.GeometryType;
 import org.maplibre.mlt.converter.geometry.GeometryUtils;
 import org.maplibre.mlt.converter.geometry.HilbertCurve;
+import org.maplibre.mlt.converter.geometry.PolygonWinding;
 import org.maplibre.mlt.converter.geometry.SpaceFillingCurve;
 import org.maplibre.mlt.converter.geometry.Vertex;
 import org.maplibre.mlt.converter.geometry.ZOrderCurve;
@@ -349,7 +350,10 @@ public class GeometryEncoder {
       @Nullable URI tessellateSource) {
     final var containsPolygon = containsPolygon(geometries);
     final var tessellate = (numTriangles != null && indexBuffer != null);
-    for (var geometry : geometries) {
+    for (var sourceGeometry : geometries) {
+      // Wind the rings before both storing and tessellating them, so the triangles index the
+      // vertices as stored
+      final var geometry = PolygonWinding.wind(sourceGeometry);
       switch (geometry) {
         case Point point -> {
           geometryTypes.add(GeometryType.POINT.ordinal());
