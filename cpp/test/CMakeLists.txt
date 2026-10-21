@@ -10,6 +10,19 @@ set(TEST_SOURCES
     test_varint.cpp
 )
 
+# mlt-cpp and mlt-cpp-encoder both contain the metadata sources. Object libraries put every one of their objects in a
+# link, so a binary that uses both of them has those twice. Leave the encoder tests out then.
+set(ENCODER_TEST_SOURCES
+    test_encode.cpp
+    test_synthetic.cpp
+    test_winding.cpp
+)
+if(MLT_AS_OBJECT_LIBRARY)
+    message(STATUS "[MLT] Not building the encoder tests with MLT_AS_OBJECT_LIBRARY")
+else()
+    list(APPEND TEST_SOURCES ${ENCODER_TEST_SOURCES})
+endif()
+
 add_executable(mlt-cpp-test ${TEST_SOURCES})
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 
@@ -38,7 +51,11 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/googletest" EXCLUDE_FROM_ALL SYSTEM)
 
-target_link_libraries(mlt-cpp-test mlt-cpp fastpfor-lib gtest_main)
+if(MLT_AS_OBJECT_LIBRARY)
+    target_link_libraries(mlt-cpp-test mlt-cpp fastpfor-lib gtest_main)
+else()
+    target_link_libraries(mlt-cpp-test mlt-cpp mlt-cpp-encoder fastpfor-lib gtest_main)
+endif()
 
 include(GoogleTest)
 
