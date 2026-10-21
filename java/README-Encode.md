@@ -44,7 +44,7 @@ PMTiles conversion can use substantial memory, especially for large archives, hi
   - If a percentage is specified, it will take precedence over `MLT_CACHE_MAX`.
 - `MLT_CACHE_EXPIRE`: Cache expiration duration after access, in ISO-8601 (e.g. P1.2S) or plain (e.g., 1.2s).
   - This is generally not important, but may decrease memory use with a very large cache in long-running conversions.
-- `MLT_CACHE_BLOCK_SIZE`: Aligned block size of cached data, in bytes
+- `MLT_CACHE_BLOCK_SIZE`: Aligned block size of cached data, in bytes. Must be zero or a power of 2.
   - Cache misses will trigger a read of the entire block(s) containing the tile, often allowing reads of nearby tiles without an additional request.
   - When zero, only the requested tile will be read on a cache miss.  This is not recommended.
   - Larger block sizes mean fewer entries in the cache, but tend to be more efficient as the main benefit is from other tiles in the same block.
