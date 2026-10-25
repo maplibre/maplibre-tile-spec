@@ -66,7 +66,7 @@ fn build_morton_dict(vertices: &[i32], meta: Morton) -> MltResult<(Vec<u32>, Vec
 ///
 /// On return, `dict_xy` holds the deduplicated `[x, y, …]` dictionary in
 /// Hilbert order and `offsets[i]` is the slot of input vertex `i`; `indexed`
-/// and `remap` are left as opaque scratch.
+/// is left as opaque scratch.
 ///
 /// Dedup is keyed on the Hilbert curve index. Inside the `params.bits` grid
 /// the index <-> `(x, y)` mapping is bijective, so dedup-by-index is equivalent
@@ -78,25 +78,21 @@ fn build_hilbert_dict(
     offsets: &mut Vec<u32>,
     indexed: &mut Vec<u64>,
     dict_xy: &mut Vec<i32>,
-    remap: &mut HashMap<u32, u32>,
 ) {
     offsets.clear();
     indexed.clear();
     dict_xy.clear();
-    remap.clear();
 
     let coord_count = vertices.len() / 2;
     if coord_count == 0 {
         return;
     }
-    offsets.reserve(coord_count);
+    offsets.resize(coord_count, 0);
     indexed.reserve(coord_count);
     dict_xy.reserve(coord_count * 2);
-    remap.reserve(coord_count);
 
     for (i, &[x, y]) in vertices.as_chunks::<2>().0.iter().enumerate() {
         let k = hilbert_sort_key(Coord { x, y }, params);
-        offsets.push(k);
         // Key in the high 32 bits so a single u64 sort orders by Hilbert
         // index while preserving the original position for tie-breaking.
         let packed = (u64::from(k) << 32) | u64::from_usize(i);
@@ -105,6 +101,7 @@ fn build_hilbert_dict(
     indexed.sort_unstable();
 
     let mut last_key: Option<u32> = None;
+    let mut slot = 0;
     for &packed in &*indexed {
         let key = (packed >> 32) as u32;
         let src_idx = ((packed & 0xFFFF_FFFF) as u32).into_usize();
@@ -113,16 +110,14 @@ fn build_hilbert_dict(
                 clippy::cast_possible_truncation,
                 reason = "dict.len() <= coord_count <= u32::MAX"
             )]
-            let slot = (dict_xy.len() / 2) as u32;
+            {
+                slot = (dict_xy.len() / 2) as u32;
+            }
             dict_xy.push(vertices[src_idx * 2]);
             dict_xy.push(vertices[src_idx * 2 + 1]);
-            remap.insert(key, slot);
             last_key = Some(key);
         }
-    }
-
-    for k in offsets.iter_mut() {
-        *k = remap[k];
+        offsets[src_idx] = slot;
     }
 }
 
@@ -539,20 +534,11 @@ pub(super) fn encode_hilbert_vertex_streams(
     let mut offsets = mem::take(&mut codecs.logical.hilbert_offsets);
     let mut indexed = mem::take(&mut codecs.logical.hilbert_indexed);
     let mut dict_xy = mem::take(&mut codecs.logical.hilbert_dict_xy);
-    let mut remap = mem::take(&mut codecs.logical.hilbert_remap);
 
-    build_hilbert_dict(
-        vertices,
-        params,
-        &mut offsets,
-        &mut indexed,
-        &mut dict_xy,
-        &mut remap,
-    );
+    build_hilbert_dict(vertices, params, &mut offsets, &mut indexed, &mut dict_xy);
     // Done with these - restore so the physical-encoding race below can use
     // them via the codec.
     codecs.logical.hilbert_indexed = indexed;
-    codecs.logical.hilbert_remap = remap;
 
     let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
     n += write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
@@ -612,19 +598,10 @@ pub(super) fn encode_hilbert_vertex_streams02(
     let mut offsets = mem::take(&mut codecs.logical.hilbert_offsets);
     let mut indexed = mem::take(&mut codecs.logical.hilbert_indexed);
     let mut dict_xy = mem::take(&mut codecs.logical.hilbert_dict_xy);
-    let mut remap = mem::take(&mut codecs.logical.hilbert_remap);
     let mut delta = mem::take(&mut codecs.logical.u32_tmp);
 
-    build_hilbert_dict(
-        vertices,
-        params,
-        &mut offsets,
-        &mut indexed,
-        &mut dict_xy,
-        &mut remap,
-    );
+    build_hilbert_dict(vertices, params, &mut offsets, &mut indexed, &mut dict_xy);
     codecs.logical.hilbert_indexed = indexed;
-    codecs.logical.hilbert_remap = remap;
 
     encode_componentwise_delta_vec2s(&dict_xy, &mut delta);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
