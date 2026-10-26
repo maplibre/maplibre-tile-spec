@@ -1308,7 +1308,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1898,6 +1898,15 @@ version = "0.28.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b163ee2a34ff2fd85fa07c0f7bdc9573b0d49701c749d74c54b1e5b65eb8c368"
 dependencies = [
+ "hotpath-macros 0.28.7",
+]
+
+[[package]]
+name = "hotpath"
+version = "0.29.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b4af2b5ecf2650278fe33b0e49b68c8c484d2306475c127628316dea740cf5c"
+dependencies = [
  "arc-swap",
  "axum",
  "cfg-if",
@@ -1910,7 +1919,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros",
+ "hotpath-macros 0.29.2",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -1931,24 +1940,30 @@ dependencies = [
 
 [[package]]
 name = "hotpath-drain"
-version = "0.28.7"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15e84a734a1107eca0ced726ca5bfea94c53427f6dbb1ab2b87e9566bb4ea790"
+checksum = "a5cceb6c15fbaaeb00b51acc7be7fad533d0b56cb422b1cfc16cf9ca1624d33a"
 dependencies = [
  "hotpath-meta",
 ]
 
 [[package]]
 name = "hotpath-drain-meta"
-version = "0.28.7"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30cf5da933977b46edac0f59694696cb64e29d434536a007b05b85f834b07d05"
+checksum = "e3536addc6afe69fef82ddb02e0348a03c41cd063ee9085e52530e2be37a55f9"
 
 [[package]]
 name = "hotpath-macros"
 version = "0.28.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23148960ea4f4f2d93970cbc865dc8adfd7e065de68b6a3bdda776d900541a09"
+
+[[package]]
+name = "hotpath-macros"
+version = "0.29.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08c0a42eb299ebb7ec6b9161489e5bf132603a34ca12cecadb8490937aa0492a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1957,9 +1972,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.28.7"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44a156d0be1c43add61d5af59d123bb3c745ee565af29b79f463acfaae84bf3b"
+checksum = "afd0081c455892f366e04b89ade1b836ea81b949408da089e3458ebbcfd5377a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1968,9 +1983,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-meta"
-version = "0.28.7"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5255cd12df9efdad1b981a38a348a2974007feb2dbb66760086b60febe51e5dd"
+checksum = "ba351e6fa474031027bd6cb71dc9d610d865f70707b98cd11ee5dd95eee04373"
 dependencies = [
  "arc-swap",
  "axum",
@@ -2644,7 +2659,7 @@ dependencies = [
  "brotli",
  "bytes",
  "flate2",
- "hotpath",
+ "hotpath 0.28.7",
  "serde",
  "serde_json",
  "strum",
@@ -2679,7 +2694,7 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath",
+ "hotpath 0.28.7",
  "itertools 0.15.0",
  "martin-tile-utils",
  "md5",
@@ -2815,7 +2830,7 @@ dependencies = [
  "geojson",
  "glob",
  "globset",
- "hotpath",
+ "hotpath 0.29.2",
  "indicatif",
  "insta",
  "martin-tile-utils",
@@ -2862,7 +2877,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath",
+ "hotpath 0.29.2",
  "insta",
  "integer-encoding",
  "num-traits",
@@ -3759,7 +3774,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4268,7 +4283,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4327,7 +4342,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5219,7 +5234,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6257,7 +6272,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
