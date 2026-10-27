@@ -29,7 +29,7 @@ criterion = { version = "0.8", features = ["html_reports"] }
 crossbeam-channel = "0.5"
 crossterm = "0.29.0"
 derive-debug = "0.1.2"
-diplomat = "0.16.0"
+diplomat = "0.17.0"
 diplomat-runtime = "0.16.0"
 enum_dispatch = "0.3"
 fast-mvt = "0.7.0"
@@ -44,7 +44,7 @@ glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
 hilbert_2d = "1.1.0"
-hotpath = "0.28.3"
+hotpath = "0.29.0"
 indicatif = "0.18"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
@@ -53,7 +53,7 @@ martin-tile-utils = "0.9"
 mbtiles = { version = "0.21", default-features = false, features = ["transcode"] }
 mimalloc = "0.1.52"
 minicov = "0.3.9"
-mlt-core = { version = "0.21.1", path = "mlt-core" }
+mlt-core = { version = "0.22.0", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
 num-traits = "0.2.19"
 num_enum = "0.7.6"
@@ -67,7 +67,7 @@ pythonize = "0.29"
 ratatui = { version = "0.30.1", default-features = false, features = ["crossterm", "layout-cache", "underline-color"] }
 rayon = "1"
 rstar = "0.13"
-rstest = "0.27.0"
+rstest = "0.28.0"
 rustc-hash = "2.1"
 serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"

@@ -65,6 +65,7 @@ def jnaResourcePrefix(String classifier) {
         case 'macos-aarch64':      return 'darwin-aarch64'
         case 'macos-x86_64':       return 'darwin-x86-64'
         case 'freebsd-x86_64':     return 'freebsd-x86-64'
+        case 'freebsd-aarch64':    return 'freebsd-aarch64'
         case 'windows-x86_64':     return 'win32-x86-64'
         case 'windows-aarch64':    return 'win32-aarch64'
         default: throw new GradleException("Unknown native classifier: ${classifier}")

@@ -169,6 +169,7 @@ target_sources(mlt-cpp-encoder PRIVATE
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/int.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/property.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/string.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/winding.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/buffer.hpp

@@ -43,7 +43,7 @@ struct BufferStream : public util::noncopyable {
     }
     template <typename T = std::uint8_t>
     const T* getReadPosition() const noexcept {
-        return reinterpret_cast<const T*>(&data[offset]);
+        return reinterpret_cast<const T*>(data.data() + offset);
     }
 
     template <typename T = std::uint8_t>

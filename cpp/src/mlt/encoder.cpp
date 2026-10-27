@@ -6,6 +6,7 @@
 #include <mlt/encode/int.hpp>
 #include <mlt/encode/property.hpp>
 #include <mlt/encode/string.hpp>
+#include <mlt/encode/winding.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/encoding/varint.hpp>
@@ -40,6 +41,7 @@ using encoder::BooleanEncoder;
 using encoder::FloatEncoder;
 using encoder::GeometryEncoder;
 using encoder::IntegerEncoder;
+using encoder::PolygonWinding;
 using encoder::PropertyEncoder;
 using encoder::StringEncoder;
 
@@ -298,6 +300,14 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
         }
     };
 
+    // Polygon rings are stored wound as MVT winds them, whatever their winding was
+    const auto pushPolygonVertices = [&](const std::vector<Vertex>& coords,
+                                         const std::vector<std::uint32_t>& ringSizes) {
+        const auto first = vertexBuffer.size();
+        pushVertices(coords);
+        PolygonWinding::wind<GeometryEncoder::Vertex>(std::span{vertexBuffer}.subspan(first), ringSizes);
+    };
+
     for (const auto& feature : features) {
         const auto& geom = feature.geometry;
         geometryTypes.push_back(geom.type);
@@ -317,7 +327,7 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
                 for (const auto ringSize : geom.ringSizes) {
                     numRings.push_back(ringSize);
                 }
-                pushVertices(geom.coordinates);
+                pushPolygonVertices(geom.coordinates, geom.ringSizes);
                 break;
 
             case GeometryType::MULTIPOINT:
@@ -341,7 +351,7 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
                     for (const auto ringSize : rings) {
                         numRings.push_back(ringSize);
                     }
-                    pushVertices(geom.parts[p]);
+                    pushPolygonVertices(geom.parts[p], rings);
                 }
                 break;
         }
@@ -407,13 +417,17 @@ void Encoder::Impl::tessellateFeatures(const std::vector<Feature>& features,
     auto tessellateOnePolygon = [](const std::vector<Vertex>& coords,
                                    const std::vector<std::uint32_t>& ringSizes,
                                    std::uint32_t indexOffset) -> std::pair<std::uint32_t, std::vector<std::uint32_t>> {
+        // Wind the rings as they are stored, so the triangles index the stored vertices
+        auto wound = coords;
+        PolygonWinding::wind<Vertex>(wound, ringSizes);
+
         std::vector<std::vector<EarcutPoint>> polygon;
         std::size_t vertIdx = 0;
         for (auto ringSize : ringSizes) {
             std::vector<EarcutPoint> ring;
             ring.reserve(ringSize);
             for (std::uint32_t i = 0; i < ringSize; ++i) {
-                ring.push_back({static_cast<double>(coords[vertIdx].x), static_cast<double>(coords[vertIdx].y)});
+                ring.push_back({static_cast<double>(wound[vertIdx].x), static_cast<double>(wound[vertIdx].y)});
                 ++vertIdx;
             }
             polygon.push_back(std::move(ring));

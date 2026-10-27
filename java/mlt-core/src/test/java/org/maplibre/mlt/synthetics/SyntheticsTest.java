@@ -8,6 +8,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -15,6 +16,7 @@ import java.util.SequencedCollection;
 import java.util.Set;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.converter.geometry.PolygonWinding;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.json.Json;
@@ -31,6 +33,7 @@ public class SyntheticsTest {
         new String[] {"../../test/synthetic/0x01", "../../test/synthetic/0x01-rust"};
     final var mltPaths =
         Arrays.stream(rootPaths).flatMap(root -> findFiles(root, matcher).stream()).toList();
+    final var unwoundPaths = new ArrayList<Path>();
     for (Path path : mltPaths) {
       if (UNIMPLEMENTED_SYNTHETICS.contains(path)) {
         final var data = Files.readAllBytes(path);
@@ -46,6 +49,10 @@ public class SyntheticsTest {
       } catch (Exception e) {
         Assertions.fail("Failed to decode " + path, e);
         continue;
+      }
+
+      if (!isWoundAsMvt(tile)) {
+        unwoundPaths.add(path);
       }
 
       final var baseName = path.getFileName().toString();
@@ -78,6 +85,22 @@ public class SyntheticsTest {
           compareJsonObjects(expectedJsonObjects, actualJsonObjects),
           "JSON objects do not match for " + path);
     }
+
+    Assertions.assertTrue(
+        unwoundPaths.isEmpty(),
+        "Polygon rings not wound as MVT winds them in "
+            + unwoundPaths.size()
+            + " synthetics: "
+            + unwoundPaths);
+  }
+
+  /// Whether every polygon ring winds as in MVT, which MapLibre relies on, e.g. for fill-extrusion
+  private static boolean isWoundAsMvt(MapLibreTile tile) {
+    return tile.getLayerStream()
+        .flatMap(layer -> layer.features().stream())
+        .map(feature -> feature.getGeometry())
+        .filter(Objects::nonNull)
+        .allMatch(geometry -> PolygonWinding.wind(geometry) == geometry);
   }
 
   private static SequencedCollection<Path> findFiles(String root, PathMatcher matcher) {

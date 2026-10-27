@@ -98,7 +98,7 @@ fn max_values_caps_the_values_and_reports_the_full_count() {
 
     insta::assert_snapshot!(
         json(&decode(region, &buf, 3)),
-        @r#"{"kind":"numbers","values":[11.0,52.0,71.0],"truncatedFrom":12}"#
+        @r#"{"kind":"numbers","values":[11.0,52.0,61.0],"truncatedFrom":12}"#
     );
 }
 

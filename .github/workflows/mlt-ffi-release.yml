@@ -44,6 +44,10 @@ jobs:
             target: x86_64-unknown-freebsd
             classifier: freebsd-x86_64
             lib_name: libmlt_ffi.so
+          - os: ubuntu-latest
+            target: aarch64-unknown-freebsd
+            classifier: freebsd-aarch64
+            lib_name: libmlt_ffi.so
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             classifier: windows-x86_64
@@ -75,7 +79,7 @@ jobs:
           -e RUSTFLAGS='-C strip=symbols -C panic=abort -C target-feature=-crt-static'
           rust:1-alpine
           sh -c 'apk add musl-dev && cargo build --release --target ${{ matrix.target }} -p mlt-ffi'
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         if: contains(matrix.target, 'freebsd')
         with: { tool: 'cross' }
       # GitHub has no FreeBSD runners, and the cross image carries the FreeBSD sysroot and linker.
@@ -84,6 +88,8 @@ jobs:
         working-directory: rust
         env:
           RUSTFLAGS: -C strip=symbols -C panic=abort
+          # cross 0.2.5 predates the aarch64 image, so it is pinned from cross's main.
+          CROSS_TARGET_AARCH64_UNKNOWN_FREEBSD_IMAGE: ghcr.io/cross-rs/aarch64-unknown-freebsd:main@sha256:317107ff710735ba2ab91d71185e32a5781870238aa93d9c2e0399b986668fb1
         run: cross build --release --target ${{ matrix.target }} -p mlt-ffi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -120,7 +126,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with: { tool: 'just' }
 
       - name: Get version from tag

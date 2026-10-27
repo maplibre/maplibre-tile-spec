@@ -32,6 +32,7 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
+import org.maplibre.mlt.converter.geometry.PolygonWinding;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MLTFeature;
@@ -68,15 +69,16 @@ class SyntheticMltUtil {
   // v2 codes the extent as a power of two in 64..=2097152, so 64 is the smallest one.
   static final GeometryFactory gf = new GeometryFactory(new PrecisionModel(), 4326);
   static final Coordinate c0 = c(13, 42);
-  // triangle 1, clockwise winding, X ends in 1, Y ends in 2
+  // The triangles and the hole wind against MVT, so the encoder rewinds every synthetic polygon.
+  // triangle 1, negative area (clockwise with the y-axis up), X ends in 1, Y ends in 2
   static final Coordinate c1 = c(11, 52);
   static final Coordinate c2 = c(71, 72);
   static final Coordinate c3 = c(61, 22);
-  // triangle 2, clockwise winding, X ends in 3, Y ends in 4
+  // triangle 2, negative area (clockwise with the y-axis up), X ends in 3, Y ends in 4
   static final Coordinate c21 = c(23, 34);
   static final Coordinate c22 = c(73, 4);
   static final Coordinate c23 = c(13, 24);
-  // hole in triangle 1 with counter-clockwise winding
+  // hole in triangle 1, positive area (counter-clockwise with the y-axis up)
   static final Coordinate h1 = c(65, 66);
   static final Coordinate h2 = c(35, 56);
   static final Coordinate h3 = c(55, 36);
@@ -289,6 +291,21 @@ class SyntheticMltUtil {
     return new Layer(name, Arrays.asList(features), extent);
   }
 
+  private static Layer wound(Layer layer) {
+    final var features = layer.features().stream().map(SyntheticMltUtil::wound).toList();
+    return new Layer(layer.name(), features, layer.tileExtent());
+  }
+
+  private static Feature wound(Feature feature) {
+    final var geometry = feature.getGeometry();
+    final var wound = (geometry != null) ? PolygonWinding.wind(geometry) : null;
+    if (wound == geometry) {
+      return feature;
+    }
+    // `toBuilder` would give a feature without an ID the ID 0, so carry the ID over explicitly
+    return feature.toBuilder().geometry(wound).id(feature.idOrNull()).build();
+  }
+
   public record WriteResult(
       String fileName, byte[] mltData, MapLibreTile decodedMlt, String decodedJson) {}
 
@@ -323,7 +340,11 @@ class SyntheticMltUtil {
               tile, config.typeMismatchPolicy(), columnMappings, config.includeIds());
       final var mltVersion = new MutableInt(0);
       final var mlt = MltConverter.encode(tile, metadata, config, null, Optional.of(mltVersion));
-      final var unEncodedJSON = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
+      // The encoder winds polygon rings as MVT does, so expect the input wound that way
+      final var unEncodedJSON =
+          Json.toGeoJson(
+                  new MapLibreTile(layers.stream().map(SyntheticMltUtil::wound).toList()), true)
+              + "\n";
       final var decodedMlt = MltDecoder.decodeMlTile(mlt);
       final var decodedJSON = Json.toGeoJson(decodedMlt, true) + "\n";
       if (!unEncodedJSON.equals(decodedJSON)) {
