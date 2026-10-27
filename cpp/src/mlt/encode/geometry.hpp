@@ -405,11 +405,12 @@ private:
                                            std::int32_t coordinateShift,
                                            PhysicalLevelTechnique physicalTechnique,
                                            IntegerEncoder& intEncoder) {
+        // Morton codes can use all 32 bits, so take the deltas modulo 2^32 as the decoder adds them back.
         std::vector<std::int32_t> deltaValues(mortonCodes.size());
-        std::int32_t prev = 0;
+        std::uint32_t prev = 0;
         for (std::size_t i = 0; i < mortonCodes.size(); ++i) {
-            deltaValues[i] = static_cast<std::int32_t>(mortonCodes[i]) - prev;
-            prev = static_cast<std::int32_t>(mortonCodes[i]);
+            deltaValues[i] = static_cast<std::int32_t>(mortonCodes[i] - prev);
+            prev = mortonCodes[i];
         }
 
         // Encode with the physical technique the metadata names, as the Java encoder does.

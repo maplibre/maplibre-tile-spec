@@ -1108,6 +1108,39 @@ TEST(Encode, MortonVertexDictionaryWithFastPfor) {
     }
 }
 
+TEST(Encode, MortonCodesUsingTheTopBit) {
+    // With y = 32768 the Morton codes use bit 31: (0, 32768) and (1, 32768) are 0x80000000 and 0x80000001,
+    // and (0, 32767) is 0x2AAAAAAA. Their deltas do not fit in a signed 32-bit subtraction.
+    const std::vector<std::vector<Encoder::Vertex>> pointSets = {
+        {{.x = 0, .y = 32768}, {.x = 1, .y = 32768}},
+        {{.x = 0, .y = 32767}, {.x = 0, .y = 32768}, {.x = 1, .y = 32768}},
+    };
+    for (const bool useFastPfor : {false, true}) {
+        for (const auto& points : pointSets) {
+            std::vector<Encoder::Feature> features;
+            for (std::size_t i = 0; i < 60; ++i) {
+                features.push_back(makePointFeature(i, points[i % points.size()]));
+            }
+
+            EncoderConfig config;
+            config.includeIds = false;
+            config.sortFeatures = false;
+            config.useFastPfor = useFastPfor;
+            const auto bytes = Encoder().encode({makeLayer("top", features)}, config);
+
+            const auto tile = makeDecoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+            const auto* decoded = tile.getLayer("top");
+            ASSERT_TRUE(decoded);
+            ASSERT_EQ(decoded->getFeatures().size(), features.size());
+            for (std::size_t i = 0; i < features.size(); ++i) {
+                const auto& point = dynamic_cast<const geometry::Point&>(decoded->getFeatures()[i].getGeometry());
+                EXPECT_EQ(static_cast<int>(point.getCoordinate().x), features[i].geometry.coordinates[0].x);
+                EXPECT_EQ(static_cast<int>(point.getCoordinate().y), features[i].geometry.coordinates[0].y);
+            }
+        }
+    }
+}
+
 // --- Feature sorting ---
 
 TEST(Encode, FeatureSortingPoints) {
