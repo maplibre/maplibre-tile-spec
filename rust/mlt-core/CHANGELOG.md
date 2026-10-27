@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.22.0...rust-mlt-core-v0.22.1) - 2026-10-27
+
+### Other
+
+- *(rust)* assign Hilbert dictionary slots in the sorted pass ([#1995](https://github.com/maplibre/maplibre-tile-spec/pull/1995))
+
 ## [0.22.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.21.1...rust-mlt-core-v0.22.0) - 2026-10-21
 
 ### Fixed
