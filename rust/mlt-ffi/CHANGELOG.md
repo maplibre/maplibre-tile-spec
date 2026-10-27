@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.2.2...rust-mlt-ffi-v0.2.3) - 2026-10-27
+
+### Added
+
+- *(ffi)* package ffi on freebsd for aarch64 ([#1996](https://github.com/maplibre/maplibre-tile-spec/pull/1996))
+
 ## [0.2.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.2.1...rust-mlt-ffi-v0.2.2) - 2026-10-21
 
 ### Other
