@@ -44,6 +44,12 @@ const auto tile = decoder.decode({mltBuffer.data(), mltBuffer.size()}, metadata)
 const auto tile2 = decoder.decodeTile({tileData.data(), tileData.size()});
 ```
 
+### Invalid tiles
+
+Tiles are treated as untrusted input. Decoding a tile which is malformed throws a `std::runtime_error`.
+The sizes in a tile can be far larger than the tile, e.g. when run-length encoded, so decoding is also limited to a
+memory budget of 64 MiB per tile, as with the Rust decoder. Use `Decoder::setMemoryLimit` to change it.
+
 ## Tools
 
 A simple application which dumps a tile/metadata file pair to JSON format.
@@ -51,6 +57,22 @@ A simple application which dumps a tile/metadata file pair to JSON format.
 ```bash
 build/tool/mlt-cpp-json ../test/expected/0x01/bing/4-12-6.mlt
 ```
+
+## Fuzzing
+
+The decoder can be fuzzed with [libFuzzer](https://llvm.org/docs/LibFuzzer.html), which requires Clang.
+There is a target for whole tiles, and one for the FastPFOR streams within them.
+
+```bash
+CXX=clang++ cmake -Bbuild-fuzz -S. -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DMLT_WITH_FUZZERS=ON -DMLT_WITH_TESTS=OFF -DMLT_WITH_TOOLS=OFF \
+    -DCMAKE_CXX_FLAGS="-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=undefined"
+cmake --build build-fuzz
+mkdir corpus
+build-fuzz/fuzz/mlt-cpp-fuzz-tile corpus ../test/expected/0x01/simple -max_len=65536 -rss_limit_mb=2000
+```
+
+Inputs which crashed the decoder belong in `test/test_robustness.cpp`.
 
 ## Implementation Notes
 

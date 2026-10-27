@@ -25,7 +25,7 @@ struct BufferStream : public util::noncopyable {
     /// Get another DataView representing a portion of the remaining data
     BufferStream getSubStream(std::size_t offset, std::size_t length) const {
         const auto remaining = getRemaining();
-        if (offset + length > remaining) {
+        if (offset > remaining || length > remaining - offset) {
             throw std::runtime_error("Substream exceeds buffer size");
         }
         return {{getReadPosition<DataView::value_type>() + offset, length}};

@@ -1,10 +1,12 @@
 set(TEST_SOURCES
     test_decode.cpp
     test_fastpfor.cpp
+    test_fastpfor_decode.cpp
     test_fsst.cpp
     test_hilbert_curve.cpp
     test_morton_curve.cpp
     test_packed_bitset.cpp
+    test_robustness.cpp
     test_type_map.cpp
     test_util.cpp
     test_varint.cpp

@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <mlt/decode/fastpfor.hpp>
+
 // From fastpfor/...
 #include <fastpfor/compositecodec.h>
 #include <fastpfor/fastpfor.h>
@@ -20,6 +22,10 @@ TEST(FastPfor, DecompressPartial) {
     FastPForLib::CompositeCodec<FastPForLib::FastPFor<8>, FastPForLib::VariableByte> codec;
     const auto result = codec.uncompress(data, expected.size());
     EXPECT_TRUE(std::ranges::equal(result, expected));
+
+    std::vector<std::uint32_t> decoded(expected.size());
+    mlt::decoder::fastpfor::decode(data, decoded);
+    EXPECT_EQ(decoded, expected);
 }
 
 namespace {
@@ -64,4 +70,9 @@ TEST(FastPfor, JavaV1) {
                       outSize);
     EXPECT_EQ(outSize, decoded.size());
     EXPECT_EQ(decoded, simpleValues(decoded.size()));
+
+    // The decoder used for tiles
+    std::vector<std::uint32_t> checked(decoded.size());
+    mlt::decoder::fastpfor::decode(javaEncodedByteSwapped, checked);
+    EXPECT_EQ(checked, decoded);
 }

@@ -56,7 +56,8 @@ inline std::uint32_t decodeVarint(BufferStream& buffer) {
 template <>
 inline std::uint64_t decodeVarint(BufferStream& buffer) {
     std::uint64_t value = 0;
-    for (int shift = 0; buffer.available();) {
+    for (int shift = 0;;) {
+        // Throws at the end of the buffer
         auto b = buffer.read<std::uint8_t>();
         value |= static_cast<std::uint64_t>(b & 0x7F) << shift;
 

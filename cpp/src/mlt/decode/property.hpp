@@ -136,13 +136,11 @@ protected:
                 PropertyVec result;
                 if (isSigned) {
                     std::vector<std::int32_t> intBuffer;
-                    intBuffer.reserve(streamMetadata->getNumValues());
                     intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
                         tileData, intBuffer, *streamMetadata, isSigned);
                     result = {std::move(intBuffer)};
                 } else {
                     std::vector<std::uint32_t> uintBuffer;
-                    uintBuffer.reserve(streamMetadata->getNumValues());
                     intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t>(
                         tileData, uintBuffer, *streamMetadata, isSigned);
                     result = {std::move(uintBuffer)};
@@ -153,7 +151,6 @@ protected:
             }
             case ScalarType::INT_64: {
                 std::vector<std::int64_t> longBuffer;
-                longBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::int64_t>(
                     tileData, longBuffer, *streamMetadata, /*isSigned=*/true);
 
@@ -163,7 +160,6 @@ protected:
             }
             case ScalarType::UINT_64: {
                 std::vector<std::uint64_t> longBuffer;
-                longBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t>(
                     tileData, longBuffer, *streamMetadata, /*isSigned=*/false);
 

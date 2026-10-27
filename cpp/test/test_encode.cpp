@@ -57,10 +57,6 @@ static std::ostream& operator<<(std::ostream& os, const std::optional<T>& opt) {
 } // namespace std
 
 namespace {
-Decoder makeDecoder(bool enableFastPFOR = true) {
-    return {enableFastPFOR};
-}
-
 TEST(EncodePrimitives, ZigZagRoundtrip) {
     for (const std::int32_t v : {0, 1, -1, 42, -42, 127, -128, 65535, -65536, 2147483647, -2147483647}) {
         auto encoded = util::encoding::encodeZigZag(v);
@@ -197,13 +193,11 @@ TEST(EncodeMetadata, FeatureTableRoundtrip) {
 
 // --- Helpers ---
 
-MapLibreTile encodeDecode(const std::vector<Encoder::Layer>& layers,
-                          EncoderConfig config = {},
-                          bool enableFastPFOR = true) {
+MapLibreTile encodeDecode(const std::vector<Encoder::Layer>& layers, EncoderConfig config = {}) {
     const Encoder encoder;
     auto bytes = encoder.encode(layers, config);
     EXPECT_FALSE(bytes.empty());
-    return Decoder(enableFastPFOR).decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+    return Decoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
 }
 
 Encoder::Feature makePointFeature(std::uint64_t id,
@@ -1663,7 +1657,7 @@ TEST_P(CrossValidateJava, DecodeAndRoundtrip) {
     auto fixture = loadFixture(GetParam().path);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << GetParam().path;
 
-    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
     const auto* javaLayer = javaTile.getLayer("layer");
     ASSERT_TRUE(javaLayer);
     ASSERT_EQ(javaLayer->getFeatures().size(), 1u);
@@ -1673,7 +1667,7 @@ TEST_P(CrossValidateJava, DecodeAndRoundtrip) {
     auto reencoded = Encoder().encode({encLayer});
     ASSERT_FALSE(reencoded.empty());
 
-    auto cppTile = makeDecoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
     const auto* cppLayer = cppTile.getLayer("layer");
     ASSERT_TRUE(cppLayer);
     compareDecodedTiles(*javaLayer, *cppLayer, true);
@@ -1702,7 +1696,7 @@ void byteCompareFixtureTest(const std::string& fixturePath) {
     auto fixture = loadFixture(fixturePath);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << fixturePath;
 
-    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
     for (const auto& layer : javaTile.getLayers()) {
@@ -1720,7 +1714,7 @@ void byteCompareFixtureTest(const std::string& fixturePath) {
     EXPECT_LE(reencoded.size(), fixture.size() + rleMetadataAllowance)
         << "C++ encoder output larger than the fixture for " << fixturePath;
 
-    auto cppTile = makeDecoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
     for (const auto& javaLayer : javaTile.getLayers()) {
         const auto* cppLayer = cppTile.getLayer(javaLayer.getName());
         ASSERT_TRUE(cppLayer);
@@ -1753,7 +1747,7 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
     auto fixture = loadFixture("omt/2_2_2.mlt");
     ASSERT_FALSE(fixture.empty()) << "Fixture not found";
 
-    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
     const auto* javaLayer = javaTile.getLayer("water_name");
     ASSERT_TRUE(javaLayer);
     ASSERT_GT(javaLayer->getFeatures().size(), 0u);
@@ -1838,7 +1832,7 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
     auto reencoded = Encoder().encode({encLayer}, config);
     ASSERT_FALSE(reencoded.empty());
 
-    auto cppTile = makeDecoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
     const auto* cppLayer = cppTile.getLayer("water_name");
     ASSERT_TRUE(cppLayer);
     ASSERT_EQ(cppLayer->getFeatures().size(), javaLayer->getFeatures().size());
@@ -1880,7 +1874,7 @@ void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
     auto fixture = loadFixture(subdir + "/" + filename);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << filename;
 
-    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
     for (const auto& layer : javaTile.getLayers()) {
@@ -1893,7 +1887,7 @@ void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
     auto encoded = Encoder().encode(encoderLayers, config);
     ASSERT_FALSE(encoded.empty());
 
-    auto redecodedTile = makeDecoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto redecodedTile = Decoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
     for (const auto& javaLayer : javaTile.getLayers()) {
         const auto* reLayer = redecodedTile.getLayer(javaLayer.getName());
@@ -1939,7 +1933,7 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
     auto fixture = loadFixture(subdir + "/" + filename);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << filename;
 
-    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> originalLayers;
     for (const auto& layer : javaTile.getLayers()) {
@@ -1952,7 +1946,7 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
     auto encoded = Encoder().encode(originalLayers, config);
     ASSERT_FALSE(encoded.empty());
 
-    auto redecodedTile = makeDecoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto redecodedTile = Decoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
     for (const auto& origLayer : originalLayers) {
         const auto* reDecodedLayer = redecodedTile.getLayer(origLayer.name);
@@ -1988,7 +1982,7 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
     auto fixture = loadFixture(subdir + "/" + filename);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << filename;
 
-    auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
     for (const auto& layer : javaTile.getLayers()) {
@@ -2002,7 +1996,7 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
     auto encoded = Encoder().encode(encoderLayers, config);
     ASSERT_FALSE(encoded.empty());
 
-    auto redecodedTile = makeDecoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto redecodedTile = Decoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
     for (const auto& origLayer : encoderLayers) {
         const auto* reLayer = redecodedTile.getLayer(origLayer.name);
@@ -2232,22 +2226,6 @@ TEST(Encode, FastPforEncodeDisabled) {
     const auto* decoded = tile.getLayer("no_pfor");
     ASSERT_TRUE(decoded);
     EXPECT_EQ(decoded->getFeatures().size(), 50u);
-}
-
-TEST(Encode, FastPforDecodeDisabled) {
-    std::vector<Encoder::Feature> features;
-    features.reserve(50);
-    for (int i = 0; i < 50; ++i) {
-        features.push_back(makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"idx", std::int32_t{i}}}));
-    }
-
-    EncoderConfig config;
-    config.useFastPfor = true;
-
-    const auto f = [&]() {
-        encodeDecode({makeLayer("pfor", std::move(features))}, config, false);
-    };
-    EXPECT_THROW(f(), std::runtime_error);
 }
 
 TEST(Encode, FsstDisabledForStrings) {

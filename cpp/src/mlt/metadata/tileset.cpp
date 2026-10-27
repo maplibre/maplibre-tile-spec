@@ -17,17 +17,35 @@ namespace mlt::metadata::tileset {
 using util::decoding::decodeVarint;
 
 namespace {
+// Columns can nest, but not deeply. This limit protects the stack, as the nesting comes from the tile.
+constexpr unsigned maxColumnDepth = 16;
+
 std::string decodeString(BufferStream& tileData) {
     std::string result;
     const auto length = decodeVarint<std::uint32_t>(tileData);
     if (length > 0) {
+        // Check the length before allocating for it
+        if (!tileData.available(length)) {
+            throw std::runtime_error("Unexpected end of buffer");
+        }
         result.resize(length);
         tileData.read(result.data(), length);
     }
     return result;
 }
 
-Column decodeColumn(BufferStream& tileData) {
+// Check a count from the tile of things that each take at least a byte, before allocating for them
+std::uint32_t checkCount(const std::uint32_t count, const BufferStream& tileData) {
+    if (count > tileData.getRemaining()) {
+        throw std::runtime_error("Unexpected end of buffer");
+    }
+    return count;
+}
+
+Column decodeColumn(BufferStream& tileData, const unsigned depth = 0) {
+    if (depth > maxColumnDepth) {
+        throw std::runtime_error("Columns are nested too deeply");
+    }
     const auto typeCode = decodeVarint<std::uint32_t>(tileData);
     auto column = type_map::Tag0x01::decodeColumnType(typeCode);
     if (!column) {
@@ -45,8 +63,9 @@ Column decodeColumn(BufferStream& tileData) {
                 "Column type code indicates children but decoded column does not have complex type");
         }
         auto& complex = column->getComplexType();
-        const auto childCount = decodeVarint<std::uint32_t>(tileData);
-        complex.children = util::generateVector<Column>(childCount, [&](auto) { return decodeColumn(tileData); });
+        const auto childCount = checkCount(decodeVarint<std::uint32_t>(tileData), tileData);
+        complex.children = util::generateVector<Column>(childCount,
+                                                        [&](auto) { return decodeColumn(tileData, depth + 1); });
     }
 
     return *column;
@@ -59,7 +78,7 @@ FeatureTable decodeFeatureTable(BufferStream& tileData) {
         throw std::runtime_error("Missing layer name");
     }
     const auto extent = decodeVarint<std::uint32_t>(tileData);
-    const auto columnCount = decodeVarint<std::uint32_t>(tileData);
+    const auto columnCount = checkCount(decodeVarint<std::uint32_t>(tileData), tileData);
     auto columns = util::generateVector<Column>(columnCount, [&](auto) { return decodeColumn(tileData); });
     return {.name = std::move(name), .extent = extent, .columns = std::move(columns)};
 }
