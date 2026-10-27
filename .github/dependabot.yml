@@ -40,7 +40,7 @@ updates:
   - package-ecosystem: gradle  # should this be "maven" or "gradle"?
     directory: "/java"
     schedule:
-      interval: semiannually
+      interval: quarterly
     groups:
       all-gradle-version-updates:
         applies-to: version-updates
