@@ -133,11 +133,15 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
 }
 
 /**
- * An MLT column has one type across a layer, so a property that mixes numbers and strings in the
- * MVT comes back as a string column. The converters write such a number as its decimal text.
+ * The properties that mix numbers and strings across the features of an MVT layer. An MLT column
+ * has one type across a layer, so these come back as string columns, with the converters writing
+ * each number as its decimal text.
  */
+const MIXED_TYPE_PROPERTIES = new Set(["all_route_types"]);
+
+/** Lets a mixed-type property's numbers compare equal to the decimal text the MLT holds. */
 function acceptStringifiedNumbers(mltProperties: Record<string, any>, mvtProperties: Record<string, any>) {
-    for (const key of Object.keys(mvtProperties)) {
+    for (const key of MIXED_TYPE_PROPERTIES) {
         const mvtValue = mvtProperties[key];
         if (typeof mvtValue === "number" && mltProperties[key] === String(mvtValue)) {
             mvtProperties[key] = mltProperties[key];
