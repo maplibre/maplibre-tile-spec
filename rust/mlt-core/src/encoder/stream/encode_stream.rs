@@ -1,5 +1,6 @@
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+
+use rustc_hash::FxHashMap;
 
 use crate::MltResult;
 #[cfg(any(test, feature = "__private"))]
@@ -13,7 +14,7 @@ use crate::errors::AsMltError as _;
 /// index into `unique_strings` for the corresponding input value.
 pub(crate) fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>, Vec<u32>)> {
     let mut unique: Vec<&str> = Vec::new();
-    let mut index: HashMap<&str, u32> = HashMap::new();
+    let mut index: FxHashMap<&str, u32> = FxHashMap::default();
     let mut indices = Vec::with_capacity(values.len());
     for value in values {
         let s = value.as_ref();
