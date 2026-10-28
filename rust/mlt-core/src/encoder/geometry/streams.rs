@@ -1,11 +1,10 @@
 //! Geometry stream builders shared by the v1 and v2 layer writers.
 
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::mem;
 
 use geo_types::Coord;
-use rustc_hash::{FxBuildHasher, FxHashSet};
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use usize_cast::{FromUsize as _, IntoUsize as _};
 
 use crate::MltResult;
@@ -51,7 +50,7 @@ fn build_morton_dict(vertices: &[i32], meta: Morton) -> MltResult<(Vec<u32>, Vec
         clippy::cast_possible_truncation,
         reason = "dict.len() <= u32::MAX (deduped u32 codes)"
     )]
-    let code_to_idx: HashMap<u32, u32> = dict
+    let code_to_idx: FxHashMap<u32, u32> = dict
         .iter()
         .enumerate()
         .map(|(i, &c)| (c, i as u32))
