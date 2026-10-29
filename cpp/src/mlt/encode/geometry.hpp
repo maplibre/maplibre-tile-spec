@@ -389,7 +389,15 @@ private:
                                                PhysicalLevelTechnique physicalTechnique,
                                                IntegerEncoder& intEncoder,
                                                IntegerEncodingOption integerEncodingOption) {
-        auto encoded = intEncoder.encodeInt(zigZagDelta, physicalTechnique, /*isSigned=*/false, integerEncodingOption);
+        // Vertex streams are always componentwise-delta encoded. Other integer
+        // techniques would change how the decoder has to interpret the values,
+        // which the stream metadata cannot express: Java and the TS decoder read
+        // RLE vertex streams as absolute values, so AUTO must keep the plain
+        // encoding to stay interoperable. Explicit test options are honoured.
+        const auto option = integerEncodingOption == IntegerEncodingOption::AUTO
+                                ? IntegerEncodingOption::PLAIN
+                                : integerEncodingOption;
+        auto encoded = intEncoder.encodeInt(zigZagDelta, physicalTechnique, /*isSigned=*/false, option);
 
         // Match Java vertex metadata for plain zigzag-delta streams while preserving
         // non-plain logical transforms when they are explicitly selected.

@@ -2476,4 +2476,40 @@ TEST(Encode, NullableUint64Property) {
     EXPECT_TRUE(decoded->getProperties().at("val").getProperty(2).has_value());
 }
 
+TEST(Encode, AutoKeepsVertexStreamsComponentwiseDelta) {
+    // A long stretch of repeated vertices makes RLE much smaller than the plain
+    // vertex encoding. The coordinate range also disables the Hilbert/Morton
+    // dictionaries, so AUTO has to pick a plain vertex stream. AUTO must still
+    // emit componentwise-delta vertices: Java and the TS decoder read RLE vertex
+    // streams as absolute values, so an RLE vertex stream is not interoperable.
+    std::vector<Encoder::Feature> features;
+    for (std::uint32_t f = 0; f < 2; ++f) {
+        Encoder::Feature feature;
+        feature.id = f;
+        feature.geometry.type = GeometryType::POLYGON;
+        const auto x = static_cast<std::int32_t>(f) * 100;
+        feature.geometry.coordinates = {
+            {.x = x, .y = 0},
+            {.x = x + 10, .y = 0},
+            {.x = x + 10, .y = 70'000},
+        };
+        for (int i = 0; i < 40; ++i) {
+            feature.geometry.coordinates.push_back({.x = x + 10, .y = 70'000});
+        }
+        feature.geometry.coordinates.push_back({.x = x, .y = 70'000});
+        feature.geometry.ringSizes.push_back(static_cast<std::uint32_t>(feature.geometry.coordinates.size()));
+        features.push_back(std::move(feature));
+    }
+    const auto layer = makeLayer("grid", std::move(features));
+
+    Encoder encoder;
+    const auto autoTile = encoder.encode({layer});
+    const auto plainTile = encoder.encode({layer}, EncoderConfig::with([](auto& c) {
+        c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
+        c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+    }));
+
+    EXPECT_EQ(autoTile, plainTile);
+}
+
 } // namespace
