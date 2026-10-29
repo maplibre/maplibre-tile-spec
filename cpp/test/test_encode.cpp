@@ -2505,9 +2505,9 @@ TEST(Encode, AutoKeepsVertexStreamsComponentwiseDelta) {
     Encoder encoder;
     const auto autoTile = encoder.encode({layer});
     const auto plainTile = encoder.encode({layer}, EncoderConfig::with([](auto& c) {
-        c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
-        c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
-    }));
+                                              c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
+                                              c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+                                          }));
 
     EXPECT_EQ(autoTile, plainTile);
 }
