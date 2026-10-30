@@ -59,7 +59,7 @@ MapLibreTile encodeDecode(const Encoder::Feature& feature, bool tessellate) {
     config.preTessellate = tessellate;
     const auto bytes = Encoder().encode({layer}, config);
     EXPECT_FALSE(bytes.empty());
-    return Decoder(/*supportFastPFOR=*/true).decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+    return Decoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
 }
 
 std::vector<TestRing> encodeDecodePolygon(const Encoder::Feature& feature, bool tessellate) {

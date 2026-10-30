@@ -36,9 +36,8 @@ using namespace decoder;
 using namespace util::decoding;
 
 struct Decoder::Impl {
-    Impl(std::unique_ptr<GeometryFactory>&& geometryFactory_, bool supportFastPFOR)
-        : integerDecoder(supportFastPFOR),
-          geometryDecoder(integerDecoder),
+    Impl(std::unique_ptr<GeometryFactory>&& geometryFactory_)
+        : geometryDecoder(integerDecoder),
           geometryFactory(std::move(geometryFactory_)) {}
 
     Layer parseBasicMVTEquivalent(BufferStream&);
@@ -75,7 +74,7 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
 
             const auto idDataStreamMetadata = StreamMetadata::decode(tileData);
 
-            std::vector<Feature::id_t> denseIds(idDataStreamMetadata->getNumValues());
+            std::vector<Feature::id_t> denseIds;
             if (columnMetadata.getScalarType().hasLongID) {
                 integerDecoder.decodeIntStream<std::uint64_t>(tileData, denseIds, *idDataStreamMetadata);
             } else {
@@ -85,14 +84,22 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
 
             if (!idPresentBits.empty()) {
                 // Expand dense IDs to sparse optional IDs using the present bitset
+                if (numFeaturesFromPresent > 8 * idPresentBits.size()) {
+                    throw std::runtime_error("ID present stream is too short");
+                }
+                integerDecoder.getBudget().consumeItems<std::optional<Feature::id_t>>(numFeaturesFromPresent);
                 ids.resize(numFeaturesFromPresent);
                 std::size_t denseIdx = 0;
                 for (std::uint32_t i = 0; i < numFeaturesFromPresent; ++i) {
                     if (testBit(idPresentBits, i)) {
+                        if (denseIdx >= denseIds.size()) {
+                            throw std::runtime_error("More ID present bits than IDs");
+                        }
                         ids[i] = denseIds[denseIdx++];
                     }
                 }
             } else {
+                integerDecoder.getBudget().consumeItems<std::optional<Feature::id_t>>(denseIds.size());
                 ids.resize(denseIds.size());
                 for (std::size_t i = 0; i < denseIds.size(); ++i) {
                     ids[i] = denseIds[i];
@@ -112,6 +119,10 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
     // Check framing, we expect to use all the data in the buffer provided.
     if (tileData.available() > 0) {
         throw std::runtime_error(std::to_string(tileData.available()) + " bytes trailing layer " + layerMetadata.name);
+    }
+
+    if (!geometryVector) {
+        throw std::runtime_error("Missing geometry column in layer " + layerMetadata.name);
     }
 
     return {layerMetadata.name,
@@ -135,15 +146,22 @@ std::vector<Feature> Decoder::Impl::makeFeatures(const std::vector<std::optional
     });
 }
 
-Decoder::Decoder(bool supportFastPFOR)
-    : Decoder(std::make_unique<GeometryFactory>(), supportFastPFOR) {}
+Decoder::Decoder()
+    : Decoder(std::make_unique<GeometryFactory>()) {}
 
-Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory, bool supportFastPFOR)
-    : impl{std::make_unique<Impl>(std::move(geometryFactory), supportFastPFOR)} {}
+Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory)
+    : impl{std::make_unique<Impl>(std::move(geometryFactory))} {}
 
 Decoder::~Decoder() noexcept = default;
 
+void Decoder::setMemoryLimit(std::size_t bytes) noexcept {
+    impl->integerDecoder.getBudget().setLimit(bytes);
+}
+
 MapLibreTile Decoder::decode(BufferStream tileData) {
+    // The limit applies to each tile
+    impl->integerDecoder.getBudget().reset();
+
     std::vector<Layer> layers;
     while (tileData.available()) {
         const auto layerLength = decodeVarint<std::uint32_t>(tileData);
