@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         benchmark: [mlt-convert, mlt-convert-v2, mlt-decode-v1, mlt-decode-v2]
-    uses: hotpath-rs/hotpath/.github/workflows/hotpath-relay.yml@2ee4ef4ba17bdf79a73d4c07d4cd8d0bbda66df5 # v0.28.7
+    uses: hotpath-rs/hotpath/.github/workflows/hotpath-relay.yml@f8724d1e001c8a7f8ab805c26627a4fa0f9407f6 # v0.30.1
     permissions:
       actions: read # download the artifact of the benchmark run
       id-token: write # authenticate the upload
@@ -32,7 +32,7 @@ jobs:
       COMMENT_MARKER: '<!-- bench-comment:mlt-size-diff -->'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with: { tool: 'just' }
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v3.1.0-node20
