@@ -95,14 +95,23 @@ public class mlt_ffi_h {
     public static int _DEFAULT_SOURCE() {
         return _DEFAULT_SOURCE;
     }
-    private static final int __GLIBC_USE_ISOC2X = (int)0L;
+    private static final int __GLIBC_USE_ISOC2Y = (int)0L;
     /**
      * {@snippet lang=c :
-     * #define __GLIBC_USE_ISOC2X 0
+     * #define __GLIBC_USE_ISOC2Y 0
      * }
      */
-    public static int __GLIBC_USE_ISOC2X() {
-        return __GLIBC_USE_ISOC2X;
+    public static int __GLIBC_USE_ISOC2Y() {
+        return __GLIBC_USE_ISOC2Y;
+    }
+    private static final int __GLIBC_USE_ISOC23 = (int)0L;
+    /**
+     * {@snippet lang=c :
+     * #define __GLIBC_USE_ISOC23 0
+     * }
+     */
+    public static int __GLIBC_USE_ISOC23() {
+        return __GLIBC_USE_ISOC23;
     }
     private static final int __USE_ISOC11 = (int)1L;
     /**
@@ -212,6 +221,15 @@ public class mlt_ffi_h {
     public static int _ATFILE_SOURCE() {
         return _ATFILE_SOURCE;
     }
+    private static final int __USE_XOPEN2K24 = (int)1L;
+    /**
+     * {@snippet lang=c :
+     * #define __USE_XOPEN2K24 1
+     * }
+     */
+    public static int __USE_XOPEN2K24() {
+        return __USE_XOPEN2K24;
+    }
     private static final int __WORDSIZE = (int)64L;
     /**
      * {@snippet lang=c :
@@ -238,6 +256,15 @@ public class mlt_ffi_h {
      */
     public static int __SYSCALL_WORDSIZE() {
         return __SYSCALL_WORDSIZE;
+    }
+    private static final int __USE_TIME_BITS64 = (int)1L;
+    /**
+     * {@snippet lang=c :
+     * #define __USE_TIME_BITS64 1
+     * }
+     */
+    public static int __USE_TIME_BITS64() {
+        return __USE_TIME_BITS64;
     }
     private static final int __USE_MISC = (int)1L;
     /**
@@ -284,14 +311,14 @@ public class mlt_ffi_h {
     public static int __GLIBC_USE_DEPRECATED_SCANF() {
         return __GLIBC_USE_DEPRECATED_SCANF;
     }
-    private static final int __GLIBC_USE_C2X_STRTOL = (int)0L;
+    private static final int __GLIBC_USE_C23_STRTOL = (int)0L;
     /**
      * {@snippet lang=c :
-     * #define __GLIBC_USE_C2X_STRTOL 0
+     * #define __GLIBC_USE_C23_STRTOL 0
      * }
      */
-    public static int __GLIBC_USE_C2X_STRTOL() {
-        return __GLIBC_USE_C2X_STRTOL;
+    public static int __GLIBC_USE_C23_STRTOL() {
+        return __GLIBC_USE_C23_STRTOL;
     }
     private static final int _STDC_PREDEF_H = (int)1L;
     /**
@@ -338,10 +365,10 @@ public class mlt_ffi_h {
     public static int __GLIBC__() {
         return __GLIBC__;
     }
-    private static final int __GLIBC_MINOR__ = (int)39L;
+    private static final int __GLIBC_MINOR__ = (int)43L;
     /**
      * {@snippet lang=c :
-     * #define __GLIBC_MINOR__ 39
+     * #define __GLIBC_MINOR__ 43
      * }
      */
     public static int __GLIBC_MINOR__() {
@@ -382,6 +409,15 @@ public class mlt_ffi_h {
      */
     public static int __HAVE_GENERIC_SELECTION() {
         return __HAVE_GENERIC_SELECTION;
+    }
+    private static final int __ASSERT_VARIADIC = (int)0L;
+    /**
+     * {@snippet lang=c :
+     * #define __ASSERT_VARIADIC 0
+     * }
+     */
+    public static int __ASSERT_VARIADIC() {
+        return __ASSERT_VARIADIC;
     }
     private static final int true_ = (int)1L;
     /**
@@ -437,14 +473,14 @@ public class mlt_ffi_h {
     public static int __GLIBC_USE_IEC_60559_BFP_EXT() {
         return __GLIBC_USE_IEC_60559_BFP_EXT;
     }
-    private static final int __GLIBC_USE_IEC_60559_BFP_EXT_C2X = (int)0L;
+    private static final int __GLIBC_USE_IEC_60559_BFP_EXT_C23 = (int)0L;
     /**
      * {@snippet lang=c :
-     * #define __GLIBC_USE_IEC_60559_BFP_EXT_C2X 0
+     * #define __GLIBC_USE_IEC_60559_BFP_EXT_C23 0
      * }
      */
-    public static int __GLIBC_USE_IEC_60559_BFP_EXT_C2X() {
-        return __GLIBC_USE_IEC_60559_BFP_EXT_C2X;
+    public static int __GLIBC_USE_IEC_60559_BFP_EXT_C23() {
+        return __GLIBC_USE_IEC_60559_BFP_EXT_C23;
     }
     private static final int __GLIBC_USE_IEC_60559_EXT = (int)0L;
     /**
@@ -464,14 +500,14 @@ public class mlt_ffi_h {
     public static int __GLIBC_USE_IEC_60559_FUNCS_EXT() {
         return __GLIBC_USE_IEC_60559_FUNCS_EXT;
     }
-    private static final int __GLIBC_USE_IEC_60559_FUNCS_EXT_C2X = (int)0L;
+    private static final int __GLIBC_USE_IEC_60559_FUNCS_EXT_C23 = (int)0L;
     /**
      * {@snippet lang=c :
-     * #define __GLIBC_USE_IEC_60559_FUNCS_EXT_C2X 0
+     * #define __GLIBC_USE_IEC_60559_FUNCS_EXT_C23 0
      * }
      */
-    public static int __GLIBC_USE_IEC_60559_FUNCS_EXT_C2X() {
-        return __GLIBC_USE_IEC_60559_FUNCS_EXT_C2X;
+    public static int __GLIBC_USE_IEC_60559_FUNCS_EXT_C23() {
+        return __GLIBC_USE_IEC_60559_FUNCS_EXT_C23;
     }
     private static final int __GLIBC_USE_IEC_60559_TYPES_EXT = (int)0L;
     /**
@@ -824,19 +860,19 @@ public class mlt_ffi_h {
     public static int FOPEN_MAX() {
         return FOPEN_MAX;
     }
-    private static final int __HAVE_FLOAT128 = (int)0L;
+    private static final int __HAVE_FLOAT128 = (int)1L;
     /**
      * {@snippet lang=c :
-     * #define __HAVE_FLOAT128 0
+     * #define __HAVE_FLOAT128 1
      * }
      */
     public static int __HAVE_FLOAT128() {
         return __HAVE_FLOAT128;
     }
-    private static final int __HAVE_DISTINCT_FLOAT128 = (int)0L;
+    private static final int __HAVE_DISTINCT_FLOAT128 = (int)1L;
     /**
      * {@snippet lang=c :
-     * #define __HAVE_DISTINCT_FLOAT128 0
+     * #define __HAVE_DISTINCT_FLOAT128 1
      * }
      */
     public static int __HAVE_DISTINCT_FLOAT128() {
@@ -10219,10 +10255,10 @@ public class mlt_ffi_h {
            throw new AssertionError("should not reach here", ex$);
         }
     }
-    private static final long _POSIX_C_SOURCE = 200809L;
+    private static final long _POSIX_C_SOURCE = 202405L;
     /**
      * {@snippet lang=c :
-     * #define _POSIX_C_SOURCE 200809
+     * #define _POSIX_C_SOURCE 202405
      * }
      */
     public static long _POSIX_C_SOURCE() {
@@ -10789,10 +10825,10 @@ public class mlt_ffi_h {
     public static int __HAVE_DISTINCT_FLOAT128X() {
         return __HAVE_DISTINCT_FLOAT128X;
     }
-    private static final int __HAVE_FLOAT128_UNLIKE_LDBL = (int)0L;
+    private static final int __HAVE_FLOAT128_UNLIKE_LDBL = (int)1L;
     /**
      * {@snippet lang=c :
-     * #define __HAVE_FLOAT128_UNLIKE_LDBL 0
+     * #define __HAVE_FLOAT128_UNLIKE_LDBL 1
      * }
      */
     public static int __HAVE_FLOAT128_UNLIKE_LDBL() {

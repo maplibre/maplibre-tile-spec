@@ -30,7 +30,8 @@ import static java.lang.foreign.MemoryLayout.PathElement.*;
  *     struct _IO_marker *_markers;
  *     struct _IO_FILE *_chain;
  *     int _fileno;
- *     int _flags2;
+ *     int _flags2 : 24;
+ *     char _short_backupbuf[1];
  *     __off_t _old_offset;
  *     unsigned short _cur_column;
  *     signed char _vtable_offset;
@@ -41,9 +42,11 @@ import static java.lang.foreign.MemoryLayout.PathElement.*;
  *     struct _IO_wide_data *_wide_data;
  *     struct _IO_FILE *_freeres_list;
  *     void *_freeres_buf;
- *     size_t __pad5;
+ *     struct _IO_FILE **_prevchain;
  *     int _mode;
- *     char _unused2[20];
+ *     int _unused3;
+ *     __uint64_t _total_written;
+ *     char _unused2[8];
  * }
  * }
  */
@@ -70,7 +73,8 @@ public class _IO_FILE {
         mlt_ffi_h.C_POINTER.withName("_markers"),
         mlt_ffi_h.C_POINTER.withName("_chain"),
         mlt_ffi_h.C_INT.withName("_fileno"),
-        mlt_ffi_h.C_INT.withName("_flags2"),
+        MemoryLayout.paddingLayout(3),
+        MemoryLayout.sequenceLayout(1, mlt_ffi_h.C_CHAR).withName("_short_backupbuf"),
         mlt_ffi_h.C_LONG.withName("_old_offset"),
         mlt_ffi_h.C_SHORT.withName("_cur_column"),
         mlt_ffi_h.C_CHAR.withName("_vtable_offset"),
@@ -82,9 +86,11 @@ public class _IO_FILE {
         mlt_ffi_h.C_POINTER.withName("_wide_data"),
         mlt_ffi_h.C_POINTER.withName("_freeres_list"),
         mlt_ffi_h.C_POINTER.withName("_freeres_buf"),
-        mlt_ffi_h.C_LONG.withName("__pad5"),
+        mlt_ffi_h.C_POINTER.withName("_prevchain"),
         mlt_ffi_h.C_INT.withName("_mode"),
-        MemoryLayout.sequenceLayout(20, mlt_ffi_h.C_CHAR).withName("_unused2")
+        mlt_ffi_h.C_INT.withName("_unused3"),
+        mlt_ffi_h.C_LONG.withName("_total_written"),
+        MemoryLayout.sequenceLayout(8, mlt_ffi_h.C_CHAR).withName("_unused2")
     ).withName("_IO_FILE");
 
     /**
@@ -754,48 +760,81 @@ public class _IO_FILE {
         struct.set(_fileno$LAYOUT, _fileno$OFFSET, fieldValue);
     }
 
-    private static final OfInt _flags2$LAYOUT = (OfInt)$LAYOUT.select(groupElement("_flags2"));
+    private static final SequenceLayout _short_backupbuf$LAYOUT = (SequenceLayout)$LAYOUT.select(groupElement("_short_backupbuf"));
 
     /**
      * Layout for field:
      * {@snippet lang=c :
-     * int _flags2
+     * char _short_backupbuf[1]
      * }
      */
-    public static final OfInt _flags2$layout() {
-        return _flags2$LAYOUT;
+    public static final SequenceLayout _short_backupbuf$layout() {
+        return _short_backupbuf$LAYOUT;
     }
 
-    private static final long _flags2$OFFSET = 116;
+    private static final long _short_backupbuf$OFFSET = 119;
 
     /**
      * Offset for field:
      * {@snippet lang=c :
-     * int _flags2
+     * char _short_backupbuf[1]
      * }
      */
-    public static final long _flags2$offset() {
-        return _flags2$OFFSET;
+    public static final long _short_backupbuf$offset() {
+        return _short_backupbuf$OFFSET;
     }
 
     /**
      * Getter for field:
      * {@snippet lang=c :
-     * int _flags2
+     * char _short_backupbuf[1]
      * }
      */
-    public static int _flags2(MemorySegment struct) {
-        return struct.get(_flags2$LAYOUT, _flags2$OFFSET);
+    public static MemorySegment _short_backupbuf(MemorySegment struct) {
+        return struct.asSlice(_short_backupbuf$OFFSET, _short_backupbuf$LAYOUT.byteSize());
     }
 
     /**
      * Setter for field:
      * {@snippet lang=c :
-     * int _flags2
+     * char _short_backupbuf[1]
      * }
      */
-    public static void _flags2(MemorySegment struct, int fieldValue) {
-        struct.set(_flags2$LAYOUT, _flags2$OFFSET, fieldValue);
+    public static void _short_backupbuf(MemorySegment struct, MemorySegment fieldValue) {
+        MemorySegment.copy(fieldValue, 0L, struct, _short_backupbuf$OFFSET, _short_backupbuf$LAYOUT.byteSize());
+    }
+
+    private static long[] _short_backupbuf$DIMS = { 1 };
+
+    /**
+     * Dimensions for array field:
+     * {@snippet lang=c :
+     * char _short_backupbuf[1]
+     * }
+     */
+    public static long[] _short_backupbuf$dimensions() {
+        return _short_backupbuf$DIMS;
+    }
+    private static final VarHandle _short_backupbuf$ELEM_HANDLE = _short_backupbuf$LAYOUT.varHandle(sequenceElement());
+
+    /**
+     * Indexed getter for field:
+     * {@snippet lang=c :
+     * char _short_backupbuf[1]
+     * }
+     */
+    public static byte _short_backupbuf(MemorySegment struct, long index0) {
+        return (byte)_short_backupbuf$ELEM_HANDLE.get(struct, 0L, index0);
+    }
+
+    /**
+     * Indexed setter for field:
+     * {@snippet lang=c :
+     * char _short_backupbuf[1]
+     * }
+     */
+    public static void _short_backupbuf(MemorySegment struct, long index0, byte fieldValue) {
+        _short_backupbuf$ELEM_HANDLE.set(struct, 0L, index0, fieldValue);
     }
 
     private static final OfLong _old_offset$LAYOUT = (OfLong)$LAYOUT.select(groupElement("_old_offset"));
@@ -1271,48 +1310,48 @@ public class _IO_FILE {
         struct.set(_freeres_buf$LAYOUT, _freeres_buf$OFFSET, fieldValue);
     }
 
-    private static final OfLong __pad5$LAYOUT = (OfLong)$LAYOUT.select(groupElement("__pad5"));
+    private static final AddressLayout _prevchain$LAYOUT = (AddressLayout)$LAYOUT.select(groupElement("_prevchain"));
 
     /**
      * Layout for field:
      * {@snippet lang=c :
-     * size_t __pad5
+     * struct _IO_FILE **_prevchain
      * }
      */
-    public static final OfLong __pad5$layout() {
-        return __pad5$LAYOUT;
+    public static final AddressLayout _prevchain$layout() {
+        return _prevchain$LAYOUT;
     }
 
-    private static final long __pad5$OFFSET = 184;
+    private static final long _prevchain$OFFSET = 184;
 
     /**
      * Offset for field:
      * {@snippet lang=c :
-     * size_t __pad5
+     * struct _IO_FILE **_prevchain
      * }
      */
-    public static final long __pad5$offset() {
-        return __pad5$OFFSET;
+    public static final long _prevchain$offset() {
+        return _prevchain$OFFSET;
     }
 
     /**
      * Getter for field:
      * {@snippet lang=c :
-     * size_t __pad5
+     * struct _IO_FILE **_prevchain
      * }
      */
-    public static long __pad5(MemorySegment struct) {
-        return struct.get(__pad5$LAYOUT, __pad5$OFFSET);
+    public static MemorySegment _prevchain(MemorySegment struct) {
+        return struct.get(_prevchain$LAYOUT, _prevchain$OFFSET);
     }
 
     /**
      * Setter for field:
      * {@snippet lang=c :
-     * size_t __pad5
+     * struct _IO_FILE **_prevchain
      * }
      */
-    public static void __pad5(MemorySegment struct, long fieldValue) {
-        struct.set(__pad5$LAYOUT, __pad5$OFFSET, fieldValue);
+    public static void _prevchain(MemorySegment struct, MemorySegment fieldValue) {
+        struct.set(_prevchain$LAYOUT, _prevchain$OFFSET, fieldValue);
     }
 
     private static final OfInt _mode$LAYOUT = (OfInt)$LAYOUT.select(groupElement("_mode"));
@@ -1359,24 +1398,112 @@ public class _IO_FILE {
         struct.set(_mode$LAYOUT, _mode$OFFSET, fieldValue);
     }
 
+    private static final OfInt _unused3$LAYOUT = (OfInt)$LAYOUT.select(groupElement("_unused3"));
+
+    /**
+     * Layout for field:
+     * {@snippet lang=c :
+     * int _unused3
+     * }
+     */
+    public static final OfInt _unused3$layout() {
+        return _unused3$LAYOUT;
+    }
+
+    private static final long _unused3$OFFSET = 196;
+
+    /**
+     * Offset for field:
+     * {@snippet lang=c :
+     * int _unused3
+     * }
+     */
+    public static final long _unused3$offset() {
+        return _unused3$OFFSET;
+    }
+
+    /**
+     * Getter for field:
+     * {@snippet lang=c :
+     * int _unused3
+     * }
+     */
+    public static int _unused3(MemorySegment struct) {
+        return struct.get(_unused3$LAYOUT, _unused3$OFFSET);
+    }
+
+    /**
+     * Setter for field:
+     * {@snippet lang=c :
+     * int _unused3
+     * }
+     */
+    public static void _unused3(MemorySegment struct, int fieldValue) {
+        struct.set(_unused3$LAYOUT, _unused3$OFFSET, fieldValue);
+    }
+
+    private static final OfLong _total_written$LAYOUT = (OfLong)$LAYOUT.select(groupElement("_total_written"));
+
+    /**
+     * Layout for field:
+     * {@snippet lang=c :
+     * __uint64_t _total_written
+     * }
+     */
+    public static final OfLong _total_written$layout() {
+        return _total_written$LAYOUT;
+    }
+
+    private static final long _total_written$OFFSET = 200;
+
+    /**
+     * Offset for field:
+     * {@snippet lang=c :
+     * __uint64_t _total_written
+     * }
+     */
+    public static final long _total_written$offset() {
+        return _total_written$OFFSET;
+    }
+
+    /**
+     * Getter for field:
+     * {@snippet lang=c :
+     * __uint64_t _total_written
+     * }
+     */
+    public static long _total_written(MemorySegment struct) {
+        return struct.get(_total_written$LAYOUT, _total_written$OFFSET);
+    }
+
+    /**
+     * Setter for field:
+     * {@snippet lang=c :
+     * __uint64_t _total_written
+     * }
+     */
+    public static void _total_written(MemorySegment struct, long fieldValue) {
+        struct.set(_total_written$LAYOUT, _total_written$OFFSET, fieldValue);
+    }
+
     private static final SequenceLayout _unused2$LAYOUT = (SequenceLayout)$LAYOUT.select(groupElement("_unused2"));
 
     /**
      * Layout for field:
      * {@snippet lang=c :
-     * char _unused2[20]
+     * char _unused2[8]
      * }
      */
     public static final SequenceLayout _unused2$layout() {
         return _unused2$LAYOUT;
     }
 
-    private static final long _unused2$OFFSET = 196;
+    private static final long _unused2$OFFSET = 208;
 
     /**
      * Offset for field:
      * {@snippet lang=c :
-     * char _unused2[20]
+     * char _unused2[8]
      * }
      */
     public static final long _unused2$offset() {
@@ -1386,7 +1513,7 @@ public class _IO_FILE {
     /**
      * Getter for field:
      * {@snippet lang=c :
-     * char _unused2[20]
+     * char _unused2[8]
      * }
      */
     public static MemorySegment _unused2(MemorySegment struct) {
@@ -1396,19 +1523,19 @@ public class _IO_FILE {
     /**
      * Setter for field:
      * {@snippet lang=c :
-     * char _unused2[20]
+     * char _unused2[8]
      * }
      */
     public static void _unused2(MemorySegment struct, MemorySegment fieldValue) {
         MemorySegment.copy(fieldValue, 0L, struct, _unused2$OFFSET, _unused2$LAYOUT.byteSize());
     }
 
-    private static long[] _unused2$DIMS = { 20 };
+    private static long[] _unused2$DIMS = { 8 };
 
     /**
      * Dimensions for array field:
      * {@snippet lang=c :
-     * char _unused2[20]
+     * char _unused2[8]
      * }
      */
     public static long[] _unused2$dimensions() {
@@ -1419,7 +1546,7 @@ public class _IO_FILE {
     /**
      * Indexed getter for field:
      * {@snippet lang=c :
-     * char _unused2[20]
+     * char _unused2[8]
      * }
      */
     public static byte _unused2(MemorySegment struct, long index0) {
@@ -1429,7 +1556,7 @@ public class _IO_FILE {
     /**
      * Indexed setter for field:
      * {@snippet lang=c :
-     * char _unused2[20]
+     * char _unused2[8]
      * }
      */
     public static void _unused2(MemorySegment struct, long index0, byte fieldValue) {
