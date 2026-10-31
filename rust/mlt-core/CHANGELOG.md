@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.22.1...rust-mlt-core-v0.22.2) - 2026-10-31
+
+### Other
+
+- *(rust)* dedup shared-dictionary candidates with a hash set, FxHash for the encoder dictionaries ([#2004](https://github.com/maplibre/maplibre-tile-spec/pull/2004))
+
 ## [0.22.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.22.0...rust-mlt-core-v0.22.1) - 2026-10-27
 
 ### Other
