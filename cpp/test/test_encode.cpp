@@ -757,6 +757,8 @@ TEST(Encode, FixedIntegerEncodingOptionsRoundtrip) {
         f.properties["rank"] = std::int32_t{i < 30 ? 5 : i}; // a run, then a sequence
         f.properties["count"] = static_cast<std::uint32_t>(i * 1000);
         f.properties["big"] = std::int64_t{1} << (20 + (i % 30));
+        // Above INT32_MAX, so the column can't take the signed path and uses the unsigned encoding
+        f.properties["huge"] = static_cast<std::uint32_t>(3'000'000'000U + static_cast<std::uint32_t>(i));
         features.push_back(std::move(f));
     }
     const auto layer = makeLayer("fixed", std::move(features));
@@ -776,6 +778,7 @@ TEST(Encode, FixedIntegerEncodingOptionsRoundtrip) {
         const auto& rank = decoded->getProperties().at("rank");
         const auto& count = decoded->getProperties().at("count");
         const auto& big = decoded->getProperties().at("big");
+        const auto& huge = decoded->getProperties().at("huge");
         for (int i = 0; i < 60; ++i) {
             const auto& feature = decoded->getFeatures()[i];
             EXPECT_EQ(feature.getID(), static_cast<std::uint64_t>(1000 + i));
@@ -790,6 +793,7 @@ TEST(Encode, FixedIntegerEncodingOptionsRoundtrip) {
             EXPECT_EQ(std::get<std::int32_t>(*rank.getProperty(i)), i < 30 ? 5 : i);
             EXPECT_EQ(std::get<std::uint32_t>(*count.getProperty(i)), static_cast<std::uint32_t>(i * 1000));
             EXPECT_EQ(std::get<std::int64_t>(*big.getProperty(i)), std::int64_t{1} << (20 + (i % 30)));
+            EXPECT_EQ(std::get<std::uint32_t>(*huge.getProperty(i)), 3'000'000'000U + static_cast<std::uint32_t>(i));
         }
     }
 }

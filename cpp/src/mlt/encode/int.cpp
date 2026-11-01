@@ -46,20 +46,24 @@ template <typename TInt>
 std::vector<std::uint8_t> encodeVarintsIntegral(std::span<const TInt> values, bool zigZagForSigned = false) {
     static_assert(std::is_integral_v<TInt>, "encodeVarintsIntegral requires integral type");
 
-    // Write into a buffer sized for the longest varints, then trim
-    constexpr std::size_t maxVarintBytes = ((sizeof(TInt) * 8) + 6) / 7;
-    std::vector<std::uint8_t> result(values.size() * maxVarintBytes);
+    const auto toUnsigned = [zigZagForSigned](TInt v) {
+        if constexpr (std::is_signed_v<TInt>) {
+            return zigZagForSigned ? util::encoding::encodeZigZag(v) : static_cast<std::make_unsigned_t<TInt>>(v);
+        } else {
+            return v;
+        }
+    };
+
+    // Size the output exactly first, then write the varints straight into it
+    std::size_t size = 0;
+    for (const auto v : values) {
+        size += util::encoding::getVarintSize(toUnsigned(v));
+    }
+    std::vector<std::uint8_t> result(size);
     std::uint8_t* out = result.data();
     for (const auto v : values) {
-        if constexpr (std::is_signed_v<TInt>) {
-            const auto encoded = zigZagForSigned ? util::encoding::encodeZigZag(v)
-                                                 : static_cast<std::make_unsigned_t<TInt>>(v);
-            out += util::encoding::encodeVarint(encoded, out);
-        } else {
-            out += util::encoding::encodeVarint(v, out);
-        }
+        out += util::encoding::encodeVarint(toUnsigned(v), out);
     }
-    result.resize(static_cast<std::size_t>(out - result.data()));
     return result;
 }
 
