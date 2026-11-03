@@ -46,7 +46,7 @@ template <typename TInt>
 std::vector<std::uint8_t> encodeVarintsIntegral(std::span<const TInt> values, bool zigZagForSigned = false) {
     static_assert(std::is_integral_v<TInt>, "encodeVarintsIntegral requires integral type");
 
-    const auto toUnsigned = [zigZagForSigned](TInt v) {
+    const auto toUnsigned = [&](TInt v) {
         if constexpr (std::is_signed_v<TInt>) {
             return zigZagForSigned ? util::encoding::encodeZigZag(v) : static_cast<std::make_unsigned_t<TInt>>(v);
         } else {
