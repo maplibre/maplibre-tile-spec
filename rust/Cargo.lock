@@ -810,12 +810,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
-name = "countio"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9702aee5d1d744c01d82f6915644f950f898e014903385464c773b96fefdecb"
-
-[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3456,18 +3450,18 @@ dependencies = [
 
 [[package]]
 name = "pmtiles"
-version = "0.25.0"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52804dc8c357bba7e67a4cc9cc9b2eade025817ac43a92642fe0522d508b1197"
+checksum = "7f05bc08aeb67c0080be8414535e761981a98bc1bee46a4bed7db63e212565c4"
 dependencies = [
  "async-compression",
  "async-stream",
  "brotli",
  "bytes",
- "countio",
  "fast_hilbert",
  "flate2",
  "futures-util",
+ "integer-encoding",
  "memmap2",
  "serde",
  "serde_json",
@@ -3475,7 +3469,6 @@ dependencies = [
  "tilejson",
  "tokio",
  "twox-hash",
- "varint-rs",
  "zstd",
 ]
 
@@ -5959,12 +5952,6 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
-
-[[package]]
-name = "varint-rs"
-version = "2.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa6c38708f6257f1ec2ca7e5a11f9bbf58a27d7060078b6b333624968183d96"
 
 [[package]]
 name = "vcpkg"
