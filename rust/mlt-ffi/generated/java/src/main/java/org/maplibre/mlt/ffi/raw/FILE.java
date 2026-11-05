@@ -30,7 +30,8 @@ import static java.lang.foreign.MemoryLayout.PathElement.*;
  *     struct _IO_marker *_markers;
  *     struct _IO_FILE *_chain;
  *     int _fileno;
- *     int _flags2;
+ *     int _flags2 : 24;
+ *     char _short_backupbuf[1];
  *     __off_t _old_offset;
  *     unsigned short _cur_column;
  *     signed char _vtable_offset;
@@ -41,9 +42,11 @@ import static java.lang.foreign.MemoryLayout.PathElement.*;
  *     struct _IO_wide_data *_wide_data;
  *     struct _IO_FILE *_freeres_list;
  *     void *_freeres_buf;
- *     size_t __pad5;
+ *     struct _IO_FILE **_prevchain;
  *     int _mode;
- *     char _unused2[20];
+ *     int _unused3;
+ *     __uint64_t _total_written;
+ *     char _unused2[8];
  * } FILE
  * }
  */

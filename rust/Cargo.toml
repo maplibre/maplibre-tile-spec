@@ -44,7 +44,7 @@ glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
 hilbert_2d = "1.1.0"
-hotpath = "0.29.0"
+hotpath = "0.30.2"
 indicatif = "0.18"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
@@ -57,7 +57,7 @@ mlt-core = { version = "0.22.1", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
 num-traits = "0.2.19"
 num_enum = "0.7.6"
-pmtiles = { version = "0.25.0", default-features = false, features = ["mmap-async-tokio", "write", "tilejson", "iter-async", "brotli", "zstd"] }
+pmtiles = { version = "0.26.0", default-features = false, features = ["mmap-async-tokio", "write", "tilejson", "iter-async", "brotli", "zstd"] }
 pretty_assertions = "1.4"
 proptest = "1.11"
 proptest-derive = "0.9"
@@ -66,7 +66,7 @@ pyo3-stub-gen = "0.23.0"
 pythonize = "0.29"
 ratatui = { version = "0.30.1", default-features = false, features = ["crossterm", "layout-cache", "underline-color"] }
 rayon = "1"
-rstar = "0.13"
+rstar = "0.14"
 rstest = "0.28.0"
 rustc-hash = "2.1"
 serde = { version = "1", features = ["derive"] }
