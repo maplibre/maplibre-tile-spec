@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.6.1...rust-mlt-v0.6.2) - 2026-11-05
+
+### Other
+
+- update Cargo.toml dependencies
+
 ## [0.6.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.6.0...rust-mlt-v0.6.1) - 2026-10-27
 
 ### Other
