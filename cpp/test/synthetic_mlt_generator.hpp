@@ -885,7 +885,10 @@ public:
                         feat(point(c0), PropertyMap{{"val", PropertyValue{static_cast<std::uint32_t>(i % 3)}}}));
                 }
 
-                const auto config = cfg([](auto& c) { c.useFastPfor = true; });
+                const auto config = cfg([](auto& c) {
+                    c.useFastPfor = true;
+                    c.forceNullableColumns = true;
+                });
 
                 tiles.push_back({
                     .name = "props_u32_fpf_" + std::to_string(len),
@@ -958,6 +961,7 @@ public:
             const auto config = cfg([](auto& c) {
                 // Match Java synthetic generation: cfg().fastPFOR()
                 c.useFastPfor = true;
+                c.forceNullableColumns = true;
             });
             tiles.push_back({
                 .name = "fpf_align_" + std::to_string(pad + 1),

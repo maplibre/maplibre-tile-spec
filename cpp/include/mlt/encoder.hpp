@@ -39,7 +39,8 @@ struct EncoderConfig {
     bool forceNullableColumns = false;
     /// The strategy for encoding integer streams, including integer properties and string lengths
     IntegerEncodingOption integerEncodingOption = IntegerEncodingOption::AUTO;
-    /// The strategy for encoding integer streams for geometry coordinates and indexes
+    /// The strategy for encoding integer streams for geometry indexes.
+    /// Vertex coordinates are always componentwise deltas and do not follow this option.
     std::optional<IntegerEncodingOption> geometryEncodingOption = IntegerEncodingOption::AUTO;
     /// The strategy for encoding geometry topology integer streams (e.g. part sizes)
     /// `geometryEncodingOption` is used as a fallback if this is not set.

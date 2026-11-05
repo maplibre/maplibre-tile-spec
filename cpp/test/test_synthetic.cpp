@@ -108,8 +108,6 @@ const std::vector<ExceptionPattern>& binaryExceptionPatterns() {
          .reason = "Tessellation triangle ordering is arbitrary; byte comparison is not reliable"},
         {.pattern = std::regex{"(.*_fsst$)"},
          .reason = "FSST symbol selection is heuristic; byte comparison is not reliable"},
-        {.pattern = std::regex{"^fpf_align_\\d+$"}, .reason = "sub-optimal java vertex encoding"},
-        {.pattern = std::regex{"^props_u32_fpf_\\d+$"}, .reason = "sub-optimal java vertex encoding"},
         {.pattern = std::regex{"^id_max$"}, .reason = "IDs above INT32_MAX use a 64-bit ID column in C++"},
         {.pattern = std::regex{"^ids64_minmax_delta$"},
          .reason = "C++ does not delta-encode 64-bit values above INT64_MAX"},

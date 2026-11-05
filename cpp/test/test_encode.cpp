@@ -225,6 +225,24 @@ Encoder::Layer makeLayer(std::string name, std::vector<Encoder::Feature> feature
     return layer;
 }
 
+/// The metadata of the vertex data stream in a tile holding one layer with only a geometry column
+std::unique_ptr<metadata::stream::StreamMetadata> decodeVertexStreamMetadata(const std::vector<std::uint8_t>& bytes) {
+    using namespace metadata::stream;
+    BufferStream stream({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+    util::decoding::decodeVarint<std::uint32_t>(stream); // layer length
+    util::decoding::decodeVarint<std::uint32_t>(stream); // layer tag
+    metadata::tileset::decodeFeatureTable(stream);
+    const auto numStreams = util::decoding::decodeVarint<std::uint32_t>(stream);
+    for (std::uint32_t i = 0; i < numStreams; ++i) {
+        auto streamMetadata = StreamMetadata::decode(stream);
+        if (streamMetadata->getPhysicalStreamType() == PhysicalStreamType::DATA) {
+            return streamMetadata;
+        }
+        stream.consume(streamMetadata->getByteLength());
+    }
+    return nullptr;
+}
+
 template <typename T>
 T unwrapProperty(const Property& prop) {
     return std::visit(
@@ -1037,6 +1055,88 @@ TEST(Encode, VertexDictionaryRoundtrip) {
             auto& expected = sharedVerts[(i + j) % sharedVerts.size()];
             EXPECT_EQ(static_cast<int>(ls.getCoordinates()[j].x), expected.x) << "feature " << i;
             EXPECT_EQ(static_cast<int>(ls.getCoordinates()[j].y), expected.y) << "feature " << i;
+        }
+    }
+}
+
+TEST(Encode, VertexStreamIsComponentwiseDelta) {
+    // Evenly spaced points give a run of equal deltas, which RLE would shrink further.
+    // Other decoders would read an RLE vertex stream as runs of coordinates, not of deltas.
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 100; ++i) {
+        features.push_back(makePointFeature(i, {.x = i * 10, .y = i * 10}));
+    }
+
+    EncoderConfig config;
+    config.includeIds = false;
+    config.sortFeatures = false;
+    const auto bytes = Encoder().encode({makeLayer("diagonal", std::move(features))}, config);
+
+    const auto vertexStream = decodeVertexStreamMetadata(bytes);
+    ASSERT_TRUE(vertexStream);
+    EXPECT_EQ(vertexStream->getLogicalStreamType()->getDictionaryType(), metadata::stream::DictionaryType::VERTEX);
+    EXPECT_EQ(vertexStream->getLogicalLevelTechnique1(), metadata::stream::LogicalLevelTechnique::COMPONENTWISE_DELTA);
+    EXPECT_EQ(vertexStream->getLogicalLevelTechnique2(), metadata::stream::LogicalLevelTechnique::NONE);
+}
+
+TEST(Encode, MortonVertexDictionaryWithFastPfor) {
+    // 300 points on 30 distinct positions, which makes the Morton dictionary the smallest vertex layout.
+    std::vector<Encoder::Feature> features;
+    for (int i = 0; i < 300; ++i) {
+        features.push_back(makePointFeature(i, {.x = ((i % 10) * 400) + (i % 3), .y = (i % 6) * 650}));
+    }
+
+    EncoderConfig config;
+    config.includeIds = false;
+    config.sortFeatures = false;
+    config.useFastPfor = true;
+    const auto bytes = Encoder().encode({makeLayer("grid", features)}, config);
+
+    const auto vertexStream = decodeVertexStreamMetadata(bytes);
+    ASSERT_TRUE(vertexStream);
+    ASSERT_EQ(vertexStream->getLogicalStreamType()->getDictionaryType(), metadata::stream::DictionaryType::MORTON);
+    EXPECT_EQ(vertexStream->getPhysicalLevelTechnique(), metadata::stream::PhysicalLevelTechnique::FAST_PFOR);
+
+    const auto tile = makeDecoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+    const auto* decoded = tile.getLayer("grid");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), features.size());
+    for (std::size_t i = 0; i < features.size(); ++i) {
+        const auto& point = dynamic_cast<const geometry::Point&>(decoded->getFeatures()[i].getGeometry());
+        EXPECT_EQ(static_cast<int>(point.getCoordinate().x), features[i].geometry.coordinates[0].x) << "feature " << i;
+        EXPECT_EQ(static_cast<int>(point.getCoordinate().y), features[i].geometry.coordinates[0].y) << "feature " << i;
+    }
+}
+
+TEST(Encode, MortonCodesUsingTheTopBit) {
+    // With y = 32768 the Morton codes use bit 31: (0, 32768) and (1, 32768) are 0x80000000 and 0x80000001,
+    // and (0, 32767) is 0x2AAAAAAA. Their deltas do not fit in a signed 32-bit subtraction.
+    const std::vector<std::vector<Encoder::Vertex>> pointSets = {
+        {{.x = 0, .y = 32768}, {.x = 1, .y = 32768}},
+        {{.x = 0, .y = 32767}, {.x = 0, .y = 32768}, {.x = 1, .y = 32768}},
+    };
+    for (const bool useFastPfor : {false, true}) {
+        for (const auto& points : pointSets) {
+            std::vector<Encoder::Feature> features;
+            for (std::size_t i = 0; i < 60; ++i) {
+                features.push_back(makePointFeature(i, points[i % points.size()]));
+            }
+
+            EncoderConfig config;
+            config.includeIds = false;
+            config.sortFeatures = false;
+            config.useFastPfor = useFastPfor;
+            const auto bytes = Encoder().encode({makeLayer("top", features)}, config);
+
+            const auto tile = makeDecoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+            const auto* decoded = tile.getLayer("top");
+            ASSERT_TRUE(decoded);
+            ASSERT_EQ(decoded->getFeatures().size(), features.size());
+            for (std::size_t i = 0; i < features.size(); ++i) {
+                const auto& point = dynamic_cast<const geometry::Point&>(decoded->getFeatures()[i].getGeometry());
+                EXPECT_EQ(static_cast<int>(point.getCoordinate().x), features[i].geometry.coordinates[0].x);
+                EXPECT_EQ(static_cast<int>(point.getCoordinate().y), features[i].geometry.coordinates[0].y);
+            }
         }
     }
 }
