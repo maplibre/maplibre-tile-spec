@@ -2,12 +2,17 @@
 
 #include <mlt/metadata/stream.hpp>
 #include <mlt/util/buffer_stream.hpp>
+#include <mlt/util/memory_budget.hpp>
 #include <mlt/util/noncopyable.hpp>
 #include <mlt/util/rle.hpp>
 #include <mlt/util/vectorized.hpp>
 #include <mlt/util/zigzag.hpp>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -18,12 +23,12 @@ public:
     using StreamMetadata = metadata::stream::StreamMetadata;
     using MortonEncodedStreamMetadata = metadata::stream::MortonEncodedStreamMetadata;
 
-    IntegerDecoder(bool enableFastPFOR);
-    ~IntegerDecoder() noexcept;
+    IntegerDecoder() = default;
+
+    /// Limits the memory allocated for sizes taken from the tile, shared by the decoders that use this one
+    util::MemoryBudget& getBudget() noexcept { return budget; }
 
     IntegerDecoder(IntegerDecoder&&) = delete;
-    // FastPFOR classes have implicitly-deleted assignment operators.
-    // We could create new ones, if really necessary.
     IntegerDecoder& operator=(IntegerDecoder&&) = delete;
 
     /// Number of decoded values a stream yields (the buffer size for `decodeIntArray`).
@@ -87,12 +92,9 @@ public:
                             const MortonEncodedStreamMetadata&);
 
 private:
-    struct Impl;
-    std::unique_ptr<Impl> impl;
+    util::MemoryBudget budget;
     std::vector<std::vector<std::uint8_t>> buffer;
     std::size_t bufferIndex = 0;
-
-    bool enableFastPFOR;
 
     // Very simple RAII wrapper for temporary buffers.
     // Buffers must be used only within a current method invocation.
@@ -128,20 +130,27 @@ private:
     /// Get a buffer for intermediate values, which must not be retained beyond the current method invocation
     template <typename T>
     BufWrapper<T> getTempBuffer(std::size_t minSize) {
+        if (minSize > std::numeric_limits<std::size_t>::max() / sizeof(T)) {
+            throw std::runtime_error("Memory limit exceeded");
+        }
+        const auto bytes = minSize * sizeof(T);
         buffer.resize(std::max(buffer.size(), bufferIndex + 1));
-        buffer[bufferIndex].resize(std::max(buffer[bufferIndex].size(), minSize * sizeof(T)));
-        return {*this, buffer[bufferIndex].data()};
+        auto& target = buffer[bufferIndex];
+        if (bytes > target.size()) {
+            // Buffers are retained, so only growth is charged
+            budget.consume(bytes - target.size());
+            target.resize(bytes);
+        }
+        return {*this, target.data()};
     }
+
+    /// Check what a stream declares against the data available, before allocating for its values
+    /// @throws std::runtime_error if the stream cannot be valid
+    static void checkStream(const StreamMetadata&, const BufferStream&);
 
     template <typename TDecode, typename TTarget = TDecode>
         requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>))
     void decodeStream(BufferStream& tileData, TTarget* out, std::size_t outSize, const StreamMetadata&);
-
-    template <typename T>
-    static void decodeRLE(const std::vector<T>& values, std::vector<T>& out, std::uint32_t numRuns);
-
-    template <typename T>
-    static void decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, std::uint32_t numRuns);
 
     /// Decode zigzag-delta values
     /// @param values Input values
@@ -168,9 +177,11 @@ private:
                                   int numBits,
                                   int coordinateShift) noexcept;
 
-    std::uint32_t decodeFastPfor(BufferStream& buffer,
-                                 std::uint32_t* result,
-                                 std::size_t numValues,
-                                 std::size_t byteLength);
+    /// Decode a FastPFOR stream, which must hold exactly `numValues` values
+    /// @param buffer Source data, advanced past the stream
+    /// @param result Output, with room for `numValues` values
+    /// @param byteLength Length of the stream in the source data, a multiple of 4
+    /// @throws std::runtime_error if the stream is malformed or exceeds the source data
+    void decodeFastPfor(BufferStream& buffer, std::uint32_t* result, std::size_t numValues, std::size_t byteLength);
 };
 } // namespace mlt::decoder

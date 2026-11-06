@@ -26,6 +26,7 @@ option(MLT_AS_OBJECT_LIBRARY "Build mlt-cpp and mlt-cpp-encoder as object librar
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
+option(MLT_WITH_FUZZERS "Include libFuzzer targets (requires Clang)" OFF)
 
 if(MLT_AS_OBJECT_LIBRARY)
     add_library(mlt-cpp OBJECT)
@@ -131,6 +132,8 @@ target_sources(mlt-cpp PRIVATE
     ${PROJECT_SOURCE_DIR}/include/mlt/util/stl.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/varint.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decoder.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/decode/fastpfor.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/decode/fastpfor.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/geometry.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/int.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/int.hpp
@@ -210,6 +213,10 @@ endif(MLT_WITH_TESTS)
 if(MLT_WITH_TOOLS)
     add_subdirectory(${PROJECT_SOURCE_DIR}/tool)
 endif(MLT_WITH_TOOLS)
+
+if(MLT_WITH_FUZZERS)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/fuzz)
+endif(MLT_WITH_FUZZERS)
 
 list(APPEND MLT_EXPORT_TARGETS mlt-cpp-encoder)
 export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)
