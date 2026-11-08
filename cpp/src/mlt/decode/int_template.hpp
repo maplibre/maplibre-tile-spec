@@ -43,6 +43,31 @@ inline std::size_t IntegerDecoder::getIntArrayBufferSize(const std::size_t count
     }
 }
 
+inline void IntegerDecoder::checkStream(const StreamMetadata& metadata, const BufferStream& tileData) {
+    using namespace metadata::stream;
+    if (metadata.getByteLength() > tileData.getRemaining()) {
+        throw std::runtime_error("stream exceeds the available data");
+    }
+
+    // The least data that can describe a value, so that the count can be limited before allocating for it
+    const auto numValues = static_cast<std::uint64_t>(metadata.getNumValues());
+    switch (metadata.getPhysicalLevelTechnique()) {
+        case PhysicalLevelTechnique::FAST_PFOR:
+            // Each block of 256 values takes at least two bytes
+            if (numValues > 128 * static_cast<std::uint64_t>(metadata.getByteLength())) {
+                throw std::runtime_error("stream has more values than its data can hold");
+            }
+            break;
+        case PhysicalLevelTechnique::VARINT:
+            if (numValues > tileData.getRemaining()) {
+                throw std::runtime_error("stream has more values than its data can hold");
+            }
+            break;
+        default:
+            break;
+    }
+}
+
 template <typename T, typename TTarget>
     requires((std::is_integral_v<T> || std::is_enum_v<T>) && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
              sizeof(T) <= sizeof(TTarget))
@@ -56,7 +81,9 @@ void IntegerDecoder::decodeIntArray(const T* values,
     using namespace util::decoding;
     switch (streamMetadata.getLogicalLevelTechnique1()) {
         case LogicalLevelTechnique::NONE: {
-            assert(count <= outCount);
+            if (count > outCount) {
+                throw std::runtime_error("output buffer too small");
+            }
             const auto f = isSigned ? [](T x) noexcept { return static_cast<TTarget>(decodeZigZag(x)); } : [](T x) noexcept { return static_cast<TTarget>(x); };
             std::transform(values, values + count, out, f);
             return;
@@ -67,7 +94,6 @@ void IntegerDecoder::decodeIntArray(const T* values,
                     throw std::runtime_error("invalid RLE metadata");
                 }
                 const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
-                assert(outCount >= rleMetadata.getNumRleValues());
                 if constexpr (sizeof(T) == sizeof(TTarget)) {
                     rle::decodeInt<T, TTarget>(values, count, out, outCount, rleMetadata.getRuns());
                     decodeZigZagDelta(out, outCount, out, outCount);
@@ -79,15 +105,22 @@ void IntegerDecoder::decodeIntArray(const T* values,
                     decodeZigZagDelta<T, TTarget>(rleBuffer.get(), outCount, out, outCount);
                 }
             } else {
-                assert(outCount >= count);
-                decodeZigZagDelta(values, count, out, outCount);
+                if (count > outCount) {
+                    throw std::runtime_error("output buffer too small");
+                }
+                decodeZigZagDelta(values, count, out, count);
             }
             break;
         case LogicalLevelTechnique::COMPONENTWISE_DELTA:
             if constexpr (std::is_same_v<TTarget, std::int32_t> || std::is_same_v<TTarget, std::uint32_t>) {
-                assert(count <= outCount);
+                if (count > outCount) {
+                    throw std::runtime_error("output buffer too small");
+                }
+                if (count % 2 != 0) {
+                    throw std::runtime_error("componentwise delta needs pairs of values");
+                }
                 std::transform(values, values + count, out, [](auto x) { return static_cast<TTarget>(x); });
-                vectorized::decodeComponentwiseDeltaVec2(out, outCount);
+                vectorized::decodeComponentwiseDeltaVec2(out, count);
                 break;
             }
             throw std::runtime_error("Logical level technique COMPONENTWISE_DELTA not implemented for 64-bit values");
@@ -96,7 +129,6 @@ void IntegerDecoder::decodeIntArray(const T* values,
                 throw std::runtime_error("invalid RLE metadata");
             }
             const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
-            assert(rleMetadata.getNumRleValues() <= outCount);
             auto decoder = isSigned ? [](T x) {
                     return static_cast<TTarget>(decodeZigZag(x));
             } : [](T x) {
@@ -108,10 +140,12 @@ void IntegerDecoder::decodeIntArray(const T* values,
         case LogicalLevelTechnique::MORTON: {
             // TODO: zig-zag decode when morton second logical level technique
             if (streamMetadata.getMetadataType() != LogicalLevelTechnique::MORTON) {
-                throw std::runtime_error("invalid RLE metadata");
+                throw std::runtime_error("invalid Morton metadata");
             }
             const auto& mortonMetadata = static_cast<const MortonEncodedStreamMetadata&>(streamMetadata);
-            assert(2 * count <= outCount);
+            if (count > outCount / 2) {
+                throw std::runtime_error("output buffer too small");
+            }
             if constexpr (std::is_same_v<T, std::uint32_t> && std::is_same_v<TTarget, std::uint32_t>) {
                 decodeMortonCodes<T, TTarget, true>(
                     values, count, out, outCount, mortonMetadata.getNumBits(), mortonMetadata.getCoordinateShift());
@@ -132,6 +166,7 @@ void IntegerDecoder::decodeIntStream(BufferStream& tileData,
                                      std::vector<TTarget>& out,
                                      const StreamMetadata& metadata,
                                      const bool isSigned) {
+    checkStream(metadata, tileData);
     auto tempBuffer = getTempBuffer<TInt>(metadata.getNumValues());
     decodeIntStream<TDecode, TInt, TTarget>(tileData, tempBuffer, metadata.getNumValues(), out, metadata, isSigned);
 }
@@ -144,7 +179,9 @@ void IntegerDecoder::decodeIntStream(BufferStream& tileData,
                                      const StreamMetadata& metadata,
                                      const bool isSigned) {
     decodeStream<TDecode, TInt>(tileData, buffer, bufferSize, metadata);
-    out.resize(getIntArrayBufferSize(bufferSize, metadata));
+    const auto outSize = getIntArrayBufferSize(bufferSize, metadata);
+    budget.consumeItems<TTarget>(outSize);
+    out.resize(outSize);
     decodeIntArray<TInt, TTarget>(buffer, bufferSize, out.data(), out.size(), metadata, isSigned);
 }
 
@@ -169,8 +206,10 @@ template <typename TDecode, typename TInt, typename TTarget, bool Delta>
 void IntegerDecoder::decodeMortonStream(BufferStream& tileData,
                                         std::vector<TTarget>& out,
                                         const MortonEncodedStreamMetadata& metadata) {
+    checkStream(metadata, tileData);
     auto tempBuffer = getTempBuffer<TInt>(metadata.getNumValues());
-    out.resize(2 * metadata.getNumValues());
+    budget.consumeItems<TTarget>(2 * static_cast<std::size_t>(metadata.getNumValues()));
+    out.resize(2 * static_cast<std::size_t>(metadata.getNumValues()));
     decodeMortonStream<TDecode, TInt, TTarget, Delta>(
         tileData, tempBuffer, metadata.getNumValues(), out.data(), out.size(), metadata);
 }
@@ -183,7 +222,9 @@ void IntegerDecoder::decodeMortonStream(BufferStream& tileData,
                                         std::size_t outCount,
                                         const MortonEncodedStreamMetadata& metadata) {
     decodeStream<TDecode, TInt>(tileData, buffer, bufferCount, metadata);
-    assert(outCount == 2 * bufferCount);
+    if (bufferCount > outCount / 2) {
+        throw std::runtime_error("output buffer too small");
+    }
     decodeMortonCodes<TInt, TTarget, Delta>(
         buffer, bufferCount, out, outCount, metadata.getNumBits(), metadata.getCoordinateShift());
 }
@@ -200,7 +241,10 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
                                   const StreamMetadata& metadata) {
     using namespace metadata::stream;
 
-    assert(outSize >= metadata.getNumValues());
+    // The value count comes from the tile, so it's not enough to assert that the caller's buffer can hold it
+    if (outSize < metadata.getNumValues()) {
+        throw std::runtime_error("stream has more values than the output buffer can hold");
+    }
 
     switch (metadata.getPhysicalLevelTechnique()) {
         case PhysicalLevelTechnique::FAST_PFOR: {
@@ -215,12 +259,12 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
                 outPtr = tempBuffer->get();
             }
 
-            const auto resultLength = decodeFastPfor(
-                tileData, outPtr, metadata.getNumValues(), metadata.getByteLength());
+            decodeFastPfor(tileData, outPtr, metadata.getNumValues(), metadata.getByteLength());
 
             if constexpr (sizeof(*out) != sizeof(std::uint32_t)) {
                 // ... then extend to 64-bit output (`.mapToLong(i -> i)` in Java)
-                std::transform(outPtr, outPtr + resultLength, out, [](auto x) { return static_cast<TTarget>(x); });
+                std::transform(
+                    outPtr, outPtr + metadata.getNumValues(), out, [](auto x) { return static_cast<TTarget>(x); });
             }
 
             break;
@@ -231,52 +275,22 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
             if (metadata.getByteLength() != numValues * sizeof(TDecode)) {
                 throw std::runtime_error("unexpected byte length for unencoded integer stream");
             }
-            const auto* src = tileData.getReadPosition();
+            // Check that the data is available before reading it
+            const auto* const src = tileData.getReadPosition();
+            tileData.consume(metadata.getByteLength());
             for (std::uint32_t i = 0; i < numValues; ++i) {
                 TDecode value = 0;
                 std::memcpy(&value, src + (i * sizeof(TDecode)), sizeof(TDecode));
                 out[i] = static_cast<TTarget>(value);
             }
-            tileData.consume(metadata.getByteLength());
             break;
         }
         case PhysicalLevelTechnique::VARINT:
-            util::decoding::decodeVarints<TDecode>(tileData, static_cast<std::uint32_t>(outSize), out);
+            util::decoding::decodeVarints<TDecode>(tileData, metadata.getNumValues(), out);
             break;
         default:
             throw std::runtime_error("Specified physical level technique not yet supported " +
                                      std::to_string(std::to_underlying(metadata.getPhysicalLevelTechnique())));
-    }
-}
-
-template <typename T>
-void IntegerDecoder::decodeRLE(const std::vector<T>& values, std::vector<T>& out, const std::uint32_t numRuns) {
-    std::uint32_t outPos = 0;
-    for (std::uint32_t i = 0; i < numRuns; ++i) {
-        const auto run = values[i];
-        const auto value = values[i + numRuns];
-        if (outPos + run > out.size()) {
-            throw std::runtime_error("RLE run exceeds output buffer size");
-        }
-        std::fill(std::next(out.begin(), outPos), std::next(out.begin(), outPos + run), value);
-    }
-}
-
-template <typename T>
-void IntegerDecoder::decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, const std::uint32_t numRuns) {
-    std::uint32_t outPos = 0;
-    T previousValue = 0;
-    for (std::uint32_t i = 0; i < numRuns; ++i) {
-        const auto run = values[i];
-        if (outPos + run > out.size()) {
-            throw std::runtime_error("RLE run exceeds output buffer size");
-        }
-
-        const auto value = static_cast<std::make_signed_t<T>>(values[i + numRuns]);
-        const auto delta = util::decoding::decodeZigZag(value);
-        for (std::size_t j = 0; j < run; ++j) {
-            out[outPos++] = static_cast<T>(previousValue += delta);
-        }
     }
 }
 
@@ -315,7 +329,7 @@ void IntegerDecoder::decodeMortonCodes(const TDecode* const data,
                                        int numBits,
                                        int coordinateShift) noexcept {
     using namespace util::decoding;
-    assert(outCount == 2 * count);
+    assert(2 * count <= outCount);
     std::uint32_t previousMortonCode = 0;
     for (std::size_t i = 0, j = 0; i < count; ++i) {
         auto mortonCode = static_cast<std::uint32_t>(data[i]);
