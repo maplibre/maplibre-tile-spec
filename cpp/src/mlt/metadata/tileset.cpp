@@ -2,6 +2,7 @@
 #include <mlt/metadata/type_map.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/encoding/varint.hpp>
+#include <mlt/util/memory_budget.hpp>
 #include <mlt/util/stl.hpp>
 #include <mlt/util/varint.hpp>
 
@@ -42,7 +43,7 @@ std::uint32_t checkCount(const std::uint32_t count, const BufferStream& tileData
     return count;
 }
 
-Column decodeColumn(BufferStream& tileData, const unsigned depth = 0) {
+Column decodeColumn(BufferStream& tileData, util::MemoryBudget& budget, const unsigned depth = 0) {
     if (depth > maxColumnDepth) {
         throw std::runtime_error("Columns are nested too deeply");
     }
@@ -64,23 +65,35 @@ Column decodeColumn(BufferStream& tileData, const unsigned depth = 0) {
         }
         auto& complex = column->getComplexType();
         const auto childCount = checkCount(decodeVarint<std::uint32_t>(tileData), tileData);
-        complex.children = util::generateVector<Column>(childCount,
-                                                        [&](auto) { return decodeColumn(tileData, depth + 1); });
+        // The vector is about to reserve childCount * sizeof(Column) bytes.
+        budget.consumeItems<Column>(childCount);
+        complex.children = util::generateVector<Column>(childCount, [&](auto) {
+            return decodeColumn(tileData, budget, depth + 1);
+        });
     }
 
-    return *column;
+    return std::move(*column);
 }
 } // namespace
 
-FeatureTable decodeFeatureTable(BufferStream& tileData) {
+FeatureTable decodeFeatureTable(BufferStream& tileData, util::MemoryBudget& budget) {
     auto name = decodeString(tileData);
     if (name.empty()) {
         throw std::runtime_error("Missing layer name");
     }
     const auto extent = decodeVarint<std::uint32_t>(tileData);
     const auto columnCount = checkCount(decodeVarint<std::uint32_t>(tileData), tileData);
-    auto columns = util::generateVector<Column>(columnCount, [&](auto) { return decodeColumn(tileData); });
+    // The vector is about to reserve columnCount * sizeof(Column) bytes.
+    budget.consumeItems<Column>(columnCount);
+    auto columns = util::generateVector<Column>(columnCount, [&](auto) {
+        return decodeColumn(tileData, budget);
+    });
     return {.name = std::move(name), .extent = extent, .columns = std::move(columns)};
+}
+
+FeatureTable decodeFeatureTable(BufferStream& tileData) {
+    util::MemoryBudget budget;
+    return decodeFeatureTable(tileData, budget);
 }
 
 namespace {

@@ -7,6 +7,9 @@
 
 namespace mlt {
 struct BufferStream;
+namespace util {
+class MemoryBudget;
+}
 } // namespace mlt
 
 namespace mlt::metadata::tileset {
@@ -130,6 +133,10 @@ struct FeatureTable {
 };
 
 FeatureTable decodeFeatureTable(BufferStream&);
+
+/// Decode a feature table, charging column metadata to `budget`.
+/// @throws std::runtime_error if the tile is malformed or exceeds the budget
+FeatureTable decodeFeatureTable(BufferStream&, util::MemoryBudget&);
 
 /// Encode a feature table header into binary format (inverse of decodeFeatureTable).
 std::vector<std::uint8_t> encodeFeatureTable(const FeatureTable&);

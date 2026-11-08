@@ -107,6 +107,59 @@ TEST(Robustness, ColumnCountExceedsData) {
     EXPECT_THROW(decodeTile(tileWithLayer(contents)), std::runtime_error);
 }
 
+// A column is 80 bytes, but checkCount only compares the count to the remaining
+// bytes. Without charging the budget, 1M one-byte columns allocate ~80 MB.
+TEST(Robustness, ColumnCountExceedsDefaultMemoryBudget) {
+    Bytes contents;
+    putString(contents, "layer");
+    putVarint(contents, 4096);
+    putVarint(contents, 1'000'000);
+    contents.insert(contents.end(), 1'000'000, 4); // type code 4: no name, no children
+
+    try {
+        (void)decodeTile(tileWithLayer(contents));
+        FAIL() << "expected Memory limit exceeded";
+    } catch (const std::runtime_error& e) {
+        EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
+    }
+}
+
+TEST(Robustness, ColumnCountExceedsConfiguredMemoryBudget) {
+    Bytes contents;
+    putString(contents, "layer");
+    putVarint(contents, 4096);
+    putVarint(contents, 100); // 100 * sizeof(Column) > 1024
+    contents.insert(contents.end(), 100, 4);
+
+    Decoder decoder;
+    decoder.setMemoryLimit(1024);
+    try {
+        (void)decoder.decode(view(tileWithLayer(contents)));
+        FAIL() << "expected Memory limit exceeded";
+    } catch (const std::runtime_error& e) {
+        EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
+    }
+}
+
+// Direct feature-table test: unlike the tile tests above, this cannot pass
+// because of a later missing-stream error.
+TEST(Robustness, ColumnMetadataExceedsBudgetDirectly) {
+    Bytes contents;
+    putString(contents, "layer");
+    putVarint(contents, 4096);
+    putVarint(contents, 100);
+    contents.insert(contents.end(), 100, 4);
+
+    BufferStream stream{view(contents)};
+    mlt::util::MemoryBudget budget(1024);
+    try {
+        (void)mlt::metadata::tileset::decodeFeatureTable(stream, budget);
+        FAIL() << "expected Memory limit exceeded";
+    } catch (const std::runtime_error& e) {
+        EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
+    }
+}
+
 TEST(Robustness, StringLengthExceedsData) {
     Bytes contents;
     putVarint(contents, 0xffffffffu); // the length of the layer name
