@@ -17,6 +17,7 @@
 #include <mlt/geometry_vector.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/metadata/type_map.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/memory_budget.hpp>
 #include <mlt/util/rle.hpp>
