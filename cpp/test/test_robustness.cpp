@@ -160,6 +160,40 @@ TEST(Robustness, ColumnMetadataExceedsBudgetDirectly) {
     }
 }
 
+// Nested children must be charged too. One type-code-30 struct with 100
+// type-code-4 children fits the parent in a 1 KiB budget but not the children.
+TEST(Robustness, NestedColumnChildrenExceedBudgetDirectly) {
+    const auto structCode = mlt::metadata::type_map::Tag0x01::encodeColumnType(
+        std::nullopt,
+        std::nullopt,
+        mlt::metadata::tileset::ComplexType::STRUCT,
+        std::nullopt,
+        /*isNullable=*/false,
+        /*hasChildren=*/true,
+        /*hasLongIDs=*/false);
+    ASSERT_TRUE(structCode.has_value());
+
+    Bytes contents;
+    putString(contents, "layer");
+    putVarint(contents, 4096);
+    putVarint(contents, 1); // one top-level column
+    putVarint(contents, *structCode);
+    if (mlt::metadata::type_map::Tag0x01::columnTypeHasName(*structCode)) {
+        putString(contents, "s");
+    }
+    putVarint(contents, 100); // children
+    contents.insert(contents.end(), 100, 4); // type code 4: no name, no children
+
+    BufferStream stream{view(contents)};
+    mlt::util::MemoryBudget budget(1024);
+    try {
+        (void)mlt::metadata::tileset::decodeFeatureTable(stream, budget);
+        FAIL() << "expected Memory limit exceeded";
+    } catch (const std::runtime_error& e) {
+        EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
+    }
+}
+
 TEST(Robustness, StringLengthExceedsData) {
     Bytes contents;
     putVarint(contents, 0xffffffffu); // the length of the layer name
