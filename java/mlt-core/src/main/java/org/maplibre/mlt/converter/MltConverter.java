@@ -106,10 +106,9 @@ public class MltConverter {
     tileset.featureTables =
         layerSource
             .getLayerStream()
-            .map(
-                layer ->
-                    createTilesetMetadata(
-                        layer, typeMismatchPolicy, columnMappingConfig, includeIdIfPresent))
+            .map(layer ->
+                createTilesetMetadata(
+                    layer, typeMismatchPolicy, columnMappingConfig, includeIdIfPresent))
             .toList();
     return tileset;
   }
@@ -132,17 +131,16 @@ public class MltConverter {
 
       feature
           .getPropertyStream()
-          .forEach(
-              property -> {
-                resolveColumnType(
-                    property,
-                    layer.name(),
-                    currentFeatureIndex,
-                    columnMappingConfig,
-                    columnSchemas,
-                    complexPropertyColumnSchemas,
-                    typeMismatchPolicy);
-              });
+          .forEach(property -> {
+            resolveColumnType(
+                property,
+                layer.name(),
+                currentFeatureIndex,
+                columnMappingConfig,
+                columnSchemas,
+                complexPropertyColumnSchemas,
+                typeMismatchPolicy);
+          });
 
       if (includeIdIfPresent) {
         if (feature.hasId()) {
@@ -356,15 +354,13 @@ public class MltConverter {
       var children =
           column.children().stream()
               .filter(child -> child.name() != null)
-              .map(
-                  child -> {
-                    final var name = child.name();
-                    if (!name.startsWith(prefix)) {
-                      throw new RuntimeException(
-                          "Unexpected column mapping: prefix is not present");
-                    }
-                    return new MltMetadata.Field(child.type(), name.substring(prefix.length()));
-                  })
+              .map(child -> {
+                final var name = child.name();
+                if (!name.startsWith(prefix)) {
+                  throw new RuntimeException("Unexpected column mapping: prefix is not present");
+                }
+                return new MltMetadata.Field(child.type(), name.substring(prefix.length()));
+              })
               .sorted(Comparator.comparing(MltMetadata.Field::name))
               .toList();
       return Pair.of(
@@ -830,12 +826,11 @@ public class MltConverter {
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =
           ids.stream()
-              .map(
-                  id ->
-                      sourceFeatures.stream()
-                          .filter(fe -> Objects.equals(fe.idOrNull(), id))
-                          .findFirst()
-                          .orElseThrow())
+              .map(id ->
+                  sourceFeatures.stream()
+                      .filter(fe -> Objects.equals(fe.idOrNull(), id))
+                      .findFirst()
+                      .orElseThrow())
               .collect(Collectors.toList());
     }
 

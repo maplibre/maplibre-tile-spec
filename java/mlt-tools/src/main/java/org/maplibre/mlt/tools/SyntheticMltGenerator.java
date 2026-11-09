@@ -215,11 +215,10 @@ public class SyntheticMltGenerator {
 
     // if all geometries are of polygon type, add tessellated variant
     if (current.stream()
-        .allMatch(
-            t -> {
-              Geometry geo = t.feat.getGeometry();
-              return geo instanceof Polygon || geo instanceof MultiPolygon;
-            })) {
+        .allMatch(t -> {
+          Geometry geo = t.feat.getGeometry();
+          return geo instanceof Polygon || geo instanceof MultiPolygon;
+        })) {
       write(layer(name + "_tes", feats), cfg().geomEnc(PLAIN).tessellate());
     }
   }

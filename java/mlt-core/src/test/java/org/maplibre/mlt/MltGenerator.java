@@ -107,14 +107,13 @@ public class MltGenerator {
             .toList();
     var mvTiles =
         fullMvtFileNames.stream()
-            .map(
-                f -> {
-                  try {
-                    return MvtUtils.decodeMvt(Files.readAllBytes(f));
-                  } catch (IOException e) {
-                    throw new RuntimeException(e);
-                  }
-                })
+            .map(f -> {
+              try {
+                return MvtUtils.decodeMvt(Files.readAllBytes(f));
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            })
             .toList();
 
     var optimizations = getOptimizations();

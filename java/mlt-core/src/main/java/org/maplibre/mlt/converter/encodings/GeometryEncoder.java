@@ -248,16 +248,15 @@ public class GeometryEncoder {
 
     final var encodedDictOffsets =
         vertexDictionaryOffsets.map(
-            ExceptionUtil.unchecked(
-                o ->
-                    IntegerEncoder.encodeIntStream(
-                        o,
-                        physicalLevelTechnique,
-                        false,
-                        PhysicalStreamType.OFFSET,
-                        new LogicalStreamType(OffsetType.VERTEX),
-                        encodingOption,
-                        fastPforCodec)));
+            ExceptionUtil.unchecked(o ->
+                IntegerEncoder.encodeIntStream(
+                    o,
+                    physicalLevelTechnique,
+                    false,
+                    PhysicalStreamType.OFFSET,
+                    new LogicalStreamType(OffsetType.VERTEX),
+                    encodingOption,
+                    fastPforCodec)));
     final var encodedDictVertexStream =
         zigZagDeltaVertexDictionary.map(
             ExceptionUtil.unchecked(
@@ -267,26 +266,24 @@ public class GeometryEncoder {
 
     final var encodedMortonVertexStream =
         mortonEncodedDictionary.map(
-            ExceptionUtil.unchecked(
-                d ->
-                    IntegerEncoder.encodeMortonStream(
-                        d,
-                        zOrderCurve.get().numBits(),
-                        zOrderCurve.get().coordinateShift(),
-                        physicalLevelTechnique,
-                        fastPforCodec)));
+            ExceptionUtil.unchecked(d ->
+                IntegerEncoder.encodeMortonStream(
+                    d,
+                    zOrderCurve.get().numBits(),
+                    zOrderCurve.get().coordinateShift(),
+                    physicalLevelTechnique,
+                    fastPforCodec)));
     final var encodedMortonOffsetStream =
         mortonEncodedDictionaryOffsets.map(
-            ExceptionUtil.unchecked(
-                o ->
-                    IntegerEncoder.encodeIntStream(
-                        o,
-                        physicalLevelTechnique,
-                        false,
-                        PhysicalStreamType.OFFSET,
-                        new LogicalStreamType(OffsetType.VERTEX),
-                        encodingOption,
-                        fastPforCodec)));
+            ExceptionUtil.unchecked(o ->
+                IntegerEncoder.encodeIntStream(
+                    o,
+                    physicalLevelTechnique,
+                    false,
+                    PhysicalStreamType.OFFSET,
+                    new LogicalStreamType(OffsetType.VERTEX),
+                    encodingOption,
+                    fastPforCodec)));
     final var mortonDictionaryEncodedSize =
         OptionalUtil.map(
             encodedMortonVertexStream, encodedMortonOffsetStream, GeometryEncoder::lengthSum);
@@ -543,10 +540,9 @@ public class GeometryEncoder {
 
   public static boolean containsOnlyPolygons(List<Integer> geometryTypes) {
     return geometryTypes.stream()
-        .allMatch(
-            geometryType ->
-                geometryType == GeometryType.POLYGON.ordinal()
-                    || geometryType == GeometryType.MULTIPOLYGON.ordinal());
+        .allMatch(geometryType ->
+            geometryType == GeometryType.POLYGON.ordinal()
+                || geometryType == GeometryType.MULTIPOLYGON.ordinal());
   }
 
   private static void addLineString(

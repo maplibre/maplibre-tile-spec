@@ -159,14 +159,13 @@ public class PropertyEncoder {
       final var propertyName = rootName + nestedFieldMetadata.name();
       sharedDictionary.add(
           features.stream()
-              .map(
-                  mvtFeature ->
-                      mvtFeature
-                          .findProperty(propertyName)
-                          .filter(p -> p.getType().is(MltMetadata.ScalarType.STRING))
-                          .map(p -> p.getValue(mvtFeature.getIndex()))
-                          .flatMap(StreamUtil.optionalOfType(String.class))
-                          .orElse(null))
+              .map(mvtFeature ->
+                  mvtFeature
+                      .findProperty(propertyName)
+                      .filter(p -> p.getType().is(MltMetadata.ScalarType.STRING))
+                      .map(p -> p.getValue(mvtFeature.getIndex()))
+                      .flatMap(StreamUtil.optionalOfType(String.class))
+                      .orElse(null))
               .collect(Collectors.toList()));
     }
 
@@ -259,19 +258,18 @@ public class PropertyEncoder {
     final var index = feature.getIndex();
     return feature
         .findProperty(name)
-        .map(
-            p ->
-                switch (p.getType().getScalarType().orElse(null)) {
-                  case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1 : 0;
-                  case UINT_8 -> ((U8) p.getValue(index)).intValue();
-                  case INT_8, INT_32 -> ((Number) p.getValue(index)).intValue();
-                  case UINT_32 -> ((U32) p.getValue(index)).intValue();
-                  case INT_64 -> strictIntOrNull((Long) p.getValue(index));
-                  case UINT_64 -> strictIntOrNull((U64) p.getValue(index));
-                  case FLOAT -> strictIntOrNull((Float) p.getValue(index));
-                  case DOUBLE -> strictIntOrNull((Double) p.getValue(index));
-                  case null, default -> null;
-                })
+        .map(p ->
+            switch (p.getType().getScalarType().orElse(null)) {
+              case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1 : 0;
+              case UINT_8 -> ((U8) p.getValue(index)).intValue();
+              case INT_8, INT_32 -> ((Number) p.getValue(index)).intValue();
+              case UINT_32 -> ((U32) p.getValue(index)).intValue();
+              case INT_64 -> strictIntOrNull((Long) p.getValue(index));
+              case UINT_64 -> strictIntOrNull((U64) p.getValue(index));
+              case FLOAT -> strictIntOrNull((Float) p.getValue(index));
+              case DOUBLE -> strictIntOrNull((Double) p.getValue(index));
+              case null, default -> null;
+            })
         .orElse(null);
   }
 
@@ -279,18 +277,17 @@ public class PropertyEncoder {
     final var index = feature.getIndex();
     return feature
         .findProperty(name)
-        .map(
-            p ->
-                switch (p.getType().getScalarType().orElse(null)) {
-                  case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1L : 0L;
-                  case UINT_8 -> ((U8) p.getValue(index)).longValue();
-                  case UINT_32 -> ((U32) p.getValue(index)).longValue();
-                  case INT_8, INT_32, INT_64 -> ((Number) p.getValue(index)).longValue();
-                  case UINT_64 -> ((U64) p.getValue(index)).longValue();
-                  case FLOAT -> strictLongOrNull((Float) p.getValue(index));
-                  case DOUBLE -> strictLongOrNull((Double) p.getValue(index));
-                  case null, default -> null;
-                })
+        .map(p ->
+            switch (p.getType().getScalarType().orElse(null)) {
+              case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1L : 0L;
+              case UINT_8 -> ((U8) p.getValue(index)).longValue();
+              case UINT_32 -> ((U32) p.getValue(index)).longValue();
+              case INT_8, INT_32, INT_64 -> ((Number) p.getValue(index)).longValue();
+              case UINT_64 -> ((U64) p.getValue(index)).longValue();
+              case FLOAT -> strictLongOrNull((Float) p.getValue(index));
+              case DOUBLE -> strictLongOrNull((Double) p.getValue(index));
+              case null, default -> null;
+            })
         .orElse(null);
   }
 
@@ -299,17 +296,16 @@ public class PropertyEncoder {
     final var index = feature.getIndex();
     return feature
         .findProperty(name)
-        .map(
-            p ->
-                switch (p.getType().getScalarType().orElse(null)) {
-                  case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1.0f : 0.0f;
-                  case UINT_8 -> ((U8) p.getValue(index)).intValue().floatValue();
-                  case UINT_32 -> ((U32) p.getValue(index)).longValue().floatValue();
-                  case UINT_64 -> ((U64) p.getValue(index)).longValue().floatValue();
-                  case INT_8, INT_32, INT_64, FLOAT -> ((Number) p.getValue(index)).floatValue();
-                  case DOUBLE -> strictFloatOrNull((Double) p.getValue(index));
-                  case null, default -> null;
-                })
+        .map(p ->
+            switch (p.getType().getScalarType().orElse(null)) {
+              case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1.0f : 0.0f;
+              case UINT_8 -> ((U8) p.getValue(index)).intValue().floatValue();
+              case UINT_32 -> ((U32) p.getValue(index)).longValue().floatValue();
+              case UINT_64 -> ((U64) p.getValue(index)).longValue().floatValue();
+              case INT_8, INT_32, INT_64, FLOAT -> ((Number) p.getValue(index)).floatValue();
+              case DOUBLE -> strictFloatOrNull((Double) p.getValue(index));
+              case null, default -> null;
+            })
         .orElse(null);
   }
 
@@ -318,17 +314,16 @@ public class PropertyEncoder {
     final var index = feature.getIndex();
     return feature
         .findProperty(name)
-        .map(
-            p ->
-                switch (p.getType().getScalarType().orElse(null)) {
-                  case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1.0 : 0.0;
-                  case UINT_8 -> ((U8) p.getValue(index)).intValue().doubleValue();
-                  case UINT_32 -> ((U32) p.getValue(index)).longValue().doubleValue();
-                  case UINT_64 -> ((U64) p.getValue(index)).longValue().doubleValue();
-                  case INT_8, INT_32, INT_64, FLOAT, DOUBLE ->
-                      ((Number) p.getValue(index)).doubleValue();
-                  case null, default -> null;
-                })
+        .map(p ->
+            switch (p.getType().getScalarType().orElse(null)) {
+              case BOOLEAN -> ((Boolean) p.getValue(index)) ? 1.0 : 0.0;
+              case UINT_8 -> ((U8) p.getValue(index)).intValue().doubleValue();
+              case UINT_32 -> ((U32) p.getValue(index)).longValue().doubleValue();
+              case UINT_64 -> ((U64) p.getValue(index)).longValue().doubleValue();
+              case INT_8, INT_32, INT_64, FLOAT, DOUBLE ->
+                  ((Number) p.getValue(index)).doubleValue();
+              case null, default -> null;
+            })
         .orElse(null);
   }
 
@@ -337,12 +332,11 @@ public class PropertyEncoder {
     final var index = feature.getIndex();
     return feature
         .findProperty(name)
-        .map(
-            p ->
-                switch (p.getType().getScalarType().orElse(null)) {
-                  case STRING -> (String) p.getValue(index);
-                  case null, default -> coercePropertyValues ? p.getValue(index).toString() : null;
-                })
+        .map(p ->
+            switch (p.getType().getScalarType().orElse(null)) {
+              case STRING -> (String) p.getValue(index);
+              case null, default -> coercePropertyValues ? p.getValue(index).toString() : null;
+            })
         .orElse(null);
   }
 
