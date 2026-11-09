@@ -742,15 +742,6 @@ checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
 name = "convert_case"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "convert_case"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "633458d4ef8c78b72454de2d54fd6ab2e60f9e02be22f3c6104cdc8a4e0fceb9"
@@ -1126,7 +1117,7 @@ version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
 dependencies = [
- "convert_case 0.10.0",
+ "convert_case",
  "proc-macro2",
  "quote",
  "rustc_version",
@@ -1254,28 +1245,6 @@ name = "encode_unicode"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
-
-[[package]]
-name = "enum-display"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40f4d8927f0f19dc99da4506dca2b26f6c2a089887cf2cc424df114f3a2585ab"
-dependencies = [
- "enum-display-macro",
-]
-
-[[package]]
-name = "enum-display-macro"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e2e13c29d91e61ec78280847036d13cdc585e75ea2458274362d5d8467f1641"
-dependencies = [
- "convert_case 0.6.0",
- "proc-macro2",
- "quote",
- "regex",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "enum_dispatch"
@@ -1898,15 +1867,6 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.29.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b4af2b5ecf2650278fe33b0e49b68c8c484d2306475c127628316dea740cf5c"
-dependencies = [
- "hotpath-macros 0.29.2",
-]
-
-[[package]]
-name = "hotpath"
 version = "0.30.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9632c1fd213e63c1b88d8f3e59543da4999b17f859cc1e1d67cf8f2207e8935"
@@ -1943,6 +1903,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotpath"
+version = "0.31.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4039758c8bca06a34c475d17aaafc17ac1073ce2cecd8dba8c82e69edb300bbe"
+dependencies = [
+ "hotpath-macros 0.31.1",
+]
+
+[[package]]
 name = "hotpath-drain"
 version = "0.30.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1959,12 +1928,6 @@ checksum = "83f89b52e90954e13973e6241846dd82a331ed354afa679f893c3f20d11c48f4"
 
 [[package]]
 name = "hotpath-macros"
-version = "0.29.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08c0a42eb299ebb7ec6b9161489e5bf132603a34ca12cecadb8490937aa0492a"
-
-[[package]]
-name = "hotpath-macros"
 version = "0.30.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d92fdfec803932e5764ea93c201cf7c6c2d8cff1871da44f64f5094c9c3ef8a"
@@ -1973,6 +1936,12 @@ dependencies = [
  "quote",
  "syn 2.0.119",
 ]
+
+[[package]]
+name = "hotpath-macros"
+version = "0.31.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d980014875338771b00ac44f1c9e2ea1a10650aa68ce54226233bc767714361"
 
 [[package]]
 name = "hotpath-macros-meta"
@@ -2656,14 +2625,14 @@ checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b33ed46ce2266512e982eebfb978f000bf44401c4568d88ebd139b784eb1b3aa"
+checksum = "95cd846f0cc29a27821938f6faa1ab30f5bd28bfc5548b8f0c31982297b65bc2"
 dependencies = [
  "brotli",
  "bytes",
  "flate2",
- "hotpath 0.29.2",
+ "hotpath 0.31.1",
  "serde",
  "serde_json",
  "strum",
@@ -2689,16 +2658,15 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.21.2"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0aa301bab85de0b188c1e3c62ea332989dc0ed13a071aa1db1ed2b9470e1e3f"
+checksum = "a46f7856ec69428f74f740f3c5f571733a5c4779ed54aed703c3f12af6dd335c"
 dependencies = [
  "bytes",
- "enum-display",
  "flume",
  "fnv",
  "futures",
- "hotpath 0.29.2",
+ "hotpath 0.31.1",
  "itertools 0.15.0",
  "martin-tile-utils",
  "md5",
@@ -2712,6 +2680,7 @@ dependencies = [
  "sqlite-compressions",
  "sqlite-hashes",
  "sqlx",
+ "strum",
  "thiserror 2.0.21",
  "tilejson",
  "tokio",
