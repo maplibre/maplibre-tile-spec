@@ -1,5 +1,6 @@
 /build
 /.cache
 build-asan/
+/build-tidy
 compile_commands.json
 cmake_test_discovery*

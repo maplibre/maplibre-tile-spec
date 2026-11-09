@@ -17,21 +17,22 @@ cmake-build: cmake-init
 # Quick compile check (CMake build)
 check: cmake-build
 
-# Run all CI steps: test, coverage, bazel build
-ci-test: coverage bazel-build
+# Run all CI steps: lint, test, coverage, bazel build
+ci-test: lint coverage bazel-build
     {{just}} assert-git-is-clean
 
 # Delete build artifacts
 clean:
-    rm -rf build
+    rm -rf build build-tidy
 
 # Reformat code
 fmt:
     pre-commit run --all-files clang-format
 
-# Run linting
+# Run clang-tidy on the libraries. Needs clang++ and clang-tidy on PATH (macOS: brew install llvm).
 lint:
-    echo "TODO: Add C++ linting command"
+    cmake -B build-tidy -S . -DCMAKE_CXX_COMPILER=clang++ -DMLT_WITH_CLANG_TIDY=ON -DMLT_WITH_TESTS=OFF -DMLT_WITH_TOOLS=OFF
+    cmake --build build-tidy --target mlt-cpp mlt-cpp-encoder --parallel {{num_cpus()}}
 
 _install_npm_deps:
     cd ../test/synthetic/synthetic-test-utils && npm ci

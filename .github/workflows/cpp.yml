@@ -10,6 +10,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  cpp-lint:
+    permissions:
+      contents: read
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { submodules: recursive, fetch-depth: 1 }
+
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+        with: { tool: just }
+
+      # The runner image has clang and clang-tidy 21 as the defaults
+      - name: Run clang-tidy
+        run: just -v cpp::lint
+
   cpp-build:
     if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
     permissions:
