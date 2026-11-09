@@ -21,13 +21,15 @@ const V2_GAPS: [RegExp, string][] = [
 ];
 
 const UNIMPLEMENTED_SYNTHETICS = new Map(
-  readdirSync(new URL("../../../test/synthetic/0x02", import.meta.url))
-    .filter((file) => file.endsWith(".mlt"))
-    .map((file) => file.slice(0, -".mlt".length))
-    .flatMap((name) => {
-      const gap = V2_GAPS.find(([pattern]) => pattern.test(name));
-      return gap ? [[`0x02/${name}`, gap[1]] as const] : [];
-    }),
+  ["0x02", "0x02-rust"].flatMap((directory) =>
+    readdirSync(new URL(`../../../test/synthetic/${directory}`, import.meta.url))
+      .filter((file) => file.endsWith(".mlt"))
+      .map((file) => file.slice(0, -".mlt".length))
+      .flatMap((name) => {
+        const gap = V2_GAPS.find(([pattern]) => pattern.test(name));
+        return gap ? [[`${directory}/${name}`, gap[1]] as const] : [];
+      }),
+  ),
 );
 
 describe("MLT WASM Decoder - Synthetic tests", () => {

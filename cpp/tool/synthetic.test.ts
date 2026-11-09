@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const binary = resolve(__dirname, "../build/tool/mlt-cpp-json");
 
-const SKIPPED_TESTS = ["0x02"];
+const SKIPPED_TESTS = ["0x02", "0x02-rust"];
 
 describe("MLT Decoder - Synthetic tests", () => {
   expect.addEqualityTesters([compareWithTolerance]);
