@@ -89,7 +89,10 @@ async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata, u
         );
     }
 
-    let src_type = src.detect_type(&mut src_conn).await?;
+    let (src_type, warnings) = src.detect_type(&mut src_conn).await?;
+    for warning in warnings {
+        eprintln!("warning: {warning}");
+    }
     let count_table = match src_type.normalized_schema() {
         Some(schema) => schema.content_table(),
         None if matches!(src_type, MbtType::FlatWithHash) => "tiles_with_hash",
@@ -322,7 +325,10 @@ impl BboxExtract {
         }
         let src = Mbtiles::new(input)?;
         let mut src_conn = src.open_readonly().await?;
-        let source_type = src.detect_type(&mut src_conn).await?;
+        let (source_type, warnings) = src.detect_type(&mut src_conn).await?;
+        for warning in warnings {
+            eprintln!("warning: {warning}");
+        }
         drop(src_conn);
 
         let start = Instant::now();
@@ -665,12 +671,15 @@ mod tests {
 
         let mbt = Mbtiles::new(&output.0).expect("output opens");
         let mut conn = mbt.open_readonly().await.expect("output connects");
-        assert_eq!(
-            mbt.detect_type(&mut conn)
-                .await
-                .expect("type is detectable"),
-            MbtType::Flat
+        let (mbt_type, warnings) = mbt
+            .detect_type(&mut conn)
+            .await
+            .expect("type is detectable");
+        assert!(
+            warnings.is_empty(),
+            "unexpected MBTiles warnings: {warnings:?}"
         );
+        assert_eq!(mbt_type, MbtType::Flat);
         drop(conn);
 
         assert_eq!(
@@ -720,12 +729,15 @@ mod tests {
 
         let mbt = Mbtiles::new(&output.0).expect("output opens");
         let mut conn = mbt.open_readonly().await.expect("output connects");
-        assert_eq!(
-            mbt.detect_type(&mut conn)
-                .await
-                .expect("type is detectable"),
-            MbtType::FlatWithHash
+        let (mbt_type, warnings) = mbt
+            .detect_type(&mut conn)
+            .await
+            .expect("type is detectable");
+        assert!(
+            warnings.is_empty(),
+            "unexpected MBTiles warnings: {warnings:?}"
         );
+        assert_eq!(mbt_type, MbtType::FlatWithHash);
     }
 
     #[tokio::test]
