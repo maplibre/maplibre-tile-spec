@@ -17,7 +17,6 @@
 #include <mlt/geometry_vector.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
-#include <mlt/metadata/type_map.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/memory_budget.hpp>
 #include <mlt/util/rle.hpp>
@@ -89,6 +88,17 @@ StreamMetadata makeMetadata(PhysicalLevelTechnique physical, std::uint32_t numVa
             byteLength};
 }
 
+// Expect decoding to fail because it would exceed the memory limit, and not for another reason
+template <typename Decode>
+void expectMemoryLimitExceeded(const Decode& decode) {
+    try {
+        std::ignore = decode();
+        FAIL() << "expected the memory limit to be exceeded";
+    } catch (const std::runtime_error& e) {
+        EXPECT_STREQ(e.what(), "Memory limit exceeded");
+    }
+}
+
 } // namespace
 
 #pragma region Tile structure
@@ -109,21 +119,15 @@ TEST(Robustness, ColumnCountExceedsData) {
     EXPECT_THROW(decodeTile(tileWithLayer(contents)), std::runtime_error);
 }
 
-// A column is 80 bytes, but checkCount only compares the count to the remaining
-// bytes. Without charging the budget, 1M one-byte columns allocate ~80 MB.
+// Each column takes at least a byte of the tile, but `sizeof(Column)` bytes of memory
 TEST(Robustness, ColumnCountExceedsDefaultMemoryBudget) {
+    constexpr auto columnCount = util::MemoryBudget::defaultLimit / sizeof(metadata::tileset::Column) + 1;
     Bytes contents;
     putString(contents, "layer");
     putVarint(contents, 4096);
-    putVarint(contents, 1'000'000);
-    contents.insert(contents.end(), 1'000'000, 4); // type code 4: no name, no children
-
-    try {
-        std::ignore = decodeTile(tileWithLayer(contents));
-        FAIL() << "expected Memory limit exceeded";
-    } catch (const std::runtime_error& e) {
-        EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
-    }
+    putVarint(contents, static_cast<std::uint32_t>(columnCount));
+    contents.insert(contents.end(), columnCount, 4); // type code 4: geometry, without a name or children
+    expectMemoryLimitExceeded([&] { return decodeTile(tileWithLayer(contents)); });
 }
 
 TEST(Robustness, ColumnCountExceedsConfiguredMemoryBudget) {
@@ -135,65 +139,23 @@ TEST(Robustness, ColumnCountExceedsConfiguredMemoryBudget) {
 
     Decoder decoder;
     decoder.setMemoryLimit(1024);
-    try {
-        std::ignore = decoder.decode(view(tileWithLayer(contents)));
-        FAIL() << "expected Memory limit exceeded";
-    } catch (const std::runtime_error& e) {
-        EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
-    }
+    expectMemoryLimitExceeded([&] { return decoder.decode(view(tileWithLayer(contents))); });
 }
 
-// Direct feature-table test: unlike the tile tests above, this cannot pass
-// because of a later missing-stream error.
-TEST(Robustness, ColumnMetadataExceedsBudgetDirectly) {
+// The children of a column are charged, too: the struct column fits in the limit, but its children don't
+TEST(Robustness, NestedColumnsExceedMemoryBudget) {
     Bytes contents;
     putString(contents, "layer");
     putVarint(contents, 4096);
-    putVarint(contents, 100);
+    putVarint(contents, 1);  // columns
+    putVarint(contents, 30); // type code 30: struct, with a name and children
+    putString(contents, "struct");
+    putVarint(contents, 100); // children: 100 * sizeof(Column) > 1024
     contents.insert(contents.end(), 100, 4);
 
-    BufferStream stream{view(contents)};
-    mlt::util::MemoryBudget budget(1024);
-    try {
-        std::ignore = mlt::metadata::tileset::decodeFeatureTable(stream, budget);
-        FAIL() << "expected Memory limit exceeded";
-    } catch (const std::runtime_error& e) {
-        EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
-    }
-}
-
-// Nested children must be charged too. One type-code-30 struct with 100
-// type-code-4 children fits the parent in a 1 KiB budget but not the children.
-TEST(Robustness, NestedColumnChildrenExceedBudgetDirectly) {
-    const auto structCode = mlt::metadata::type_map::Tag0x01::encodeColumnType(
-        std::nullopt,
-        std::nullopt,
-        mlt::metadata::tileset::ComplexType::STRUCT,
-        std::nullopt,
-        /*isNullable=*/false,
-        /*hasChildren=*/true,
-        /*hasLongIDs=*/false);
-    ASSERT_TRUE(structCode.has_value());
-
-    Bytes contents;
-    putString(contents, "layer");
-    putVarint(contents, 4096);
-    putVarint(contents, 1); // one top-level column
-    putVarint(contents, *structCode);
-    if (mlt::metadata::type_map::Tag0x01::columnTypeHasName(*structCode)) {
-        putString(contents, "s");
-    }
-    putVarint(contents, 100); // children
-    contents.insert(contents.end(), 100, 4); // type code 4: no name, no children
-
-    BufferStream stream{view(contents)};
-    mlt::util::MemoryBudget budget(1024);
-    try {
-        std::ignore = mlt::metadata::tileset::decodeFeatureTable(stream, budget);
-        FAIL() << "expected Memory limit exceeded";
-    } catch (const std::runtime_error& e) {
-        EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
-    }
+    Decoder decoder;
+    decoder.setMemoryLimit(1024);
+    expectMemoryLimitExceeded([&] { return decoder.decode(view(tileWithLayer(contents))); });
 }
 
 TEST(Robustness, StringLengthExceedsData) {
