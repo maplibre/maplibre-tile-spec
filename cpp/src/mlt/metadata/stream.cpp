@@ -4,7 +4,6 @@
 #include <mlt/util/encoding/varint.hpp>
 #include <mlt/util/varint.hpp>
 
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>

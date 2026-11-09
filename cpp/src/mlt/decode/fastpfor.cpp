@@ -102,7 +102,7 @@ Words decodePage(Words in, const std::span<std::uint32_t> out, std::vector<std::
     auto packed = take(in, metadataOffset - 1);
 
     const std::size_t byteCount = takeWord(in);
-    const auto byteWords = take(in, byteCount / sizeof(std::uint32_t) + (byteCount % sizeof(std::uint32_t) != 0));
+    const auto byteWords = take(in, (byteCount / sizeof(std::uint32_t)) + (byteCount % sizeof(std::uint32_t) != 0));
     ByteReader bytes({reinterpret_cast<const std::uint8_t*>(byteWords.data()), byteCount});
 
     // Values that did not fit in the bit width of their block are stored as exceptions: the bits above that width,
