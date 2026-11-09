@@ -1079,6 +1079,35 @@ TEST(Encode, VertexStreamIsComponentwiseDelta) {
     EXPECT_EQ(vertexStream->getLogicalLevelTechnique2(), metadata::stream::LogicalLevelTechnique::NONE);
 }
 
+TEST(Encode, RepeatedPolygonVerticesStayComponentwiseDelta) {
+    // Repeated vertices outside the Hilbert/Morton range force a plain vertex stream where RLE on the
+    // zigzag deltas would be much smaller, while default AUTO must still match explicit PLAIN encoding.
+    std::vector<Encoder::Feature> features;
+    for (std::uint32_t f = 0; f < 2; ++f) {
+        Encoder::Feature feature;
+        feature.id = f;
+        feature.geometry.type = GeometryType::POLYGON;
+        const auto x = static_cast<std::int32_t>(f) * 100;
+        feature.geometry.coordinates = {{.x = x, .y = 0}, {.x = x + 10, .y = 0}, {.x = x + 10, .y = 70'000}};
+        for (int i = 0; i < 40; ++i) {
+            feature.geometry.coordinates.push_back({.x = x + 10, .y = 70'000});
+        }
+        feature.geometry.coordinates.push_back({.x = x, .y = 70'000});
+        feature.geometry.ringSizes.push_back(static_cast<std::uint32_t>(feature.geometry.coordinates.size()));
+        features.push_back(std::move(feature));
+    }
+    const auto layer = makeLayer("oceans", std::move(features));
+
+    EncoderConfig plainConfig;
+    plainConfig.geometryEncodingOption = IntegerEncodingOption::PLAIN;
+    plainConfig.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+
+    Encoder encoder;
+    const auto autoTile = encoder.encode({layer});
+    const auto plainTile = encoder.encode({layer}, plainConfig);
+    EXPECT_EQ(autoTile, plainTile);
+}
+
 TEST(Encode, MortonVertexDictionaryWithFastPfor) {
     // 300 points on 30 distinct positions, which makes the Morton dictionary the smallest vertex layout.
     std::vector<Encoder::Feature> features;
@@ -1110,15 +1139,22 @@ TEST(Encode, MortonVertexDictionaryWithFastPfor) {
 
 TEST(Encode, MortonCodesUsingTheTopBit) {
     // With y = 32768 the Morton codes use bit 31: (0, 32768) and (1, 32768) are 0x80000000 and 0x80000001,
-    // and (0, 32767) is 0x2AAAAAAA. Their deltas do not fit in a signed 32-bit subtraction.
-    const std::vector<std::vector<Encoder::Vertex>> pointSets = {
-        {{.x = 0, .y = 32768}, {.x = 1, .y = 32768}},
-        {{.x = 0, .y = 32767}, {.x = 0, .y = 32768}, {.x = 1, .y = 32768}},
-    };
+    // and (0, 32767) is 0x2AAAAAAA. Thirty distinct points make the Morton dictionary smaller than the
+    // Hilbert and plain layouts for both varint and FastPFOR, while keeping those top-bit deltas first.
+    std::vector<Encoder::Vertex> highSet;
+    for (int x = 0; x < 30; ++x) {
+        highSet.push_back({.x = x, .y = 32768});
+    }
+    std::vector<Encoder::Vertex> crossingSet = {{.x = 0, .y = 32767}};
+    for (int x = 0; x < 29; ++x) {
+        crossingSet.push_back({.x = x, .y = 32768});
+    }
+    const std::vector<std::vector<Encoder::Vertex>> pointSets = {highSet, crossingSet};
+
     for (const bool useFastPfor : {false, true}) {
         for (const auto& points : pointSets) {
             std::vector<Encoder::Feature> features;
-            for (std::size_t i = 0; i < 60; ++i) {
+            for (std::size_t i = 0; i < 300; ++i) {
                 features.push_back(makePointFeature(i, points[i % points.size()]));
             }
 
@@ -1127,6 +1163,11 @@ TEST(Encode, MortonCodesUsingTheTopBit) {
             config.sortFeatures = false;
             config.useFastPfor = useFastPfor;
             const auto bytes = Encoder().encode({makeLayer("top", features)}, config);
+
+            const auto vertexStream = decodeVertexStreamMetadata(bytes);
+            ASSERT_TRUE(vertexStream);
+            const auto dictType = vertexStream->getLogicalStreamType()->getDictionaryType();
+            ASSERT_EQ(dictType, metadata::stream::DictionaryType::MORTON);
 
             const auto tile = makeDecoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
             const auto* decoded = tile.getLayer("top");
