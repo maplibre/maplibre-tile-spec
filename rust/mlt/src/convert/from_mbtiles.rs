@@ -89,7 +89,7 @@ async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata, u
         );
     }
 
-    let src_type = src.detect_type(&mut src_conn).await?;
+    let (src_type, _) = src.detect_type(&mut src_conn).await?;
     let count_table = match src_type.normalized_schema() {
         Some(schema) => schema.content_table(),
         None if matches!(src_type, MbtType::FlatWithHash) => "tiles_with_hash",
@@ -322,7 +322,7 @@ impl BboxExtract {
         }
         let src = Mbtiles::new(input)?;
         let mut src_conn = src.open_readonly().await?;
-        let source_type = src.detect_type(&mut src_conn).await?;
+        let (source_type, _) = src.detect_type(&mut src_conn).await?;
         drop(src_conn);
 
         let start = Instant::now();
@@ -668,7 +668,8 @@ mod tests {
         assert_eq!(
             mbt.detect_type(&mut conn)
                 .await
-                .expect("type is detectable"),
+                .expect("type is detectable")
+                .0,
             MbtType::Flat
         );
         drop(conn);
@@ -723,7 +724,8 @@ mod tests {
         assert_eq!(
             mbt.detect_type(&mut conn)
                 .await
-                .expect("type is detectable"),
+                .expect("type is detectable")
+                .0,
             MbtType::FlatWithHash
         );
     }
