@@ -7,9 +7,6 @@
 
 namespace mlt {
 struct BufferStream;
-namespace util {
-class MemoryBudget;
-}
 } // namespace mlt
 
 namespace mlt::metadata::tileset {
@@ -132,11 +129,10 @@ struct FeatureTable {
     std::vector<Column> columns;
 };
 
+/// Decode a feature table.
+/// The decoded columns may use up to 64 MiB, the default memory limit of `Decoder`.
+/// @throws std::runtime_error if the data is invalid or the columns exceed the memory limit
 FeatureTable decodeFeatureTable(BufferStream&);
-
-/// Decode a feature table, charging column metadata to `budget`.
-/// @throws std::runtime_error if the tile is malformed or exceeds the budget
-FeatureTable decodeFeatureTable(BufferStream&, util::MemoryBudget&);
 
 /// Encode a feature table header into binary format (inverse of decodeFeatureTable).
 std::vector<std::uint8_t> encodeFeatureTable(const FeatureTable&);

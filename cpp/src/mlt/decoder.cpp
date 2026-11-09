@@ -10,6 +10,7 @@
 #include <mlt/layer.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/metadata/tileset_decode.hpp>
 #include <mlt/metadata/type_map.hpp>
 #include <mlt/properties.hpp>
 #include <mlt/tile.hpp>

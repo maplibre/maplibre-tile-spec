@@ -144,6 +144,7 @@ target_sources(mlt-cpp PRIVATE
     ${PROJECT_SOURCE_DIR}/src/mlt/layer.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset_decode.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/properties.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
@@ -175,6 +176,7 @@ target_sources(mlt-cpp-encoder PRIVATE
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/winding.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset_decode.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/buffer.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/fsst.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/rle.hpp
