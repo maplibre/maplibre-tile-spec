@@ -44,6 +44,7 @@ class NativeLibraryTest {
     assertEquals("darwin-aarch64", NativeLibrary.resourcePrefix("Mac OS X", "aarch64", false));
     assertEquals("darwin-x86-64", NativeLibrary.resourcePrefix("Mac OS X", "x86_64", false));
     assertEquals("freebsd-x86-64", NativeLibrary.resourcePrefix("FreeBSD", "amd64", false));
+    assertEquals("freebsd-aarch64", NativeLibrary.resourcePrefix("FreeBSD", "aarch64", false));
     assertEquals("win32-x86-64", NativeLibrary.resourcePrefix("Windows 11", "amd64", false));
     assertEquals("win32-aarch64", NativeLibrary.resourcePrefix("Windows 11", "aarch64", false));
   }
@@ -51,9 +52,9 @@ class NativeLibraryTest {
   @Test
   void unsupportedPlatformIsReportedWithTheOverrideProperty() {
     var error = assertThrows(UnsatisfiedLinkError.class,
-      () -> NativeLibrary.resourcePrefix("FreeBSD", "aarch64", false));
+      () -> NativeLibrary.resourcePrefix("Linux", "riscv64", false));
 
-    assertEquals("No MLT native library is packaged for FreeBSD aarch64, set -Dmlt.ffi.library to one",
+    assertEquals("No MLT native library is packaged for Linux riscv64, set -Dmlt.ffi.library to one",
       error.getMessage());
   }
 }

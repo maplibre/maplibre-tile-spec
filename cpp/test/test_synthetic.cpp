@@ -63,8 +63,7 @@ void writeBinaryFile(const std::string& filePath, const std::vector<uint8_t>& da
 }
 
 mlt::MapLibreTile decodeTile(const std::vector<std::uint8_t>& bytes) {
-    constexpr bool supportFastPFOR = true;
-    return mlt::Decoder(supportFastPFOR).decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+    return mlt::Decoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
 }
 
 #if MLT_WITH_JSON

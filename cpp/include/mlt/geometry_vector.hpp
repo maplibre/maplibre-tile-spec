@@ -75,8 +75,8 @@ protected:
           mortonSettings(mortonSettings_) {}
 
     void applyTriangles(Geometry&,
-                        std::uint32_t& triangleOffset,
-                        std::uint32_t& indexBufferOffset,
+                        std::size_t& triangleOffset,
+                        std::size_t& indexBufferOffset,
                         std::uint32_t totalVertices,
                         bool multiPolygon) const;
 
@@ -191,19 +191,20 @@ struct CpuVector : public GeometryVector {
 
     Coordinate getVertex(std::size_t index) const {
         if (!vertexOffsets.empty() && !mortonSettings) {
-            const auto vertexOffset = vertexOffsets[index] * 2;
-            return {static_cast<float>(vertexBuffer[vertexOffset]), static_cast<float>(vertexBuffer[vertexOffset + 1])};
+            const auto vertexOffset = 2 * static_cast<std::size_t>(vertexOffsets.at(index));
+            return {static_cast<float>(vertexBuffer.at(vertexOffset)),
+                    static_cast<float>(vertexBuffer.at(vertexOffset + 1))};
         }
         if (!vertexOffsets.empty() && mortonSettings) {
             // TODO: move decoding of the morton codes on the GPU in the vertex shader
-            const auto vertexOffset = vertexOffsets[index];
-            const auto mortonEncodedVertex = vertexBuffer[vertexOffset];
+            const auto vertexOffset = vertexOffsets.at(index);
+            const auto mortonEncodedVertex = vertexBuffer.at(vertexOffset);
             // TODO: improve performance -> inline calculation and move to decoding of VertexBuffer
             return util::MortonCurve::decode(
                 mortonEncodedVertex, mortonSettings->numBits, mortonSettings->coordinateShift);
         }
 
-        return {static_cast<float>(vertexBuffer[2 * index]), static_cast<float>(vertexBuffer[(2 * index) + 1])};
+        return {static_cast<float>(vertexBuffer.at(2 * index)), static_cast<float>(vertexBuffer.at((2 * index) + 1))};
     }
 };
 

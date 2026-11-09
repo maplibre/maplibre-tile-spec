@@ -3,7 +3,6 @@
 #include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/stl.hpp>
 
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -28,16 +27,13 @@ struct ExtractPropertyVisitor {
 
     template <typename T>
     std::optional<Property> operator()(const std::vector<T>& vec) const {
-        assert(i < vec.size());
         return (i < vec.size()) ? std::optional<Property>{vec[i]} : std::nullopt;
     }
 
     std::optional<Property> operator()(const std::vector<std::uint8_t>& vec) const {
         if (byteIsBooleans) {
-            assert(i < 8 * vec.size());
-            return testBit(vec, i);
+            return (i < 8 * vec.size()) ? std::optional<Property>{testBit(vec, i)} : std::nullopt;
         }
-        assert(i < vec.size());
         return (i < vec.size()) ? std::optional<Property>{static_cast<std::uint32_t>(vec[i])} : std::nullopt;
     }
 
@@ -49,7 +45,6 @@ private:
 template <>
 std::optional<Property> ExtractPropertyVisitor::operator()(const StringDictViews& views) const {
     const auto& strings = views.getStrings();
-    assert(i < strings.size());
     return (i < strings.size()) ? std::optional<Property>{strings[i]} : std::nullopt;
 }
 

@@ -60,7 +60,7 @@ jobs:
               - 'rust/mlt/**'
               - 'rust/mlt-core/**'
 
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with: { tool: 'just' }
 
       # TypeScript
@@ -96,7 +96,7 @@ jobs:
 
       - name: Setup Java for jextract
         if: steps.filter.outputs.ffi == 'true'
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: 'temurin'
           java-version: '25'
@@ -123,7 +123,7 @@ jobs:
       # The second run fails only on what the hooks cannot fix.
       - name: Install uv
         if: ${{ !cancelled() }}
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with: { enable-cache: false }
       - name: Run pre-commit hooks
         if: ${{ !cancelled() }}
@@ -160,7 +160,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js
@@ -171,7 +171,7 @@ jobs:
 
       # run the pre-commit hooks as a formatting tiebreaker
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - run: uvx prek@0.5.5 run --all-files
         continue-on-error: true
 

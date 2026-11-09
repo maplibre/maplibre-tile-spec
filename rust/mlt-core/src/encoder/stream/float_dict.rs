@@ -23,7 +23,7 @@ impl<T: FloatValue> FloatDict<T> {
     /// The dictionary of the distinct values, however many of them there are.
     /// A caller that pinned the encoding wants it even when every element is distinct.
     pub(crate) fn build(values: &[T]) -> MltResult<Self> {
-        let mut seen = std::collections::HashMap::new();
+        let mut seen = rustc_hash::FxHashMap::default();
         let mut dict = Self {
             values: Vec::new(),
             codes: Vec::with_capacity(values.len()),

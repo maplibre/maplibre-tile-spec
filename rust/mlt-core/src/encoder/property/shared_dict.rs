@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
+use rustc_hash::FxHashSet;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 use usize_cast::IntoUsize as _;
 use xxhash_rust::xxh3::xxh3_64;
@@ -41,7 +42,7 @@ const MIN_DEDUP_RATIO: f64 = 0.05;
 struct StringProfile<'a> {
     col_idx: usize,
     name: &'a str,
-    /// Sorted, deduplicated values for [`group_is_beneficial`].
+    /// Distinct values in first-seen order, for [`group_is_beneficial`].
     unique_values: Vec<&'a str>,
     /// `MinHash` over exact string values.
     exact_hashes: Vec<u64>,
@@ -62,17 +63,16 @@ pub(crate) fn group_string_properties(source: &impl LayerSource, properties: &mu
             .filter(|(_, kind)| **kind == PropKind::Str)
             .filter_map(|(col_idx, _)| {
                 let name = source.property_name(col_idx);
-                let mut vals: Vec<&str> = (0..source.feature_count())
+                let mut seen = FxHashSet::default();
+                let vals: Vec<&str> = (0..source.feature_count())
                     .filter_map(|f| match source.property(f, col_idx) {
-                        Some(PropValueRef::Str(s)) => Some(s),
+                        Some(PropValueRef::Str(s)) => seen.insert(s).then_some(s),
                         _ => None,
                     })
                     .collect();
                 if vals.is_empty() {
                     return None;
                 }
-                vals.sort_unstable();
-                vals.dedup();
                 let exact_hashes = min_hashes(vals.iter().map(|s| xxh3_64(s.as_bytes())));
                 trigrams.clear();
                 trigrams.extend(vals.iter().flat_map(|s| {
@@ -162,12 +162,10 @@ fn group_is_beneficial(group: &[StringProfile<'_>]) -> bool {
         return true;
     }
 
-    let mut all_values: Vec<&str> = group
+    let all_values: FxHashSet<&str> = group
         .iter()
         .flat_map(|p| p.unique_values.iter().copied())
         .collect();
-    all_values.sort_unstable();
-    all_values.dedup();
     let union_bytes: usize = all_values.iter().map(|s| s.len()).sum();
 
     let dedup_savings = sum_individual.saturating_sub(union_bytes);

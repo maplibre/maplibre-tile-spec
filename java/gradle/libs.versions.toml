@@ -10,11 +10,11 @@ commons-cli = { group = "commons-cli", name = "commons-cli", version = "1.11.0"}
 commons-compress = { group = "org.apache.commons", name = "commons-compress", version = "1.28.0" }
 commons-lang3 = { group = "org.apache.commons", name = "commons-lang3", version = "3.21.0" }
 earcut4j = { group = "org.maplibre", name = "earcut4j", version = "3.0.0" }
-gson = { group = "com.google.code.gson", name = "gson", version = "2.14.0" }
+gson = { group = "com.google.code.gson", name = "gson", version = "2.15.0" }
 guava = { group = "com.google.guava", name = "guava", version = "33.7.2-jre" }
 hppc = { group = "com.carrotsearch", name = "hppc", version = "0.12.0" }
 jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version = "2.22.4" }
-javaFastPFOR = { group = "me.lemire.integercompression", name = "JavaFastPFOR", version = "0.3.14" }
+javaFastPFOR = { group = "me.lemire.integercompression", name = "JavaFastPFOR", version = "0.3.15" }
 jakarta-annotation-api = { group = "jakarta.annotation", name = "jakarta.annotation-api", version = "3.0.0" }
 java-vector-tile = { group = "no.ecc.vectortile", name = "java-vector-tile", version = "1.4.2" }
 jetbrains-annotations = { group = "org.jetbrains", name = "annotations", version = "26.1.0" }
@@ -35,7 +35,7 @@ planetiler-core = { module= "com.onthegomap.planetiler:planetiler-core", version
 protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version = "4.36.2" }
 log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version = "2.26.1" }
 log4j-slf4j-impl = { group = "org.apache.logging.log4j", name = "log4j-slf4j-impl", version = "2.26.1" }
-sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version = "3.53.4.0" }
+sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version = "3.54.1.0" }
 tileverse-io = { group = "io.tileverse", name = "tileverse-bom", version.ref = "tileverse" }
 tileverse-storage-all = { module = "io.tileverse.storage:tileverse-storage-all" }
 lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
@@ -43,6 +43,6 @@ lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" 
 [plugins]
 diffplug-spotless = { id = "com.diffplug.spotless", version = "8.10.4"}
 gradleup-shadow = { id = "com.gradleup.shadow", version = "9.6.1"}
-me-champeau-jmh = { id = "me.champeau.jmh", version = "0.7.3" }
+me-champeau-jmh = { id = "me.champeau.jmh", version = "0.7.4" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.37.0" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin-jvm" }
