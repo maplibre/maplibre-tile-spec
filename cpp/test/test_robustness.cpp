@@ -35,6 +35,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 namespace {
@@ -118,7 +119,7 @@ TEST(Robustness, ColumnCountExceedsDefaultMemoryBudget) {
     contents.insert(contents.end(), 1'000'000, 4); // type code 4: no name, no children
 
     try {
-        (void)decodeTile(tileWithLayer(contents));
+        std::ignore = decodeTile(tileWithLayer(contents));
         FAIL() << "expected Memory limit exceeded";
     } catch (const std::runtime_error& e) {
         EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
@@ -135,7 +136,7 @@ TEST(Robustness, ColumnCountExceedsConfiguredMemoryBudget) {
     Decoder decoder;
     decoder.setMemoryLimit(1024);
     try {
-        (void)decoder.decode(view(tileWithLayer(contents)));
+        std::ignore = decoder.decode(view(tileWithLayer(contents)));
         FAIL() << "expected Memory limit exceeded";
     } catch (const std::runtime_error& e) {
         EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
@@ -154,7 +155,7 @@ TEST(Robustness, ColumnMetadataExceedsBudgetDirectly) {
     BufferStream stream{view(contents)};
     mlt::util::MemoryBudget budget(1024);
     try {
-        (void)mlt::metadata::tileset::decodeFeatureTable(stream, budget);
+        std::ignore = mlt::metadata::tileset::decodeFeatureTable(stream, budget);
         FAIL() << "expected Memory limit exceeded";
     } catch (const std::runtime_error& e) {
         EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
@@ -188,7 +189,7 @@ TEST(Robustness, NestedColumnChildrenExceedBudgetDirectly) {
     BufferStream stream{view(contents)};
     mlt::util::MemoryBudget budget(1024);
     try {
-        (void)mlt::metadata::tileset::decodeFeatureTable(stream, budget);
+        std::ignore = mlt::metadata::tileset::decodeFeatureTable(stream, budget);
         FAIL() << "expected Memory limit exceeded";
     } catch (const std::runtime_error& e) {
         EXPECT_NE(std::string(e.what()).find("Memory limit exceeded"), std::string::npos);
