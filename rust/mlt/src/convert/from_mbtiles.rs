@@ -7,9 +7,7 @@ use std::time::Instant;
 use anyhow::{Result as AnyResult, anyhow, bail};
 use futures::StreamExt;
 use martin_tile_utils::{Encoding, Format};
-use mbtiles::{
-    MbtType, MbtWarning, Mbtiles, MbtilesTranscoder, Metadata, detach_db, init_mbtiles_schema,
-};
+use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata, detach_db, init_mbtiles_schema};
 use pmtiles::{Compression, PmTilesWriter, TileCoord, TileType};
 use size_format::SizeFormatterSI;
 use tilejson::{Bounds, TileJSON};
@@ -38,12 +36,6 @@ fn geography_from_metadata(metadata: &Metadata) -> PmTilesGeography {
         max_zoom: tilejson.maxzoom,
         bounds: tilejson.bounds,
         center: tilejson.center,
-    }
-}
-
-fn report_mbtiles_warnings(warnings: Vec<MbtWarning>) {
-    for warning in warnings {
-        eprintln!("warning: {warning}");
     }
 }
 
@@ -98,7 +90,9 @@ async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata, u
     }
 
     let (src_type, warnings) = src.detect_type(&mut src_conn).await?;
-    report_mbtiles_warnings(warnings);
+    for warning in warnings {
+        eprintln!("warning: {warning}");
+    }
     let count_table = match src_type.normalized_schema() {
         Some(schema) => schema.content_table(),
         None if matches!(src_type, MbtType::FlatWithHash) => "tiles_with_hash",
@@ -332,7 +326,9 @@ impl BboxExtract {
         let src = Mbtiles::new(input)?;
         let mut src_conn = src.open_readonly().await?;
         let (source_type, warnings) = src.detect_type(&mut src_conn).await?;
-        report_mbtiles_warnings(warnings);
+        for warning in warnings {
+            eprintln!("warning: {warning}");
+        }
         drop(src_conn);
 
         let start = Instant::now();
