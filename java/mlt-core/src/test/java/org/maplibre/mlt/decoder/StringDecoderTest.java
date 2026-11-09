@@ -230,12 +230,11 @@ public class StringDecoderTest {
             .orElseThrow(() -> new IllegalArgumentException("Expected at least one layer"))
             .features()
             .stream()
-            .flatMap(
-                feature ->
-                    feature
-                        .getPropertyStream()
-                        .map(p -> p.getValue(feature.getIndex()))
-                        .flatMap(StreamUtil.ofType(String.class)))
+            .flatMap(feature ->
+                feature
+                    .getPropertyStream()
+                    .map(p -> p.getValue(feature.getIndex()))
+                    .flatMap(StreamUtil.ofType(String.class)))
             .toList();
     final var encodedValues = encodeSharedDictionary(List.of(values), technique, false);
     final var isNullable = true;

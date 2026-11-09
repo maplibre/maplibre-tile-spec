@@ -301,36 +301,33 @@ public final class CompareHelper {
     final var unequalKeys =
         mvtFeature
             .getPropertyStream()
-            .filter(
-                p ->
-                    !propertyValuesEqual(
-                        p, mltFeature.findProperty(p.getName()).orElse(null), featureIndex))
+            .filter(p ->
+                !propertyValuesEqual(
+                    p, mltFeature.findProperty(p.getName()).orElse(null), featureIndex))
             .map(Property::getName)
             .toList();
     if (!unequalKeys.isEmpty()) {
       final var mvtValues =
           unequalKeys.stream()
-              .map(
-                  key ->
-                      key
-                          + ": "
-                          + mvtFeature
-                              .findProperty(key)
-                              .map(p -> p.getValue(featureIndex))
-                              .map(String::valueOf)
-                              .orElse("null"))
+              .map(key ->
+                  key
+                      + ": "
+                      + mvtFeature
+                          .findProperty(key)
+                          .map(p -> p.getValue(featureIndex))
+                          .map(String::valueOf)
+                          .orElse("null"))
               .collect(Collectors.joining(", "));
       final var mltValues =
           unequalKeys.stream()
-              .map(
-                  key ->
-                      key
-                          + ": "
-                          + mltFeature
-                              .findProperty(key)
-                              .map(p -> p.getValue(featureIndex))
-                              .map(String::valueOf)
-                              .orElse("null"))
+              .map(key ->
+                  key
+                      + ": "
+                      + mltFeature
+                          .findProperty(key)
+                          .map(p -> p.getValue(featureIndex))
+                          .map(String::valueOf)
+                          .orElse("null"))
               .collect(Collectors.joining(", "));
       return Optional.of(
           Difference.builder()
