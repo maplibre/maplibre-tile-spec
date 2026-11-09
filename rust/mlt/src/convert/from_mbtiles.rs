@@ -7,7 +7,9 @@ use std::time::Instant;
 use anyhow::{Result as AnyResult, anyhow, bail};
 use futures::StreamExt;
 use martin_tile_utils::{Encoding, Format};
-use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata, detach_db, init_mbtiles_schema};
+use mbtiles::{
+    MbtType, MbtWarning, Mbtiles, MbtilesTranscoder, Metadata, detach_db, init_mbtiles_schema,
+};
 use pmtiles::{Compression, PmTilesWriter, TileCoord, TileType};
 use size_format::SizeFormatterSI;
 use tilejson::{Bounds, TileJSON};
@@ -36,6 +38,12 @@ fn geography_from_metadata(metadata: &Metadata) -> PmTilesGeography {
         max_zoom: tilejson.maxzoom,
         bounds: tilejson.bounds,
         center: tilejson.center,
+    }
+}
+
+fn report_mbtiles_warnings(warnings: Vec<MbtWarning>) {
+    for warning in warnings {
+        eprintln!("warning: {warning}");
     }
 }
 
@@ -89,7 +97,8 @@ async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata, u
         );
     }
 
-    let (src_type, _) = src.detect_type(&mut src_conn).await?;
+    let (src_type, warnings) = src.detect_type(&mut src_conn).await?;
+    report_mbtiles_warnings(warnings);
     let count_table = match src_type.normalized_schema() {
         Some(schema) => schema.content_table(),
         None if matches!(src_type, MbtType::FlatWithHash) => "tiles_with_hash",
@@ -322,7 +331,8 @@ impl BboxExtract {
         }
         let src = Mbtiles::new(input)?;
         let mut src_conn = src.open_readonly().await?;
-        let (source_type, _) = src.detect_type(&mut src_conn).await?;
+        let (source_type, warnings) = src.detect_type(&mut src_conn).await?;
+        report_mbtiles_warnings(warnings);
         drop(src_conn);
 
         let start = Instant::now();
@@ -665,13 +675,15 @@ mod tests {
 
         let mbt = Mbtiles::new(&output.0).expect("output opens");
         let mut conn = mbt.open_readonly().await.expect("output connects");
-        assert_eq!(
-            mbt.detect_type(&mut conn)
-                .await
-                .expect("type is detectable")
-                .0,
-            MbtType::Flat
+        let (mbt_type, warnings) = mbt
+            .detect_type(&mut conn)
+            .await
+            .expect("type is detectable");
+        assert!(
+            warnings.is_empty(),
+            "unexpected MBTiles warnings: {warnings:?}"
         );
+        assert_eq!(mbt_type, MbtType::Flat);
         drop(conn);
 
         assert_eq!(
@@ -721,13 +733,15 @@ mod tests {
 
         let mbt = Mbtiles::new(&output.0).expect("output opens");
         let mut conn = mbt.open_readonly().await.expect("output connects");
-        assert_eq!(
-            mbt.detect_type(&mut conn)
-                .await
-                .expect("type is detectable")
-                .0,
-            MbtType::FlatWithHash
+        let (mbt_type, warnings) = mbt
+            .detect_type(&mut conn)
+            .await
+            .expect("type is detectable");
+        assert!(
+            warnings.is_empty(),
+            "unexpected MBTiles warnings: {warnings:?}"
         );
+        assert_eq!(mbt_type, MbtType::FlatWithHash);
     }
 
     #[tokio::test]
