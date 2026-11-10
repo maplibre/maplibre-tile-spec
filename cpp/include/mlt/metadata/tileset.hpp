@@ -129,6 +129,9 @@ struct FeatureTable {
     std::vector<Column> columns;
 };
 
+/// Decode a feature table.
+/// The decoded columns may use up to 64 MiB, the default memory limit of `Decoder`.
+/// @throws std::runtime_error if the data is invalid or the columns exceed the memory limit
 FeatureTable decodeFeatureTable(BufferStream&);
 
 /// Encode a feature table header into binary format (inverse of decodeFeatureTable).

@@ -34,6 +34,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 namespace {
@@ -87,6 +88,17 @@ StreamMetadata makeMetadata(PhysicalLevelTechnique physical, std::uint32_t numVa
             byteLength};
 }
 
+// Expect decoding to fail because it would exceed the memory limit, and not for another reason
+template <typename Decode>
+void expectMemoryLimitExceeded(const Decode& decode) {
+    try {
+        std::ignore = decode();
+        FAIL() << "expected the memory limit to be exceeded";
+    } catch (const std::runtime_error& e) {
+        EXPECT_STREQ(e.what(), "Memory limit exceeded");
+    }
+}
+
 } // namespace
 
 #pragma region Tile structure
@@ -105,6 +117,45 @@ TEST(Robustness, ColumnCountExceedsData) {
     putVarint(contents, 4096);
     putVarint(contents, 0xffffffffu);
     EXPECT_THROW(decodeTile(tileWithLayer(contents)), std::runtime_error);
+}
+
+// Each column takes at least a byte of the tile, but `sizeof(Column)` bytes of memory
+TEST(Robustness, ColumnCountExceedsDefaultMemoryBudget) {
+    constexpr auto columnCount = util::MemoryBudget::defaultLimit / sizeof(metadata::tileset::Column) + 1;
+    Bytes contents;
+    putString(contents, "layer");
+    putVarint(contents, 4096);
+    putVarint(contents, static_cast<std::uint32_t>(columnCount));
+    contents.insert(contents.end(), columnCount, 4); // type code 4: geometry, without a name or children
+    expectMemoryLimitExceeded([&] { return decodeTile(tileWithLayer(contents)); });
+}
+
+TEST(Robustness, ColumnCountExceedsConfiguredMemoryBudget) {
+    Bytes contents;
+    putString(contents, "layer");
+    putVarint(contents, 4096);
+    putVarint(contents, 100); // 100 * sizeof(Column) > 1024
+    contents.insert(contents.end(), 100, 4);
+
+    Decoder decoder;
+    decoder.setMemoryLimit(1024);
+    expectMemoryLimitExceeded([&] { return decoder.decode(view(tileWithLayer(contents))); });
+}
+
+// The children of a column are charged, too: the struct column fits in the limit, but its children don't
+TEST(Robustness, NestedColumnsExceedMemoryBudget) {
+    Bytes contents;
+    putString(contents, "layer");
+    putVarint(contents, 4096);
+    putVarint(contents, 1);  // columns
+    putVarint(contents, 30); // type code 30: struct, with a name and children
+    putString(contents, "struct");
+    putVarint(contents, 100); // children: 100 * sizeof(Column) > 1024
+    contents.insert(contents.end(), 100, 4);
+
+    Decoder decoder;
+    decoder.setMemoryLimit(1024);
+    expectMemoryLimitExceeded([&] { return decoder.decode(view(tileWithLayer(contents))); });
 }
 
 TEST(Robustness, StringLengthExceedsData) {
