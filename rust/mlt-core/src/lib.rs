@@ -71,7 +71,7 @@ pub use crate::tile::{
 };
 #[cfg(feature = "unstable-v2")]
 pub use crate::tile::{
-    HeightMode, MValue, MValueKey, NestedKey, NestedKind, NestedValue, ZAxis, ZStep,
+    HeightMode, MValue, MValueKey, MValueScope, NestedKey, NestedKind, NestedValue, ZAxis, ZStep,
 };
 pub(crate) use crate::utils::analyze::{Analyze, StatType};
 pub(crate) use crate::utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};

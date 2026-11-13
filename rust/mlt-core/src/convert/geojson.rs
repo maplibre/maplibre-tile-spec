@@ -11,7 +11,7 @@ use serde_json::{Number, Value};
 use crate::decoder::PropValueRef;
 #[cfg(feature = "unstable-v2")]
 use crate::{
-    HeightMode, ParsedLayer02, ZAxis,
+    Decoder, HeightMode, ParsedLayer02, ZAxis,
     tile::{MValue, NestedValue},
 };
 use crate::{LendingIterator, MltResult, ParsedLayer};
@@ -50,6 +50,11 @@ impl FeatureCollection {
                 ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => (None, Vec::new().into_iter()),
                 ParsedLayer::Tag02(l) => z_values(l)?,
             };
+            #[cfg(feature = "unstable-v2")]
+            let mut triangles = match &layer {
+                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
+                ParsedLayer::Tag02(l) => mesh_triangles(l)?.into_iter(),
+            };
             let parsed = match layer {
                 ParsedLayer::Tag01(l) => l,
                 #[cfg(feature = "unstable-v2")]
@@ -77,14 +82,15 @@ impl FeatureCollection {
                     }
                 }
                 #[cfg(feature = "unstable-v2")]
-                let feature_z = z.next();
+                let (feature_z, feature_triangles) = (z.next(), triangles.next().flatten());
                 #[cfg(not(feature = "unstable-v2"))]
-                let feature_z = None;
+                let (feature_z, feature_triangles) = (None, None);
                 properties.insert("_layer".into(), Value::String(layer_name.to_string()));
                 properties.insert("_extent".into(), Value::Number(extent.into()));
                 features.push(Feature {
                     geometry: feat.geometry().clone(),
                     z: feature_z,
+                    triangles: feature_triangles,
                     id: feat.id(),
                     properties,
                     ty: "Feature".into(),
@@ -119,6 +125,9 @@ pub struct Feature {
     pub geometry: Geometry<i32>,
     /// The z of each stored vertex in vertex order, written as the third value of each position.
     pub z: Option<Vec<i32>>,
+    /// A mesh's triangles, as indices into the positions of its `MultiPoint`, written as the
+    /// foreign member `triangles`. [`None`] for any other feature.
+    pub triangles: Option<Vec<[u32; 3]>>,
     pub id: Option<u64>,
     pub properties: BTreeMap<String, Value>,
     pub ty: String,
@@ -128,6 +137,8 @@ pub struct Feature {
 struct FeatureWire {
     #[serde(deserialize_with = "geom_serde::deserialize")]
     geometry: geom_serde::GeometryWithZ,
+    #[serde(default)]
+    triangles: Option<Vec<[u32; 3]>>,
     #[serde(default)]
     id: Option<u64>,
     #[serde(default)]
@@ -142,6 +153,7 @@ impl From<FeatureWire> for Feature {
         Self {
             geometry,
             z,
+            triangles: wire.triangles,
             id: wire.id,
             properties: wire.properties,
             ty: wire.ty,
@@ -159,7 +171,7 @@ impl Serialize for Geom32Wire<'_> {
 /// Serialize with the preferred order of the keys
 impl Serialize for Feature {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let len = 3 + usize::from(self.id.is_some());
+        let len = 3 + usize::from(self.id.is_some()) + usize::from(self.triangles.is_some());
         let mut map = serializer.serialize_map(Some(len))?;
         map.serialize_entry("type", &self.ty)?;
         if let Some(id) = self.id {
@@ -167,6 +179,9 @@ impl Serialize for Feature {
         }
         map.serialize_entry("properties", &self.properties)?;
         map.serialize_entry("geometry", &Geom32Wire(&self.geometry, self.z.as_deref()))?;
+        if let Some(triangles) = &self.triangles {
+            map.serialize_entry("triangles", triangles)?;
+        }
         map.end()
     }
 }
@@ -439,6 +454,17 @@ fn z_values(layer: &ParsedLayer02<'_>) -> MltResult<(Option<ZAxis>, std::vec::In
     Ok((Some(axis), z.into_iter()))
 }
 
+/// Every feature's triangles if it is a mesh, as indices into its own vertices.
+#[cfg(feature = "unstable-v2")]
+fn mesh_triangles(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Option<Vec<[u32; 3]>>>> {
+    let geometry = layer.layer().geometry_values();
+    // The layer is decoded already, so only its own size bounds what this allocates.
+    let mut dec = Decoder::with_max_size(u32::MAX);
+    (0..geometry.feature_count())
+        .map(|index| geometry.local_mesh_triangles(index, &mut dec))
+        .collect()
+}
+
 /// Every feature's nested columns as JSON, one entry per column under its own name.
 #[cfg(feature = "unstable-v2")]
 fn nested_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
@@ -616,6 +642,7 @@ mod tests {
         Feature {
             geometry,
             z: None,
+            triangles: None,
             id: None,
             properties: BTreeMap::new(),
             ty: "Feature".into(),
@@ -691,6 +718,26 @@ mod tests {
     }
 
     #[test]
+    fn mesh_triangles_round_trip_as_a_foreign_member() {
+        let mesh = Feature {
+            z: Some(vec![0, 0, 250]),
+            triangles: Some(vec![[0, 1, 2]]),
+            ..feature(Geometry::MultiPoint(MultiPoint(vec![
+                Point::new(0, 0),
+                Point::new(4, 0),
+                Point::new(0, 4),
+            ])))
+        };
+        let json = serde_json::to_string(&mesh).expect("serialize");
+        assert_snapshot!(
+            json,
+            @r#"{"type":"Feature","properties":{},"geometry":{"type":"MultiPoint","coordinates":[[0,0,0],[4,0,0],[0,4,250]]},"triangles":[[0,1,2]]}"#
+        );
+        let back: Feature = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back, mesh);
+    }
+
+    #[test]
     fn a_closing_position_repeats_the_first_z() {
         let with_z = Feature {
             z: Some((1..=7).collect()),
@@ -754,6 +801,7 @@ mod tests {
             features: vec![Feature {
                 geometry: Geometry::Point(Point::new(7, 9)),
                 z: None,
+                triangles: None,
                 id: Some(42),
                 properties: BTreeMap::from([
                     ("name".into(), Value::String("ß".into())),

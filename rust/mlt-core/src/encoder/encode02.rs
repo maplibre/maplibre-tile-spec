@@ -19,14 +19,15 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
+use usize_cast::IntoUsize as _;
 
 use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::decoder::stream::header02::{
     Count02, Family, StreamCtx02, WordWidth, shared_coding_byte,
 };
 use crate::decoder::{
-    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, LayerHeader02,
-    LayerLayout, LengthType, LogicalEncoding, NodeKind02, NodePresence, NodeType02,
+    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, GeoLayout,
+    LayerHeader02, LayerLayout, LengthType, LogicalEncoding, NodeKind02, NodePresence, NodeType02,
     PhysicalEncoding, Presence02, StreamMeta, StreamType, ValueType02,
 };
 use crate::encoder::geometry::encode02::{Outlines, encode_geometry02};
@@ -38,7 +39,7 @@ use crate::encoder::{
     write_stream_payload,
 };
 use crate::utils::BinarySerializer as _;
-use crate::{MltError, MltResult};
+use crate::{MValueScope, MltError, MltResult};
 
 /// The presence masks the layer stores once for several columns to read.
 ///
@@ -250,6 +251,10 @@ pub(crate) fn encode_into02(
     } else {
         Outlines::Keep
     };
+    let triangle_offsets = m_values
+        .iter()
+        .any(|m| m.scope == MValueScope::Triangle)
+        .then(|| geometry.triangle_offsets.clone().unwrap_or_default());
     let geometry = encode_geometry02(geometry, outlines)?;
     // The geometry layout is only settled once its vertex streams are written, so
     // the byte is reserved here and patched below.
@@ -264,6 +269,17 @@ pub(crate) fn encode_into02(
     if !m_values.is_empty() && !geo.layout.allows_m_values() {
         return Err(MltError::MValuesNeedVertexCounts(geo.layout.into()));
     }
+    let meshes = geo.layout == GeoLayout::Meshes;
+    if let Some(m_value) = m_values
+        .iter()
+        .find(|m| m.scope == MValueScope::Triangle && !meshes)
+    {
+        return Err(MltError::TriangleMValueWithoutMesh(m_value.name.clone()));
+    }
+    let decoded = triangle_offsets.map(|offsets| DecodedTriangles {
+        offsets,
+        order: geo.triangle_order,
+    });
     enc.data_mut()[layout_pos] =
         LayerLayout::new(geo.layout, shared.count(), shared.coded()).to_byte();
 
@@ -285,7 +301,14 @@ pub(crate) fn encode_into02(
 
     // ── M-value section (not part of column_count either) ─────────────────
     for m_value in &m_values {
-        write_m_value02(m_value, &shared, &mut enc, codecs)?;
+        let scope = meshes.then_some(m_value.scope);
+        match (&decoded, m_value.scope) {
+            (Some(decoded), MValueScope::Triangle) => {
+                let values = m_value.values.pick(&decoded.value_order(m_value)?);
+                write_m_value02(m_value, &values, scope, &shared, &mut enc, codecs)?;
+            }
+            _ => write_m_value02(m_value, &m_value.values, scope, &shared, &mut enc, codecs)?,
+        }
     }
 
     let header = LayerHeader02::new(extent, geo.uniform_type, !m_values.is_empty());
@@ -496,13 +519,60 @@ macro_rules! impl_m_value_type02 {
 
 with_kinds!(impl_m_value_type02);
 
-/// Write one m-value column: `[type byte][name][presence bitfield?][data streams]`.
+/// The triangles of a Meshes layer: where each feature's run starts in the staged
+/// triangle sequence, and the order the triangle trees decode them in.
+struct DecodedTriangles {
+    offsets: Vec<u32>,
+    order: Vec<u32>,
+}
+
+impl DecodedTriangles {
+    /// For each value of a triangle-scoped column in decoded order, its index among
+    /// the column's staged values, which skip the features it is absent from.
+    fn value_order(&self, m_value: &StagedMValue) -> MltResult<Vec<usize>> {
+        let features = self.offsets.len().saturating_sub(1);
+        // Where each feature's values start in the column, or `None` when it has none.
+        let mut starts = Vec::with_capacity(features);
+        let mut next = 0;
+        for (f, run) in self.offsets.array_windows::<2>().enumerate() {
+            let present = m_value.presence.as_ref().is_none_or(|mask| mask[f]);
+            starts.push(present.then_some(next));
+            if present {
+                next += (run[1] - run[0]).into_usize();
+            }
+        }
+        if next != m_value.values.count() {
+            return Err(MltError::MValueColumnLengthMismatch {
+                name: m_value.name.clone(),
+                expected: next,
+                actual: m_value.values.count(),
+            });
+        }
+        let mut order = Vec::with_capacity(next);
+        // The trees code feature after feature, so the feature of each triangle only moves forward.
+        let mut f = 0;
+        for &triangle in &self.order {
+            while self.offsets[f + 1] <= triangle {
+                f += 1;
+            }
+            if let Some(start) = starts[f] {
+                order.push(start + (triangle - self.offsets[f]).into_usize());
+            }
+        }
+        Ok(order)
+    }
+}
+
+/// Write one m-value column: `[type byte][scope byte?][name][presence bitfield?][data streams]`,
+/// the scope byte written only in a Meshes layer, which `scope` is given for.
 ///
-/// Its streams hold one value per vertex rather than per feature, a count only the
-/// geometry knows, so the column is written with no count context at all and every
-/// stream states its own.
+/// Its streams hold one value per vertex or triangle rather than per feature, a count only
+/// the geometry knows, so the column is written with no count context at all and every
+/// stream states its own. `values` are the column's values in wire order.
 fn write_m_value02(
     m_value: &StagedMValue,
+    values: &StagedValues,
+    scope: Option<MValueScope>,
     shared: &SharedPresence,
     enc: &mut Encoder,
     codecs: &mut Codecs,
@@ -510,22 +580,28 @@ fn write_m_value02(
     use StagedValues as V;
 
     let name = m_value.name();
-    let typ = m_value_type02(m_value.values());
+    let typ = m_value_type02(values);
     let nibble = match &m_value.presence {
         Some(mask) => shared.nibble_for(mask),
         None => Presence02::AllPresent,
     };
-    begin_col02(enc, nibble, typ, Some(name))?;
+    enc.family_context = StreamCtx02::Property(typ).family();
+    let data = enc.data_mut();
+    data.push(ColumnType02::new(nibble, typ).to_byte());
+    if let Some(scope) = scope {
+        data.push(scope.to_byte());
+    }
+    data.write_string(name)?;
     if let Some(mask) = &m_value.presence {
         write_inline_presence(enc.data_mut(), nibble, mask);
     }
 
     let features = enc.count_context;
-    // Only the geometry knows how many vertices an m-value column runs over, so
-    // nothing lets a decoder infer its counts and each of its streams writes one.
+    // Only the geometry knows how many vertices or triangles an m-value column runs over,
+    // so nothing lets a decoder infer its counts and each of its streams writes one.
     enc.count_context = Count02::Explicit;
     let ctx = StreamCtx::prop_data(name);
-    let result = match m_value.values() {
+    let result = match values {
         V::Bool(v) => write_bool_bitfield(enc, v),
         V::I8(v) => codecs.write_int_stream(v, &ctx, enc),
         V::U8(v) => codecs.write_int_stream(v, &ctx, enc),

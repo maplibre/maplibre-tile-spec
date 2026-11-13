@@ -619,12 +619,18 @@ fn format_fields(layer: &TileLayer, forms: &BTreeMap<String, FieldForm>) -> AnyR
                 .map(|form| form.syntax)
         }
     };
+    let m_value_kinds: Vec<_> = layer
+        .m_value_kinds()
+        .iter()
+        .copied()
+        .zip(layer.m_value_scopes().iter().copied())
+        .collect();
     let m_values = restored_columns(
         &mut out,
         layer.m_value_names(),
-        layer.m_value_kinds(),
+        &m_value_kinds,
         formatted(Column::MValue),
-        |out, name, &kind| out.add_m_value(name, kind),
+        |out, name, &(kind, scope)| out.add_scoped_m_value(name, kind, scope),
     )?;
     let nested = restored_columns(
         &mut out,

@@ -92,6 +92,17 @@ pub(crate) fn encode_geometry02(
         z_axis,
     } = geometry;
 
+    if vector_types.contains(&GeometryType::Mesh) {
+        return encode_meshes02(
+            vector_types,
+            geometry_offsets,
+            triangle_offsets,
+            index_buffer,
+            vertices,
+            z_axis,
+        );
+    }
+
     let geom_offsets = geometry_offsets.unwrap_or_default();
     let part_offsets = part_offsets.unwrap_or_default();
     let ring_offsets = ring_offsets.unwrap_or_default();
@@ -218,11 +229,53 @@ pub(crate) fn encode_geometry02(
     })
 }
 
+/// The streams of a `Meshes` layer: each feature's vertex count and triangles, then its
+/// `(x, y, z)` vertices.
+///
+/// The layout holds meshes only, and always writes the triangle streams, even when no
+/// feature has a triangle.
+fn encode_meshes02(
+    vector_types: Vec<GeometryType>,
+    geometry_offsets: Option<Vec<u32>>,
+    triangle_offsets: Option<Vec<u32>>,
+    index_buffer: Option<Vec<u32>>,
+    vertices: Option<Vec<i32>>,
+    z_axis: Option<ZAxis>,
+) -> MltResult<GeometrySection02> {
+    if vector_types.iter().any(|&t| t != GeometryType::Mesh) {
+        return Err(MltError::MixedMeshLayer);
+    }
+    if z_axis.is_none() {
+        return Err(MltError::MeshWithoutZ);
+    }
+    let lengths = |offsets: Option<Vec<u32>>| -> Vec<u32> {
+        offsets
+            .unwrap_or_default()
+            .windows(2)
+            .map(|w| w[1] - w[0])
+            .collect()
+    };
+    Ok(GeometrySection02 {
+        types: vector_types,
+        geo_lengths: Some(lengths(geometry_offsets)),
+        topology: Topology::Flat,
+        tessellation: Some(Tessellation {
+            triangles: lengths(triangle_offsets),
+            index_buffer: index_buffer.unwrap_or_default(),
+        }),
+        vertices: vertices.unwrap_or_default(),
+        z_axis,
+    })
+}
+
 /// What a written geometry section puts in the layer's two header bytes.
 pub(crate) struct GeometryHeader02 {
     pub(crate) layout: GeoLayout,
     /// The type every feature has, when the section wrote no types stream.
     pub(crate) uniform_type: Option<GeometryType>,
+    /// For each triangle in the order the trees decode, its index in the layer's triangle
+    /// sequence as staged; empty when the layer has no triangles.
+    pub(crate) triangle_order: Vec<u32>,
 }
 
 impl GeometrySection02 {
@@ -250,7 +303,9 @@ impl GeometrySection02 {
 
     /// The layout declaring these streams, once the vertex storage is known.
     fn layout(&self, vertices: VertexStorage) -> GeoLayout {
-        if self.tessellation.is_some() {
+        if self.uniform_type() == Some(GeometryType::Mesh) {
+            GeoLayout::Meshes
+        } else if self.tessellation.is_some() {
             GeoLayout::tessellated(self.geo_lengths.is_some())
         } else {
             GeoLayout::from_topology(&self.topology, self.geo_lengths.is_some(), vertices)
@@ -298,6 +353,7 @@ impl GeometrySection02 {
             }
         }
 
+        let mut triangle_order = Vec::new();
         if let Some(tess) = &self.tessellation {
             let ctx = StreamCtx::geom(StreamType::Length(LengthType::Triangles), "triangles");
             codecs.write_int_stream(&tess.triangles, &ctx, enc)?;
@@ -306,6 +362,7 @@ impl GeometrySection02 {
             codecs.write_int_stream(&trees.symbols, &ctx, enc)?;
             let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::TreeCycles), "tree_cycles");
             codecs.write_int_stream(&trees.cycles, &ctx, enc)?;
+            triangle_order = trees.order;
         }
 
         let tessellated = self.tessellation.is_some();
@@ -322,6 +379,7 @@ impl GeometrySection02 {
         Ok(GeometryHeader02 {
             layout: self.layout(vertices),
             uniform_type,
+            triangle_order,
         })
     }
 }

@@ -3,6 +3,8 @@
 #[cfg(feature = "unstable-v2")]
 use crate::MltError;
 use crate::MltResult;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::GeometryType;
 use crate::encoder::model::StagedLayer;
 use crate::encoder::property::encode::write_prop;
 use crate::encoder::{Codecs, Encoder, StagedId};
@@ -28,6 +30,11 @@ pub(crate) fn encode_into01(
     #[cfg(feature = "unstable-v2")]
     if !layer.nested.is_empty() {
         return Err(MltError::NestedNeedsV2(layer.name));
+    }
+    // v1 has no geometry type for a mesh, and its types stream must not name one.
+    #[cfg(feature = "unstable-v2")]
+    if layer.geometry.vector_types.contains(&GeometryType::Mesh) {
+        return Err(MltError::MeshNeedsV2(layer.name));
     }
     // v1 vertices are (x, y) pairs, so a z coordinate has nowhere to go.
     #[cfg(feature = "unstable-v2")]

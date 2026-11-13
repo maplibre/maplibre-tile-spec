@@ -70,6 +70,7 @@ fn feature(layer: &str, geometry: impl Into<Geometry<i32>>, props: &[(&str, Valu
     Feature {
         geometry: geometry.into(),
         z: None,
+        triangles: None,
         id: None,
         properties,
         ty: "Feature".into(),
