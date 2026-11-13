@@ -8,6 +8,8 @@ export enum MltGeometryType {
   MultiPoint = 3,
   MultiLineString = 4,
   MultiPolygon = 5,
+  /** `(x, y, z)` vertices and the triangles between them, only in a v2 `Meshes` layer. */
+  Mesh = 6,
 }
 
 /**
@@ -71,13 +73,21 @@ interface MltGeometryColumnsBase {
    * A polygon ring's closing vertex is not stored.
    */
   readonly vertices: Int32Array;
-  /** Cumulative triangle counts per polygon feature, for a tessellated layer. */
+  /**
+   * Cumulative triangle counts per polygon feature, for a tessellated layer, or per feature
+   * of a `Meshes` layer.
+   */
   readonly triangleOffsets?: Uint32Array;
   /** Three vertex indices per triangle, counted from the layer's first vertex. */
   readonly indexBuffer?: Uint32Array;
+  /** Set on a `Meshes` layer, which says so even when it holds no feature. */
+  readonly meshes?: true;
 }
 
-/** What a z of `0` stands for: mean sea level, or the terrain under each vertex. */
+/**
+ * What a z of `0` stands for: mean sea level, or the terrain under each vertex. A `Meshes`
+ * layer's terrain is the one at the centre of each mesh's `(x, y)` bounding box.
+ */
 export type HeightMode = "absolute" | "relativeToGround";
 
 /** `(x, y)` vertices, which sit on the ground. */
@@ -95,6 +105,40 @@ export interface MltGeometryColumns3D extends MltGeometryColumnsBase {
   readonly heightMode: HeightMode;
 }
 
+/**
+ * What an m-value column runs over: the vertices, or, in a `Meshes` layer, the triangles.
+ */
+export type MltMValueScope = "vertex" | "triangle";
+
+/**
+ * An m-value column of a v2 layer. A `"vertex"`-scoped column's values run over the vertices of
+ * the features that carry it, in feature order: when `present` is left out, that is one value
+ * per vertex of the layer, aligned with `geometry.vertices`. A `"triangle"`-scoped column of a
+ * `Meshes` layer runs over the triangles the same way, aligned with `geometry.indexBuffer`
+ * three indices per value. `present` has one bit per feature, LSB-first; a feature whose bit is
+ * clear carries no values at all.
+ *
+ * A string column comes as one dictionary code per value, and `dictionary[code]` is the string.
+ */
+export type MltMValueColumn =
+  | {
+      [T in Exclude<MltColumnType, "string">]: {
+        readonly name: string;
+        readonly scope: MltMValueScope;
+        readonly type: T;
+        readonly values: MltColumnValuesByType[T];
+        readonly present?: Uint8Array;
+      };
+    }[Exclude<MltColumnType, "string">]
+  | {
+      readonly name: string;
+      readonly scope: MltMValueScope;
+      readonly type: "string";
+      readonly codes: Uint32Array;
+      readonly dictionary: readonly string[];
+      readonly present?: Uint8Array;
+    };
+
 export interface MltColumnLayer {
   readonly name: string;
   readonly extent: number;
@@ -106,9 +150,11 @@ export interface MltColumnLayer {
   readonly ids?: MltColumn<Float64Array>;
   /**
    * In wire order, a shared dictionary's children named by its prefix and their own names.
-   * v2 vertex-scoped (m-value) and nested columns are not passed on.
+   * v2 nested columns are not passed on.
    */
   readonly properties: readonly MltNamedColumn[];
+  /** A v2 layer's m-value columns, in wire order; left out for a v1 layer. */
+  readonly mValues?: readonly MltMValueColumn[];
 }
 
 export interface MltColumnTile {

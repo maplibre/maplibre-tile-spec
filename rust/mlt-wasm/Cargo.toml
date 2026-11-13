@@ -18,9 +18,13 @@ wasm-opt = ["-O3", "--enable-simd", "--enable-bulk-memory"]
 crate-type = ["cdylib"]
 
 [features]
+# Export `annotateTile`, for tooling that shows the wire format
+annotate = ["dep:serde", "dep:serde-wasm-bindgen"]
 # Export the recorded LLVM coverage counters, for `just rust::wasm-coverage`
 coverage = ["dep:minicov"]
-default = ["unstable-v2"]
+default = ["annotate", "geojson", "unstable-v2"]
+# Export `tileGeoJson`
+geojson = ["dep:serde_json"]
 # Decode v2 layers in `decodeTileColumns`, which otherwise skips them
 unstable-v2 = []
 
@@ -28,9 +32,10 @@ unstable-v2 = []
 js-sys.workspace = true
 minicov = { workspace = true, optional = true }
 mlt-core = { workspace = true, features = ["unstable-v2"] }
-serde.workspace = true
-serde-wasm-bindgen.workspace = true
-serde_json.workspace = true
+rustc-hash.workspace = true
+serde = { workspace = true, optional = true }
+serde-wasm-bindgen = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 wasm-bindgen.workspace = true
 
 [lints]

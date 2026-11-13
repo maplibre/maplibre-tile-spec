@@ -12,7 +12,8 @@ import {
 export type MltFeatureGeometry =
   | MltPointGeometry
   | MltLineGeometry
-  | MltPolygonGeometry;
+  | MltPolygonGeometry
+  | MltMeshGeometry;
 
 interface MltFeatureGeometryBase {
   readonly type: MltGeometryType;
@@ -47,6 +48,17 @@ export interface MltPolygonGeometry extends MltFeatureGeometryBase {
   readonly triangles: Uint32Array | undefined;
 }
 
+/** A `Mesh`, of a `Meshes` layer. */
+export interface MltMeshGeometry extends MltFeatureGeometryBase {
+  readonly kind: "mesh";
+  /**
+   * Three indices into `vertices` per triangle. Seen from its front, which faces out of the
+   * mesh, a triangle runs counter-clockwise in (east, north, up), so its front normal is
+   * `(b - a) x (c - a)` on `(x, -y, z)`: tile `y` points south.
+   */
+  readonly triangles: Uint32Array;
+}
+
 /** One line, or one ring, as a view of its vertices. */
 export interface MltVertexRun {
   readonly vertices: Int32Array;
@@ -59,10 +71,16 @@ export interface MltPolygonRings extends MltVertexRun {
   readonly holeIndices: number[];
 }
 
-/** Each feature's ordinal among polygon features, which `triangleOffsets` counts, per layer. */
+/**
+ * Each feature's ordinal among polygon and mesh features, which `triangleOffsets` counts, per
+ * layer.
+ */
 const polygonOrdinals = new WeakMap<MltGeometryColumns, Uint32Array>();
 
 function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
+  if (isMeshes(geometry)) {
+    return index;
+  }
   let ordinals = polygonOrdinals.get(geometry);
   if (!ordinals) {
     const { types } = geometry;
@@ -72,7 +90,8 @@ function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
       ordinals[f] = polygons;
       if (
         types[f] === MltGeometryType.Polygon ||
-        types[f] === MltGeometryType.MultiPolygon
+        types[f] === MltGeometryType.MultiPolygon ||
+        types[f] === MltGeometryType.Mesh
       ) {
         polygons++;
       }
@@ -92,8 +111,18 @@ function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
 /** A `TessPolygons` layer: triangles, and no outlines to walk. */
 export function isTrianglesOnly(geometry: MltGeometryColumns): boolean {
   return (
-    geometry.indexBuffer !== undefined && geometry.partOffsets === undefined
+    geometry.indexBuffer !== undefined &&
+    geometry.partOffsets === undefined &&
+    !isMeshes(geometry)
   );
+}
+
+/**
+ * A `Meshes` layer, whose every feature is a `Mesh`: its geometry offsets are each feature's
+ * run of vertices, as a `MultiPoint` layer's are.
+ */
+export function isMeshes(geometry: MltGeometryColumns): boolean {
+  return geometry.meshes === true || geometry.types[0] === MltGeometryType.Mesh;
 }
 
 /** Item `i` of an offset level, or `i` itself when the layer has no such level. */
@@ -151,8 +180,9 @@ function view(
 }
 
 /**
- * The triangle corners of polygon feature `index` of a tessellated layer, as layer vertex
- * indices. Throws when the layer's `triangleOffsets` stop before the feature.
+ * The triangle corners of polygon feature `index` of a tessellated layer, or of mesh feature
+ * `index`, as layer vertex indices. Throws when the layer's `triangleOffsets` stop before the
+ * feature.
  */
 function featureCorners(
   geometry: MltGeometryColumns,
@@ -404,6 +434,10 @@ export function featureGeometry(
         polygons,
         triangles,
       };
+    }
+    case MltGeometryType.Mesh: {
+      const triangles = rebase(featureCorners(geometry, index), v0, v1, index);
+      return { kind: "mesh", type, vertices, firstVertex: v0, triangles };
     }
     default:
       throw new Error(

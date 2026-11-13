@@ -38,7 +38,9 @@ npm run build:ts
 ```
 
 The `unstable-v2` feature is on by default, so v2 layers decode. Building with
-`--no-default-features` skips them.
+`--no-default-features` skips them. The `annotate` and `geojson` features, also on by default,
+export `annotateTile` and `tileGeoJson`. A renderer that only calls `decodeTileColumns` can leave
+them out, `--no-default-features --features unstable-v2`, for a WASM file a third smaller.
 
 ## Usage
 
@@ -78,7 +80,7 @@ for (const layer of decodeTileColumns(data).layers) {
             const value = columnValue(column, f); // undefined when feature f has no value
         }
     }
-    // v2 vertex-scoped (m-value) and nested columns are not passed on
+    // a v2 layer's m-value columns are in layer.mValues; nested columns are not passed on
 }
 ```
 
@@ -95,13 +97,22 @@ converts one z to metres, exactly as `mlt-core` does.
 Its `heightMode` says what a z of `0` stands for: `"absolute"` is mean sea level and
 `"relativeToGround"` the terrain under each vertex.
 
+A v2 layer's `mValues` hold its m-value columns, one value per vertex or, in a `Meshes` layer, per
+triangle, and strings as dictionary codes; see `MltMValueColumn`.
+
+A `Meshes` layer's features are all `MltGeometryType.Mesh`: `geometryOffsets` starts each feature's
+run of vertices, and `triangleOffsets` each feature's triangles in the layer-wide `indexBuffer`.
+A mesh in the `"relativeToGround"` height mode meets the terrain at the centre of its vertices'
+`(x, y)` bounding box.
+
 ### Features
 
 `featureGeometry(layer, i)` reads feature `i` of a column layer without knowing the offset levels.
 Its points, lines and polygon rings are views of the layer's vertices, still in tile coordinates,
 and a polygon's rings come ready for earcut. A `TessPolygonsWithOutlines` layer's triangles come per
-feature, counted from the feature's own vertices. A `TessPolygons` layer stores triangles without
-outlines, so `featureGeometry` rejects it; its `indexBuffer` and `triangleOffsets` are the triangles.
+feature, counted from the feature's own vertices, and so do a mesh's (`kind: "mesh"`). A `TessPolygons`
+layer stores triangles without outlines, so `featureGeometry` rejects it; its `indexBuffer` and
+`triangleOffsets` are the triangles.
 
 ```ts
 import { featureGeometry } from '@maplibre/mlt-wasm';
@@ -182,12 +193,13 @@ Shapes that need tessellation on the CPU work one polygon or line at a time:
 
 `decodeTile3D` reads a tile whose every layer has z coordinates. Its features have the same
 `loadGeometry()` and `loadPolygons()`, with every vertex an `[x, y, z]` array, so the rest of the
-code can assume 3D. It throws when any layer has no z coordinates, for which `decodeTile` reads the
+code can assume 3D. A mesh's `loadGeometry()` is one ring of its vertices, and `loadTriangles()`
+indexes into it. It throws when any layer has no z coordinates, for which `decodeTile` reads the
 tile in 2D, and when any layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry
 layout. `decodeTileColumns` reads every layout, in 2D and 3D.
 
 Like `x` and `y`, `z` is the stored integer: it lies on the layer's `zStep` grid, and
-`toElevation(z, layer.zStep)` gives its elevation in metres.
+`toElevation(z, layer.zStep)` gives it in metres above the layer's `heightMode` base.
 
 ```ts
 import { decodeTile3D } from '@maplibre/mlt-wasm';
