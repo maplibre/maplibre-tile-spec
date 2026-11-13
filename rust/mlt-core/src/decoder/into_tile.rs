@@ -10,7 +10,7 @@ use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty}
 use crate::decoder::{Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValue, NestedKind, NestedValue};
+use crate::tile::{MValue, MValueScope, NestedKind, NestedValue};
 use crate::tile::{PropValue, TileFeature, TileLayer};
 use crate::{Decoder, Lazy, LendingIterator, MltResult};
 
@@ -67,6 +67,8 @@ impl ParsedLayer01<'_> {
                 nested: Vec::new(),
                 #[cfg(feature = "unstable-v2")]
                 z: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                triangles: None,
             });
         }
         Ok(TileParts {
@@ -92,6 +94,7 @@ impl ParsedLayer02<'_> {
     #[hotpath::measure]
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
         let m_names: Vec<String> = self.m_values.iter().map(|m| m.name().to_string()).collect();
+        let m_scopes: Vec<MValueScope> = self.m_values.iter().map(ParsedMValue::scope).collect();
         let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();
         let nested_kinds: Vec<NestedKind> = self.nested.iter().map(ParsedNested::kind).collect();
         // One walk per m-value column, stepped alongside the features. Cutting the
@@ -111,10 +114,11 @@ impl ParsedLayer02<'_> {
                 z.push(value?);
             }
             feature.z = z;
+            feature.triangles = geometry.local_mesh_triangles(index, dec)?;
         }
         parts
             .finish()?
-            .with_m_value_names(m_names)?
+            .with_m_value_names(m_names, m_scopes)?
             .with_nested(nested_names, nested_kinds)?
             .with_z_axis(geometry.z_axis())
     }

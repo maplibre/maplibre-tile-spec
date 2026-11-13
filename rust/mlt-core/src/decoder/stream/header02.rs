@@ -1629,6 +1629,16 @@ mod tests {
         3,
         VERTEX
     )]
+    #[case::xyz_finest_height(
+        vertex(VertexLogical::Xyz(ZAxis { step: ZStep::new(-3).unwrap(), mode: HeightMode::RelativeToGround }, XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
+        3,
+        VERTEX
+    )]
+    #[case::xyz_coarsest_height(
+        vertex(VertexLogical::Xyz(ZAxis { step: ZStep::new(4).unwrap(), mode: HeightMode::RelativeToGround }, XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
+        3,
+        VERTEX
+    )]
     #[case::str_plain_lengths(int(IntLogical::None, PE::VarInt, 5), 5, STR_PLAIN)]
     #[case::str_fsst_dict_codes(int(IntLogical::DeltaRle(rle(5)), PE::VarInt, 5), 5, STR_FSST_DICT)]
     fn header_roundtrip(
@@ -1868,6 +1878,7 @@ mod tests {
     #[rstest]
     #[case::bit_4(0x10)]
     #[case::high_bit(0x80)]
+    #[case::high_bit_relative_to_ground(0x88)]
     fn parse_rejects_a_z_byte_with_a_reserved_bit(#[case] code: u8) {
         let buf = [0b0010_1001, 0, code];
         let err = parse_stream(&buf, VERTEX, Count02::Implied(0), &mut parser()).unwrap_err();

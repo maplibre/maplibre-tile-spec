@@ -532,6 +532,9 @@ impl<'a> FeatureWriter<'_, 'a> {
         let layer = &mut *self.layer;
         let geometry = &layer.geometry;
         let invalid = match Family::of(self.geometry_type) {
+            _ if self.geometry_type.is_mesh() => {
+                Some("has triangles, which a layer writer cannot take")
+            }
             (_, true) => None,
             (Family::Points, false) => (geometry.coords.len() - self.start.coords != 1)
                 .then_some("needs exactly one point"),
@@ -589,10 +592,13 @@ enum Family {
 }
 
 impl Family {
+    /// A mesh's vertices are a `MultiPoint`'s, though [`FeatureWriter::finish`] rejects it.
     fn of(geometry_type: GeometryType) -> (Self, bool) {
         match geometry_type {
             GeometryType::Point => (Self::Points, false),
             GeometryType::MultiPoint => (Self::Points, true),
+            #[cfg(feature = "unstable-v2")]
+            GeometryType::Mesh => (Self::Points, true),
             GeometryType::LineString => (Self::Lines, false),
             GeometryType::MultiLineString => (Self::Lines, true),
             GeometryType::Polygon => (Self::Polygons, false),
@@ -761,6 +767,8 @@ impl LayerSource for LayerWriter<'_> {
             GeometryType::Polygon => values.push_polygon(parts.map(part)),
             GeometryType::MultiPolygon => values
                 .push_multi_polygon(groups.map(|group| geometry.parts(group..group + 1).map(part))),
+            #[cfg(feature = "unstable-v2")]
+            GeometryType::Mesh => unreachable!("FeatureWriter::finish rejects meshes"),
         }
     }
 

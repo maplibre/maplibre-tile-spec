@@ -7,7 +7,9 @@ use std::fmt;
 use anyhow::{Context as _, Result as AnyResult, anyhow, bail, ensure};
 use mlt_core::encoder::wound_layer;
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
-use mlt_core::{Decoder, MValue, NestedValue, Parser, PropValue, TileFeature, TileLayer};
+use mlt_core::{
+    Decoder, MValue, MValueScope, NestedValue, Parser, PropValue, TileFeature, TileLayer,
+};
 
 /// Decode `encoded`, hand it to `restore`, and require the result to hold what `source` does.
 ///
@@ -80,9 +82,19 @@ fn same_layer(expected: &TileLayer, actual: &TileLayer) -> AnyResult<()> {
         if let Some(difference) = first_difference(&e.values, &a.values) {
             bail!("feature {id} has other values: {difference}");
         }
+        ensure!(
+            e.triangles == a.triangles,
+            "feature {id} has other triangles: {:?}, not {:?}",
+            a.triangles,
+            e.triangles
+        );
     }
     Ok(())
 }
+
+/// A mesh's triangles, each rotated to start at its smallest corner beside its non-null
+/// triangle-scoped values, and sorted, since the encoder may reorder and rotate them.
+type Triangles<'a> = Vec<([u32; 3], Vec<(&'a str, Value<'a>)>)>;
 
 /// One feature, its non-null values keyed by the kind of column and its name.
 struct Row<'a> {
@@ -91,6 +103,8 @@ struct Row<'a> {
     /// Empty in a flat layer.
     z: &'a [i32],
     values: BTreeMap<(Role, &'a str), Value<'a>>,
+    /// [`None`] unless the feature is a mesh.
+    triangles: Option<Triangles<'a>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -207,7 +221,13 @@ fn rows(layer: &TileLayer) -> Vec<Row<'_>> {
         .map(|f| (Shape::of(f.geometry()), row(layer, f)))
         .collect();
     rows.sort_by(|(a_shape, a), (b_shape, b)| {
-        (a.id, a_shape, a.z, &a.values).cmp(&(b.id, b_shape, b.z, &b.values))
+        (a.id, a_shape, a.z, &a.values, &a.triangles).cmp(&(
+            b.id,
+            b_shape,
+            b.z,
+            &b.values,
+            &b.triangles,
+        ))
     });
     rows.into_iter().map(|(_, row)| row).collect()
 }
@@ -261,9 +281,19 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature) -> Row<'a> {
             values.insert((Role::Property, name.as_str()), value);
         }
     }
-    for (name, value) in layer.m_value_names().iter().zip(feature.m_values()) {
-        if let Some(value) = Value::of_m_value(value) {
-            values.insert((Role::MValue, name.as_str()), value);
+    let mut per_triangle = Vec::new();
+    let columns = layer.m_value_names().iter().zip(feature.m_values());
+    for ((name, value), scope) in columns.zip(layer.m_value_scopes()) {
+        let Some(value) = Value::of_m_value(value) else {
+            continue;
+        };
+        match (scope, value) {
+            (MValueScope::Triangle, Value::List(items)) => {
+                per_triangle.push((name.as_str(), items.into_iter()));
+            }
+            (_, value) => {
+                values.insert((Role::MValue, name.as_str()), value);
+            }
         }
     }
     for (name, value) in layer.nested_names().iter().zip(feature.nested()) {
@@ -271,12 +301,35 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature) -> Row<'a> {
             values.insert((Role::Nested, name.as_str()), value);
         }
     }
+    let triangles = feature.triangles().map(|triangles| {
+        let mut paired: Triangles<'_> = triangles
+            .iter()
+            .map(|&triangle| {
+                let values = per_triangle
+                    .iter_mut()
+                    .filter_map(|(name, items)| Some((*name, items.next()??)))
+                    .collect();
+                (canonical(triangle), values)
+            })
+            .collect();
+        paired.sort();
+        paired
+    });
     Row {
         id: feature.id(),
         geometry: feature.geometry(),
         z: feature.z(),
         values,
+        triangles,
     }
+}
+
+/// A triangle rotated to start at its smallest corner, which keeps its winding.
+fn canonical([a, b, c]: [u32; 3]) -> [u32; 3] {
+    [[a, b, c], [b, c, a], [c, a, b]]
+        .into_iter()
+        .min()
+        .unwrap_or([a, b, c])
 }
 
 /// The first column whose value differs, described, or [`None`] if every value matches.
@@ -370,6 +423,48 @@ mod tests {
         .with_wire_version(mlt_core::encoder::WireVersion::V02);
         let encoded = layer.clone().encode(config).unwrap();
         check_round_trip(&layer, &encoded, Ok).unwrap();
+    }
+
+    /// A square mesh of two triangles, with one triangle-scoped value each.
+    fn square_mesh(faces: [i32; 2]) -> TileLayer {
+        let mut layer = TileLayer::builder("l", 4096).unwrap();
+        layer
+            .set_z_axis(mlt_core::ZAxis {
+                step: mlt_core::ZStep::new(0).unwrap(),
+                mode: mlt_core::HeightMode::RelativeToGround,
+            })
+            .unwrap();
+        let face = layer
+            .add_scoped_m_value("face", PropKind::I32, MValueScope::Triangle)
+            .unwrap();
+        let corners = [(0, 0), (9, 0), (9, 9), (0, 9)].map(|(x, y)| Point::new(x, y));
+        let mut row = layer.feature(Geometry::MultiPoint(corners.into_iter().collect()));
+        row.id(Some(1));
+        row.z(vec![0, 0, 5, 5]).unwrap();
+        row.triangles(vec![[0, 1, 2], [0, 2, 3]]).unwrap();
+        row.m_value(face, MValue::I32(Some(faces.to_vec())))
+            .unwrap();
+        row.finish().unwrap();
+        layer.finish()
+    }
+
+    #[test]
+    fn a_mesh_comes_back_with_each_triangle_value_on_its_triangle() {
+        let layer = square_mesh([7, 8]);
+        let config = mlt_core::encoder::EncoderConfig::from_profile(
+            mlt_core::encoder::Profile::Native(mlt_core::encoder::Network::Cellular4G),
+        )
+        .with_wire_version(mlt_core::encoder::WireVersion::V02);
+        let encoded = layer.clone().encode(config).unwrap();
+        check_round_trip(&layer, &encoded, Ok).unwrap();
+    }
+
+    #[test]
+    fn a_triangle_value_moved_to_another_triangle_is_reported() {
+        insta::assert_snapshot!(
+            same_layer(&square_mesh([7, 8]), &square_mesh([8, 7])).unwrap_err(),
+            @r#"feature 1 has other triangles: Some([([0, 1, 2], [("face", Int(8))]), ([0, 2, 3], [("face", Int(7))])]), not Some([([0, 1, 2], [("face", Int(7))]), ([0, 2, 3], [("face", Int(8))])])"#
+        );
     }
 
     fn layer_with_nested(kind: mlt_core::NestedKind, value: NestedValue) -> TileLayer {

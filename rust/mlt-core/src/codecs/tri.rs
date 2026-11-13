@@ -17,6 +17,8 @@ use crate::{Decoder, MltResult};
 pub(crate) struct TriTrees {
     pub(crate) symbols: Vec<u32>,
     pub(crate) cycles: Vec<u32>,
+    /// For each triangle in the order the trees decode, its index in the buffer they were coded from.
+    pub(crate) order: Vec<u32>,
 }
 
 /// Code the triangles of each feature as trees, `tri_offsets` cumulative in triangles.
@@ -37,7 +39,11 @@ pub(crate) fn encode_trees(indices: &[u32], tri_offsets: &[u32]) -> TriTrees {
                 })
                 .unwrap_or(0);
             outline.rotate_left(start);
-            forest.symbols(outline[0], &mut out.symbols);
+            let first = out.order.len();
+            forest.symbols(outline[0], &mut out.symbols, &mut out.order);
+            for triangle in &mut out.order[first..] {
+                *triangle += lo;
+            }
             out.cycles.extend(outline.iter().map(|&s| forest.ends(s).0));
         }
     }
@@ -170,11 +176,13 @@ impl<'a> Forest<'a> {
         self.twins[side.into_usize()] != NO_TWIN
     }
 
-    /// Append the symbol of each triangle of the tree entered across `entry`, in preorder.
-    fn symbols(&mut self, entry: u32, out: &mut Vec<u32>) {
+    /// Append the symbol of each triangle of the tree entered across `entry`, in preorder,
+    /// and the triangle itself to `order`.
+    fn symbols(&mut self, entry: u32, out: &mut Vec<u32>, order: &mut Vec<u32>) {
         self.stack.push(entry);
         while let Some(entry) = self.stack.pop() {
             let [left, right] = other_sides(entry);
+            order.push(entry / 3);
             out.push(u32::from(self.joins(left)) | (u32::from(self.joins(right)) << 1));
             for side in [right, left] {
                 if self.joins(side) {
@@ -355,24 +363,35 @@ mod tests {
     use super::*;
     use crate::test_helpers::{dec, starved_dec};
 
+    /// Assert that decoded triangle `k` is input triangle `order[k]`, up to rotation.
+    fn assert_order_names_decoded(input: &[u32], trees: &TriTrees) {
+        let decoded = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
+        let input = input.as_chunks::<3>().0;
+        let decoded = decoded.as_chunks::<3>().0;
+        assert_eq!(trees.order.len(), decoded.len());
+        for (back, &source) in decoded.iter().zip(&trees.order) {
+            let [a, b, c] = input[source.into_usize()];
+            assert!(
+                [[a, b, c], [b, c, a], [c, a, b]].contains(back),
+                "{back:?} decoded for input triangle {source}"
+            );
+        }
+    }
+
     #[test]
     fn fan_with_a_hole_bridge_round_trips() {
         let triangles = [[0, 1, 2], [0, 2, 3], [0, 3, 4], [4, 3, 5], [6, 7, 8]];
         let tri_offsets = [0, 4, 5];
         let trees = encode_trees(triangles.as_flattened(), &tri_offsets);
-        assert_eq!(
-            trees,
-            TriTrees {
-                symbols: vec![2, 2, 1, 0, 0],
-                cycles: vec![0, 1, 2, 3, 5, 4, 6, 7, 8],
-            }
-        );
+        assert_eq!(trees.symbols, [2, 2, 1, 0, 0]);
+        assert_eq!(trees.cycles, [0, 1, 2, 3, 5, 4, 6, 7, 8]);
         let decoded = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
         assert!(same_triangles(
             triangles.as_flattened(),
             &decoded,
             &tri_offsets
         ));
+        assert_order_names_decoded(triangles.as_flattened(), &trees);
     }
 
     #[test]
@@ -387,13 +406,16 @@ mod tests {
             [8, 7, 5],
             [10, 9, 11],
         ];
+        let trees = encode_trees(triangles.as_flattened(), &[0, 1, 8]);
         assert_eq!(
-            encode_trees(triangles.as_flattened(), &[0, 1, 8]),
+            trees,
             TriTrees {
                 symbols: vec![0, 2, 1, 1, 2, 1, 0, 0],
                 cycles: vec![0, 2, 1, 3, 6, 8, 7, 6, 3, 5, 4, 9, 11, 10],
+                order: vec![0, 1, 3, 5, 6, 4, 2, 7],
             }
         );
+        assert_order_names_decoded(triangles.as_flattened(), &trees);
     }
 
     #[test]
@@ -430,10 +452,10 @@ mod tests {
         let cycles: Vec<u32> = (0..203).collect();
         let triangles = decode_trees(&symbols, &cycles, &mut dec()).unwrap();
         assert_eq!(triangles.len(), 201 * 3);
-        assert_eq!(
-            encode_trees(&triangles, &[0, 201]),
-            TriTrees { symbols, cycles }
-        );
+        let trees = encode_trees(&triangles, &[0, 201]);
+        assert_eq!(trees.symbols, symbols);
+        assert_eq!(trees.cycles, cycles);
+        assert_eq!(trees.order, (0..201).collect::<Vec<u32>>());
     }
 
     #[test]
@@ -488,6 +510,7 @@ mod tests {
                 same_triangles(&indices, &decoded, &tri_offsets),
                 "{indices:?} {tri_offsets:?}"
             );
+            assert_order_names_decoded(&indices, &trees);
         }
     }
 

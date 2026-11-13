@@ -37,10 +37,12 @@
 //! per m-value column:
 //!   [u8 column_type]                as for a counted column, but never an id
 //!                                   nor a shared dictionary
+//!   [u8 scope]                      only in a Meshes layer: 0 vertex, 1 triangle
 //!   [varint name_len] [name]
 //!   [presence bitfield]             as for a counted column, over features
-//!   [data stream]                   one value per vertex of every present
-//!                                   feature, counted in its own header
+//!   [data stream]                   one value per vertex (or triangle, in decoded
+//!                                   order) of every present feature, counted in
+//!                                   its own header
 //! ```
 
 use std::borrow::Cow;
@@ -51,6 +53,7 @@ use crate::LazyParsed::Raw;
 use crate::MltError::{BufferUnderflow, MissingLayerName, TrailingLayerData};
 use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::codecs::varint::parse_varint;
+use crate::decoder::mvalue::RawMValueData;
 use crate::decoder::nested::parse_nested;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
@@ -58,16 +61,32 @@ use crate::decoder::stream::header02::{
 };
 use crate::decoder::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
-    DictionaryType, FloatLogical, GeoLayout, GeoTypes, Id, IdWidth02, IndexBase, Layer01, Layer02,
-    LayerBytes, LayerHeader02, LayerLayout, LengthType, LogicalEncoding, MValues, Nested,
-    Presence02, RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue,
+    DictionaryType, FloatLogical, GeoLayout, GeoTypes, GeometryType, Id, IdWidth02, IndexBase,
+    Layer01, Layer02, LayerBytes, LayerHeader02, LayerLayout, LengthType, LogicalEncoding, MValues,
+    Nested, Presence02, RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue,
     RawMValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
     RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
     SharedDictKind, ValueType02, ValuesColumn02,
 };
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8};
-use crate::{Lazy, MltError, MltRefResult, MltResult, Parser};
+use crate::{Lazy, MValueScope, MltError, MltRefResult, MltResult, Parser};
+
+/// Check that the header byte and the layout byte agree: m-values need a layout with vertex
+/// counts, and the uniform type `Mesh` goes with the `Meshes` layout and nothing else.
+pub(crate) fn check_header_layout(header: LayerHeader02, layout: LayerLayout) -> MltResult<()> {
+    if header.m_values && !layout.geometry.allows_m_values() {
+        return Err(MltError::MValuesNeedVertexCounts(layout.geometry.into()));
+    }
+    let mesh_type = header.uniform_type == Some(GeometryType::Mesh);
+    if mesh_type != (layout.geometry == GeoLayout::Meshes) {
+        return Err(MltError::MeshLayoutMismatch(
+            header.uniform_type,
+            layout.geometry.into(),
+        ));
+    }
+    Ok(())
+}
 
 /// Parse a v2 layer body (the bytes after the `tag = 2` byte).
 pub(crate) fn parse_layer02<'a>(
@@ -85,10 +104,7 @@ pub(crate) fn parse_layer02<'a>(
     let (input, feature_count) = parse_varint::<u32>(input)?;
     let (input, layout_byte) = parse_u8(input)?;
     let layout = LayerLayout::parse(layout_byte)?;
-
-    if header.m_values && !layout.geometry.allows_m_values() {
-        return Err(MltError::MValuesNeedVertexCounts(layout.geometry.into()));
-    }
+    check_header_layout(header, layout)?;
 
     // ── Shared presence bitfields ─────────────────────────────────────────
     let (input, cols) = parse_shared_presence(input, layout, feature_count, parser)?;
@@ -190,7 +206,15 @@ pub(crate) fn parse_layer02<'a>(
     let before = input.len();
     let m_values;
     (input, m_values) = if header.m_values {
-        parse_m_values(input, counts.m_values, &cols, &mut column_names, parser)?
+        let meshes = layout.geometry == GeoLayout::Meshes;
+        parse_m_values(
+            input,
+            counts.m_values,
+            meshes,
+            &cols,
+            &mut column_names,
+            parser,
+        )?
     } else {
         (input, Vec::new())
     };
@@ -269,11 +293,13 @@ impl<'a> ColumnValues<'a> {
     /// Decode into the flat values the container holds, dropping the presence a
     /// nested leaf keeps in its own stream rather than in its column.
     pub(super) fn decode(self, dec: &mut Decoder) -> MltResult<MValues<'a>> {
-        Ok(crate::Decode::decode(RawMValue::from(self), dec)?.into_values())
+        Ok(RawMValueData::from(self)
+            .decode_scoped(MValueScope::Vertex, dec)?
+            .into_values())
     }
 }
 
-impl<'a> From<ColumnValues<'a>> for RawMValue<'a> {
+impl<'a> From<ColumnValues<'a>> for RawMValueData<'a> {
     fn from(values: ColumnValues<'a>) -> Self {
         match values {
             ColumnValues::Bool(v) => Self::Bool(v),
@@ -366,16 +392,20 @@ pub(super) fn parse_column_values<'a>(
     })
 }
 
-/// Parse the m-value section: the vertex-scoped columns that end a layer body.
+/// Parse the m-value section: the vertex- or triangle-scoped columns that end a layer body.
 ///
 /// Each reads the streams a counted column of its data type reads, over the
-/// layer's vertex sequence rather than its features. Only the geometry says how
-/// long that is, which the decoder may not have read yet, so the count stays with
-/// the column until [`ParsedMValue::spans`](crate::decoder::ParsedMValue::spans)
+/// layer's vertex or triangle sequence rather than its features. Only the geometry
+/// says how long that is, which the decoder may not have read yet, so the count stays
+/// with the column until [`ParsedMValue::spans`](crate::decoder::ParsedMValue::spans)
 /// checks the two against each other.
+///
+/// In a Meshes layer a scope byte follows each type byte; in any other layer there
+/// is none and every column is vertex-scoped.
 fn parse_m_values<'a>(
     mut input: &'a [u8],
     count: u32,
+    meshes: bool,
     cols: &LayerCols<'a>,
     column_names: &mut Vec<(Cow<'a, str>, ColumnRole)>,
     parser: &mut Parser,
@@ -392,6 +422,13 @@ fn parse_m_values<'a>(
         let typ_byte;
         (input, typ_byte) = parse_u8(input)?;
         let column = ValuesColumn02::parse_m_value(typ_byte, cols.shared_count()?)?;
+        let scope = if meshes {
+            let scope_byte;
+            (input, scope_byte) = parse_u8(input)?;
+            MValueScope::from_byte(scope_byte)?
+        } else {
+            MValueScope::Vertex
+        };
         let name;
         let presence;
         (input, name, presence) = parse_column_header(input, column.into(), cols, parser)?;
@@ -407,7 +444,10 @@ fn parse_m_values<'a>(
             Count02::Explicit,
             parser,
         )?;
-        m_values.push(Raw(values.into()));
+        m_values.push(Raw(RawMValue {
+            scope,
+            data: values.into(),
+        }));
     }
     Ok((input, m_values))
 }

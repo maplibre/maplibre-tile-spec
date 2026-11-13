@@ -21,7 +21,6 @@ use std::iter::FusedIterator;
 use std::ops::Range;
 
 use geo_types::{Coord, Geometry, Point};
-use usize_cast::IntoUsize as _;
 
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, Property, RawProperty};
 pub use crate::tile::PropValueRef;
@@ -454,22 +453,7 @@ fn build_col_iters<'p>(columns: &'p [ParsedProperty<'p>]) -> Vec<ColValIter<'p>>
             PP::F32(s) => iters.push(scalar_col_iter(s)),
             PP::F64(s) => iters.push(scalar_col_iter(s)),
             PP::Str(strings) => {
-                let data: &'p str = strings.data.as_ref();
-                let lengths: &'p [i32] = &strings.lengths;
-                let mut curr_end: usize = 0;
-                let mut feat_idx = 0usize;
-                iters.push(Box::new(std::iter::from_fn(move || {
-                    let &end_i32 = lengths.get(feat_idx)?;
-                    feat_idx += 1;
-                    if end_i32 >= 0 {
-                        let start = curr_end;
-                        curr_end = end_i32.cast_unsigned().into_usize();
-                        Some(data.get(start..curr_end).map(PropValueRef::Str))
-                    } else {
-                        // Null slot: curr_end unchanged (null encodes the current byte offset).
-                        Some(None)
-                    }
-                })));
+                iters.push(Box::new(strings.values().map(|v| v.map(PropValueRef::Str))));
             }
             PP::SharedDict(dict) => {
                 for item in &dict.items {

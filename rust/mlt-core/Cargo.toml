@@ -157,6 +157,10 @@ name = "tag02_z"
 required-features = ["unstable-v2"]
 
 [[test]]
+name = "tag02_meshes"
+required-features = ["unstable-v2"]
+
+[[test]]
 name = "tessellation_auto"
 required-features = ["unstable-v2"]
 

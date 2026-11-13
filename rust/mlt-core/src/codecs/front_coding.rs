@@ -6,7 +6,7 @@ use crate::MltError::{
     FrontCodedOddLengthCount, FrontCodedPrefixTooLong, FrontCodedSuffixOutOfBounds,
     FrontCodedTrailingSuffixBytes,
 };
-use crate::MltResult;
+use crate::{Decoder, MltResult};
 
 /// A sorted dictionary with each entry's prefix shared with its predecessor factored out.
 ///
@@ -95,12 +95,17 @@ impl<'a> FrontLengths<'a> {
 }
 
 /// Rebuild a front-coded dictionary into its entries back to back, with each entry's byte length.
+///
+/// Each copied prefix is charged to `dec` before it is copied, since repeated long prefixes
+/// can grow the entries far beyond the suffix blob.
 pub(crate) fn front_decode(
     lengths: FrontLengths<'_>,
     suffixes: &[u8],
+    dec: &mut Decoder,
 ) -> MltResult<(String, Vec<u32>)> {
+    dec.consume_items::<u8>(suffixes.len())?;
     let mut entries = Vec::with_capacity(suffixes.len());
-    let mut entry_lengths = Vec::with_capacity(lengths.count());
+    let mut entry_lengths = dec.alloc(lengths.count())?;
     // Where the previous entry starts in `entries`, so its prefix can be copied forward.
     let mut previous_start = 0_usize;
     // Shrinking the remainder rather than tracking an offset keeps the suffix cursor in bounds.
@@ -128,6 +133,7 @@ pub(crate) fn front_decode(
                 })?;
         remaining = rest;
 
+        dec.consume_items::<u8>(shared)?;
         let start = entries.len();
         entries.extend_from_within(previous_start..previous_start + shared);
         entries.extend_from_slice(suffix);
@@ -156,7 +162,11 @@ mod tests {
     use crate::MltError;
 
     fn decode(lengths: &[u32], suffixes: &[u8]) -> MltResult<(String, Vec<u32>)> {
-        front_decode(FrontLengths::split(lengths)?, suffixes)
+        front_decode(
+            FrontLengths::split(lengths)?,
+            suffixes,
+            &mut Decoder::default(),
+        )
     }
 
     fn roundtrip(entries: &[&str]) -> Vec<String> {
@@ -257,6 +267,23 @@ mod tests {
     fn decode_rejects_an_odd_lengths_stream() {
         let err = decode(&[0, 1, 2], b"").unwrap_err();
         assert!(matches!(err, FrontCodedOddLengthCount(3)), "{err:?}");
+    }
+
+    #[test]
+    fn decode_charges_every_copied_prefix() {
+        let entries = 1000_u32;
+        let mut lengths = vec![0];
+        lengths.extend(std::iter::repeat_n(64, entries as usize - 1));
+        lengths.push(64);
+        lengths.extend(std::iter::repeat_n(0, entries as usize - 1));
+        let suffix = [b'a'; 64];
+        let mut dec = Decoder::with_max_size(64 * entries - 1);
+        let err =
+            front_decode(FrontLengths::split(&lengths).unwrap(), &suffix, &mut dec).unwrap_err();
+        assert!(
+            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
+        );
     }
 
     #[test]
