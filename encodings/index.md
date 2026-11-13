@@ -8,7 +8,7 @@ This page defines the payload of every encoding an MLT stream can name. Which st
 >
 > **Experimental encodings**
 >
-> Encodings marked exist only in [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>). Streams are referred to by their [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#string-columns>) names throughout.
+> Encodings marked exist only in [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>). Streams are referred to by their [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#string-columns>) names throughout.
 
 ## Integer Words
 
@@ -51,13 +51,13 @@ For 64-bit values the shift is `63`.
 
 Each word is stored as it is, little-endian, 4 or 8 bytes per word.
 
-In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width determine it. See [byte length](<https://maplibre.org/maplibre-tile-spec/specification/v2/#byte-length>).
+In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width determine it. See [byte length](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#byte-length>).
 
 ### VarInt
 
 Each word is stored in 7-bit groups, least significant group first. Bit 7 of each byte is set when another byte follows. A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&amp;at=column%5B0%5D>) - four `9000`s, two bytes each, the first byte of each with bit 7 set.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_u32_np.mlt&amp;at=column%5B0%5D>) - four `9000`s, two bytes each, the first byte of each with bit 7 set.
 
 ```text
 300 = 0b0000_0001_0010_1100
@@ -71,7 +71,7 @@ This is the unsigned varint of [Protocol Buffers](<https://protobuf.dev/programm
 
 Every word is stored in the same number of bits, the bit width of the largest value.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - dictionary codes `0` to `2`, each in two bits.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - dictionary codes `0` to `2`, each in two bits.
 
 Bit packing stands in for the whole physical step: the words come straight out of the packed bits, and only [zigzag](<#zigzag>) on a signed stream is applied to them.
 
@@ -96,7 +96,7 @@ Bit packing beats varint when the values are of similar magnitude, since varint 
 
 A block codec that stores each block of words at the bit width most of them need, and patches the few words that need more from separate exception arrays. Unlike [bit packing](<#bit-packing>), it is not sensitive to a handful of outliers. It is described by [Lemire and Boytsov, *Decoding billions of integers per second through vectorization*](<https://arxiv.org/pdf/1209.2137.pdf>).
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_fpf.mlt&amp;at=column%5B0%5D>) - an id stream in the v2 `128le` variant.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fids_fpf.mlt&amp;at=column%5B0%5D>) - an id stream in the v2 `128le` variant.
 
 v1 and v2 use different variants:
 
@@ -215,7 +215,7 @@ The words are the values. On a signed stream each word is [zigzag](<#zigzag>)-de
 
 Each word is the difference from the previous value. The first value's predecessor is `0`. Each difference is [zigzag](<#zigzag>)-encoded before it becomes a word, whatever the stream's type.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_opt_delta.mlt&amp;at=column%5B0%5D>) - ids `100`, `101`, `105`, `106`, stored as the steps between them.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fids_opt_delta.mlt&amp;at=column%5B0%5D>) - ids `100`, `101`, `105`, `106`, stored as the steps between them.
 
 ```text
 delta[0] = values[0] - 0
@@ -271,7 +271,7 @@ Delta2 suits smooth sequences, such as a per-vertex elevation along a densely sa
 
 The values are stored as runs, each a `(run_length, value)` pair that expands to `run_length` copies of `value`. On a signed stream `value` is [zigzag](<#zigzag>)-encoded. Run lengths never are.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fmvalues_rle.mlt&amp;at=m_value%5B0%5D>) - five `5`s and three `7`s, as two runs.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues_rle.mlt&amp;at=m_value%5B0%5D>) - five `5`s and three `7`s, as two runs.
 
 The two tile versions lay the runs out differently:
 
@@ -296,7 +296,7 @@ In both versions the decoded element count is known before the payload is read. 
 
 [Delta](<#delta>) followed by [RLE](<#rle>). The deltas are ZigZag-encoded, and those unsigned words are run-length encoded. Decoding undoes both steps in reverse order: expand the runs, then undo ZigZag and prefix-sum.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fids_delta_rle.mlt&amp;at=column%5B0%5D>) - four equal ids: one step of `103`, then a run of three `0`s.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fids_delta_rle.mlt&amp;at=column%5B0%5D>) - four equal ids: one step of `103`, then a run of three `0`s.
 
 ```text
 values: [10, 11, 12, 13, 20, 20, 20]
@@ -315,7 +315,7 @@ Boolean columns and v1 `Present` streams hold one bit per value.
 
 Bit `i % 8` of byte `i / 8` is value `i`, LSB-first. The bitmap is `ceil(count / 8)` bytes. Bits past `count` in the final byte are padding and MUST be ignored.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprop_i32_val_null.mlt&amp;at=present>) - a value, then a null: bits `1` and `0`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32_val_null.mlt&amp;at=present>) - a value, then a null: bits `1` and `0`.
 
 ```text
 values: [1, 0, 1, 1, 0, 1]
@@ -345,7 +345,7 @@ payload: 02 2D
 
 v1 compresses the [bitmap](<#bitmap>) with the byte-level run-length encoding of [ORC](<https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding>). The payload is a sequence of runs, each a control byte followed by the bytes it describes.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x01%2Fids_opt.mlt&amp;at=present>) - five ids, one of them missing, as byte runs.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fids_opt.mlt&amp;at=present>) - five ids, one of them missing, as byte runs.
 
 | Control byte `c` | Meaning |
 | --- | --- |
@@ -369,13 +369,13 @@ The v1 stream header carries no `runs` or `num_rle_values` for a boolean stream.
 
 IEEE 754 words, little-endian, 4 bytes for a `Float` and 8 for a `Double`. This is the only float encoding v1 has.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprop_f64_max_np.mlt&amp;at=column%5B0%5D>) - raw IEEE 754 words.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_f64_max_np.mlt&amp;at=column%5B0%5D>) - raw IEEE 754 words.
 
 ### Framed, Exception-Free ALP
 
 Framed, Exception-Free ALP (Adaptive Lossless floating-Point compression) stores a float column as integers, which are then [physically encoded](<#physical-encodings>) like any other integer stream.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprop_f32_alp_np.mlt&amp;at=column%5B0%5D>) - `-0.75` to `0.75`, stored as `-75` to `75` with `e = 2`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_f32_alp_np.mlt&amp;at=column%5B0%5D>) - `-0.75` to `0.75`, stored as `-75` to `75` with `e = 2`.
 
 Most floats in map data are decimals with few significant digits, such as `12.75` or `0.3`, and are exactly representable as a scaled integer. Framed, Exception-Free ALP finds one decimal scale for the whole column and stores \\(i = \\operatorname{round}(v \\cdot 10^e / 10^f)\\) per value.
 
@@ -422,13 +422,13 @@ e = 2, f = 0:  i = [-75, 25, 150, -225]
 base = -225:   offsets = [150, 250, 375, 0]
 ```
 
-The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload stores the four offsets as varints. See the [framed, exception-free ALP example](<https://maplibre.org/maplibre-tile-spec/specification/v2/#examples>) on the v2 page for the whole layer.
+The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload stores the four offsets as varints. See the [framed, exception-free ALP example](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#examples>) on the v2 page for the whole layer.
 
 ### Float Dictionary
 
 The distinct values are stored once, and a stream of codes holds one index into them per element.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprop_f32_dict_nan_np.mlt&amp;at=column%5B0%5D>) - repeated floats, `NaN` among them.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_f32_dict_nan_np.mlt&amp;at=column%5B0%5D>) - repeated floats, `NaN` among them.
 
 The column has two streams. The first is the codes: an integer stream of 32-bit words, logical `Dict` in the `Float` family, with its own physical encoding. The second is the dictionary: [plain floats](<#plain-floats>), one per distinct value, with an explicit count in its header.
 
@@ -453,19 +453,19 @@ A string column is stored with one of four encodings, which combine a blob with 
 | FSST | Every value's bytes, compressed with [FSST](<#fsst>) |
 | FSST dictionary | The distinct values once, compressed with [FSST](<#fsst>), and a code per value |
 
-The streams of each encoding and how a column announces it are the business of [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#string-columns>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#string-columns>).
+The streams of each encoding and how a column announces it are the business of [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md#string-columns>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#string-columns>).
 
 ### Plain Bytes
 
 The bytes as they are. Value `i` is the `lengths[i]` bytes that follow the first `lengths[0] + ... + lengths[i - 1]`. Each value MUST be valid UTF-8.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_plain_np.mlt&amp;at=column%5B0%5D>) - several strings, each its length's worth of bytes in turn.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_plain_np.mlt&amp;at=column%5B0%5D>) - several strings, each its length's worth of bytes in turn.
 
 ### Front Coding
 
 Neighboring entries of a sorted dictionary often share a prefix, for example `Main Street`, `Main Street North` and `Maple Avenue`. Front coding stores the length of the prefix shared with the previous entry, and only the suffix bytes.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_front_dict_np.mlt&amp;at=column%5B0%5D>) - a dictionary whose entries share prefixes.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_front_dict_np.mlt&amp;at=column%5B0%5D>) - a dictionary whose entries share prefixes.
 
 The lengths stream that precedes the blob holds `2N` values: `N` shared-prefix lengths, then `N` suffix lengths. The blob holds the `N` suffixes back to back.
 
@@ -491,7 +491,7 @@ Front coding can be combined with [FSST](<#fsst>). The corpus is front-coded fir
 
 Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes. Unlike a dictionary, it compresses strings that merely share substrings, such as localized country names. It decodes quickly, since every code is one byte.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_fsst_dict_np.mlt&amp;at=column%5B0%5D>) - a symbol table and the codes into it.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_fsst_dict_np.mlt&amp;at=column%5B0%5D>) - a symbol table and the codes into it.
 
 An FSST-compressed blob comes with two streams that carry its symbol table:
 
@@ -525,7 +525,7 @@ The algorithm that trains the table is described by [Boncz, Neumann and Leis, *F
 
 The distinct values are stored once, and a code names one of them per element. Repeated values such as a city or a country cost one code instead of their bytes.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - three distinct strings and one code per feature.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - three distinct strings and one code per feature.
 
 The codes are an unsigned integer stream, so any [logical](<#logical-encodings>) and [physical](<#physical-encodings>) encoding can compress them. The dictionary is a byte blob, [plain](<#plain-bytes>), [front-coded](<#front-coding>) or [FSST](<#fsst>)-compressed. Its lengths are those of the distinct values.
 
@@ -541,9 +541,9 @@ A code at or past the dictionary's count MUST be rejected. A dictionary beats pl
 
 Several string columns, such as `name:en`, `name:de` and `name:fr`, index into one dictionary. The dictionary is written once, and each member column then stores only its presence and its codes.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D>) - several columns reading one corpus.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D>) - several columns reading one corpus.
 
-The dictionary can be plain, front-coded or FSST-compressed, as for a single column. See [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/#shared-dictionary-columns>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/#shared-dictionary-columns>) for the group header each version writes.
+The dictionary can be plain, front-coded or FSST-compressed, as for a single column. See [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md#shared-dictionary-columns>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#shared-dictionary-columns>) for the group header each version writes.
 
 ## Vertex Streams
 
@@ -553,7 +553,7 @@ The vertex buffer holds \\(x\\) and \\(y\\) interleaved: \\(\[x\_0, y\_0, x\_1, 
 
 Each coordinate is a delta to the same coordinate of the previous vertex. `x` and `y` keep separate predecessors, both starting at `0`. Each delta is [zigzag](<#zigzag>)-encoded.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fline.mlt&amp;at=vertices>) - three vertices, each stored as its step from the one before.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fline.mlt&amp;at=vertices>) - three vertices, each stored as its step from the one before.
 
 ```text
 dx[i] = x[i] - x[i - 1]        x[-1] = 0
@@ -584,7 +584,7 @@ words:    [0, 0, 140, 2, 0, 2, 0, 2]
 
 The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex. `VertexOffsets` is an ordinary unsigned integer stream. `VertexDict` is a vertex stream and carries any of the encodings in this section.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices stored once and indexed.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices stored once and indexed.
 
 ```text
 VertexOffsets: [0, 1, 2, 1, 0, 2]
@@ -604,7 +604,7 @@ The reference encoders use the curve of the [`hilbert_2d`](<https://crates.io/cr
 
 A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer. Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas. Only a `VertexDict` stream uses it.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices as Morton codes, delta-encoded.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices as Morton codes, delta-encoded.
 
 The parameters are two varints in the stream header:
 

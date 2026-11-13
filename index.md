@@ -11,9 +11,9 @@ MLT was redesigned from the ground up, so tiles are both more efficient and more
 
 Each geometry and attribute is stored as a separate column, with compression optimized for its data type. This makes tiles smaller, faster to decode with SIMD, and cheaper to load into GPU buffers.
 
-MVT limits a feature to 2D vertices and single-value properties. Elevation and per-vertex values like lane count are lost, and lists or maps are flattened into columns like `name:en` and `name:de`. [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) removes these limits; see [how v2 differs from v1](<https://maplibre.org/maplibre-tile-spec/specification/v2/#differences-from-v1>):
+MVT limits a feature to 2D vertices and single-value properties. Elevation and per-vertex values like lane count are lost, and lists or maps are flattened into columns like `name:en` and `name:de`. [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) removes these limits; see [how v2 differs from v1](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#differences-from-v1>):
 
-Each layer in a tile carries its own [format version](<https://maplibre.org/maplibre-tile-spec/overview/#frames>), so new formats can be added without breaking existing readers. One tile can mix formats, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.
+Each layer in a tile carries its own [format version](<https://maplibre.org/maplibre-tile-spec/overview/index.md#frames>), so new formats can be added without breaking existing readers. One tile can mix formats, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.
 
 > [!TIP]
 >

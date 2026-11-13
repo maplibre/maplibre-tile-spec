@@ -81,7 +81,7 @@ Every stream has its own lightweight encoding: delta, run-length, dictionary, bi
 
 Encodings cascade. Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta-encoded or bit-packed like any other.
 
-Encoders choose encodings by sampling, since trying every combination is too expensive; see [choosing an encoding](<https://maplibre.org/maplibre-tile-spec/implementation-guide/#choosing-an-encoding>). The [encoding algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) page describes each scheme. The specifications say which encodings each stream may use.
+Encoders choose encodings by sampling, since trying every combination is too expensive; see [choosing an encoding](<https://maplibre.org/maplibre-tile-spec/implementation-guide/index.md#choosing-an-encoding>). The [encoding algorithms](<https://maplibre.org/maplibre-tile-spec/encodings/index.md>) page describes each scheme. The specifications say which encodings each stream may use.
 
 Tiles are usually also gzip- or brotli-compressed in transit.
 
