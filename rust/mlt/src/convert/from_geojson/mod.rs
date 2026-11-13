@@ -21,7 +21,6 @@ use std::sync::Arc;
 
 use anyhow::{Context as _, Result as AnyResult, bail};
 use geojson::{Feature, FeatureCollection, GeoJson};
-use martin_tile_utils::MAX_ZOOM;
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::PropertySchema;
 use mlt_core::{Decoder, MltError, Parser, PropValue, TileLayer, ZAxis, ZStep};
@@ -29,6 +28,7 @@ use rayon::prelude::*;
 
 use self::clip::Rect;
 use self::feature_id::feature_id;
+pub(super) use self::project::mercator_unit;
 use self::project::{Dims, Geom, Projector, Vertex};
 use self::round::to_tile;
 use super::{ConvertArgs, Reencoder};
@@ -74,29 +74,8 @@ struct Entry {
 /// `--max-zoom` was given, and that the output is a directory that does not exist.
 pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()> {
     let (input, output) = (args.input.as_path(), args.output.as_path());
-    let min_zoom = args.min_zoom.unwrap_or(0);
-    let max_zoom = args
-        .max_zoom
-        .expect("`convert` requires --max-zoom for a GeoJSON input");
-    if min_zoom > max_zoom {
-        bail!("--min-zoom ({min_zoom}) must be <= --max-zoom ({max_zoom})");
-    }
-    if max_zoom > MAX_ZOOM {
-        bail!("--max-zoom ({max_zoom}) must be <= {MAX_ZOOM}");
-    }
-    let name = match &args.layer {
-        Some(name) => name.clone(),
-        None => input
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .map(str::to_owned)
-            .with_context(|| {
-                format!(
-                    "cannot derive a layer name from {}; pass --layer",
-                    input.display()
-                )
-            })?,
-    };
+    let (min_zoom, max_zoom) = args.tiled_zooms()?;
+    let name = args.tiled_layer_name()?;
 
     let features = read_features(input)?;
     let schema = PropertySchema::infer(features.iter().map(|f| f.properties.iter().flatten()))?;
@@ -217,7 +196,7 @@ fn check_dimensions(dims: Option<Dims>, z_step: Option<ZStep>) -> AnyResult<()> 
     clippy::cast_sign_loss,
     reason = "the product is floored, clamped to 0.., and capped at n - 1 < 2^30"
 )]
-fn tile_index(unit: f64, n: u32) -> u32 {
+pub(super) fn tile_index(unit: f64, n: u32) -> u32 {
     ((unit * f64::from(n)).floor().max(0.0) as u32).min(n - 1)
 }
 
