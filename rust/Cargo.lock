@@ -2848,6 +2848,7 @@ dependencies = [
  "js-sys",
  "minicov",
  "mlt-core",
+ "rustc-hash 2.1.3",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",

@@ -17,7 +17,7 @@ type Expected = {
 /** Fixtures written with the TessPolygonsWithOutlines (`_tes`) or TessPolygons (`_tri`) layout. */
 const TESSELLATED = /_(tes|tri)$/;
 
-/** Fixtures written with the Meshes layout. */
+/** Fixtures written with the Meshes layout, which `meshes.spec.ts` reads. */
 const MESHES = /\/mesh_/;
 
 describe("decodeTile3D against every synthetic fixture", () => {
@@ -31,18 +31,11 @@ describe("decodeTile3D against every synthetic fixture", () => {
       });
       continue;
     }
+    if (MESHES.test(name)) continue;
     if (TESSELLATED.test(name)) {
       it(`${name} (tessellated: throws)`, () => {
         expect(() => decodeTile3D(data)).toThrow(
           /uses the TessPolygons(WithOutlines)? geometry layout/,
-        );
-      });
-      continue;
-    }
-    if (MESHES.test(name)) {
-      it(`${name} (meshes: throws)`, () => {
-        expect(() => decodeTile3D(data)).toThrow(
-          /uses the Meshes geometry layout/,
         );
       });
       continue;
@@ -69,7 +62,6 @@ describe("triangle layouts", () => {
   it.each([
     ["0x02/z_poly_hole_tes", "TessPolygonsWithOutlines"],
     ["0x02/z_poly_hole_tri", "TessPolygons"],
-    ["0x02/mesh_triangle", "Meshes"],
   ])("%s is rejected as %s", (fixture, layout) => {
     expect(() => layersOf(fixture)).toThrow(
       `layer "layer1" uses the ${layout} geometry layout, which decodeTile3D does not support`,

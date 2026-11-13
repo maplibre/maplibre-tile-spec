@@ -65,15 +65,21 @@ function geoJson(g: MltFeatureGeometry, dimension: number): GeoJSON.Geometry {
   }
 }
 
-/** The fixtures written with the TessPolygons or Meshes layout, which `featureGeometry` rejects. */
+/** The fixtures written with the TessPolygons layout, which `featureGeometry` rejects. */
 const TRIANGLES_ONLY = readdirSync(
   new URL("../../../test/synthetic/0x02", import.meta.url),
 )
-  .filter((file) => /^mesh_.*\.mlt$|_tri\.mlt$/.test(file))
+  .filter((file) => /_tri\.mlt$/.test(file))
+  .map((file) => `0x02/${file.slice(0, -".mlt".length)}`);
+
+const MESH_FIXTURES = readdirSync(
+  new URL("../../../test/synthetic/0x02", import.meta.url),
+)
+  .filter((file) => /^mesh_.*\.mlt$/.test(file))
   .map((file) => `0x02/${file.slice(0, -".mlt".length)}`);
 
 describe("featureGeometry against every synthetic fixture", () => {
-  const testCases = getTestCases(TRIANGLES_ONLY);
+  const testCases = getTestCases([...TRIANGLES_ONLY, ...MESH_FIXTURES]);
   for (const { name, content, fileName } of testCases.active) {
     it(name, () => {
       const expected = (content as GeoJSON.FeatureCollection).features;
@@ -88,15 +94,16 @@ describe("featureGeometry against every synthetic fixture", () => {
       expect(actual).toEqual(expected.map((f) => f.geometry));
     });
   }
-  for (const { name, fileName } of testCases.skipped) {
-    const layout = /\/mesh_/.test(name) ? "Meshes" : "TessPolygons";
-    it(`${name} is rejected as a ${layout} layer`, () => {
+  for (const { name, fileName } of testCases.skipped.filter(({ name }) =>
+    TRIANGLES_ONLY.includes(name),
+  )) {
+    it(`${name} is rejected as a TessPolygons layer`, () => {
       const { layers } = decodeTileColumns(
         new Uint8Array(readFileSync(fileName)),
       );
       for (const layer of layers) {
         expect(() => featureGeometry(layer, 0)).toThrow(
-          `layer "${layer.name}" is a ${layout} layer, which stores triangles, not outlines`,
+          `layer "${layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
         );
       }
     });
@@ -207,7 +214,7 @@ function featureRuns(
 }
 
 describe("geometryStarts against featureGeometry on every synthetic fixture", () => {
-  for (const { name, fileName } of getTestCases([]).active) {
+  for (const { name, fileName } of getTestCases(MESH_FIXTURES).active) {
     it(name, () => {
       const { layers } = decodeTileColumns(
         new Uint8Array(readFileSync(fileName)),
@@ -216,7 +223,7 @@ describe("geometryStarts against featureGeometry on every synthetic fixture", ()
         const { geometry } = layer;
         if (isTrianglesOnly(geometry)) {
           expect(() => geometryStarts(geometry)).toThrow(
-            /^a (TessPolygons|Meshes) layer stores triangles, not runs of vertices$/,
+            /^a TessPolygons layer stores triangles, not runs of vertices$/,
           );
           continue;
         }
