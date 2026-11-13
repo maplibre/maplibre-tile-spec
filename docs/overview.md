@@ -63,7 +63,7 @@ Layers are equivalent to layers in MVT.
 
 A feature has:
 
-- a geometry, typed by the OGC Simple Feature Access model, excluding `GeometryCollection`
+- a geometry, typed by the OGC Simple Feature Access model, excluding `GeometryCollection`, or, in v2, a 3D triangle [mesh](specification/v2.md#meshes)
 - an optional id
 - any number of properties
 
