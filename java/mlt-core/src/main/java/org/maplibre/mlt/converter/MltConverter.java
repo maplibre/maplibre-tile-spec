@@ -10,6 +10,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
+import org.maplibre.mlt.converter.encodings.FastPforCodec;
 import org.maplibre.mlt.converter.encodings.GeometryEncoder;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
@@ -126,12 +128,14 @@ public class MltConverter {
     var hasLongId = false;
     var hasNullId = false;
     var featureIndex = 0;
+    var propertyUsageCount = new HashMap<String, Integer>();
     for (var feature : layer.features()) {
       final var currentFeatureIndex = featureIndex;
 
       feature
           .getPropertyStream()
           .forEach(property -> {
+            propertyUsageCount.merge(property.getName(), 1, Integer::sum);
             resolveColumnType(
                 property,
                 layer.name(),
@@ -161,6 +165,20 @@ public class MltConverter {
     // TODO: This should eventually be optional.
     //  The benefit would be in cases where we can decode just one map column and ignore the rest.
     mergeMapColumnSchemas(columnSchemas);
+
+    // Skip encoding present stream when every feature uses the property
+    final var featureCount = featureIndex;
+    columnSchemas.replaceAll((name, column) -> {
+      final var everyFeatureHasProperty = propertyUsageCount.getOrDefault(name, 0) == featureCount;
+      if (column.isScalar() && everyFeatureHasProperty) {
+        column = new MltMetadata.Column(
+            new MltMetadata.Field(
+                new MltMetadata.FieldType(column.field().type().scalarType(), false),
+                column.getName()),
+            column.columnScope());
+      }
+      return column;
+    });
 
     for (var complexPropertyColumnScheme : complexPropertyColumnSchemas.entrySet()) {
       final var schema = complexPropertyColumnScheme.getValue();
@@ -511,23 +529,29 @@ public class MltConverter {
     }
   }
 
-  /*
-   * Converts a collection of layers into an MLT tile
-   *
-   * @param sourceLayers The input layers
-   * @param tilesetMetadata Metadata of the tile
-   * @param config Settings for the conversion
-   * @param tessellateSource Optional URI of a tessellation service to use if polygon pre-tessellation is enabled
-   * @return Converted MapLibreTile as a byte array
-   * @throws IOException
-   */
+  /// Converts a collection of layers into an MLT tile.
+  ///
+  /// Use
+  /// {@link #encode(LayerSource, MltMetadata.TileSetMetadata, ConversionConfig, URI, IntegerCODEC)}
+  /// with a shared {@link FastPforCodec} to encode many tiles from a single thread.
+  ///
+  /// @param sourceLayers The input layers
+  /// @param tilesetMetadata Metadata of the tile
+  /// @param config Settings for the conversion
+  /// @param tessellateSource Optional URI of a tessellation service to use if polygon
+  /// pre-tessellation is enabled
+  /// @return Converted MapLibreTile as a byte array
+  /// @throws IOException If encoding fails
   public static byte[] encode(
       LayerSource sourceLayers,
       MltMetadata.TileSetMetadata tilesetMetadata,
       ConversionConfig config,
       @Nullable URI tessellateSource)
       throws IOException {
-    return encode(sourceLayers, tilesetMetadata, config, tessellateSource, (IntegerCODEC) null);
+    // One codec for the whole tile rather than one per stream: each allocates ~1 MB. Callers who
+    // encode many tiles should pass their own long-lived codec to the overload below.
+    final var fastPforCodec = config.useFastPFOR() ? EncodingUtils.createFastPforCodec() : null;
+    return encode(sourceLayers, tilesetMetadata, config, tessellateSource, fastPforCodec);
   }
 
   public static byte[] encode(

@@ -4,12 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import com.google.common.hash.Hashing;
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.List;
+import java.util.function.IntUnaryOperator;
 import java.util.stream.IntStream;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class EncodingUtilsTest {
@@ -96,5 +100,41 @@ public class EncodingUtilsTest {
     assertArrayEquals(
         values,
         DecodingUtils.decodeFastPfor(encoded, values.length, encoded.length, new IntWrapper(0)));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {300, 1_000, 65_537, 200_000})
+  public void encodeFastPfor128_ReusedCodec_WritesTheSameBytes(int count) {
+    var reused = EncodingUtils.createFastPforCodec();
+    for (var generator : fastPforTestValues()) {
+      var earlier = generate(140_000, i -> generator.applyAsInt(i + 1) | 0x7FF);
+      EncodingUtils.encodeFastPfor128(earlier, false, false, reused);
+    }
+    for (var generator : fastPforTestValues()) {
+      var values = generate(count, generator);
+      assertArrayEquals(
+          EncodingUtils.encodeFastPfor128(values, false, false, null),
+          EncodingUtils.encodeFastPfor128(values, false, false, reused));
+    }
+  }
+
+  private static List<IntUnaryOperator> fastPforTestValues() {
+    return List.of(
+        i -> 0,
+        i -> 7,
+        i -> i,
+        i -> pseudoRandom(i) & 0xF,
+        i -> pseudoRandom(i) % 50 == 0 ? pseudoRandom(i + 1) >>> (pseudoRandom(i + 2) & 31) : pseudoRandom(i) & 0x3,
+        i -> pseudoRandom(i) % 9 == 0 ? 1 << 4 : 1,
+        i -> pseudoRandom(i),
+        i -> -1);
+  }
+
+  private static int pseudoRandom(int i) {
+    return Hashing.murmur3_32_fixed().hashInt(i).asInt();
+  }
+
+  private static int[] generate(int count, IntUnaryOperator generator) {
+    return IntStream.range(0, count).map(generator).toArray();
   }
 }

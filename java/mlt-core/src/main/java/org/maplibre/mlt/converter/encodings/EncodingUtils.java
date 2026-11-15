@@ -14,11 +14,8 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import me.lemire.integercompression.Composition;
-import me.lemire.integercompression.FastPFOR;
 import me.lemire.integercompression.IntWrapper;
 import me.lemire.integercompression.IntegerCODEC;
-import me.lemire.integercompression.VariableByte;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
@@ -296,8 +293,10 @@ public class EncodingUtils {
     return Pair.of(CollectionUtils.unboxLongs(runsBuffer), CollectionUtils.unboxLongs(valueBuffer));
   }
 
-  public static IntegerCODEC createFastPforCodec() {
-    return new Composition(new FastPFOR(), new VariableByte());
+  /// Returns a new FastPFOR codec. It is expensive and result is not thread-safe, so create one per thread and pass it
+  /// to every encode call instead of one per call.
+  public static FastPforCodec createFastPforCodec() {
+    return new FastPforCodec();
   }
 
   public static byte[] encodeFastPfor128(int[] values, boolean zigZagEncode, boolean deltaEncode) {

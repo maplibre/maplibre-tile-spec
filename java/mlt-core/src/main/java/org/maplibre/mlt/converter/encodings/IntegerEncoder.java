@@ -41,6 +41,7 @@ public class IntegerEncoder {
     /* If rle or delta-rle encoding is used, otherwise can be ignored */
     public int numRuns;
     public int physicalLevelEncodedValuesLength;
+    public PhysicalLevelTechnique physicalLevelTechnique;
   }
 
   enum LogicalLevelIntegerTechnique {
@@ -310,6 +311,11 @@ public class IntegerEncoder {
       LogicalStreamType logicalStreamType)
       throws IOException {
     // TODO: refactor -> also allow the use of none null suppression techniques
+    // encodeInt may have picked varint over FastPFOR for this stream
+    final var physical =
+        encodedValueStream.physicalLevelTechnique != null
+            ? encodedValueStream.physicalLevelTechnique
+            : physicalLevelTechnique;
     final var streamMetadata =
         (encodedValueStream.logicalLevelTechnique1 == LogicalLevelTechnique.RLE
                 || encodedValueStream.logicalLevelTechnique2 == LogicalLevelTechnique.RLE)
@@ -318,7 +324,7 @@ public class IntegerEncoder {
                 logicalStreamType,
                 encodedValueStream.logicalLevelTechnique1,
                 encodedValueStream.logicalLevelTechnique2,
-                physicalLevelTechnique,
+                physical,
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length,
                 encodedValueStream.numRuns,
@@ -328,7 +334,7 @@ public class IntegerEncoder {
                 logicalStreamType,
                 encodedValueStream.logicalLevelTechnique1,
                 encodedValueStream.logicalLevelTechnique2,
-                physicalLevelTechnique,
+                physical,
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length);
     final var result = streamMetadata.encode();
@@ -485,6 +491,25 @@ public class IntegerEncoder {
       boolean isSigned,
       @NotNull IntegerEncodingOption encodingOption,
       @Nullable IntegerCODEC fastPforCodec) {
+    var result =
+        encodeIntWith(values, physicalLevelTechnique, isSigned, encodingOption, fastPforCodec);
+    if (physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR) {
+      // Keep whichever is smaller
+      var varint =
+          encodeIntWith(values, PhysicalLevelTechnique.VARINT, isSigned, encodingOption, null);
+      if (varint.encodedValues.length < result.encodedValues.length) {
+        result = varint;
+      }
+    }
+    return result;
+  }
+
+  private static IntegerEncodingResult encodeIntWith(
+      int[] values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      @NotNull IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec) {
     var previousValue = 0;
     var previousDelta = 0;
     var runs = 1;
@@ -521,6 +546,7 @@ public class IntegerEncoder {
     // Early return for forced PLAIN encoding
     if (encodingOption == IntegerEncodingOption.PLAIN) {
       var result = new IntegerEncodingResult();
+      result.physicalLevelTechnique = physicalLevelTechnique;
       result.encodedValues = encoder.apply(values, isSigned);
       result.physicalLevelEncodedValuesLength = values.length;
       result.logicalLevelTechnique1 = LogicalLevelTechnique.NONE;
@@ -531,6 +557,7 @@ public class IntegerEncoder {
     // Early return for forced DELTA encoding
     if (encodingOption == IntegerEncodingOption.DELTA) {
       var result = new IntegerEncodingResult();
+      result.physicalLevelTechnique = physicalLevelTechnique;
       result.encodedValues = encoder.apply(deltaValues, true);
       result.physicalLevelEncodedValuesLength = values.length;
       result.logicalLevelTechnique1 = LogicalLevelTechnique.DELTA;
@@ -572,6 +599,7 @@ public class IntegerEncoder {
       // Early return for forced RLE encoding
       if (encodingOption == IntegerEncodingOption.RLE) {
         var result = new IntegerEncodingResult();
+        result.physicalLevelTechnique = physicalLevelTechnique;
         result.encodedValues = rleEncodedValues;
         result.physicalLevelEncodedValuesLength = rlePhysicalLevelEncodedValuesLength;
         result.numRuns = runs;
@@ -594,6 +622,7 @@ public class IntegerEncoder {
       // Early return for forced DELTA_RLE encoding
       if (encodingOption == IntegerEncodingOption.DELTA_RLE) {
         var result = new IntegerEncodingResult();
+        result.physicalLevelTechnique = physicalLevelTechnique;
         result.encodedValues = deltaRleEncodedValues;
         result.physicalLevelEncodedValuesLength = deltaRlePhysicalLevelEncodedValuesLength;
         result.numRuns = deltaRuns;
@@ -616,6 +645,7 @@ public class IntegerEncoder {
     final var encoding = LogicalLevelIntegerTechnique.values()[index];
 
     final var result = new IntegerEncodingResult();
+    result.physicalLevelTechnique = physicalLevelTechnique;
     result.encodedValues = encodedValues.get(index);
     result.physicalLevelEncodedValuesLength = values.length;
     if (encoding == LogicalLevelIntegerTechnique.RLE || isConstStream) {

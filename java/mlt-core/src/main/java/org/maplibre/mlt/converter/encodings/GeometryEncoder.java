@@ -129,10 +129,14 @@ public class GeometryEncoder {
      * */
 
     final var vertexLimits = getVertexLimits(vertexBuffer);
+    // Dictionaries only help when vertices repeat more than once, so skip if it can't help.
+    final var tryDictionaries = vertexBuffer.size() >= 2 * countDistinct(vertexBuffer);
     final var tryHilbertEncoding =
-        HilbertCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
+        tryDictionaries && HilbertCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
     final var tryMortonEncoding =
-        enableMortonEncoding && ZOrderCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
+        tryDictionaries
+            && enableMortonEncoding
+            && ZOrderCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
     final Optional<HilbertCurve> hilbertCurve =
         tryHilbertEncoding
             ? Optional.of(new HilbertCurve(vertexLimits.min, vertexLimits.max))
@@ -318,6 +322,22 @@ public class GeometryEncoder {
   }
 
   private static record MinMax<T>(T min, T max) {}
+
+  private static int countDistinct(List<Vertex> vertices) {
+    final var packed = new long[vertices.size()];
+    for (var i = 0; i < packed.length; i++) {
+      final var vertex = vertices.get(i);
+      packed[i] = ((long) vertex.x() << 32) | (vertex.y() & 0xFFFFFFFFL);
+    }
+    Arrays.sort(packed);
+    var distinct = packed.length == 0 ? 0 : 1;
+    for (var i = 1; i < packed.length; i++) {
+      if (packed[i] != packed[i - 1]) {
+        distinct++;
+      }
+    }
+    return distinct;
+  }
 
   private static MinMax<Integer> getVertexLimits(List<Vertex> vertexBuffer) {
     var minVertexValue = Integer.MAX_VALUE;
@@ -706,10 +726,16 @@ public class GeometryEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
-    final var encodedValues =
-        physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
-            ? encodeFastPfor(values, false, fastPforCodec)
-            : encodeVarint(values, false);
+    var encodedValues = encodeVarint(values, false);
+    var technique = PhysicalLevelTechnique.VARINT;
+    if (physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR) {
+      // keep whichever is smaller
+      var fastPfor = encodeFastPfor(values, false, fastPforCodec);
+      if (fastPfor.length <= encodedValues.length) {
+        encodedValues = fastPfor;
+        technique = PhysicalLevelTechnique.FAST_PFOR;
+      }
+    }
 
     final var result =
         new StreamMetadata(
@@ -717,7 +743,7 @@ public class GeometryEncoder {
                 new LogicalStreamType(DictionaryType.VERTEX),
                 LogicalLevelTechnique.COMPONENTWISE_DELTA,
                 LogicalLevelTechnique.NONE,
-                physicalLevelTechnique,
+                technique,
                 values.length,
                 encodedValues.length)
             .encode();

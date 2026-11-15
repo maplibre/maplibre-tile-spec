@@ -88,14 +88,15 @@ class SymbolTableBuilder {
     SymbolTableBuilder st = new SymbolTableBuilder(sampleSize);
     SymbolTableBuilder bestTable = st;
     long bestWeight = Long.MAX_VALUE;
-    Counters counters;
-    Counters bestCounters = null;
+    // Reset counters between rounds instead of creating new ones since re-allocating 1MB is too expensive
+    var counters = new Counters();
+    int[] bestCount1 = null;
     for (int i = 1; i <= NUM_ITERS; i++) {
       // then gather statistics about symbol frequencies and encoded data size
-      counters = new Counters();
+      counters.reset();
       long weight = st.compressCount(counters, data, i < NUM_ITERS);
       if (weight <= bestWeight) {
-        bestCounters = counters;
+        bestCount1 = counters.count1.clone();
         bestTable = st;
         bestWeight = weight;
       }
@@ -103,7 +104,10 @@ class SymbolTableBuilder {
       if (i < NUM_ITERS) st = st.makeTable(counters, false, sampleSize < data.capacity());
     }
 
-    var result = bestTable.makeTable(bestCounters, true, sampleSize < data.capacity());
+    // The reused counters hold the last round's counts, so restore the best round's count1 (all the last pass reads)
+    counters.reset();
+    System.arraycopy(bestCount1, 0, counters.count1, 0, bestCount1.length);
+    var result = bestTable.makeTable(counters, true, sampleSize < data.capacity());
     return result.sortSymbolsByLength();
   }
 
@@ -273,14 +277,15 @@ class SymbolTableBuilder {
       // [de]compression speed
       addOrInc(
           cands, s1, (s1.length() == 1 ? 8L : 1L) * cnt1, (lastPass && !sampled) ? 1 : minCount);
-
-      // don't need pair-wise counts for last pass to just encode the data
-      if (lastPass || s1.length() == MAX_SYMBOL_LENGTH) continue;
-      for (int pos2 = 0; pos2 < max; pos2++) {
-        int cnt2 = counters.count2GetNext(pos1, pos2);
-        if (cnt2 < minCount) continue;
-        addOrInc(cands, Symbol.concat(s1, symbols[pos2]), cnt2, minCount);
-      }
+    }
+    // don't need pair-wise counts for last pass to just encode the data, and only visit the pairs
+    // that occurred instead of all 512 x 512
+    for (int i = 0; !lastPass && i < counters.countedPairs; i++) {
+      int pair = counters.pairsInUse[i];
+      Symbol s1 = symbols[pair >>> 9];
+      int cnt2 = counters.count2[pair];
+      if (s1.length() == MAX_SYMBOL_LENGTH || cnt2 < minCount) continue;
+      addOrInc(cands, Symbol.concat(s1, symbols[pair & 511]), cnt2, minCount);
     }
 
     PriorityQueue<QSymbol> pq = new PriorityQueue<>();
@@ -338,13 +343,28 @@ class SymbolTableBuilder {
   static class Counters {
     private final int[] count1 = new int[512];
     private final int[] count2 = new int[512 * 512];
+    // the count2 entries in use, so resetting and visiting them skips the rest
+    private int[] pairsInUse = new int[1024];
+    private int countedPairs;
+
+    void reset() {
+      Arrays.fill(count1, 0);
+      for (int i = 0; i < countedPairs; i++) {
+        count2[pairsInUse[i]] = 0;
+      }
+      countedPairs = 0;
+    }
 
     public void count1Inc(int pos1) {
       count1[pos1]++;
     }
 
     public void count2Inc(int pos1, int pos2) {
-      count2[(pos1 << 9) | pos2]++;
+      int pair = (pos1 << 9) | pos2;
+      if (count2[pair]++ == 0) {
+        if (countedPairs == pairsInUse.length) pairsInUse = Arrays.copyOf(pairsInUse, countedPairs * 2);
+        pairsInUse[countedPairs++] = pair;
+      }
     }
 
     public int count1GetNext(int pos1) {
