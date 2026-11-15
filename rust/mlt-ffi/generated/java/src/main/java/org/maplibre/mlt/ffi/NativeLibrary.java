@@ -1,15 +1,20 @@
 package org.maplibre.mlt.ffi;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
+import java.util.UUID;
 
 /**
  * Loads the {@code mlt_ffi} native library once per class loader.
  * The library comes from the {@value #LIBRARY_PROPERTY} system property if set, else from the jar resources.
+ * <p>
+ * A packaged library is extracted to a temporary file that is deleted on exit.
+ * Windows cannot delete a library that is still loaded, so each load also deletes those of exited JVMs.
  */
 public final class NativeLibrary {
 
@@ -17,6 +22,10 @@ public final class NativeLibrary {
   public static final String LIBRARY_PROPERTY = "mlt.ffi.library";
 
   private static final String RESOURCE_ROOT = "/org/maplibre/mlt/ffi/native/";
+
+  static final String TEMP_PREFIX = "mlt-ffi-";
+
+  static final String LOCK_SUFFIX = ".lck";
 
   private static Path loadedFrom;
 
@@ -101,14 +110,29 @@ public final class NativeLibrary {
       if (in == null) {
         throw new UnsatisfiedLinkError("The MLT native library resource " + resource + " is missing from the jar");
       }
-      Path dir = Files.createTempDirectory("mlt-ffi");
-      Path file = dir.resolve(name);
-      Files.copy(in, file, StandardCopyOption.REPLACE_EXISTING);
-      file.toFile().deleteOnExit();
-      dir.toFile().deleteOnExit();
-      return file;
+      File tmp = new File(System.getProperty("java.io.tmpdir"));
+      deleteStale(tmp);
+      File file = new File(tmp, TEMP_PREFIX + UUID.randomUUID() + "-" + name);
+      File lock = new File(tmp, file.getName() + LOCK_SUFFIX);
+      // like sqlite-jdbc: the lock exists first, so another JVM never deletes a library that is being extracted
+      lock.createNewFile();
+      lock.deleteOnExit();
+      file.deleteOnExit();
+      Files.copy(in, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      return file.toPath();
     } catch (IOException e) {
       throw linkError("Cannot extract the MLT native library " + resource + ": " + e.getMessage(), e);
+    }
+  }
+
+  /** Deletes the libraries in {@code tmp} that other JVMs extracted but could not delete on exit. */
+  static void deleteStale(File tmp) {
+    File[] stale = tmp.listFiles((dir, n) -> n.startsWith(TEMP_PREFIX) && !n.endsWith(LOCK_SUFFIX)
+      && !new File(dir, n + LOCK_SUFFIX).exists());
+    if (stale != null) {
+      for (File file : stale) {
+        file.delete();
+      }
     }
   }
 

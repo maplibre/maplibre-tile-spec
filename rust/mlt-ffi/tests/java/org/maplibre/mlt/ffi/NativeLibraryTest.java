@@ -1,14 +1,18 @@
 package org.maplibre.mlt.ffi;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class NativeLibraryTest {
 
@@ -23,8 +27,22 @@ class NativeLibraryTest {
     Path loaded = NativeLibrary.loadedFrom();
 
     assertNotNull(loaded);
-    assertEquals(NativeLibrary.fileName(OS), loaded.getFileName().toString());
-    assertTrue(loaded.toAbsolutePath().getParent().getFileName().toString().startsWith("mlt-ffi"));
+    String name = loaded.getFileName().toString();
+    assertTrue(name.startsWith(NativeLibrary.TEMP_PREFIX) && name.endsWith(NativeLibrary.fileName(OS)), name);
+    assertTrue(Files.exists(loaded.resolveSibling(name + NativeLibrary.LOCK_SUFFIX)));
+  }
+
+  @Test
+  void deleteStaleKeepsOnlyLibrariesWhoseLockExists(@TempDir Path tmp) throws IOException {
+    Path stale = Files.createFile(tmp.resolve("mlt-ffi-a-libmlt_ffi.so"));
+    Path live = Files.createFile(tmp.resolve("mlt-ffi-b-libmlt_ffi.so"));
+    Path lock = Files.createFile(tmp.resolve("mlt-ffi-b-libmlt_ffi.so" + NativeLibrary.LOCK_SUFFIX));
+
+    NativeLibrary.deleteStale(tmp.toFile());
+
+    assertFalse(Files.exists(stale));
+    assertTrue(Files.exists(live));
+    assertTrue(Files.exists(lock));
   }
 
   @Test
