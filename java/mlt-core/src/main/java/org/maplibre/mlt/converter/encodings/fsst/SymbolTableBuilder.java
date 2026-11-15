@@ -374,9 +374,5 @@ class SymbolTableBuilder {
     public int count1GetNext(int pos1) {
       return count1[pos1];
     }
-
-    public int count2GetNext(int pos1, int pos2) {
-      return count2[(pos1 << 9) | pos2];
-    }
   }
 }

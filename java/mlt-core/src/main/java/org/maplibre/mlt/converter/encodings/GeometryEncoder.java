@@ -132,7 +132,7 @@ public class GeometryEncoder {
     // Dictionaries only help when vertices repeat more than once, so skip if it can't help.
     final var tryDictionaries = vertexBuffer.size() >= 2 * countDistinct(vertexBuffer);
     final var tryHilbertEncoding =
-        tryDictionaries && HilbertCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
+        HilbertCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
     final var tryMortonEncoding =
         tryDictionaries
             && enableMortonEncoding
@@ -148,7 +148,11 @@ public class GeometryEncoder {
 
     // TODO: if the ratio is lower than 2 dictionary encoding has not to be considered?
 
-    final var vertexDictionary = hilbertCurve.map(c -> addVerticesToDictionary(vertexBuffer, c));
+    // The Hilbert curve also sorts points below, so build it even when the dictionary is skipped.
+    final Optional<Pair<int[], Vertex[]>> vertexDictionary =
+        tryDictionaries
+            ? hilbertCurve.map(c -> addVerticesToDictionary(vertexBuffer, c))
+            : Optional.empty();
     final var vertexDictionaryHilbertIndexes = vertexDictionary.map(Pair::getLeft);
     final var vertexDictionaryHilbertMap =
         vertexDictionaryHilbertIndexes.map(GeometryEncoder::reverseMap);

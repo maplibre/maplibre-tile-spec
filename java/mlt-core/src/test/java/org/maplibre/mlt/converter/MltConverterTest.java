@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -16,6 +18,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.Polygon;
+import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MLTFeature;
 import org.maplibre.mlt.data.MVTFeature;
@@ -177,6 +180,33 @@ class MltConverterTest {
         coordinates(0, 0, 10, 0, 10, 10, 0, 10, 0, 0), wound.getExteriorRing().getCoordinates());
     assertArrayEquals(
         coordinates(2, 2, 2, 8, 8, 8, 8, 2, 2, 2), wound.getInteriorRingN(0).getCoordinates());
+  }
+
+  @Test
+  void elidedValuesKeepTheirFeaturePositions() throws IOException {
+    final var values = List.<Object>of("a", 2, "b");
+    final var features =
+        IntStream.range(0, values.size())
+            .<Feature>mapToObj(i ->
+                MVTFeature.builder()
+                    .index(i)
+                    .geometry(factory.createPoint(new Coordinate(i, i)))
+                    .properties(Map.of("key", values.get(i)))
+                    .build())
+            .toList();
+    final var tile = new MapboxVectorTile(List.of(new Layer("layer", features, 4096)));
+    final var policy = ConversionConfig.TypeMismatchPolicy.ELIDE;
+    final var metadata =
+        MltConverter.createTilesetMetadata(tile, new ColumnMappingConfig(), false, policy);
+    final var config =
+        ConversionConfig.builder().includeIds(false).typeMismatchPolicy(policy).build();
+
+    final var decoded = MltDecoder.decodeMlTile(MltConverter.encode(tile, metadata, config, null));
+    final var decodedValues =
+        decoded.getLayerStream().findFirst().orElseThrow().features().stream()
+            .map(f -> f.findProperty("key").map(p -> p.getValue(f.getIndex())).orElse(null))
+            .toList();
+    assertEquals(Arrays.asList("a", null, "b"), decodedValues);
   }
 
   private static Coordinate[] coordinates(int... xy) {

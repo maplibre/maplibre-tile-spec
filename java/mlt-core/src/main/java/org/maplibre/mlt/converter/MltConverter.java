@@ -165,11 +165,12 @@ public class MltConverter {
     //  The benefit would be in cases where we can decode just one map column and ignore the rest.
     mergeMapColumnSchemas(columnSchemas);
 
-    // Skip encoding present stream when every feature uses the property
+    // Skip the present stream when every feature has a value for the property, except for ELIDE.
     final var featureCount = featureIndex;
+    final var valuesMayBeDropped = typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.ELIDE;
     columnSchemas.replaceAll((name, column) -> {
       final var everyFeatureHasProperty = propertyUsageCount.getOrDefault(name, 0) == featureCount;
-      if (column.isScalar() && everyFeatureHasProperty) {
+      if (column.isScalar() && everyFeatureHasProperty && !valuesMayBeDropped) {
         column =
             new MltMetadata.Column(
                 new MltMetadata.Field(

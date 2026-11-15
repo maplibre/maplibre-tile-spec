@@ -112,9 +112,11 @@ public class EncodingUtilsTest {
     }
     for (var generator : fastPforTestValues()) {
       var values = generate(count, generator);
-      assertArrayEquals(
-          EncodingUtils.encodeFastPfor128(values, false, false, null),
-          EncodingUtils.encodeFastPfor128(values, false, false, reused));
+      var encoded = EncodingUtils.encodeFastPfor128(values, false, false, reused);
+      assertArrayEquals(EncodingUtils.encodeFastPfor128(values, false, false, null), encoded);
+      var decoded =
+          DecodingUtils.decodeFastPfor(encoded, values.length, encoded.length, new IntWrapper(0));
+      assertArrayEquals(values, decoded);
     }
   }
 
