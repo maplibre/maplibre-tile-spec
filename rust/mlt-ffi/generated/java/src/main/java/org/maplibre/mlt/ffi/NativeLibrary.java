@@ -3,9 +3,10 @@ package org.maplibre.mlt.ffi;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -110,19 +111,32 @@ public final class NativeLibrary {
       if (in == null) {
         throw new UnsatisfiedLinkError("The MLT native library resource " + resource + " is missing from the jar");
       }
-      File tmp = new File(System.getProperty("java.io.tmpdir"));
-      deleteStale(tmp);
-      File file = new File(tmp, TEMP_PREFIX + UUID.randomUUID() + "-" + name);
-      File lock = new File(tmp, file.getName() + LOCK_SUFFIX);
+      Path tmp = Path.of(System.getProperty("java.io.tmpdir"));
+      deleteStale(tmp.toFile());
+      Path file = tmp.resolve(TEMP_PREFIX + UUID.randomUUID() + "-" + name);
       // like sqlite-jdbc: the lock exists first, so another JVM never deletes a library that is being extracted
-      lock.createNewFile();
-      lock.deleteOnExit();
-      file.deleteOnExit();
-      Files.copy(in, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-      return file.toPath();
+      createPrivateFile(file.resolveSibling(file.getFileName() + LOCK_SUFFIX)).toFile().deleteOnExit();
+      createPrivateFile(file).toFile().deleteOnExit();
+      // writes into the existing file, as Files.copy would recreate it without the owner-only permissions
+      try (OutputStream out = Files.newOutputStream(file)) {
+        in.transferTo(out);
+      }
+      return file;
     } catch (IOException e) {
       throw linkError("Cannot extract the MLT native library " + resource + ": " + e.getMessage(), e);
     }
+  }
+
+  /**
+   * Creates a new file only its owner can access, as other users of the shared temporary directory must not change it.
+   * Fails if the path exists, so it never follows a planted link.
+   */
+  private static Path createPrivateFile(Path path) throws IOException {
+    if (path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+      return Files.createFile(path, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+    }
+    // the Windows temporary directory is private to the user already
+    return Files.createFile(path);
   }
 
   /** Deletes the libraries in {@code tmp} that other JVMs extracted but could not delete on exit. */

@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -20,7 +21,7 @@ class NativeLibraryTest {
   private static final String ARCH = System.getProperty("os.arch");
 
   @Test
-  void packagedLibraryIsExtractedFromTheJarWhenNoOverrideIsSet() {
+  void packagedLibraryIsExtractedFromTheJarWhenNoOverrideIsSet() throws IOException {
     assumeTrue(System.getProperty(NativeLibrary.LIBRARY_PROPERTY) == null);
 
     NativeLibrary.load();
@@ -30,6 +31,10 @@ class NativeLibraryTest {
     String name = loaded.getFileName().toString();
     assertTrue(name.startsWith(NativeLibrary.TEMP_PREFIX) && name.endsWith(NativeLibrary.fileName(OS)), name);
     assertTrue(Files.exists(loaded.resolveSibling(name + NativeLibrary.LOCK_SUFFIX)));
+    if (loaded.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+      // other users of the shared temporary directory must not be able to swap the code
+      assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(loaded)));
+    }
   }
 
   @Test
