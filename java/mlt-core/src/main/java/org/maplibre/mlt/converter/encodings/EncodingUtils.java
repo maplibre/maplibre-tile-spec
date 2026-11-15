@@ -293,8 +293,8 @@ public class EncodingUtils {
     return Pair.of(CollectionUtils.unboxLongs(runsBuffer), CollectionUtils.unboxLongs(valueBuffer));
   }
 
-  /// Returns a new FastPFOR codec. It is expensive and result is not thread-safe, so create one per thread and pass it
-  /// to every encode call instead of one per call.
+  /// Returns a new FastPFOR codec. It is expensive and result is not thread-safe, so create one per
+  /// thread and pass it to every encode call instead of one per call.
   public static FastPforCodec createFastPforCodec() {
     return new FastPforCodec();
   }

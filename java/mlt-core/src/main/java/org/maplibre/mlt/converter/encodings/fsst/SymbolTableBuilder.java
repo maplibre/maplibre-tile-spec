@@ -88,7 +88,8 @@ class SymbolTableBuilder {
     SymbolTableBuilder st = new SymbolTableBuilder(sampleSize);
     SymbolTableBuilder bestTable = st;
     long bestWeight = Long.MAX_VALUE;
-    // Reset counters between rounds instead of creating new ones since re-allocating 1MB is too expensive
+    // Reset counters between rounds instead of creating new ones since re-allocating 1MB is too
+    // expensive
     var counters = new Counters();
     int[] bestCount1 = null;
     for (int i = 1; i <= NUM_ITERS; i++) {
@@ -104,7 +105,8 @@ class SymbolTableBuilder {
       if (i < NUM_ITERS) st = st.makeTable(counters, false, sampleSize < data.capacity());
     }
 
-    // The reused counters hold the last round's counts, so restore the best round's count1 (all the last pass reads)
+    // The reused counters hold the last round's counts, so restore the best round's count1 (all
+    // the last pass reads)
     counters.reset();
     System.arraycopy(bestCount1, 0, counters.count1, 0, bestCount1.length);
     var result = bestTable.makeTable(counters, true, sampleSize < data.capacity());
@@ -362,7 +364,9 @@ class SymbolTableBuilder {
     public void count2Inc(int pos1, int pos2) {
       int pair = (pos1 << 9) | pos2;
       if (count2[pair]++ == 0) {
-        if (countedPairs == pairsInUse.length) pairsInUse = Arrays.copyOf(pairsInUse, countedPairs * 2);
+        if (countedPairs == pairsInUse.length) {
+          pairsInUse = Arrays.copyOf(pairsInUse, countedPairs * 2);
+        }
         pairsInUse[countedPairs++] = pair;
       }
     }

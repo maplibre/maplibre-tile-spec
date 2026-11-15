@@ -11,8 +11,8 @@ import me.lemire.integercompression.VariableByte;
 public class FastPforCodec extends Composition {
 
   public FastPforCodec() {
-    // Improve throughput by using heap instead of direct byte buffers (JDK's global Cleaner lock stalls threads when
-    // running many encoders in parallel)
+    // Improve throughput by using heap instead of direct byte buffers (JDK's global Cleaner lock
+    // stalls threads when running many encoders in parallel)
     super(
         new FastPFOR() {
           @Override
@@ -31,14 +31,15 @@ public class FastPforCodec extends Composition {
   @Override
   public void compress(int[] in, IntWrapper inpos, int inlength, int[] out, IntWrapper outpos) {
     final int outputStart = outpos.get();
-    // the stale values are in private arrays so we can only clear them from the result that JavaFastPFOR returns
+    // The stale values are in private arrays, so we can only clear them from the result that
+    // JavaFastPFOR returns.
     super.compress(in, inpos, inlength, out, outpos);
     clearExceptionPadding(out, outputStart, inlength);
   }
 
   private static void clearExceptionPadding(int[] out, int outputStart, int count) {
-    // JavaFastPFOR does not clean up exception bits between runs which could result in different output
-    // for the same input. This method clears the bits to ensure it's in the same state for each usage.
+    // JavaFastPFOR does not clean up exception bits between runs, which could result in different
+    // output for the same input. This method clears the bits so each use starts the same way.
     // Decoders only read the bits of the last word that hold exceptions, so zeroing the rest can't
     // change decoded values, and it gives the same bytes a fresh codec writes.
     // TODO: drop once JavaFastPFOR zeroes them itself.

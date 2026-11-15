@@ -124,7 +124,10 @@ public class EncodingUtilsTest {
         i -> 7,
         i -> i,
         i -> pseudoRandom(i) & 0xF,
-        i -> pseudoRandom(i) % 50 == 0 ? pseudoRandom(i + 1) >>> (pseudoRandom(i + 2) & 31) : pseudoRandom(i) & 0x3,
+        i ->
+            pseudoRandom(i) % 50 == 0
+                ? pseudoRandom(i + 1) >>> (pseudoRandom(i + 2) & 31)
+                : pseudoRandom(i) & 0x3,
         i -> pseudoRandom(i) % 9 == 0 ? 1 << 4 : 1,
         i -> pseudoRandom(i),
         i -> -1);

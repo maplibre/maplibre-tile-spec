@@ -28,7 +28,6 @@ import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.converter.encodings.FastPforCodec;
 import org.maplibre.mlt.converter.encodings.GeometryEncoder;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
@@ -171,11 +170,12 @@ public class MltConverter {
     columnSchemas.replaceAll((name, column) -> {
       final var everyFeatureHasProperty = propertyUsageCount.getOrDefault(name, 0) == featureCount;
       if (column.isScalar() && everyFeatureHasProperty) {
-        column = new MltMetadata.Column(
-            new MltMetadata.Field(
-                new MltMetadata.FieldType(column.field().type().scalarType(), false),
-                column.getName()),
-            column.columnScope());
+        column =
+            new MltMetadata.Column(
+                new MltMetadata.Field(
+                    new MltMetadata.FieldType(column.field().type().scalarType(), false),
+                    column.getName()),
+                column.columnScope());
       }
       return column;
     });
@@ -533,7 +533,8 @@ public class MltConverter {
   ///
   /// Use
   /// {@link #encode(LayerSource, MltMetadata.TileSetMetadata, ConversionConfig, URI, IntegerCODEC)}
-  /// with a shared {@link FastPforCodec} to encode many tiles from a single thread.
+  /// with one codec from {@link EncodingUtils#createFastPforCodec()} to encode many tiles from a
+  /// single thread.
   ///
   /// @param sourceLayers The input layers
   /// @param tilesetMetadata Metadata of the tile
