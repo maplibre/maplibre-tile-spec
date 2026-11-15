@@ -111,7 +111,12 @@ mavenPublishing {
         description = 'Kotlin bindings for the MapLibre Tile (MLT) FFI'
         url = 'https://github.com/maplibre/maplibre-tile-spec'
 
+        // Dual licensed like the crate (MIT OR Apache-2.0), so consumers may pick either.
         licenses {
+            license {
+                name = 'MIT License'
+                url = 'https://opensource.org/license/mit'
+            }
             license {
                 name = 'The Apache License, Version 2.0'
                 url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
