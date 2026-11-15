@@ -46,6 +46,38 @@ class NativeLibraryTest {
   }
 
   @Test
+  void exitedJvmLeavesNoLibraryOnceTheNextOneLoads(@TempDir Path tmp) throws IOException, InterruptedException {
+    assumeTrue(System.getProperty(NativeLibrary.LIBRARY_PROPERTY) == null);
+
+    Path first = loadInChildJvm(tmp);
+    // Linux and macOS delete the library on exit, Windows only the lock while the DLL is still mapped
+    assertFalse(Files.exists(first.resolveSibling(first.getFileName() + NativeLibrary.LOCK_SUFFIX)));
+    Path second = loadInChildJvm(tmp);
+
+    assertFalse(Files.exists(first));
+    assertFalse(Files.exists(second.resolveSibling(second.getFileName() + NativeLibrary.LOCK_SUFFIX)));
+  }
+
+  /** Loads the library in a JVM with {@code tmp} as its temporary directory and returns the file it loaded. */
+  private static Path loadInChildJvm(Path tmp) throws IOException, InterruptedException {
+    Process process = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+      "--enable-native-access=ALL-UNNAMED", "-Djava.io.tmpdir=" + tmp,
+      "-cp", System.getProperty("java.class.path"), LoadAndExit.class.getName())
+      .redirectErrorStream(true)
+      .start();
+    String output = new String(process.getInputStream().readAllBytes()).strip();
+    assertEquals(0, process.waitFor(), output);
+    return Path.of(output);
+  }
+
+  static final class LoadAndExit {
+    public static void main(String[] args) {
+      NativeLibrary.load();
+      System.out.println(NativeLibrary.loadedFrom());
+    }
+  }
+
+  @Test
   void packagedLibraryLivesBelowThePackageSoTheKotlinJarCannotShadowIt() {
     String file = NativeLibrary.resourcePrefix(OS, ARCH, false) + "/" + NativeLibrary.fileName(OS);
 
