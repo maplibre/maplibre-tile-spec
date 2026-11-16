@@ -69,26 +69,35 @@ const ROOF_MIN_UP: f64 = 0.34;
 const MISLABELLED_MIN_DEGREES: f64 = 1.0;
 /// The pixels across a tile that the detail of zooms below the highest is measured in.
 const TILE_PIXELS: f64 = 512.0;
-/// The cell, in pixels, the fine LOD2 mesh clusters its vertices in.
-const LOD2_FINE_CELL_PIXELS: f64 = 0.25;
-/// The cell, in pixels, the coarse LOD2 mesh clusters its vertices in.
+/// The cell, in pixels, the `z_max - 1` `LoD2` mesh clusters its vertices in.
 const LOD2_CELL_PIXELS: f64 = 0.5;
-/// The cell, in pixels, a block clusters the corners of its footprint in.
+/// The longer side of its bounding box, in pixels, under which a building is left out one zoom
+/// below the highest.
+const LOD2_MIN_PIXELS: f64 = 1.5;
+/// The cell, in pixels, a coarse `z_max - 2` mesh or block clusters its corners in.
 const BLOCK_CELL_PIXELS: f64 = 1.0;
-/// The longer side of its bounding box, in pixels, under which a building has no block.
-const BLOCK_MIN_PIXELS: f64 = 2.0;
+/// The longer side of its bounding box, in pixels, under which a building has no coarse mesh or
+/// block two zooms below the highest.
+const BLOCK_MIN_PIXELS: f64 = 2.5;
+/// Height in metres or span in pixels from which a building keeps its 3D `LoD2` roof two zooms
+/// below the highest instead of becoming a flat-topped block.
+const COARSE_3D_MIN_METRES: f64 = 14.0;
+const COARSE_3D_MIN_PIXELS: f64 = 6.0;
 /// How many zooms below the highest the blocks of a tile's buildings start to be merged.
-const MERGE_BELOW: u8 = 4;
+const MERGE_BELOW: u8 = 3;
 /// The top, in metres above its ground, from which a building is never merged and keeps its 3D mesh.
 const LANDMARK_MIN_METRES: f64 = 40.0;
 /// The height, in pixels, under which merged blocks have no wall between them or to the ground.
 const WALL_MIN_PIXELS: f64 = 1.0;
 /// The error, in metres, the meshes of the highest zoom are simplified within: close to lossless.
 const HIGHEST_ERROR_METRES: f64 = 0.05;
-/// The error, in pixels, the fine LOD2 mesh one zoom below the highest is simplified within.
-const FINE_ERROR_PIXELS: f64 = 0.2;
-/// The error, in pixels, the meshes and blocks of lower zooms are simplified within.
-const ERROR_PIXELS: f64 = 1.0 / 3.0;
+/// The error, in pixels, the `LoD2` mesh one zoom below the highest is simplified within.
+const LOD2_ERROR_PIXELS: f64 = 0.45;
+/// The error, in pixels, coarse meshes and blocks two or more zooms below the highest use.
+const COARSE_ERROR_PIXELS: f64 = 0.45;
+/// Height in metres within `z = 0` inside which downward `GroundSurface` floor caps are omitted
+/// below `max_zoom` (elevated skybridge and tower-pod undersides above this height are kept).
+const HIDDEN_GROUND_CAP_METRES: f64 = 0.5;
 /// How many metres above the lowest `GroundSurface` a ground ring may sit before being treated as
 /// an elevated overhang or tower platform rather than the ground collar.
 const MAX_GROUND_SLOPE_METRES: f64 = 15.0;
@@ -519,15 +528,15 @@ enum Placed {
     Footprint(Footprint),
 }
 
-/// `building` at `zoom` on the tile that holds the centre of its bounding box, stepping
-/// progressively down in detail:
+/// `building` at `zoom` on the tile that holds the centre of its bounding box, matching
+/// simplification error to screen pixel size so distant views drop sub-pixel triangles:
 /// - `below == 0`: highest LOD (`LoD3`), welded, simplified within 5 cm (`Parts::Seamed`).
-/// - `below == 1`: `LoD2` in fine `0.25 px` cells, simplified within `0.2 px` (`Parts::Seamed`).
-/// - `below == 2`: `LoD2` in `0.5 px` cells, simplified within `1/3 px` (`Parts::Faced`), keeping
-///   real 3D roofs and church spires two zooms below `max_zoom` before extruding flat blocks.
-/// - `below == 3`: individual extruded ground-outline block (`>= 2 px`), or 3D `LoD2` for landmarks.
-/// - `below >= 4`: merged footprint blocks for buildings `< 40 m`, and simplified 3D `LoD2` meshes
-///   for `>= 40 m` landmarks so towers and spires keep their 3D silhouette across the horizon.
+/// - `below == 1`: `LoD2` (`>= 1.5 px`) in `0.5 px` cells, simplified as a whole within `0.5 px`
+///   (`Parts::Faced`, unlocking 3-part corners since `LoD2` carries no windows or doors).
+/// - `below == 2`: prominent buildings (`>= 14 m` tall or `>= 6 px` wide) keep 3D `LoD2` roofs
+///   and spires in `1.0 px` cells (`0.75 px` error); smaller ones (`>= 2.5 px`) become blocks.
+/// - `below >= 3`: merged footprint blocks for buildings `< 40 m`, and simplified 3D `LoD2`
+///   meshes (`1.0 px` cells, `0.75 px` error) for `>= 40 m` landmarks.
 fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(Tile, Placed)> {
     let below = max_zoom - zoom;
     let lods = if below == 0 {
@@ -549,42 +558,73 @@ fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(
         return Some((tile, Placed::Footprint(footprint)));
     }
     let points = view.points(tile, extent, z_step)?;
-    if below >= 2 && !landmark {
-        let (min_x, max_x, min_y, max_y) = points.iter().flatten().fold(
-            (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
-            |(x0, x1, y0, y1), &[x, y, _]| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
-        );
-        let span = (f64::from(max_x) - f64::from(min_x)).max(f64::from(max_y) - f64::from(min_y));
-        if span < BLOCK_MIN_PIXELS * pixel {
+    let (min_x, max_x, min_y, max_y) = points.iter().flatten().fold(
+        (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
+        |(x0, x1, y0, y1), &[x, y, _]| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
+    );
+    let span = (f64::from(max_x) - f64::from(min_x)).max(f64::from(max_y) - f64::from(min_y));
+    if !landmark {
+        let min_span_pixels = match below {
+            0 => 0.0,
+            1 => LOD2_MIN_PIXELS,
+            _ => BLOCK_MIN_PIXELS,
+        };
+        if span < min_span_pixels * pixel {
             return None;
         }
     }
     let z_px = tile.width() / TILE_PIXELS / z_step.metres();
-    let mesh = match below {
+    let keep_3d_at_z2 =
+        landmark || view.height >= COARSE_3D_MIN_METRES || span >= COARSE_3D_MIN_PIXELS * pixel;
+    let mut mesh = match below {
         0 => Mesh::weld(view.surfaces.iter().copied(), &points),
         1 => {
-            let cell = [pixel, pixel, z_px].map(|c| c * LOD2_FINE_CELL_PIXELS);
-            cluster(&view.surfaces, &points, cell)
-        }
-        2 => {
             let cell = [pixel, pixel, z_px].map(|c| c * LOD2_CELL_PIXELS);
             cluster(&view.surfaces, &points, cell)
         }
-        _ if landmark => {
-            let cell = [pixel, pixel, z_px].map(|c| c * LOD2_CELL_PIXELS);
+        2 if keep_3d_at_z2 => {
+            let cell = [pixel, pixel, z_px].map(|c| c * BLOCK_CELL_PIXELS);
             cluster(&view.surfaces, &points, cell)
         }
-        _ => block(&view.surfaces, &points, pixel, BLOCK_MIN_PIXELS),
-    };
+        2 => block(&view.surfaces, &points, pixel, BLOCK_MIN_PIXELS),
+        _ => {
+            let cell = [pixel, pixel, z_px].map(|c| c * BLOCK_CELL_PIXELS);
+            cluster(&view.surfaces, &points, cell)
+        }
+    }?;
+    if below >= 1 {
+        drop_ground_caps(&mut mesh, z_step);
+    }
     let metres = tile.width() / f64::from(extent);
     let px_metres = tile.width() / TILE_PIXELS;
     let (error, parts) = match below {
         0 => (HIGHEST_ERROR_METRES, Parts::Seamed),
-        1 => (FINE_ERROR_PIXELS * px_metres, Parts::Seamed),
-        _ => (ERROR_PIXELS * px_metres, Parts::Faced),
+        1 => (LOD2_ERROR_PIXELS * px_metres, Parts::Faced),
+        _ => (COARSE_ERROR_PIXELS * px_metres, Parts::Faced),
     };
-    let mesh = simplify(&mesh?, [metres, metres, z_step.metres()], error, parts)?;
+    let mesh = simplify(&mesh, [metres, metres, z_step.metres()], error, parts)?;
     (!mesh.triangles.is_empty()).then_some((tile, Placed::Mesh(mesh)))
+}
+
+/// Drops downward `Part::Ground` triangles sitting within [`HIDDEN_GROUND_CAP_METRES`] of `z = 0`
+/// below `max_zoom`, keeping elevated overhangs and bridge/tower undersides up in the air.
+fn drop_ground_caps(mesh: &mut Mesh, z_step: ZStep) {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "0.5 m in z_step units of at least 1 mm fits in i32"
+    )]
+    let cap = (HIDDEN_GROUND_CAP_METRES / z_step.metres()).round() as i32;
+    (mesh.triangles, mesh.parts) = mesh
+        .triangles
+        .iter()
+        .zip(&mesh.parts)
+        .filter(|&(&t, &part)| {
+            part != Part::Ground
+                || t.iter()
+                    .any(|&v| mesh.xyz[v as usize][2].saturating_abs() > cap)
+        })
+        .map(|(&t, &p)| (t, p))
+        .unzip();
 }
 
 /// Some surfaces of a building, the centre of their Web Mercator `(x, y)` bounding box in units

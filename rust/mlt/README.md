@@ -83,22 +83,20 @@ triangle carries the `part` m-value (wall, roof, ground, window or door), so sur
 parts share their vertices. Each feature has the building's `gml_id` property, and `--verify`
 round-trip checks every encoded mesh tile.
 
-Lower zooms step progressively down in detail, a pixel being a 512th of a tile:
+Lower zooms match simplification error to screen pixel size, a pixel being a 512th of a tile:
 
 - `--max-zoom` holds the highest LOD of each part of a building, simplified within 5 cm along part
   seams.
-- One zoom below holds fine LOD2: a part's own LOD2 or LOD1 if the file has one, or else its
-  highest LOD without windows, doors, installations and the holes they leave, its vertices
-  clustered in cells of a quarter of a pixel and simplified within 0.2 pixels along part seams.
-- Two zooms below holds coarse 3D LOD2: clustered in cells of half a pixel and simplified as a
-  whole within a third of a pixel, keeping pitched roofs and spires before extruding flat blocks
-  (buildings under 2 pixels across are left out).
-- Three zooms below holds an individual block: the outline of the building's ground, or its
-  bounding box without one, clustered in cells of a pixel and raised to its top. A building under
-  2 pixels across is left out.
-- Four or more zooms below merge the blocks of a tile's buildings under 40 m where they touch: the
-  cells of a pixel that their grounds cover at least half of are joined with their neighbours in
-  the same 10 m band of tops and bases, and each group becomes one block at its mean top. Its
+- One zoom below holds LOD2 (`>= 1.5` pixels across): a part's own LOD2 or LOD1 if the file has
+  one, or else its highest LOD without windows, doors, installations and the holes they leave, its
+  vertices clustered in cells of half a pixel and simplified as a whole within half a pixel, each
+  triangle then a roof, ground or wall by its facing.
+- Two zooms below keeps coarse 3D LOD2 (1-pixel cells, 0.75-pixel error) on buildings at least
+  14 m tall or 6 pixels across so pitched roofs and spires transition smoothly, while smaller
+  buildings (`>= 2.5` pixels across) become extruded ground-outline blocks.
+- Three or more zooms below merge the blocks of a tile's buildings under 40 m where they touch:
+  the cells of a pixel that their grounds cover at least half of are joined with their neighbours
+  in the same 10 m band of tops and bases, and each group becomes one block at its mean top. Its
   outline is simplified to within a pixel, and it has no wall where it stands less than a pixel
   above its neighbour or the ground. Such a block has no `gml_id`, but a `buildings` property
   counting the buildings it holds. Landmarks of 40 m or more keep their simplified 3D LOD2 mesh
