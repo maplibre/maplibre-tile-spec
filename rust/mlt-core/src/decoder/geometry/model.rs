@@ -69,6 +69,10 @@ pub struct GeometryValues {
     /// The grid of each vertex's third word, or [`None`] when the vertices are `(x, y)` pairs.
     #[cfg(feature = "unstable-v2")]
     pub(crate) z_axis: Option<ZAxis>,
+    /// Whether this geometry belongs to a v2 `Meshes` layer, kept even when it holds zero features.
+    #[cfg(feature = "unstable-v2")]
+    #[dbg(skip)]
+    pub(crate) meshes: bool,
 }
 
 /// Types of geometries supported in MLT

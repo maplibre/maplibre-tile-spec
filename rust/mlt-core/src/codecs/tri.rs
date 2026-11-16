@@ -72,12 +72,10 @@ struct Forest<'a> {
     twins: Vec<u32>,
     /// The triangle each tree was claimed from, in claim order.
     roots: Vec<u32>,
-    /// The sides by the bucket of their first vertex, each bucket in side order.
-    by_from: Vec<(u64, u32)>,
-    /// Where each bucket of [`Self::by_from`] starts, then where the last one ends.
+    /// The sides by the bucket of their directed edge, each bucket in side order.
+    by_edge: Vec<(u64, u32)>,
+    /// Where each bucket of [`Self::by_edge`] starts, then where the last one ends.
     starts: Vec<u32>,
-    /// The first vertex of the feature, and the bucket mask over vertices counted from it.
-    min: u32,
     mask: u32,
     claimed: Vec<bool>,
     stack: Vec<u32>,
@@ -86,7 +84,7 @@ struct Forest<'a> {
 impl<'a> Forest<'a> {
     /// Claim a tree from each unclaimed triangle in turn.
     ///
-    /// A side joins the first triangle holding the same edge reversed, unless that one is claimed already.
+    /// A side joins the first unclaimed triangle holding the same edge reversed.
     fn grow(&mut self, indices: &'a [u32]) {
         self.indices = indices;
         let triangles = u32::try_from(indices.len() / 3).expect("fewer than 2^32 triangles");
@@ -104,11 +102,12 @@ impl<'a> Forest<'a> {
             self.roots.push(root);
             self.stack.push(root * 3);
             while let Some(entry) = self.stack.pop() {
-                for side in other_sides(entry) {
+                // Push `right` before `left` so the LIFO stack visits `left` first,
+                // matching `symbols` preorder and keeping re-encodes idempotent.
+                let [left, right] = other_sides(entry);
+                for side in [right, left] {
                     let (from, to) = self.ends(side);
-                    if let Some(child) = self.first_side(to, from)
-                        && !self.claimed[(child / 3).into_usize()]
-                    {
+                    if let Some(child) = self.unclaimed_side(to, from) {
                         self.claimed[(child / 3).into_usize()] = true;
                         self.twins[side.into_usize()] = child;
                         self.twins[child.into_usize()] = side;
@@ -126,49 +125,45 @@ impl<'a> Forest<'a> {
         )
     }
 
-    fn key(&self, side: u32) -> u64 {
-        let (from, to) = self.ends(side);
-        edge_key(from, to)
+    fn bucket_of(&self, from: u32, to: u32) -> usize {
+        let h = from.wrapping_mul(0x9E37_79B9) ^ to.rotate_left(16).wrapping_mul(0x85EB_CA6B);
+        (h & self.mask).into_usize()
     }
 
-    fn bucket_of(&self, vertex: u32) -> usize {
-        (vertex.wrapping_sub(self.min) & self.mask).into_usize()
-    }
-
-    /// Counting-sort the sides into buckets by their first vertex.
-    ///
-    /// The vertices of an earcut feature are consecutive, so a bucket rarely holds more than one vertex.
+    /// Counting-sort the sides into buckets by both endpoints of each directed edge,
+    /// so high-valence 3D mesh poles and triangle fans do not collide in one bucket.
     fn bucket_sides(&mut self) {
         let sides = u32::try_from(self.indices.len()).expect("fewer than 2^32 sides");
-        self.min = self.indices.iter().copied().min().unwrap_or(0);
-        self.mask = sides.next_power_of_two() - 1;
+        self.mask = sides.max(1).next_power_of_two() - 1;
         self.starts.clear();
         self.starts.resize(self.mask.into_usize() + 3, 0);
-        for &vertex in self.indices {
-            let bucket = self.bucket_of(vertex);
+        for side in 0..sides {
+            let (from, to) = self.ends(side);
+            let bucket = self.bucket_of(from, to);
             self.starts[bucket + 2] += 1;
         }
         for bucket in 2..self.starts.len() {
             self.starts[bucket] += self.starts[bucket - 1];
         }
-        self.by_from.clear();
-        self.by_from.resize(self.indices.len(), (0, 0));
+        self.by_edge.clear();
+        self.by_edge.resize(self.indices.len(), (0, 0));
         for side in 0..sides {
-            let bucket = self.bucket_of(self.indices[side.into_usize()]);
-            let key = self.key(side);
+            let (from, to) = self.ends(side);
+            let bucket = self.bucket_of(from, to);
+            let key = edge_key(from, to);
             let slot = self.starts[bucket + 1];
-            self.by_from[slot.into_usize()] = (key, side);
+            self.by_edge[slot.into_usize()] = (key, side);
             self.starts[bucket + 1] = slot + 1;
         }
     }
 
-    /// The first side running from `from` to `to`.
-    fn first_side(&self, from: u32, to: u32) -> Option<u32> {
-        let bucket = self.bucket_of(from);
+    /// The first unclaimed side running from `from` to `to`.
+    fn unclaimed_side(&self, from: u32, to: u32) -> Option<u32> {
+        let bucket = self.bucket_of(from, to);
         let key = edge_key(from, to);
-        self.by_from[self.starts[bucket].into_usize()..self.starts[bucket + 1].into_usize()]
+        self.by_edge[self.starts[bucket].into_usize()..self.starts[bucket + 1].into_usize()]
             .iter()
-            .find(|&&(k, _)| k == key)
+            .find(|&&(k, s)| k == key && !self.claimed[(s / 3).into_usize()])
             .map(|&(_, s)| s)
     }
 

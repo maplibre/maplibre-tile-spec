@@ -535,7 +535,10 @@ impl DecodedTriangles {
         let mut starts = Vec::with_capacity(features);
         let mut next = 0;
         for (f, run) in self.offsets.array_windows::<2>().enumerate() {
-            let present = m_value.presence.as_ref().is_none_or(|mask| mask[f]);
+            let present = m_value
+                .presence
+                .as_ref()
+                .is_none_or(|mask| mask.get(f).copied().unwrap_or(false));
             starts.push(present.then_some(next));
             if present {
                 next += (run[1] - run[0]).into_usize();

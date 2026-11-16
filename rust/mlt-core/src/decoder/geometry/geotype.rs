@@ -151,6 +151,13 @@ impl GeometryValues {
         self.vector_types.len()
     }
 
+    /// Whether this geometry belongs to a v2 `Meshes` layer.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn is_meshes(&self) -> bool {
+        self.meshes || self.vector_types.first() == Some(&GeometryType::Mesh)
+    }
+
     /// Geometry types for each feature, in insertion order.
     #[must_use]
     pub fn vector_types(&self) -> &[GeometryType] {

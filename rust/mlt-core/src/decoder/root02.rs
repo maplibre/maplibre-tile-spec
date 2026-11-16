@@ -88,6 +88,20 @@ pub(crate) fn check_header_layout(header: LayerHeader02, layout: LayerLayout) ->
     Ok(())
 }
 
+/// Check that a geometry section's vertex stream matches its layout: a `Meshes` layer needs
+/// `(x, y, z)` vertices.
+pub(crate) fn check_vertex_layout(
+    layout: GeoLayout,
+    meta: crate::decoder::StreamMeta,
+) -> MltResult<()> {
+    use crate::decoder::{LogicalEncoding, VertexLogical};
+
+    match (layout == GeoLayout::Meshes, meta.encoding.logical) {
+        (true, LogicalEncoding::Vertex(VertexLogical::Xyz(..))) | (false, _) => Ok(()),
+        (true, _) => Err(MltError::MeshWithoutZ),
+    }
+}
+
 /// Parse a v2 layer body (the bytes after the `tag = 2` byte).
 pub(crate) fn parse_layer02<'a>(
     input: &'a [u8],
@@ -791,6 +805,9 @@ fn parse_geometry<'a>(
     // Vertex stream, holding the whole vertex sequence or a dictionary of the distinct
     // ones (explicit count in practice; context falls back to feature_count).
     input = stream(input, StreamCtx02::GeomVertices, &mut items)?;
+    if let Some(vertices) = items.last() {
+        check_vertex_layout(layout, vertices.meta)?;
+    }
     if layout.is_dict() {
         input = stream(input, StreamCtx02::GeomVertexOffsets, &mut items)?;
     }

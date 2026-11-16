@@ -296,6 +296,7 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature) -> Row<'a> {
             }
         }
     }
+    per_triangle.sort_by_key(|&(name, _)| name);
     for (name, value) in layer.nested_names().iter().zip(feature.nested()) {
         if let Some(value) = Value::of_nested(value) {
             values.insert((Role::Nested, name.as_str()), value);

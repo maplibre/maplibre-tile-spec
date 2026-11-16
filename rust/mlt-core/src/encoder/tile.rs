@@ -184,10 +184,9 @@ fn build_m_values(source: &impl LayerSource, order: &Order) -> Vec<StagedMValue>
         } else {
             Some(presence)
         };
-        columns.push(StagedMValue {
-            scope,
-            ..StagedMValue::new(source.m_value_name(index), presence, values)
-        });
+        columns.push(
+            StagedMValue::new(source.m_value_name(index), presence, values).with_scope(scope),
+        );
     }
     columns
 }

@@ -37,6 +37,7 @@ pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCol
             features.push(Feature {
                 geometry: feat.geometry,
                 z: None,
+                #[cfg(feature = "unstable-v2")]
                 triangles: None,
                 id: feat.id,
                 properties,

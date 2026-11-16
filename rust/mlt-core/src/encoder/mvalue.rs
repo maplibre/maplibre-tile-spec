@@ -88,6 +88,13 @@ impl StagedMValue {
         }
     }
 
+    /// Set what the column holds one value per: each vertex, or each triangle of a mesh.
+    #[must_use]
+    pub const fn with_scope(mut self, scope: MValueScope) -> Self {
+        self.scope = scope;
+        self
+    }
+
     #[must_use]
     pub fn name(&self) -> &str {
         &self.name
