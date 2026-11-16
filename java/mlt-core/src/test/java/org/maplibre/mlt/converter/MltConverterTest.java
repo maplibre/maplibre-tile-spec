@@ -212,7 +212,7 @@ class MltConverterTest {
 
   @Test
   void reencodedDecodedTileKeepsMissingValues() throws IOException {
-    final var values = List.of("a", null, "b", "c");
+    final var values = Arrays.asList("a", null, "b", "c");
     final var features =
         IntStream.range(0, values.size())
             .<Feature>mapToObj(i ->
