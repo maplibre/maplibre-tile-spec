@@ -20,6 +20,7 @@ import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.Polygon;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.LayerSource;
 import org.maplibre.mlt.data.MLTFeature;
 import org.maplibre.mlt.data.MVTFeature;
 import org.maplibre.mlt.data.MapLibreTile;
@@ -207,6 +208,35 @@ class MltConverterTest {
             .map(f -> f.findProperty("key").map(p -> p.getValue(f.getIndex())).orElse(null))
             .toList();
     assertEquals(Arrays.asList("a", null, "b"), decodedValues);
+  }
+
+  @Test
+  void reencodedDecodedTileKeepsMissingValues() throws IOException {
+    final var values = List.of("a", null, "b", "c");
+    final var features =
+        IntStream.range(0, values.size())
+            .<Feature>mapToObj(i ->
+                MVTFeature.builder()
+                    .index(i)
+                    .geometry(factory.createPoint(new Coordinate(i, i)))
+                    .properties(values.get(i) == null ? Map.of() : Map.of("key", values.get(i)))
+                    .build())
+            .toList();
+    final var tile = new MapboxVectorTile(List.of(new Layer("layer", features, 4096)));
+    final var config = ConversionConfig.builder().includeIds(false).build();
+
+    final var decoded = MltDecoder.decodeMlTile(encode(tile, config));
+    final var reencoded = MltDecoder.decodeMlTile(encode(decoded, config));
+    final var decodedValues =
+        reencoded.getLayerStream().findFirst().orElseThrow().features().stream()
+            .map(f -> f.findProperty("key").map(p -> p.getValue(f.getIndex())).orElse(null))
+            .toList();
+    assertEquals(values, decodedValues);
+  }
+
+  private static byte[] encode(LayerSource tile, ConversionConfig config) throws IOException {
+    final var metadata = MltConverter.createTilesetMetadata(tile, new ColumnMappingConfig(), false);
+    return MltConverter.encode(tile, metadata, config, null);
   }
 
   private static Coordinate[] coordinates(int... xy) {

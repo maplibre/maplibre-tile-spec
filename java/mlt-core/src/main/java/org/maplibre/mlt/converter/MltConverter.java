@@ -134,7 +134,9 @@ public class MltConverter {
       feature
           .getPropertyStream()
           .forEach(property -> {
-            propertyUsageCount.merge(property.getName(), 1, Integer::sum);
+            if (property.getValue(feature.getIndex()) != null) {
+              propertyUsageCount.merge(property.getName(), 1, Integer::sum);
+            }
             resolveColumnType(
                 property,
                 layer.name(),
