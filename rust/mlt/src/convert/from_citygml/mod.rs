@@ -789,6 +789,36 @@ fn snap(v: i32, cell: f64) -> i32 {
     ((f64::from(v) / cell).round_ties_even() * cell).round() as i32
 }
 
+/// 16-bit Hilbert curve index of `[x, y]` over `[-extent, 2 * extent)`, grouping spatially
+/// nearby meshes within a tile together in `O(1)` per mesh.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "clamped to 0..=65535"
+)]
+fn hilbert_key([x, y]: [i32; 2], extent: u32) -> u32 {
+    let span = (i64::from(extent) * 3).max(1);
+    let norm =
+        |c: i32| (((i64::from(c) + i64::from(extent)).clamp(0, span - 1) * 65535) / span) as u32;
+    let (mut x, mut y) = (norm(x), norm(y));
+    let mut d = 0_u32;
+    let mut s = 1_u32 << 15;
+    while s > 0 {
+        let rx = u32::from((x & s) > 0);
+        let ry = u32::from((y & s) > 0);
+        d += s * s * ((3 * rx) ^ ry);
+        if ry == 0 {
+            if rx == 1 {
+                x = 65535 - x;
+                y = 65535 - y;
+            }
+            std::mem::swap(&mut x, &mut y);
+        }
+        s >>= 1;
+    }
+    d
+}
+
 /// The layer of a tile's buildings, each with its feature id, the footprints merged into blocks.
 /// A block takes the id of the first building it holds that no other feature has, and counts
 /// them in a `buildings` property. `None` if no building leaves a triangle.
@@ -830,8 +860,15 @@ fn layer(
     if meshes.is_empty() {
         return Ok(None);
     }
+    // Order buildings (and, separately, merged blocks so presence bitmaps stay contiguous)
+    // along a 16-bit Hilbert curve over their first vertex without scanning every vertex.
+    let extent = tile.extent();
+    meshes.sort_by_key(|m| {
+        let first = m.3.xyz.first().copied().unwrap_or_default();
+        (m.2.is_some(), hilbert_key([first[0], first[1]], extent))
+    });
 
-    let mut builder = TileLayer::builder(name, tile.extent())?;
+    let mut builder = TileLayer::builder(name, extent)?;
     builder.set_z_axis(ZAxis {
         step: z_step,
         mode: HeightMode::RelativeToGround,
@@ -857,14 +894,7 @@ fn layer(
         feature.m_value(part, MValue::Str(Some(parts)))?;
         feature.finish()?;
     }
-    let mut layer = builder.finish();
-    // Order a tile's 3D meshes along a Hilbert curve so neighbouring buildings sit adjacent in
-    // the vertex and cycle streams without running multiple trial encodes.
-    layer.sort(
-        mlt_core::encoder::SortStrategy::SpatialHilbert,
-        layer.curve_params(),
-    );
-    Ok(Some(layer))
+    Ok(Some(builder.finish()))
 }
 
 #[cfg(test)]
