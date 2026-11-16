@@ -185,13 +185,22 @@ fn merge_within(
             ]);
         }
     }
+    let mut earcut = earcut::Earcut::new();
+    let mut indices = Vec::new();
     let blocks = groups
         .into_iter()
         .zip(walls.into_iter().zip(sides))
         .filter_map(|(group, (walls, sides))| {
             let mut roof = Vec::new();
             for (outer, holes) in rings(&chains, &sides) {
-                raster.roof(&outer, &holes, group.top, &mut roof);
+                raster.roof(
+                    &outer,
+                    &holes,
+                    group.top,
+                    &mut earcut,
+                    &mut indices,
+                    &mut roof,
+                );
             }
             let mut mesh = weld(&walls, &roof)?;
             // Shift `z` so `z = 0` is the group's ground datum (`datum_base`), keeping
@@ -507,6 +516,8 @@ impl Raster {
         outer: &[[i64; 2]],
         holes: &[Vec<[i64; 2]>],
         top: i32,
+        earcut: &mut earcut::Earcut<f64>,
+        indices: &mut Vec<u32>,
         roof: &mut Vec<[[i32; 3]; 3]>,
     ) {
         let rings = std::iter::once(outer).chain(holes.iter().map(Vec::as_slice));
@@ -526,8 +537,7 @@ impl Raster {
         let flat = corners
             .iter()
             .map(|p| [f64::from(p[0] - x0), f64::from(p[1] - y0)]);
-        let mut indices: Vec<u32> = Vec::new();
-        earcut::Earcut::new().earcut(flat, &starts, &mut indices);
+        earcut.earcut(flat, &starts, indices);
         for t in indices.as_chunks::<3>().0 {
             let flat = t.map(|i| corners[i as usize]);
             if area2(flat) != 0 {

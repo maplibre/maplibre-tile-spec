@@ -8,72 +8,93 @@ const MIN_NORMAL: f64 = 1e-9;
 /// Metres per degree of latitude, on a sphere of the WGS84 semi-major axis.
 const METRES_PER_DEGREE: f64 = EARTH_CIRCUMFERENCE / 360.0;
 
-/// Cuts the polygon whose rings are `points[..ends[0]]`, `points[ends[0]..ends[1]]` and so on,
-/// the exterior first, into triangles appended to `out` as indices into `points`.
-/// `lat_lon` says the points are latitude and longitude in degrees and metres up, rather than
-/// metres east, north and up.
-///
-/// The triangles wind like the exterior ring. Returns the polygon's normal in metres east,
-/// north and up, or `None`, adding nothing, if the exterior has no area or the points are more
-/// than a `u32` indexes.
+/// Reusable scratch buffers for cutting planar `CityGML` polygons with holes into triangles
+/// without allocating per polygon.
+#[derive(Default)]
+pub struct Triangulator {
+    earcut: earcut::Earcut<f64>,
+    indices: Vec<u32>,
+    holes: Vec<u32>,
+    local: Vec<[f64; 3]>,
+}
+
+impl Triangulator {
+    /// Cuts the polygon whose rings are `points[..ends[0]]`, `points[ends[0]..ends[1]]` and so on,
+    /// the exterior first, into triangles appended to `out` as indices into `points`.
+    /// `lat_lon` says the points are latitude and longitude in degrees and metres up, rather than
+    /// metres east, north and up.
+    ///
+    /// The triangles wind like the exterior ring. Returns the polygon's normal in metres east,
+    /// north and up, or `None`, adding nothing, if the exterior has no area or the points are more
+    /// than a `u32` indexes.
+    pub fn polygon(
+        &mut self,
+        points: &[[f64; 3]],
+        ends: &[usize],
+        lat_lon: bool,
+        out: &mut Vec<[u32; 3]>,
+    ) -> Option<[f64; 3]> {
+        let exterior = *ends.first()?;
+        let points = if lat_lon {
+            // Near enough to metres for a facing and a plane to cut in.
+            let [lat0, lon0, _] = *points.first()?;
+            let east = METRES_PER_DEGREE * lat0.to_radians().cos();
+            self.local.clear();
+            self.local.extend(points.iter().map(|&[lat, lon, up]| {
+                [(lon - lon0) * east, (lat - lat0) * METRES_PER_DEGREE, up]
+            }));
+            &self.local
+        } else {
+            points
+        };
+        let origin = *points.first()?;
+        let normal = newell(&points[..exterior], origin);
+        if dot(normal, normal) < MIN_NORMAL * MIN_NORMAL {
+            return None;
+        }
+        let abs = normal.map(f64::abs);
+        // The two axes that remain in cyclic right-handed order when the normal's largest
+        // component is dropped, plus that dropped axis.
+        let (across, along, dropped) = if abs[2] >= abs[0] && abs[2] >= abs[1] {
+            (0, 1, 2)
+        } else if abs[0] >= abs[1] {
+            (1, 2, 0)
+        } else {
+            (2, 0, 1)
+        };
+        let flat = points
+            .iter()
+            .map(|p| [p[across] - origin[across], p[along] - origin[along]]);
+        self.holes.clear();
+        for &e in &ends[..ends.len() - 1] {
+            self.holes.push(u32::try_from(e).ok()?);
+        }
+        self.earcut.earcut(flat, &self.holes, &mut self.indices);
+        let start = out.len();
+        // Flip uniformly by the sign of the polygon's normal along the dropped axis paired with
+        // earcut's 2D winding, so slightly non-planar roofs or walls never flip individual slivers.
+        for &[a, b, c] in self.indices.as_chunks::<3>().0 {
+            let [pa, pb, pc] = [a, b, c].map(|i| points[i as usize]);
+            let area2d = (pb[across] - pa[across]) * (pc[along] - pa[along])
+                - (pb[along] - pa[along]) * (pc[across] - pa[across]);
+            out.push(if area2d * normal[dropped] < 0.0 {
+                [a, c, b]
+            } else {
+                [a, b, c]
+            });
+        }
+        (out.len() > start).then_some(normal)
+    }
+}
+
+#[cfg(test)]
 pub fn polygon(
     points: &[[f64; 3]],
     ends: &[usize],
     lat_lon: bool,
     out: &mut Vec<[u32; 3]>,
 ) -> Option<[f64; 3]> {
-    let exterior = *ends.first()?;
-    let local: Vec<[f64; 3]>;
-    let points = if lat_lon {
-        // Near enough to metres for a facing and a plane to cut in.
-        let [lat0, lon0, _] = *points.first()?;
-        let east = METRES_PER_DEGREE * lat0.to_radians().cos();
-        local = points
-            .iter()
-            .map(|&[lat, lon, up]| [(lon - lon0) * east, (lat - lat0) * METRES_PER_DEGREE, up])
-            .collect();
-        &local
-    } else {
-        points
-    };
-    let origin = *points.first()?;
-    let normal = newell(&points[..exterior], origin);
-    if dot(normal, normal) < MIN_NORMAL * MIN_NORMAL {
-        return None;
-    }
-    let abs = normal.map(f64::abs);
-    // The two axes that remain in cyclic right-handed order when the normal's largest
-    // component is dropped, plus that dropped axis.
-    let (across, along, dropped) = if abs[2] >= abs[0] && abs[2] >= abs[1] {
-        (0, 1, 2)
-    } else if abs[0] >= abs[1] {
-        (1, 2, 0)
-    } else {
-        (2, 0, 1)
-    };
-    let flat = points
-        .iter()
-        .map(|p| [p[across] - origin[across], p[along] - origin[along]]);
-    let mut indices: Vec<u32> = Vec::new();
-    let holes: Vec<u32> = ends[..ends.len() - 1]
-        .iter()
-        .map(|&e| u32::try_from(e).ok())
-        .collect::<Option<_>>()?;
-    earcut::Earcut::new().earcut(flat, &holes, &mut indices);
-    let start = out.len();
-    // Flip uniformly by the sign of the polygon's normal along the dropped axis paired with
-    // earcut's 2D winding, so slightly non-planar roofs or walls never flip individual slivers.
-    for &[a, b, c] in indices.as_chunks::<3>().0 {
-        let [pa, pb, pc] = [a, b, c].map(|i| points[i as usize]);
-        let area2d = (pb[across] - pa[across]) * (pc[along] - pa[along])
-            - (pb[along] - pa[along]) * (pc[across] - pa[across]);
-        out.push(if area2d * normal[dropped] < 0.0 {
-            [a, c, b]
-        } else {
-            [a, b, c]
-        });
-    }
-    (out.len() > start).then_some(normal)
+    Triangulator::default().polygon(points, ends, lat_lon, out)
 }
 
 /// The ring's normal by Newell's method, relative to `origin` for precision with large coordinates.
