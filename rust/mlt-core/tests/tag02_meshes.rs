@@ -70,23 +70,33 @@ fn assert_dump_of_meshes(bytes: &[u8]) {
     );
 }
 
-/// A triangle rotated to start at its smallest corner, which keeps its winding.
-fn canonical([a, b, c]: [u32; 3]) -> [u32; 3] {
-    [[a, b, c], [b, c, a], [c, a, b]].into_iter().min().unwrap()
+/// A triangle rotated to start at its smallest corner, which keeps its winding even when two
+/// corners are equal.
+fn canonical<T: Ord + Clone>([a, b, c]: [T; 3]) -> [T; 3] {
+    [
+        [a.clone(), b.clone(), c.clone()],
+        [b.clone(), c.clone(), a.clone()],
+        [c, a, b],
+    ]
+    .into_iter()
+    .min()
+    .expect("three rotations")
 }
 
-/// Everything a feature holds: the vertex-scoped m-values, and each triangle in canonical
-/// form beside its triangle-scoped `i32` value, sorted, since the trees may reorder them.
+type MeshCorner = ([i32; 3], Vec<String>);
+
+/// Everything a feature holds, canonicalized over vertex and triangle permutations:
+/// the sorted `(xyz, vertex_m_values)` multiset and each triangle rotated to start at its
+/// smallest corner beside its triangle-scoped `i32` value, sorted.
 type FeatureRow = (
     Option<u64>,
-    Geometry<i32>,
     Vec<PropValue>,
-    Vec<MValue>,
-    Vec<i32>,
-    Option<Vec<([u32; 3], i32)>>,
+    Vec<MeshCorner>,
+    Option<Vec<([MeshCorner; 3], i32)>>,
 );
 
-/// The layer's features by id, each as a [`FeatureRow`], so the encoder may reorder them.
+/// The layer's features by id, each as a [`FeatureRow`], so the encoder may reorder features,
+/// mesh vertices, and mesh triangles.
 fn rows(layer: &TileLayer) -> Vec<FeatureRow> {
     let mut rows: Vec<FeatureRow> = layer
         .features()
@@ -99,20 +109,52 @@ fn rows(layer: &TileLayer) -> Vec<FeatureRow> {
                         faces = v.clone().unwrap_or_default();
                     }
                     (MValueScope::Triangle, _) => panic!("triangle values are i32: {value:?}"),
-                    (MValueScope::Vertex, _) => per_vertex.push(value.clone()),
+                    (MValueScope::Vertex, MValue::Str(v)) => {
+                        per_vertex.push(v.as_ref().map(|items| {
+                            items.iter().map(ToString::to_string).collect::<Vec<_>>()
+                        }));
+                    }
+                    (MValueScope::Vertex, other) => panic!("vertex values are str: {other:?}"),
                 }
             }
+            let Geometry::MultiPoint(mp) = f.geometry() else {
+                panic!("expected MultiPoint mesh: {:?}", f.geometry());
+            };
+            let pts = &mp.0[..];
+            let z = f.z();
+            let corners: Vec<MeshCorner> = (0..pts.len())
+                .map(|i| {
+                    let xyz = [pts[i].x(), pts[i].y(), z.get(i).copied().unwrap_or(0)];
+                    let v_vals = per_vertex
+                        .iter()
+                        .map(|col| {
+                            col.as_ref()
+                                .and_then(|items| items.get(i).cloned())
+                                .unwrap_or_default()
+                        })
+                        .collect();
+                    (xyz, v_vals)
+                })
+                .collect();
             let triangles = f.triangles().map(|triangles| {
                 let mut paired: Vec<_> = triangles
                     .iter()
                     .enumerate()
-                    .map(|(i, &t)| (canonical(t), faces.get(i).copied().unwrap_or_default()))
+                    .map(|(i, &[a, b, c])| {
+                        let tri = canonical([
+                            corners[a as usize].clone(),
+                            corners[b as usize].clone(),
+                            corners[c as usize].clone(),
+                        ]);
+                        (tri, faces.get(i).copied().unwrap_or_default())
+                    })
                     .collect();
-                paired.sort_unstable();
+                paired.sort();
                 paired
             });
-            let row = (f.properties().to_vec(), per_vertex, f.z().to_vec());
-            (f.id(), f.geometry().clone(), row.0, row.1, row.2, triangles)
+            let mut sorted_corners = corners;
+            sorted_corners.sort();
+            (f.id(), f.properties().to_vec(), sorted_corners, triangles)
         })
         .collect();
     rows.sort_by_key(|row| row.0);
@@ -506,4 +548,50 @@ fn walker_and_parser_reject_meshes_without_z() {
     );
     let (_, walk_err) = annotate_tile(&no_z);
     assert!(walk_err.is_some());
+}
+
+#[test]
+fn scrambled_mesh_vertices_reorder_along_tree_cycles_and_keep_m_values_attached() {
+    let (verts, tris) = cube(100, -100);
+    // Reverse the vertex order so original triangle corners jump backwards from 7..0.
+    let perm = [7_u32, 3, 5, 0, 6, 1, 4, 2];
+    let mut inv = [0_u32; 8];
+    for (new_idx, &old_idx) in perm.iter().enumerate() {
+        inv[old_idx as usize] = u32::try_from(new_idx).unwrap();
+    }
+    let scrambled_verts: Vec<[i32; 3]> = perm.iter().map(|&old| verts[old as usize]).collect();
+    let scrambled_tris: Vec<[u32; 3]> = tris.iter().map(|t| t.map(|v| inv[v as usize])).collect();
+
+    let layer = mesh_layer(&[(scrambled_verts, scrambled_tris)]);
+    let bytes = layer.encode(cfg_v2()).unwrap();
+    let back = try_decode(&bytes).unwrap();
+    assert_eq!(rows(&back), rows(&layer));
+
+    // The first-seen vertices in `tri_cycles` now start at 0, 1, 2 in ascending order.
+    let tree = annotate(&bytes);
+    let cycles_idx = tree
+        .regions
+        .iter()
+        .position(|r| r.label == "tri_cycles")
+        .unwrap();
+    let data_region = &tree.regions[(cycles_idx + 1..tree.regions.len())
+        .find(|&i| tree.regions[i].blob.is_some())
+        .unwrap()];
+    let slice = &bytes[data_region.offset..data_region.offset + data_region.len];
+    let mlt_core::dump::DecodedBlob::Numbers { values: cycles, .. } = mlt_core::dump::decode_blob(
+        data_region.blob.unwrap(),
+        slice,
+        64,
+        &mut Decoder::default(),
+    ) else {
+        panic!("expected numeric cycle blob");
+    };
+    let mut max_seen = 0.0_f64;
+    for &c in &cycles {
+        assert!(
+            c <= max_seen + 1.0,
+            "cycle jumped past next consecutive vertex: {cycles:?}"
+        );
+        max_seen = max_seen.max(c);
+    }
 }
