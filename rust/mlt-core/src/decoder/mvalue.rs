@@ -22,6 +22,14 @@ pub struct RawMValue<'a> {
     pub(crate) data: RawMValueData<'a>,
 }
 
+impl RawMValue<'_> {
+    /// Whether the column's values run over the vertex sequence or the triangle sequence.
+    #[must_use]
+    pub const fn scope(&self) -> MValueScope {
+        self.scope
+    }
+}
+
 /// The streams of a raw m-value column.
 ///
 /// It reads the same streams a property column of the same data type reads, so it
@@ -148,11 +156,15 @@ impl MValues<'_> {
     pub(crate) fn row_bytes(&self, span: &Range<usize>) -> usize {
         match self {
             Self::Str(v) => span
-                .clone()
-                .filter_map(|i| u32::try_from(i).ok())
-                .filter_map(|i| v.get(i))
-                .map(str::len)
-                .sum(),
+                .len()
+                .saturating_mul(size_of::<CompactString>())
+                .saturating_add(
+                    span.clone()
+                        .filter_map(|i| u32::try_from(i).ok())
+                        .filter_map(|i| v.get(i))
+                        .map(str::len)
+                        .sum(),
+                ),
             Self::Bool(_) | Self::I8(_) | Self::U8(_) => span.len(),
             Self::I32(_) | Self::U32(_) | Self::F32(_) => span.len() * 4,
             Self::I64(_) | Self::U64(_) | Self::F64(_) => span.len() * 8,

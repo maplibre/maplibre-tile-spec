@@ -447,3 +447,63 @@ fn a_triangle_scoped_value_needs_a_mesh_and_one_value_per_triangle() {
         @"m-value column part holds a value per triangle, which only a mesh has"
     );
 }
+
+#[cfg(feature = "__private")]
+#[test]
+fn an_empty_meshes_layer_round_trips_and_staged_triangle_m_values_validate() {
+    use mlt_core::GeometryValues;
+    use mlt_core::encoder::{Codecs, Encoder, StagedId, StagedLayer, StagedMValue, StagedValues};
+
+    let empty = StagedLayer::with_m_values(
+        "landmarks",
+        4096,
+        StagedId::None,
+        GeometryValues::new_meshes(height()),
+        Vec::new(),
+        vec![
+            StagedMValue::new("face", None, StagedValues::I32(Vec::new()))
+                .with_scope(MValueScope::Triangle),
+        ],
+    )
+    .unwrap();
+    let mut codecs = Codecs::default();
+    let bytes = empty
+        .encode_into(Encoder::new(cfg_v2()), &mut codecs)
+        .unwrap()
+        .into_layer_bytes()
+        .unwrap();
+    assert_dump_of_meshes(&bytes);
+    let raw = only_v2_layer(Parser::default().parse_layers(&bytes).unwrap());
+    assert_eq!(
+        raw.m_values()[0].as_raw().unwrap().scope(),
+        MValueScope::Triangle
+    );
+    let parsed = raw.decode_all(&mut Decoder::default()).unwrap();
+    assert!(parsed.layer().geometry_values().is_meshes());
+    let back = parsed.into_tile(&mut Decoder::default()).unwrap();
+    assert_eq!(back.feature_count(), 0);
+    assert_eq!(back.z_axis(), Some(height()));
+    assert_eq!(back.m_value_scopes(), &[MValueScope::Triangle]);
+}
+
+#[test]
+fn walker_and_parser_reject_meshes_without_z() {
+    let mut no_z = mesh_layer(&[cube(0, 0)]).encode(cfg_v2()).unwrap();
+    let vertices_enc = annotate(&no_z)
+        .regions
+        .iter()
+        .find(|r| r.label == "vertices")
+        .map(|r| r.offset)
+        .unwrap();
+    // Clear extension bit 0 (XYZ) on the vertex stream's encoding byte.
+    no_z[vertices_enc] &= !0x01;
+    assert_eq!(
+        Parser::default()
+            .parse_layers(&no_z)
+            .unwrap_err()
+            .to_string(),
+        "a mesh needs (x, y, z) vertices, so its layer needs a z step"
+    );
+    let (_, walk_err) = annotate_tile(&no_z);
+    assert!(walk_err.is_some());
+}

@@ -50,7 +50,10 @@ pub fn decode_geometry_types(
         .into_iter()
         .enumerate()
         .map::<MltResult<GeometryType>, _>(|(index, v)| {
+            #[cfg(not(feature = "unstable-v2"))]
+            let _ = index;
             let geometry_type: GeometryType = u8::try_from(v)?.try_into()?;
+            #[cfg(feature = "unstable-v2")]
             if geometry_type.is_mesh() {
                 return Err(MltError::MeshInTypesStream(index));
             }
@@ -707,6 +710,8 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             vertices,
             #[cfg(feature = "unstable-v2")]
             z_axis,
+            #[cfg(feature = "unstable-v2")]
+            meshes,
         };
         if index_base == IndexBase::Feature {
             values.rebase_indices_to_layer()?;

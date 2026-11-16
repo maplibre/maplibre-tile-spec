@@ -142,6 +142,19 @@ impl GeometryValues {
         }
     }
 
+    /// Returns an empty [`GeometryValues`] for a v2 `Meshes` layer on `z_axis`.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn new_meshes(z_axis: crate::tile::ZAxis) -> Self {
+        Self {
+            geometry_offsets: Some(vec![0]),
+            triangle_offsets: Some(vec![0]),
+            z_axis: Some(z_axis),
+            meshes: true,
+            ..Default::default()
+        }
+    }
+
     /// Reserve room for `geoms` more geometries, holding `coords` coordinates between them.
     pub(crate) fn reserve(&mut self, geoms: usize, coords: usize) {
         self.vector_types.reserve(geoms);
@@ -377,6 +390,7 @@ impl GeometryValues {
         vertices: impl Iterator<Item = Coord<i32>>,
         triangles: &[[u32; 3]],
     ) {
+        self.meshes = true;
         self.vector_types.push(GeometryType::Mesh);
         let first_vertex = self.stored_vertex_count();
         let verts = self.vertices.get_or_insert_with(Vec::new);

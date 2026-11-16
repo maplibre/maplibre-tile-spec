@@ -142,6 +142,7 @@ const BY_LABEL: Record<string, Partial<Record<"v1" | "v2", string>>> = {
   keys: { v2: "v2#map-nodes" },
   "m-values": { v2: "v2#m-values" },
   m_value: { v2: "v2#m-values" },
+  scope: { v2: "v2#scope" },
   // v1 nests only a shared dictionary's columns; v2 nests struct, list and map nodes.
   child: {
     v1: "v1#shared-dictionary-columns",
@@ -157,6 +158,8 @@ const BY_LABEL: Record<string, Partial<Record<"v1" | "v2", string>>> = {
   // from the layer's first vertex, so v1's section would describe the wrong bytes.
   tri_lengths: { v1: "v1#tessellation-data-optional", v2: "v2#tessellation" },
   tri_indexes: { v1: "v1#tessellation-data-optional", v2: "v2#tessellation" },
+  tri_symbols: { v2: "v2#triangle-trees" },
+  tri_cycles: { v2: "v2#triangle-trees" },
 };
 
 /** A codec's parameters in a stream header, whose bytes the payload's encodings do not pack. */

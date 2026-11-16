@@ -13,6 +13,8 @@ use compact_str::{CompactString, ToCompactString as _};
 use geo_types::{Coord, Geometry, LineString};
 #[cfg(feature = "unstable-v2")]
 use num_traits::ToPrimitive as _;
+#[cfg(feature = "unstable-v2")]
+use usize_cast::IntoUsize as _;
 
 use crate::{MltError, MltResult};
 
@@ -1014,7 +1016,7 @@ impl TileFeature {
         if let Some(&vertex) = triangles
             .as_flattened()
             .iter()
-            .find(|&&v| usize::try_from(v).map_or(true, |v| v >= count))
+            .find(|&&v| v.into_usize() >= count)
         {
             return Err(MltError::MeshVertexOutOfRange { vertex, count });
         }
@@ -1048,7 +1050,7 @@ impl TileFeature {
     /// A vertex-scoped value is counted against the vertices here. A triangle-scoped one is
     /// counted against the triangles when the feature joins its layer, since they may be set after it.
     #[cfg(feature = "unstable-v2")]
-    pub fn set_scoped_m_value(
+    pub(crate) fn set_scoped_m_value(
         &mut self,
         key: MValueKey,
         value: MValue,

@@ -13,7 +13,7 @@ use crate::codecs::varint::parse_varint;
 use crate::decoder::nested::{
     RowShapes, parse_row_shapes, presence_popcount, reject_shaped_child_presence,
 };
-use crate::decoder::root02::check_header_layout;
+use crate::decoder::root02::{check_header_layout, check_vertex_layout};
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
     Count02, EXTENSION_MASK, Family, HAS_EXPLICIT_COUNT, LOGICAL_MASK, PHYSICAL_MASK, StrLayout,
@@ -197,13 +197,15 @@ impl<'a> Walker<'a> {
         } else {
             "vertices"
         };
-        (input, _) = self.walk_stream02(
+        let vertex_meta;
+        (input, vertex_meta) = self.walk_stream02(
             input,
             StreamCtx02::GeomVertices,
             count,
             label,
             DecodeHint::I32,
         )?;
+        check_vertex_layout(layout, vertex_meta)?;
         if layout.is_dict() {
             (input, _) = self.walk_stream02(
                 input,

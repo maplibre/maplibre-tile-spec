@@ -88,6 +88,14 @@ impl<Raw: Decode<Parsed>, Parsed> LazyParsed<Raw, Parsed> {
         }
     }
 
+    #[must_use]
+    pub const fn as_raw(&self) -> Option<&Raw> {
+        match self {
+            Self::Raw(v) => Some(v),
+            Self::Parsed(_) | Self::ParsingFailed => None,
+        }
+    }
+
     pub fn as_parsed(&self) -> MltResult<&Parsed> {
         match self {
             Self::Parsed(v) => Ok(v),

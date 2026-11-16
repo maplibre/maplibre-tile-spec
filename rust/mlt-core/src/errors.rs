@@ -191,6 +191,7 @@ pub enum MltError {
     #[cfg(feature = "unstable-v2")]
     #[error("a vertex stream of {0} words does not hold whole (x, y, z) triples")]
     InvalidTripleStreamSize(usize),
+    #[cfg(feature = "unstable-v2")]
     #[error(
         "a types stream names geometry type Mesh for feature {0}, which only a Meshes layer's header byte may name"
     )]

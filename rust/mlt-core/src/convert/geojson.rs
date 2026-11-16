@@ -9,12 +9,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
 use crate::decoder::PropValueRef;
+use crate::{Decoder, LendingIterator, MltResult, ParsedLayer};
 #[cfg(feature = "unstable-v2")]
 use crate::{
-    Decoder, HeightMode, ParsedLayer02, ZAxis,
+    HeightMode, ParsedLayer02, ZAxis,
     tile::{MValue, NestedValue},
 };
-use crate::{LendingIterator, MltResult, ParsedLayer};
 
 mod schema;
 pub use crate::convert::geojson::schema::PropertySchema;
@@ -31,6 +31,7 @@ impl FeatureCollection {
     /// Convert already-decoded layers to a `GeoJSON` [`FeatureCollection`], consuming them.
     /// Make sure to call `decode_all` on Layer before calling this (won't compile otherwise)
     pub fn from_layers<'a>(layers: impl IntoIterator<Item = ParsedLayer<'a>>) -> MltResult<Self> {
+        let mut dec = Decoder::default();
         let mut features = Vec::new();
         for layer in layers {
             // Read the v2-only columns first: the rest of the loop needs only the
@@ -38,7 +39,7 @@ impl FeatureCollection {
             #[cfg(feature = "unstable-v2")]
             let mut m_values = match &layer {
                 ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
-                ParsedLayer::Tag02(l) => m_value_properties(l)?.into_iter(),
+                ParsedLayer::Tag02(l) => m_value_properties(l, &mut dec)?.into_iter(),
             };
             #[cfg(feature = "unstable-v2")]
             let mut nested = match &layer {
@@ -53,7 +54,7 @@ impl FeatureCollection {
             #[cfg(feature = "unstable-v2")]
             let mut triangles = match &layer {
                 ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
-                ParsedLayer::Tag02(l) => mesh_triangles(l)?.into_iter(),
+                ParsedLayer::Tag02(l) => mesh_triangles(l, &mut dec)?.into_iter(),
             };
             let parsed = match layer {
                 ParsedLayer::Tag01(l) => l,
@@ -68,6 +69,9 @@ impl FeatureCollection {
                 let feat = feat?;
                 let mut properties = BTreeMap::new();
                 for p in feat.iter_properties() {
+                    if let PropValueRef::Str(s) = p.value() {
+                        dec.consume_items::<u8>(s.len())?;
+                    }
                     properties.insert(p.name().to_string(), p.value().into());
                 }
                 #[cfg(feature = "unstable-v2")]
@@ -84,12 +88,13 @@ impl FeatureCollection {
                 #[cfg(feature = "unstable-v2")]
                 let (feature_z, feature_triangles) = (z.next(), triangles.next().flatten());
                 #[cfg(not(feature = "unstable-v2"))]
-                let (feature_z, feature_triangles) = (None, None);
+                let feature_z = None;
                 properties.insert("_layer".into(), Value::String(layer_name.to_string()));
                 properties.insert("_extent".into(), Value::Number(extent.into()));
                 features.push(Feature {
                     geometry: feat.geometry().clone(),
                     z: feature_z,
+                    #[cfg(feature = "unstable-v2")]
                     triangles: feature_triangles,
                     id: feat.id(),
                     properties,
@@ -127,6 +132,7 @@ pub struct Feature {
     pub z: Option<Vec<i32>>,
     /// A mesh's triangles, as indices into the positions of its `MultiPoint`, written as the
     /// foreign member `triangles`. [`None`] for any other feature.
+    #[cfg(feature = "unstable-v2")]
     pub triangles: Option<Vec<[u32; 3]>>,
     pub id: Option<u64>,
     pub properties: BTreeMap<String, Value>,
@@ -137,6 +143,7 @@ pub struct Feature {
 struct FeatureWire {
     #[serde(deserialize_with = "geom_serde::deserialize")]
     geometry: geom_serde::GeometryWithZ,
+    #[cfg(feature = "unstable-v2")]
     #[serde(default)]
     triangles: Option<Vec<[u32; 3]>>,
     #[serde(default)]
@@ -153,6 +160,7 @@ impl From<FeatureWire> for Feature {
         Self {
             geometry,
             z,
+            #[cfg(feature = "unstable-v2")]
             triangles: wire.triangles,
             id: wire.id,
             properties: wire.properties,
@@ -171,7 +179,11 @@ impl Serialize for Geom32Wire<'_> {
 /// Serialize with the preferred order of the keys
 impl Serialize for Feature {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let len = 3 + usize::from(self.id.is_some()) + usize::from(self.triangles.is_some());
+        #[cfg(feature = "unstable-v2")]
+        let has_triangles = usize::from(self.triangles.is_some());
+        #[cfg(not(feature = "unstable-v2"))]
+        let has_triangles = 0;
+        let len = 3 + usize::from(self.id.is_some()) + has_triangles;
         let mut map = serializer.serialize_map(Some(len))?;
         map.serialize_entry("type", &self.ty)?;
         if let Some(id) = self.id {
@@ -179,6 +191,7 @@ impl Serialize for Feature {
         }
         map.serialize_entry("properties", &self.properties)?;
         map.serialize_entry("geometry", &Geom32Wire(&self.geometry, self.z.as_deref()))?;
+        #[cfg(feature = "unstable-v2")]
         if let Some(triangles) = &self.triangles {
             map.serialize_entry("triangles", triangles)?;
         }
@@ -426,13 +439,21 @@ pub fn f64_to_json(f: f64) -> Value {
 /// A feature with no values for a column has no property for it, the way a null
 /// property is left out.
 #[cfg(feature = "unstable-v2")]
-fn m_value_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
+fn m_value_properties(
+    layer: &ParsedLayer02<'_>,
+    dec: &mut Decoder,
+) -> MltResult<Vec<Vec<(String, Value)>>> {
     let geometry = layer.layer().geometry_values();
-    let mut features = vec![Vec::new(); geometry.feature_count()];
+    let mut features = dec.alloc(geometry.feature_count())?;
+    features.resize_with(geometry.feature_count(), Vec::new);
     for column in layer.m_values() {
         let key = format!("m:{}", column.name());
         for (index, span) in column.spans(geometry).enumerate() {
-            let values = column.values().row(column.name(), span?)?;
+            let span = span?;
+            if let Some(s) = &span {
+                dec.consume_items::<u8>(column.values().row_bytes(s))?;
+            }
+            let values = column.values().row(column.name(), span)?;
             if let Some(value) = m_value_to_json(&values) {
                 features[index].push((key.clone(), value));
             }
@@ -456,12 +477,13 @@ fn z_values(layer: &ParsedLayer02<'_>) -> MltResult<(Option<ZAxis>, std::vec::In
 
 /// Every feature's triangles if it is a mesh, as indices into its own vertices.
 #[cfg(feature = "unstable-v2")]
-fn mesh_triangles(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Option<Vec<[u32; 3]>>>> {
+fn mesh_triangles(
+    layer: &ParsedLayer02<'_>,
+    dec: &mut Decoder,
+) -> MltResult<Vec<Option<Vec<[u32; 3]>>>> {
     let geometry = layer.layer().geometry_values();
-    // The layer is decoded already, so only its own size bounds what this allocates.
-    let mut dec = Decoder::with_max_size(u32::MAX);
     (0..geometry.feature_count())
-        .map(|index| geometry.local_mesh_triangles(index, &mut dec))
+        .map(|index| geometry.local_mesh_triangles(index, dec))
         .collect()
 }
 
@@ -642,6 +664,7 @@ mod tests {
         Feature {
             geometry,
             z: None,
+            #[cfg(feature = "unstable-v2")]
             triangles: None,
             id: None,
             properties: BTreeMap::new(),
@@ -717,6 +740,7 @@ mod tests {
         assert_eq!(back, with_z);
     }
 
+    #[cfg(feature = "unstable-v2")]
     #[test]
     fn mesh_triangles_round_trip_as_a_foreign_member() {
         let mesh = Feature {
@@ -801,6 +825,7 @@ mod tests {
             features: vec![Feature {
                 geometry: Geometry::Point(Point::new(7, 9)),
                 z: None,
+                #[cfg(feature = "unstable-v2")]
                 triangles: None,
                 id: Some(42),
                 properties: BTreeMap::from([

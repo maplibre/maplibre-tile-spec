@@ -536,6 +536,7 @@ mod tests {
                 ],
                 m_value_names: [],
                 m_value_kinds: [],
+                m_value_scopes: [],
                 nested_names: [],
                 nested_kinds: [],
                 z_axis: None,
@@ -555,6 +556,7 @@ mod tests {
                         m_values: [],
                         nested: [],
                         z: [],
+                        triangles: None,
                     },
                 ],
             },
@@ -624,6 +626,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         "#);
@@ -771,6 +774,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
             TileFeature {
                 id: None,
@@ -785,6 +789,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         ");
@@ -824,6 +829,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
             TileFeature {
                 id: None,
@@ -838,6 +844,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         "#);
@@ -935,6 +942,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         ");
@@ -968,6 +976,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
             TileFeature {
                 id: None,
@@ -976,6 +985,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
             TileFeature {
                 id: None,
@@ -984,6 +994,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         ");
@@ -1006,6 +1017,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         ");

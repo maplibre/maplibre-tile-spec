@@ -74,6 +74,7 @@ pub(crate) struct GeometrySection02 {
     vertices: Vec<i32>,
     /// The grid of each vertex's third word, or [`None`] when the vertices are `(x, y)` pairs.
     z_axis: Option<ZAxis>,
+    meshes: bool,
 }
 
 /// Turn a layer's geometries into the v2 stream set.
@@ -90,9 +91,10 @@ pub(crate) fn encode_geometry02(
         triangle_offsets,
         vertices,
         z_axis,
+        meshes,
     } = geometry;
 
-    if vector_types.contains(&GeometryType::Mesh) {
+    if meshes || vector_types.contains(&GeometryType::Mesh) {
         return encode_meshes02(
             vector_types,
             geometry_offsets,
@@ -226,6 +228,7 @@ pub(crate) fn encode_geometry02(
         tessellation,
         vertices,
         z_axis,
+        meshes: false,
     })
 }
 
@@ -265,6 +268,7 @@ fn encode_meshes02(
         }),
         vertices: vertices.unwrap_or_default(),
         z_axis,
+        meshes: true,
     })
 }
 
@@ -284,6 +288,9 @@ impl GeometrySection02 {
     /// Such a types stream is a single run saying nothing the header byte's nibble
     /// cannot, so the section drops it and the nibble carries the type instead.
     fn uniform_type(&self) -> Option<GeometryType> {
+        if self.meshes {
+            return Some(GeometryType::Mesh);
+        }
         let (first, rest) = self.types.split_first()?;
         rest.iter().all(|t| t == first).then_some(*first)
     }

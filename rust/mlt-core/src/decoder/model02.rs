@@ -5,7 +5,7 @@ use num_enum::TryFromPrimitive;
 use crate::codecs::morton::{deinterleave_u64, interleave_u32};
 use crate::codecs::presence_coding::PresenceCoding;
 use crate::codecs::varint::parse_varint;
-use crate::decoder::{ColumnStorage, GeometryType, ParsedMValue, ParsedNested, StreamMeta};
+use crate::decoder::{ColumnStorage, GeometryType, StreamMeta};
 use crate::{
     Analyze as _, DecodeState, Layer01, Lazy, LazyParsed, MValueColumn, MltError, MltRefResult,
     MltResult, Nested, Parsed,
@@ -51,6 +51,16 @@ impl<'a, S: DecodeState> Layer02<'a, S> {
     pub fn layout(&self) -> LayerLayout {
         self.layout
     }
+
+    #[must_use]
+    pub fn m_values(&self) -> &[MValueColumn<'a, S>] {
+        &self.m_values
+    }
+
+    #[must_use]
+    pub fn nested(&self) -> &[Nested<'a, S>] {
+        &self.nested
+    }
 }
 
 #[cfg(feature = "unstable-v2")]
@@ -85,19 +95,6 @@ impl Layer02<'_, Lazy> {
                 raw.for_each_string_storage(cb);
             }
         }
-    }
-}
-
-#[cfg(feature = "unstable-v2")]
-impl ParsedLayer02<'_> {
-    #[must_use]
-    pub fn m_values(&self) -> &[ParsedMValue<'_>] {
-        &self.m_values
-    }
-
-    #[must_use]
-    pub fn nested(&self) -> &[ParsedNested<'_>] {
-        &self.nested
     }
 }
 
