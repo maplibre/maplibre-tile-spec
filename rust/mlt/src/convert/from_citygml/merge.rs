@@ -75,11 +75,6 @@ impl Footprint {
             base,
         })
     }
-
-    /// The height above its base in z units.
-    pub(super) fn height(&self) -> i32 {
-        self.top.saturating_sub(self.base)
-    }
 }
 
 /// Twice the signed area of a triangle on the grid, in `i128` so wide coordinates never overflow.

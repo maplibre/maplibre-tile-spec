@@ -69,22 +69,29 @@ const ROOF_MIN_UP: f64 = 0.34;
 const MISLABELLED_MIN_DEGREES: f64 = 1.0;
 /// The pixels across a tile that the detail of zooms below the highest is measured in.
 const TILE_PIXELS: f64 = 512.0;
-/// The cell, in pixels, the LOD2 mesh one zoom below the highest clusters its vertices in.
+/// The cell, in pixels, the fine LOD2 mesh clusters its vertices in.
+const LOD2_FINE_CELL_PIXELS: f64 = 0.25;
+/// The cell, in pixels, the coarse LOD2 mesh clusters its vertices in.
 const LOD2_CELL_PIXELS: f64 = 0.5;
 /// The cell, in pixels, a block clusters the corners of its footprint in.
 const BLOCK_CELL_PIXELS: f64 = 1.0;
 /// The longer side of its bounding box, in pixels, under which a building has no block.
 const BLOCK_MIN_PIXELS: f64 = 2.0;
 /// How many zooms below the highest the blocks of a tile's buildings start to be merged.
-const MERGE_BELOW: u8 = 3;
-/// The top, in metres above its ground, from which a building is never merged.
+const MERGE_BELOW: u8 = 4;
+/// The top, in metres above its ground, from which a building is never merged and keeps its 3D mesh.
 const LANDMARK_MIN_METRES: f64 = 40.0;
 /// The height, in pixels, under which merged blocks have no wall between them or to the ground.
 const WALL_MIN_PIXELS: f64 = 1.0;
 /// The error, in metres, the meshes of the highest zoom are simplified within: close to lossless.
 const HIGHEST_ERROR_METRES: f64 = 0.05;
+/// The error, in pixels, the fine LOD2 mesh one zoom below the highest is simplified within.
+const FINE_ERROR_PIXELS: f64 = 0.2;
 /// The error, in pixels, the meshes and blocks of lower zooms are simplified within.
 const ERROR_PIXELS: f64 = 1.0 / 3.0;
+/// How many metres above the lowest `GroundSurface` a ground ring may sit before being treated as
+/// an elevated overhang or tower platform rather than the ground collar.
+const MAX_GROUND_SLOPE_METRES: f64 = 15.0;
 
 /// Whether `path` is a `CityGML` file, or a directory whose first `.gml` file comes before any tile.
 pub(super) fn is_citygml(path: &Path) -> AnyResult<bool> {
@@ -124,6 +131,7 @@ struct Surface {
 struct Building {
     gml_id: Option<String>,
     surfaces: Vec<Surface>,
+    terrain: Vec<[f64; 3]>,
 }
 
 /// The buildings of a file, the CRS they were read in and the file's first position in it.
@@ -311,9 +319,14 @@ fn read(path: &Path, epsg: Option<u16>) -> AnyResult<Option<File>> {
             });
         }
         if !surfaces.is_empty() {
+            let mut terrain = building.terrain_points;
+            if !terrain.is_empty() {
+                reprojector.to_geodetic(&mut terrain)?;
+            }
             buildings.push(Building {
                 gml_id: building.gml_id,
                 surfaces,
+                terrain,
             });
         }
     }
@@ -506,11 +519,15 @@ enum Placed {
     Footprint(Footprint),
 }
 
-/// `building` at `zoom` on the tile that holds the centre of its bounding box: at its highest LOD
-/// at `max_zoom`, at LOD2 one zoom below and as a block below that, or from [`MERGE_BELOW`] zooms
-/// below as its footprint unless it is a landmark.
-/// Nothing is placed where the building has no triangle, does not fit the tile's grid, or has
-/// more vertices or triangle corners than a `u32` indexes.
+/// `building` at `zoom` on the tile that holds the centre of its bounding box, stepping
+/// progressively down in detail:
+/// - `below == 0`: highest LOD (`LoD3`), welded, simplified within 5 cm (`Parts::Seamed`).
+/// - `below == 1`: `LoD2` in fine `0.25 px` cells, simplified within `0.2 px` (`Parts::Seamed`).
+/// - `below == 2`: `LoD2` in `0.5 px` cells, simplified within `1/3 px` (`Parts::Faced`), keeping
+///   real 3D roofs and church spires two zooms below `max_zoom` before extruding flat blocks.
+/// - `below == 3`: individual extruded ground-outline block (`>= 2 px`), or 3D `LoD2` for landmarks.
+/// - `below >= 4`: merged footprint blocks for buildings `< 40 m`, and simplified 3D `LoD2` meshes
+///   for `>= 40 m` landmarks so towers and spires keep their 3D silhouette across the horizon.
 fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(Tile, Placed)> {
     let below = max_zoom - zoom;
     let lods = if below == 0 {
@@ -518,50 +535,71 @@ fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(
     } else {
         Lods::Highest
     };
-    let view = View::new(building.surfaces.iter().filter(|s| s.lods != lods))?;
+    let view = View::new(
+        building.surfaces.iter().filter(|s| s.lods != lods),
+        &building.terrain,
+    )?;
     let tile = Tile::of(view.centre, zoom);
     let extent = tile.extent();
     let pixel = f64::from(extent) / TILE_PIXELS;
-    if below >= MERGE_BELOW {
+    let landmark = view.height >= LANDMARK_MIN_METRES;
+    if below >= MERGE_BELOW && !landmark {
         let abs_points = view.points_with_datum(tile, extent, z_step, 0.0)?;
         let footprint = Footprint::new(&view.surfaces, &abs_points)?;
-        if f64::from(footprint.height()) * z_step.metres() < LANDMARK_MIN_METRES {
-            return Some((tile, Placed::Footprint(footprint)));
-        }
+        return Some((tile, Placed::Footprint(footprint)));
     }
     let points = view.points(tile, extent, z_step)?;
+    if below >= 2 && !landmark {
+        let (min_x, max_x, min_y, max_y) = points.iter().flatten().fold(
+            (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
+            |(x0, x1, y0, y1), &[x, y, _]| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
+        );
+        let span = (f64::from(max_x) - f64::from(min_x)).max(f64::from(max_y) - f64::from(min_y));
+        if span < BLOCK_MIN_PIXELS * pixel {
+            return None;
+        }
+    }
+    let z_px = tile.width() / TILE_PIXELS / z_step.metres();
     let mesh = match below {
         0 => Mesh::weld(view.surfaces.iter().copied(), &points),
         1 => {
-            let z = tile.width() / TILE_PIXELS / z_step.metres();
-            let cell = [pixel, pixel, z].map(|c| c * LOD2_CELL_PIXELS);
+            let cell = [pixel, pixel, z_px].map(|c| c * LOD2_FINE_CELL_PIXELS);
             cluster(&view.surfaces, &points, cell)
         }
-        _ if below < MERGE_BELOW => block(&view.surfaces, &points, pixel, BLOCK_MIN_PIXELS),
-        _ => block(&view.surfaces, &points, pixel, 0.0),
+        2 => {
+            let cell = [pixel, pixel, z_px].map(|c| c * LOD2_CELL_PIXELS);
+            cluster(&view.surfaces, &points, cell)
+        }
+        _ if landmark => {
+            let cell = [pixel, pixel, z_px].map(|c| c * LOD2_CELL_PIXELS);
+            cluster(&view.surfaces, &points, cell)
+        }
+        _ => block(&view.surfaces, &points, pixel, BLOCK_MIN_PIXELS),
     };
     let metres = tile.width() / f64::from(extent);
+    let px_metres = tile.width() / TILE_PIXELS;
     let (error, parts) = match below {
         0 => (HIGHEST_ERROR_METRES, Parts::Seamed),
-        1 => (ERROR_PIXELS * tile.width() / TILE_PIXELS, Parts::Seamed),
-        _ => (ERROR_PIXELS * tile.width() / TILE_PIXELS, Parts::Faced),
+        1 => (FINE_ERROR_PIXELS * px_metres, Parts::Seamed),
+        _ => (ERROR_PIXELS * px_metres, Parts::Faced),
     };
     let mesh = simplify(&mesh?, [metres, metres, z_step.metres()], error, parts)?;
     (!mesh.triangles.is_empty()).then_some((tile, Placed::Mesh(mesh)))
 }
 
 /// Some surfaces of a building, the centre of their Web Mercator `(x, y)` bounding box in units
-/// of [`unit()`], and their ground elevation at that centre.
+/// of [`unit()`], their ground elevation at that centre, and their height above that ground.
 struct View<'a> {
     surfaces: Vec<&'a Surface>,
     units: Vec<Vec<[f64; 2]>>,
     centre: [f64; 2],
     ground: f64,
+    height: f64,
 }
 
 impl<'a> View<'a> {
     /// `None` without a surface.
-    fn new(surfaces: impl Iterator<Item = &'a Surface>) -> Option<Self> {
+    fn new(surfaces: impl Iterator<Item = &'a Surface>, terrain: &[[f64; 3]]) -> Option<Self> {
         let surfaces: Vec<&Surface> = surfaces.collect();
         if surfaces.is_empty() {
             return None;
@@ -576,33 +614,65 @@ impl<'a> View<'a> {
         let [ux0, uy0] = [0, 1].map(|i| fold_u(f64::min, i, f64::INFINITY));
         let [ux1, uy1] = [0, 1].map(|i| fold_u(f64::max, i, f64::NEG_INFINITY));
         let centre = [f64::midpoint(ux0, ux1), f64::midpoint(uy0, uy1)];
-
-        // Prefer the GroundSurface vertex nearest the Web Mercator bbox midpoint as `z = 0`,
-        // so underground basements stay at `z < 0` and sloped buildings match the spec's
-        // centre-ground datum; fall back to the lowest vertex when no GroundSurface is given.
-        let ground_at_centre = surfaces
-            .iter()
-            .zip(&units)
-            .filter(|(s, _)| s.part == Part::Ground)
-            .flat_map(|(s, u)| s.positions.iter().zip(u))
-            .min_by(|(_, ua), (_, ub)| {
+        let nearest_z = |pts: &mut dyn Iterator<Item = ([f64; 2], f64)>| -> Option<f64> {
+            pts.min_by(|(ua, _), (ub, _)| {
                 let da = (ua[0] - centre[0]).hypot(ua[1] - centre[1]);
                 let db = (ub[0] - centre[0]).hypot(ub[1] - centre[1]);
                 da.total_cmp(&db)
             })
-            .map(|(p, _)| p[2]);
-        let ground = ground_at_centre.unwrap_or_else(|| {
-            surfaces
+            .map(|(_, z)| z)
+        };
+
+        // 1. Prefer `lodNTerrainIntersection` where present: it traces the exact ground collar and
+        //    never includes underground basements or elevated skybridge/tower-pod undersides.
+        let terrain_ground = (!terrain.is_empty()).then(|| {
+            let min_t = terrain.iter().map(|p| p[2]).fold(f64::INFINITY, f64::min);
+            nearest_z(
+                &mut terrain
+                    .iter()
+                    .filter(|p| p[2] <= min_t + MAX_GROUND_SLOPE_METRES)
+                    .map(|p| (unit(p[0], p[1]), p[2])),
+            )
+        });
+        // 2. Otherwise use `GroundSurface` vertices within `MAX_GROUND_SLOPE_METRES` of the
+        //    building's lowest `GroundSurface`, filtering out elevated undersides (such as the
+        //    225 m observation-deck undersides of Hamburg's Heinrich-Hertz-Turm).
+        let surface_ground = || {
+            let min_g = surfaces
                 .iter()
+                .filter(|s| s.part == Part::Ground)
                 .flat_map(|s| &s.positions)
                 .map(|p| p[2])
-                .fold(f64::INFINITY, f64::min)
-        });
+                .fold(f64::INFINITY, f64::min);
+            min_g.is_finite().then(|| {
+                nearest_z(
+                    &mut surfaces
+                        .iter()
+                        .zip(&units)
+                        .filter(|(s, _)| s.part == Part::Ground)
+                        .flat_map(|(s, u)| s.positions.iter().zip(u))
+                        .filter(|(p, _)| p[2] <= min_g + MAX_GROUND_SLOPE_METRES)
+                        .map(|(p, &u)| (u, p[2])),
+                )
+            })
+        };
+        let (min_z, max_z) = surfaces
+            .iter()
+            .flat_map(|s| &s.positions)
+            .map(|p| p[2])
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), z| {
+                (lo.min(z), hi.max(z))
+            });
+        let ground = terrain_ground
+            .flatten()
+            .or_else(|| surface_ground().flatten())
+            .unwrap_or(min_z);
         Some(Self {
             surfaces,
             units,
             centre,
             ground,
+            height: (max_z - ground).max(0.0),
         })
     }
 
@@ -944,6 +1014,52 @@ mod tests {
         let mesh = cluster(&[&wall], &points, [10.0, 10.0, 10.0]).unwrap();
         assert_eq!(mesh.xyz, [[0, 0, 0], [100, 0, 0], [0, 0, 100]]);
         assert_eq!(mesh.triangles, [[0, 1, 2], [2, 1, 0]]);
+    }
+
+    #[test]
+    fn elevated_overhang_grounds_and_terrain_collars_never_sink_a_tower_underground() {
+        let [lon, lat] = [9.976_f64.to_radians(), 53.563_f64.to_radians()];
+        let d = 0.000_05;
+        // Base ring further from centre (z = 20.5 m) vs upper observation-pod underside right at
+        // centre (z = 225.5 m), as on Hamburg's Heinrich-Hertz-Turm.
+        let base_ground = Surface {
+            part: Part::Ground,
+            lods: Lods::Both,
+            positions: vec![
+                [lon - d, lat - d, 20.5],
+                [lon + d, lat - d, 20.5],
+                [lon + d, lat + d, 20.5],
+            ],
+            triangles: vec![[0, 1, 2]],
+        };
+        let pod_underside = Surface {
+            part: Part::Ground,
+            lods: Lods::Both,
+            positions: vec![
+                [lon, lat, 225.5],
+                [lon + d * 0.1, lat, 225.5],
+                [lon, lat + d * 0.1, 225.5],
+            ],
+            triangles: vec![[0, 1, 2]],
+        };
+        let spire = Surface {
+            part: Part::Roof,
+            lods: Lods::Both,
+            positions: vec![[lon, lat, 300.4]],
+            triangles: Vec::new(),
+        };
+        let without_tis =
+            View::new([&base_ground, &pod_underside, &spire].into_iter(), &[]).unwrap();
+        assert!(
+            (without_tis.ground - 20.5).abs() < 1e-6,
+            "{}",
+            without_tis.ground
+        );
+        assert!((without_tis.height - 279.9).abs() < 1e-6);
+
+        let with_tis =
+            View::new([&pod_underside, &spire].into_iter(), &[[lon, lat, 20.674]]).unwrap();
+        assert!((with_tis.ground - 20.674).abs() < 1e-6);
     }
 
     #[test]

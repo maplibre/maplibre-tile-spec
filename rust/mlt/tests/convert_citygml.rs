@@ -60,9 +60,11 @@ fn convert(input: &Path, output: &Path, args: &[&str]) -> Result<(), String> {
     }
 }
 
-/// Half a cell of the LOD2 mesh at zoom 15 in Hamburg in 1 cm steps: half of half a pixel of a
-/// 512-pixel tile about 727 m across.
-const LOD2_HALF_CELL: i32 = 36;
+/// Quarter a pixel at zoom 15 in Hamburg in 1 cm steps: half of `0.25` pixel of a 512-pixel
+/// tile about 727 m across.
+const LOD2_FINE_HALF_CELL: i32 = 18;
+/// Half of a `0.5`-pixel LOD2 cell at zoom 14 in Hamburg (~1,454 m tile), in 1 cm steps.
+const LOD2_Z14_HALF_CELL: i32 = 72;
 
 #[test]
 fn each_building_becomes_one_mesh_per_zoom_with_parts_and_heights_above_ground() {
@@ -76,42 +78,67 @@ fn each_building_becomes_one_mesh_per_zoom_with_parts_and_heights_above_ground()
     };
     assert_box(tower, "tower", 6000..=6000, [8, 2, 2]);
     assert_box(kiosk, "kiosk", 300..=300, [8, 2, 0]);
-    // The highest LOD of the boxes is LOD2, which zoom 15 clusters in cells of about 0.7 m.
+    // The highest LOD of the boxes is LOD2, which zoom 15 clusters in fine 0.25-pixel cells.
     let [tower, kiosk] = &features(&output, "15/17294/10590")[..] else {
         panic!("2 features at zoom 15");
     };
-    let near = |top: i32| top - LOD2_HALF_CELL..=top + LOD2_HALF_CELL;
+    let near = |top: i32| top - LOD2_FINE_HALF_CELL..=top + LOD2_FINE_HALF_CELL;
     assert_box(tower, "tower", near(6000), [8, 2, 2]);
     assert_box(kiosk, "kiosk", near(300), [8, 2, 0]);
 }
 
 #[test]
-fn lower_zooms_hold_blocks_merged_from_three_below_the_highest_but_for_landmarks() {
+fn lower_zooms_step_through_lod2_and_blocks_before_merging_below_four_zooms() {
     let dir = TempDir::new();
     let output = dir.0.join("out");
-    let zooms = ["--mlt-version", "2", "--min-zoom", "13", "--max-zoom", "16"];
-    convert(Path::new(BUILDINGS), &output, &zooms).unwrap();
-    assert_eq!(fs::read_dir(&output).unwrap().count(), 4);
-    let [tower, kiosk] = &features(&output, "14/8647/5295")[..] else {
-        panic!("2 features at zoom 14");
+    // Add a 15 x 15 m `hall` (5 m tall) next to `tower` and `kiosk` so both the individual block
+    // tier (zoom 13) and the merged block tier (zoom 12, ~11.4 m cells) cover at least half a cell.
+    let hall = "<core:cityObjectMember><bldg:Building gml:id=\"hall\">\
+        <bldg:boundedBy><bldg:GroundSurface><bldg:lod2MultiSurface><gml:MultiSurface>\
+        <gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing><gml:posList>\
+        566125 5934100 7 566125 5934115 7 566140 5934115 7 566140 5934100 7 566125 5934100 7\
+        </gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember>\
+        </gml:MultiSurface></bldg:lod2MultiSurface></bldg:GroundSurface></bldg:boundedBy>\
+        <bldg:boundedBy><bldg:RoofSurface><bldg:lod2MultiSurface><gml:MultiSurface>\
+        <gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing><gml:posList>\
+        566125 5934100 12 566140 5934100 12 566140 5934115 12 566125 5934115 12 566125 5934100 12\
+        </gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember>\
+        </gml:MultiSurface></bldg:lod2MultiSurface></bldg:RoofSurface></bldg:boundedBy>\
+        </bldg:Building></core:cityObjectMember></core:CityModel>";
+    let gml = dir.0.join("buildings.gml");
+    let xml = fs::read_to_string(BUILDINGS)
+        .unwrap()
+        .replace("</core:CityModel>", hall);
+    fs::write(&gml, xml).unwrap();
+
+    let zooms = ["--mlt-version", "2", "--min-zoom", "12", "--max-zoom", "16"];
+    convert(&gml, &output, &zooms).unwrap();
+    assert_eq!(fs::read_dir(&output).unwrap().count(), 5);
+    // Zoom 14 (2 below) keeps 3D LOD2 meshes clustered in 0.5-pixel cells.
+    let [tower, kiosk, _hall] = &features(&output, "14/8647/5295")[..] else {
+        panic!("3 features at zoom 14");
     };
-    assert_box(tower, "tower", 6000..=6000, [8, 2, 0]);
-    assert_box(kiosk, "kiosk", 300..=300, [8, 2, 0]);
-    // Zoom 13 is three below the highest: the 60 m tower stays a block of its own, and the 3 m
-    // kiosk is merged, alone, into the cells of about 5.7 m its ground covers half of: a roof
-    // without walls, lower than a pixel.
-    let [tower, kiosk] = &features(&output, "13/4323/2647")[..] else {
+    let near14 = |top: i32| top - LOD2_Z14_HALF_CELL..=top + LOD2_Z14_HALF_CELL;
+    assert_box(tower, "tower", near14(6000), [8, 2, 2]);
+    assert_box(kiosk, "kiosk", near14(300), [8, 2, 0]);
+    // Zoom 13 (3 below) holds an individual block for `hall` (`>= 2 px`), drops `kiosk` (`< 2 px`),
+    // and keeps the 60 m landmark `tower` as a 3D LOD2 mesh.
+    let [tower, hall_block] = &features(&output, "13/4323/2647")[..] else {
         panic!("2 features at zoom 13");
     };
-    assert_box(tower, "tower", 6000..=6000, [8, 2, 0]);
-    assert_eq!(
-        kiosk.properties(),
-        [PropValue::Str(None), PropValue::U32(Some(1))]
-    );
-    let mut heights = kiosk.z().to_vec();
-    heights.sort_unstable();
-    heights.dedup();
-    assert_eq!(heights, [300]);
+    assert_box(tower, "tower", 5800..=6200, [8, 2, 2]);
+    assert_box(hall_block, "hall", 500..=500, [8, 2, 0]);
+    // Zoom 12 (4 below) merges `< 40 m` footprints into blocks while keeping the 60 m landmark
+    // tower as a 3D mesh.
+    let [tower, merged] = &features(&output, "12/2161/1323")[..] else {
+        panic!("2 features at zoom 12");
+    };
+    assert_box(tower, "tower", 5700..=6300, [8, 2, 2]);
+    assert_eq!(merged.properties()[0], PropValue::Str(None));
+    assert!(matches!(
+        merged.properties()[1],
+        PropValue::U32(Some(1..=2))
+    ));
 }
 
 /// The features of the `buildings` layer of the tile `z/x/y` under `output`, by id.
