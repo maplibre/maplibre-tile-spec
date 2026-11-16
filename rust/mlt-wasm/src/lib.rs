@@ -38,8 +38,9 @@ use wasm_bindgen::prelude::*;
 
 /// Decode a raw MLT tile blob into `GeoJSON`, as the serialized text.
 ///
-/// Every feature carries `_layer` and `_extent`, and a v2 tile's vertex-scoped columns ride
-/// along as `m:`-prefixed arrays, one value per vertex.
+/// Every feature carries `_layer` and `_extent`; a v2 tile's m-value columns ride along as
+/// `m:`-prefixed arrays (one value per vertex or per mesh triangle), and mesh features carry
+/// a top-level `triangles` member.
 ///
 /// Text rather than a `JsValue`: building the object graph across the boundary costs a
 /// crossing per value, where one string plus `JSON.parse` is a single copy.

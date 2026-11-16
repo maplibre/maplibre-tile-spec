@@ -62,6 +62,11 @@ function geoJson(g: MltFeatureGeometry, dimension: number): GeoJSON.Geometry {
         ? { type: "Polygon", coordinates: polygons[0] }
         : { type: "MultiPolygon", coordinates: polygons };
     }
+    case "mesh":
+      return {
+        type: "MultiPoint",
+        coordinates: positions(g.vertices, dimension),
+      };
   }
 }
 
@@ -200,6 +205,13 @@ function featureRuns(
           return starts.slice(1).map((end, k) => [starts[k], end]);
         }),
       };
+    case "mesh": {
+      const points = Array.from(
+        { length: g.vertices.length / dimension },
+        (_, i) => [g.firstVertex + i, g.firstVertex + i + 1],
+      );
+      return { geometries: points, rings: points };
+    }
   }
 }
 

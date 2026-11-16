@@ -10,11 +10,11 @@ use js_sys::{
     Uint32Array,
 };
 use mlt_core::{
-    Decoder, GeometryValues, HeightMode, ParsedLayer, ParsedLayer01, ParsedProperty, ParsedStrings,
-    Parser, PresentValues, PropKind,
+    Decoder, GeometryValues, ParsedLayer, ParsedLayer01, ParsedProperty, ParsedStrings, Parser,
+    PresentValues, PropKind,
 };
 #[cfg(feature = "unstable-v2")]
-use mlt_core::{MValueScope, MValues, ParsedMValue};
+use mlt_core::{HeightMode, MValueScope, MValues, ParsedMValue};
 #[cfg(feature = "unstable-v2")]
 use rustc_hash::FxHashMap;
 use wasm_bindgen::prelude::*;
@@ -50,17 +50,12 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
         let parsed = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
         // `ParsedLayer` is non_exhaustive: a layer of a tag this binding does not know is skipped.
         let object = match &parsed {
-            ParsedLayer::Tag01(layer) => layer_object(layer, 1)?,
+            ParsedLayer::Tag01(layer) => layer_object(layer, 1, false)?,
             // A v2 layer's nested columns are not passed on.
             #[cfg(feature = "unstable-v2")]
             ParsedLayer::Tag02(layer) => {
-                let object = layer_object(layer.layer(), 2)?;
-                if layer.layout().geometry == mlt_core::wire::GeoLayout::Meshes {
-                    let geometry: Object = Reflect::get(&object, &"geometry".into())
-                        .map_err(|_| JsError::new("a layer without its geometry"))?
-                        .unchecked_into();
-                    set(&geometry, "meshes", &true.into());
-                }
+                let is_meshes = layer.layout().geometry == mlt_core::wire::GeoLayout::Meshes;
+                let object = layer_object(layer.layer(), 2, is_meshes)?;
                 let m_values = layer
                     .m_values()
                     .iter()
@@ -77,7 +72,11 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
 }
 
 /// The columns every wire version has.
-fn layer_object(layer: &ParsedLayer01<'_>, version: u8) -> Result<Object, JsError> {
+fn layer_object(
+    layer: &ParsedLayer01<'_>,
+    version: u8,
+    is_meshes: bool,
+) -> Result<Object, JsError> {
     let object = Object::new();
     set(&object, "name", &layer.name().into());
     set(&object, "extent", &layer.extent().get().into());
@@ -86,7 +85,7 @@ fn layer_object(layer: &ParsedLayer01<'_>, version: u8) -> Result<Object, JsErro
     set(
         &object,
         "geometry",
-        &geometry_object(layer.geometry_values()),
+        &geometry_object(layer.geometry_values(), is_meshes),
     );
     if let Some(ids) = layer.id() {
         let (values, present) = scalar(ids);
@@ -114,7 +113,7 @@ fn layer_object(layer: &ParsedLayer01<'_>, version: u8) -> Result<Object, JsErro
     Ok(object)
 }
 
-fn geometry_object(geometry: &GeometryValues) -> Object {
+fn geometry_object(geometry: &GeometryValues, is_meshes: bool) -> Object {
     let object = Object::new();
     let types: Vec<u8> = geometry.vector_types().iter().map(|&t| t as u8).collect();
     set(&object, "types", &Uint8Array::from(&types[..]));
@@ -124,6 +123,10 @@ fn geometry_object(geometry: &GeometryValues) -> Object {
         "vertices",
         &Int32Array::from(geometry.vertices().unwrap_or_default()),
     );
+    if is_meshes {
+        set(&object, "meshes", &true.into());
+    }
+    #[cfg(feature = "unstable-v2")]
     if let Some(axis) = geometry.z_axis() {
         set(&object, "zStep", &axis.step.exponent().into());
         let mode = match axis.mode {
@@ -200,10 +203,9 @@ fn string_codes(strings: &ParsedStrings<'_>) -> (Uint32Array, Array) {
     let codes: Vec<u32> = (0..strings.feature_count())
         .map(|i| {
             let value = string_at(strings, i).unwrap_or("");
-            *entries.entry(value).or_insert_with(|| {
-                dictionary.push(&JsValue::from_str(value));
-                dictionary.length() - 1
-            })
+            *entries
+                .entry(value)
+                .or_insert_with(|| dictionary.push(&JsValue::from_str(value)) - 1)
         })
         .collect();
     (Uint32Array::from(&codes[..]), dictionary)
