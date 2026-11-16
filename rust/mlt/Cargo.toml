@@ -19,6 +19,8 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 [features]
+citygml = ["dep:earcut", "dep:meshopt", "dep:proj4rs", "dep:quick-xml"]
+default = ["citygml"]
 hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
 hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
 hotpath-mcp = ["hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
@@ -30,7 +32,7 @@ bytes.workspace = true
 clap.workspace = true
 crossbeam-channel.workspace = true
 crossterm.workspace = true
-earcutr.workspace = true
+earcut = { workspace = true, optional = true }
 flate2.workspace = true
 futures.workspace = true
 geojson.workspace = true
@@ -40,13 +42,13 @@ hotpath.workspace = true
 indicatif.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
-meshopt.workspace = true
+meshopt = { workspace = true, optional = true }
 mimalloc.workspace = true
 mlt-core = { workspace = true, features = ["unstable-v2"] }
 moka.workspace = true
 pmtiles.workspace = true
-proj4rs.workspace = true
-quick-xml.workspace = true
+proj4rs = { workspace = true, optional = true }
+quick-xml = { workspace = true, optional = true }
 ratatui.workspace = true
 rayon.workspace = true
 rstar.workspace = true

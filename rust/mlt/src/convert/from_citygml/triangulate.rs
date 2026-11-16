@@ -42,33 +42,36 @@ pub fn polygon(
         return None;
     }
     let abs = normal.map(f64::abs);
-    // The two axes that remain when the normal's largest component is dropped.
-    let (across, along) = if abs[2] >= abs[0] && abs[2] >= abs[1] {
-        (0, 1)
+    // The two axes that remain in cyclic right-handed order when the normal's largest
+    // component is dropped, plus that dropped axis.
+    let (across, along, dropped) = if abs[2] >= abs[0] && abs[2] >= abs[1] {
+        (0, 1, 2)
     } else if abs[0] >= abs[1] {
-        (1, 2)
+        (1, 2, 0)
     } else {
-        (2, 0)
+        (2, 0, 1)
     };
-    let flat: Vec<f64> = points
+    let flat = points
         .iter()
-        .flat_map(|p| [p[across] - origin[across], p[along] - origin[along]])
-        .collect();
-    let indices = earcutr::earcut(&flat, &ends[..ends.len() - 1], 2).ok()?;
+        .map(|p| [p[across] - origin[across], p[along] - origin[along]]);
+    let mut indices: Vec<u32> = Vec::new();
+    let holes: Vec<u32> = ends[..ends.len() - 1]
+        .iter()
+        .map(|&e| u32::try_from(e).ok())
+        .collect::<Option<_>>()?;
+    earcut::Earcut::new().earcut(flat, &holes, &mut indices);
     let start = out.len();
-    for t in indices.as_chunks::<3>().0 {
-        let [Ok(a), Ok(b), Ok(c)] = t.map(u32::try_from) else {
-            out.truncate(start);
-            return None;
-        };
-        let facing = dot(
-            cross(
-                sub(points[t[1]], points[t[0]]),
-                sub(points[t[2]], points[t[0]]),
-            ),
-            normal,
-        );
-        out.push(if facing < 0.0 { [a, c, b] } else { [a, b, c] });
+    // Flip uniformly by the sign of the polygon's normal along the dropped axis paired with
+    // earcut's 2D winding, so slightly non-planar roofs or walls never flip individual slivers.
+    for &[a, b, c] in indices.as_chunks::<3>().0 {
+        let [pa, pb, pc] = [a, b, c].map(|i| points[i as usize]);
+        let area2d = (pb[across] - pa[across]) * (pc[along] - pa[along])
+            - (pb[along] - pa[along]) * (pc[across] - pa[across]);
+        out.push(if area2d * normal[dropped] < 0.0 {
+            [a, c, b]
+        } else {
+            [a, b, c]
+        });
     }
     (out.len() > start).then_some(normal)
 }
@@ -86,6 +89,7 @@ fn newell(ring: &[[f64; 3]], origin: [f64; 3]) -> [f64; 3] {
     n
 }
 
+#[cfg(test)]
 fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
     [
         a[1] * b[2] - a[2] * b[1],
