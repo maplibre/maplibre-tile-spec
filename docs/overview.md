@@ -28,14 +28,14 @@ New capabilities go into a new format with a new tag.
 A decoder that supports a tag MUST support every feature of that format.
 An encoder MUST produce valid data for its tag, but MAY choose not to use some encodings.
 A decoder skips a frame whose tag it does not know, so new formats can be added without breaking existing readers.
-One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds of data in future formats, such as 3D or non-visual data.
+One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds of data in future formats, such as textured 3D scenes or non-visual data.
 
 --8<-- "diagrams/tile-frames.svg"
 
 | Tag | Format | Contents | Status |
 |---|---|---|---|
 | `0x01` | [MLT v1](specification/v1.md) | 2D features with scalar properties, compatible with MVT. | Stable. Implemented by every shipped encoder and decoder. |
-| `0x02` | [MLT v2](specification/v2.md) | v1 content in a smaller layout, plus per-vertex Z and M values and nested properties. | <span class="experimental"></span> Under development. The wire format may change without notice. |
+| `0x02` | [MLT v2](specification/v2.md) | v1 content in a smaller layout, plus Z values, per-vertex and per-triangle M values, nested properties and 3D triangle meshes. | <span class="experimental"></span> Under development. The wire format may change without notice. |
 
 # Geometry and extent
 
@@ -68,7 +68,7 @@ A feature has:
 - any number of properties
 
 Features in one layer share a single set of property columns and normally share one geometry type.
-Mixing geometry types in a layer is allowed, but one type per layer compresses better.
+Mixing the six 2D geometry types in a layer is allowed, though one type per layer compresses better; v2 [meshes](specification/v2.md#meshes) live in their own layer without other geometry types.
 
 !!! NOTE
     The terms `column`, `field`, `attribute`, and `property` are used interchangeably in the specification.
