@@ -277,12 +277,13 @@ fn read(path: &Path, epsg: Option<u16>) -> AnyResult<Option<File>> {
         return Ok(None);
     };
     let reprojector = Reprojector::new(epsg)?;
+    let mut triangulator = triangulate::Triangulator::default();
     let mut buildings = Vec::with_capacity(document.buildings.len());
     for building in document.buildings {
         let mut surfaces = Vec::with_capacity(building.polygons.len());
         for polygon in building.polygons {
             let mut triangles = Vec::new();
-            let Some(normal) = triangulate::polygon(
+            let Some(normal) = triangulator.polygon(
                 &polygon.points,
                 &polygon.ends,
                 reprojector.geographic,
@@ -856,7 +857,14 @@ fn layer(
         feature.m_value(part, MValue::Str(Some(parts)))?;
         feature.finish()?;
     }
-    Ok(Some(builder.finish()))
+    let mut layer = builder.finish();
+    // Order a tile's 3D meshes along a Hilbert curve so neighbouring buildings sit adjacent in
+    // the vertex and cycle streams without running multiple trial encodes.
+    layer.sort(
+        mlt_core::encoder::SortStrategy::SpatialHilbert,
+        layer.curve_params(),
+    );
+    Ok(Some(layer))
 }
 
 #[cfg(test)]
