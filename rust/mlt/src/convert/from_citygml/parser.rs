@@ -63,6 +63,8 @@ pub struct Polygon {
 pub struct Building {
     pub gml_id: Option<String>,
     pub polygons: Vec<Polygon>,
+    /// 3D points along any `lodNTerrainIntersection` curves, where the building meets the ground.
+    pub terrain_points: Vec<[f64; 3]>,
 }
 
 /// What a document holds.
@@ -87,11 +89,14 @@ enum Tag {
     Skip,
     /// An `OrientableSurface` whose `orientation="-"` flips the winding of polygons inside it.
     OrientableSurface(bool),
+    /// An `lodNTerrainIntersection` curve whose 3D positions mark where the building meets terrain.
+    TerrainIntersection,
     /// An `lodN…` geometry property.
     Lod(u8),
     Polygon,
     Interior,
     Ring,
+    LineString,
     Coordinates,
     Other,
 }
@@ -140,23 +145,24 @@ fn tag(name: &[u8]) -> Tag {
         b"Polygon" | b"Triangle" | b"Rectangle" | b"PolygonPatch" => Tag::Polygon,
         b"interior" | b"innerBoundaryIs" => Tag::Interior,
         b"LinearRing" => Tag::Ring,
+        b"LineString" => Tag::LineString,
         b"posList" | b"pos" | b"coordinates" => Tag::Coordinates,
         _ => lod_tag(name).unwrap_or(Tag::Other),
     }
 }
 
-/// `lodN…` geometry properties: LOD0 (2D footprints), LOD4 (interiors), curves and terrain
-/// intersections are skipped.
+/// `lodN…` geometry properties: LOD0 (2D footprints), LOD4 (interiors) and curves are skipped;
+/// terrain intersections record where the building meets the ground.
 fn lod_tag(name: &[u8]) -> Option<Tag> {
     let rest = name.strip_prefix(b"lod")?;
     let (&digit, kind) = rest.split_first()?;
     if !digit.is_ascii_digit() || !kind.first()?.is_ascii_uppercase() {
         return None;
     }
-    if matches!(digit, b'0' | b'4')
-        || kind.ends_with(b"MultiCurve")
-        || kind.starts_with(b"TerrainIntersection")
-    {
+    if kind.starts_with(b"TerrainIntersection") && digit != b'0' && digit != b'4' {
+        return Some(Tag::TerrainIntersection);
+    }
+    if matches!(digit, b'0' | b'4') || kind.ends_with(b"MultiCurve") {
         return Some(Tag::Skip);
     }
     Some(Tag::Lod(digit - b'0'))
@@ -205,6 +211,8 @@ struct Parser {
     skip: bool,
     /// Number of enclosing `<OrientableSurface orientation="-">` elements; odd flips ring winding.
     reverse_flips: u32,
+    /// Depth of enclosing `lodNTerrainIntersection` properties.
+    terrain_depth: u32,
     /// The building being read, its polygons collected in `polygons` until it ends.
     building: Option<Building>,
     /// The polygons of the building, each with its owner and LOD.
@@ -262,12 +270,14 @@ impl Parser {
                 self.building = Some(Building {
                     gml_id: attribute(e, b"id"),
                     polygons: Vec::new(),
+                    terrain_points: Vec::new(),
                 });
                 self.polygons.clear();
                 self.installations.clear();
             }
             Tag::Skip => self.skip = true,
             Tag::OrientableSurface(true) => self.reverse_flips += 1,
+            Tag::TerrainIntersection => self.terrain_depth += 1,
             Tag::Owner { installation } => {
                 self.next_owner += 1;
                 self.owners.push(self.next_owner);
@@ -289,6 +299,11 @@ impl Parser {
                 self.unreadable = false;
                 self.dimension =
                     attribute(e, b"srsDimension").or_else(|| self.polygon_dimension.clone());
+            }
+            Tag::LineString if self.terrain_depth > 0 => {
+                self.numbers.clear();
+                self.unreadable = false;
+                self.dimension = attribute(e, b"srsDimension");
             }
             Tag::Coordinates => {
                 self.in_coordinates = true;
@@ -313,6 +328,7 @@ impl Parser {
                     self.reverse_flips -= 1;
                 }
             }
+            Tag::TerrainIntersection => self.terrain_depth -= 1,
             Tag::Owner { .. } => {
                 self.owners.pop();
                 self.semantics.pop();
@@ -325,8 +341,25 @@ impl Parser {
             }
             Tag::Coordinates => self.in_coordinates = false,
             Tag::Ring => self.end_ring(),
+            Tag::LineString => {
+                if self.terrain_depth > 0 {
+                    self.end_terrain_curve();
+                }
+            }
             Tag::Polygon => self.end_polygon(),
             Tag::Interior | Tag::Other => {}
+        }
+    }
+
+    fn end_terrain_curve(&mut self) {
+        let Some(building) = &mut self.building else {
+            return;
+        };
+        let three_d = self.dimension.as_deref().is_none_or(|d| d.trim() == "3");
+        if three_d && !self.unreadable && self.numbers.len().is_multiple_of(3) {
+            for c in self.numbers.as_chunks::<3>().0 {
+                building.terrain_points.push([c[0], c[1], c[2]]);
+            }
         }
     }
 
@@ -656,6 +689,23 @@ mod tests {
         );
         // OrientableSurface orientation="-" reversed the ring.
         assert_eq!(document.buildings[0].polygons[0].points[0], SQUARE[3]);
+    }
+
+    #[test]
+    fn terrain_intersection_curves_record_ground_collar_points() {
+        let tis = "<bldg:lod3TerrainIntersection><gml:MultiCurve><gml:curveMember>\
+                   <gml:LineString><gml:posList srsDimension=\"3\">\
+                   1 2 20.5 3 4 20.8</gml:posList></gml:LineString>\
+                   </gml:curveMember></gml:MultiCurve></bldg:lod3TerrainIntersection>";
+        let xml = format!(
+            "{HEAD}<bldg:Building>{}{tis}</bldg:Building></core:CityModel>",
+            surface("RoofSurface", 3, &polygon(&[&SQUARE])),
+        );
+        let document = parse(xml.as_bytes()).unwrap();
+        assert_eq!(
+            document.buildings[0].terrain_points,
+            [[1.0, 2.0, 20.5], [3.0, 4.0, 20.8]]
+        );
     }
 
     #[test]
