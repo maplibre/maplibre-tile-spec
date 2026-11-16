@@ -2,6 +2,7 @@
 //! namespace prefixes read alike.
 
 use std::collections::{HashMap, HashSet};
+use std::io::BufRead;
 
 use anyhow::{Result as AnyResult, bail};
 use quick_xml::Reader;
@@ -84,6 +85,8 @@ enum Tag {
     /// Content that is not drawn from outside: closure surfaces, interiors, LOD4, appearances and
     /// implicit geometries.
     Skip,
+    /// An `OrientableSurface` whose `orientation="-"` flips the winding of polygons inside it.
+    OrientableSurface(bool),
     /// An `lodN…` geometry property.
     Lod(u8),
     Polygon,
@@ -133,6 +136,7 @@ fn tag(name: &[u8]) -> Tag {
         | b"appearance"
         | b"appearanceMember"
         | b"ImplicitGeometry" => Tag::Skip,
+        b"OrientableSurface" => Tag::OrientableSurface(false),
         b"Polygon" | b"Triangle" | b"Rectangle" | b"PolygonPatch" => Tag::Polygon,
         b"interior" | b"innerBoundaryIs" => Tag::Interior,
         b"LinearRing" => Tag::Ring,
@@ -141,25 +145,37 @@ fn tag(name: &[u8]) -> Tag {
     }
 }
 
-/// `lodN…` geometry properties: LOD4 (interiors), curves and terrain intersections are skipped.
+/// `lodN…` geometry properties: LOD0 (2D footprints), LOD4 (interiors), curves and terrain
+/// intersections are skipped.
 fn lod_tag(name: &[u8]) -> Option<Tag> {
     let rest = name.strip_prefix(b"lod")?;
     let (&digit, kind) = rest.split_first()?;
     if !digit.is_ascii_digit() || !kind.first()?.is_ascii_uppercase() {
         return None;
     }
-    if digit == b'4' || kind.ends_with(b"MultiCurve") || kind.starts_with(b"TerrainIntersection") {
+    if matches!(digit, b'0' | b'4')
+        || kind.ends_with(b"MultiCurve")
+        || kind.starts_with(b"TerrainIntersection")
+    {
         return Some(Tag::Skip);
     }
     Some(Tag::Lod(digit - b'0'))
 }
 
 /// Reads the buildings of `bytes`.
+#[cfg(test)]
 pub fn parse(bytes: &[u8]) -> AnyResult<Document> {
+    parse_reader(bytes)
+}
+
+/// Streams the buildings of `reader` without loading the whole file into one byte buffer.
+pub fn parse_reader<R: BufRead>(reader: R) -> AnyResult<Document> {
     let mut parser = Parser::default();
-    let mut reader = Reader::from_reader(bytes);
+    let mut xml = Reader::from_reader(reader);
+    let mut buf = Vec::with_capacity(8192);
     loop {
-        match reader.read_event() {
+        buf.clear();
+        match xml.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => parser.start(&e),
             Ok(Event::Empty(e)) => {
                 parser.start(&e);
@@ -173,16 +189,22 @@ pub fn parse(bytes: &[u8]) -> AnyResult<Document> {
             }
             Ok(Event::Eof) => return Ok(parser.document),
             Ok(_) => {}
-            Err(e) => bail!("invalid XML at byte {}: {e}", reader.buffer_position()),
+            Err(e) => bail!("invalid XML at byte {}: {e}", xml.buffer_position()),
         }
     }
 }
 
 #[derive(Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent single-pass XML parser flags (`skip`, `in_coordinates`, `unreadable`, `polygon_ok`)"
+)]
 struct Parser {
     stack: Vec<Tag>,
-    /// The depth of a skipped element: everything inside it is left unread.
-    skip: Option<usize>,
+    /// Whether the parser is inside a skipped element: everything inside it is left unread.
+    skip: bool,
+    /// Number of enclosing `<OrientableSurface orientation="-">` elements; odd flips ring winding.
+    reverse_flips: u32,
     /// The building being read, its polygons collected in `polygons` until it ends.
     building: Option<Building>,
     /// The polygons of the building, each with its owner and LOD.
@@ -217,16 +239,19 @@ fn attribute(e: &BytesStart<'_>, local: &[u8]) -> Option<String> {
 
 impl Parser {
     fn start(&mut self, e: &BytesStart<'_>) {
-        if self.document.srs_name.is_none() {
+        if !self.skip && self.document.srs_name.is_none() {
             self.document.srs_name = attribute(e, b"srsName");
         }
-        let depth = self.stack.len();
         let tag = match (self.skip, tag(e.local_name().as_ref().as_bytes())) {
-            (Some(_), _) => Tag::Other,
-            (None, Tag::Building) if self.building.is_some() => Tag::Owner {
+            (true, _) => Tag::Other,
+            (false, Tag::Building) if self.building.is_some() => Tag::Owner {
                 installation: false,
             },
-            (None, tag) => tag,
+            (false, Tag::OrientableSurface(_)) => {
+                let flipped = attribute(e, b"orientation").is_some_and(|o| o.trim() == "-");
+                Tag::OrientableSurface(flipped)
+            }
+            (false, tag) => tag,
         };
         #[expect(
             clippy::wildcard_enum_match_arm,
@@ -241,7 +266,8 @@ impl Parser {
                 self.polygons.clear();
                 self.installations.clear();
             }
-            Tag::Skip => self.skip = Some(depth),
+            Tag::Skip => self.skip = true,
+            Tag::OrientableSurface(true) => self.reverse_flips += 1,
             Tag::Owner { installation } => {
                 self.next_owner += 1;
                 self.owners.push(self.next_owner);
@@ -281,7 +307,12 @@ impl Parser {
         };
         match tag {
             Tag::Building => self.end_building(),
-            Tag::Skip => self.skip = None,
+            Tag::Skip => self.skip = false,
+            Tag::OrientableSurface(flipped) => {
+                if flipped {
+                    self.reverse_flips -= 1;
+                }
+            }
             Tag::Owner { .. } => {
                 self.owners.pop();
                 self.semantics.pop();
@@ -326,6 +357,9 @@ impl Parser {
             self.points.truncate(start);
             return;
         }
+        if !self.reverse_flips.is_multiple_of(2) {
+            self.points[start..].reverse();
+        }
         self.ends.push(self.points.len());
     }
 
@@ -350,12 +384,19 @@ impl Parser {
         let Some(mut building) = self.building.take() else {
             return;
         };
-        // An owner whose polygons all lie in semantic surfaces picks the LODs of its walls,
-        // roofs and grounds each on its own; any other picks them for all its polygons at once.
+        // An owner whose highest-LOD polygons all lie in semantic surfaces picks the LODs of
+        // its walls, roofs and grounds each on its own; lower unsemantic solids (such as
+        // `lod1Solid` beside semantic LOD2/3) only serve as an LOD2 fallback if a semantic kind
+        // has no LOD <= 2 of its own, rather than wiping out semantic surfaces at other LODs.
+        let mut owner_highest: HashMap<u32, u8> = HashMap::new();
+        for &(owner, lod, _) in &self.polygons {
+            let h = owner_highest.entry(owner).or_insert(lod);
+            *h = (*h).max(lod);
+        }
         let mut unsplit = HashSet::new();
-        for (owner, _, polygon) in &self.polygons {
-            if polygon.part.is_none() {
-                unsplit.insert(*owner);
+        for &(owner, lod, ref polygon) in &self.polygons {
+            if polygon.part.is_none() && owner_highest.get(&owner) == Some(&lod) {
+                unsplit.insert(owner);
             }
         }
         let key = |owner: u32, part: Option<Part>| {
@@ -365,6 +406,9 @@ impl Parser {
             });
             (owner, kind)
         };
+        // Drop lower-LOD unsemantic solids when the owner's highest LOD is semantic.
+        self.polygons
+            .retain(|&(owner, _, ref p)| p.part.is_some() || unsplit.contains(&owner));
         // The highest LOD of each key, and its highest LOD of 2 or less.
         let mut best: HashMap<(u32, Option<Part>), (u8, Option<u8>)> = HashMap::new();
         for &(owner, lod, ref polygon) in &self.polygons {
@@ -575,15 +619,27 @@ mod tests {
     }
 
     #[test]
-    fn a_part_with_a_polygon_outside_semantic_surfaces_picks_its_lods_at_once() {
+    fn lod0_footprints_and_lower_unsemantic_solids_do_not_erase_semantic_lods() {
+        let lod0 = format!(
+            "<bldg:lod0FootPrint><gml:MultiSurface><gml:surfaceMember>{}</gml:surfaceMember>\
+             </gml:MultiSurface></bldg:lod0FootPrint>",
+            polygon(&[&SQUARE]),
+        );
         let solid = format!(
             "<bldg:lod1MultiSurface><gml:MultiSurface><gml:surfaceMember>{}</gml:surfaceMember>\
              </gml:MultiSurface></bldg:lod1MultiSurface>",
             polygon(&[&SQUARE]),
         );
+        let orient = format!(
+            "<bldg:boundedBy><bldg:RoofSurface><bldg:lod3MultiSurface><gml:MultiSurface>\
+             <gml:surfaceMember><gml:OrientableSurface orientation=\"-\"><gml:baseSurface>{}\
+             </gml:baseSurface></gml:OrientableSurface></gml:surfaceMember></gml:MultiSurface>\
+             </bldg:lod3MultiSurface></bldg:RoofSurface></bldg:boundedBy>",
+            polygon(&[&SQUARE]),
+        );
         let xml = format!(
-            "{HEAD}<bldg:Building>{solid}{}</bldg:Building></core:CityModel>",
-            surface("RoofSurface", 2, &polygon(&[&SQUARE])),
+            "{HEAD}<bldg:Building>{lod0}{solid}{orient}{}</bldg:Building></core:CityModel>",
+            surface("GroundSurface", 2, &polygon(&[&SQUARE])),
         );
         let document = parse(xml.as_bytes()).unwrap();
         let polygons: Vec<_> = document.buildings[0]
@@ -591,7 +647,15 @@ mod tests {
             .iter()
             .map(|p| (p.part, p.lods))
             .collect();
-        assert_eq!(polygons, [(Some(Part::Roof), Lods::Both)]);
+        assert_eq!(
+            polygons,
+            [
+                (Some(Part::Roof), Lods::Both),
+                (Some(Part::Ground), Lods::Both),
+            ]
+        );
+        // OrientableSurface orientation="-" reversed the ring.
+        assert_eq!(document.buildings[0].polygons[0].points[0], SQUARE[3]);
     }
 
     #[test]

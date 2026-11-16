@@ -28,6 +28,7 @@ use rayon::prelude::*;
 
 use self::clip::Rect;
 use self::feature_id::feature_id;
+#[cfg(feature = "citygml")]
 pub(super) use self::project::mercator_unit;
 use self::project::{Dims, Geom, Projector, Vertex};
 use self::round::to_tile;
@@ -353,7 +354,7 @@ impl Tiler<'_> {
 }
 
 /// Whether `err` stems from a decoder running out of its memory budget.
-fn is_memory_limit(err: &anyhow::Error) -> bool {
+pub(super) fn is_memory_limit(err: &anyhow::Error) -> bool {
     err.chain().any(|cause| {
         matches!(
             cause.downcast_ref::<MltError>(),
@@ -364,7 +365,7 @@ fn is_memory_limit(err: &anyhow::Error) -> bool {
 
 /// Decode `bytes` into rows within the default memory budget, as a renderer
 /// reading the tile would decode them.
-fn decode_with_default_budget(bytes: &[u8]) -> Result<(), MltError> {
+pub(super) fn decode_with_default_budget(bytes: &[u8]) -> Result<(), MltError> {
     let layers = Parser::default().parse_layers(bytes)?;
     let mut dec = Decoder::default();
     layers

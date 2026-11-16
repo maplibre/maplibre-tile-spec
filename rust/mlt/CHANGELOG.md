@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- *(cli)* tile `CityGML` 2.0/3.0 buildings into a directory of v2 `Meshes` tiles with `convert`, at LOD2 and as blocks below the highest zoom, those under 40 m merged where they touch from three zooms below, with outlines simplified to within a pixel, and the other meshes simplified by meshoptimizer within 5 cm at the highest zoom and a third of a pixel below
-
 ## [0.6.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.6.1...rust-mlt-v0.6.2) - 2026-11-15
 
 ### Other

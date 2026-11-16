@@ -1,6 +1,7 @@
 mod bbox;
 mod common;
 pub mod fields;
+#[cfg(feature = "citygml")]
 mod from_citygml;
 mod from_files;
 mod from_geojson;
@@ -403,6 +404,10 @@ pub struct ConvertArgs {
     /// What an altitude of `0` stands for (needs `--z-step`)
     #[clap(long, value_name = "MODE", help_heading = "GeoJSON input")]
     height_mode: Option<HeightModeArg>,
+    /// Re-read a `CityGML` file whose coordinates lie >1 degree from the directory's majority CRS
+    /// in its declared CRS, when they fit that majority CRS instead (e.g. mislabelled UTM zones)
+    #[clap(long, help_heading = "GeoJSON and CityGML input")]
+    fix_mislabelled_crs: bool,
     #[command(flatten)]
     v2: V2EncoderArgs,
 }
@@ -581,14 +586,34 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let input_container = args.input_container();
     let output_container = args.output_container();
     let geojson_input = is_geojson(&args.input);
+    #[cfg(feature = "citygml")]
     let citygml_input = !geojson_input && from_citygml::is_citygml(&args.input)?;
+    #[cfg(not(feature = "citygml"))]
+    let citygml_input = {
+        if !geojson_input
+            && args
+                .input
+                .extension()
+                .is_some_and(|x| x.eq_ignore_ascii_case("gml"))
+        {
+            bail!(
+                "CityGML support requires the `citygml` Cargo feature on `mlt`: {}",
+                args.input.display()
+            );
+        }
+        false
+    };
     let geojson_only = [
         ("--min-zoom", args.min_zoom.is_some()),
         ("--max-zoom", args.max_zoom.is_some()),
         ("--layer", args.layer.is_some()),
         ("--z-step", args.z_step.is_some()),
         ("--height-mode", args.height_mode.is_some()),
+        ("--fix-mislabelled-crs", args.fix_mislabelled_crs),
     ];
+    if geojson_input && args.fix_mislabelled_crs {
+        bail!("--fix-mislabelled-crs applies only to a CityGML input");
+    }
     if geojson_input || citygml_input {
         let kind = if geojson_input { "GeoJSON" } else { "CityGML" };
         if args.max_zoom.is_none() {
@@ -600,8 +625,11 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         if args.mlt_version != MltVersion::V2 {
             bail!("tiling a {kind} input writes MLT version 2, so it needs --mlt-version 2");
         }
-        if citygml_input && args.verify {
-            bail!("--verify does not compare meshes, so it cannot be used with a CityGML input");
+        if citygml_input && args.tessellate.is_some() {
+            bail!("--tessellate cuts 2D polygons, so it does not apply to a CityGML mesh input");
+        }
+        if citygml_input && args.v2.triangles_only {
+            bail!("--triangles-only applies to polygon layers, not a CityGML mesh input");
         }
         if citygml_input && args.height_mode.is_some() {
             bail!(
@@ -686,7 +714,12 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     } else if geojson_input {
         from_geojson::convert(args, &reencoder)
     } else if citygml_input {
-        from_citygml::convert(args, &reencoder)
+        #[cfg(feature = "citygml")]
+        {
+            from_citygml::convert(args, &reencoder)
+        }
+        #[cfg(not(feature = "citygml"))]
+        unreachable!("citygml_input is false without the citygml feature")
     } else {
         from_files::convert(&args.input, &args.output, &reencoder, args.to)
     };

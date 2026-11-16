@@ -75,11 +75,13 @@ mlt convert citygml/hamburg tiles --mlt-version 2 --min-zoom 14 --max-zoom 16
 ```
 
 Each building, bridge or tunnel becomes one feature per zoom, reprojected from the file's
-`srsName`. A building is stored whole, in the tile of each zoom that holds the centre of its
-bounding box. Its z values are the height above its lowest vertex, relative to the ground and
-on a 1 cm grid unless `--z-step` says otherwise, and each triangle carries the `part` m-value (wall, roof, ground,
-window or door), so surfaces of different parts share their vertices. Each feature has the
-building's `gml_id` property. `--verify` does not compare meshes and is rejected.
+`srsName` (with vertical units scaled to metres). A building is stored whole, in the tile of each
+zoom that holds the centre of its Web Mercator `(x, y)` bounding box. Its z values are heights
+above its ground datum (`GroundSurface` at that centre, or its lowest vertex without one), in the
+`relativeToGround` height mode and on a 1 cm grid unless `--z-step` says otherwise, and each
+triangle carries the `part` m-value (wall, roof, ground, window or door), so surfaces of different
+parts share their vertices. Each feature has the building's `gml_id` property, and `--verify`
+round-trip checks every encoded mesh tile.
 
 Lower zooms hold less detail, a pixel being a 512th of a tile:
 
@@ -103,9 +105,9 @@ removed: within 5 cm at `--max-zoom`, and a third of a pixel below. A mesh with 
 with the seams where they meet kept, their vertices sliding along them; a block as a whole, each
 triangle then a roof or wall by its facing.
 
-A file whose coordinates lie more than 1° from the input's other files in the CRS it declares,
-but near them in the CRS most files declare, is read in the latter with a warning: some Hamburg
-files declare EPSG:25833 for UTM zone 32 coordinates.
+With `--fix-mislabelled-crs`, a file whose coordinates lie more than 1 degree from the input's
+other files in the CRS it declares, but near them in the CRS most files declare, is read in the
+latter with a warning: some Hamburg files declare EPSG:25833 for UTM zone 32 coordinates.
 
 ### Visualizer
 

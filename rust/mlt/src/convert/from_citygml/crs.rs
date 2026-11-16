@@ -14,7 +14,7 @@ use proj4rs::transform::{Transform, TransformClosure, transform};
 pub fn epsg_of_srs_name(name: &str) -> Option<u16> {
     let lower = name.to_ascii_lowercase();
     if let Some(at) = lower.find("epsg") {
-        let segment = lower[at + 4..].split([',', '+', '*']).next()?;
+        let segment = lower[at + 4..].split([',', '+', '*', '&']).next()?;
         let code = segment.split([':', '/', '#']).rfind(|s| !s.is_empty())?;
         return code.trim().parse().ok().map(|code| match code {
             // JGD2011 + JGD2011 (vertical) height, as PLATEAU names it
@@ -36,11 +36,13 @@ pub fn epsg_of_srs_name(name: &str) -> Option<u16> {
         .map(|zone| 25800 + zone)
 }
 
-/// Positions of one CRS to longitude and latitude in radians on WGS84, heights unchanged.
+/// Positions of one CRS to longitude and latitude in radians on WGS84, heights in metres.
 pub struct Reprojector {
     epsg: u16,
     src: Proj,
     dst: Proj,
+    /// Scale factor from source vertical units to metres (e.g. `0.3048` for feet).
+    z_to_metres: f64,
     /// Whether the CRS is geographic, its coordinates latitude and longitude in degrees.
     pub geographic: bool,
 }
@@ -51,19 +53,32 @@ impl Reprojector {
             .map_err(|e| anyhow!("EPSG:{epsg} is not a CRS this build knows: {e}"))?;
         let dst = Proj::from_proj_string("+proj=longlat +datum=WGS84 +no_defs")
             .map_err(|e| anyhow!("{e}"))?;
+        let geographic = src.is_latlong();
+        let z_to_metres = if geographic {
+            1.0
+        } else if (src.vto_meter() - 1.0).abs() > 1e-9 {
+            src.vto_meter()
+        } else {
+            src.to_meter()
+        };
         Ok(Self {
             epsg,
-            geographic: src.is_latlong(),
             src,
             dst,
+            z_to_metres,
+            geographic,
         })
     }
 
-    /// Replaces each of `points` by `[lon, lat, height]` in radians and the source's height unit.
+    /// Replaces each of `points` by `[lon, lat, height_metres]` in radians and metres.
     pub fn to_geodetic(&self, points: &mut [[f64; 3]]) -> AnyResult<()> {
         if self.geographic {
             for p in points.iter_mut() {
                 *p = [p[1].to_radians(), p[0].to_radians(), p[2]];
+            }
+        } else if (self.z_to_metres - 1.0).abs() > 1e-12 {
+            for p in points.iter_mut() {
+                p[2] *= self.z_to_metres;
             }
         }
         transform(&self.src, &self.dst, &mut Points(points))
@@ -103,6 +118,10 @@ mod tests {
             ("urn:ogc:def:crs,crs:EPSG::25832,crs:EPSG::7837", 25832),
             ("EPSG:5555", 25832),
             ("urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH", 25832),
+            (
+                "http://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/25832&2=http://www.opengis.net/def/crs/EPSG/0/7837",
+                25832,
+            ),
         ] {
             assert_eq!(epsg_of_srs_name(name), Some(code), "{name}");
         }
@@ -121,6 +140,19 @@ mod tests {
         assert!((points[0][0].to_degrees() - 139.7).abs() < 1e-9);
         assert!((points[0][1].to_degrees() - 35.66).abs() < 1e-9);
         assert!((points[0][2] - 40.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn foot_crs_scales_vertical_heights_to_metres() {
+        // EPSG:2263 is NAD83 / New York Long Island (ftUS), ~0.3048006 m/ft.
+        let r = Reprojector::new(2263).unwrap();
+        let mut points = [[987_000.0, 212_000.0, 100.0]];
+        r.to_geodetic(&mut points).unwrap();
+        assert!(
+            (points[0][2] - 30.480_060_96).abs() < 1e-4,
+            "{:?}",
+            points[0]
+        );
     }
 
     #[test]

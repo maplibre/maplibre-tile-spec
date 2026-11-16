@@ -70,11 +70,12 @@ fn mlt_convert(input: &Path, output: &Path, args: &[&str]) -> Output {
         .unwrap()
 }
 
-/// The stderr of `out`, with the temp dir it ran in shown as `[TMP]`.
+/// The stderr of `out`, with the temp dir it ran in shown as `[TMP]` and Windows `\` normalized.
 fn stderr_of(dir: &TempDir, out: &Output) -> String {
     String::from_utf8(out.stderr.clone())
         .unwrap()
         .replace(dir.0.to_str().unwrap(), "[TMP]")
+        .replace('\\', "/")
 }
 
 #[track_caller]
