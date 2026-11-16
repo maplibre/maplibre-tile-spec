@@ -251,6 +251,10 @@ pub(crate) fn encode_into02(
     } else {
         Outlines::Keep
     };
+    let geometry_offsets = m_values
+        .iter()
+        .any(|m| m.scope == MValueScope::Vertex)
+        .then(|| geometry.geometry_offsets.clone().unwrap_or_default());
     let triangle_offsets = m_values
         .iter()
         .any(|m| m.scope == MValueScope::Triangle)
@@ -276,10 +280,18 @@ pub(crate) fn encode_into02(
     {
         return Err(MltError::TriangleMValueWithoutMesh(m_value.name.clone()));
     }
-    let decoded = triangle_offsets.map(|offsets| DecodedTriangles {
+    let decoded_triangles = triangle_offsets.map(|offsets| DecodedTriangles {
         offsets,
         order: geo.triangle_order,
     });
+    let decoded_vertices = (meshes && !geo.vertex_order.is_empty())
+        .then(|| {
+            geometry_offsets.map(|offsets| DecodedTriangles {
+                offsets,
+                order: geo.vertex_order,
+            })
+        })
+        .flatten();
     enc.data_mut()[layout_pos] =
         LayerLayout::new(geo.layout, shared.count(), shared.coded()).to_byte();
 
@@ -302,12 +314,15 @@ pub(crate) fn encode_into02(
     // ── M-value section (not part of column_count either) ─────────────────
     for m_value in &m_values {
         let scope = meshes.then_some(m_value.scope);
-        match (&decoded, m_value.scope) {
-            (Some(decoded), MValueScope::Triangle) => {
-                let values = m_value.values.pick(&decoded.value_order(m_value)?);
-                write_m_value02(m_value, &values, scope, &shared, &mut enc, codecs)?;
-            }
-            _ => write_m_value02(m_value, &m_value.values, scope, &shared, &mut enc, codecs)?,
+        let reordered = match m_value.scope {
+            MValueScope::Triangle => decoded_triangles.as_ref(),
+            MValueScope::Vertex => decoded_vertices.as_ref(),
+        };
+        if let Some(reordered) = reordered {
+            let values = m_value.values.pick(&reordered.value_order(m_value)?);
+            write_m_value02(m_value, &values, scope, &shared, &mut enc, codecs)?;
+        } else {
+            write_m_value02(m_value, &m_value.values, scope, &shared, &mut enc, codecs)?;
         }
     }
 
