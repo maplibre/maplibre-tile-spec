@@ -32,7 +32,7 @@
     "@biomejs/biome": "^2.6.6",
     "@eslint/js": "^10.0.1",
     "@mapbox/vector-tile": "^3.0.0",
-    "@maplibre/maplibre-gl-style-spec": "^26.5.1",
+    "@maplibre/maplibre-gl-style-spec": "^26.6.0",
     "@types/bytebuffer": "^5.0.49",
     "@types/earcut": "^3.2.4",
     "@types/node": "^26.6.6",
@@ -44,7 +44,7 @@
     "eslint": "^10.14.0",
     "pbf": "^5.1.2",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "^8.72.1",
+    "typescript-eslint": "^8.72.2",
     "vitest": "^5.0.0"
   },
   "dependencies": {
