@@ -53,7 +53,7 @@ const tile = decodeTile(data);
 for (const [name, layer] of Object.entries(tile.layers)) {
     for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
-        console.log(feature.type);           // 1 | 2 | 3
+        console.log(feature.type);           // 0 (Mesh) | 1 | 2 | 3
         console.log(feature.id);             // number | undefined
         console.log(feature.properties);     // read from the decoded columns
         console.log(feature.loadGeometry()); // Point[][]
@@ -97,8 +97,10 @@ converts one z to metres, exactly as `mlt-core` does.
 Its `heightMode` says what a z of `0` stands for: `"absolute"` is mean sea level and
 `"relativeToGround"` the terrain under each vertex.
 
-A v2 layer's `mValues` hold its m-value columns, one value per vertex or, in a `Meshes` layer, per
-triangle, and strings as dictionary codes; see `MltMValueColumn`.
+A v2 layer's `mValues` hold its m-value columns, packed over the vertices or, in a `Meshes` layer,
+the triangles of the features whose `present` bit is set (absent features store zero items rather
+than `0`/`""` padding), with strings as dictionary codes; `mValueSlice(layer, column, f)` reads
+one feature's slice, and `MltFeature3D.loadMValues(name)` does the same on `decodeTile3D`.
 
 A `Meshes` layer's features are all `MltGeometryType.Mesh`: `geometryOffsets` starts each feature's
 run of vertices, and `triangleOffsets` each feature's triangles in the layer-wide `indexBuffer`.
@@ -202,14 +204,19 @@ Like `x` and `y`, `z` is the stored integer: it lies on the layer's `zStep` grid
 `toElevation(z, layer.zStep)` gives it in metres above the layer's `heightMode` base.
 
 ```ts
-import { decodeTile3D } from '@maplibre/mlt-wasm';
+import { decodeTile3D, MltGeometryType } from '@maplibre/mlt-wasm';
 
 const tile = decodeTile3D(data);
 for (const [name, layer] of Object.entries(tile.layers)) {
     for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
-        // exterior ring, then holes; each ring is closed (its first vertex is repeated at the end)
-        const polygons = feature.loadPolygons(); // [x, y, z][][][]
+        if (feature.mltType === MltGeometryType.Mesh) {
+            const vertices = feature.loadGeometry()[0]; // [x, y, z][]
+            const triangles = feature.loadTriangles();  // Uint32Array
+        } else {
+            // exterior ring, then holes; each ring is closed (its first vertex is repeated at the end)
+            const polygons = feature.loadPolygons();    // [x, y, z][][][]
+        }
     }
 }
 ```

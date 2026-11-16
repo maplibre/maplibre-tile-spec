@@ -87,8 +87,7 @@ function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
       ordinals[f] = polygons;
       if (
         types[f] === MltGeometryType.Polygon ||
-        types[f] === MltGeometryType.MultiPolygon ||
-        types[f] === MltGeometryType.Mesh
+        types[f] === MltGeometryType.MultiPolygon
       ) {
         polygons++;
       }
@@ -289,8 +288,9 @@ const resolvedStarts = new WeakMap<MltGeometryColumns, MltGeometryStarts>();
  * offset columns are returned as they are; levels the layer leaves out are filled in. They are
  * resolved once per layer, and every call returns the same arrays, so they must not be modified.
  *
- * Throws for a `TessPolygons` layer, which stores triangles and no runs of vertices
- * (see `indexBuffer` and `triangleOffsets`), and when the offset levels are inconsistent.
+ * Throws for a `TessPolygons` layer, which stores triangles and no runs of vertices (see
+ * `indexBuffer` and `triangleOffsets`), and when the offset levels are inconsistent. On a
+ * `Meshes` layer, each feature's vertex run is already `geometry.geometryOffsets`.
  */
 export function geometryStarts(
   geometry: MltGeometryColumns,

@@ -30,11 +30,14 @@ export {
   type MltMValueColumn,
   type MltMValueScope,
   type MltNamedColumn,
+  mValueSlice,
   toElevation,
 } from "./columns";
 export {
   featureGeometry,
   geometryStarts,
+  isMeshes,
+  isTrianglesOnly,
   type MltFeatureGeometry,
   type MltGeometryStarts,
   type MltLineGeometry,

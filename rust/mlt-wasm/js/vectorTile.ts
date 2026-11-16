@@ -9,9 +9,11 @@ import {
   decodeTileColumns,
   type HeightMode,
   type MltColumnLayer,
+  type MltColumnValues,
   MltGeometryType,
   type MltMValueColumn,
   type MltNamedColumn,
+  mValueSlice,
 } from "./columns";
 import {
   featureGeometry,
@@ -210,6 +212,11 @@ abstract class FeatureBase<V> {
 
   /** Rings grouped by polygon. */
   protected polygons(): V[][][] {
+    if (this.mltType === MltGeometryType.Mesh) {
+      throw new Error(
+        `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is a mesh; use loadGeometry() and loadTriangles() instead of loadPolygons()`,
+      );
+    }
     if (this.type !== POLYGON) return [this.rings()];
     const { geometry } = this._layer.layer;
     const vertex = this.vertex();
@@ -234,6 +241,9 @@ export class MltFeature
 {
   /** The z grid as the power of ten of its step in metres, or `undefined` when the layer has none. */
   readonly zStep: number | undefined = this._layer.layer.geometry.zStep;
+  /** What a z of `0` stands for, or `undefined` when the layer has no z and sits on the ground. */
+  readonly heightMode: HeightMode | undefined =
+    this._layer.layer.geometry.heightMode;
 
   loadGeometry(): Point[][] {
     return this.rings();
@@ -270,6 +280,7 @@ export class MltFeature3D extends FeatureBase<Position3D> {
     featureIdx: number,
     layer: LayerData,
     readonly zStep: number,
+    readonly heightMode: HeightMode = "absolute",
   ) {
     super(featureIdx, layer);
   }
@@ -289,6 +300,11 @@ export class MltFeature3D extends FeatureBase<Position3D> {
    * Throws for a feature that is not a mesh.
    */
   loadTriangles(): Uint32Array {
+    if (this.mltType !== MltGeometryType.Mesh) {
+      throw new Error(
+        `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`,
+      );
+    }
     const geometry = featureGeometry(this._layer.layer, this._featureIdx);
     if (geometry.kind !== "mesh") {
       throw new Error(
@@ -296,6 +312,18 @@ export class MltFeature3D extends FeatureBase<Position3D> {
       );
     }
     return geometry.triangles;
+  }
+
+  /**
+   * This feature's slice of m-value column `name`, or `undefined` when the
+   * column is absent or null on this feature.
+   */
+  loadMValues(
+    name: string,
+  ): Exclude<MltColumnValues, string[]> | string[] | undefined {
+    const column = this._layer.layer.mValues?.find((c) => c.name === name);
+    if (column === undefined) return undefined;
+    return mValueSlice(this._layer.layer, column, this._featureIdx);
   }
 
   protected vertex(): VertexOf<Position3D> {
@@ -388,7 +416,12 @@ export class MltLayer3D extends LayerBase {
   }
 
   feature(i: number): MltFeature3D {
-    return new MltFeature3D(this.featureIndex(i), this._data, this.zStep);
+    return new MltFeature3D(
+      this.featureIndex(i),
+      this._data,
+      this.zStep,
+      this.heightMode,
+    );
   }
 }
 
