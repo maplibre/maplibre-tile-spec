@@ -2620,9 +2620,9 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a46f7856ec69428f74f740f3c5f571733a5c4779ed54aed703c3f12af6dd335c"
+checksum = "0d63c40ed70e95012ea89df4a3de453d6f2ca927984cfb0bd6593757513fcc4f"
 dependencies = [
  "bytes",
  "flume",
