@@ -1,7 +1,7 @@
 //! End-to-end tests of `mlt convert` tiling a `CityGML` file into a directory of v2 `Meshes` tiles.
 
 // hotpath appends its profile to stderr, which the error checks read.
-#![cfg(not(feature = "hotpath"))]
+#![cfg(all(feature = "citygml", not(feature = "hotpath")))]
 
 use std::fs;
 use std::ops::RangeInclusive;
@@ -68,7 +68,8 @@ const LOD2_HALF_CELL: i32 = 36;
 fn each_building_becomes_one_mesh_per_zoom_with_parts_and_heights_above_ground() {
     let dir = TempDir::new();
     let output = dir.0.join("out");
-    convert(Path::new(BUILDINGS), &output, &TILED).unwrap();
+    let verify = [&TILED[..], &["--verify"]].concat();
+    convert(Path::new(BUILDINGS), &output, &verify).unwrap();
     assert_eq!(fs::read_dir(&output).unwrap().count(), 2);
     let [tower, kiosk] = &features(&output, "16/34588/21180")[..] else {
         panic!("2 features at zoom 16");
@@ -201,7 +202,8 @@ fn a_file_naming_the_wrong_utm_zone_is_read_in_that_of_the_others() {
     fs::write(input.join("a.gml"), &xml).unwrap();
     fs::write(input.join("b.gml"), &xml).unwrap();
     fs::write(input.join("c.gml"), xml.replace("EPSG:25832", "EPSG:25833")).unwrap();
-    convert(&input, &output, &TILED).unwrap();
+    let fix_crs = [&TILED[..], &["--fix-mislabelled-crs"]].concat();
+    convert(&input, &output, &fix_crs).unwrap();
     for zoom in ["15", "16"] {
         assert_eq!(
             fs::read_dir(output.join(zoom)).unwrap().count(),
@@ -228,17 +230,12 @@ fn citygml_input_rejects_flags_it_cannot_honour_and_srs_names_it_cannot_read() {
     let unknown_crs = dir.0.join("local.gml");
     let xml = fs::read_to_string(input).unwrap();
     fs::write(&unknown_crs, xml.replace("EPSG:25832", "urn:example:local")).unwrap();
-    let verify = [&TILED[..], &["--verify"]].concat();
+    let tess = [&TILED[..], &["--tessellate"]].concat();
     let height_mode = [&TILED[..], &["--height-mode", "absolute"]].concat();
     for (input, output, args, expected) in [
         (input, &output, &TILED[2..], "needs --mlt-version 2"),
         (input, &output, &TILED[..4], "requires --max-zoom"),
-        (
-            input,
-            &output,
-            &verify[..],
-            "--verify does not compare meshes",
-        ),
+        (input, &output, &tess[..], "--tessellate cuts 2D polygons"),
         (input, &output, &height_mode[..], "takes no --height-mode"),
         (
             input,

@@ -31,12 +31,21 @@ const STEPS: [[i64; 2]; 4] = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 pub(super) struct Footprint {
     triangles: Vec<[[i32; 2]; 3]>,
     top: i32,
+    base: i32,
 }
 
 impl Footprint {
-    /// The footprint of `surfaces` at `points`, or `None` if it has no area or no height.
+    /// The footprint of `surfaces` at `points` (in absolute source z units), or `None` if it
+    /// has no area or no positive height above its base.
     pub(super) fn new(surfaces: &[&Surface], points: &[Vec<[i32; 3]>]) -> Option<Self> {
         let top = points.iter().flatten().map(|p| p[2]).max()?;
+        let base = surfaces
+            .iter()
+            .zip(points)
+            .filter(|(s, _)| s.part == Part::Ground)
+            .flat_map(|(_, p)| p.iter().map(|v| v[2]))
+            .min()
+            .or_else(|| points.iter().flatten().map(|p| p[2]).min())?;
         let mut triangles: Vec<[[i32; 2]; 3]> = surfaces
             .iter()
             .zip(points)
@@ -60,18 +69,22 @@ impl Footprint {
                 .filter(|&t| area2(t) != 0)
                 .collect();
         }
-        (top > 0 && !triangles.is_empty()).then_some(Self { triangles, top })
+        (top > base && !triangles.is_empty()).then_some(Self {
+            triangles,
+            top,
+            base,
+        })
     }
 
-    /// The top above the ground in z units.
-    pub(super) fn top(&self) -> i32 {
-        self.top
+    /// The height above its base in z units.
+    pub(super) fn height(&self) -> i32 {
+        self.top.saturating_sub(self.base)
     }
 }
 
-/// Twice the signed area of a triangle on the grid.
-fn area2([a, b, c]: [[i32; 2]; 3]) -> i64 {
-    let [a, b, c] = [a, b, c].map(|p| p.map(i64::from));
+/// Twice the signed area of a triangle on the grid, in `i128` so wide coordinates never overflow.
+fn area2([a, b, c]: [[i32; 2]; 3]) -> i128 {
+    let [a, b, c] = [a, b, c].map(|p| p.map(i128::from));
     (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
 }
 
@@ -126,7 +139,6 @@ fn merge_within(
     let band = ((BAND_METRES / z_step.metres()).round() as i32).max(1);
     let groups = raster.group(band);
     let chains = raster.chains();
-    let top = |label: usize| groups.get(label).map_or(0, |g| g.1);
     let mut walls = vec![Vec::new(); groups.len()];
     let mut sides = vec![Vec::new(); groups.len()];
     for (c, chain) in chains.iter().enumerate() {
@@ -136,13 +148,25 @@ fn merge_within(
                 of.push((c, reversed));
             }
         }
-        let (high, low, out) = if top(left) > top(right) {
-            (left, right, 1)
-        } else {
-            (right, left, -1)
+        let (high, low, out) = match (groups.get(left), groups.get(right)) {
+            (Some(l), Some(r)) => {
+                if l.top > r.top {
+                    (left, right, 1)
+                } else {
+                    (right, left, -1)
+                }
+            }
+            (Some(_), None) => (left, right, 1),
+            (None, Some(_)) => (right, left, -1),
+            (None, None) => continue,
         };
-        let (hi, lo) = (top(high), top(low));
-        if hi - lo < min_wall.max(1) {
+        let hi = groups[high].top;
+        // Against another group, wall down to the lower roof; against empty cells, wall down to
+        // this group's lowest footprint base so hillside walls never float above sloped terrain.
+        let lo = groups
+            .get(low)
+            .map_or(groups[high].min_base, |g| g.top.min(hi));
+        if hi.saturating_sub(lo) < min_wall.max(1) {
             continue;
         }
         for pair in chain.points.windows(2) {
@@ -164,18 +188,31 @@ fn merge_within(
     let blocks = groups
         .into_iter()
         .zip(walls.into_iter().zip(sides))
-        .filter_map(|((members, top), (walls, sides))| {
+        .filter_map(|(group, (walls, sides))| {
             let mut roof = Vec::new();
             for (outer, holes) in rings(&chains, &sides) {
-                raster.roof(&outer, &holes, top, &mut roof);
+                raster.roof(&outer, &holes, group.top, &mut roof);
+            }
+            let mut mesh = weld(&walls, &roof)?;
+            // Shift `z` so `z = 0` is the group's ground datum (`datum_base`), keeping
+            // downhill foundations negative (`z < 0`) per `Heights Above the Ground`.
+            for p in &mut mesh.xyz {
+                p[2] = p[2].checked_sub(group.datum_base)?;
             }
             Some(Merged {
-                members,
-                mesh: weld(&walls, &roof)?,
+                members: group.members,
+                mesh,
             })
         })
         .collect();
     Some(blocks)
+}
+
+struct Group {
+    members: Vec<usize>,
+    top: i32,
+    min_base: i32,
+    datum_base: i32,
 }
 
 /// The cells of a tile's footprints, by row from the north-west one at `origin`.
@@ -184,9 +221,11 @@ struct Raster {
     width: usize,
     height: usize,
     cell: f64,
-    /// The highest top of the footprints a covered cell meets, 0 where it is not covered, and
-    /// then the mean top of its group.
+    covered: Vec<bool>,
+    /// The highest absolute top of the footprints a covered cell meets, and then its group's mean top.
     top: Vec<i32>,
+    /// The lowest base of the footprints a covered cell meets.
+    base: Vec<i32>,
     /// The footprint of that top.
     owner: Vec<usize>,
     /// The group of each covered cell, [`NONE`] for the others.
@@ -220,7 +259,9 @@ impl Raster {
             width,
             height,
             cell,
-            top: vec![0; width * height],
+            covered: vec![false; width * height],
+            top: vec![i32::MIN; width * height],
+            base: vec![i32::MAX; width * height],
             owner: vec![usize::MAX; width * height],
             group: vec![NONE; width * height],
         };
@@ -255,6 +296,7 @@ impl Raster {
                             raster.top[c] = footprint.top;
                             raster.owner[c] = f;
                         }
+                        raster.base[c] = raster.base[c].min(footprint.base);
                     }
                 }
             }
@@ -264,9 +306,7 @@ impl Raster {
             let hits = (0..SAMPLES * SAMPLES)
                 .filter(|s| inside[(cy + s / SAMPLES) * width * SAMPLES + cx + s % SAMPLES])
                 .count();
-            if 2 * hits < SAMPLES * SAMPLES {
-                raster.top[c] = 0;
-            }
+            raster.covered[c] = 2 * hits >= SAMPLES * SAMPLES && raster.owner[c] != usize::MAX;
         }
         Some(raster)
     }
@@ -282,27 +322,33 @@ impl Raster {
         ]
     }
 
-    /// Joins the covered cells with their neighbours in the same band of `band` z units, sets
-    /// each cell's top to the mean of its group's, and returns the footprints each group holds
-    /// with its top.
+    /// Joins the covered cells with their neighbours whose absolute top and base stay within the
+    /// same `band` of z units, sets each cell's top to the mean of its group's, and returns each
+    /// group with its top, lowest base (for foundations) and centre-cell base datum (`z = 0`).
     #[expect(
         clippy::cast_possible_truncation,
         reason = "a mean of i32 tops fits an i32"
     )]
-    fn group(&mut self, band: i32) -> Vec<(Vec<usize>, i32)> {
+    fn group(&mut self, band: i32) -> Vec<Group> {
         let mut groups = Vec::new();
         for start in 0..self.top.len() {
-            if self.top[start] == 0 || self.group[start] != NONE {
+            if !self.covered[start] || self.group[start] != NONE {
                 continue;
             }
-            let (g, of) = (groups.len(), self.top[start] / band);
+            let g = groups.len();
+            let top_band = self.top[start].div_euclid(band);
+            let base_band = self.base[start].div_euclid(band);
             let mut cells = vec![start];
             self.group[start] = g;
             let mut next = 0;
             while let Some(&c) = cells.get(next) {
                 next += 1;
                 for n in self.beside(c).into_iter().flatten() {
-                    if self.top[n] > 0 && self.group[n] == NONE && self.top[n] / band == of {
+                    if self.covered[n]
+                        && self.group[n] == NONE
+                        && self.top[n].div_euclid(band) == top_band
+                        && self.base[n].div_euclid(band) == base_band
+                    {
                         self.group[n] = g;
                         cells.push(n);
                     }
@@ -310,12 +356,36 @@ impl Raster {
             }
             let sum: i64 = cells.iter().map(|&c| i64::from(self.top[c])).sum();
             let len = i64::try_from(cells.len()).unwrap_or(i64::MAX);
-            let mean = ((sum + len / 2) / len).max(1) as i32;
+            let mean = ((sum + len / 2) / len) as i32;
+            let min_base = cells.iter().map(|&c| self.base[c]).min().unwrap_or(0);
+            // Pick the covered cell nearest the group's (x, y) bounding-box midpoint as `z = 0`.
+            let (mut x0, mut x1) = (usize::MAX, 0);
+            let (mut y0, mut y1) = (usize::MAX, 0);
+            for &c in &cells {
+                let (cx, cy) = (c % self.width, c / self.width);
+                x0 = x0.min(cx);
+                x1 = x1.max(cx);
+                y0 = y0.min(cy);
+                y1 = y1.max(cy);
+            }
+            let (mx, my) = (usize::midpoint(x0, x1), usize::midpoint(y0, y1));
+            let datum_base = cells
+                .iter()
+                .min_by_key(|&&c| {
+                    let (cx, cy) = (c % self.width, c / self.width);
+                    cx.abs_diff(mx).pow(2) + cy.abs_diff(my).pow(2)
+                })
+                .map_or(min_base, |&c| self.base[c]);
             let members: BTreeSet<usize> = cells.iter().map(|&c| self.owner[c]).collect();
             for c in cells {
                 self.top[c] = mean;
             }
-            groups.push((members.into_iter().collect(), mean));
+            groups.push(Group {
+                members: members.into_iter().collect(),
+                top: mean,
+                min_base,
+                datum_base,
+            });
         }
         groups
     }
@@ -441,24 +511,25 @@ impl Raster {
     ) {
         let rings = std::iter::once(outer).chain(holes.iter().map(Vec::as_slice));
         let corners: Vec<[i32; 2]> = rings.flatten().map(|&p| self.corner(p)).collect();
-        let starts: Vec<usize> = holes
+        let starts: Vec<u32> = holes
             .iter()
             .scan(outer.len(), |start, hole| {
                 let at = *start;
                 *start += hole.len();
-                Some(at)
+                u32::try_from(at).ok()
             })
             .collect();
-        let [x0, y0] = corners[0];
-        let flat: Vec<f64> = corners
-            .iter()
-            .flat_map(|p| [f64::from(p[0] - x0), f64::from(p[1] - y0)])
-            .collect();
-        let Ok(indices) = earcutr::earcut(&flat, &starts, 2) else {
+        if starts.len() != holes.len() {
             return;
-        };
+        }
+        let [x0, y0] = corners[0];
+        let flat = corners
+            .iter()
+            .map(|p| [f64::from(p[0] - x0), f64::from(p[1] - y0)]);
+        let mut indices: Vec<u32> = Vec::new();
+        earcut::Earcut::new().earcut(flat, &starts, &mut indices);
         for t in indices.as_chunks::<3>().0 {
-            let flat = t.map(|i| corners[i]);
+            let flat = t.map(|i| corners[i as usize]);
             if area2(flat) != 0 {
                 roof.push(facing(flat.map(|[x, y]| [x, y, top]), [0, 0, 1]));
             }
@@ -690,6 +761,7 @@ mod tests {
         Footprint {
             triangles: vec![[nw, ne, se], [nw, se, sw]],
             top,
+            base: 0,
         }
     }
 
@@ -810,6 +882,7 @@ mod tests {
         let wedge = [Footprint {
             triangles: vec![[[0, 0], [80, 0], [0, 80]]],
             top: 500,
+            base: 0,
         }];
         let [block] = &merge(&wedge, 10.0, centimetres(), MIN_WALL)[..] else {
             panic!("one block");
@@ -836,7 +909,7 @@ mod tests {
             panic!("one block");
         };
         let [walls, roof] = parts(block);
-        let area: i64 = roof
+        let area: i128 = roof
             .iter()
             .map(|t| area2(t.map(|[x, y, _]| [x, y])).abs())
             .sum();
@@ -853,6 +926,33 @@ mod tests {
         // Half of it: two samples.
         let house = [rectangle([0, 0], [10, 5], 300)];
         assert_eq!(merge(&house, 10.0, centimetres(), MIN_WALL).len(), 1);
+    }
+
+    #[test]
+    fn hillside_buildings_step_apart_across_bands_and_keep_downhill_foundations() {
+        // Two 12 m houses stepping 15 m down a hill: (base 15 m, top 27 m) and (base 0 m, top 12 m).
+        let hillside = [
+            Footprint {
+                triangles: vec![[[0, 0], [20, 0], [20, 20]], [[0, 0], [20, 20], [0, 20]]],
+                top: 2700,
+                base: 1500,
+            },
+            Footprint {
+                triangles: vec![[[20, 0], [40, 0], [40, 20]], [[20, 0], [40, 20], [20, 20]]],
+                top: 1200,
+                base: 0,
+            },
+        ];
+        let blocks = merge(&hillside, 10.0, centimetres(), MIN_WALL);
+        assert_eq!(
+            blocks.len(),
+            2,
+            "stepped hillside houses must not flatten into one slab"
+        );
+        for block in &blocks {
+            let z_max = block.mesh.xyz.iter().map(|p| p[2]).max().unwrap();
+            assert_eq!(z_max, 1200);
+        }
     }
 
     #[test]

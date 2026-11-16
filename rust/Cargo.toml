@@ -32,7 +32,6 @@ derive-debug = "0.1.2"
 diplomat = "0.17.0"
 diplomat-runtime = "0.16.0"
 earcut = "0.4.10"
-earcutr = "0.5.0"
 enum_dispatch = "0.3"
 fast-mvt = "0.8.0"
 fastpfor = { version = "0.9", features = ["rust"] }

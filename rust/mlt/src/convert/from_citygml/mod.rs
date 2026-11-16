@@ -37,7 +37,8 @@ mod triangulate;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::f64::consts::PI;
-use std::fs;
+use std::fs::{self, File as FsFile};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result as AnyResult};
@@ -51,7 +52,7 @@ use self::crs::{Reprojector, epsg_of_srs_name};
 use self::merge::{Footprint, merge};
 use self::parser::{Lods, Part};
 use self::simplify::{Parts, simplify};
-use super::from_geojson::{mercator_unit, tile_index};
+use super::from_geojson::{decode_with_default_budget, is_memory_limit, mercator_unit, tile_index};
 use super::{ConvertArgs, Reencoder};
 
 /// The z grid without `--z-step`: 1 cm.
@@ -109,7 +110,7 @@ pub(super) fn is_citygml(path: &Path) -> AnyResult<bool> {
 
 fn is_gml(path: &Path) -> bool {
     path.extension()
-        .is_some_and(|x| x.eq_ignore_ascii_case("gml"))
+        .is_some_and(|x| x.eq_ignore_ascii_case("gml") || x.eq_ignore_ascii_case("xml"))
 }
 
 /// A surface of one part, with geodetic positions: longitude and latitude in radians, and metres up.
@@ -145,21 +146,23 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
         .par_iter()
         .map(|path| read(path, None).with_context(|| format!("reading {}", path.display())))
         .collect::<AnyResult<_>>()?;
-    let reread: Vec<(usize, Option<File>)> = mislabelled(&parsed)?
-        .into_par_iter()
-        .map(|(i, declared, epsg)| {
-            let path = &files[i];
-            eprintln!(
-                "warning: {} names EPSG:{declared}, but its coordinates lie near the other files in EPSG:{epsg}, so it is read in that",
-                path.display(),
-            );
-            let file = read(path, Some(epsg))
-                .with_context(|| format!("reading {}", path.display()))?;
-            Ok((i, file))
-        })
-        .collect::<AnyResult<_>>()?;
-    for (i, file) in reread {
-        parsed[i] = file;
+    if args.fix_mislabelled_crs {
+        let reread: Vec<(usize, Option<File>)> = mislabelled(&parsed)?
+            .into_par_iter()
+            .map(|(i, declared, epsg)| {
+                let path = &files[i];
+                eprintln!(
+                    "warning: {} names EPSG:{declared}, but its coordinates lie near the other files in EPSG:{epsg}, so it is read in that",
+                    path.display(),
+                );
+                let file = read(path, Some(epsg))
+                    .with_context(|| format!("reading {}", path.display()))?;
+                Ok((i, file))
+            })
+            .collect::<AnyResult<_>>()?;
+        for (i, file) in reread {
+            parsed[i] = file;
+        }
     }
     let buildings: Vec<Building> = parsed
         .into_iter()
@@ -187,9 +190,26 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
                 let Some(layer) = layer(&name, tile, z_step, placed)? else {
                     return Ok(0);
                 };
-                let bytes = reencoder
+                let checked = reencoder
                     .encode(layer)
-                    .with_context(|| format!("encoding tile {at}"))?;
+                    .with_context(|| format!("encoding tile {at}"))
+                    .and_then(|bytes| {
+                        if !reencoder.verify && !bytes.is_empty() {
+                            decode_with_default_budget(&bytes)
+                                .with_context(|| format!("decoding tile {at} back"))?;
+                        }
+                        Ok(bytes)
+                    });
+                let bytes = match checked {
+                    Ok(bytes) => bytes,
+                    Err(e) if is_memory_limit(&e) => {
+                        eprintln!(
+                            "warning: skipping tile {at}: exceeds default decoder memory budget"
+                        );
+                        return Ok(0);
+                    }
+                    Err(e) => return Err(e),
+                };
                 if bytes.is_empty() {
                     return Ok(0);
                 }
@@ -200,6 +220,11 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
                 Ok(1)
             })
             .try_reduce(|| 0, |a, b| Ok(a + b))?;
+    }
+    if written == 0 {
+        eprintln!(
+            "note: no tiles were written (the input held no 3D buildings, or none reached the minimum pixel size at zooms {min_zoom}..={max_zoom})"
+        );
     }
     eprintln!(
         "{} -> {}: wrote {written} tile(s) holding {} building(s) of {} file(s) at zooms {min_zoom}..={max_zoom}",
@@ -229,8 +254,8 @@ fn files(input: &Path) -> AnyResult<Vec<PathBuf>> {
 /// The buildings of the `CityGML` file at `path`, triangulated and reprojected from `epsg` or,
 /// without it, from the file's `srsName`. `None` if the file holds no position.
 fn read(path: &Path, epsg: Option<u16>) -> AnyResult<Option<File>> {
-    let bytes = fs::read(path)?;
-    let document = parser::parse(&bytes)?;
+    let reader = BufReader::new(FsFile::open(path)?);
+    let document = parser::parse_reader(reader)?;
     if document.buildings.is_empty() {
         return Ok(None);
     }
@@ -266,8 +291,11 @@ fn read(path: &Path, epsg: Option<u16>) -> AnyResult<Option<File>> {
                 continue;
             };
             let part = polygon.part.unwrap_or_else(|| {
-                if normal[2] / triangulate::dot(normal, normal).sqrt() > ROOF_MIN_UP {
+                let up = normal[2] / triangulate::dot(normal, normal).sqrt();
+                if up > ROOF_MIN_UP {
                     Part::Roof
+                } else if up < -ROOF_MIN_UP {
+                    Part::Ground
                 } else {
                     Part::Wall
                 }
@@ -492,8 +520,15 @@ fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(
     let view = View::new(building.surfaces.iter().filter(|s| s.lods != lods))?;
     let tile = Tile::of(view.centre, zoom);
     let extent = tile.extent();
-    let points = view.points(tile, extent, z_step)?;
     let pixel = f64::from(extent) / TILE_PIXELS;
+    if below >= MERGE_BELOW {
+        let abs_points = view.points_with_datum(tile, extent, z_step, 0.0)?;
+        let footprint = Footprint::new(&view.surfaces, &abs_points)?;
+        if f64::from(footprint.height()) * z_step.metres() < LANDMARK_MIN_METRES {
+            return Some((tile, Placed::Footprint(footprint)));
+        }
+    }
+    let points = view.points(tile, extent, z_step)?;
     let mesh = match below {
         0 => Mesh::weld(view.surfaces.iter().copied(), &points),
         1 => {
@@ -502,13 +537,7 @@ fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(
             cluster(&view.surfaces, &points, cell)
         }
         _ if below < MERGE_BELOW => block(&view.surfaces, &points, pixel, BLOCK_MIN_PIXELS),
-        _ => {
-            let footprint = Footprint::new(&view.surfaces, &points)?;
-            if f64::from(footprint.top()) * z_step.metres() < LANDMARK_MIN_METRES {
-                return Some((tile, Placed::Footprint(footprint)));
-            }
-            block(&view.surfaces, &points, pixel, 0.0)
-        }
+        _ => block(&view.surfaces, &points, pixel, 0.0),
     };
     let metres = tile.width() / f64::from(extent);
     let (error, parts) = match below {
@@ -520,8 +549,8 @@ fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(
     (!mesh.triangles.is_empty()).then_some((tile, Placed::Mesh(mesh)))
 }
 
-/// Some surfaces of a building, the centre of their bounding box in Web Mercator units of
-/// [`unit()`], and their lowest height.
+/// Some surfaces of a building, the centre of their Web Mercator `(x, y)` bounding box in units
+/// of [`unit()`], and their ground elevation at that centre.
 struct View<'a> {
     surfaces: Vec<&'a Surface>,
     units: Vec<Vec<[f64; 2]>>,
@@ -536,16 +565,38 @@ impl<'a> View<'a> {
         if surfaces.is_empty() {
             return None;
         }
-        let positions = || surfaces.iter().flat_map(|s| &s.positions);
-        let fold =
-            |f: fn(f64, f64) -> f64, i: usize, init: f64| positions().map(|p| p[i]).fold(init, f);
-        let [west, south, ground] = [0, 1, 2].map(|i| fold(f64::min, i, f64::INFINITY));
-        let [east, north] = [0, 1].map(|i| fold(f64::max, i, f64::NEG_INFINITY));
-        let centre = unit(f64::midpoint(west, east), f64::midpoint(south, north));
-        let units = surfaces
+        let units: Vec<Vec<[f64; 2]>> = surfaces
             .iter()
             .map(|s| s.positions.iter().map(|p| unit(p[0], p[1])).collect())
             .collect();
+        let all_units = || units.iter().flatten();
+        let fold_u =
+            |f: fn(f64, f64) -> f64, i: usize, init: f64| all_units().map(|u| u[i]).fold(init, f);
+        let [ux0, uy0] = [0, 1].map(|i| fold_u(f64::min, i, f64::INFINITY));
+        let [ux1, uy1] = [0, 1].map(|i| fold_u(f64::max, i, f64::NEG_INFINITY));
+        let centre = [f64::midpoint(ux0, ux1), f64::midpoint(uy0, uy1)];
+
+        // Prefer the GroundSurface vertex nearest the Web Mercator bbox midpoint as `z = 0`,
+        // so underground basements stay at `z < 0` and sloped buildings match the spec's
+        // centre-ground datum; fall back to the lowest vertex when no GroundSurface is given.
+        let ground_at_centre = surfaces
+            .iter()
+            .zip(&units)
+            .filter(|(s, _)| s.part == Part::Ground)
+            .flat_map(|(s, u)| s.positions.iter().zip(u))
+            .min_by(|(_, ua), (_, ub)| {
+                let da = (ua[0] - centre[0]).hypot(ua[1] - centre[1]);
+                let db = (ub[0] - centre[0]).hypot(ub[1] - centre[1]);
+                da.total_cmp(&db)
+            })
+            .map(|(p, _)| p[2]);
+        let ground = ground_at_centre.unwrap_or_else(|| {
+            surfaces
+                .iter()
+                .flat_map(|s| &s.positions)
+                .map(|p| p[2])
+                .fold(f64::INFINITY, f64::min)
+        });
         Some(Self {
             surfaces,
             units,
@@ -554,9 +605,19 @@ impl<'a> View<'a> {
         })
     }
 
-    /// The vertices of each surface on `tile`'s grid of `extent`, z above the ground, or `None`
+    /// The vertices of each surface on `tile`'s grid of `extent`, z above `self.ground`, or `None`
     /// if one does not fit.
     fn points(&self, tile: Tile, extent: u32, z_step: ZStep) -> Option<Vec<Vec<[i32; 3]>>> {
+        self.points_with_datum(tile, extent, z_step, self.ground)
+    }
+
+    fn points_with_datum(
+        &self,
+        tile: Tile,
+        extent: u32,
+        z_step: ZStep,
+        datum: f64,
+    ) -> Option<Vec<Vec<[i32; 3]>>> {
         self.surfaces
             .iter()
             .zip(&self.units)
@@ -567,7 +628,7 @@ impl<'a> View<'a> {
                     .zip(units)
                     .map(|(p, &u)| {
                         let [x, y] = tile.grid(u, extent)?;
-                        Some([x, y, z_step.z(p[2] - self.ground)?])
+                        Some([x, y, z_step.z(p[2] - datum)?])
                     })
                     .collect()
             })
@@ -637,12 +698,20 @@ fn block(
         return None;
     }
     let cell = BLOCK_CELL_PIXELS * pixel;
+    // Extend foundations below `z = 0` when downhill ground vertices lie below the centre datum;
+    // otherwise start the block at `z = 0`.
+    let base = min[2].min(0);
+    if max[2] <= base {
+        return None;
+    }
     let (grounds, flat): (Vec<&Surface>, Vec<Vec<[i32; 3]>>) = surfaces
         .iter()
         .zip(points)
         .filter(|(s, _)| s.part == Part::Ground)
         .map(|(&s, p)| {
-            let flat = p.iter().map(|&[x, y, _]| [snap(x, cell), snap(y, cell), 0]);
+            let flat = p
+                .iter()
+                .map(|&[x, y, _]| [snap(x, cell), snap(y, cell), base]);
             (s, flat.collect())
         })
         .unzip();
@@ -651,10 +720,10 @@ fn block(
     let mut triangles = facing_down(&xyz, &ground.triangles);
     if triangles.is_empty() {
         xyz = vec![
-            [min[0], min[1], 0],
-            [max[0], min[1], 0],
-            [max[0], max[1], 0],
-            [min[0], max[1], 0],
+            [min[0], min[1], base],
+            [max[0], min[1], base],
+            [max[0], max[1], base],
+            [min[0], max[1], base],
         ];
         triangles = facing_down(&xyz, &[[0, 1, 2], [0, 2, 3]]);
     }
