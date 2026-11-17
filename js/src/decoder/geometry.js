@@ -315,31 +315,48 @@ export function decodeGeometry(
       ? triangleOffsets[triangleOffsets.length - 1]
       : 0;
     if (totalTris !== triCount) throw new Error("tri count");
-    const vertCount = vertices.length / dimension;
-    for (let i = 0; i < treeCycles.length; i++) {
-      if (treeCycles[i] >= vertCount) throw new RangeError("tcyc vtx");
+    if (!isMeshes) {
+      const vertCount = vertices.length / dimension;
+      for (let i = 0; i < treeCycles.length; i++) {
+        if (treeCycles[i] >= vertCount) throw new RangeError("tcyc vtx");
+      }
     }
   }
 
   if (isMeshes) {
     const runs = levels.geometryOffsets ?? new Uint32Array([0]);
-    const vertCount = vertices.length / 3;
+    const vertCount = (vertices.length / 3) | 0;
     const expectedVerts = runs.length > 0 ? runs[runs.length - 1] : 0;
     if (expectedVerts !== vertCount) throw new Error("mesh vtx");
     const triOff = triangleOffsets ?? new Uint32Array([0]);
     if (triOff.length !== runs.length) throw new Error("mesh tlen");
     const indices = indexBuffer ?? EMPTY_U32;
-    for (let f = 0; f < types.length; f++) {
-      const start = runs[f];
-      const end = runs[f + 1];
-      const lo = triOff[f] * 3;
-      const hi = triOff[f + 1] * 3;
-      if (hi > indices.length) throw new Error("mesh idx");
-      for (let k = lo; k < hi; k++) {
-        const v = indices[k];
-        if (v < start || v >= end) throw new RangeError("mesh oob");
+    const idxI32 = new Int32Array(indices.buffer, indices.byteOffset, indices.length);
+    const featCount = types.length | 0;
+    let neg = 0;
+    for (let f = 0; f < featCount; f = (f + 1) | 0) {
+      const start = runs[f] | 0;
+      const end1 = (runs[(f + 1) | 0] - 1) | 0;
+      const lo = (triOff[f] * 3) | 0;
+      const hi = (triOff[(f + 1) | 0] * 3) | 0;
+      if (hi > idxI32.length) throw new Error("mesh idx");
+      for (let k = lo; k < hi; k = (k + 3) | 0) {
+        const a = idxI32[k];
+        const b = idxI32[(k + 1) | 0];
+        const c = idxI32[(k + 2) | 0];
+        neg |=
+          a |
+          b |
+          c |
+          ((a - start) | 0) |
+          ((end1 - a) | 0) |
+          ((b - start) | 0) |
+          ((end1 - b) | 0) |
+          ((c - start) | 0) |
+          ((end1 - c) | 0);
       }
     }
+    if (neg < 0) throw new RangeError("mesh oob");
   }
 
   if (hasDict) {

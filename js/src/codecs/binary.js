@@ -169,38 +169,63 @@ export function readVarintI64(r) {
 }
 
 export function decodeVarintU32Into(bytes, count, out) {
-  const e = bytes.length;
+  const outI32 = new Int32Array(out.buffer, out.byteOffset, count);
+  const e = bytes.length | 0;
+  const safe4 = (e - 20) | 0;
+  const count4 = (count - 3) | 0;
   let p = 0;
-  for (let i = 0; i < count; i++) {
-    if (p >= e) throw new RangeError("eof");
-    let c = bytes[p++];
+  let i = 0;
+
+  // 4-at-a-time single-byte fast path (`< 128` covers ~85% of MLT varints)
+  while (i < count4 && p <= safe4) {
+    const b0 = bytes[p];
+    const b1 = bytes[(p + 1) | 0];
+    const b2 = bytes[(p + 2) | 0];
+    const b3 = bytes[(p + 3) | 0];
+    if ((b0 | b1 | b2 | b3) < 128) {
+      outI32[i] = b0;
+      outI32[(i + 1) | 0] = b1;
+      outI32[(i + 2) | 0] = b2;
+      outI32[(i + 3) | 0] = b3;
+      p = (p + 4) | 0;
+      i = (i + 4) | 0;
+      continue;
+    }
+    let c = b0;
+    p = (p + 1) | 0;
     if (c < 128) {
-      out[i] = c;
+      outI32[i++] = c;
       continue;
     }
     let v = c & 127;
-    if (p >= e) throw new RangeError("eof");
     c = bytes[p++];
     if (c < 128) {
       if (c === 0) throw new Error("varint");
-      out[i] = v | (c << 7);
+      outI32[i++] = v | (c << 7);
       continue;
     }
     v |= (c & 127) << 7;
-    let s = 14;
-    while (true) {
-      if (p >= e) throw new RangeError("eof");
-      c = bytes[p++];
-      if (s === 28 && c >= 16) throw new RangeError("overflow");
-      v |= (c & 127) << s;
-      if (c < 128) {
-        if (c === 0) throw new Error("varint");
-        out[i] = v >>> 0;
-        break;
-      }
-      s += 7;
+    c = bytes[p++];
+    if (c < 128) {
+      if (c === 0) throw new Error("varint");
+      outI32[i++] = v | (c << 14);
+      continue;
     }
+    v |= (c & 127) << 14;
+    c = bytes[p++];
+    if (c < 128) {
+      if (c === 0) throw new Error("varint");
+      outI32[i++] = v | (c << 21);
+      continue;
+    }
+    v |= (c & 127) << 21;
+    c = bytes[p++];
+    if (c >= 16 || c === 0) throw new RangeError(c === 0 ? "varint" : "overflow");
+    outI32[i++] = v | (c << 28);
   }
+
+  const r = { b: bytes, p, e };
+  for (; i < count; i++) outI32[i] = readVarintU32(r);
   return out;
 }
 

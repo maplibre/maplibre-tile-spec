@@ -419,18 +419,26 @@ function readColPresence02(r, high, sharedBitfields, featureCount) {
 }
 
 function decodeMValue02(name, scope, bits, cv, geometry, featureCount) {
+  const present = normalizePresentBitmap(bits, featureCount);
   let expected = 0;
-  for (let f = 0; f < featureCount; f++) {
-    if (!isBitSet(bits, f)) continue;
+  if (present === undefined) {
     if (scope === "triangle") {
       const triOff = geometry.triangleOffsets;
-      expected += triOff ? triOff[f + 1] - triOff[f] : 0;
+      expected = triOff ? triOff[featureCount] : 0;
     } else {
-      expected += vertexIndexAt(geometry, f + 1) - vertexIndexAt(geometry, f);
+      expected = vertexIndexAt(geometry, featureCount);
+    }
+  } else {
+    for (let f = 0; f < featureCount; f++) {
+      if (!isBitSet(present, f)) continue;
+      if (scope === "triangle") {
+        const triOff = geometry.triangleOffsets;
+        expected += triOff ? triOff[f + 1] - triOff[f] : 0;
+      } else {
+        expected += vertexIndexAt(geometry, f + 1) - vertexIndexAt(geometry, f);
+      }
     }
   }
-
-  const present = normalizePresentBitmap(bits, featureCount);
   let col;
   let actual;
 

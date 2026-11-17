@@ -10,6 +10,35 @@ export function unpackBitpackU32Into(data, count, out) {
     out.set(data.subarray(1, 1 + count));
     return out;
   }
+  if (width <= 16) {
+    const outI32 = new Int32Array(out.buffer, out.byteOffset, count);
+    const mask = (1 << width) - 1;
+    const safeEnd = (data.length - 2) | 0;
+    let acc = 0;
+    let bits = 0;
+    let p = 1;
+    let i = 0;
+    while (i < count && p <= safeEnd) {
+      if (bits < width) {
+        acc |= (data[p] | (data[(p + 1) | 0] << 8)) << bits;
+        p = (p + 2) | 0;
+        bits = (bits + 16) | 0;
+      }
+      outI32[i++] = acc & mask;
+      acc >>>= width;
+      bits = (bits - width) | 0;
+    }
+    for (; i < count; i++) {
+      while (bits < width) {
+        acc |= data[p++] << bits;
+        bits += 8;
+      }
+      outI32[i] = acc & mask;
+      acc >>>= width;
+      bits -= width;
+    }
+    return out;
+  }
   if (width <= 24) {
     // Fast 32-bit integer accumulator path (no BigInt needed when width + 7 <= 31)
     const mask = (1 << width) - 1;
