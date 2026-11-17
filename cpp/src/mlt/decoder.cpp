@@ -10,6 +10,7 @@
 #include <mlt/layer.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/metadata/tileset_decode.hpp>
 #include <mlt/metadata/type_map.hpp>
 #include <mlt/properties.hpp>
 #include <mlt/tile.hpp>
@@ -55,7 +56,7 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
     using mlt::metadata::stream::StreamMetadata;
     using mlt::metadata::type_map::Tag0x01;
 
-    const auto layerMetadata = mlt::metadata::tileset::decodeFeatureTable(tileData);
+    const auto layerMetadata = mlt::metadata::tileset::decodeFeatureTable(tileData, integerDecoder.getBudget());
 
     std::vector<std::optional<Feature::id_t>> ids;
     std::unique_ptr<geometry::GeometryVector> geometryVector;
