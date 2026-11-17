@@ -472,7 +472,7 @@ fn triangle_indices_count_from_the_layer_first_vertex() {
     assert_eq!(staged.triangle_offsets(), Some(&[0, 2, 4][..]));
     assert_eq!(
         staged.index_buffer(),
-        Some(&[2, 3, 0, 2, 0, 1, 6, 7, 4, 6, 4, 5][..])
+        Some(&[2, 3, 0, 0, 1, 2, 6, 7, 4, 4, 5, 6][..])
     );
 }
 

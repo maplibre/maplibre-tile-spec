@@ -31,13 +31,13 @@ crossterm = "0.29.0"
 derive-debug = "0.1.2"
 diplomat = "0.17.0"
 diplomat-runtime = "0.16.0"
+earcut = "0.4.10"
 enum_dispatch = "0.3"
 fast-mvt = "0.7.0"
 fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
 fsst-rs = "0.7"
 futures = "0.3"
-earcut = "0.4.12"
 geo = { version = "0.33.1", default-features = false }
 geo-types = "0.7.19"
 geojson = { version = "1", default-features = false }

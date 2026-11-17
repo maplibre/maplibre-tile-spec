@@ -1120,7 +1120,7 @@ mod tests {
         fn a_one_coordinate_polygon_still_shifts_the_next_polygons_indices() {
             let point = Polygon::new(LineString::from(vec![(5, 5)]), vec![]);
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![point, square(20)]));
-            assert_eq!(triangles(&geometry), [3, 4, 1, 3, 1, 2]);
+            assert_eq!(triangles(&geometry), [3, 4, 1, 1, 2, 3]);
         }
 
         #[test]
@@ -1167,7 +1167,7 @@ mod tests {
             let mut holed = square(0);
             holed.interiors_push(LineString::from(vec![(2, 2), (3, 3)]));
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![holed, square(20)]));
-            assert_eq!(triangles(&geometry), [2, 3, 0, 2, 0, 1, 8, 9, 6, 8, 6, 7]);
+            assert_eq!(triangles(&geometry), [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8]);
         }
     }
 
