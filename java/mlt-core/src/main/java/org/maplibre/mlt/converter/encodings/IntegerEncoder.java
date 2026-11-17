@@ -15,6 +15,7 @@ import java.util.stream.LongStream;
 import me.lemire.integercompression.IntegerCODEC;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
+import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
@@ -491,17 +492,16 @@ public class IntegerEncoder {
       boolean isSigned,
       @NotNull IntegerEncodingOption encodingOption,
       @Nullable IntegerCODEC fastPforCodec) {
-    var result =
+    final var result =
         encodeIntWith(values, physicalLevelTechnique, isSigned, encodingOption, fastPforCodec);
-    if (physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR) {
-      // Keep whichever is smaller
-      var varint =
-          encodeIntWith(values, PhysicalLevelTechnique.VARINT, isSigned, encodingOption, null);
-      if (varint.encodedValues.length < result.encodedValues.length) {
-        result = varint;
-      }
+    if (ConversionConfig.EXACT_ENCODINGS
+        || physicalLevelTechnique != PhysicalLevelTechnique.FAST_PFOR) {
+      return result;
     }
-    return result;
+    // Keep whichever is smaller
+    final var varint =
+        encodeIntWith(values, PhysicalLevelTechnique.VARINT, isSigned, encodingOption, null);
+    return varint.encodedValues.length < result.encodedValues.length ? varint : result;
   }
 
   private static IntegerEncodingResult encodeIntWith(

@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 import me.lemire.integercompression.IntegerCODEC;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
+import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LengthType;
@@ -181,7 +182,8 @@ public class StringEncoder {
     final ArrayList<byte[]> fsstEncodedDictionary;
     // FSST is expensive and only helps on larger data, so only try it if input data is >2kib
     if (useFsstEncoding
-        && ByteArrayUtil.totalLength(dictionaryEncodedColumn) >= MIN_FSST_DICTIONARY_BYTES) {
+        && (ConversionConfig.EXACT_ENCODINGS
+            || ByteArrayUtil.totalLength(dictionaryEncodedColumn) >= MIN_FSST_DICTIONARY_BYTES)) {
       fsstEncodedDictionary =
           encodeFsstDictionary(values, values.size(), physicalLevelTechnique, true, fastPforCodec);
     } else {

@@ -172,15 +172,17 @@ public class MltConverter {
     final var valuesMayBeDropped = typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.ELIDE;
     columnSchemas.replaceAll((name, column) -> {
       final var everyFeatureHasProperty = propertyUsageCount.getOrDefault(name, 0) == featureCount;
-      if (column.isScalar() && everyFeatureHasProperty && !valuesMayBeDropped) {
-        column =
-            new MltMetadata.Column(
-                new MltMetadata.Field(
-                    new MltMetadata.FieldType(column.field().type().scalarType(), false),
-                    column.getName()),
-                column.columnScope());
+      if (ConversionConfig.EXACT_ENCODINGS
+          || !column.isScalar()
+          || !everyFeatureHasProperty
+          || valuesMayBeDropped) {
+        return column;
       }
-      return column;
+      return new MltMetadata.Column(
+          new MltMetadata.Field(
+              new MltMetadata.FieldType(column.field().type().scalarType(), false),
+              column.getName()),
+          column.columnScope());
     });
 
     for (var complexPropertyColumnScheme : complexPropertyColumnSchemas.entrySet()) {

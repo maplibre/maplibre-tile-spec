@@ -33,6 +33,7 @@ import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
 import org.maplibre.mlt.converter.geometry.GeometryType;
 import org.maplibre.mlt.converter.geometry.GeometryUtils;
@@ -130,7 +131,8 @@ public class GeometryEncoder {
 
     final var vertexLimits = getVertexLimits(vertexBuffer);
     // Dictionaries only help when vertices repeat more than once, so skip if it can't help.
-    final var tryDictionaries = vertexBuffer.size() >= 2 * countDistinct(vertexBuffer);
+    final var tryDictionaries =
+        ConversionConfig.EXACT_ENCODINGS || vertexBuffer.size() >= 2 * countDistinct(vertexBuffer);
     final var tryHilbertEncoding =
         HilbertCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
     final var tryMortonEncoding =
@@ -735,7 +737,7 @@ public class GeometryEncoder {
     if (physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR) {
       // keep whichever is smaller
       var fastPfor = encodeFastPfor(values, false, fastPforCodec);
-      if (fastPfor.length <= encodedValues.length) {
+      if (ConversionConfig.EXACT_ENCODINGS || fastPfor.length <= encodedValues.length) {
         encodedValues = fastPfor;
         technique = PhysicalLevelTechnique.FAST_PFOR;
       }
