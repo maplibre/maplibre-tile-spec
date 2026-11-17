@@ -31,10 +31,10 @@ mlt-js/
 └── package.json
 ```
 
-## Which file to use
+## Bundles
 
-Each file in `min/` is one ES module that imports nothing. To give the decoder to somebody,
-send one of them. Send `src/index.d.ts` with it if they use TypeScript.
+Each file in `min/` is a self-contained, minified ES module without dependencies.
+`src/index.d.ts` holds the TypeScript types of both.
 
 | File             | Exports                                                                                                                                                   | Size (brotli) |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
@@ -45,9 +45,9 @@ Use `min/columns.js` for a renderer that builds its own GPU buffers, such as the
 `min/index.js` for the `VectorTileLike` API of MapLibre, for GeoJSON, or for features one at a time.
 For comparison, `mlt-wasm` is 127 KB (brotli).
 
-The decoder runs in browsers, web workers, Node.js 18 or newer, Deno and Bun: everything that
-has ES2022, `TextDecoder` and `BigUint64Array`. It reads the tile bytes as they are in the tile:
-decompress a gzip-compressed tile before you decode it.
+The decoder requires ES2022, `TextDecoder` and `BigUint64Array`, as in current browsers, web
+workers and Node.js 18 or newer. It takes uncompressed tile bytes, so a gzip-compressed tile must
+be decompressed first.
 
 ## Usage
 
@@ -55,7 +55,7 @@ In a browser, import the file as a module:
 
 ```html
 <script type="module">
-  import { decodeTile } from './mlt.js'; // a copy of min/index.js
+  import { decodeTile } from './min/index.js';
 
   const data = new Uint8Array(await fetch(tileUrl).then(r => r.arrayBuffer()));
   const tile = decodeTile(data);
@@ -70,12 +70,8 @@ With an import map, the same code imports `@maplibre/mlt-js`:
 </script>
 ```
 
-In a project, install the directory and import the package. `@maplibre/mlt-js` is `min/index.js`,
-`@maplibre/mlt-js/columns` is `min/columns.js`, and `@maplibre/mlt-js/src` is the unminified sources:
-
-```sh
-npm install ./path/to/maplibre-tile-spec/js
-```
+As a package, `@maplibre/mlt-js` resolves to `min/index.js`, `@maplibre/mlt-js/columns` to
+`min/columns.js`, and `@maplibre/mlt-js/src` to the unminified sources:
 
 ```ts
 import { decodeTile } from '@maplibre/mlt-js';
@@ -217,11 +213,8 @@ npm run serve
 
 Then open `http://localhost:8080/js/viewer/meshes.html?url=<archive>` or
 `http://localhost:8080/js/viewer/meshes.html?tiles=<base>`, adding `&attribution=<text>` to credit
-the data and `&quality=high`, `phone` or `low` to pick the detail. For example,
-`?url=/rust/hamburg_v3_lod_v7.pmtiles` opens an archive in `rust/`.
-
-`just rust::mesh-site` copies `min/columns.js` and the viewer into the static site of the
-GitHub Pages demo.
+the data and `&quality=high`, `phone` or `low` to pick the detail. `just rust::mesh-site`
+builds the same as a static site over a `CityGML` input.
 
 ## Development
 
