@@ -1,0 +1,760 @@
+<!doctype html>
+<!--
+  Shows the v2 Meshes layers of MLT tiles, such as `mlt convert` writes from CityGML or 3D Tiles,
+  decoded in pure JavaScript by `@maplibre/mlt-js` (`../src/index.js`). As on a pitched map, the
+  tiles near the camera are drawn at the highest zoom and the farther ones at lower zooms, and only
+  those in view.
+
+  Serve `js/` (for example with `npm run serve` in `js/`) and open `viewer/meshes.html` with
+    ?tiles=<base>   for a directory of <base>/z/x/y.mlt files, all listed in <base>/index.json as a
+                    JSON array of "z/x/y" strings, or
+    ?url=<archive>  for a .pmtiles archive, read by range requests, or downloaded whole from a
+                    server that answers none, such as `python -m http.server`.
+  A .pmtiles file can also be picked or dropped on the page. Add &attribution=<text> to credit the
+  data, its https URLs shown as links, and &quality=high, phone or low to pick the detail, which
+  is otherwise phone on a phone and high elsewhere.
+
+  Drag to pan, right-drag or drag with two fingers to turn and pitch. Click a building for its
+  properties, double-click it to turn around it. The tiles are tinted by the level of detail
+  `mlt convert` writes at their zoom, and fade into a fog: the denser it is, the nearer the drawing
+  ends, and the fewer tiles are loaded and drawn.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MLT meshes (JS)</title>
+<style>
+  html, body { color-scheme: dark; margin: 0; height: 100%; overflow: hidden; font: 13px system-ui, sans-serif; background: #20232a; color: #ddd; }
+  canvas { display: block; }
+  #panel { position: absolute; top: 8px; left: 8px; width: min(300px, calc(100vw - 36px)); padding: 8px 10px; background: #000a; border-radius: 6px; }
+  #panel summary { cursor: pointer; }
+  #panel label { display: block; margin: 4px 0; }
+  #panel input[type="file"] { max-width: 100%; }
+  #status { white-space: pre-wrap; margin-top: 6px; color: #9cf; }
+  #picked { white-space: pre-wrap; margin-top: 6px; background: #111; color: #ddd; max-height: 35vh; overflow: auto; font-family: ui-monospace, monospace; font-size: 12px; }
+  #fog { vertical-align: middle; width: 160px; }
+  #legend span, #lodLegend span { display: inline-block; width: 10px; height: 10px; margin: 0 4px 0 8px; }
+  #stats { position: absolute; left: 8px; bottom: 8px; padding: 2px 6px; background: #000a; border-radius: 4px; white-space: pre; font: 11px ui-monospace, monospace; pointer-events: none; }
+  #attribution { position: absolute; left: 8px; bottom: 44px; max-width: min(480px, calc(100vw - 28px)); padding: 2px 6px; background: #000a; border-radius: 4px; font-size: 11px; }
+  label:has(:disabled) { opacity: 0.5; }
+  #attribution:empty { display: none; }
+  #attribution a { color: #9cf; }
+  #drop { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; font-size: 24px; background: #0008; pointer-events: none; }
+  body.dragging #drop { display: flex; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+  "pmtiles": "https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/+esm",
+  "@maplibre/mlt-js": "../min/columns.js"
+} }
+</script>
+</head>
+<body>
+<details id="panel" open>
+  <summary>MLT meshes (JS)</summary>
+  <input type="file" id="file" accept=".pmtiles">
+  <label title="No tile so far carries a color m-value"><input type="checkbox" id="byPart" checked disabled> Colour by part, not by the color m-value</label>
+  <div id="legend"></div>
+  <label><input type="checkbox" id="byLod" checked> Tint by level of detail</label>
+  <div id="lodLegend"></div>
+  <label>Fog <input type="range" id="fog" min="0" max="100" value="30"></label>
+  <label>Detail <select id="quality">
+    <option value="high">high</option><option value="phone">phone</option><option value="low">low-end phone</option>
+  </select></label>
+  <div id="status">Drop a .pmtiles file, or pick one.</div>
+  <div id="picked"></div>
+</details>
+<div id="stats"></div>
+<div id="attribution"></div>
+<div id="drop">Drop the .pmtiles file</div>
+<script type="module">
+import * as THREE from "three";
+import { MapControls } from "three/addons/controls/MapControls.js";
+import { FetchSource, FileSource, PMTiles } from "pmtiles";
+import { MltGeometryType, columnValue, decodeTileColumns } from "@maplibre/mlt-js";
+
+const PARTS = { wall: 0xe3ded4, roof: 0xa36654, ground: 0x8c8a85, window: 0x7391a8, door: 0x856145 };
+/** The levels of detail `mlt convert` writes at the highest zoom, the two below, and all lower ones, and their tints. */
+const LODS = [
+  { name: "LOD3", tint: 0xffa070 },
+  { name: "LOD2", tint: 0x90d890 },
+  { name: "coarse", tint: 0x80a8ff },
+  { name: "merged", tint: 0xc890ff },
+];
+const EARTH = 2 * Math.PI * 6378137;
+const CHILDREN = [[0, 0], [1, 0], [0, 1], [1, 1]];
+/** Metres: the highest a building reaches, and how far it reaches beyond the tile holding its centre. */
+const MAX_HEIGHT = 350, OVERHANG = 100;
+/** Nothing is drawn farther than this many tiles of the lowest zoom. */
+const FAR_TILES = 8;
+/** The fraction of that distance drawn in the densest fog. */
+const FOG_NEAREST = 1 / 8;
+const MAX_LOADS = 6;
+const small = matchMedia("(pointer: coarse), (max-width: 600px)").matches;
+/**
+ * The levels of detail to pick from: the triangles of the tiles in view, counted nearest first,
+ * beyond which no tile is drawn, the CSS pixels a tile may span before it is split into its
+ * children, and the highest device pixel ratio drawn at.
+ */
+const QUALITIES = {
+  high: { budget: 5e6, tilePx: 640, pixelRatio: 2 },
+  phone: { budget: 1.5e6, tilePx: 768, pixelRatio: 1.5 },
+  low: { budget: 3e5, tilePx: 2048, pixelRatio: 1 },
+};
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+$("quality").value = Object.hasOwn(QUALITIES, params.get("quality")) ? params.get("quality") : small ? "phone" : "high";
+let quality = QUALITIES[$("quality").value];
+
+// No logarithmic depth buffer, which writes gl_FragDepth and so turns off early depth tests: the
+// near plane follows the camera's distance instead. The reverseDepthBuffer of three r170 leaves
+// the clip control at -1..1, so it is not used either.
+const renderer = new THREE.WebGLRenderer({ antialias: devicePixelRatio < 1.5 });
+renderer.setPixelRatio(Math.min(devicePixelRatio, quality.pixelRatio));
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x20232a);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(-0.5, 1, 0.3);
+scene.add(sun);
+const camera = new THREE.PerspectiveCamera(45, 1, 1, 1e4);
+const controls = new MapControls(camera, renderer.domElement);
+controls.maxPolarAngle = 1.45;
+controls.zoomToCursor = true;
+/** One material per level of detail, its colour the tint the vertex colours are multiplied by. */
+const materials = LODS.map(() => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide }));
+const fog = new THREE.Fog(scene.background, 1, 2);
+const highlight = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0xffd400, side: THREE.DoubleSide, depthTest: false, fog: false }));
+highlight.renderOrder = 1;
+scene.add(highlight);
+const world = new THREE.Group();
+scene.add(world);
+if (small) $("panel").open = false;
+$("legend").innerHTML = Object.entries(PARTS)
+  .map(([name, c]) => `<span style="background:#${c.toString(16).padStart(6, "0")}"></span>${name}`).join("");
+
+/** The open tiles: their zooms, bounds and centre in Mercator units, and `has` and `get` per tile. */
+let tiles = null;
+/** The Mercator x and y the world's metres east and south count from, and the metres per unit there. */
+let origin = { u: 0, v: 0, scale: 1 };
+/** The distance in metres beyond which nothing is drawn. */
+let reach = 1;
+/** The distance in metres of the nearest tile in view not drawn, past the fog or the budget, where the fog is thickest. */
+let horizon = 1;
+/** Decoded tiles by `z/x/y`, least recently drawn first: their layers and mesh, none for a tile without meshes. */
+const cache = new Map();
+/** The abort controllers of the tile loads in flight, by `z/x/y`. */
+const loading = new Map();
+/** The triangles of the tiles loaded per zoom, and their count, to estimate the tiles not loaded yet. */
+const loadedPerZoom = new Map();
+/** Cumulative pure-JS decode time and tile count for the active source. */
+const decodeStats = { ms: 0, tiles: 0 };
+/** The drawn tiles' count per zoom, for the stats line. */
+let drawnPerZoom = new Map();
+
+const tile = (z, x, y) => ({ z, x, y, key: `${z}/${x}/${y}` });
+
+/** The Mercator x and y of `[lon, lat]`, from 0 at the west and the north to 1. */
+function mercator(lon, lat) {
+  return [(lon + 180) / 360, (1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2];
+}
+
+const tileWidth = (z) => origin.scale / 2 ** z;
+/** The metres east and south of the origin of a tile's north-west corner. */
+const corner = (z, x, y) => [(x / 2 ** z - origin.u) * origin.scale, (y / 2 ** z - origin.v) * origin.scale];
+
+/** Metres: how low and high a building may stand, widened by each tile of elevations drawn. */
+const heights = { low: 0, high: MAX_HEIGHT };
+
+/** Sets `box` to where a tile's buildings may stand. */
+function tileBox({ z, x, y }, box) {
+  const [east, south] = corner(z, x, y), w = tileWidth(z);
+  box.min.set(east - OVERHANG, heights.low, south - OVERHANG);
+  box.max.set(east + w + OVERHANG, heights.high, south + w + OVERHANG);
+  return box;
+}
+
+/** The tiles of a PMTiles archive, read from `source`. */
+async function archiveTiles(source, name) {
+  const archive = new PMTiles(source);
+  const h = await archive.getHeader();
+  const [u0, v1] = mercator(h.minLon, h.minLat), [u1, v0] = mercator(h.maxLon, h.maxLat);
+  return {
+    about: `${name}: zooms ${h.minZoom}–${h.maxZoom}, ${h.numAddressedTiles.toLocaleString()} tiles`,
+    minZoom: h.minZoom, maxZoom: h.maxZoom, bounds: [u0, v0, u1, v1], centre: mercator(h.centerLon, h.centerLat),
+    has: () => true,
+    get: async (z, x, y, signal) => (await archive.getZxy(z, x, y, signal))?.data,
+  };
+}
+
+/** The tiles of a directory of `z/x/y.mlt` files, all listed in `<base>/index.json`. */
+async function directoryTiles(base) {
+  base = base.replace(/\/+$/, "");
+  const response = await fetch(`${base}/index.json`);
+  if (!response.ok) throw new Error(`${response.url}: ${response.status} ${response.statusText}`);
+  const keys = new Set(await response.json());
+  if (keys.size === 0) throw new Error(`${response.url} lists no tiles`);
+  const all = [...keys].map((key) => key.split("/").map(Number));
+  let [minZoom, maxZoom, u0, v0, u1, v1] = [Infinity, -Infinity, 1, 1, 0, 0];
+  for (const [z, x, y] of all) {
+    const n = 2 ** z;
+    [minZoom, maxZoom] = [Math.min(minZoom, z), Math.max(maxZoom, z)];
+    [u0, v0, u1, v1] = [Math.min(u0, x / n), Math.min(v0, y / n), Math.max(u1, (x + 1) / n), Math.max(v1, (y + 1) / n)];
+  }
+  // The centre of the highest-zoom tile nearest the bounds' centre, so that it has buildings.
+  const n = 2 ** maxZoom, [cu, cv] = [(u0 + u1) / 2, (v0 + v1) / 2];
+  const off = ([, x, y]) => Math.hypot((x + 0.5) / n - cu, (y + 0.5) / n - cv);
+  const [, x, y] = all.filter(([z]) => z === maxZoom).reduce((a, b) => (off(b) < off(a) ? b : a));
+  return {
+    about: `${base}: zooms ${minZoom}–${maxZoom}, ${keys.size.toLocaleString()} tiles`,
+    minZoom, maxZoom, bounds: [u0, v0, u1, v1], centre: [(x + 0.5) / n, (y + 0.5) / n],
+    has: (z, x, y) => keys.has(`${z}/${x}/${y}`),
+    async get(z, x, y, signal) {
+      const response = await fetch(`${base}/${z}/${x}/${y}.mlt`, { signal });
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      return response.arrayBuffer();
+    },
+  };
+}
+
+/** An archive held in memory. */
+class BufferSource {
+  constructor(key, buffer) { this.key = key; this.buffer = buffer; }
+  getKey() { return this.key; }
+  async getBytes(offset, length) { return { data: this.buffer.slice(offset, offset + length) }; }
+}
+
+/** The archive at `url`, read by range requests, or downloaded whole when the server answers none. */
+async function urlSource(url) {
+  const response = await fetch(url, { headers: { Range: "bytes=0-0" } });
+  if (!response.ok) throw new Error(`${url}: ${response.status} ${response.statusText}`);
+  if (response.status === 206) {
+    response.body?.cancel();
+    return new FetchSource(url);
+  }
+  $("status").textContent = `${url} takes no range requests: downloading it whole…`;
+  return new BufferSource(url, await response.arrayBuffer());
+}
+
+/** Shows the tiles `opened` gives, or why they could not be opened. */
+async function open(opened) {
+  try {
+    show(await opened);
+    $("status").textContent = tiles.about;
+  } catch (e) {
+    $("status").textContent = String(e);
+    throw e;
+  }
+}
+
+/** Lets the part checkbox be cleared once a tile carries a color m-value to colour by instead. */
+function enableByPart(enabled) {
+  const box = $("byPart");
+  box.disabled = !enabled;
+  box.parentElement.title = enabled ? "" : "No tile so far carries a color m-value";
+  if (!enabled) box.checked = true;
+}
+
+/** Drops the tiles shown and shows `source`'s, the world's origin and the camera's target at their centre. */
+function show(source) {
+  for (const controller of loading.values()) controller.abort();
+  loading.clear();
+  for (const entry of cache.values()) entry.mesh?.geometry.dispose();
+  cache.clear();
+  loadedPerZoom.clear();
+  decodeStats.ms = 0;
+  decodeStats.tiles = 0;
+  world.clear();
+  unpick();
+  enableByPart(false);
+  tiles = source;
+  const [u, v] = source.centre;
+  origin = { u, v, scale: EARTH * Math.cos(Math.atan(Math.sinh(Math.PI * (1 - 2 * v)))) };
+  reach = FAR_TILES * tileWidth(source.minZoom);
+  horizon = reach;
+  showLods();
+  const distance = 4 * tileWidth(source.maxZoom);
+  controls.target.set(0, 0, 0);
+  camera.position.set(0, distance * Math.cos(0.9), distance * Math.sin(0.9));
+  controls.maxDistance = reach / 2;
+  controls.update();
+  update();
+}
+
+const frustum = new THREE.Frustum(), viewProjection = new THREE.Matrix4(), box = new THREE.Box3();
+
+/**
+ * The distance in metres the fog lets tiles be drawn to: `reach` without fog, down to
+ * `FOG_NEAREST` of it in the densest, but at least twice the camera's distance from its target.
+ */
+function fogLimit() {
+  const amount = $("fog").value / 100;
+  return Math.min(reach, Math.max(reach * FOG_NEAREST ** amount, 2 * camera.position.distanceTo(controls.target)));
+}
+
+/**
+ * The tiles in view and nearer than `limit`, nearest first: from the lowest zoom, a tile nearer
+ * to the camera than `refine` times its width is split into its children, so that a tile drawn
+ * spans at most about the quality's `tilePx` pixels.
+ */
+function tilesInView(limit) {
+  frustum.setFromProjectionMatrix(viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  const refine = innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * quality.tilePx);
+  const found = [];
+  const visit = (t) => {
+    if (!frustum.intersectsBox(tileBox(t, box))) return;
+    const distance = box.distanceToPoint(camera.position);
+    if (distance > limit) return;
+    if (t.z < tiles.maxZoom && distance < refine * tileWidth(t.z)) {
+      for (const [dx, dy] of CHILDREN) visit(tile(t.z + 1, 2 * t.x + dx, 2 * t.y + dy));
+    } else {
+      found.push({ ...t, distance });
+    }
+  };
+  // The lowest-zoom tiles in the bounds and within `limit` of the camera along either axis.
+  const z = tiles.minZoom, n = 2 ** z, r = limit / origin.scale, [u0, v0, u1, v1] = tiles.bounds;
+  const span = (min, max, at) => [Math.max(0, Math.floor(Math.max(min, at - r) * n)), Math.min(n - 1, Math.floor(Math.min(max, at + r) * n))];
+  const [x0, x1] = span(u0, u1, origin.u + camera.position.x / origin.scale);
+  const [y0, y1] = span(v0, v1, origin.v + camera.position.z / origin.scale);
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) visit(tile(z, x, y));
+  return found.sort((a, b) => a.distance - b.distance);
+}
+
+/** The average triangles of the tiles loaded at zoom `z`. */
+function estimate(z) {
+  const loaded = loadedPerZoom.get(z);
+  return loaded ? loaded.triangles / loaded.tiles : 0;
+}
+
+/** The nearest of `found` whose triangles, as loaded or estimated, fit in the quality's budget. */
+function withinBudget(found) {
+  let triangles = 0;
+  for (const [i, t] of found.entries()) {
+    triangles += cache.get(t.key)?.triangles ?? estimate(t.z);
+    if (triangles > quality.budget && i > 0) return found.slice(0, i);
+  }
+  return found;
+}
+
+/** A tile's ancestors, its parent first. */
+const ancestors = ({ z, x, y }) => Array.from({ length: z - tiles.minZoom }, (_, i) => tile(z - i - 1, x >> (i + 1), y >> (i + 1)));
+
+/** The keys of the cached tiles below a tile, the highest ones that are. */
+function cachedBelow({ z, x, y }) {
+  if (z >= tiles.maxZoom) return [];
+  return CHILDREN.flatMap(([dx, dy]) => {
+    const child = tile(z + 1, 2 * x + dx, 2 * y + dy);
+    return cache.has(child.key) ? [child.key] : cachedBelow(child);
+  });
+}
+
+/**
+ * The keys of the cached tiles that draw `wanted`, so that no place goes blank while its tile
+ * loads: a tile not loaded yet is drawn as its nearest ancestor with meshes, which stands for all
+ * the tiles it holds until they are loaded, or else as the tiles below it that are.
+ */
+function drawnFor(wanted) {
+  const stand = new Map();
+  for (const t of wanted) {
+    const ancestor = cache.has(t.key) ? undefined : ancestors(t).find((a) => cache.get(a.key)?.mesh);
+    if (ancestor) stand.set(ancestor.key, ancestor);
+  }
+  const covered = (t) => ancestors(t).some((a) => stand.has(a.key));
+  const drawn = [...stand.values()].filter((a) => !covered(a)).map((a) => a.key);
+  for (const t of wanted) {
+    if (!covered(t)) drawn.push(...(cache.has(t.key) ? [t.key] : cachedBelow(t)));
+  }
+  return drawn;
+}
+
+/** Moves a cached tile to the end of the cache's order, as the most recently drawn. */
+function touch(key) {
+  const entry = cache.get(key);
+  cache.delete(key);
+  cache.set(key, entry);
+  return entry;
+}
+
+/** Drops the least recently drawn tiles, but none of `kept`, while the cache holds more than twice the quality's budget. */
+function evict(kept) {
+  let triangles = 0;
+  for (const entry of cache.values()) triangles += entry.triangles;
+  for (const [key, entry] of cache) {
+    if (triangles <= 2 * quality.budget) break;
+    if (kept.has(key)) continue;
+    entry.mesh?.geometry.dispose();
+    cache.delete(key);
+    triangles -= entry.triangles;
+  }
+}
+
+/** Picks the tiles the camera sees, draws the ones loaded and loads the others, nearest first. */
+function update() {
+  if (!tiles) return;
+  fitDepth();
+  camera.updateMatrixWorld();
+  const limit = fogLimit();
+  const found = tilesInView(limit);
+  for (const t of found) if (!cache.has(t.key) && !tiles.has(t.z, t.x, t.y)) cache.set(t.key, { triangles: 0 });
+  const wanted = withinBudget(found);
+  horizon = wanted.length < found.length ? found[wanted.length].distance : limit;
+  fitFog();
+  const drawn = drawnFor(wanted);
+  world.clear();
+  drawnPerZoom = new Map();
+  for (const key of drawn) {
+    const { mesh } = touch(key);
+    if (!mesh) continue;
+    world.add(mesh);
+    const z = mesh.userData.entry.z;
+    drawnPerZoom.set(z, (drawnPerZoom.get(z) ?? 0) + 1);
+  }
+  highlight.visible = world.children.includes(highlight.userData.mesh);
+  evict(new Set([...drawn, ...wanted.map((t) => t.key)]));
+  startLoads(wanted.filter((t) => !cache.has(t.key)));
+  requestRender();
+}
+
+/** Loads the first of `queue`, at most `MAX_LOADS` at once, and gives up the loads no longer in it. */
+function startLoads(queue) {
+  const keys = new Set(queue.map((t) => t.key));
+  for (const [key, controller] of loading) {
+    if (!keys.has(key)) {
+      controller.abort();
+      loading.delete(key);
+    }
+  }
+  for (const t of queue) {
+    if (loading.size >= MAX_LOADS) break;
+    if (!loading.has(t.key)) load(t);
+  }
+}
+
+async function load(t) {
+  const controller = new AbortController();
+  loading.set(t.key, controller);
+  let entry = { triangles: 0 };
+  try {
+    const data = await tiles.get(t.z, t.x, t.y, controller.signal);
+    if (controller.signal.aborted) return;
+    if (data) entry = decode(t, new Uint8Array(data));
+  } catch (e) {
+    if (controller.signal.aborted) return;
+    $("status").textContent = `tile ${t.key}: ${e}`;
+  }
+  loading.delete(t.key);
+  cache.set(t.key, entry);
+  const loaded = loadedPerZoom.get(t.z) ?? { triangles: 0, tiles: 0 };
+  loadedPerZoom.set(t.z, { triangles: loaded.triangles + entry.triangles, tiles: loaded.tiles + 1 });
+  scheduleUpdate();
+}
+
+/** A tile's mesh layers, decoded in pure JavaScript and drawn as one mesh. */
+function decode({ z, x, y, key }, data) {
+  const t0 = performance.now();
+  const layers = decodeTileColumns(data).layers.filter(
+    (l) => l.geometry.types.length > 0 && l.geometry.types.every((g) => g === MltGeometryType.Mesh),
+  );
+  decodeStats.ms += performance.now() - t0;
+  decodeStats.tiles += 1;
+  const entry = { z, x, y, key, layers, triangles: layers.reduce((sum, l) => sum + l.geometry.indexBuffer.length / 3, 0) };
+  if (layers.some((l) => rgbColumn(l) !== undefined)) enableByPart(true);
+  if (layers.length > 0) entry.mesh = buildMesh(entry);
+  return entry;
+}
+
+/**
+ * The m-value a layer is coloured by, as the checkbox picks, if every feature has it: `key(i)` is
+ * its value at vertex or triangle `i`, by its `scope`.
+ */
+function colorColumn(layer) {
+  const part = layer.mValues?.find((c) => c.name === "part" && c.type === "string" && !c.present);
+  const rgb = rgbColumn(layer);
+  if ($("byPart").checked && part) {
+    const colors = part.dictionary.map((name) => new THREE.Color(PARTS[name] ?? 0xff00ff));
+    return { scope: part.scope, key: (i) => part.codes[i], paint: (key, c) => c.copy(colors[key]) };
+  }
+  if (rgb) {
+    return { scope: rgb.scope, key: (i) => rgb.values[i], paint: (key, c) => c.setHex(key, THREE.SRGBColorSpace) };
+  }
+  return undefined;
+}
+
+/** A layer's numeric `color` m-value, if every feature has it. */
+function rgbColumn(layer) {
+  return layer.mValues?.find((c) => c.name === "color" && c.type !== "string" && !c.present);
+}
+
+/**
+ * Gives each triangle's corners its value of a triangle-scoped column: a vertex keeps its index for
+ * the first value it meets and is copied for each other value, so `index` names `source.length`
+ * vertices, copy `o` of vertex `source[o]` carrying `keys[o]`.
+ */
+function splitByTriangle(indexBuffer, n, keyOf) {
+  const grow = (a, fill) => { const b = new a.constructor(a.length * 2).fill(fill); b.set(a); return b; };
+  let source = new Uint32Array(n + (n >> 1)), keys = new Float64Array(source.length).fill(NaN);
+  let next = new Int32Array(source.length).fill(-1);
+  for (let v = 0; v < n; v++) source[v] = v;
+  let count = n;
+  const index = new Uint32Array(indexBuffer.length);
+  for (let t = 0; t < indexBuffer.length / 3; t++) {
+    const k = keyOf(t);
+    for (let j = 3 * t; j < 3 * t + 3; j++) {
+      let o = indexBuffer[j];
+      if (Number.isNaN(keys[o])) keys[o] = k;
+      while (keys[o] !== k && next[o] !== -1) o = next[o];
+      if (keys[o] !== k) {
+        if (count === source.length) { source = grow(source, 0); keys = grow(keys, NaN); next = grow(next, -1); }
+        source[count] = source[o];
+        keys[count] = k;
+        next[o] = count;
+        o = count++;
+      }
+      index[j] = o;
+    }
+  }
+  return { index, source: source.subarray(0, count), keys: keys.subarray(0, count) };
+}
+
+/**
+ * A layer's vertices in metres east, up and south of its tile's corner, `width` metres wide, their
+ * colours as opaque RGBA bytes and their features, and its triangles.
+ */
+function layerArrays(layer, width) {
+  const g = layer.geometry;
+  const n = g.vertices.length / 3;
+  const zScale = 10 ** g.zStep;
+  // An elevation is above Terrain-RGB's base of -10000 m, a height above the ground.
+  const base = g.zDatum === "ground" ? 0 : -10000;
+  let [low, high] = [Infinity, -Infinity];
+  const colors = colorColumn(layer);
+  const { index, source, keys } = colors?.scope === "triangle"
+    ? splitByTriangle(g.indexBuffer, n, colors.key)
+    : { index: g.indexBuffer };
+  const featureOfVertex = new Uint32Array(n);
+  for (let f = 0; f < layer.featureCount; f++) featureOfVertex.fill(f, g.geometryOffsets[f], g.geometryOffsets[f + 1]);
+  const count = source ? source.length : n;
+  const position = new Float32Array(count * 3);
+  const color = new Uint8Array(count * 4).fill(255);
+  const featureOf = new Uint32Array(count);
+  const c = new THREE.Color();
+  for (let o = 0; o < count; o++) {
+    const v = source ? source[o] : o;
+    featureOf[o] = featureOfVertex[v];
+    position[o * 3] = (g.vertices[v * 3] / layer.extent) * width;
+    const up = base + g.vertices[v * 3 + 2] * zScale;
+    [low, high] = [Math.min(low, up), Math.max(high, up)];
+    position[o * 3 + 1] = up;
+    position[o * 3 + 2] = (g.vertices[v * 3 + 1] / layer.extent) * width;
+    if (colors) colors.paint(keys ? keys[o] : colors.key(v), c);
+    else c.setHex(0xcccccc);
+    color[o * 4] = Math.round(c.r * 255);
+    color[o * 4 + 1] = Math.round(c.g * 255);
+    color[o * 4 + 2] = Math.round(c.b * 255);
+  }
+  if (g.zDatum !== "ground" && count > 0) {
+    [heights.low, heights.high] = [Math.min(heights.low, low), Math.max(heights.high, high)];
+  }
+  return { position, color, featureOf, index };
+}
+
+/**
+ * A tile's layers as one THREE mesh at its corner, so one draw call; `firstIndex` is where each layer's
+ * triangles start. Colours are 4 bytes and, under 65535 vertices, indices 2, as fewer bytes upload faster:
+ * WebGL 2 restarts primitives at index 0xFFFF, so a 2-byte index never names that vertex.
+ */
+function buildMesh(entry) {
+  const parts = entry.layers.map((layer) => layerArrays(layer, tileWidth(entry.z)));
+  const vertices = parts.reduce((sum, p) => sum + p.featureOf.length, 0);
+  const position = new Float32Array(vertices * 3), color = new Uint8Array(vertices * 4);
+  const featureOf = new Uint32Array(vertices);
+  const index = new (vertices < 0xffff ? Uint16Array : Uint32Array)(entry.triangles * 3);
+  const firstIndex = [];
+  let v = 0, i = 0;
+  for (const p of parts) {
+    position.set(p.position, v * 3);
+    color.set(p.color, v * 4);
+    featureOf.set(p.featureOf, v);
+    firstIndex.push(i);
+    for (const o of p.index) index[i++] = v + o;
+    v += p.featureOf.length;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(position, 3));
+  geometry.setAttribute("color", new THREE.BufferAttribute(color, 4, true));
+  geometry.setIndex(new THREE.BufferAttribute(index, 1));
+  geometry.computeBoundingSphere();
+  const mesh = new THREE.Mesh(geometry, materials[lodOf(entry.z)]);
+  const [east, south] = corner(entry.z, entry.x, entry.y);
+  mesh.position.set(east, 0, south);
+  mesh.matrixAutoUpdate = false;
+  mesh.updateMatrix();
+  mesh.userData = { entry, featureOf, firstIndex };
+  return mesh;
+}
+
+/** Fits the depth range to the view: the near plane follows the camera's distance from its target. */
+function fitDepth() {
+  camera.near = Math.max(1, camera.position.distanceTo(controls.target) / 100);
+  camera.far = 1.5 * reach;
+  camera.updateProjectionMatrix();
+}
+
+/** Thickens the fog towards `horizon` from the fraction of it the slider gives, none at 0. */
+function fitFog() {
+  const amount = $("fog").value / 100;
+  scene.fog = amount > 0 ? fog : null;
+  fog.near = horizon * (1 - amount);
+  fog.far = horizon;
+}
+
+/** The index in `LODS` of the level of detail of the tiles at zoom `z`. */
+const lodOf = (z) => Math.min(LODS.length - 1, tiles.maxZoom - z);
+
+/** Tints the materials, or not, as the checkbox says, and lists the zooms of each tint. */
+function showLods() {
+  const tinted = $("byLod").checked;
+  for (const [i, m] of materials.entries()) m.color.setHex(tinted ? LODS[i].tint : 0xffffff);
+  if (!tinted || !tiles) {
+    $("lodLegend").innerHTML = "";
+    return;
+  }
+  const zooms = (i) => {
+    const max = tiles.maxZoom - i, min = i < LODS.length - 1 ? max : tiles.minZoom;
+    return min === max ? `z${max}` : `z${min}–${max}`;
+  };
+  $("lodLegend").innerHTML = LODS.slice(0, tiles.maxZoom - tiles.minZoom + 1)
+    .map(({ name, tint }, i) => `<span style="background:#${tint.toString(16).padStart(6, "0")}"></span>${name} ${zooms(i)}`).join("");
+}
+
+let renderQueued = false;
+function requestRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    fitDepth();
+    renderer.render(scene, camera);
+    const { calls, triangles } = renderer.info.render;
+    let cached = 0;
+    for (const entry of cache.values()) cached += entry.triangles;
+    const zooms = [...drawnPerZoom].sort(([a], [b]) => a - b).map(([z, n]) => `z${z}: ${n}`).join(", ") || "no tiles";
+    const avgMs = decodeStats.tiles > 0 ? `; JS decode ${(decodeStats.ms / decodeStats.tiles).toFixed(1)} ms/tile` : "";
+    $("stats").textContent = `${calls} draw calls, ${triangles.toLocaleString()} triangles; ${zooms}; to ${(horizon / 1000).toFixed(1)} km\n` +
+      `cache: ${cache.size} tiles, ${cached.toLocaleString()} triangles${avgMs}${loading.size > 0 ? `; loading ${loading.size}` : ""}`;
+  });
+}
+
+let updateTimer = 0;
+/** Updates the tiles soon, at most every 150 ms while the camera moves. */
+function scheduleUpdate() {
+  if (!updateTimer) updateTimer = setTimeout(() => { updateTimer = 0; update(); }, 150);
+}
+
+function resize() {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  scheduleUpdate();
+  requestRender();
+}
+addEventListener("resize", resize);
+resize();
+controls.addEventListener("change", () => { requestRender(); scheduleUpdate(); });
+
+function unpick() {
+  highlight.geometry.dispose();
+  highlight.geometry = new THREE.BufferGeometry();
+  highlight.userData.mesh = undefined;
+  $("picked").textContent = "";
+}
+
+const raycaster = new THREE.Raycaster();
+/** The nearest building face under the pointer of `e`. */
+function hitAt(e) {
+  raycaster.setFromCamera(new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
+  return raycaster.intersectObjects(world.children)[0];
+}
+
+let down = null;
+renderer.domElement.addEventListener("pointerdown", (e) => { down = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener("pointerup", (e) => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
+  unpick();
+  requestRender();
+  const hit = hitAt(e);
+  if (!hit) return;
+  const { entry, featureOf, firstIndex } = hit.object.userData;
+  const part = firstIndex.findLastIndex((first) => first <= hit.faceIndex * 3);
+  const layer = entry.layers[part], g = layer.geometry, f = featureOf[hit.face.a];
+  const rows = [`tile ${entry.key}, layer ${layer.name}, feature ${f}`];
+  if (layer.ids) {
+    const id = columnValue(layer.ids, f);
+    if (id !== undefined) rows.push(`id: ${id}`);
+  }
+  for (const column of layer.properties) {
+    const v = columnValue(column, f);
+    if (v !== undefined) rows.push(`${column.name}: ${column.type === "bool" ? v === 1 : v}`);
+  }
+  rows.push(`vertices: ${g.geometryOffsets[f + 1] - g.geometryOffsets[f]}, triangles: ${g.triangleOffsets[f + 1] - g.triangleOffsets[f]}`);
+  $("picked").textContent = rows.join("\n");
+  // The feature's triangles, copied, so that the highlight shares no buffer with the tile.
+  const position = hit.object.geometry.getAttribute("position").array, index = hit.object.geometry.index.array;
+  const first = firstIndex[part] + g.triangleOffsets[f] * 3, end = firstIndex[part] + g.triangleOffsets[f + 1] * 3;
+  const picked = new Float32Array((end - first) * 3);
+  for (let i = first; i < end; i++) picked.set(position.subarray(index[i] * 3, index[i] * 3 + 3), (i - first) * 3);
+  highlight.geometry.setAttribute("position", new THREE.BufferAttribute(picked, 3));
+  highlight.position.copy(hit.object.position);
+  highlight.userData.mesh = hit.object;
+  highlight.visible = true;
+});
+renderer.domElement.addEventListener("dblclick", (e) => {
+  const hit = hitAt(e);
+  if (!hit) return;
+  const offset = camera.position.clone().sub(controls.target);
+  controls.target.copy(hit.point);
+  camera.position.copy(hit.point).add(offset.setLength(Math.min(offset.length(), 300)));
+  controls.update();
+});
+
+$("byPart").addEventListener("change", () => {
+  for (const entry of cache.values()) {
+    if (!entry.mesh) continue;
+    entry.mesh.geometry.dispose();
+    entry.mesh = buildMesh(entry);
+  }
+  unpick();
+  update();
+});
+$("byLod").addEventListener("change", () => { showLods(); requestRender(); });
+$("fog").addEventListener("input", update);
+$("quality").addEventListener("change", () => {
+  quality = QUALITIES[$("quality").value];
+  renderer.setPixelRatio(Math.min(devicePixelRatio, quality.pixelRatio));
+  resize();
+  update();
+});
+$("file").addEventListener("change", (e) => e.target.files[0] && open(archiveTiles(new FileSource(e.target.files[0]), e.target.files[0].name)));
+addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("dragging"); });
+addEventListener("dragleave", () => document.body.classList.remove("dragging"));
+addEventListener("drop", (e) => {
+  e.preventDefault();
+  document.body.classList.remove("dragging");
+  const file = e.dataTransfer.files[0];
+  if (file) open(archiveTiles(new FileSource(file), file.name));
+});
+$("attribution").replaceChildren(...(params.get("attribution") ?? "").split(/(https:\/\/\S+)/).map((text, i) => {
+  if (i % 2 === 0) return text;
+  const link = document.createElement("a");
+  link.href = link.textContent = text;
+  return link;
+}));
+if (params.has("tiles")) open(directoryTiles(params.get("tiles")));
+else if (params.has("url")) open(urlSource(params.get("url")).then((source) => archiveTiles(source, params.get("url"))));
+</script>
+</body>
+</html>

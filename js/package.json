@@ -1,0 +1,50 @@
+{
+  "name": "@maplibre/mlt-js",
+  "version": "0.1.0",
+  "description": "High-performance pure JavaScript MapLibre Tile (MLT v1 and v2) decoder with zero runtime dependencies",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./min/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./min/index.js"
+    },
+    "./columns": {
+      "types": "./src/index.d.ts",
+      "default": "./min/columns.js"
+    },
+    "./src": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "min",
+    "src",
+    "viewer"
+  ],
+  "license": "(MIT OR Apache-2.0)",
+  "homepage": "https://github.com/maplibre/maplibre-tile-spec/#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maplibre/maplibre-tile-spec",
+    "directory": "js"
+  },
+  "keywords": [
+    "maplibre",
+    "mlt",
+    "vector-tile",
+    "3d-tiles",
+    "mesh",
+    "javascript",
+    "gis"
+  ],
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "node --test test/*.test.js",
+    "bench": "node --expose-gc bench/benchmark.js",
+    "serve": "node viewer/serve.js"
+  }
+}
