@@ -2,49 +2,73 @@
   "name": "@maplibre/mlt-js",
   "version": "0.1.0",
   "description": "High-performance pure JavaScript MapLibre Tile (MLT v1 and v2) decoder with zero runtime dependencies",
-  "type": "module",
-  "sideEffects": false,
-  "main": "./min/index.js",
-  "types": "./src/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./src/index.d.ts",
-      "default": "./min/index.js"
-    },
-    "./columns": {
-      "types": "./src/index.d.ts",
-      "default": "./min/columns.js"
-    },
-    "./src": {
-      "types": "./src/index.d.ts",
-      "default": "./src/index.js"
-    }
-  },
-  "files": [
-    "min",
-    "src",
-    "viewer"
-  ],
   "license": "(MIT OR Apache-2.0)",
-  "homepage": "https://github.com/maplibre/maplibre-tile-spec/#readme",
+  "homepage": "https://github.com/maplibre/maplibre-tile-spec/tree/main/js#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maplibre/maplibre-tile-spec",
+    "url": "git+https://github.com/maplibre/maplibre-tile-spec.git",
     "directory": "js"
+  },
+  "bugs": {
+    "url": "https://github.com/maplibre/maplibre-tile-spec/issues"
   },
   "keywords": [
     "maplibre",
     "mlt",
+    "maplibre-tile",
     "vector-tile",
     "3d-tiles",
     "mesh",
-    "javascript",
+    "citygml",
+    "decoder",
     "gis"
   ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "columns": [
+        "./dist/columns.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./columns": {
+      "types": "./dist/columns.d.ts",
+      "default": "./dist/columns.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "node scripts/build.js",
+    "typecheck": "node scripts/typecheck.js",
     "test": "node --test test/*.test.js",
+    "prepublishOnly": "npm run build && npm run typecheck && npm test",
     "bench": "node --expose-gc bench/benchmark.js",
     "serve": "node viewer/serve.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "esbuild": "^0.27.3",
+    "typescript": "^5.9.3"
   }
 }

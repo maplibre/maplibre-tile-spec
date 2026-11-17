@@ -33,10 +33,10 @@ const server = createServer(async (req, res) => {
 
     const decodedPath = decodeURIComponent(url.pathname).replace(/^\/+/, "");
     if (
-      (decodedPath === "js/min/columns.js" || decodedPath === "js/min/index.js") &&
+      (decodedPath === "js/dist/columns.js" || decodedPath === "js/dist/index.js") &&
       !(await stat(path.resolve(ROOT, decodedPath)).catch(() => null))
     ) {
-      res.writeHead(302, { Location: `/${decodedPath.replace("js/min/", "js/src/")}` });
+      res.writeHead(302, { Location: `/${decodedPath.replace("js/dist/", "js/src/")}` });
       res.end();
       return;
     }

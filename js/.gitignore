@@ -1,0 +1,6 @@
+# Keep prebuilt bundles and declarations tracked in git despite root `dist/` rule
+!/dist/
+!/dist/**
+
+# Local npm pack tarballs
+*.tgz

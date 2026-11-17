@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import { decodeTileColumns as jsDecode } from "../min/columns.js";
+import { decodeTileColumns as jsDecode } from "../dist/columns.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const wasmPkgPath = path.resolve(__dirname, "../../rust/mlt-wasm/pkg/mlt_wasm.js");

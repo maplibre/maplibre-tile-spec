@@ -10,13 +10,16 @@ It has no runtime dependencies, no WASM and no build step for the user. Its API 
 
 ```
 mlt-js/
-├── min/
-│   ├── index.js       # full API, one self-contained ES module
-│   └── columns.js     # columnar API only, one self-contained ES module
+├── dist/
+│   ├── index.js       # full API, minified self-contained ES module
+│   ├── index.d.ts     # TypeScript declarations for index.js
+│   ├── columns.js     # columnar API only, minified self-contained ES module
+│   └── columns.d.ts   # TypeScript declarations for columns.js
 ├── src/
 │   ├── index.js       # package entry point of the sources
-│   ├── index.d.ts     # TypeScript types of both bundles
+│   ├── index.d.ts     # TypeScript declarations for index.js
 │   ├── columns.js     # typed-array layers, as decoded
+│   ├── columns.d.ts   # TypeScript declarations for columns.js
 │   ├── vectorTile.js  # VectorTileLike wrapper over columns.js
 │   ├── featureGeometry.js
 │   ├── geojson.js
@@ -25,25 +28,27 @@ mlt-js/
 ├── viewer/
 │   ├── meshes.html    # three.js viewer of v2 Meshes tiles
 │   └── serve.js       # static server for the viewer
-├── test/              # node --test suites over the repository's fixtures
+├── test/              # node --test suites and TypeScript declaration checks
 ├── bench/             # decode speed, heap use, and a comparison with mlt-wasm
-├── scripts/build.js   # writes min/
+├── scripts/           # build and typecheck scripts
+├── LICENSE-APACHE
+├── LICENSE-MIT
 └── package.json
 ```
 
 ## Bundles
 
-Each file in `min/` is a self-contained, minified ES module without dependencies.
-`src/index.d.ts` holds the TypeScript types of both.
+Each `.js` file in `dist/` is a self-contained, minified ES module without dependencies, paired
+with its `.d.ts` TypeScript declaration file.
 
-| File             | Exports                                                                                                                                                   | Size (brotli) |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `min/columns.js` | `decodeTileColumns`, `columnValue`, `mValueSlice`, `toElevation`, `MltGeometryType`                                                                       | 16 KB         |
-| `min/index.js`   | the above, and `decodeTile`, `decodeTile3D`, `tileGeoJson`, `featureGeometry`, `geometryStarts`, `isMeshes`, `isTrianglesOnly`, and the `Mlt*` classes | 20 KB         |
+| Entry point                | Bundle            | Types              | Exports                                                                                                                                                   | Size (brotli) |
+| -------------------------- | ----------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `@maplibre/mlt-js/columns` | `dist/columns.js` | `dist/columns.d.ts` | `decodeTileColumns`, `columnValue`, `mValueSlice`, `toElevation`, `MltGeometryType`                                                                       | 16 KB         |
+| `@maplibre/mlt-js`         | `dist/index.js`   | `dist/index.d.ts`   | the above, and `decodeTile`, `decodeTile3D`, `tileGeoJson`, `featureGeometry`, `geometryStarts`, `isMeshes`, `isTrianglesOnly`, and the `Mlt*` classes | 20 KB         |
 
-Use `min/columns.js` for a renderer that builds its own GPU buffers, such as the viewer. Use
-`min/index.js` for the `VectorTileLike` API of MapLibre, for GeoJSON, or for features one at a time.
-For comparison, `mlt-wasm` is 127 KB (brotli).
+Use `@maplibre/mlt-js/columns` (`dist/columns.js`) for a renderer that builds its own GPU buffers,
+such as the viewer. Use `@maplibre/mlt-js` (`dist/index.js`) for the `VectorTileLike` API of
+MapLibre, for GeoJSON, or for features one at a time. For comparison, `mlt-wasm` is 127 KB (brotli).
 
 The decoder requires ES2022, `TextDecoder` and `BigUint64Array`, as in current browsers, web
 workers and Node.js 18 or newer. It takes uncompressed tile bytes, so a gzip-compressed tile must
@@ -51,27 +56,20 @@ be decompressed first.
 
 ## Usage
 
-In a browser, import the file as a module:
-
-```html
-<script type="module">
-  import { decodeTile } from './min/index.js';
-
-  const data = new Uint8Array(await fetch(tileUrl).then(r => r.arrayBuffer()));
-  const tile = decodeTile(data);
-</script>
+```sh
+npm install @maplibre/mlt-js
 ```
 
-With an import map, the same code imports `@maplibre/mlt-js`:
+In a browser without a bundler, import the bundle directly or map it with an import map:
 
 ```html
 <script type="importmap">
-  { "imports": { "@maplibre/mlt-js": "./min/columns.js" } }
+  { "imports": { "@maplibre/mlt-js": "./dist/columns.js" } }
 </script>
 ```
 
-As a package, `@maplibre/mlt-js` resolves to `min/index.js`, `@maplibre/mlt-js/columns` to
-`min/columns.js`, and `@maplibre/mlt-js/src` to the unminified sources:
+`@maplibre/mlt-js` resolves to `dist/index.js` (`dist/index.d.ts`), and `@maplibre/mlt-js/columns`
+to `dist/columns.js` (`dist/columns.d.ts`):
 
 ```ts
 import { decodeTile } from '@maplibre/mlt-js';
@@ -203,7 +201,7 @@ the Rust decoder's output for every fixture. Each feature has its layer name in
 ## Meshes viewer
 
 `viewer/meshes.html` draws the v2 `Meshes` layers of a `.pmtiles` archive or of a directory of
-`z/x/y.mlt` tiles with three.js, and decodes them with `min/columns.js`. It is the viewer of
+`z/x/y.mlt` tiles with three.js, and decodes them with `dist/columns.js`. It is the viewer of
 `mlt-wasm`, and shows the decode time per tile. Start the server, which serves the repository
 root on port 8080 (`PORT` changes it):
 
@@ -218,17 +216,17 @@ builds the same as a static site over a `CityGML` input.
 
 ## Development
 
-The sources in `src/` run without a build. `min/` is committed, so rebuild it after a change:
+The sources in `src/` run without a build. `dist/` is committed, so rebuild it after a change:
 
 ```sh
-npm run build   # writes min/index.js and min/columns.js, and prints their sizes
-npm test        # decodes every fixture in test/ and compares it with the Rust decoder's output
-npm run bench   # decode speed and heap use per tile
+npm run build      # writes dist/index.{js,d.ts} and dist/columns.{js,d.ts}, and prints sizes
+npm run typecheck  # checks dist/*.d.ts and test/types.test-d.ts with tsc (strict NodeNext)
+npm test           # decodes every fixture in test/ and compares it with the Rust decoder's output
+npm run bench      # decode speed and heap use per tile
 node bench/compare_wasm.js   # the same tiles with mlt-wasm, which needs rust/mlt-wasm/pkg/
 ```
 
-The build uses the esbuild of `rust/mlt-wasm/node_modules`, so run `npm install` in `rust/mlt-wasm`
-once.
+Run `npm install` to install the build and type-checking devDependencies (`esbuild`, `typescript`).
 
 ## Performance
 
@@ -247,5 +245,5 @@ most 1 MB, so the decoded typed arrays are most of what a tile allocates.
 
 ## License
 
-Licensed under either of [Apache License, Version 2.0](../LICENSE-APACHE) or
-[MIT license](../LICENSE-MIT) at your option.
+Licensed under either of [Apache License, Version 2.0](./LICENSE-APACHE) or
+[MIT license](./LICENSE-MIT) at your option.

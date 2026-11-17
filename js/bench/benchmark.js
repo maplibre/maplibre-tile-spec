@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import { decodeTileColumns } from "../min/columns.js";
+import { decodeTileColumns } from "../dist/columns.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

@@ -1,32 +1,27 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
-const outDir = path.join(rootDir, "min");
+const outDir = path.join(rootDir, "dist");
 mkdirSync(outDir, { recursive: true });
 
 function findEsbuild() {
   const ext = process.platform === "win32" ? ".exe" : "";
   const archPkg = `${process.platform}-${process.arch}`;
-  const candidates = [
-    path.resolve(
-      rootDir,
-      "../rust/mlt-wasm/node_modules/@esbuild",
-      archPkg,
-      `bin/esbuild${ext}`,
-    ),
-    path.resolve(
-      rootDir,
-      "../rust/mlt-wasm/node_modules/@esbuild",
-      archPkg,
-      `esbuild${ext}`,
-    ),
-    "esbuild",
+  const roots = [
+    path.join(rootDir, "node_modules/@esbuild", archPkg),
+    path.resolve(rootDir, "../rust/mlt-wasm/node_modules/@esbuild", archPkg),
   ];
+  const candidates = [];
+  for (const r of roots) {
+    candidates.push(path.join(r, `bin/esbuild${ext}`));
+    candidates.push(path.join(r, `esbuild${ext}`));
+  }
+  candidates.push("esbuild");
   for (const c of candidates) {
     if (c === "esbuild" || existsSync(c)) return c;
   }
@@ -35,11 +30,11 @@ function findEsbuild() {
 
 const esbuild = findEsbuild();
 const targets = [
-  ["src/index.js", "min/index.js"],
-  ["src/columns.js", "min/columns.js"],
+  ["src/index.js", "dist/index.js", "src/index.d.ts", "dist/index.d.ts"],
+  ["src/columns.js", "dist/columns.js", "src/columns.d.ts", "dist/columns.d.ts"],
 ];
 
-for (const [entry, outRel] of targets) {
+for (const [entry, outRel, dtsSrcRel, dtsOutRel] of targets) {
   const inFile = path.join(rootDir, entry);
   const outFile = path.join(rootDir, outRel);
   execFileSync(
@@ -55,6 +50,8 @@ for (const [entry, outRel] of targets) {
     ],
     { stdio: "inherit" },
   );
+  copyFileSync(path.join(rootDir, dtsSrcRel), path.join(rootDir, dtsOutRel));
+
   const raw = readFileSync(outFile);
   const gz = gzipSync(raw, { level: 9 });
   const br = brotliCompressSync(raw, {

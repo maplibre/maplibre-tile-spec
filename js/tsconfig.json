@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "exactOptionalPropertyTypes": false,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "dist/*.d.ts",
+    "src/*.d.ts",
+    "test/types.test-d.ts"
+  ]
+}

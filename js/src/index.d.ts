@@ -1,158 +1,39 @@
-export enum MltGeometryType {
-  Point = 0,
-  LineString = 1,
-  Polygon = 2,
-  MultiPoint = 3,
-  MultiLineString = 4,
-  MultiPolygon = 5,
-  Mesh = 6,
-}
+import type {
+  MltColumnLayer,
+  MltColumnValues,
+  MltGeometryColumns,
+  MltGeometryType,
+  MltMValueColumn,
+  MltNamedColumn,
+  MltZDatum,
+} from "./columns.js";
 
-export interface MltColumnValuesByType {
-  bool: Uint8Array;
-  i8: Int8Array;
-  u8: Uint8Array;
-  i32: Int32Array;
-  u32: Uint32Array;
-  i64: Float64Array;
-  u64: Float64Array;
-  f32: Float32Array;
-  f64: Float64Array;
-  string: string[];
-}
+export * from "./columns.js";
 
-export type MltColumnType = keyof MltColumnValuesByType;
-export type MltColumnValues = MltColumnValuesByType[MltColumnType];
-
-export interface MltColumn<V extends MltColumnValues = MltColumnValues> {
-  readonly values: V;
-  readonly present?: Uint8Array;
-  readonly scope?: undefined;
-}
-
-export type MltNamedColumn = {
-  [T in MltColumnType]: MltColumn<MltColumnValuesByType[T]> & {
-    readonly name: string;
-    readonly type: T;
-  };
-}[MltColumnType];
-
-export type MltZDatum = "elevation" | "ground";
-
-interface MltGeometryColumnsBase {
-  readonly types: Uint8Array;
-  readonly geometryOffsets?: Uint32Array;
-  readonly partOffsets?: Uint32Array;
-  readonly ringOffsets?: Uint32Array;
-  readonly vertices: Int32Array;
-  readonly triangleOffsets?: Uint32Array;
-  readonly indexBuffer?: Uint32Array;
-  readonly meshes?: true;
-}
-
-export interface MltGeometryColumns2D extends MltGeometryColumnsBase {
-  readonly dimension: 2;
-  readonly zStep?: undefined;
-  readonly zDatum?: undefined;
-}
-
-export interface MltGeometryColumns3D extends MltGeometryColumnsBase {
-  readonly dimension: 3;
-  readonly zStep: number;
-  readonly zDatum: MltZDatum;
-}
-
-export type MltGeometryColumns = MltGeometryColumns2D | MltGeometryColumns3D;
-
-export type MltMValueScope = "vertex" | "triangle";
-
-export type MltMValueColumn =
-  | {
-      [T in Exclude<MltColumnType, "string">]: {
-        readonly name: string;
-        readonly scope: MltMValueScope;
-        readonly type: T;
-        readonly values: MltColumnValuesByType[T];
-        readonly present?: Uint8Array;
-      };
-    }[Exclude<MltColumnType, "string">]
-  | {
-      readonly name: string;
-      readonly scope: MltMValueScope;
-      readonly type: "string";
-      readonly codes: Uint32Array;
-      readonly dictionary: readonly string[];
-      readonly present?: Uint8Array;
-    };
-
-export interface MltColumnLayer {
-  readonly name: string;
-  readonly extent: number;
-  readonly version: 1 | 2;
-  readonly featureCount: number;
-  readonly geometry: MltGeometryColumns;
-  readonly ids?: MltColumn<Float64Array>;
-  readonly properties: readonly MltNamedColumn[];
-  readonly mValues?: readonly MltMValueColumn[];
-}
-
-export interface MltColumnTile {
-  readonly layers: readonly MltColumnLayer[];
-}
-
-export interface DecodeTileColumnsOptions {
-  readonly layers?: readonly string[];
-}
-
-export declare function decodeTileColumns(
-  data: Uint8Array,
-  options?: DecodeTileColumnsOptions,
-): MltColumnTile;
-
-export declare function columnValue<C extends MltColumn>(
-  column: C,
-  index: number,
-): C["values"][number] | undefined;
-
-type MltMValueSlice<C extends MltMValueColumn> = C extends {
-  readonly type: "string";
-}
-  ? string[]
-  : C extends { readonly values: infer V }
-    ? V
-    : never;
-
-export declare function mValueSlice<C extends MltMValueColumn>(
-  layer: MltColumnLayer,
-  column: C,
-  featureIndex: number,
-): MltMValueSlice<C> | undefined;
-
-export declare function toElevation(
-  z: number,
-  zStep: number,
-  zDatum?: MltZDatum,
-): number;
-
+/** A contiguous run of vertices inside a layer's `vertices` buffer. */
 export interface MltVertexRun {
+  /** Zero-copy `Int32Array` view (`dimension` words per vertex). */
   readonly vertices: Int32Array;
+  /** Index of the run's first vertex within the layer. */
   readonly firstVertex: number;
 }
 
+/** Exterior and interior rings of one polygon, ready for `earcut(vertices, holeIndices, dimension)`. */
 export interface MltPolygonRings extends MltVertexRun {
+  /** Start vertex index (relative to this polygon's `firstVertex`) of each interior hole ring. */
   readonly holeIndices: number[];
 }
 
 export interface MltPointGeometry {
   readonly kind: "point";
-  readonly type: MltGeometryType;
+  readonly type: MltGeometryType.Point | MltGeometryType.MultiPoint;
   readonly vertices: Int32Array;
   readonly firstVertex: number;
 }
 
 export interface MltLineGeometry {
   readonly kind: "line";
-  readonly type: MltGeometryType;
+  readonly type: MltGeometryType.LineString | MltGeometryType.MultiLineString;
   readonly vertices: Int32Array;
   readonly firstVertex: number;
   readonly lines: readonly MltVertexRun[];
@@ -160,27 +41,31 @@ export interface MltLineGeometry {
 
 export interface MltPolygonGeometry {
   readonly kind: "polygon";
-  readonly type: MltGeometryType;
+  readonly type: MltGeometryType.Polygon | MltGeometryType.MultiPolygon;
   readonly vertices: Int32Array;
   readonly firstVertex: number;
   readonly polygons: readonly MltPolygonRings[];
+  /** Feature-local triangle indices (`0 .. vertexCount - 1`) when pre-tessellated. */
   readonly triangles: Uint32Array | undefined;
 }
 
 export interface MltMeshGeometry {
   readonly kind: "mesh";
-  readonly type: MltGeometryType;
+  readonly type: MltGeometryType.Mesh;
   readonly vertices: Int32Array;
   readonly firstVertex: number;
+  /** Feature-local triangle indices (`0 .. vertexCount - 1`, `3` per triangle). */
   readonly triangles: Uint32Array;
 }
 
+/** Zero-copy view of a single feature's geometry, discriminated by `kind`. */
 export type MltFeatureGeometry =
   | MltPointGeometry
   | MltLineGeometry
   | MltPolygonGeometry
   | MltMeshGeometry;
 
+/** Resolved cumulative offset arrays across a layer's geometry hierarchy. */
 export interface MltGeometryStarts {
   readonly featureGeometries: Uint32Array;
   readonly geometryVertices: Uint32Array;
@@ -188,31 +73,42 @@ export interface MltGeometryStarts {
   readonly ringVertices?: Uint32Array;
 }
 
+/** Whether `geometry` is a `TessPolygons` layer (triangles only, no polygon outlines). */
 export declare function isTrianglesOnly(geometry: MltGeometryColumns): boolean;
+
+/** Whether `geometry` belongs to a v2 `Meshes` layer. */
 export declare function isMeshes(geometry: MltGeometryColumns): boolean;
+
+/** Resolve and memoize cumulative starts for batched GPU buffer construction. */
 export declare function geometryStarts(
   geometry: MltGeometryColumns,
 ): MltGeometryStarts;
+
+/** Read feature `index` of `layer` as zero-copy typed-array views. */
 export declare function featureGeometry(
   layer: MltColumnLayer,
   index: number,
 ): MltFeatureGeometry;
 
+/** 3D position `[x, y, z]` in integer tile coordinates (`z` on the layer's `zStep` grid). */
 export type Position3D = [x: number, y: number, z: number];
 
+/** 2D point compatible with `@mapbox/point-geometry` and MapLibre's `VectorTileFeatureLike`. */
 export declare class MltPoint {
   x: number;
   y: number;
   constructor(x: number, y: number);
   clone(): MltPoint;
-  equals(other: { x: number; y: number }): boolean;
+  equals(other: { readonly x: number; readonly y: number }): boolean;
 }
 
+/** 2D `VectorTileFeatureLike` wrapper around a decoded MLT feature. */
 export declare class MltFeature {
   readonly extent: number;
   readonly zStep: number | undefined;
   readonly zDatum: MltZDatum | undefined;
   get mltType(): MltGeometryType;
+  /** MVT geometry type: `1` (Point), `2` (LineString), `3` (Polygon), or `0` (Mesh). */
   get type(): 0 | 1 | 2 | 3;
   get id(): number | undefined;
   get properties(): Record<string, number | string | boolean>;
@@ -221,6 +117,7 @@ export declare class MltFeature {
   loadPolygons(): MltPoint[][][];
 }
 
+/** 3D feature wrapper exposing `[x, y, z]` coordinates, mesh triangles, and m-values. */
 export declare class MltFeature3D {
   readonly extent: number;
   readonly zStep: number;
@@ -237,6 +134,7 @@ export declare class MltFeature3D {
   ): Exclude<MltColumnValues, string[]> | string[] | undefined;
 }
 
+/** 2D `VectorTileLayerLike` wrapper around a decoded MLT layer. */
 export declare class MltLayer {
   readonly version = 1;
   readonly name: string;
@@ -249,6 +147,7 @@ export declare class MltLayer {
   feature(i: number): MltFeature;
 }
 
+/** 3D layer wrapper around a decoded 3D MLT layer. */
 export declare class MltLayer3D {
   readonly name: string;
   readonly extent: number;
@@ -261,23 +160,50 @@ export declare class MltLayer3D {
   feature(i: number): MltFeature3D;
 }
 
+/** Result of `decodeTile` (`VectorTileLike`). */
 export interface MltTile {
   readonly layers: Record<string, MltLayer>;
 }
 
+/** Result of `decodeTile3D`. */
 export interface MltTile3D {
   readonly layers: Record<string, MltLayer3D>;
 }
 
+/** Decode uncompressed MLT tile bytes into a MapLibre-compatible 2D `VectorTileLike` object. */
 export declare function decodeTile(data: Uint8Array): MltTile;
+
+/** Decode uncompressed 3D MLT tile bytes into `MltLayer3D` / `MltFeature3D` layers. */
 export declare function decodeTile3D(data: Uint8Array): MltTile3D;
-export declare function tileGeoJson(data: Uint8Array): {
+
+/** 2D `[x, y]` or 3D `[x, y, z]` tile-space GeoJSON coordinate. */
+export type MltGeoJsonPosition = [x: number, y: number] | Position3D;
+
+/** GeoJSON geometry produced by `tileGeoJson`. */
+export type MltGeoJsonGeometry =
+  | { type: "Point"; coordinates: MltGeoJsonPosition }
+  | { type: "MultiPoint"; coordinates: MltGeoJsonPosition[] }
+  | { type: "LineString"; coordinates: MltGeoJsonPosition[] }
+  | { type: "MultiLineString"; coordinates: MltGeoJsonPosition[][] }
+  | { type: "Polygon"; coordinates: MltGeoJsonPosition[][] }
+  | { type: "MultiPolygon"; coordinates: MltGeoJsonPosition[][][] };
+
+/** GeoJSON feature produced by `tileGeoJson` (matching `mlt decode --format geojson`). */
+export interface MltGeoJsonFeature {
+  type: "Feature";
+  id?: number;
+  properties: Record<string, unknown>;
+  geometry: MltGeoJsonGeometry;
+  triangles?: [number, number, number][];
+}
+
+/** GeoJSON `FeatureCollection` produced by `tileGeoJson`. */
+export interface MltGeoJsonFeatureCollection {
   type: "FeatureCollection";
-  features: Array<{
-    type: "Feature";
-    id?: number;
-    properties: Record<string, unknown>;
-    geometry: { type: string; coordinates: unknown };
-    triangles?: [number, number, number][];
-  }>;
-};
+  features: MltGeoJsonFeature[];
+}
+
+/** Decode an MLT tile into a tile-coordinate GeoJSON `FeatureCollection`. */
+export declare function tileGeoJson(
+  data: Uint8Array,
+): MltGeoJsonFeatureCollection;

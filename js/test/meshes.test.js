@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -175,7 +175,7 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
     assert.ok(mapMatch, "missing importmap in viewer/meshes.html");
     const importMap = JSON.parse(mapMatch[1]);
     const relTarget = importMap.imports["@maplibre/mlt-js"];
-    assert.equal(relTarget, "../min/columns.js");
+    assert.equal(relTarget, "../dist/columns.js");
     const resolvedEntry = path.resolve(path.dirname(VIEWER_HTML), relTarget);
     assert.ok(readFileSync(resolvedEntry, "utf-8").includes("decodeTileColumns"));
 
@@ -191,13 +191,52 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
     assert.ok(modMatch[1].includes("decodeTileColumns(data).layers.filter"));
     assert.ok(!modMatch[1].includes("await init()"));
 
-    // Verify minified bundles decode identically to src/
-    const minFull = await import("../min/index.js");
-    const minCols = await import("../min/columns.js");
+    // Verify package exports, dist bundles, typings, and license files
+    const distFull = await import("@maplibre/mlt-js");
+    const distCols = await import("@maplibre/mlt-js/columns");
+    assert.deepEqual(Object.keys(distCols).sort(), [
+      "MltGeometryType",
+      "columnValue",
+      "decodeTileColumns",
+      "mValueSlice",
+      "toElevation",
+    ]);
+    assert.deepEqual(Object.keys(distFull).sort(), [
+      "MltFeature",
+      "MltFeature3D",
+      "MltGeometryType",
+      "MltLayer",
+      "MltLayer3D",
+      "MltPoint",
+      "columnValue",
+      "decodeTile",
+      "decodeTile3D",
+      "decodeTileColumns",
+      "featureGeometry",
+      "geometryStarts",
+      "isMeshes",
+      "isTrianglesOnly",
+      "mValueSlice",
+      "tileGeoJson",
+      "toElevation",
+    ]);
     const sample = new Uint8Array(
       readFileSync(path.join(MESHES_DIR, "16/34588/21180.mlt")),
     );
-    assert.deepEqual(minCols.decodeTileColumns(sample), decodeTileColumns(sample));
-    assert.deepEqual(minFull.tileGeoJson(sample), tileGeoJson(sample));
+    assert.deepEqual(distCols.decodeTileColumns(sample), decodeTileColumns(sample));
+    assert.deepEqual(distFull.tileGeoJson(sample), tileGeoJson(sample));
+
+    const pkgDir = path.resolve(path.dirname(VIEWER_HTML), "..");
+    for (const rel of [
+      "dist/index.js",
+      "dist/index.d.ts",
+      "dist/columns.js",
+      "dist/columns.d.ts",
+      "LICENSE-MIT",
+      "LICENSE-APACHE",
+      "README.md",
+    ]) {
+      assert.ok(existsSync(path.join(pkgDir, rel)), `missing required package file ${rel}`);
+    }
   });
 });
