@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use geo::{Convert as _, TriangulateEarcut as _};
+use earcut::Earcut;
 use geo_types::{Coord, Geometry, LineString, Polygon};
 
 use crate::decoder::{GeometryType, GeometryValues};
@@ -77,18 +77,19 @@ fn earcut_into<'c>(
         }
         stored_start += stored_len(ring);
     }
-    let polygon_f64: Polygon<f64> = Polygon::new(exterior, holes).convert();
-    let raw = polygon_f64.earcut_triangles_raw();
-    let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
-
     // Earcut numbers the kept rings' vertices back to back, one per coordinate but the closing one.
+    let mut vertices = Vec::new();
     let mut earcut_starts = Vec::with_capacity(stored_starts.len());
-    let mut earcut_start = 0;
-    for ring in std::iter::once(polygon_f64.exterior()).chain(polygon_f64.interiors()) {
-        earcut_starts.push(earcut_start);
-        earcut_start += ring.0.len() - 1;
+    for ring in std::iter::once(&exterior).chain(&holes) {
+        earcut_starts.push(vertices.len());
+        let open = &ring.0[..ring.0.len() - 1];
+        vertices.extend(open.iter().map(|c| [f64::from(c.x), f64::from(c.y)]));
     }
-    for i in raw.triangle_indices {
+    let mut triangle_indices: Vec<usize> = Vec::new();
+    Earcut::new().earcut(vertices, &earcut_starts[1..], &mut triangle_indices);
+    let num_triangles = u32::try_from(triangle_indices.len() / 3).expect("too many triangles");
+
+    for i in triangle_indices {
         let ring = earcut_starts.partition_point(|&start| start <= i) - 1;
         let stored = stored_starts[ring] + (i - earcut_starts[ring]);
         let idx = u32::try_from(stored)
@@ -1041,6 +1042,19 @@ mod tests {
         use crate::decoder::GeometryValues;
 
         #[test]
+        fn a_hole_reaching_past_the_bounding_box_of_its_shell_is_tessellated() {
+            let shell: Vec<(i32, i32)> = (0..=100)
+                .map(|i| (i, 0))
+                .chain([(100, 100), (0, 100), (0, 0)])
+                .collect();
+            let hole = vec![(10, 40), (40, 40), (30, -5), (10, 40)];
+            let polygon = Polygon::new(LineString::from(shell), vec![LineString::from(hole)]);
+            let mut g = GeometryValues::new_tessellated();
+            g.push_geom(&Geometry::<i32>::Polygon(polygon));
+            assert!(g.triangle_offsets().expect("triangle offsets")[1] > 0);
+        }
+
+        #[test]
         fn earcut_polygon_indices_in_range() {
             let exterior = LineString::from(vec![(0_i32, 0), (10, 0), (10, 10), (0, 10), (0, 0)]);
             let polygon = Polygon::new(exterior, vec![]);
@@ -1106,7 +1120,7 @@ mod tests {
         fn a_one_coordinate_polygon_still_shifts_the_next_polygons_indices() {
             let point = Polygon::new(LineString::from(vec![(5, 5)]), vec![]);
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![point, square(20)]));
-            assert_eq!(triangles(&geometry), [3, 4, 1, 1, 2, 3]);
+            assert_eq!(triangles(&geometry), [3, 4, 1, 3, 1, 2]);
         }
 
         #[test]
@@ -1153,7 +1167,7 @@ mod tests {
             let mut holed = square(0);
             holed.interiors_push(LineString::from(vec![(2, 2), (3, 3)]));
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![holed, square(20)]));
-            assert_eq!(triangles(&geometry), [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8]);
+            assert_eq!(triangles(&geometry), [2, 3, 0, 2, 0, 1, 8, 9, 6, 8, 6, 7]);
         }
     }
 

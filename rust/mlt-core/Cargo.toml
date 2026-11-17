@@ -64,7 +64,8 @@ enum_dispatch.workspace = true
 fast-mvt.workspace = true
 fastpfor.workspace = true
 fsst-rs.workspace = true
-geo = { workspace = true, features = ["earcut"] }
+earcut.workspace = true
+geo.workspace = true
 geo-types.workspace = true
 hex.workspace = true
 hilbert_2d.workspace = true
