@@ -482,17 +482,7 @@ pub(crate) fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
         order.extend(order.len()..order.len() + len);
     }
     fn polygon(order: &mut Vec<usize>, reversed: &mut bool, polygon: &Polygon<i32>) {
-        for (i, ring) in rings(polygon).enumerate() {
-            let start = order.len();
-            let end = start + stored_len(ring);
-            if needs_reversal(ring, i == 0) {
-                *reversed = true;
-                // Reversing the closed ring leaves its first vertex where it was.
-                order.extend((start..end.min(start + 1)).chain((start + 1..end).rev()));
-            } else {
-                order.extend(start..end);
-            }
-        }
+        push_wound_rings(order, reversed, rings(polygon));
     }
     fn walk(order: &mut Vec<usize>, reversed: &mut bool, geom: &Geometry<i32>) {
         match geom {
@@ -522,6 +512,40 @@ pub(crate) fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
     let mut reversed = false;
     walk(&mut order, &mut reversed, geom);
     reversed.then_some(order)
+}
+
+/// [`wound_vertex_order`] of a feature made of `polygons`, each given as its rings, exterior first.
+#[cfg(feature = "unstable-v2")]
+pub(crate) fn wound_polygons_order<'c>(
+    polygons: impl Iterator<Item = impl Iterator<Item = &'c [Coord<i32>]>>,
+) -> Option<Vec<usize>> {
+    let mut order = Vec::new();
+    let mut reversed = false;
+    for rings in polygons {
+        push_wound_rings(&mut order, &mut reversed, rings);
+    }
+    reversed.then_some(order)
+}
+
+/// Appends where each stored vertex of one polygon's `rings` ends up once they are wound, and
+/// sets `reversed` when any ring is.
+#[cfg(feature = "unstable-v2")]
+fn push_wound_rings<'c>(
+    order: &mut Vec<usize>,
+    reversed: &mut bool,
+    rings: impl Iterator<Item = &'c [Coord<i32>]>,
+) {
+    for (i, ring) in rings.enumerate() {
+        let start = order.len();
+        let end = start + stored_len(ring);
+        if needs_reversal(ring, i == 0) {
+            *reversed = true;
+            // Reversing the closed ring leaves its first vertex where it was.
+            order.extend((start..end.min(start + 1)).chain((start + 1..end).rev()));
+        } else {
+            order.extend(start..end);
+        }
+    }
 }
 
 /// Ensure offset array starts with 0.

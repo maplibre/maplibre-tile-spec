@@ -121,6 +121,10 @@ name = "layer_bytes"
 required-features = ["unstable-v2"]
 
 [[test]]
+name = "layer_writer_m_values"
+required-features = ["unstable-v2"]
+
+[[test]]
 name = "mvt_round_trip"
 required-features = ["__private"]
 

@@ -241,6 +241,10 @@ pub struct MValueKey(usize);
 
 #[cfg(feature = "unstable-v2")]
 impl MValueKey {
+    pub(crate) const fn new(index: usize) -> Self {
+        Self(index)
+    }
+
     #[must_use]
     pub fn index(self) -> usize {
         self.0
