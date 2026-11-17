@@ -1,0 +1,258 @@
+# mlt-js
+
+A pure JavaScript decoder for [MapLibre Tile (MLT)](https://github.com/maplibre/maplibre-tile-spec)
+v1 and v2 tiles, `Meshes` layers included.
+
+It has no runtime dependencies, no WASM and no build step for the user. Its API is the same as
+[`mlt-wasm`](../rust/mlt-wasm/README.md)'s, so code can move from one to the other by changing the import.
+
+## Layout
+
+```
+mlt-js/
+├── min/
+│   ├── index.js       # full API, one self-contained ES module
+│   └── columns.js     # columnar API only, one self-contained ES module
+├── src/
+│   ├── index.js       # package entry point of the sources
+│   ├── index.d.ts     # TypeScript types of both bundles
+│   ├── columns.js     # typed-array layers, as decoded
+│   ├── vectorTile.js  # VectorTileLike wrapper over columns.js
+│   ├── featureGeometry.js
+│   ├── geojson.js
+│   ├── decoder/       # stream, geometry, string, nested and layer decoders
+│   └── codecs/        # FastPFOR, rANS, FSST, ALP, RLE, Morton, triangle trees, ...
+├── viewer/
+│   ├── meshes.html    # three.js viewer of v2 Meshes tiles
+│   └── serve.js       # static server for the viewer
+├── test/              # node --test suites over the repository's fixtures
+├── bench/             # decode speed, heap use, and a comparison with mlt-wasm
+├── scripts/build.js   # writes min/
+└── package.json
+```
+
+## Which file to use
+
+Each file in `min/` is one ES module that imports nothing. To give the decoder to somebody,
+send one of them. Send `src/index.d.ts` with it if they use TypeScript.
+
+| File             | Exports                                                                                                                                                   | Size (brotli) |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `min/columns.js` | `decodeTileColumns`, `columnValue`, `mValueSlice`, `toElevation`, `MltGeometryType`                                                                       | 16 KB         |
+| `min/index.js`   | the above, and `decodeTile`, `decodeTile3D`, `tileGeoJson`, `featureGeometry`, `geometryStarts`, `isMeshes`, `isTrianglesOnly`, and the `Mlt*` classes | 20 KB         |
+
+Use `min/columns.js` for a renderer that builds its own GPU buffers, such as the viewer. Use
+`min/index.js` for the `VectorTileLike` API of MapLibre, for GeoJSON, or for features one at a time.
+For comparison, `mlt-wasm` is 127 KB (brotli).
+
+The decoder runs in browsers, web workers, Node.js 18 or newer, Deno and Bun: everything that
+has ES2022, `TextDecoder` and `BigUint64Array`. It reads the tile bytes as they are in the tile:
+decompress a gzip-compressed tile before you decode it.
+
+## Usage
+
+In a browser, import the file as a module:
+
+```html
+<script type="module">
+  import { decodeTile } from './mlt.js'; // a copy of min/index.js
+
+  const data = new Uint8Array(await fetch(tileUrl).then(r => r.arrayBuffer()));
+  const tile = decodeTile(data);
+</script>
+```
+
+With an import map, the same code imports `@maplibre/mlt-js`:
+
+```html
+<script type="importmap">
+  { "imports": { "@maplibre/mlt-js": "./min/columns.js" } }
+</script>
+```
+
+In a project, install the directory and import the package. `@maplibre/mlt-js` is `min/index.js`,
+`@maplibre/mlt-js/columns` is `min/columns.js`, and `@maplibre/mlt-js/src` is the unminified sources:
+
+```sh
+npm install ./path/to/maplibre-tile-spec/js
+```
+
+```ts
+import { decodeTile } from '@maplibre/mlt-js';
+
+const tile = decodeTile(data);
+
+for (const [name, layer] of Object.entries(tile.layers)) {
+    for (let i = 0; i < layer.length; i++) {
+        const feature = layer.feature(i);
+        console.log(feature.type);           // 0 (Mesh) | 1 | 2 | 3
+        console.log(feature.id);             // number | undefined
+        console.log(feature.properties);     // read from the decoded columns
+        console.log(feature.loadGeometry()); // Point[][]
+    }
+}
+```
+
+### Columns
+
+`decodeTileColumns` gives each layer as the typed arrays it decodes to, for consumers that
+build their own buffers, such as a renderer. It makes no object per feature.
+
+```ts
+import { columnValue, decodeTileColumns } from '@maplibre/mlt-js/columns';
+
+for (const layer of decodeTileColumns(data).layers) {
+    const { dimension, vertices, zStep } = layer.geometry;
+    // vertices: Int32Array of (x, y) pairs, or (x, y, z) triples when dimension is 3
+    // geometryOffsets, partOffsets, ringOffsets: cumulative offsets, left out when not needed
+    // triangleOffsets, indexBuffer: present on tessellated layers
+    for (const column of layer.properties) {
+        // column.values has one slot per feature; a slot without a value holds 0 or ""
+        for (let f = 0; f < layer.featureCount; f++) {
+            const value = columnValue(column, f); // undefined when feature f has no value
+        }
+    }
+    // a v2 layer's m-value columns are in layer.mValues
+}
+```
+
+`decodeTileColumns(data, { layers: ['roads', 'water'] })` decodes only the layers with those names,
+every one that has it, since layer names need not be unique. The other layers are skipped undecoded.
+
+Each column is `{ name, type, values, present? }`. `present` is a bitmap with one bit per
+feature, LSB-first, left out when every feature has a value. `bool` comes as `0`/`1`, and
+64-bit integers, ids included, as `Float64Array`, so values above `Number.MAX_SAFE_INTEGER`
+lose precision.
+
+The typed arrays of a layer are its own: they stay valid after the next tile is decoded.
+
+A 3D layer's `zStep` is the power of ten of its z grid's step in metres, and its `zDatum` is what
+`z = 0` stands for: `"elevation"`, Terrain-RGB's base of -10000 m, or `"ground"`, so that z is a
+height above it. `toElevation(z, zStep, zDatum)` converts one z to metres, exactly as `mlt-core` does.
+
+A v2 layer's `mValues` hold its m-value columns, packed over the vertices or, in a `Meshes` layer,
+the triangles of the features whose `present` bit is set, with strings as dictionary codes;
+`mValueSlice(layer, column, f)` reads one feature's slice, and `MltFeature3D.loadMValues(name)`
+does the same on `decodeTile3D`.
+
+A `Meshes` layer's features are all `MltGeometryType.Mesh`: `geometryOffsets` starts each feature's
+run of vertices, and `triangleOffsets` each feature's triangles in the layer-wide `indexBuffer`.
+A mesh on the `"ground"` datum meets the terrain at the centre of its vertices' `(x, y)` bounding box.
+
+```ts
+import { decodeTileColumns, toElevation } from '@maplibre/mlt-js/columns';
+
+for (const layer of decodeTileColumns(data).layers) {
+    const g = layer.geometry;
+    if (!g.meshes) continue;
+    // one draw call per layer: upload g.vertices as ivec3 and g.indexBuffer as the index buffer,
+    // and scale z in the shader by 10 ** g.zStep metres
+    const metres = toElevation(g.vertices[2], g.zStep, g.zDatum);
+}
+```
+
+### Features
+
+`featureGeometry(layer, i)` reads feature `i` of a column layer without knowing the offset levels.
+Its points, lines and polygon rings are views of the layer's vertices, still in tile coordinates,
+and a polygon's rings come ready for earcut. A mesh's triangles (`kind: "mesh"`) come per feature,
+counted from the feature's own vertices. `geometryStarts(layer.geometry)` gives where each
+feature's geometries and each geometry's vertices start, for batched renderers such as deck.gl's
+binary layers. Both work as in [`mlt-wasm`](../rust/mlt-wasm/README.md#features).
+
+```ts
+import { featureGeometry } from '@maplibre/mlt-js';
+
+const g = featureGeometry(layer, i);
+if (g.kind === 'polygon') {
+    for (const { vertices, holeIndices } of g.polygons) {
+        const triangles = earcut(vertices, holeIndices, layer.geometry.dimension);
+    }
+}
+```
+
+### 3D
+
+`decodeTile3D` reads a tile whose every layer has z coordinates. Its features have the same
+`loadGeometry()` and `loadPolygons()`, with every vertex an `[x, y, z]` array. A mesh's
+`loadGeometry()` is one ring of its vertices, and `loadTriangles()` indexes into it. It throws
+when any layer has no z coordinates, for which `decodeTile` reads the tile in 2D, and when any
+layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry layout. `decodeTileColumns`
+reads every layout, in 2D and 3D.
+
+```ts
+import { decodeTile3D, MltGeometryType } from '@maplibre/mlt-js';
+
+const tile = decodeTile3D(data);
+for (const [name, layer] of Object.entries(tile.layers)) {
+    for (let i = 0; i < layer.length; i++) {
+        const feature = layer.feature(i);
+        if (feature.mltType === MltGeometryType.Mesh) {
+            const vertices = feature.loadGeometry()[0]; // [x, y, z][]
+            const triangles = feature.loadTriangles();  // Uint32Array
+        } else {
+            const polygons = feature.loadPolygons();    // [x, y, z][][][]
+        }
+    }
+}
+```
+
+### GeoJSON
+
+`tileGeoJson(data)` gives the whole tile as one GeoJSON `FeatureCollection` in tile coordinates,
+in the same form as `mlt decode --format geojson`. The tests use it to compare the decoder with
+the Rust decoder's output for every fixture. Each feature has its layer name in
+`properties._layer`, and a mesh has its triangles in `triangles`.
+
+## Meshes viewer
+
+`viewer/meshes.html` draws the v2 `Meshes` layers of a `.pmtiles` archive or of a directory of
+`z/x/y.mlt` tiles with three.js, and decodes them with `min/columns.js`. It is the viewer of
+`mlt-wasm`, and shows the decode time per tile. Start the server, which serves the repository
+root on port 8080 (`PORT` changes it):
+
+```sh
+npm run serve
+```
+
+Then open `http://localhost:8080/js/viewer/meshes.html?url=<archive>` or
+`http://localhost:8080/js/viewer/meshes.html?tiles=<base>`, adding `&attribution=<text>` to credit
+the data and `&quality=high`, `phone` or `low` to pick the detail. For example,
+`?url=/rust/hamburg_v3_lod_v7.pmtiles` opens an archive in `rust/`.
+
+`just rust::mesh-site` copies `min/columns.js` and the viewer into the static site of the
+GitHub Pages demo.
+
+## Development
+
+The sources in `src/` run without a build. `min/` is committed, so rebuild it after a change:
+
+```sh
+npm run build   # writes min/index.js and min/columns.js, and prints their sizes
+npm test        # decodes every fixture in test/ and compares it with the Rust decoder's output
+npm run bench   # decode speed and heap use per tile
+node bench/compare_wasm.js   # the same tiles with mlt-wasm, which needs rust/mlt-wasm/pkg/
+```
+
+The build uses the esbuild of `rust/mlt-wasm/node_modules`, so run `npm install` in `rust/mlt-wasm`
+once.
+
+## Performance
+
+Decode time per tile with `decodeTileColumns`, median of 5 rounds, Node.js on one machine:
+
+| Tile                 | mlt-js   | mlt-wasm (SIMD128) |
+| -------------------- | -------- | ------------------ |
+| Hamburg z16, 88 KB   | 0.672 ms | 0.672 ms           |
+| Hamburg z15, 61 KB   | 0.427 ms | 0.449 ms           |
+| Hamburg z14, 255 KB  | 1.644 ms | 1.737 ms           |
+| Hamburg z13, 196 KB  | 1.449 ms | 1.747 ms           |
+| CityGML fixture z16  | 0.013 ms | 0.018 ms           |
+
+The decoder reuses one scratch buffer for the temporary values of a tile, which it keeps to at
+most 1 MB, so the decoded typed arrays are most of what a tile allocates.
+
+## License
+
+Licensed under either of [Apache License, Version 2.0](../LICENSE-APACHE) or
+[MIT license](../LICENSE-MIT) at your option.
