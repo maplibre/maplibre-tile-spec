@@ -44,7 +44,7 @@ required-features = ["__private"]
 [features]
 default = []
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
-unstable-v2 = []
+unstable-v2 = ["dep:flate2"]
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
 __private-v2 = ["__private", "unstable-v2"]
@@ -59,6 +59,7 @@ earcut.workspace = true
 enum_dispatch.workspace = true
 fast-mvt.workspace = true
 fastpfor.workspace = true
+flate2 = { workspace = true, optional = true }
 fsst-rs.workspace = true
 geo.workspace = true
 geo-types.workspace = true

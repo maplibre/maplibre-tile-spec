@@ -56,6 +56,9 @@ pub enum DecodeHint {
     /// Presence bits stored as Boolean RLE rather than laid out as bits.
     #[cfg(feature = "unstable-v2")]
     PresenceCoded(PresenceCoding),
+    /// A predicted vertex payload, which only decodes with the layer's topology, so its composition is shown instead.
+    #[cfg(feature = "unstable-v2")]
+    Predicted,
 }
 
 /// Framed, Exception-Free ALP's parameters flattened beside the hint's tag, keeping `Alp`'s fields crate-private.

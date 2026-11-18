@@ -86,6 +86,7 @@ pub(crate) enum Logical {
     FrontCoded,
     BitPacked,
     Delta2,
+    Predicted,
 }
 
 /// How a string column lays its streams out, named by the extension bits of its leading stream.
@@ -178,7 +179,7 @@ impl Family {
             ],
             Self::Bool => &[L::None, L::Rle],
             Self::Float(_) => &[L::None, L::Alp],
-            Self::Vertex => &[L::CwDelta, L::Morton],
+            Self::Vertex => &[L::CwDelta, L::Morton, L::Predicted],
             Self::Bytes => &[L::None, L::FrontCoded],
         }
     }
@@ -436,6 +437,8 @@ pub(crate) enum LogicalVertex {
     /// Deltas between the Morton codes of a sorted vertex dictionary.
     /// The grid the codes are laid on follows the byte length as two varints.
     Morton(PhysicalInt),
+    /// Residuals against a guess from the decoded vertices, so the physical field is reserved.
+    Predicted,
 }
 
 /// Logical encoding of an `(x, y, z)` vertex stream, which has no Morton member.
@@ -526,9 +529,11 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
             LogicalInt::BitPacked
         }
         Logical::Delta2 => LogicalInt::Delta2(physical_int(enc_byte)?),
-        Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::FrontCoded => {
-            unreachable_member(family, logical)
-        }
+        Logical::CwDelta
+        | Logical::Morton
+        | Logical::Alp
+        | Logical::FrontCoded
+        | Logical::Predicted => unreachable_member(family, logical),
     })
 }
 
@@ -569,7 +574,8 @@ impl Encoding02 {
                     | Logical::Morton
                     | Logical::Alp
                     | Logical::BitPacked
-                    | Logical::Delta2 => unreachable_member(family, logical),
+                    | Logical::Delta2
+                    | Logical::Predicted => unreachable_member(family, logical),
                 })
             }
             Family::Bool => Self::Bool(match logical {
@@ -582,7 +588,8 @@ impl Encoding02 {
                 | Logical::Alp
                 | Logical::FrontCoded
                 | Logical::BitPacked
-                | Logical::Delta2 => unreachable_member(family, logical),
+                | Logical::Delta2
+                | Logical::Predicted => unreachable_member(family, logical),
             }),
             Family::Float(_) => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
@@ -594,12 +601,13 @@ impl Encoding02 {
                 | Logical::Morton
                 | Logical::FrontCoded
                 | Logical::BitPacked
-                | Logical::Delta2 => unreachable_member(family, logical),
+                | Logical::Delta2
+                | Logical::Predicted => unreachable_member(family, logical),
             }),
             Family::Vertex if enc_byte & EXTENSION_MASK == XYZ => Self::Xyz(match logical {
                 Logical::CwDelta => LogicalXyz::CwDelta(physical_int(enc_byte)?),
-                // A Morton code spans only x and y.
-                Logical::Morton => {
+                // A Morton code spans only x and y, and predicted vertices are defined over pairs.
+                Logical::Morton | Logical::Predicted => {
                     return Err(MltError::ParsingEncodingByte(enc_byte));
                 }
                 Logical::None
@@ -617,6 +625,10 @@ impl Encoding02 {
                 }
                 Logical::CwDelta => LogicalVertex::CwDelta(physical_int(enc_byte)?),
                 Logical::Morton => LogicalVertex::Morton(physical_int(enc_byte)?),
+                Logical::Predicted => {
+                    no_physical(enc_byte)?;
+                    LogicalVertex::Predicted
+                }
                 Logical::None
                 | Logical::Delta
                 | Logical::Rle
@@ -648,6 +660,7 @@ impl Encoding02 {
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
             Self::Int(LogicalInt::BitPacked) => Logical::BitPacked,
             Self::Vertex(LogicalVertex::Morton(_)) => Logical::Morton,
+            Self::Vertex(LogicalVertex::Predicted) => Logical::Predicted,
             Self::Float(LogicalFloat::Alp(_)) => Logical::Alp,
             Self::Bytes(LogicalBytes::FrontCoded) => Logical::FrontCoded,
         }
@@ -667,7 +680,9 @@ impl Encoding02 {
                 PhysicalBits::WithLen.into()
             }
             Self::Int(LogicalInt::BitPacked) => "BitPacked",
-            Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle) | Self::Bool(_) => "implied",
+            Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
+            | Self::Bool(_)
+            | Self::Vertex(LogicalVertex::Predicted) => "implied",
         }
     }
 
@@ -675,7 +690,7 @@ impl Encoding02 {
     fn words_per_value(self) -> u32 {
         match self {
             Self::Xyz(_) => 3,
-            Self::Vertex(LogicalVertex::CwDelta(_)) => 2,
+            Self::Vertex(LogicalVertex::CwDelta(_) | LogicalVertex::Predicted) => 2,
             Self::Int(_)
             | Self::Bool(_)
             | Self::Float(_)
@@ -730,6 +745,10 @@ impl Encoding02 {
             Self::Int(LogicalInt::Delta2(p)) => {
                 IntEncoding::new(LogicalEncoding::Int(IntLogical::Delta2), flat_int(p))
             }
+            Self::Vertex(LogicalVertex::Predicted) => IntEncoding::new(
+                LogicalEncoding::Vertex(VertexLogical::Predicted),
+                PhysicalEncoding::None,
+            ),
             Self::Int(LogicalInt::Rle) => IntEncoding::new(
                 LogicalEncoding::Int(IntLogical::Rle(rle())),
                 PhysicalEncoding::VarInt,
@@ -910,6 +929,14 @@ fn wire_fields(
             with_length(Logical::CwDelta, physical(encoding)?)
         }
         LE::Int(IL::Delta2) => with_length(Logical::Delta2, physical(encoding)?),
+        LE::Vertex(VL::Predicted) => {
+            if encoding.physical != PhysicalEncoding::None {
+                return Err(MltError::UnsupportedPhysicalEncoding(
+                    "v2 predicted vertices, which define their own payload",
+                ));
+            }
+            with_length(Logical::Predicted, 0)
+        }
         LE::Int(IL::Rle(rle) | IL::DeltaRle(rle)) => {
             if !matches!(rle, RleMeta::Interleaved { .. }) {
                 return Err(MltError::UnsupportedLogicalEncoding(
@@ -1830,6 +1857,7 @@ mod tests {
         boolean(BoolLogical::SelfDelimitedByteRle, PE::VarInt, 5),
         Family::Bool
     )]
+    #[case::varint_predicted(vertex(VertexLogical::Predicted, PE::VarInt, 5), Family::Vertex)]
     #[case::rle_without_varint(int(IntLogical::Rle(rle(5)), PE::None, 5), INT_FAMILY)]
     fn write_rejects_a_physical_codec_the_encoding_cannot_carry(
         #[case] meta: StreamMeta,

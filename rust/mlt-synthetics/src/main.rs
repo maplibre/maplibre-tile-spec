@@ -113,6 +113,7 @@ fn main() {
     let mut writer = SynthWriter::new(&Args::parse());
 
     generate_geometry(&mut writer);
+    generate_predicted_vertices(&mut writer);
     generate_mixed(&mut writer);
     generate_extent(&mut writer);
     generate_ids(&mut writer);
@@ -390,6 +391,59 @@ fn generate_geometry(w: &mut SynthWriter) {
         .vertex_offsets(E::delta_rle_varint())
         .geo(MultiLineString(vec![mline1, mline2]))
         .write(w, "multiline_morton");
+}
+
+/// A line of `n` vertices whose steps vary in length and direction.
+fn wandering_line(n: usize) -> LineString<i32> {
+    const STEPS: [i32; 10] = [12, -12, 14, -14, 24, -28, 48, 12, 13, -15];
+    let (mut x, mut y) = (100, 100);
+    (0..n)
+        .map(|i| {
+            x += STEPS[i * 7 % 10];
+            y += STEPS[(i * 3 + 1) % 10];
+            c(x, y)
+        })
+        .collect()
+}
+
+fn generate_predicted_vertices(w: &mut SynthWriter) {
+    p0().predicted_vertices().write(w, "point_predicted");
+    geo_varint()
+        .geo(line1())
+        .predicted_vertices()
+        .write(w, "line_predicted");
+    geo_varint()
+        .geo(LineString::new(morton_curve()))
+        .predicted_vertices()
+        .write(w, "line_morton_curve_predicted");
+    geo_varint()
+        .geo(wandering_line(24))
+        .predicted_vertices()
+        .write(w, "line_wandering_predicted");
+    geo_varint()
+        .geo(wkt!(LINESTRING(196 3904, 292 3808, 388 3712, 484 3616, 580 3520, 676 3424)))
+        .predicted_vertices()
+        .write(w, "line_diagonal_predicted");
+    geo_varint()
+        .geo(line1())
+        .geo(wkt!(MULTILINESTRING((24 10, 42 18),(30 36, 48 52, 35 62))))
+        .predicted_vertices()
+        .write(w, "multiline_predicted");
+    geo_varint()
+        .geo(poly1h())
+        .predicted_vertices()
+        .write(w, "poly_hole_predicted");
+    geo_varint()
+        .tessellate()
+        .geo(poly1h())
+        .predicted_vertices()
+        .write(w, "poly_hole_tes_predicted");
+    geo_varint()
+        .geo(P0)
+        .geo(line1())
+        .geo(poly1h())
+        .predicted_vertices()
+        .write(w, "mix_pt_line_polyh_predicted");
 }
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {

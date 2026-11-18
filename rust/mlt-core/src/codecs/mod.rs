@@ -11,6 +11,8 @@ pub mod fsst;
 pub mod hilbert;
 pub mod morton;
 #[cfg(feature = "unstable-v2")]
+pub mod predicted;
+#[cfg(feature = "unstable-v2")]
 pub mod presence_coding;
 pub mod rle;
 #[cfg(feature = "unstable-v2")]
