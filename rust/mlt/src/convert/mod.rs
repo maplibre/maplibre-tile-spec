@@ -19,7 +19,7 @@ use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zli
 use mbtiles::{MbtType, NormalizedSchema};
 use mlt_core::encoder::{
     Client, EncodedUnknown, Encoder, EncoderConfig, Network as CoreNetwork, Profile as CoreProfile,
-    Tessellation, WireVersion,
+    Tessellation, VertexSize, WireVersion,
 };
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
@@ -198,7 +198,7 @@ enum Profile {
     Web,
     /// `MapLibre Native`: `--tessellate=auto`
     Native,
-    /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2`
+    /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2 --predicted-vertices`
     #[value(name = "min_size", alias = "min-size")]
     MinSize,
     /// Small binary diffs between releases: `--no-fsst --no-shared-dict`, and under MLT version 2 `--delta2`
@@ -424,6 +424,21 @@ struct V2EncoderArgs {
     /// Let integer and vertex streams store the deltas of their deltas when that is shorter
     #[clap(long)]
     delta2: bool,
+    /// Store vertex streams as residuals against a guess from the topology when that is shorter
+    #[clap(long)]
+    predicted_vertices: bool,
+    /// How the vertex race measures a candidate stream [default: stored]
+    #[clap(long, value_enum)]
+    vertex_size: Option<VertexSizeArg>,
+}
+
+/// How the vertex race measures a candidate stream.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum VertexSizeArg {
+    /// Its stored bytes, as every other race does
+    Stored,
+    /// Its bytes deflated on their own, for tiles served gzipped
+    Gzip,
 }
 
 /// Whether `path` names a `GeoJSON` file, which `convert` tiles rather than re-encodes.
@@ -493,6 +508,15 @@ impl ConvertArgs {
         }
         if v2.delta2 {
             encoder = encoder.with_delta2(true);
+        }
+        if v2.predicted_vertices {
+            encoder = encoder.with_predicted_vertices(true);
+        }
+        if let Some(size) = v2.vertex_size {
+            encoder = encoder.with_vertex_size(match size {
+                VertexSizeArg::Stored => VertexSize::Stored,
+                VertexSizeArg::Gzip => VertexSize::Gzip,
+            });
         }
         Ok(encoder
             .with_float_alp(!v2.no_alp)
@@ -1322,6 +1346,22 @@ mod tests {
     }
 
     #[test]
+    fn predicted_vertices_switches_predicted_vertices_on() {
+        let encoder = parse_args(&["--mlt-version", "2", "--predicted-vertices", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.allow_predicted_vertices());
+    }
+
+    #[test]
+    fn vertex_size_gzip_measures_the_vertex_race_deflated() {
+        let encoder = parse_args(&["--mlt-version", "2", "--vertex-size", "gzip", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert_eq!(encoder.vertex_size(), VertexSize::Gzip);
+    }
+
+    #[test]
     fn triangles_only_with_tessellate_off_is_rejected() {
         let flags = [
             "--mlt-version",
@@ -1393,6 +1433,8 @@ mod tests {
             &["--no-bitpacking"],
             &["--tessellate", "--triangles-only"],
             &["--delta2"],
+            &["--predicted-vertices"],
+            &["--vertex-size", "gzip"],
         ] {
             let mut argv = flags.to_vec();
             argv.extend(["src", "dst"]);

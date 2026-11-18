@@ -386,6 +386,17 @@ pub enum WireVersion {
     V02,
 }
 
+/// How the plain vertex race measures a candidate stream.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum VertexSize {
+    /// Its stored bytes, as every other race does.
+    #[default]
+    Stored,
+    /// Its bytes deflated on their own, for tiles served gzipped.
+    Gzip,
+}
+
 #[cfg(feature = "unstable-v2")]
 impl WireVersion {
     /// The layer tag byte identifying this format on the wire.
@@ -445,7 +456,7 @@ pub enum Profile {
     Web(Network),
     /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
     Native(Network),
-    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas.
+    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas and predicted vertices.
     MinSize,
     /// Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries, and under v2 second-order deltas.
     Diffable,
@@ -526,6 +537,12 @@ pub struct EncoderConfig {
     /// Allow the v2-only second-order delta encodings of integer and vertex streams
     #[cfg(feature = "unstable-v2")]
     allow_delta2: bool,
+    /// Allow the v2-only predicted vertex encoding
+    #[cfg(feature = "unstable-v2")]
+    allow_predicted_vertices: bool,
+    /// How the plain vertex race measures its candidates
+    #[cfg(feature = "unstable-v2")]
+    vertex_size: VertexSize,
 }
 impl EncoderConfig {
     /// The settings `profile` picks, which the `with_*` methods override.
@@ -555,6 +572,10 @@ impl EncoderConfig {
                 allow_triangles_only: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: false,
+                #[cfg(feature = "unstable-v2")]
+                vertex_size: VertexSize::Stored,
             },
             Profile::Web(network) => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -578,6 +599,10 @@ impl EncoderConfig {
                 allow_triangles_only: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: false,
+                #[cfg(feature = "unstable-v2")]
+                vertex_size: VertexSize::Stored,
             },
             Profile::MinSize => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -601,6 +626,10 @@ impl EncoderConfig {
                 allow_triangles_only: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: true,
+                #[cfg(feature = "unstable-v2")]
+                vertex_size: VertexSize::Stored,
             },
             Profile::Diffable => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -624,6 +653,10 @@ impl EncoderConfig {
                 allow_triangles_only: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: false,
+                #[cfg(feature = "unstable-v2")]
+                vertex_size: VertexSize::Stored,
             },
             Profile::FastEncoding => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -647,6 +680,10 @@ impl EncoderConfig {
                 allow_triangles_only: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: false,
+                #[cfg(feature = "unstable-v2")]
+                vertex_size: VertexSize::Stored,
             },
         }
     }
@@ -852,6 +889,36 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_packed_dict_codes(mut self, enabled: bool) -> Self {
         self.allow_packed_dict_codes = enabled;
+        self
+    }
+
+    /// Whether vertex streams may be written as predicted residuals.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_predicted_vertices(self) -> bool {
+        self.allow_predicted_vertices && self.wire_version != WireVersion::V01
+    }
+
+    /// Allow plain vertex streams as residuals against a guess from the layer's vertex runs.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_predicted_vertices(mut self, enabled: bool) -> Self {
+        self.allow_predicted_vertices = enabled;
+        self
+    }
+
+    /// How the plain vertex race measures its candidates.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn vertex_size(self) -> VertexSize {
+        self.vertex_size
+    }
+
+    /// Measure the plain vertex race by `size`.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_vertex_size(mut self, size: VertexSize) -> Self {
+        self.vertex_size = size;
         self
     }
 }

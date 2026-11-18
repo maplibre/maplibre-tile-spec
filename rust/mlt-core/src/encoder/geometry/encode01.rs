@@ -9,13 +9,13 @@ use super::streams::{
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
-    ColumnType, GeometryType, GeometryValues, LengthType, Levels, OffsetType, StreamType,
-    decode_topology,
+    ColumnType, GeometryType, GeometryValues, LengthType, Levels, LogicalEncoding, OffsetType,
+    StreamType, VertexLogical, decode_topology,
 };
 use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
-use crate::{Decoder, MltResult};
+use crate::{Decoder, MltError, MltResult};
 
 impl GeometryValues {
     /// Write the geometry column to `enc`.
@@ -174,6 +174,12 @@ impl GeometryValues {
         let tessellated = !index_buffer.is_empty();
         if let Some(forced) = enc.override_vertex_buffer_type() {
             n += match forced {
+                VertexBufferType::Predicted => {
+                    return Err(MltError::UnsupportedLogicalEncoding(
+                        LogicalEncoding::Vertex(VertexLogical::Predicted),
+                        "v1, which has no predicted vertices",
+                    ));
+                }
                 VertexBufferType::Vec2 | VertexBufferType::Morton | VertexBufferType::Hilbert
                     if tessellated =>
                 {

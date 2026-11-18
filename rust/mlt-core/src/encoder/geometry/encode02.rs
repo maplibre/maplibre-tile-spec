@@ -1,23 +1,27 @@
 //! Geometry section writer for tag `0x02` (v2) layers.
 
+use flate2::Compression;
+use flate2::write::DeflateEncoder;
+
 use super::streams::{
     dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_hilbert_xyz_vertex_streams02,
     encode_level1_length_stream, encode_level1_without_ring_buffer_length_stream,
-    encode_level2_length_stream, encode_morton_vertex_streams02, encode_ring_lengths_for_mixed,
-    encode_root_length_stream, encode_vec2_delta2_vertex_stream02, encode_vec2_vertex_stream02,
-    encode_vec3_vertex_stream02, normalize_geometry_offsets, normalize_part_offsets_for_rings,
-    seed_curve_caches, xyz_dict_may_be_beneficial,
+    encode_level2_length_stream, encode_morton_vertex_streams02, encode_predicted_vertex_stream02,
+    encode_ring_lengths_for_mixed, encode_root_length_stream, encode_vec2_delta2_vertex_stream02,
+    encode_vec2_vertex_stream02, encode_vec3_vertex_stream02, normalize_geometry_offsets,
+    normalize_part_offsets_for_rings, seed_curve_caches, xyz_dict_may_be_beneficial,
 };
+use crate::codecs::predicted::Run;
 use crate::codecs::tri::{self, TriTrees};
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::stream::header02::{Family, WordWidth};
 use crate::decoder::{
-    GeoLayout, GeometryType, GeometryValues, LengthType, OffsetType, StreamType, Topology,
-    VertexStorage,
+    GeoLayout, GeometryType, GeometryValues, LengthType, Levels, OffsetType, StreamType, Topology,
+    VertexStorage, decode_topology, vertex_runs,
 };
 use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
-use crate::encoder::{Codecs, Encoder};
+use crate::encoder::{Codecs, Encoder, VertexSize};
 use crate::tile::ZAxis;
 use crate::{Decoder, MltError, MltResult};
 
@@ -235,6 +239,20 @@ impl GeometrySection02 {
         rest.iter().all(|t| t == first).then_some(*first)
     }
 
+    /// The rings and line parts the decoder will rebuild from these streams,
+    /// which predicted vertices are guessed over.
+    fn vertex_runs(&self) -> MltResult<Vec<Run>> {
+        let (parts, rings) = self.topology.streams();
+        let lengths = Levels {
+            geometries: self.geo_lengths.clone(),
+            parts: parts.map(<[u32]>::to_vec),
+            rings: rings.map(<[u32]>::to_vec),
+        };
+        let dec = &mut Decoder::with_max_size(u32::MAX);
+        let levels = decode_topology(&self.types, lengths, dec)?;
+        vertex_runs(&self.types, &levels, dec)
+    }
+
     /// The layout declaring these streams, once the vertex storage is known.
     fn layout(&self, vertices: VertexStorage) -> GeoLayout {
         if self.tessellation.is_some() {
@@ -298,7 +316,13 @@ impl GeometrySection02 {
         let tessellated = self.tessellation.is_some();
         let vertices = match self.z_axis {
             Some(axis) => write_xyz_vertices(&self.vertices, axis, tessellated, enc, codecs)?,
-            None => write_vertices(&self.vertices, tessellated, enc, codecs)?,
+            None => write_vertices(
+                &self.vertices,
+                &|| self.vertex_runs(),
+                tessellated,
+                enc,
+                codecs,
+            )?,
         };
         Ok(GeometryHeader02 {
             layout: self.layout(vertices),
@@ -313,6 +337,7 @@ impl GeometrySection02 {
 /// buffer with a vertex dictionary, so a forced dictionary falls back to [`VertexBufferType::Vec2`].
 fn write_vertices(
     vertices: &[i32],
+    runs: &dyn Fn() -> MltResult<Vec<Run>>,
     tessellated: bool,
     enc: &mut Encoder,
     codecs: &mut Codecs,
@@ -321,12 +346,16 @@ fn write_vertices(
     enc.family_context = Family::Vertex;
 
     match (enc.override_vertex_buffer_type(), tessellated) {
+        (Some(VertexBufferType::Predicted), _) => {
+            encode_predicted_vertex_stream02(vertices, &runs()?, enc)?;
+            return Ok(VertexStorage::Plain);
+        }
         (Some(_), true) | (Some(VertexBufferType::Vec2), false) => {
             encode_vec2_vertex_stream02(vertices, enc, codecs)?;
             return Ok(VertexStorage::Plain);
         }
         (None, true) => {
-            write_plain_vertices(vertices, enc, codecs)?;
+            write_plain_vertices(vertices, runs, enc, codecs)?;
             return Ok(VertexStorage::Plain);
         }
         (Some(VertexBufferType::Morton), false) => {
@@ -341,7 +370,7 @@ fn write_vertices(
     }
 
     if !dict_may_be_beneficial(vertices, enc) {
-        write_plain_vertices(vertices, enc, codecs)?;
+        write_plain_vertices(vertices, runs, enc, codecs)?;
         return Ok(VertexStorage::Plain);
     }
 
@@ -352,7 +381,7 @@ fn write_vertices(
         codecs,
         &[
             (VertexStorage::Plain, &|enc, codecs| {
-                write_plain_vertices(vertices, enc, codecs)
+                write_plain_vertices(vertices, runs, enc, codecs)
             }),
             (VertexStorage::Dict, &|enc, codecs| {
                 encode_hilbert_vertex_streams02(vertices, enc, codecs)
@@ -435,6 +464,9 @@ fn write_xyz_vertices(
             VertexBufferType::Morton => Err(MltError::NotImplemented(
                 "Morton vertices with z coordinates, since a Morton code spans only x and y",
             )),
+            VertexBufferType::Predicted => Err(MltError::NotImplemented(
+                "predicted vertices with z coordinates, since its tables are defined over pairs",
+            )),
         };
     }
 
@@ -457,13 +489,41 @@ fn write_xyz_vertices(
     )
 }
 
-/// The plain vertex stream the encoder picks itself: componentwise delta, raced against second-order deltas when the config allows them.
-fn write_plain_vertices(vertices: &[i32], enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<()> {
-    if vertices.is_empty() || !enc.config().allow_delta2() {
+/// The plain vertex stream the encoder picks itself: componentwise delta, raced against second-order deltas and predicted vertices when the config allows them.
+///
+/// The race measures each candidate by [`VertexSize`].
+fn write_plain_vertices(
+    vertices: &[i32],
+    runs: &dyn Fn() -> MltResult<Vec<Run>>,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let allow_delta2 = enc.config().allow_delta2();
+    let allow_predicted = enc.config().allow_predicted_vertices();
+    if vertices.is_empty() || !(allow_delta2 || allow_predicted) {
         return encode_vec2_vertex_stream02(vertices, enc, codecs);
     }
-    let mut alt = enc.try_alternatives();
+    let runs = if allow_predicted { runs()? } else { Vec::new() };
+    let mut alt = match enc.config().vertex_size() {
+        VertexSize::Stored => enc.try_alternatives(),
+        VertexSize::Gzip => enc.try_alternatives_by(deflated_len),
+    };
     alt.with(|enc| encode_vec2_vertex_stream02(vertices, enc, codecs))?;
-    alt.with(|enc| encode_vec2_delta2_vertex_stream02(vertices, enc, codecs))?;
+    if allow_delta2 {
+        alt.with(|enc| encode_vec2_delta2_vertex_stream02(vertices, enc, codecs))?;
+    }
+    if allow_predicted {
+        alt.with(|enc| encode_predicted_vertex_stream02(vertices, &runs, enc))?;
+    }
     Ok(())
+}
+
+/// The size of `bytes` deflated at level 6, as gzip writes them less its fixed header and trailer.
+pub(super) fn deflated_len(bytes: &[u8]) -> usize {
+    use std::io::Write as _;
+    let mut deflate = DeflateEncoder::new(Vec::new(), Compression::new(6));
+    deflate
+        .write_all(bytes)
+        .and_then(|()| deflate.finish())
+        .map_or(usize::MAX, |out| out.len())
 }

@@ -320,6 +320,12 @@ pub(crate) fn write_stream_meta<W: io::Write>(
                 "v1, which has no second-order deltas",
             ));
         }
+        LE::Vertex(VL::Predicted) => {
+            return Err(UnsupportedLogicalEncoding(
+                meta.encoding.logical,
+                "v1, which has no predicted vertices",
+            ));
+        }
         LE::Bool(BL::Runs | BL::Sparse) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
@@ -374,7 +380,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         // Rejected before the header is written.
         #[cfg(feature = "unstable-v2")]
         LE::Vertex(VL::Xyz(..)) => {}
-        LE::Int(IL::Delta2) | LE::Vertex(VL::ComponentwiseDelta2) => {}
+        LE::Int(IL::Delta2) | LE::Vertex(VL::ComponentwiseDelta2 | VL::Predicted) => {}
         LE::Bool(BL::Runs | BL::Sparse) => {}
     }
     Ok(())
@@ -699,6 +705,10 @@ mod tests {
     #[case::componentwise_delta2(
         LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2),
         "unsupported logical encoding Vertex(ComponentwiseDelta2) for v1, which has no second-order deltas"
+    )]
+    #[case::predicted(
+        LogicalEncoding::Vertex(VertexLogical::Predicted),
+        "unsupported logical encoding Vertex(Predicted) for v1, which has no predicted vertices"
     )]
     #[case::runs(
         LogicalEncoding::Bool(BoolLogical::Runs),

@@ -264,6 +264,8 @@ pub enum VertexLogical {
     /// Componentwise deltas of the componentwise deltas.
     ComponentwiseDelta2,
     MortonDelta(Morton),
+    /// Residuals against a guess from the decoded vertices, coded over the runs of the layer's topology.
+    Predicted,
     /// Interleaved `(x, y, z)` triples, whose z lie on the grid of the step.
     #[cfg(feature = "unstable-v2")]
     Xyz(ZAxis, XyzLogical),
@@ -274,7 +276,11 @@ impl VertexLogical {
     #[must_use]
     pub fn words_per_vertex(self) -> u32 {
         match self {
-            Self::None | Self::Delta | Self::ComponentwiseDelta | Self::ComponentwiseDelta2 => 2,
+            Self::None
+            | Self::Delta
+            | Self::ComponentwiseDelta
+            | Self::ComponentwiseDelta2
+            | Self::Predicted => 2,
             Self::MortonDelta(_) => 1,
             #[cfg(feature = "unstable-v2")]
             Self::Xyz(..) => 3,
@@ -625,6 +631,7 @@ impl Display for LogicalEncoding {
                     VertexLogical::ComponentwiseDelta => "componentwise-delta",
                     VertexLogical::ComponentwiseDelta2 => "componentwise-delta2",
                     VertexLogical::MortonDelta(_) => "morton-delta",
+                    VertexLogical::Predicted => "predicted",
                     #[cfg(feature = "unstable-v2")]
                     VertexLogical::Xyz(_, XyzLogical::None) => "xyz-none",
                     #[cfg(feature = "unstable-v2")]
@@ -751,6 +758,7 @@ mod tests {
         LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2),
         "vertex/componentwise-delta2"
     )]
+    #[case::vertex_predicted(LogicalEncoding::Vertex(VertexLogical::Predicted), "vertex/predicted")]
     #[case::vertex_morton_delta(
         LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())),
         "vertex/morton-delta"
