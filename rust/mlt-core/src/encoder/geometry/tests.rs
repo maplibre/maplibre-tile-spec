@@ -356,9 +356,10 @@ fn push_geoms_tessellated(geoms: &[Geometry<i32>]) -> GeometryValues {
 fn canonical_triangles(indices: &[u32]) -> Vec<[u32; 3]> {
     assert_eq!(indices.len() % 3, 0);
     let mut triangles = indices
-        .chunks_exact(3)
-        .map(|triangle| {
-            let [a, b, c] = [triangle[0], triangle[1], triangle[2]];
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .map(|&[a, b, c]| {
             [(a, b, c), (b, c, a), (c, a, b)]
                 .into_iter()
                 .min()
