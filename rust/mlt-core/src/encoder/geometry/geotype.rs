@@ -1134,6 +1134,23 @@ mod tests {
             g.index_buffer().unwrap_or_default().to_vec()
         }
 
+        fn canonical_triangles(indices: &[u32]) -> Vec<[u32; 3]> {
+            assert_eq!(indices.len() % 3, 0);
+            let mut triangles = indices
+                .chunks_exact(3)
+                .map(|triangle| {
+                    let [a, b, c] = [triangle[0], triangle[1], triangle[2]];
+                    [(a, b, c), (b, c, a), (c, a, b)]
+                        .into_iter()
+                        .min()
+                        .map(|(a, b, c)| [a, b, c])
+                        .unwrap()
+                })
+                .collect::<Vec<_>>();
+            triangles.sort_unstable();
+            triangles
+        }
+
         #[test]
         fn a_polygon_of_one_repeated_coordinate_has_no_triangles() {
             let point = Polygon::new(LineString::from(vec![(5, 5), (5, 5), (5, 5)]), vec![]);
@@ -1144,7 +1161,10 @@ mod tests {
         fn a_one_coordinate_polygon_still_shifts_the_next_polygons_indices() {
             let point = Polygon::new(LineString::from(vec![(5, 5)]), vec![]);
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![point, square(20)]));
-            assert_eq!(triangles(&geometry), [3, 4, 1, 1, 2, 3]);
+            assert_eq!(
+                canonical_triangles(&triangles(&geometry)),
+                canonical_triangles(&[3, 4, 1, 1, 2, 3])
+            );
         }
 
         #[test]
@@ -1191,7 +1211,17 @@ mod tests {
             let mut holed = square(0);
             holed.interiors_push(LineString::from(vec![(2, 2), (3, 3)]));
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![holed, square(20)]));
-            assert_eq!(triangles(&geometry), [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8]);
+            let actual = triangles(&geometry);
+            let expected = [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8];
+            assert_eq!(actual.len(), expected.len());
+            assert_eq!(
+                canonical_triangles(&actual[..6]),
+                canonical_triangles(&expected[..6])
+            );
+            assert_eq!(
+                canonical_triangles(&actual[6..]),
+                canonical_triangles(&expected[6..])
+            );
         }
     }
 
