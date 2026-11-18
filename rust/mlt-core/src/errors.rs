@@ -377,9 +377,6 @@ pub enum MltError {
     #[error("FSST-compressed data is malformed: {0}")]
     MalformedFsst(&'static str),
     #[cfg(feature = "unstable-v2")]
-    #[error("rANS vertex stream is malformed: {0}")]
-    MalformedRans(&'static str),
-    #[cfg(feature = "unstable-v2")]
     #[error("triangle trees are malformed: {0}")]
     MalformedTriangles(&'static str),
     #[cfg(feature = "unstable-v2")]

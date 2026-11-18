@@ -24,7 +24,6 @@ final class MltEncoderOptions {
     PRESENCE_RLE(mlt_ffi_h::MltEncoderOptions_set_allow_presence_rle),
     FLOAT_ALP(mlt_ffi_h::MltEncoderOptions_set_allow_float_alp),
     PACKED_DICT_CODES(mlt_ffi_h::MltEncoderOptions_set_allow_packed_dict_codes),
-    RANS_VERTICES(mlt_ffi_h::MltEncoderOptions_set_allow_rans_vertices),
     ROW_SHAPES(mlt_ffi_h::MltEncoderOptions_set_allow_row_shapes);
 
     private final BiConsumer<MemorySegment, Boolean> setter;

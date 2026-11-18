@@ -75,11 +75,6 @@ internal interface MltEncoderOptionsLib : Library {
         enabled: Boolean,
     ): Unit
 
-    fun MltEncoderOptions_set_allow_rans_vertices(
-        handle: Pointer,
-        enabled: Boolean,
-    ): Unit
-
     fun MltEncoderOptions_set_allow_row_shapes(
         handle: Pointer,
         enabled: Boolean,
@@ -229,13 +224,6 @@ class MltEncoderOptions internal constructor(
      */
     fun setAllowPackedDictCodes(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_packed_dict_codes(handle, enabled)
-    }
-
-    /**
-     * v2 only: allow plain vertex streams to be rANS-coded.
-     */
-    fun setAllowRansVertices(enabled: Boolean) {
-        val returnVal = lib.MltEncoderOptions_set_allow_rans_vertices(handle, enabled)
     }
 
     /**
