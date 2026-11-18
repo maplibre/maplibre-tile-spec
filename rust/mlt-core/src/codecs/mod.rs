@@ -12,8 +12,6 @@ pub mod hilbert;
 pub mod morton;
 #[cfg(feature = "unstable-v2")]
 pub mod presence_coding;
-#[cfg(feature = "unstable-v2")]
-pub mod rans;
 pub mod rle;
 #[cfg(feature = "unstable-v2")]
 pub(crate) mod tri;

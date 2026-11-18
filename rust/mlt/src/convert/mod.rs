@@ -198,7 +198,7 @@ enum Profile {
     Web,
     /// `MapLibre Native`: `--tessellate=auto`
     Native,
-    /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2 --rans-vertices`
+    /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2`
     #[value(name = "min_size", alias = "min-size")]
     MinSize,
     /// Small binary diffs between releases: `--no-fsst --no-shared-dict`, and under MLT version 2 `--delta2`
@@ -424,9 +424,6 @@ struct V2EncoderArgs {
     /// Let integer and vertex streams store the deltas of their deltas when that is shorter
     #[clap(long)]
     delta2: bool,
-    /// Store vertex streams rANS-coded when that beats componentwise delta
-    #[clap(long)]
-    rans_vertices: bool,
 }
 
 /// Whether `path` names a `GeoJSON` file, which `convert` tiles rather than re-encodes.
@@ -496,9 +493,6 @@ impl ConvertArgs {
         }
         if v2.delta2 {
             encoder = encoder.with_delta2(true);
-        }
-        if v2.rans_vertices {
-            encoder = encoder.with_rans_vertices(true);
         }
         Ok(encoder
             .with_float_alp(!v2.no_alp)
@@ -1328,14 +1322,6 @@ mod tests {
     }
 
     #[test]
-    fn rans_vertices_switches_rans_vertices_on() {
-        let encoder = parse_args(&["--mlt-version", "2", "--rans-vertices", "src", "dst"])
-            .encoder()
-            .unwrap();
-        assert!(encoder.allow_rans_vertices());
-    }
-
-    #[test]
     fn triangles_only_with_tessellate_off_is_rejected() {
         let flags = [
             "--mlt-version",
@@ -1407,7 +1393,6 @@ mod tests {
             &["--no-bitpacking"],
             &["--tessellate", "--triangles-only"],
             &["--delta2"],
-            &["--rans-vertices"],
         ] {
             let mut argv = flags.to_vec();
             argv.extend(["src", "dst"]);

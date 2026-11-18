@@ -103,11 +103,6 @@ public:
     inline void set_allow_packed_dict_codes(bool enabled);
 
     /**
-     * v2 only: allow plain vertex streams to be rANS-coded.
-     */
-    inline void set_allow_rans_vertices(bool enabled);
-
-    /**
      * v2 only: let a nested struct or map code its row shapes instead of per-field presence.
      */
     inline void set_allow_row_shapes(bool enabled);

@@ -47,8 +47,6 @@ void MltEncoderOptions_set_allow_float_alp(diplomat::capi::MltEncoderOptions* se
 
 void MltEncoderOptions_set_allow_packed_dict_codes(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-void MltEncoderOptions_set_allow_rans_vertices(diplomat::capi::MltEncoderOptions* self, bool enabled);
-
 void MltEncoderOptions_set_allow_row_shapes(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_destroy(MltEncoderOptions* self);
@@ -112,10 +110,6 @@ inline void MltEncoderOptions::set_allow_float_alp(bool enabled) {
 
 inline void MltEncoderOptions::set_allow_packed_dict_codes(bool enabled) {
     diplomat::capi::MltEncoderOptions_set_allow_packed_dict_codes(this->AsFFI(), enabled);
-}
-
-inline void MltEncoderOptions::set_allow_rans_vertices(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_allow_rans_vertices(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_allow_row_shapes(bool enabled) {
