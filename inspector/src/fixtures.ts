@@ -174,6 +174,13 @@ export const AXES: Axis[] = [
     of: withAny(field("zStep")),
   },
   {
+    key: "heightMode",
+    label: "height",
+    section: "Geometry",
+    vocabulary: ["absolute", "relative-to-ground"],
+    of: field("heightMode"),
+  },
+  {
     key: "extent",
     label: "extent",
     section: "Geometry",

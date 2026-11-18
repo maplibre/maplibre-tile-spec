@@ -673,6 +673,7 @@ mod tests {
     use usize_cast::IntoUsize as _;
 
     use super::*;
+    #[cfg(feature = "unstable-v2")]
     use crate::tile::ZStep;
 
     fn morton() -> Morton {

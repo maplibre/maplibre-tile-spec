@@ -150,3 +150,26 @@ def test_z_roundtrips_through_encode_geojson(geometry):
 def test_z_and_z_step_must_agree(geometry, z_step, message):
     with pytest.raises(ValueError, match=f"^{message}$"):
         mlt.encode_geojson(_fc(geometry), "r", z_step=z_step)
+
+
+@pytest.mark.parametrize(
+    ("coordinates", "z_step", "height_mode", "message"),
+    [
+        ([1, 2], None, "relative_to_ground", r"'height_mode' needs a 'z_step'"),
+        (
+            [1, 2, 3],
+            0,
+            "clamp_to_ground",
+            r"'height_mode' must be 'absolute' or 'relative_to_ground', not \"clamp_to_ground\"",
+        ),
+    ],
+    ids=["height_mode_without_z_step", "unknown_height_mode"],
+)
+def test_an_invalid_height_mode_is_rejected(coordinates, z_step, height_mode, message):
+    with pytest.raises(ValueError, match=f"^{message}$"):
+        mlt.encode_geojson(
+            _fc({"type": "Point", "coordinates": coordinates}),
+            "r",
+            z_step=z_step,
+            height_mode=height_mode,
+        )
