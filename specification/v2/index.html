@@ -2657,11 +2657,76 @@ A feature that is not a polygon stores no triangle count and owns no triangles.<
 <h3 id="z-coordinates">Z Coordinates<a class="headerlink" href="#z-coordinates" title="Link to this section">&para;</a></h3>
 <p>A vertex stream MAY hold <code>(x, y, z)</code> triples instead of <code>(x, y)</code> pairs.
 Bit 0 of the extension field of its <a href="#encoding-byte">encoding byte</a> is <code>1</code> for triples and <code>0</code> for pairs.
-A byte holding <code>z_step + 3</code> is the stream's <a href="#parameters">parameter</a>.
+The z axis byte is the stream's <a href="#parameters">parameter</a>.
 <code>byte_length</code> does not count it.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="The z axis byte 0x0A: bits 7 to 4 are reserved and 0, bit 3 is 1 for relative to ground, bits 2 to 0 hold 2 for a 1 dm step. Below, z = 400 at 1 dm is 40 m: byte 0x02 puts the vertex 40 m above sea level, byte 0x0A puts it 40 m above the terrain, and a layer without z sits on the terrain" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">z_axis</text>
+<text class="muted small" x="0" y="82">bit</text>
+<text class="row" x="0" y="112">reads</text>
+<text class="small mid muted" x="251" y="14">reserved</text>
+<path class="bracket" d="M130 34V28H372V34"/>
+<text class="small mid t1" x="406" y="14">mode</text>
+<path class="bracket t1" d="M378 34V28H434V34"/>
+<text class="small mid t0" x="530" y="14">z_step + 3</text>
+<path class="bracket t0" d="M440 34V28H620V34"/>
+<rect class="plain" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell muted" x="158" y="54">0</text>
+<rect class="plain" x="192" y="40" width="56" height="28" rx="3"/>
+<text class="cell muted" x="220" y="54">0</text>
+<rect class="plain" x="254" y="40" width="56" height="28" rx="3"/>
+<text class="cell muted" x="282" y="54">0</text>
+<rect class="plain" x="316" y="40" width="56" height="28" rx="3"/>
+<text class="cell muted" x="344" y="54">0</text>
+<rect class="f1" x="378" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="406" y="54">1</text>
+<rect class="f0" x="440" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="468" y="54">0</text>
+<rect class="f0" x="502" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="530" y="54">1</text>
+<rect class="f0" x="564" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="592" y="54">0</text>
+<text class="cell" x="664" y="54">= 0x0A</text>
+<text class="muted small mid" x="158" y="82">7</text>
+<text class="muted small mid" x="220" y="82">6</text>
+<text class="muted small mid" x="282" y="82">5</text>
+<text class="muted small mid" x="344" y="82">4</text>
+<text class="muted small mid" x="406" y="82">3</text>
+<text class="muted small mid" x="468" y="82">2</text>
+<text class="muted small mid" x="530" y="82">1</text>
+<text class="muted small mid" x="592" y="82">0</text>
+<path class="bracket" d="M130 92V98H372V92"/>
+<text class="small mid muted" x="251" y="112">MUST be 0</text>
+<path class="bracket t1" d="M378 92V98H434V92"/>
+<text class="small mid t1" x="406" y="112">relativeToGround</text>
+<path class="bracket t0" d="M440 92V98H620V92"/>
+<text class="small mid t0" x="530" y="112">2 = 1 dm</text>
+<text class="row" x="0" y="150">z = 400</text>
+<text class="muted small" x="0" y="168">40 m at 1 dm</text>
+<text class="bold mid t0" x="290" y="150">absolute</text>
+<text class="small mid muted" x="290" y="168">byte 0x02</text>
+<text class="bold mid t1" x="460" y="150">relativeToGround</text>
+<text class="small mid muted" x="460" y="168">byte 0x0A</text>
+<text class="bold mid" x="630" y="150">clampToGround</text>
+<text class="small mid muted" x="630" y="168">no z</text>
+<rect class="sea" x="130" y="290" width="70" height="30"/>
+<path class="land" d="M200 320V290L260 275L320 262L400 245L460 225L540 210L600 222L660 214L700 218V320Z"/>
+<path class="implicit" d="M130 290H700"/>
+<text class="muted small" x="0" y="290">sea level</text>
+<text class="muted small mid" x="165" y="305">sea</text>
+<text class="muted small mid" x="560" y="300">terrain</text>
+<path class="link t0" d="M290 290V250"/>
+<text class="small t0" x="282" y="262" text-anchor="end">40 m</text>
+<circle class="f0" cx="290" cy="250" r="5"/>
+<path class="link t1" d="M460 225V185"/>
+<text class="small t1" x="468" y="205">40 m</text>
+<circle class="f1" cx="460" cy="185" r="5"/>
+<circle class="dot" cx="630" cy="218" r="4"/>
+</svg></p>
+<p>Bits 2-0 hold <code>z_step + 3</code>, and bit 3 holds the height mode.
+Bits 7-4 are reserved, and a byte with any of them set MUST be rejected.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_point.mlt&amp;at=vertices" target="_blank">View example</a> - a point 12 m up, its <code>z</code> one word after <code>x</code> and <code>y</code>.</p>
 <div class="arithmatex">\[
-\text{elevation} = -10000\,\text{m} + z \cdot 10^{\,z\_step}\,\text{m}
+\text{height} = z \cdot 10^{\,z\_step}\,\text{m}
 \]</div>
 <table>
 <thead>
@@ -2679,7 +2744,7 @@ A byte holding <code>z_step + 3</code> is the stream's <a href="#parameters">par
 </thead>
 <tbody>
 <tr>
-<td>Byte</td>
+<td>Bits 2-0</td>
 <td><code>0</code></td>
 <td><code>1</code></td>
 <td><code>2</code></td>
@@ -2702,10 +2767,35 @@ A byte holding <code>z_step + 3</code> is the stream's <a href="#parameters">par
 </tr>
 </tbody>
 </table>
-<p>Bytes <code>8</code>-<code>255</code> are reserved and MUST be rejected.</p>
+<p>The height mode says what <code>z = 0</code> stands for, with the names of KML's <code>altitudeMode</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Bit 3</th>
+<th>Mode</th>
+<th><code>z = 0</code> is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td><code>absolute</code></td>
+<td>mean sea level</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td><code>relativeToGround</code></td>
+<td>the terrain under the vertex</td>
+</tr>
+</tbody>
+</table>
+<p>A layer without <code>z</code> is <code>clampToGround</code>, and its vertices lie on the terrain.
+A renderer with no terrain reads the terrain as sea level, so <code>relativeToGround</code> reads as <code>absolute</code>.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_height_absolute.mlt&amp;at=vertices" target="_blank">View example</a> - a line 412 m to 418 m above sea level, bit 3 clear.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_height_relative_to_ground.mlt&amp;at=vertices" target="_blank">View example</a> - a line 12 m to 18 m above the terrain, bit 3 set.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices" target="_blank">View example</a> - a polygon with a hole at a <code>z_step</code> of <code>-1</code>, one unit per decimeter.</p>
-<p><code>z</code> is a signed 32-bit word like <code>x</code> and <code>y</code>, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m.
-Like <code>x</code> and <code>y</code>, <code>z</code> can be negative.</p>
+<p><code>z</code> is a signed 32-bit word like <code>x</code> and <code>y</code>, so a point below its base has a negative <code>z</code>.
+At the finest step the grid spans about 2147 km either side of the base.</p>
 <p>The stream holds <code>3 * num_values</code> words for <code>num_values</code> vertices, with <code>x</code>, <code>y</code> and <code>z</code> interleaved.</p>
 <p><code>z_mvalues</code> at a <code>z_step</code> of 1 dm:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 124" role="img" aria-label="z_mvalues: three vertices, each x, y and z in adjacent words; at a z_step of 1 dm the z values are 3 m, 5 m and 8 m" xmlns="http://www.w3.org/2000/svg">
@@ -2716,7 +2806,7 @@ Like <code>x</code> and <code>y</code>, <code>z</code> can be negative.</p>
 <rect class="f0" x="176" y="40" width="44" height="28" rx="3"/>
 <text class="cell" x="198" y="54">52</text>
 <rect class="f0" x="222" y="40" width="72" height="28" rx="3"/>
-<text class="cell" x="258" y="54">100030</text>
+<text class="cell" x="258" y="54">30</text>
 <rect class="f0" x="222" y="88" width="72" height="28" rx="3"/>
 <text class="cell" x="258" y="102">3 m</text>
 <path class="link" d="M258 68V88"/>
@@ -2727,7 +2817,7 @@ Like <code>x</code> and <code>y</code>, <code>z</code> can be negative.</p>
 <rect class="f1" x="356" y="40" width="44" height="28" rx="3"/>
 <text class="cell" x="378" y="54">72</text>
 <rect class="f1" x="402" y="40" width="72" height="28" rx="3"/>
-<text class="cell" x="438" y="54">100050</text>
+<text class="cell" x="438" y="54">50</text>
 <rect class="f1" x="402" y="88" width="72" height="28" rx="3"/>
 <text class="cell" x="438" y="102">5 m</text>
 <path class="link" d="M438 68V88"/>
@@ -2738,7 +2828,7 @@ Like <code>x</code> and <code>y</code>, <code>z</code> can be negative.</p>
 <rect class="f0" x="536" y="40" width="44" height="28" rx="3"/>
 <text class="cell" x="558" y="54">22</text>
 <rect class="f0" x="582" y="40" width="72" height="28" rx="3"/>
-<text class="cell" x="618" y="54">100080</text>
+<text class="cell" x="618" y="54">80</text>
 <rect class="f0" x="582" y="88" width="72" height="28" rx="3"/>
 <text class="cell" x="618" y="102">8 m</text>
 <path class="link" d="M618 68V88"/>
@@ -2763,13 +2853,12 @@ Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
 </ul>
 <p>A decoder that renders in 2D MAY read <code>x</code> and <code>y</code> and step over <code>z</code>.</p>
 <details class="question">
-<summary>Why <code>-10000m</code> and powers of ten</summary>
-<p><code>z = 0</code> sits at the base of <a href="https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-rgb-v1/">Terrain-RGB</a>, the default encoding of a MapLibre <code>raster-dem</code> source.
-No offset is needed to compare a <code>z</code> with the terrain under it.</p>
+<summary>Why no offset and powers of ten</summary>
+<p><code>z</code> is signed, so heights below sea level need no offset to stay positive.
+A <code>z</code> of <code>0</code> is the base of the height mode on every grid, so a sea-level height and a height above the terrain read the same way.</p>
 <p>Elevation data is in decimal meters.
 A power-of-ten step represents such values exactly.
-<code>12.34 m</code> is <code>z = 1001234</code> at 1 cm, where a <span class="arithmatex">\(2^{-7}\)</span> m grid would read it back as <code>12.34375 m</code>.
-At 1 dm, <code>z</code> is Terrain-RGB's <code>R * 65536 + G * 256 + B</code>.</p>
+<code>12.34 m</code> is <code>z = 1234</code> at 1 cm, where a <span class="arithmatex">\(2^{-7}\)</span> m grid would read it back as <code>12.34375 m</code>.</p>
 </details>
 <details class="question">
 <summary>Why interleaved</summary>
@@ -4748,7 +4837,7 @@ A decoder MUST select the variant by the layer tag.</p>
 </tr>
 <tr>
 <td>Any, on a vertex stream with extension bit 0 set</td>
-<td><code>z_step + 3</code> (byte). See <a href="#z-coordinates">Z coordinates</a>.</td>
+<td>The z axis byte. See <a href="#z-coordinates">Z coordinates</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -4923,8 +5012,8 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </div>
 <div class="tabbed-block">
 <p>A polygon with a hole, each of its six stored vertices at a height on a grid of 1 dm.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>00000000                                                                     | layer[0] "layer1" (46 B)
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>00000000  2d                                                -                |   size: 45 (varint) - tag + body
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>00000000                                                                     | layer[0] "layer1" (45 B)
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>00000000  2c                                                ,                |   size: 44 (varint) - tag + body
 </span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 </span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>00000009  30                                                0                |   header: extent = 64, every feature is a Polygon
@@ -4936,7 +5025,7 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>                                                                             |     └ bit 7 = 0 -&gt; shared bitfields are bitmaps
 </span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>                                                                             |     └ bits 6-4 = 000 -&gt; shared presence bitfields = 0
 </span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>                                                                             |     └ bits 3-0 = 1000 -&gt; geometry layout = Polygons
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>0000000c                                                                     |   geometry (33 B)
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>0000000c                                                                     |   geometry (32 B)
 </span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>0000000c                                                                     |     part_lengths (3 B)
 </span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>0000000c  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
 </span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 1 values from context
@@ -4956,19 +5045,19 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-16-31"><a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a>00000011  02                                                .                |       byte_length: 2
 </span><span id="__span-16-32"><a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a>00000012  03 03                                             ..               |       data [Length(Rings) Int(None)/VarInt, 2 values, 2 B]
 </span><span id="__span-16-33"><a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a>                                                                             |         decoded: [3, 3]
-</span><span id="__span-16-34"><a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a>00000014                                                                     |     vertices (25 B)
+</span><span id="__span-16-34"><a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a>00000014                                                                     |     vertices (24 B)
 </span><span id="__span-16-35"><a id="__codelineno-16-35" name="__codelineno-16-35" href="#__codelineno-16-35"></a>00000014  a9                                                .                |       encoding: 0xA9 logical=CwDelta physical=VarInt
 </span><span id="__span-16-36"><a id="__codelineno-16-36" name="__codelineno-16-36" href="#__codelineno-16-36"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
 </span><span id="__span-16-37"><a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-16-38"><a id="__codelineno-16-38" name="__codelineno-16-38" href="#__codelineno-16-38"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
-</span><span id="__span-16-39"><a id="__codelineno-16-39" name="__codelineno-16-39" href="#__codelineno-16-39"></a>                                                                             |         └ bits 1-0 = 01 -&gt; xyz = true -&gt; (x, y, z) triples, a z step byte follows
+</span><span id="__span-16-39"><a id="__codelineno-16-39" name="__codelineno-16-39" href="#__codelineno-16-39"></a>                                                                             |         └ bits 1-0 = 01 -&gt; xyz = true -&gt; (x, y, z) triples, a z axis byte follows
 </span><span id="__span-16-40"><a id="__codelineno-16-40" name="__codelineno-16-40" href="#__codelineno-16-40"></a>00000015  06                                                .                |       num_values: 6
-</span><span id="__span-16-41"><a id="__codelineno-16-41" name="__codelineno-16-41" href="#__codelineno-16-41"></a>00000016  15                                                .                |       byte_length: 21
-</span><span id="__span-16-42"><a id="__codelineno-16-42" name="__codelineno-16-42" href="#__codelineno-16-42"></a>00000017  02                                                .                |       z_step: 1 dm
-</span><span id="__span-16-43"><a id="__codelineno-16-43" name="__codelineno-16-43" href="#__codelineno-16-43"></a>00000018  16 68 e0 a0 0c 64 3b 14 14 64 14 0b 0b ff 04 13   .h...d;..d...... |       data [Data(Vertex) Vertex(Xyz(ZStep(-1), ComponentwiseDelta))/VarInt, 6 values, 21 B]
-</span><span id="__span-16-44"><a id="__codelineno-16-44" name="__codelineno-16-44" href="#__codelineno-16-44"></a>00000028  3b 14 27 28 14                                    ;.'(.            |
-</span><span id="__span-16-45"><a id="__codelineno-16-45" name="__codelineno-16-45" href="#__codelineno-16-45"></a>                                                                             |         decoded: [11, 52, 100400, 61, 22, 100410, 71, 72, 100420, 65, 66, 100100, 55, 36, 100110, 35, 56, 100120]
-</span><span id="__span-16-46"><a id="__codelineno-16-46" name="__codelineno-16-46" href="#__codelineno-16-46"></a>0000002d  00                                                .                |   column_count: 0
+</span><span id="__span-16-41"><a id="__codelineno-16-41" name="__codelineno-16-41" href="#__codelineno-16-41"></a>00000016  14                                                .                |       byte_length: 20
+</span><span id="__span-16-42"><a id="__codelineno-16-42" name="__codelineno-16-42" href="#__codelineno-16-42"></a>00000017  02                                                .                |       z_axis: 1 dm, absolute
+</span><span id="__span-16-43"><a id="__codelineno-16-43" name="__codelineno-16-43" href="#__codelineno-16-43"></a>00000018  16 68 a0 06 64 3b 14 14 64 14 0b 0b ff 04 13 3b   .h..d;..d......; |       data [Data(Vertex) Vertex(Xyz(ZAxis { step: ZStep(-1), mode: Absolute }, ComponentwiseDelta))/VarInt, 6 values, 20 B]
+</span><span id="__span-16-44"><a id="__codelineno-16-44" name="__codelineno-16-44" href="#__codelineno-16-44"></a>00000028  14 27 28 14                                       .'(.             |
+</span><span id="__span-16-45"><a id="__codelineno-16-45" name="__codelineno-16-45" href="#__codelineno-16-45"></a>                                                                             |         decoded: [11, 52, 400, 61, 22, 410, 71, 72, 420, 65, 66, 100, 55, 36, 110, 35, 56, 120]
+</span><span id="__span-16-46"><a id="__codelineno-16-46" name="__codelineno-16-46" href="#__codelineno-16-46"></a>0000002c  00                                                .                |   column_count: 0
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">

@@ -339,22 +339,35 @@ A layer needs `0xD` to stroke its polygons' rings, to hold anything but polygons
 
 ### Z Coordinates
 
-A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of the extension field of its [encoding byte](<#encoding-byte>) is `1` for triples and `0` for pairs. A byte holding `z_step + 3` is the stream's [parameter](<#parameters>). `byte_length` does not count it.
+A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of the extension field of its [encoding byte](<#encoding-byte>) is `1` for triples and `0` for pairs. The z axis byte is the stream's [parameter](<#parameters>). `byte_length` does not count it.
+
+Bits 2-0 hold `z_step + 3`, and bit 3 holds the height mode. Bits 7-4 are reserved, and a byte with any of them set MUST be rejected.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_point.mlt&amp;at=vertices>) - a point 12 m up, its `z` one word after `x` and `y`.
 
-\\\[ \\text{elevation} = -10000\\,\\text{m} + z \\cdot 10^{\\,z\\\_step}\\,\\text{m} \\\]
+\\\[ \\text{height} = z \\cdot 10^{\\,z\\\_step}\\,\\text{m} \\\]
 
 | `z_step` | `-3` | `-2` | `-1` | `0` | `1` | `2` | `3` | `4` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Byte | `0` | `1` | `2` | `3` | `4` | `5` | `6` | `7` |
+| Bits 2-0 | `0` | `1` | `2` | `3` | `4` | `5` | `6` | `7` |
 | Step | 1 mm | 1 cm | 1 dm | 1 m | 10 m | 100 m | 1 km | 10 km |
 
-Bytes `8`-`255` are reserved and MUST be rejected.
+The height mode says what `z = 0` stands for, with the names of KML's `altitudeMode`.
+
+| Bit 3 | Mode | `z = 0` is |
+| --- | --- | --- |
+| `0` | `absolute` | mean sea level |
+| `1` | `relativeToGround` | the terrain under the vertex |
+
+A layer without `z` is `clampToGround`, and its vertices lie on the terrain. A renderer with no terrain reads the terrain as sea level, so `relativeToGround` reads as `absolute`.
+
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_absolute.mlt&amp;at=vertices>) - a line 412 m to 418 m above sea level, bit 3 clear.
+
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_relative_to_ground.mlt&amp;at=vertices>) - a line 12 m to 18 m above the terrain, bit 3 set.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices>) - a polygon with a hole at a `z_step` of `-1`, one unit per decimeter.
 
-`z` is a signed 32-bit word like `x` and `y`, so at every step the grid spans all of Terrain-RGB's -10000 m to 1667721.5 m. Like `x` and `y`, `z` can be negative.
+`z` is a signed 32-bit word like `x` and `y`, so a point below its base has a negative `z`. At the finest step the grid spans about 2147 km either side of the base.
 
 The stream holds `3 * num_values` words for `num_values` vertices, with `x`, `y` and `z` interleaved.
 
@@ -374,11 +387,11 @@ A decoder that renders in 2D MAY read `x` and `y` and step over `z`.
 
 > [!NOTE]
 >
-> **Why `-10000m` and powers of ten**
+> **Why no offset and powers of ten**
 >
-> `z = 0` sits at the base of [Terrain-RGB](<https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-rgb-v1/>), the default encoding of a MapLibre `raster-dem` source. No offset is needed to compare a `z` with the terrain under it.
+> `z` is signed, so heights below sea level need no offset to stay positive. A `z` of `0` is the base of the height mode on every grid, so a sea-level height and a height above the terrain read the same way.
 >
-> Elevation data is in decimal meters. A power-of-ten step represents such values exactly. `12.34 m` is `z = 1001234` at 1 cm, where a \\(2^{-7}\\) m grid would read it back as `12.34375 m`. At 1 dm, `z` is Terrain-RGB's `R * 65536 + G * 256 + B`.
+> Elevation data is in decimal meters. A power-of-ten step represents such values exactly. `12.34 m` is `z = 1234` at 1 cm, where a \\(2^{-7}\\) m grid would read it back as `12.34375 m`.
 
 > [!NOTE]
 >
@@ -847,7 +860,7 @@ Parameters sit between `byte_length`, where written, and the payload:
 | --- | --- |
 | Framed, Exception-Free ALP | `scale` (byte), `base` (ZigZag varint). See [framed, exception-free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>). |
 | Morton | `bits` (varint), `shift` (varint). The grid the codes are laid on. |
-| Any, on a vertex stream with extension bit 0 set | `z_step + 3` (byte). See [Z coordinates](<#z-coordinates>). |
+| Any, on a vertex stream with extension bit 0 set | The z axis byte. See [Z coordinates](<#z-coordinates>). |
 
 ## Examples
 
@@ -1028,8 +1041,8 @@ mlt hexdump path/to/tile.mlt
 > A polygon with a hole, each of its six stored vertices at a height on a grid of 1 dm.
 >
 > ```text
-> 00000000                                                                     | layer[0] "layer1" (46 B)
-> 00000000  2d                                                -                |   size: 45 (varint) - tag + body
+> 00000000                                                                     | layer[0] "layer1" (45 B)
+> 00000000  2c                                                ,                |   size: 44 (varint) - tag + body
 > 00000001  02                                                .                |   tag: 0x02 -> Tag02
 > 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 > 00000009  30                                                0                |   header: extent = 64, every feature is a Polygon
@@ -1041,7 +1054,7 @@ mlt hexdump path/to/tile.mlt
 >                                                                              |     └ bit 7 = 0 -> shared bitfields are bitmaps
 >                                                                              |     └ bits 6-4 = 000 -> shared presence bitfields = 0
 >                                                                              |     └ bits 3-0 = 1000 -> geometry layout = Polygons
-> 0000000c                                                                     |   geometry (33 B)
+> 0000000c                                                                     |   geometry (32 B)
 > 0000000c                                                                     |     part_lengths (3 B)
 > 0000000c  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
 >                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
@@ -1061,19 +1074,19 @@ mlt hexdump path/to/tile.mlt
 > 00000011  02                                                .                |       byte_length: 2
 > 00000012  03 03                                             ..               |       data [Length(Rings) Int(None)/VarInt, 2 values, 2 B]
 >                                                                              |         decoded: [3, 3]
-> 00000014                                                                     |     vertices (25 B)
+> 00000014                                                                     |     vertices (24 B)
 > 00000014  a9                                                .                |       encoding: 0xA9 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
 >                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
->                                                                              |         └ bits 1-0 = 01 -> xyz = true -> (x, y, z) triples, a z step byte follows
+>                                                                              |         └ bits 1-0 = 01 -> xyz = true -> (x, y, z) triples, a z axis byte follows
 > 00000015  06                                                .                |       num_values: 6
-> 00000016  15                                                .                |       byte_length: 21
-> 00000017  02                                                .                |       z_step: 1 dm
-> 00000018  16 68 e0 a0 0c 64 3b 14 14 64 14 0b 0b ff 04 13   .h...d;..d...... |       data [Data(Vertex) Vertex(Xyz(ZStep(-1), ComponentwiseDelta))/VarInt, 6 values, 21 B]
-> 00000028  3b 14 27 28 14                                    ;.'(.            |
->                                                                              |         decoded: [11, 52, 100400, 61, 22, 100410, 71, 72, 100420, 65, 66, 100100, 55, 36, 100110, 35, 56, 100120]
-> 0000002d  00                                                .                |   column_count: 0
+> 00000016  14                                                .                |       byte_length: 20
+> 00000017  02                                                .                |       z_axis: 1 dm, absolute
+> 00000018  16 68 a0 06 64 3b 14 14 64 14 0b 0b ff 04 13 3b   .h..d;..d......; |       data [Data(Vertex) Vertex(Xyz(ZAxis { step: ZStep(-1), mode: Absolute }, ComponentwiseDelta))/VarInt, 6 values, 20 B]
+> 00000028  14 27 28 14                                       .'(.             |
+>                                                                              |         decoded: [11, 52, 400, 61, 22, 410, 71, 72, 420, 65, 66, 100, 55, 36, 110, 35, 56, 120]
+> 0000002c  00                                                .                |   column_count: 0
 > ```
 >
 > Two columns referencing one shared field, which the layout byte counts.
