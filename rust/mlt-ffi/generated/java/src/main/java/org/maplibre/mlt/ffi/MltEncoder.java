@@ -402,11 +402,6 @@ public final class MltEncoder implements AutoCloseable {
       return set(MltEncoderOptions.Flag.PACKED_DICT_CODES, enabled);
     }
 
-    /** v2 only: allows plain vertex streams to be rANS-coded. */
-    public Builder allowRansVertices(boolean enabled) {
-      return set(MltEncoderOptions.Flag.RANS_VERTICES, enabled);
-    }
-
     /** v2 only: lets a nested struct or map code its row shapes instead of per-field presence. */
     public Builder allowRowShapes(boolean enabled) {
       return set(MltEncoderOptions.Flag.ROW_SHAPES, enabled);

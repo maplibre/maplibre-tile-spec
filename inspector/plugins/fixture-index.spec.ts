@@ -6,7 +6,7 @@ const index = indexFixtures(join(import.meta.dirname, "..", "fixtures"));
 
 describe("indexFixtures", () => {
   it("indexes every synthetic tile", () => {
-    expect(index.length).toMatchInlineSnapshot(`1520`);
+    expect(index.length).toMatchInlineSnapshot(`1511`);
   });
 
   it("indexes each directory", () => {
@@ -26,7 +26,7 @@ describe("indexFixtures", () => {
         "0x01-osm": 1,
         "0x01-rust": 210,
         "0x01-simple": 6,
-        "0x02": 611,
+        "0x02": 602,
         "0x02-amazon": 11,
         "0x02-amazon_here": 5,
         "0x02-bing": 17,

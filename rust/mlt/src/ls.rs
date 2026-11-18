@@ -207,7 +207,6 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
         StatLogicalCodec::Alp => "alp",
         StatLogicalCodec::Runs => "runs",
         StatLogicalCodec::Sparse => "sparse",
-        StatLogicalCodec::Rans => "rans",
     })
 }
 
@@ -971,7 +970,6 @@ pub enum StatLogicalCodec {
     MortonDelta,
     Dict,
     Alp,
-    Rans,
     Runs,
     Sparse,
 }
@@ -993,7 +991,6 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Float(FloatLogical::Alp(_)) => Self::Alp,
             LE::Int(IntLogical::Delta2) => Self::Delta2,
             LE::Vertex(VertexLogical::ComponentwiseDelta2) => Self::ComponentwiseDelta2,
-            LE::Vertex(VertexLogical::Rans) => Self::Rans,
             LE::Bool(BoolLogical::Runs) => Self::Runs,
             LE::Bool(BoolLogical::Sparse) => Self::Sparse,
             // z is the extension bit, not a codec: report the codec the triples use,
