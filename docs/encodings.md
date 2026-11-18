@@ -874,3 +874,105 @@ The dictionary is sorted ascending by code, so every difference is non-negative.
 dict codes: [27, 30, 45]
 words:      [27, 3, 15]
 ```
+
+### Predicted Vertices <span class="experimental"></span> {#predicted-vertices}
+
+Each vertex is stored as its residual against a guess made from the vertices decoded before it.
+The residuals are split into streams by the class of their vertex, then written as split varints or as escaped bytes.
+The encoding follows the vertex-buffer pipeline of [Turtelll's thesis](https://turtelll.github.io/Thesis/), without its frames, shared references and reorders.
+It only applies to `(x, y)` pairs, not to [triples](specification/v2.md#z-coordinates) or a vertex dictionary.
+
+The stream's physical field is `0`, and `byte_length` covers the whole payload.
+The payload is one header byte followed by the non-empty streams, and it must be consumed exactly.
+
+[View example](inspector/app/?fixture=0x02%2Fpoly_hole_predicted.mlt&at=vertices){target=_blank .inspector-example} - a polygon with a hole, its vertices stored as predicted residuals.
+
+#### Runs and classes
+
+A run is one polygon ring or one line part, taken from the deepest topology level of the layer.
+Points belong to no run.
+The decoder derives every run from the topology, so no class or stream length is stored.
+
+Each vertex has one class:
+
+- `start`: the first vertex of a run.
+- `delta`: every other vertex, guessed as the previous vertex.
+- `predicted`: a vertex the predictor guesses from its run.
+
+The guess of a `start` or `delta` vertex is the previous vertex of the buffer, `(0, 0)` for the first one, even across runs and features.
+
+| Code | Predictor | `predicted` vertices | Guess |
+|---|---|---|---|
+| `0` | Delta | none | |
+| `1` | Quad corner | the fourth vertex of every four-vertex ring | `p[i-3] + p[i-1] - p[i-2]` |
+| `2` | Line continuation | from the third vertex of every line part of six or more | `2 * p[i-1] - p[i-2]` |
+
+The residual is `p[i] - guess`, per component, with wrapping 32-bit arithmetic, then [zigzag](#zigzag)-encoded.
+
+#### Header
+
+| Bits | Field | Values |
+|---|---|---|
+| 0-3 | predictor | the codes above, `3`-`15` reserved |
+| 4 | segmentation | `0` one stream in vertex order, `1` one stream per class |
+| 5-6 | byte layout | `0` split varint, `1` escaped, `2`-`3` reserved |
+| 7 | reserved | `0` |
+
+With one stream per class the order is `start`, `delta`, `predicted`, and an empty stream is left out.
+Each stream holds `x` and `y` interleaved, two values per vertex.
+
+#### Split varint
+
+The values of a [varint](#varint) stream in a different byte order: the first byte of every value, then the remaining bytes of every value that has them.
+A head byte with its top bit set continues in the tail.
+A varint must be minimal and fit 32 bits.
+
+```
+values:        5   300   7
+varint:        05 | AC 02 | 07
+split varint:  05 AC 07 | 02
+```
+
+#### Escaped
+
+A descriptor byte, then the values.
+
+| Bits | Field |
+|---|---|
+| 0-1 | width: `0` one byte, `1` two, `2` four |
+| 2 | escape |
+| 3-4 | exception width, the same codes, `0` without escape |
+| 5-7 | reserved, `0` |
+
+Without escape, the values are written at the width as byte planes: byte `b` of value `i` of `n` is at `b * n + i`, little-endian.
+With escape, the width must be one byte.
+Each value below `255` is written as it is, and a larger one as `0xFF`.
+The exceptions `value - 255` follow, in order, as byte planes at the exception width.
+The decoder counts the `0xFF` markers to size them.
+
+```
+values:      5   300   7   9   1000   12
+descriptor:  0C                          (escape, two-byte exceptions)
+main:        05 FF 07 09 FF 0C
+exceptions:  45, 745 as planes: 2D E9 | 00 02
+```
+
+#### Example
+
+A rectangle, the only ring of its layer, with quad corner, one stream per class and escaped bytes:
+
+```
+vertices:   (100, 200)  (130, 200)  (130, 240)  (100, 240)
+class:      start       delta       delta       predicted
+guess:      (0, 0)      (100, 200)  (130, 200)  (100, 240)
+residual:   (100, 200)  (30, 0)     (0, 40)     (0, 0)
+
+header:     31
+start:      04 C8 FF 91       200, then 400 as an exception of 145
+delta:      00 3C 00 00 50
+predicted:  00 00 00
+payload:    31 04 C8 FF 91 00 3C 00 00 50 00 00 00
+```
+
+An encoder chooses the predictor, segmentation and byte layout per layer.
+The Rust encoder measures every combination by its stored bytes, or by its deflated bytes with `--vertex-size gzip`, and races the smallest against the other vertex encodings.

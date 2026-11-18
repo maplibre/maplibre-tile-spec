@@ -276,6 +276,7 @@ export const AXES: Axis[] = [
       "morton-delta",
       "morton-rle",
       "alp",
+      "predicted",
     ],
     of: field("logical"),
   },

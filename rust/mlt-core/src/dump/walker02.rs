@@ -918,8 +918,10 @@ impl<'a> Walker<'a> {
             return Err(MltError::NotImplemented("v2 stream header re-walk desync"));
         }
         // Framed, Exception-Free ALP's integers are an integer stream, whatever the column's type is.
+        // A predicted payload needs the topology to decode, so the dump shows its composition.
         let hint = match stream.meta.encoding.logical {
             LogicalEncoding::Float(FloatLogical::Alp(params)) => DecodeHint::Alp(params),
+            LogicalEncoding::Vertex(VertexLogical::Predicted) => DecodeHint::Predicted,
             LogicalEncoding::Float(FloatLogical::None)
             | LogicalEncoding::Int(_)
             | LogicalEncoding::Bool(_)

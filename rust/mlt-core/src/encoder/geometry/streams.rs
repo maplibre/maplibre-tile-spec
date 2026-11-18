@@ -9,6 +9,8 @@ use usize_cast::{FromUsize as _, IntoUsize as _};
 
 use crate::MltResult;
 use crate::codecs::hilbert::hilbert_sort_key;
+#[cfg(feature = "unstable-v2")]
+use crate::codecs::predicted::{self, Run};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::zigzag::encode_componentwise_delta_vec3s;
@@ -21,6 +23,8 @@ use crate::decoder::{
     DictionaryType, GeometryType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType, VertexLogical,
 };
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::VertexSize;
 use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
 #[cfg(feature = "unstable-v2")]
@@ -450,6 +454,26 @@ pub(super) fn encode_vec2_vertex_stream02(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     vec2_vertex_stream(vertices, enc, codecs, false).map(|_| ())
+}
+
+/// The plain vertices as residuals against a guess over the layer's `runs`, in the composition the config's [`VertexSize`] measures smallest.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_predicted_vertex_stream02(
+    vertices: &[i32],
+    runs: &[Run],
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let payload = match enc.config().vertex_size() {
+        VertexSize::Stored => predicted::encode(vertices, runs, &<[u8]>::len)?,
+        VertexSize::Gzip => predicted::encode(vertices, runs, &super::encode02::deflated_len)?,
+    };
+    let meta = StreamMeta::new2(
+        StreamType::Data(DictionaryType::Vertex),
+        LogicalEncoding::Vertex(VertexLogical::Predicted),
+        PhysicalEncoding::None,
+        vertices.len(),
+    )?;
+    write_stream_payload(enc, meta, false, &payload)
 }
 
 fn vec2_vertex_stream(

@@ -144,6 +144,10 @@ impl LogicalValue {
             }
             LE::Int(IL::Delta2) => decode_zigzag_delta2::<i32, _>(data, dec),
             LE::Vertex(VL::MortonDelta(v)) => v.decode_delta(data, dec),
+            LE::Vertex(VL::Predicted) => Err(UnsupportedLogicalEncoding(
+                self.meta.encoding.logical,
+                "a stream decoded without the layer's topology",
+            )),
             #[cfg(feature = "unstable-v2")]
             LE::Vertex(VL::Xyz(_, xyz)) => {
                 if !data.len().is_multiple_of(3) {
