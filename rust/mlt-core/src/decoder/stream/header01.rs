@@ -798,14 +798,14 @@ mod tests {
     #[cfg(feature = "unstable-v2")]
     #[test]
     fn write_rejects_xyz_vertices() {
-        let step = crate::tile::ZStep::new(0).unwrap();
+        let step = crate::tile::ZStep::new(0).unwrap().into();
         let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(
             step,
             crate::decoder::XyzLogical::ComponentwiseDelta,
         ));
         let meta = meta(VERTEX, logical, PhysicalEncoding::VarInt, 3);
         let err = write_stream_meta(&meta, &mut Vec::new(), false, 4).unwrap_err();
-        insta::assert_snapshot!(err, @"unsupported logical encoding Vertex(Xyz(ZStep(0), ComponentwiseDelta)) for v1, whose vertices are (x, y) pairs");
+        insta::assert_snapshot!(err, @"unsupported logical encoding Vertex(Xyz(ZAxis { step: ZStep(0), mode: Absolute }, ComponentwiseDelta)) for v1, whose vertices are (x, y) pairs");
     }
 
     #[rstest]

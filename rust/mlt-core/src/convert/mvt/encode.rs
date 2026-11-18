@@ -88,7 +88,7 @@ mod tests {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: vec![],
             #[cfg(feature = "unstable-v2")]
-            z_step: None,
+            z_axis: None,
             features: vec![],
         };
 

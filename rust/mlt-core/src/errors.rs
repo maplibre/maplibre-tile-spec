@@ -162,8 +162,8 @@ pub enum MltError {
     #[error("a z step of 10^{0} m is outside 10^-3..=10^4 m")]
     InvalidZStep(i8),
     #[cfg(feature = "unstable-v2")]
-    #[error("z step code {0} is outside 0..=7")]
-    InvalidZStepCode(u8),
+    #[error("z byte {0} sets a bit above bit 3")]
+    InvalidZCode(u8),
     #[cfg(feature = "unstable-v2")]
     #[error(
         "layer {0} already holds features without z coordinates, so it cannot be given a z step"

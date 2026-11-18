@@ -95,9 +95,16 @@ impl Arbitrary<'_> for StagedLayer {
                 let exponent =
                     u.int_in_range(crate::ZStep::MIN_EXPONENT..=crate::ZStep::MAX_EXPONENT)?;
                 let step = crate::ZStep::new(exponent).map_err(|_| IncorrectFormat)?;
+                let mode = if u.arbitrary()? {
+                    crate::HeightMode::RelativeToGround
+                } else {
+                    crate::HeightMode::Absolute
+                };
                 let vertices = geometry.vertices().map_or(0, |v| v.len() / 2);
                 let z: Vec<i32> = generate_scalars(u, vertices)?;
-                geometry.add_z(step, &z).map_err(|_| IncorrectFormat)?;
+                geometry
+                    .add_z(crate::ZAxis { step, mode }, &z)
+                    .map_err(|_| IncorrectFormat)?;
             }
             let m_count = usize::from(u.int_in_range(0..=4u8)?);
             let m_values: Vec<StagedMValue> = (0..m_count)

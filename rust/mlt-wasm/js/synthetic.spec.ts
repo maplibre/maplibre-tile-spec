@@ -86,6 +86,9 @@ function tileToFeatureCollection(
       if (feature.zStep !== undefined) {
         properties._z_step = feature.zStep;
       }
+      if (mltLayer.heightMode === "relativeToGround") {
+        properties._height_mode = "relative_to_ground";
+      }
 
       const geojsonFeature: GeoJSON.Feature = {
         type: "Feature",

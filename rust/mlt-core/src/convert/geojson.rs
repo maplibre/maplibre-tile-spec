@@ -9,12 +9,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
 use crate::decoder::PropValueRef;
-use crate::{LendingIterator, MltResult, ParsedLayer};
 #[cfg(feature = "unstable-v2")]
 use crate::{
-    ParsedLayer02, ZStep,
+    HeightMode, ParsedLayer02, ZAxis,
     tile::{MValue, NestedValue},
 };
+use crate::{LendingIterator, MltResult, ParsedLayer};
 
 mod schema;
 pub use crate::convert::geojson::schema::PropertySchema;
@@ -46,7 +46,7 @@ impl FeatureCollection {
                 ParsedLayer::Tag02(l) => nested_properties(l)?.into_iter(),
             };
             #[cfg(feature = "unstable-v2")]
-            let (z_step, mut z) = match &layer {
+            let (z_axis, mut z) = match &layer {
                 ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => (None, Vec::new().into_iter()),
                 ParsedLayer::Tag02(l) => z_values(l)?,
             };
@@ -70,8 +70,11 @@ impl FeatureCollection {
                 #[cfg(feature = "unstable-v2")]
                 properties.extend(nested.next().unwrap_or_default());
                 #[cfg(feature = "unstable-v2")]
-                if let Some(step) = z_step {
-                    properties.insert("_z_step".into(), step.exponent().into());
+                if let Some(axis) = z_axis {
+                    properties.insert("_z_step".into(), axis.step.exponent().into());
+                    if axis.mode == HeightMode::RelativeToGround {
+                        properties.insert("_height_mode".into(), "relative_to_ground".into());
+                    }
                 }
                 #[cfg(feature = "unstable-v2")]
                 let feature_z = z.next();
@@ -423,17 +426,17 @@ fn m_value_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, V
     Ok(features)
 }
 
-/// The layer's z grid and every feature's z coordinates in vertex order.
+/// The layer's z axis and every feature's z coordinates in vertex order.
 #[cfg(feature = "unstable-v2")]
-fn z_values(layer: &ParsedLayer02<'_>) -> MltResult<(Option<ZStep>, std::vec::IntoIter<Vec<i32>>)> {
+fn z_values(layer: &ParsedLayer02<'_>) -> MltResult<(Option<ZAxis>, std::vec::IntoIter<Vec<i32>>)> {
     let geometry = layer.layer().geometry_values();
-    let Some(step) = geometry.z_step() else {
+    let Some(axis) = geometry.z_axis() else {
         return Ok((None, Vec::new().into_iter()));
     };
     let z = (0..geometry.feature_count())
         .map(|index| geometry.z(index))
         .collect::<MltResult<Vec<_>>>()?;
-    Ok((Some(step), z.into_iter()))
+    Ok((Some(axis), z.into_iter()))
 }
 
 /// Every feature's nested columns as JSON, one entry per column under its own name.

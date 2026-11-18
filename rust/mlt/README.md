@@ -60,6 +60,8 @@ a power of ten in metres from `-3` (1 mm) to `4` (10 km):
 mlt convert power_lines.geojson tiles --mlt-version 2 --max-zoom 14 --z-step -1
 ```
 
+An altitude is metres above mean sea level unless `--height-mode relative-to-ground` makes it metres above the terrain.
+
 ### Visualizer
 
 The visualizer command provides an interactive terminal-based UI for exploring MLT files:

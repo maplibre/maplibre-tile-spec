@@ -234,6 +234,9 @@ fn json_output_lists_the_streams_of_a_tile() {
             ],
             "geomLayout": [],
             "zStep": [],
+            "heightMode": [
+              "clamp-to-ground"
+            ],
             "dataType": [],
             "mValue": [],
             "strLayout": [],

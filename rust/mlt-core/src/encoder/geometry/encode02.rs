@@ -18,7 +18,7 @@ use crate::decoder::{
 use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
-use crate::tile::ZStep;
+use crate::tile::ZAxis;
 use crate::{Decoder, MltError, MltResult};
 
 /// Wrap a computed length stream: an empty stream is not written (and not
@@ -73,7 +73,7 @@ pub(crate) struct GeometrySection02 {
     tessellation: Option<Tessellation>,
     vertices: Vec<i32>,
     /// The grid of each vertex's third word, or [`None`] when the vertices are `(x, y)` pairs.
-    z_step: Option<ZStep>,
+    z_axis: Option<ZAxis>,
 }
 
 /// Turn a layer's geometries into the v2 stream set.
@@ -89,7 +89,7 @@ pub(crate) fn encode_geometry02(
         index_buffer,
         triangle_offsets,
         vertices,
-        z_step,
+        z_axis,
     } = geometry;
 
     let geom_offsets = geometry_offsets.unwrap_or_default();
@@ -214,7 +214,7 @@ pub(crate) fn encode_geometry02(
         topology,
         tessellation,
         vertices,
-        z_step,
+        z_axis,
     })
 }
 
@@ -309,8 +309,8 @@ impl GeometrySection02 {
         }
 
         let tessellated = self.tessellation.is_some();
-        let vertices = match self.z_step {
-            Some(step) => write_xyz_vertices(&self.vertices, step, tessellated, enc, codecs)?,
+        let vertices = match self.z_axis {
+            Some(axis) => write_xyz_vertices(&self.vertices, axis, tessellated, enc, codecs)?,
             None => write_vertices(
                 &self.vertices,
                 &|| self.run_offsets(),
@@ -425,7 +425,7 @@ fn keep_shortest(
 /// A Morton code spans only `x` and `y`, so the plain triples race only the Hilbert dictionary.
 fn write_xyz_vertices(
     vertices: &[i32],
-    step: ZStep,
+    axis: ZAxis,
     tessellated: bool,
     enc: &mut Encoder,
     codecs: &mut Codecs,
@@ -442,18 +442,18 @@ fn write_xyz_vertices(
     enc.family_context = Family::Vertex;
 
     if tessellated {
-        encode_vec3_vertex_stream02(vertices, step, enc, codecs)?;
+        encode_vec3_vertex_stream02(vertices, axis, enc, codecs)?;
         return Ok(VertexStorage::Plain);
     }
 
     if let Some(forced) = enc.override_vertex_buffer_type() {
         return match forced {
             VertexBufferType::Vec2 => {
-                encode_vec3_vertex_stream02(vertices, step, enc, codecs)?;
+                encode_vec3_vertex_stream02(vertices, axis, enc, codecs)?;
                 Ok(VertexStorage::Plain)
             }
             VertexBufferType::Hilbert => {
-                encode_hilbert_xyz_vertex_streams02(vertices, step, enc, codecs)?;
+                encode_hilbert_xyz_vertex_streams02(vertices, axis, enc, codecs)?;
                 Ok(VertexStorage::Dict)
             }
             VertexBufferType::Morton => Err(MltError::NotImplemented(
@@ -466,7 +466,7 @@ fn write_xyz_vertices(
     }
 
     if !xyz_dict_may_be_beneficial(vertices, enc) {
-        encode_vec3_vertex_stream02(vertices, step, enc, codecs)?;
+        encode_vec3_vertex_stream02(vertices, axis, enc, codecs)?;
         return Ok(VertexStorage::Plain);
     }
 
@@ -475,10 +475,10 @@ fn write_xyz_vertices(
         codecs,
         &[
             (VertexStorage::Plain, &|enc, codecs| {
-                encode_vec3_vertex_stream02(vertices, step, enc, codecs)
+                encode_vec3_vertex_stream02(vertices, axis, enc, codecs)
             }),
             (VertexStorage::Dict, &|enc, codecs| {
-                encode_hilbert_xyz_vertex_streams02(vertices, step, enc, codecs)
+                encode_hilbert_xyz_vertex_streams02(vertices, axis, enc, codecs)
             }),
         ],
     )

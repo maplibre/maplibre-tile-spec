@@ -7,8 +7,9 @@ use rstest::rstest;
 
 use crate::decoder::{GeoTypes, RawGeometry, RawStream};
 use crate::encoder::model::EncoderConfig;
-use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder, VertexBufferType};
-use crate::encoder::{Network, Profile};
+use crate::encoder::{
+    Codecs, Encoder, ExplicitEncoder, IntEncoder, Network, Profile, VertexBufferType,
+};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, StreamType};
 

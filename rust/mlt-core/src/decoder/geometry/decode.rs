@@ -443,7 +443,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
         let mut triangles: Option<Vec<u32>> = None;
         let mut vertex_stream: Option<RawStream<'_>> = None;
         #[cfg(feature = "unstable-v2")]
-        let mut z_step = None;
+        let mut z_axis = None;
         #[cfg(feature = "unstable-v2")]
         let mut tree_symbols: Option<Vec<u32>> = None;
         #[cfg(feature = "unstable-v2")]
@@ -458,7 +458,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                         if let LogicalEncoding::Vertex(VertexLogical::Xyz(step, _)) =
                             stream.meta.encoding.logical
                         {
-                            z_step = Some(step);
+                            z_axis = Some(step);
                         }
                         vertex_stream.set_once(stream)?;
                     }
@@ -567,7 +567,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                     "triangle lengths do not sum to the symbol count",
                 ));
             }
-            let stride = if z_step.is_some() { 3 } else { 2 };
+            let stride = if z_axis.is_some() { 3 } else { 2 };
             let vertex_count = vertices.as_ref().map_or(0, |v| v.len() / stride);
             if let Some(&idx) = cycles.iter().find(|&&i| i.into_usize() >= vertex_count) {
                 return Err(MltError::TreeVertexOutOfBounds(idx, vertex_count));
@@ -582,7 +582,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
         // Expand them into a single flat (x, y) or (x, y, z) sequence so that `GeometryValues`
         // always represents fully decoded data, regardless of the encoding that was used.
         #[cfg(feature = "unstable-v2")]
-        let stride = if z_step.is_some() { 3 } else { 2 };
+        let stride = if z_axis.is_some() { 3 } else { 2 };
         #[cfg(not(feature = "unstable-v2"))]
         let stride = 2;
         if let Some(offsets) = vertex_offsets.take()
@@ -616,7 +616,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             triangle_offsets,
             vertices,
             #[cfg(feature = "unstable-v2")]
-            z_step,
+            z_axis,
         };
         if index_base == IndexBase::Feature {
             values.rebase_indices_to_layer()?;

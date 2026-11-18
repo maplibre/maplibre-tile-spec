@@ -17,6 +17,7 @@ export {
   columnValue,
   type DecodeTileColumnsOptions,
   decodeTileColumns,
+  type HeightMode,
   type MltColumn,
   type MltColumnLayer,
   type MltColumnTile,

@@ -197,7 +197,7 @@ impl GeometryValues {
     /// Its vertices are `(x, y)` pairs, so it must come before [`Self::add_z`].
     pub fn push_geom(&mut self, geom: &Geometry<i32>) {
         #[cfg(feature = "unstable-v2")]
-        debug_assert!(self.z_step.is_none(), "push_geom after add_z");
+        debug_assert!(self.z_axis.is_none(), "push_geom after add_z");
         match geom {
             Geometry::<i32>::Point(p) => self.push_point(p.0),
             Geometry::<i32>::Line(l) => self.push_linestring(&[l.start, l.end]),
@@ -599,13 +599,13 @@ fn push_linestrings<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{Network, Profile};
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
     use insta::assert_snapshot;
     use integer_encoding::VarInt;
     use proptest::prelude::*;
 
     use super::*;
+    use crate::encoder::{Network, Profile};
 
     fn wound_rings(rings: &[&[(i32, i32)]]) -> Vec<Vec<(i32, i32)>> {
         let rings: Vec<Vec<Coord<i32>>> = rings

@@ -19,7 +19,7 @@ use mlt_core::wire::{
     FloatLogical, IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType, StringLayout, VertexLogical, XyzLogical,
 };
-use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser, PropKind, ZStep};
+use mlt_core::{Decoder, GeometryType, HeightMode, Layer, ParsedLayer, Parser, PropKind, ZStep};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use size_format::SizeFormatterSI;
@@ -211,6 +211,15 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
     })
 }
 
+/// `None` is a layer whose vertices carry no z, which the spec reads as clampToGround.
+fn height_mode_token(mode: Option<HeightMode>) -> &'static str {
+    match mode {
+        Some(HeightMode::Absolute) => "absolute",
+        Some(HeightMode::RelativeToGround) => "relative-to-ground",
+        None => "clamp-to-ground",
+    }
+}
+
 fn z_step_token(step: ZStep) -> &'static str {
     match step.exponent() {
         -3 => "1mm",
@@ -391,6 +400,8 @@ pub struct Facets {
     /// The step of the elevation a vertex stream carries, as the spec's table names it.
     /// v2 only, and empty for a tile whose vertices are `(x, y)` pairs.
     pub z_step: BTreeSet<&'static str>,
+    /// What each layer's z is measured from, `clamp-to-ground` for a layer without z.
+    pub height_mode: BTreeSet<&'static str>,
     /// Each feature-scoped column as a type paired with its nullability, `i32!` or
     /// `i32?`, the id column included.
     pub data_type: BTreeSet<&'static str>,
@@ -424,8 +435,9 @@ impl Facets {
     }
 
     fn add_z(&mut self, logical: LogicalEncoding) {
-        if let LogicalEncoding::Vertex(VertexLogical::Xyz(step, _)) = logical {
-            self.z_step.insert(z_step_token(step));
+        if let LogicalEncoding::Vertex(VertexLogical::Xyz(axis, _)) = logical {
+            self.z_step.insert(z_step_token(axis.step));
+            self.height_mode.insert(height_mode_token(Some(axis.mode)));
         }
     }
 
@@ -852,8 +864,10 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
         data_size += layer01.collect_statistic(DecodedDataSize);
         meta_size += layer01.collect_statistic(DecodedMetaSize);
         feature_count += layer01.collect_statistic(FeatureCount);
-        for &geom_type in layer01.geometry_values().vector_types() {
-            geometries.insert(geom_type);
+        let geometry = layer01.geometry_values();
+        geometries.extend(geometry.vector_types());
+        if !geometry.vector_types().is_empty() && geometry.z_axis().is_none() {
+            facets.height_mode.insert(height_mode_token(None));
         }
         for property in layer01.properties() {
             content.insert(property.kind().into());
@@ -1354,6 +1368,7 @@ mod tests {
         insta::assert_snapshot!(info.algorithms_display(), @"data[vertex]/varint/componentwise-delta,length[parts]/varint");
         // the step moves to its own facet rather than vanishing with the codec rename
         assert_eq!(info.facets.z_step, BTreeSet::from(["1dm"]));
+        assert_eq!(info.facets.height_mode, BTreeSet::from(["absolute"]));
     }
 
     #[test]

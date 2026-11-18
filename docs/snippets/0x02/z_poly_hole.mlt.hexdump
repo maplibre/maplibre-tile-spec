@@ -1,5 +1,5 @@
-00000000                                                                     | layer[0] "layer1" (46 B)
-00000000  2d                                                -                |   size: 45 (varint) - tag + body
+00000000                                                                     | layer[0] "layer1" (45 B)
+00000000  2c                                                ,                |   size: 44 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 00000009  30                                                0                |   header: extent = 64, every feature is a Polygon
@@ -11,7 +11,7 @@
                                                                              |     └ bit 7 = 0 -> shared bitfields are bitmaps
                                                                              |     └ bits 6-4 = 000 -> shared presence bitfields = 0
                                                                              |     └ bits 3-0 = 1000 -> geometry layout = Polygons
-0000000c                                                                     |   geometry (33 B)
+0000000c                                                                     |   geometry (32 B)
 0000000c                                                                     |     part_lengths (3 B)
 0000000c  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
@@ -31,16 +31,16 @@
 00000011  02                                                .                |       byte_length: 2
 00000012  03 03                                             ..               |       data [Length(Rings) Int(None)/VarInt, 2 values, 2 B]
                                                                              |         decoded: [3, 3]
-00000014                                                                     |     vertices (25 B)
+00000014                                                                     |     vertices (24 B)
 00000014  a9                                                .                |       encoding: 0xA9 logical=CwDelta physical=VarInt
                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |         └ bits 1-0 = 01 -> xyz = true -> (x, y, z) triples, a z step byte follows
+                                                                             |         └ bits 1-0 = 01 -> xyz = true -> (x, y, z) triples, a z axis byte follows
 00000015  06                                                .                |       num_values: 6
-00000016  15                                                .                |       byte_length: 21
-00000017  02                                                .                |       z_step: 1 dm
-00000018  16 68 e0 a0 0c 64 3b 14 14 64 14 0b 0b ff 04 13   .h...d;..d...... |       data [Data(Vertex) Vertex(Xyz(ZStep(-1), ComponentwiseDelta))/VarInt, 6 values, 21 B]
-00000028  3b 14 27 28 14                                    ;.'(.            |
-                                                                             |         decoded: [11, 52, 100400, 61, 22, 100410, 71, 72, 100420, 65, 66, 100100, 55, 36, 100110, 35, 56, 100120]
-0000002d  00                                                .                |   column_count: 0
+00000016  14                                                .                |       byte_length: 20
+00000017  02                                                .                |       z_axis: 1 dm, absolute
+00000018  16 68 a0 06 64 3b 14 14 64 14 0b 0b ff 04 13 3b   .h..d;..d......; |       data [Data(Vertex) Vertex(Xyz(ZAxis { step: ZStep(-1), mode: Absolute }, ComponentwiseDelta))/VarInt, 6 values, 20 B]
+00000028  14 27 28 14                                       .'(.             |
+                                                                             |         decoded: [11, 52, 400, 61, 22, 410, 71, 72, 420, 65, 66, 100, 55, 36, 110, 35, 56, 120]
+0000002c  00                                                .                |   column_count: 0

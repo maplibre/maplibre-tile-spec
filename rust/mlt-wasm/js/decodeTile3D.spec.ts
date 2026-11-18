@@ -70,7 +70,7 @@ describe("raw z", () => {
     const [layer] = layersOf("0x02/z_point");
     expect(layer.zStep).toBe(-1);
     const [x, y, z] = layer.feature(0).loadGeometry()[0][0];
-    expect([x, y, z]).toEqual([13, 42, 100_120]);
+    expect([x, y, z]).toEqual([13, 42, 120]);
     expect(toElevation(z, layer.zStep)).toBe(12);
   });
 });

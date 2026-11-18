@@ -2,13 +2,13 @@
 
 use insta::assert_snapshot;
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, Tessellation, WireVersion};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 use mlt_core::{
-    Decoder, GeometryValues, Layer, MValue, Parser, PropKind, TileFeature, TileLayer, ZStep,
+    Decoder, GeometryValues, HeightMode, Layer, MValue, Parser, PropKind, TileFeature, TileLayer,
+    ZAxis, ZStep,
 };
 use rstest::rstest;
 
@@ -75,7 +75,7 @@ fn step() -> ZStep {
 /// A layer on `step` whose features count their z up from `1`, one per stored vertex.
 fn z_layer(geoms: Vec<Geometry<i32>>) -> TileLayer {
     let mut builder = TileLayer::builder("z", 4096).unwrap();
-    builder.set_z_step(step()).unwrap();
+    builder.set_z_axis(step()).unwrap();
     let mut next = 0;
     for geom in geoms {
         let n = TileFeature::new(geom.clone()).vertex_count();
@@ -153,7 +153,7 @@ fn a_triangles_only_feature_carries_the_z_of_each_corner_in_decoded_order() {
         .unwrap();
     assert_eq!(geometry_layout(&bytes), "geometry layout = TessPolygons");
     let tile = decode(&bytes);
-    assert_eq!(tile.z_step(), Some(step()));
+    assert_eq!(tile.z_axis(), Some(step().into()));
     assert_snapshot!(format!("{:?}", tile.features()[0].z()), @"[1, 8, 15, 1, 15, 22]");
     assert_round_trips(&tile, cfg_v2());
 }
@@ -162,7 +162,7 @@ fn a_triangles_only_feature_carries_the_z_of_each_corner_in_decoded_order() {
 fn repeated_vertices_pick_a_dictionary() {
     let l = {
         let mut builder = TileLayer::builder("z", 4096).unwrap();
-        builder.set_z_step(step()).unwrap();
+        builder.set_z_axis(step()).unwrap();
         for i in 0..200 {
             let mut feature = builder.feature(pt((i % 7) * 10, (i % 5) * 10));
             feature.z(vec![i % 3]).unwrap();
@@ -184,7 +184,7 @@ fn distinct_vertices_stay_plain() {
 #[test]
 fn z_and_m_values_round_trip_together() {
     let mut builder = TileLayer::builder("z", 4096).unwrap();
-    builder.set_z_step(step()).unwrap();
+    builder.set_z_axis(step()).unwrap();
     let key = builder.add_m_value("m", PropKind::U32).unwrap();
     let mut feature = builder.feature(line(&[(0, 0), (10, 10), (20, 0)]));
     feature.z(vec![3, 2, 1]).unwrap();
@@ -195,10 +195,9 @@ fn z_and_m_values_round_trip_together() {
     assert_round_trips(&builder.finish(), cfg_v2());
 }
 
-#[test]
-fn the_vertex_stream_header_names_its_step() {
-    let bytes = z_layer(vec![pt(1, 2)]).encode(cfg_v2()).unwrap();
-    let tree = annotate(&bytes);
+/// The vertex stream's header fields after its encoding byte, one region per line.
+fn vertex_header_fields(bytes: &[u8]) -> String {
+    let tree = annotate(bytes);
     let fields: Vec<String> = tree
         .regions
         .iter()
@@ -214,7 +213,47 @@ fn the_vertex_stream_header_names_its_step() {
             .chain(r.bits.iter().map(|b| format!("  {}", b.meaning())))
         })
         .collect();
-    assert_snapshot!(fields.join("\n"));
+    fields.join("\n")
+}
+
+#[test]
+fn the_vertex_stream_header_names_its_axis() {
+    let bytes = z_layer(vec![pt(1, 2)]).encode(cfg_v2()).unwrap();
+    assert_snapshot!(vertex_header_fields(&bytes), @"
+    encoding = 0x29 logical=CwDelta physical=VarInt
+      has_explicit_count = false -> 1 values from context
+      logical = CwDelta, numbered for vertex stream
+      physical = VarInt
+      xyz = true -> (x, y, z) triples, a z axis byte follows
+    byte_length = 3
+    z_axis = 1 dm, absolute
+    ");
+}
+
+#[test]
+fn a_relative_to_ground_layer_sets_bit_3_of_the_z_axis_byte() {
+    let mut builder = TileLayer::builder("z", 4096).unwrap();
+    let axis = ZAxis {
+        step: step(),
+        mode: HeightMode::RelativeToGround,
+    };
+    builder.set_z_axis(axis).unwrap();
+    let mut feature = builder.feature(pt(1, 2));
+    feature.z(vec![120]).unwrap();
+    feature.finish().unwrap();
+    let layer = builder.finish();
+
+    let bytes = assert_round_trips(&layer, cfg_v2());
+    assert_eq!(decode(&bytes).z_axis(), Some(axis));
+    assert_snapshot!(vertex_header_fields(&bytes), @"
+    encoding = 0x29 logical=CwDelta physical=VarInt
+      has_explicit_count = false -> 1 values from context
+      logical = CwDelta, numbered for vertex stream
+      physical = VarInt
+      xyz = true -> (x, y, z) triples, a z axis byte follows
+    byte_length = 4
+    z_axis = 1 dm, relative to ground
+    ");
 }
 
 #[test]
@@ -232,7 +271,7 @@ fn geometry_values_take_one_z_per_vertex() {
     geometry.push_geom(&line(&[(0, 0), (1, 1)]));
     let err = geometry.add_z(step(), &[7]).unwrap_err();
     assert_snapshot!(err, @"a feature carries 1 z coordinates, but the layer expects 2");
-    assert_eq!(geometry.z_step(), None);
+    assert_eq!(geometry.z_axis(), None);
 }
 
 #[test]
@@ -246,7 +285,7 @@ fn v1_rejects_a_layer_with_z() {
 #[test]
 fn a_feature_with_the_wrong_number_of_z_is_rejected() {
     let mut builder = TileLayer::builder("z", 4096).unwrap();
-    builder.set_z_step(step()).unwrap();
+    builder.set_z_axis(step()).unwrap();
     let err = builder
         .feature(line(&[(0, 0), (1, 1)]))
         .z(vec![1])
@@ -258,7 +297,7 @@ fn a_feature_with_the_wrong_number_of_z_is_rejected() {
 #[test]
 fn a_feature_without_z_is_rejected_on_a_z_layer() {
     let mut builder = TileLayer::builder("z", 4096).unwrap();
-    builder.set_z_step(step()).unwrap();
+    builder.set_z_axis(step()).unwrap();
     let err = builder.feature(pt(1, 2)).finish().unwrap_err();
     assert_snapshot!(err, @"a feature carries 0 z coordinates, but the layer expects 1");
 }
@@ -276,7 +315,7 @@ fn a_feature_with_z_is_rejected_on_a_flat_layer() {
 fn a_layer_holding_features_cannot_take_a_step() {
     let mut layer = TileLayer::new("flat", 4096).unwrap();
     layer.push_feature(TileFeature::new(pt(1, 2))).unwrap();
-    let err = layer.set_z_step(step()).unwrap_err();
+    let err = layer.set_z_axis(step()).unwrap_err();
     assert_snapshot!(err, @"layer flat already holds features without z coordinates, so it cannot be given a z step");
 }
 
@@ -298,33 +337,28 @@ fn a_step_spans_its_power_of_ten_in_metres(#[case] exponent: i8, #[case] metres:
     );
 }
 
-#[test]
-fn z_zero_is_terrain_rgb_base() {
-    assert_eq!(ZStep::new(0).unwrap().z(-10_000.0), Some(0));
+#[rstest]
+#[case::metres(0)]
+#[case::finest(ZStep::MIN_EXPONENT)]
+#[case::coarsest(ZStep::MAX_EXPONENT)]
+fn z_zero_is_mean_sea_level(#[case] exponent: i8) {
+    let step = ZStep::new(exponent).unwrap();
+    assert_eq!(step.z(0.0), Some(0));
+    assert_eq!(step.elevation(0).to_bits(), 0.0_f64.to_bits());
 }
 
 #[test]
-fn a_decimetre_step_is_terrain_rgb_grid() {
-    let terrain_rgb_max = (1 << 24) - 1;
-    let decimetres = ZStep::new(-1).unwrap();
-    assert_eq!(
-        decimetres.elevation(terrain_rgb_max).to_bits(),
-        1_667_721.5_f64.to_bits()
-    );
-    assert_eq!(decimetres.z(1_667_721.5), Some(terrain_rgb_max));
-}
-
-#[test]
-fn the_finest_step_spans_terrain_rgb() {
+fn the_finest_step_spans_the_deepest_trench_to_the_highest_peak() {
     let finest = ZStep::new(ZStep::MIN_EXPONENT).unwrap();
-    assert!(finest.elevation(i32::MAX) > 1_667_721.5);
-    assert_eq!(finest.z(1_667_721.5), Some(1_677_721_500));
+    assert_eq!(finest.z(-10_994.0), Some(-10_994_000));
+    assert_eq!(finest.z(8_848.86), Some(8_848_860));
 }
 
 #[rstest]
-#[case::centimetres_read_back_exactly(-2, 1_001_234, 12.34)]
-#[case::decimetres_read_back_exactly(-1, 188_489, 8_848.9)]
-#[case::kilometres(3, 19, 9_000.0)]
+#[case::centimetres_read_back_exactly(-2, 1_234, 12.34)]
+#[case::decimetres_read_back_exactly(-1, 88_489, 8_848.9)]
+#[case::below_sea_level(-2, -43_050, -430.5)]
+#[case::kilometres(3, 9, 9_000.0)]
 fn a_grid_value_reads_as_its_decimal_elevation(
     #[case] exponent: i8,
     #[case] z: i32,
@@ -339,9 +373,9 @@ fn a_grid_value_reads_as_its_decimal_elevation(
 }
 
 #[rstest]
-#[case::sea_level_in_metres(0, 0.0, Some(10_000))]
-#[case::everest_in_centimetres(-2, 8_848.86, Some(1_884_886))]
-#[case::below_the_base(0, -10_994.0, Some(-994))]
+#[case::sea_level_in_metres(0, 0.0, Some(0))]
+#[case::everest_in_centimetres(-2, 8_848.86, Some(884_886))]
+#[case::challenger_deep_in_metres(0, -10_994.0, Some(-10_994))]
 #[case::past_i32(-3, 1.0e10, None)]
 fn an_elevation_lands_on_its_nearest_grid_value(
     #[case] exponent: i8,

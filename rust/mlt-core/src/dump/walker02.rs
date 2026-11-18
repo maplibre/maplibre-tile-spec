@@ -24,7 +24,7 @@ use crate::decoder::{
     NodeType02, Presence02, SharedDictKind, StreamType, ValuesColumn02,
 };
 use crate::dump::model::{BitField, BlobInfo, DecodeHint};
-use crate::tile::{MAX_NESTED_DEPTH, ZStep};
+use crate::tile::{MAX_NESTED_DEPTH, ZAxis};
 use crate::utils::{parse_string, parse_u8, take};
 use crate::wire::{
     FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind, VertexLogical,
@@ -892,9 +892,9 @@ impl<'a> Walker<'a> {
         ) {
             (c, _) = self.field(
                 c,
-                "z_step",
+                "z_axis",
                 |i| parse_u8(i),
-                |v| ZStep::from_code(*v).ok().map(|s| s.to_string()),
+                |v| ZAxis::from_code(*v).ok().map(|a| a.to_string()),
             )?;
         }
         // So do the Morton grid's, for a vertex dictionary keyed by Morton code.
@@ -1164,7 +1164,7 @@ fn encoding_bits02(byte: u8, count: Count02, family: Family) -> Vec<BitField> {
             match family {
                 Family::Str(layout) => format!("string layout = {layout:?}"),
                 Family::Vertex if extension == XYZ => {
-                    "xyz = true -> (x, y, z) triples, a z step byte follows".to_string()
+                    "xyz = true -> (x, y, z) triples, a z axis byte follows".to_string()
                 }
                 Family::Int(_)
                 | Family::Bool

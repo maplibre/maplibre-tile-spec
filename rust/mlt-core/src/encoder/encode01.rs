@@ -31,7 +31,7 @@ pub(crate) fn encode_into01(
     }
     // v1 vertices are (x, y) pairs, so a z coordinate has nowhere to go.
     #[cfg(feature = "unstable-v2")]
-    if layer.geometry.z_step.is_some() {
+    if layer.geometry.z_axis.is_some() {
         return Err(MltError::ZNeedsV2(layer.name));
     }
 

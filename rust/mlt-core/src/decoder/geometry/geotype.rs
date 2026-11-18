@@ -15,7 +15,7 @@ use crate::MltResult;
 use crate::decoder::{GeometryType, GeometryValues};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::ZStep;
+use crate::tile::ZAxis;
 
 impl GeometryType {
     #[must_use]
@@ -236,7 +236,7 @@ impl GeometryValues {
         self.rebase_indices(u32::checked_sub)
     }
 
-    /// Flat vertex buffer in tile coordinates: `[x0, y0, x1, y1, …]`, or `[x0, y0, z0, …]` when [`Self::z_step`] is set.
+    /// Flat vertex buffer in tile coordinates: `[x0, y0, x1, y1, ...]`, or `[x0, y0, z0, ...]` when [`Self::z_axis`] is set.
     #[must_use]
     pub fn vertices(&self) -> Option<&[i32]> {
         self.vertices.as_deref()
@@ -250,25 +250,25 @@ impl GeometryValues {
     )]
     pub fn stride(&self) -> usize {
         #[cfg(feature = "unstable-v2")]
-        if self.z_step.is_some() {
+        if self.z_axis.is_some() {
             return 3;
         }
         2
     }
 
-    /// The grid of the vertices' z coordinates, or [`None`] when they have none.
+    /// How the vertices' z coordinates read as heights, or [`None`] when they have none.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
-    pub fn z_step(&self) -> Option<ZStep> {
-        self.z_step
+    pub fn z_axis(&self) -> Option<ZAxis> {
+        self.z_axis
     }
 
-    /// Interleave one z per vertex into the `(x, y)` pairs, putting them on `step`.
+    /// Interleave one z per vertex into the `(x, y)` pairs, reading them on `axis`.
     ///
     /// `z` runs over the vertices in the order the pushed geometries stored them.
     #[cfg(feature = "unstable-v2")]
-    pub fn add_z(&mut self, step: ZStep, z: &[i32]) -> MltResult<()> {
-        if self.z_step.is_some() {
+    pub fn add_z(&mut self, axis: impl Into<ZAxis>, z: &[i32]) -> MltResult<()> {
+        if self.z_axis.is_some() {
             return Err(ZAlreadySet);
         }
         let pairs = self.vertices.take().unwrap_or_default();
@@ -284,7 +284,7 @@ impl GeometryValues {
             xyz.extend([x, y, z]);
         }
         self.vertices = (!xyz.is_empty()).then_some(xyz);
-        self.z_step = Some(step);
+        self.z_axis = Some(axis.into());
         Ok(())
     }
 
@@ -327,7 +327,7 @@ impl GeometryValues {
     /// The vertices feature `index` stores, in the order its z run over them.
     #[cfg(feature = "unstable-v2")]
     fn z_vertices(&self, index: usize) -> MltResult<ZVertices<'_>> {
-        if self.z_step.is_none() {
+        if self.z_axis.is_none() {
             return Ok(ZVertices::Range(0..0));
         }
         if self.part_offsets.is_none()
