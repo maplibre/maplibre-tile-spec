@@ -125,7 +125,7 @@ fn strings_become_one_m_value_per_vertex() {
 fn z_and_unparsed_properties_are_kept() {
     let out = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
-        strings(&[(2, "5,6")]),
+        &strings(&[(2, "5,6")]),
     )
     .unwrap();
     let feature = &out.features()[0];
@@ -142,7 +142,7 @@ fn z_and_unparsed_properties_are_kept() {
 fn a_leading_zero_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
-        strings(&[(2, "007,1")]),
+        &strings(&[(2, "007,1")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @r#"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: "007,1" formats back as "7,1"
@@ -154,7 +154,7 @@ fn a_leading_zero_is_rejected() {
 fn a_space_after_the_split_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
-        strings(&[(2, "5, 6")]),
+        &strings(&[(2, "5, 6")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @r#"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: " 6" is not a number: invalid digit found in string
@@ -166,7 +166,7 @@ fn a_space_after_the_split_is_rejected() {
 fn a_negative_u64_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
-        strings(&[(2, "-1")]),
+        &strings(&[(2, "-1")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @r#"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: "-1" does not fit u64
@@ -178,7 +178,7 @@ fn a_negative_u64_is_rejected() {
 fn a_plus_on_the_first_value_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = 'sign', kind = 'i32' }",
-        strings(&[(2, "+7")]),
+        &strings(&[(2, "+7")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @r#"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: "+7" formats back as "7"
@@ -190,7 +190,7 @@ fn a_plus_on_the_first_value_is_rejected() {
 fn two_signs_in_a_row_are_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = 'sign', kind = 'i32' }",
-        strings(&[(2, "10++1")]),
+        &strings(&[(2, "10++1")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @r#"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: "+" is not a number: invalid digit found in string
@@ -202,7 +202,7 @@ fn two_signs_in_a_row_are_rejected() {
 fn a_running_sum_past_the_kind_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = 'sign', kind = 'i64', running-sum = true }",
-        strings(&[(2, "9223372036854775807+1")]),
+        &strings(&[(2, "9223372036854775807+1")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: 9223372036854775807 plus +1 overflows
@@ -214,7 +214,7 @@ fn a_running_sum_past_the_kind_is_rejected() {
 fn a_running_sum_below_zero_for_unsigned_values_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u32', running-sum = true }",
-        strings(&[(2, "4,-5")]),
+        &strings(&[(2, "4,-5")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: 4 plus -5 overflows
@@ -226,7 +226,7 @@ fn a_running_sum_below_zero_for_unsigned_values_is_rejected() {
 fn a_plus_on_a_comma_separated_difference_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u32', running-sum = true }",
-        strings(&[(2, "4,+1")]),
+        &strings(&[(2, "4,+1")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @r#"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: "4,+1" formats back as "4,1"
@@ -238,7 +238,7 @@ fn a_plus_on_a_comma_separated_difference_is_rejected() {
 fn more_m_values_than_vertices_are_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = 'sign', kind = 'i32', into = 'm-value' }",
-        strings(&[(2, "10+1-2")]),
+        &strings(&[(2, "10+1-2")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: 3 values for 2 vertices
@@ -250,7 +250,7 @@ fn more_m_values_than_vertices_are_rejected() {
 fn fewer_m_values_than_vertices_are_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = 'sign', kind = 'i32', into = 'm-value' }",
-        strings(&[(4, "10+1-2")]),
+        &strings(&[(4, "10+1-2")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: 3 values for 4 vertices
@@ -274,7 +274,7 @@ fn a_configured_field_that_is_already_a_nested_column_is_rejected() {
 
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
-        layer.finish(),
+        &layer.finish(),
     );
 
     insta::assert_snapshot!(err.unwrap_err(), @"
@@ -287,7 +287,7 @@ fn a_configured_field_that_is_already_a_nested_column_is_rejected() {
 fn a_running_sum_on_strings_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ';', kind = 'str', running-sum = true }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -305,7 +305,7 @@ fn a_running_sum_on_strings_is_rejected() {
 fn a_sign_split_on_strings_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = 'sign', kind = 'str' }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -323,7 +323,7 @@ fn a_sign_split_on_strings_is_rejected() {
 fn a_minus_as_the_split_for_numbers_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = '-', kind = 'i32' }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -341,7 +341,7 @@ fn a_minus_as_the_split_for_numbers_is_rejected() {
 fn a_digit_as_the_split_for_numbers_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = '0', kind = 'u32' }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -359,7 +359,7 @@ fn a_digit_as_the_split_for_numbers_is_rejected() {
 fn a_split_of_two_characters_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ', ', kind = 'u64' }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @r#"
     Error: parsing fields.toml
@@ -377,7 +377,7 @@ fn a_split_of_two_characters_is_rejected() {
 fn an_unknown_key_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64', delta = true }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -395,7 +395,7 @@ fn an_unknown_key_is_rejected() {
 fn an_unknown_column_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = 'sign', kind = 'i32', into = 'z' }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -411,7 +411,10 @@ fn an_unknown_column_is_rejected() {
 
 #[test]
 fn a_misspelled_layers_table_is_rejected() {
-    let err = convert("[layer.l]\nf = { split = ',', kind = 'u64' }", strings(&[]));
+    let err = convert(
+        "[layer.l]\nf = { split = ',', kind = 'u64' }",
+        &strings(&[]),
+    );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
 
@@ -428,7 +431,7 @@ fn a_misspelled_layers_table_is_rejected() {
 fn an_unknown_key_in_a_form_table_is_rejected() {
     let err = convert(
         "[layers.l.f]\nsplit = ','\nkind = 'u64'\ndelta = true",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -446,7 +449,7 @@ fn an_unknown_key_in_a_form_table_is_rejected() {
 fn a_snake_case_column_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64', into = 'm_value' }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -464,7 +467,7 @@ fn a_snake_case_column_is_rejected() {
 fn a_snake_case_running_sum_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64', running_sum = true }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -482,7 +485,7 @@ fn a_snake_case_running_sum_is_rejected() {
 fn an_upper_case_kind_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'U64' }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -509,7 +512,7 @@ fn layers_and_fields_no_applied_layer_held_are_unused() {
 fn an_unknown_kind_is_rejected() {
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'f32' }",
-        strings(&[]),
+        &strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
@@ -525,7 +528,7 @@ fn an_unknown_kind_is_rejected() {
 
 #[test]
 fn a_missing_kind_is_rejected() {
-    let err = convert("[layers.l]\nf = { split = ',' }", strings(&[]));
+    let err = convert("[layers.l]\nf = { split = ',' }", &strings(&[]));
     insta::assert_snapshot!(err.unwrap_err(), @"
     Error: parsing fields.toml
 
@@ -542,7 +545,7 @@ fn a_missing_kind_is_rejected() {
 fn a_null_field_stays_null_in_a_list() {
     let out = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
-        strings_or_null(&[(2, Some("5,6")), (2, None)]),
+        &strings_or_null(&[(2, Some("5,6")), (2, None)]),
     )
     .unwrap();
     let null = out.features().iter().find(|f| f.id() == Some(2)).unwrap();
@@ -553,7 +556,7 @@ fn a_null_field_stays_null_in_a_list() {
 fn a_null_field_stays_null_in_an_m_value_column() {
     let out = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64', into = 'm-value' }",
-        strings_or_null(&[(2, Some("5,6")), (2, None)]),
+        &strings_or_null(&[(2, Some("5,6")), (2, None)]),
     )
     .unwrap();
     let null = out.features().iter().find(|f| f.id() == Some(2)).unwrap();
@@ -583,7 +586,7 @@ fn existing_m_values_and_nested_columns_are_kept() {
 
     let out = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
-        layer.finish(),
+        &layer.finish(),
     )
     .unwrap();
 
@@ -613,7 +616,7 @@ fn a_configured_property_that_is_not_a_string_is_rejected() {
 
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
-        layer.finish(),
+        &layer.finish(),
     );
 
     insta::assert_snapshot!(err.unwrap_err(), @"
@@ -632,7 +635,7 @@ fn a_rejected_feature_without_an_id_is_named_by_its_field_alone() {
 
     let err = convert(
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
-        layer.finish(),
+        &layer.finish(),
     );
 
     insta::assert_snapshot!(err.unwrap_err(), @r#"
@@ -726,7 +729,7 @@ fn every_column_kind_survives_verify() {
         row.finish().unwrap();
     }
 
-    run(None, layer.finish()).unwrap();
+    run(None, &layer.finish()).unwrap();
 }
 
 #[test]
@@ -766,12 +769,12 @@ fn restored(config: &str, items: &[&str]) -> anyhow::Result<TileLayer> {
         .restore(layer.finish())
 }
 
-fn convert(config: &str, layer: TileLayer) -> Result<TileLayer, String> {
+fn convert(config: &str, layer: &TileLayer) -> Result<TileLayer, String> {
     run(Some(config), layer)
 }
 
 /// `layer` encoded as v2, converted with `--verify` and the `--fields` file `config`, and decoded again.
-fn run(config: Option<&str>, layer: TileLayer) -> Result<TileLayer, String> {
+fn run(config: Option<&str>, layer: &TileLayer) -> Result<TileLayer, String> {
     let v2 = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02);
     let bytes = run_tile(config, "tile.mlt", &layer.encode(v2).unwrap())?;
@@ -814,7 +817,7 @@ fn run_tile(config: Option<&str>, file: &str, bytes: &[u8]) -> Result<Vec<u8>, S
 }
 
 fn parsed(config: &str, cases: &[(i32, &str)]) -> String {
-    let out = convert(config, strings(cases)).unwrap();
+    let out = convert(config, &strings(cases)).unwrap();
     let mut report = String::new();
     for (id, &(_, input)) in (1..).zip(cases) {
         let feature = out.features().iter().find(|f| f.id() == Some(id)).unwrap();
