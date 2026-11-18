@@ -13939,6 +13939,43 @@
     }
   },
   {
+    "name": "mix_2_mpoly_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 136,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_2_poly_mline_tes.mlt",
     "directory": "0x01-rust",
     "bytes": 68,
@@ -13977,6 +14014,80 @@
     }
   },
   {
+    "name": "mix_2_poly_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 101,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_2_poly_polyh_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 85,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_2_polyh_mline_tes.mlt",
     "directory": "0x01-rust",
     "bytes": 90,
@@ -14000,6 +14111,80 @@
       "streamType": [
         "data[vertex]",
         "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_2_polyh_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 123,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_2_polyh_polyh_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 107,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
         "length[parts]",
         "length[rings]",
         "length[triangles]",
@@ -14549,6 +14734,82 @@
     }
   },
   {
+    "name": "mix_3_mpoly_poly_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 149,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_3_mpoly_polyh_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 171,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_3_poly_line_poly_tes.mlt",
     "directory": "0x01-rust",
     "bytes": 72,
@@ -14663,6 +14924,44 @@
     }
   },
   {
+    "name": "mix_3_poly_mpoly_poly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 114,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_3_poly_polyh_mline_tes.mlt",
     "directory": "0x01-rust",
     "bytes": 103,
@@ -14686,6 +14985,80 @@
       "streamType": [
         "data[vertex]",
         "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_3_poly_polyh_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 137,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_3_poly_polyh_poly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 98,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
         "length[parts]",
         "length[rings]",
         "length[triangles]",
@@ -14800,6 +15173,80 @@
       "streamType": [
         "data[vertex]",
         "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_3_polyh_mpoly_polyh_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 159,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_3_polyh_poly_polyh_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 120,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
         "length[parts]",
         "length[rings]",
         "length[triangles]",
@@ -15153,6 +15600,152 @@
       "logical": [
         "delta-rle",
         "morton-delta"
+      ]
+    }
+  },
+  {
+    "name": "poly_hole_fpf_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 111,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "fastpfor[256be]"
+      ],
+      "logical": [
+        "componentwise-delta",
+        "rle"
+      ]
+    }
+  },
+  {
+    "name": "poly_hole_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 74,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta",
+        "rle"
+      ]
+    }
+  },
+  {
+    "name": "poly_hole_touching_fpf_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 109,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "fastpfor[256be]"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "poly_hole_touching_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 71,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
       ]
     }
   },

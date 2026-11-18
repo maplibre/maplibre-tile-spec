@@ -2256,8 +2256,8 @@ mlt hexdump path/to/tile.mlt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 00000015  08                                                .                |       num_values: 8
 > 00000016  08                                                .                |       byte_length: 8
-> 00000017  00 03 01 02 02 00 00 00                           ........         |       data [Offset(TreeSymbols) Int(None)/VarInt, 8 values, 8 B]
->                                                                              |         decoded: [0, 3, 1, 2, 2, 0, 0, 0]
+> 00000017  00 03 02 01 02 00 00 00                           ........         |       data [Offset(TreeSymbols) Int(None)/VarInt, 8 values, 8 B]
+>                                                                              |         decoded: [0, 3, 2, 1, 2, 0, 0, 0]
 > 0000001f                                                                     |     tri_cycles (17 B)
 > 0000001f  88                                                .                |       encoding: 0x88 logical=None physical=VarInt
 >                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
