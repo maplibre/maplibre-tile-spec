@@ -32,6 +32,7 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use clap::Parser;
+use mlt_core::HeightMode;
 use mlt_core::compact_str::CompactString;
 use mlt_core::encoder::{
     FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedInterior,
@@ -2649,11 +2650,9 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         .write_per_version(w, "props_shared_dict_codes-rust", "props_shared_dict_bp");
 }
 
-/// Elevations on Terrain-RGB's grid of 10^-1 m, whose `0` is its base of -10000 m.
-///
-/// `100_000` is sea level, so these read as heights of a few tens of metres.
+/// Elevations above mean sea level on a grid of 10^-1 m.
 fn decimetres(metres: &[i32]) -> Vec<i32> {
-    metres.iter().map(|m| (m + 10_000) * 10).collect()
+    metres.iter().map(|m| m * 10).collect()
 }
 
 /// Vertices of three coordinates, which only v2 can hold.
@@ -2682,7 +2681,7 @@ fn generate_z(w: &mut SynthWriter) {
     let mix: Vec<Geometry<i32>> = MIX_TYPES.iter().map(|(_, g)| g.clone()).collect();
     geo_varint()
         .geos(mix)
-        .z(0, (0..30).map(|i| 10_000 + i * 3).collect())
+        .z(0, (0..30).map(|i| i * 3).collect())
         .write(w, "z_mix");
     geo_varint()
         .tessellate()
@@ -2701,9 +2700,20 @@ fn generate_z(w: &mut SynthWriter) {
         .vertex_offsets(E::varint())
         .z(-1, decimetres(&[5, 6, 5, 7, 8]))
         .write(w, "z_points_hilbert");
+    // The same line twice, its z read from sea level and from the terrain under each vertex.
+    geo_varint()
+        .geo(line1())
+        .z(-1, decimetres(&[412, 415, 418]))
+        .height_mode(HeightMode::Absolute)
+        .write(w, "z_height_absolute");
+    geo_varint()
+        .geo(line1())
+        .z(-1, decimetres(&[12, 15, 18]))
+        .height_mode(HeightMode::RelativeToGround)
+        .write(w, "z_height_relative_to_ground");
     geo_varint()
         .geos([P0, P1])
-        .z(-3, vec![10_000_000, 10_000_001])
+        .z(-3, vec![0, 1])
         .write(w, "z_step_finest");
     geo_varint()
         .geos([P0, P1])

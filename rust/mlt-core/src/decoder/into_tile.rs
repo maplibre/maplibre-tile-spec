@@ -116,7 +116,7 @@ impl ParsedLayer02<'_> {
             .finish()?
             .with_m_value_names(m_names)?
             .with_nested(nested_names, nested_kinds)?
-            .with_z_step(geometry.z_step())
+            .with_z_axis(geometry.z_axis())
     }
 }
 

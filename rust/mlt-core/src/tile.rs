@@ -48,7 +48,7 @@ impl From<Extent> for NonZeroU32 {
 
 /// The vertical grid a layer's z coordinates lie on, a power-of-ten step in metres.
 ///
-/// A z of `0` sits at Terrain-RGB's base of -10000 m, so a coordinate's elevation is `-10000 + z * step`.
+/// A coordinate's elevation is `z * step` metres above mean sea level.
 #[cfg(feature = "unstable-v2")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ZStep(i8);
@@ -59,8 +59,6 @@ impl ZStep {
     pub const MIN_EXPONENT: i8 = -3;
     /// The coarsest step, 10^4 m.
     pub const MAX_EXPONENT: i8 = 4;
-    /// The elevation of `z = 0`, in metres.
-    pub const BASE_METRES: f64 = -10_000.0;
 
     /// A step of `10^exponent` metres.
     pub fn new(exponent: i8) -> MltResult<Self> {
@@ -76,21 +74,9 @@ impl ZStep {
         self.0
     }
 
-    /// The byte a vertex stream stores this step as, `exponent + 3`.
-    pub(crate) fn code(self) -> u8 {
+    /// The low three bits of the z byte, `exponent + 3`.
+    fn code(self) -> u8 {
         (self.0 - Self::MIN_EXPONENT).cast_unsigned()
-    }
-
-    /// The step a vertex stream's byte names.
-    #[expect(
-        clippy::unnecessary_lazy_evaluations,
-        reason = "an eager error is dropped on every success"
-    )]
-    pub(crate) fn from_code(code: u8) -> MltResult<Self> {
-        i8::try_from(code)
-            .ok()
-            .and_then(|c| Self::new(c + Self::MIN_EXPONENT).ok())
-            .ok_or_else(|| MltError::InvalidZStepCode(code))
     }
 
     /// The step in metres.
@@ -103,16 +89,16 @@ impl ZStep {
         }
     }
 
-    /// The elevation of `z`, in metres.
+    /// The elevation of `z`, in metres above mean sea level.
     ///
-    /// A fine step moves the base onto the grid and divides by an exact integer last, so `1_001_234` at `10^-2` reads as `12.34`.
+    /// A fine step divides by an exact integer, so `1234` at `10^-2` reads as `12.34`.
     #[must_use]
     pub fn elevation(self, z: i32) -> f64 {
         let power = self.power();
         if self.0 < 0 {
-            (f64::from(z) + Self::BASE_METRES * power) / power
+            f64::from(z) / power
         } else {
-            Self::BASE_METRES + f64::from(z) * power
+            f64::from(z) * power
         }
     }
 
@@ -121,9 +107,9 @@ impl ZStep {
     pub fn z(self, elevation: f64) -> Option<i32> {
         let power = self.power();
         let z = if self.0 < 0 {
-            elevation * power - Self::BASE_METRES * power
+            elevation * power
         } else {
-            (elevation - Self::BASE_METRES) / power
+            elevation / power
         };
         z.round().to_i32()
     }
@@ -148,6 +134,80 @@ impl std::fmt::Display for ZStep {
             3 => "1 km",
             _ => "10 km",
         })
+    }
+}
+
+/// What a z of `0` stands for, after KML's `altitudeMode`.
+///
+/// A layer without z is clamped to the ground, so it needs no mode.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, strum::Display)]
+pub enum HeightMode {
+    /// Heights above mean sea level.
+    #[default]
+    #[strum(serialize = "absolute")]
+    Absolute,
+    /// Heights above the terrain under each vertex.
+    #[strum(serialize = "relative to ground")]
+    RelativeToGround,
+}
+
+/// How a layer's z coordinates read as heights: their step and what `0` stands for.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ZAxis {
+    pub step: ZStep,
+    pub mode: HeightMode,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl ZAxis {
+    /// Bit 3 of the z byte.
+    const RELATIVE_TO_GROUND: u8 = 0b1000;
+
+    /// The byte a vertex stream stores this axis as, the step in bits 2-0 and the mode in bit 3.
+    pub(crate) fn code(self) -> u8 {
+        let mode = match self.mode {
+            HeightMode::Absolute => 0,
+            HeightMode::RelativeToGround => Self::RELATIVE_TO_GROUND,
+        };
+        self.step.code() | mode
+    }
+
+    /// The axis a vertex stream's z byte names.
+    pub(crate) fn from_code(code: u8) -> MltResult<Self> {
+        if code & !0b1111 != 0 {
+            return Err(MltError::InvalidZCode(code));
+        }
+        let mode = if code & Self::RELATIVE_TO_GROUND == 0 {
+            HeightMode::Absolute
+        } else {
+            HeightMode::RelativeToGround
+        };
+        let exponent = (code & 0b111).cast_signed() + ZStep::MIN_EXPONENT;
+        Ok(Self {
+            step: ZStep::new(exponent)?,
+            mode,
+        })
+    }
+}
+
+/// A step alone measures heights above mean sea level.
+#[cfg(feature = "unstable-v2")]
+impl From<ZStep> for ZAxis {
+    fn from(step: ZStep) -> Self {
+        Self {
+            step,
+            mode: HeightMode::Absolute,
+        }
+    }
+}
+
+/// The axis as a dump names it, e.g. `1 dm, relative to ground`.
+#[cfg(feature = "unstable-v2")]
+impl std::fmt::Display for ZAxis {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, {}", self.step, self.mode)
     }
 }
 
@@ -192,9 +252,9 @@ pub struct TileLayer {
     /// Nested column shapes, parallel to `TileFeature::nested`.
     #[cfg(feature = "unstable-v2")]
     pub(crate) nested_kinds: Vec<NestedKind>,
-    /// The grid of every feature's `TileFeature::z`, or [`None`] for a flat layer.
+    /// How every feature's `TileFeature::z` reads as a height, or [`None`] for a flat layer.
     #[cfg(feature = "unstable-v2")]
-    pub(crate) z_step: Option<ZStep>,
+    pub(crate) z_axis: Option<ZAxis>,
     pub(crate) features: Vec<TileFeature>,
 }
 
@@ -215,7 +275,7 @@ pub struct TileFeature {
     /// One value per nested column, in the same order as [`TileLayer::nested_names`].
     #[cfg(feature = "unstable-v2")]
     pub(crate) nested: Vec<NestedValue>,
-    /// One z per vertex of the geometry on the layer's [`ZStep`] grid, or none in a flat layer.
+    /// One z per vertex of the geometry on the layer's [`ZAxis`], or none in a flat layer.
     #[cfg(feature = "unstable-v2")]
     pub(crate) z: Vec<i32>,
 }
@@ -433,7 +493,7 @@ impl TileLayer {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
             #[cfg(feature = "unstable-v2")]
-            z_step: None,
+            z_axis: None,
             features: Vec::with_capacity(features),
         })
     }
@@ -463,7 +523,7 @@ impl TileLayer {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
             #[cfg(feature = "unstable-v2")]
-            z_step: None,
+            z_axis: None,
             features,
         };
         Ok(layer)
@@ -588,29 +648,30 @@ impl TileLayer {
         &self.nested_kinds
     }
 
-    /// The grid the features' z coordinates lie on, or [`None`] for a flat layer.
+    /// How the features' z coordinates read as heights, or [`None`] for a flat layer.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
-    pub fn z_step(&self) -> Option<ZStep> {
-        self.z_step
+    pub fn z_axis(&self) -> Option<ZAxis> {
+        self.z_axis
     }
 
-    /// Give the layer z coordinates on `step`, which every feature pushed after this must carry.
+    /// Give the layer z coordinates on `axis`, which every feature pushed after this must carry.
     ///
+    /// A bare [`ZStep`] measures from mean sea level.
     /// A layer that already holds features is rejected, since they carry none.
     #[cfg(feature = "unstable-v2")]
-    pub fn set_z_step(&mut self, step: ZStep) -> MltResult<()> {
+    pub fn set_z_axis(&mut self, axis: impl Into<ZAxis>) -> MltResult<()> {
         if !self.features.is_empty() {
             return Err(MltError::ZStepOnNonEmptyLayer(self.name.clone()));
         }
-        self.z_step = Some(step);
+        self.z_axis = Some(axis.into());
         Ok(())
     }
 
-    /// Put the features, which already carry their z coordinates, on `step`.
+    /// Put the features, which already carry their z coordinates, on `axis`.
     #[cfg(feature = "unstable-v2")]
-    pub(crate) fn with_z_step(mut self, step: Option<ZStep>) -> MltResult<Self> {
-        self.z_step = step;
+    pub(crate) fn with_z_axis(mut self, axis: Option<ZAxis>) -> MltResult<Self> {
+        self.z_axis = axis;
         for feature in &self.features {
             self.validate_z(feature)?;
         }
@@ -689,7 +750,7 @@ impl TileLayer {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
             #[cfg(feature = "unstable-v2")]
-            z_step: self.z_step,
+            z_axis: self.z_axis,
             features: Vec::new(),
         };
         TileLayerBuilder { layer }
@@ -709,7 +770,7 @@ impl TileLayer {
     /// Check a feature's z coordinates against the layer: one per vertex on a z layer, none on a flat one.
     #[cfg(feature = "unstable-v2")]
     fn validate_z(&self, feature: &TileFeature) -> MltResult<()> {
-        let expected = if self.z_step.is_some() {
+        let expected = if self.z_axis.is_some() {
             feature.vertex_count()
         } else {
             0
@@ -958,8 +1019,8 @@ impl TileLayerBuilder {
     }
 
     #[cfg(feature = "unstable-v2")]
-    pub fn set_z_step(&mut self, step: ZStep) -> MltResult<()> {
-        self.layer.set_z_step(step)
+    pub fn set_z_axis(&mut self, axis: impl Into<ZAxis>) -> MltResult<()> {
+        self.layer.set_z_axis(axis)
     }
 
     pub fn feature(&mut self, geometry: Geometry<i32>) -> TileFeatureBuilder<'_> {

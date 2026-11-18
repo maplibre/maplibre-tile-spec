@@ -7,8 +7,7 @@ use std::process::Command;
 use std::{fs, thread};
 
 use mlt::convert::fields::FieldConfig;
-use mlt_core::encoder::{EncoderConfig, WireVersion};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::geo_types::{Geometry, LineString, Point};
 use mlt_core::mvt::tile_layers_to_mvt;
 use mlt_core::{
@@ -130,7 +129,7 @@ fn z_and_unparsed_properties_are_kept() {
     )
     .unwrap();
     let feature = &out.features()[0];
-    assert_eq!(out.z_step(), Some(ZStep::new(0).unwrap()));
+    assert_eq!(out.z_axis(), Some(ZStep::new(0).unwrap().into()));
     assert_eq!(feature.z(), [100, 101]);
     assert_eq!(out.property_names(), ["name"]);
     assert_eq!(
@@ -645,7 +644,7 @@ fn a_rejected_feature_without_an_id_is_named_by_its_field_alone() {
 #[test]
 fn every_column_kind_survives_verify() {
     let mut layer = TileLayer::builder("l", 4096).unwrap();
-    layer.set_z_step(ZStep::new(0).unwrap()).unwrap();
+    layer.set_z_axis(ZStep::new(0).unwrap()).unwrap();
     let props = [
         (PropKind::Bool, PropValue::Bool(Some(true))),
         (PropKind::I8, PropValue::I8(Some(-8))),
@@ -836,7 +835,7 @@ fn strings(cases: &[(i32, &str)]) -> TileLayer {
 
 fn strings_or_null(cases: &[(i32, Option<&str>)]) -> TileLayer {
     let mut layer = TileLayer::builder("l", 4096).unwrap();
-    layer.set_z_step(ZStep::new(0).unwrap()).unwrap();
+    layer.set_z_axis(ZStep::new(0).unwrap()).unwrap();
     let f = layer.add_property("f", PropKind::Str).unwrap();
     let name = layer.add_property("name", PropKind::Str).unwrap();
     for (id, &(vertices, input)) in (1_u64..).zip(cases) {

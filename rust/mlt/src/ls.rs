@@ -19,7 +19,7 @@ use mlt_core::wire::{
     FloatLogical, IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType, StringLayout, VertexLogical, XyzLogical,
 };
-use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser, PropKind, ZStep};
+use mlt_core::{Decoder, GeometryType, HeightMode, Layer, ParsedLayer, Parser, PropKind, ZStep};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use size_format::SizeFormatterSI;
@@ -211,6 +211,13 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
     })
 }
 
+fn height_mode_token(mode: HeightMode) -> &'static str {
+    match mode {
+        HeightMode::Absolute => "absolute",
+        HeightMode::RelativeToGround => "relative-to-ground",
+    }
+}
+
 fn z_step_token(step: ZStep) -> &'static str {
     match step.exponent() {
         -3 => "1mm",
@@ -391,6 +398,9 @@ pub struct Facets {
     /// The step of the elevation a vertex stream carries, as the spec's table names it.
     /// v2 only, and empty for a tile whose vertices are `(x, y)` pairs.
     pub z_step: BTreeSet<&'static str>,
+    /// What a z of `0` stands for in a vertex stream's z coordinates.
+    /// v2 only, and empty for a tile whose vertices are `(x, y)` pairs.
+    pub height_mode: BTreeSet<&'static str>,
     /// Each feature-scoped column as a type paired with its nullability, `i32!` or
     /// `i32?`, the id column included.
     pub data_type: BTreeSet<&'static str>,
@@ -424,8 +434,9 @@ impl Facets {
     }
 
     fn add_z(&mut self, logical: LogicalEncoding) {
-        if let LogicalEncoding::Vertex(VertexLogical::Xyz(step, _)) = logical {
-            self.z_step.insert(z_step_token(step));
+        if let LogicalEncoding::Vertex(VertexLogical::Xyz(axis, _)) = logical {
+            self.z_step.insert(z_step_token(axis.step));
+            self.height_mode.insert(height_mode_token(axis.mode));
         }
     }
 
@@ -1354,6 +1365,7 @@ mod tests {
         insta::assert_snapshot!(info.algorithms_display(), @"data[vertex]/varint/componentwise-delta,length[parts]/varint");
         // the step moves to its own facet rather than vanishing with the codec rename
         assert_eq!(info.facets.z_step, BTreeSet::from(["1dm"]));
+        assert_eq!(info.facets.height_mode, BTreeSet::from(["absolute"]));
     }
 
     #[test]

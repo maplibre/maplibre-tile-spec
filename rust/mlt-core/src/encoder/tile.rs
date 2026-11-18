@@ -99,7 +99,7 @@ pub(crate) fn stage_layer(
         source.push_geometry(f, &mut geometry);
     }
     #[cfg(feature = "unstable-v2")]
-    if let Some(step) = source.v2_layout().z_step {
+    if let Some(axis) = source.v2_layout().z_axis {
         let mut z = Vec::new();
         for f in order.iter() {
             let feature_z = source.z(f);
@@ -111,7 +111,7 @@ pub(crate) fn stage_layer(
             }
         }
         geometry
-            .add_z(step, &z)
+            .add_z(axis, &z)
             .expect("the source holds one z per stored vertex");
     }
 
@@ -407,12 +407,11 @@ fn build_shared_dict(
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{EncoderConfig, Network, Profile};
     use geo_types::Point;
 
     use super::*;
     use crate::decoder::GeometryValues;
-    use crate::encoder::{Codecs, Encoder};
+    use crate::encoder::{Codecs, Encoder, EncoderConfig, Network, Profile};
     use crate::test_helpers::{dec, parser};
     use crate::{Layer, PropValue};
 

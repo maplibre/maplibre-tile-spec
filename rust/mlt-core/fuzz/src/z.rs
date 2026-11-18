@@ -6,7 +6,7 @@ use mlt_core::encoder::{EncoderConfig, Tessellation, WireVersion, stage_tile};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
-use mlt_core::{MltError, TileFeature, TileLayer, ZStep};
+use mlt_core::{HeightMode, MltError, TileFeature, TileLayer, ZAxis, ZStep};
 
 use crate::roundtrip::{decode, encode_decode};
 
@@ -16,7 +16,7 @@ use crate::roundtrip::{decode, encode_decode};
 /// and re-staging the decoded layer must be a fixpoint.
 pub struct ZInput {
     pub geometries: Vec<Geometry<i32>>,
-    pub step: ZStep,
+    pub axis: ZAxis,
     pub z: Vec<Vec<i32>>,
     pub config: EncoderConfig,
 }
@@ -29,6 +29,11 @@ impl Arbitrary<'_> for ZInput {
             .collect::<arbitrary::Result<_>>()?;
         let step = ZStep::new(u.int_in_range(ZStep::MIN_EXPONENT..=ZStep::MAX_EXPONENT)?)
             .map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        let mode = if u.arbitrary()? {
+            HeightMode::RelativeToGround
+        } else {
+            HeightMode::Absolute
+        };
         let z = geometries
             .iter()
             .map(|g| {
@@ -43,7 +48,7 @@ impl Arbitrary<'_> for ZInput {
             .with_id_sort(false);
         Ok(Self {
             geometries,
-            step,
+            axis: ZAxis { step, mode },
             z,
             config,
         })
@@ -109,7 +114,7 @@ impl ZInput {
         let cfg = self.config;
         let mut flat = TileLayer::new("z", 4096).expect("a valid layer");
         let mut with_z = TileLayer::new("z", 4096).expect("a valid layer");
-        with_z.set_z_step(self.step).expect("an empty layer");
+        with_z.set_z_axis(self.axis).expect("an empty layer");
         for (geometry, z) in self.geometries.iter().zip(&self.z) {
             flat.push_feature(TileFeature::new(geometry.clone()))
                 .expect("a flat feature");
@@ -122,7 +127,7 @@ impl ZInput {
             return;
         };
         let decoded = encode(&with_z, cfg).expect("z encodes wherever the flat layer does");
-        assert_eq!(decoded.z_step(), Some(self.step));
+        assert_eq!(decoded.z_axis(), Some(self.axis));
         assert_eq!(strip_z(&decoded), flat, "z changed the decoded geometry");
 
         for (feature, (geometry, z)) in decoded
@@ -230,8 +235,8 @@ impl std::fmt::Debug for ZInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "ZInput {{\n\tconfig: {:#?}\n\tstep: {:?}\n\tgeometries: {:?}\n\tz: {:?}\n}}",
-            self.config, self.step, self.geometries, self.z
+            "ZInput {{\n\tconfig: {:#?}\n\taxis: {:?}\n\tgeometries: {:?}\n\tz: {:?}\n}}",
+            self.config, self.axis, self.geometries, self.z
         )
     }
 }
