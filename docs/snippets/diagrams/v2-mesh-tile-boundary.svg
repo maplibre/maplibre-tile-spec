@@ -1,0 +1,11 @@
+<svg class="mlt-diagram" viewBox="0 0 710 316" role="img" aria-label="Two neighbouring tiles and a mesh footprint that crosses the edge between them. The center of its bounding box lies in the left tile, which stores the whole mesh, unclipped; the right tile stores none of it" xmlns="http://www.w3.org/2000/svg">
+<rect class="grid" x="100" y="40" width="240" height="240"/>
+<rect class="grid" x="340" y="40" width="240" height="240"/>
+<polygon class="f0" points="210,110 400,110 400,170 290,170 290,230 210,230"/>
+<rect class="implicit" x="204" y="104" width="202" height="132"/>
+<circle class="dot" cx="305" cy="170" r="3.5"/>
+<text class="small halo" x="313" y="184">center</text>
+<text class="bold mid" x="220.0" y="302">stores the whole mesh</text>
+<text class="muted mid" x="460.0" y="302">stores none of it</text>
+<text class="muted small mid" x="340" y="28">x = extent</text>
+</svg>
