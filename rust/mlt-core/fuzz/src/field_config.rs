@@ -203,11 +203,13 @@ impl FieldConfigInput {
             Err(MltError::NotImplemented(_) | MltError::MValuesNeedVertexCounts(_)) => return,
             Err(e) => panic!("a parsed layer should encode: {e}"),
         };
-        check_round_trip(&self.layer, &encoded, |decoded| fields.restore(decoded))
-            .expect("a parsed layer should verify");
+        check_round_trip(&self.layer, &encoded, self.encoder, |decoded| {
+            fields.restore(decoded)
+        })
+        .expect("a parsed layer should verify");
 
         let mut mutated = false;
-        let result = check_round_trip(&self.layer, &encoded, |decoded| {
+        let result = check_round_trip(&self.layer, &encoded, self.encoder, |decoded| {
             let restored = fields.restore(decoded)?;
             Ok(match mutate(&restored, self.mutation) {
                 Some(changed) => {

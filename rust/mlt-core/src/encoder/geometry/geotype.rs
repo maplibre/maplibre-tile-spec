@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use earcut::Earcut;
 use geo_types::{Coord, Geometry, LineString, Polygon};
 
+use super::stager::GeometryStager;
 use crate::decoder::{GeometryType, GeometryValues};
 use crate::tile::{TileLayer, stored_len};
 
@@ -198,24 +199,7 @@ impl GeometryValues {
     pub fn push_geom(&mut self, geom: &Geometry<i32>) {
         #[cfg(feature = "unstable-v2")]
         debug_assert!(self.z_axis.is_none(), "push_geom after add_z");
-        match geom {
-            Geometry::<i32>::Point(p) => self.push_point(p.0),
-            Geometry::<i32>::Line(l) => self.push_linestring(&[l.start, l.end]),
-            Geometry::<i32>::LineString(ls) => self.push_linestring(&ls.0),
-            Geometry::<i32>::Polygon(p) => self.push_polygon(rings(p)),
-            Geometry::<i32>::MultiPoint(mp) => self.push_multi_point(mp.0.iter().map(|p| p.0)),
-            Geometry::<i32>::MultiLineString(mls) => {
-                self.push_multi_linestring(mls.0.iter().map(|ls| ls.0.as_slice()));
-            }
-            Geometry::<i32>::MultiPolygon(mp) => self.push_multi_polygon(mp.0.iter().map(rings)),
-            Geometry::<i32>::Triangle(t) => self.push_polygon(rings(&t.to_polygon())),
-            Geometry::<i32>::Rect(r) => self.push_polygon(rings(&r.to_polygon())),
-            Geometry::<i32>::GeometryCollection(gc) => {
-                for g in gc {
-                    self.push_geom(g);
-                }
-            }
-        }
+        GeometryStager::new(self, false, false).geom(geom);
     }
 
     pub(crate) fn push_point(&mut self, coord: Coord<i32>) {
@@ -240,20 +224,11 @@ impl GeometryValues {
         push_linestrings(std::iter::once(line), verts, offsets);
     }
 
-    /// Add a polygon given as its rings, exterior first, each open or closed.
-    pub(crate) fn push_polygon<'c>(
+    /// Add a polygon given as its rings, exterior first, each already wound and open or closed.
+    pub(crate) fn push_wound_polygon<'c>(
         &mut self,
         rings: impl Iterator<Item = &'c [Coord<i32>]> + Clone,
     ) {
-        if any_reversal(rings.clone()) {
-            let rings = wound(rings);
-            self.push_wound_polygon(rings.iter().map(AsRef::as_ref));
-        } else {
-            self.push_wound_polygon(rings);
-        }
-    }
-
-    fn push_wound_polygon<'c>(&mut self, rings: impl Iterator<Item = &'c [Coord<i32>]> + Clone) {
         // Only on the very first polygon: if LineStrings were pushed before us,
         // their vertex offsets are sitting in part_offsets. Move them to
         // ring_offsets now, before we set up ring_offsets for polygon use.
@@ -320,24 +295,8 @@ impl GeometryValues {
         self.push_geometry_count(count);
     }
 
-    /// Add polygons, each given as its rings like [`Self::push_polygon`].
-    pub(crate) fn push_multi_polygon<'c, R>(
-        &mut self,
-        polygons: impl ExactSizeIterator<Item = R> + Clone,
-    ) where
-        R: Iterator<Item = &'c [Coord<i32>]>,
-    {
-        if polygons.clone().any(any_reversal) {
-            let polygons: Vec<_> = polygons.map(wound).collect();
-            self.push_wound_multi_polygon(
-                polygons.iter().map(|rings| rings.iter().map(AsRef::as_ref)),
-            );
-        } else {
-            self.push_wound_multi_polygon(polygons);
-        }
-    }
-
-    fn push_wound_multi_polygon<'c, R>(
+    /// Add polygons, each given as its rings like [`Self::push_wound_polygon`].
+    pub(crate) fn push_wound_multi_polygon<'c, R>(
         &mut self,
         polygons: impl ExactSizeIterator<Item = R> + Clone,
     ) where
@@ -376,16 +335,9 @@ impl GeometryValues {
 }
 
 /// The rings of a polygon, exterior first.
-fn rings(polygon: &Polygon<i32>) -> impl Iterator<Item = &[Coord<i32>]> + Clone {
+pub(super) fn rings(polygon: &Polygon<i32>) -> impl Iterator<Item = &[Coord<i32>]> + Clone {
     std::iter::once(polygon.exterior().0.as_slice())
         .chain(polygon.interiors().iter().map(|ring| ring.0.as_slice()))
-}
-
-/// Whether any ring of the polygon winds against MVT.
-fn any_reversal<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> bool {
-    rings
-        .enumerate()
-        .any(|(i, ring)| needs_reversal(ring, i == 0))
 }
 
 /// The rings of a polygon wound as MVT winds them: counter-clockwise exterior, clockwise holes.
@@ -461,7 +413,7 @@ pub fn wound_geometry(geom: &Geometry<i32>) -> Geometry<i32> {
 /// A ring of zero area has no winding.
 /// Reversing a ring negates its area, so a wound ring is never reversed again.
 /// The area is summed on `i128`, since `i32` products overflow.
-fn needs_reversal(ring: &[Coord<i32>], exterior: bool) -> bool {
+pub(super) fn needs_reversal(ring: &[Coord<i32>], exterior: bool) -> bool {
     let ring = &ring[..stored_len(ring)];
     let next = ring.iter().cycle().skip(1);
     let area: i128 = ring
@@ -477,7 +429,7 @@ fn needs_reversal(ring: &[Coord<i32>], exterior: bool) -> bool {
 /// Entry `i` is the input position of the vertex stored at `i`, so a value held per vertex follows by reading its run through the entries.
 /// Is [`None`] when no ring is reversed.
 #[cfg(feature = "unstable-v2")]
-pub(crate) fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
+fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
     fn plain(order: &mut Vec<usize>, len: usize) {
         order.extend(order.len()..order.len() + len);
     }
@@ -511,19 +463,6 @@ pub(crate) fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
     let mut order = Vec::new();
     let mut reversed = false;
     walk(&mut order, &mut reversed, geom);
-    reversed.then_some(order)
-}
-
-/// [`wound_vertex_order`] of a feature made of `polygons`, each given as its rings, exterior first.
-#[cfg(feature = "unstable-v2")]
-pub(crate) fn wound_polygons_order<'c>(
-    polygons: impl Iterator<Item = impl Iterator<Item = &'c [Coord<i32>]>>,
-) -> Option<Vec<usize>> {
-    let mut order = Vec::new();
-    let mut reversed = false;
-    for rings in polygons {
-        push_wound_rings(&mut order, &mut reversed, rings);
-    }
     reversed.then_some(order)
 }
 

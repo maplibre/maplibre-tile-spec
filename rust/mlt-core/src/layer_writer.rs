@@ -9,10 +9,10 @@ use compact_str::CompactString;
 use fast_mvt::{MvtFeatureBuilder, MvtGeomType, MvtLayerBuilder, MvtTileBuilder};
 use geo_types::Coord;
 
-use crate::decoder::{GeometryType, GeometryValues};
-use crate::encoder::{EncoderConfig, LayerSource, encode_layer};
+use crate::decoder::GeometryType;
+use crate::encoder::{EncoderConfig, GeometryStager, LayerSource, encode_layer};
 #[cfg(feature = "unstable-v2")]
-use crate::encoder::{StagedValues, extend_run, wound_polygons_order};
+use crate::encoder::{StagedValues, extend_run};
 use crate::mvt::write_mvt_layer;
 use crate::tile::{
     ColumnRole, Extent, PropKind, PropertyKey, reject_taken_name, validate_layer_name,
@@ -746,21 +746,23 @@ impl LayerSource for LayerWriter<'_> {
         self.geometry.feature_coords(feature).len()
     }
 
-    fn push_geometry(&self, feature: usize, values: &mut GeometryValues) {
+    fn push_geometry(&self, feature: usize, values: &mut GeometryStager<'_>) {
         let geometry = &self.geometry;
         let groups = geometry.groups(feature);
         let parts = geometry.parts(groups.clone());
         let part = |p| geometry.part(p);
         match geometry.types[feature] {
-            GeometryType::Point => values.push_point(geometry.feature_coords(feature)[0]),
+            GeometryType::Point => values.point(geometry.feature_coords(feature)[0]),
             GeometryType::MultiPoint => {
-                values.push_multi_point(geometry.feature_coords(feature).iter().copied());
+                values.multi_point(geometry.feature_coords(feature).iter().copied());
             }
-            GeometryType::LineString => values.push_linestring(part(parts.start)),
-            GeometryType::MultiLineString => values.push_multi_linestring(parts.map(part)),
-            GeometryType::Polygon => values.push_polygon(parts.map(part)),
-            GeometryType::MultiPolygon => values
-                .push_multi_polygon(groups.map(|group| geometry.parts(group..group + 1).map(part))),
+            GeometryType::LineString => values.line(part(parts.start)),
+            GeometryType::MultiLineString => values.multi_line(parts.map(part)),
+            GeometryType::Polygon => values.polygon(parts.map(part)),
+            GeometryType::MultiPolygon => {
+                values
+                    .multi_polygon(groups.map(|group| geometry.parts(group..group + 1).map(part)));
+            }
         }
     }
 
@@ -792,13 +794,18 @@ impl LayerSource for LayerWriter<'_> {
     }
 
     #[cfg(feature = "unstable-v2")]
-    fn push_m_values(&self, feature: usize, column: usize, values: &mut StagedValues) -> bool {
+    fn push_m_values(
+        &self,
+        feature: usize,
+        column: usize,
+        moved: Option<&[usize]>,
+        values: &mut StagedValues,
+    ) -> bool {
         let column = &self.m_values.columns[column];
         if !column.present[feature] {
             return false;
         }
         let run = item_range(&column.ends, feature);
-        let moved = self.vertex_order(feature);
         match (&column.values, values) {
             (ColumnValues::Strs(strs), StagedValues::Str(out)) => {
                 extend_run(out, &strs[run], moved, |&text| CompactString::from(text));
@@ -807,11 +814,6 @@ impl LayerSource for LayerWriter<'_> {
             (ColumnValues::Strs(_), _) => unreachable!("m-value kind matches its column"),
         }
         true
-    }
-
-    #[cfg(feature = "unstable-v2")]
-    fn vertex_order(&self, feature: usize) -> Option<Vec<usize>> {
-        wound_polygons_order(LayerSource::polygons(self, feature))
     }
 
     fn mvt_feature(&self, feature: usize, layer: MvtLayerBuilder) -> MltResult<MvtFeatureBuilder> {
@@ -888,7 +890,7 @@ fn value_of_bits(kind: PropKind, bits: u64) -> Option<PropValueRef<'static>> {
     clippy::cast_possible_truncation,
     reason = "the bits were stored from a value of the column's kind"
 )]
-fn extend_bits_run(out: &mut StagedValues, bits: &[u64], moved: Option<Vec<usize>>) {
+fn extend_bits_run(out: &mut StagedValues, bits: &[u64], moved: Option<&[usize]>) {
     match out {
         StagedValues::Bool(out) => extend_run(out, bits, moved, |&b| b != 0),
         StagedValues::I8(out) => extend_run(out, bits, moved, |&b| b.cast_signed() as i8),

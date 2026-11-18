@@ -324,7 +324,16 @@ fn decode(bytes: &[u8]) -> TileLayer {
 fn writer_m_values_encode_like_tile_layer(
     #[values(lines(), multi_lines(), polygons_with_holes(), mixed())] layer: TileLayer,
     #[values(Rings::Closed, Rings::Open)] rings: Rings,
-    #[values(v2(), unsorted(), sorted(), tessellated(), triangles_only())] cfg: EncoderConfig,
+    #[values(
+        v2(),
+        unsorted(),
+        sorted(),
+        sorted().with_vertex_sort(true),
+        tessellated(),
+        triangles_only(),
+        triangles_only().with_vertex_sort(true)
+    )]
+    cfg: EncoderConfig,
 ) {
     let writer = write(&layer, rings).unwrap();
     assert_eq!(writer.encode(cfg).unwrap(), layer.encode(cfg).unwrap());

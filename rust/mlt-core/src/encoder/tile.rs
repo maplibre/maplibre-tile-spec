@@ -11,6 +11,9 @@ use crate::PropValueRef;
 use crate::decoder::GeometryValues;
 #[cfg(any(test, feature = "__private"))]
 use crate::encoder::SortStrategy;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::extend_run;
+use crate::encoder::geometry::GeometryStager;
 #[cfg(any(test, feature = "__private"))]
 use crate::encoder::model::CurveParams;
 use crate::encoder::model::StagedLayer;
@@ -54,6 +57,7 @@ impl StagedLayer {
         let options = StageOptions {
             tessellate,
             widen_8bit: false,
+            sort_vertices: false,
         };
         stage_layer(source, &order, stats, options)
     }
@@ -66,6 +70,8 @@ pub(crate) struct StageOptions {
     pub(crate) tessellate: bool,
     /// Stage 8-bit integer columns as 32-bit ones, for encoders that lack them.
     pub(crate) widen_8bit: bool,
+    /// Start each feature's rings, lines and points near where the previous feature ended.
+    pub(crate) sort_vertices: bool,
 }
 
 impl StageOptions {
@@ -74,6 +80,7 @@ impl StageOptions {
         Self {
             tessellate,
             widen_8bit: !cfg.allow_8bit_ints(),
+            sort_vertices: cfg.vertex_sort(),
         }
     }
 }
@@ -95,20 +102,27 @@ pub(crate) fn stage_layer(
         source.feature_count(),
         order.iter().map(|f| source.coord_count(f)).sum(),
     );
-    for f in order.iter() {
-        source.push_geometry(f, &mut geometry);
-    }
+    #[cfg(feature = "unstable-v2")]
+    let track = source.v2_layout().z_axis.is_some() || !source.m_value_kinds().is_empty();
+    #[cfg(not(feature = "unstable-v2"))]
+    let track = false;
+    let mut stager = GeometryStager::new(&mut geometry, options.sort_vertices, track);
+    #[cfg_attr(
+        not(feature = "unstable-v2"),
+        expect(unused_variables, reason = "only v2 holds values per vertex")
+    )]
+    let moved: Vec<Option<Vec<usize>>> = order
+        .iter()
+        .map(|f| {
+            source.push_geometry(f, &mut stager);
+            stager.finish_feature()
+        })
+        .collect();
     #[cfg(feature = "unstable-v2")]
     if let Some(axis) = source.v2_layout().z_axis {
         let mut z = Vec::new();
-        for f in order.iter() {
-            let feature_z = source.z(f);
-            match source.vertex_order(f) {
-                Some(moved) if moved.len() == feature_z.len() => {
-                    z.extend(moved.iter().map(|&i| feature_z[i]));
-                }
-                _ => z.extend_from_slice(feature_z),
-            }
+        for (f, moved) in order.iter().zip(&moved) {
+            extend_run(&mut z, source.z(f), moved.as_deref(), |&z| z);
         }
         geometry
             .add_z(axis, &z)
@@ -156,7 +170,7 @@ pub(crate) fn stage_layer(
         geometry,
         properties,
         #[cfg(feature = "unstable-v2")]
-        m_values: build_m_values(source, order),
+        m_values: build_m_values(source, order, &moved),
         #[cfg(feature = "unstable-v2")]
         nested: build_nested(source, order),
     }
@@ -167,14 +181,19 @@ pub(crate) fn stage_layer(
 /// A feature with no values for a column clears its presence bit and contributes
 /// nothing to the values, which is the whole of how m-values are null.
 #[cfg(feature = "unstable-v2")]
-fn build_m_values(source: &impl LayerSource, order: &Order) -> Vec<StagedMValue> {
+fn build_m_values(
+    source: &impl LayerSource,
+    order: &Order,
+    moved: &[Option<Vec<usize>>],
+) -> Vec<StagedMValue> {
     let kinds = source.m_value_kinds();
     let mut columns = Vec::with_capacity(kinds.len());
     for (index, &kind) in kinds.iter().enumerate() {
         let mut values = StagedValues::empty(kind);
         let presence: Vec<bool> = order
             .iter()
-            .map(|f| source.push_m_values(f, index, &mut values))
+            .zip(moved)
+            .map(|(f, moved)| source.push_m_values(f, index, moved.as_deref(), &mut values))
             .collect();
         // A column no feature is null on needs no mask at all.
         let presence = if presence.iter().all(|&p| p) {
