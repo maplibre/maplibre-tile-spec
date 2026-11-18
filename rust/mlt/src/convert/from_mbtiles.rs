@@ -493,8 +493,8 @@ mod tests {
             .expect("metadata is readable")
     }
 
-    async fn open_pmtiles(path: &Path) -> AsyncPmTilesReader<pmtiles::MmapBackend, HashMapCache> {
-        AsyncPmTilesReader::new_with_cached_path(HashMapCache::default(), path)
+    async fn open_pmtiles(path: &Path) -> AsyncPmTilesReader<pmtiles::FileBackend, HashMapCache> {
+        AsyncPmTilesReader::new_with_path_and_cache(path, HashMapCache::default())
             .await
             .expect("output opens")
     }
