@@ -7,6 +7,8 @@ mod into_tile;
 mod iterators;
 mod layer;
 mod limits;
+#[cfg(feature = "unstable-v2")]
+mod mesh;
 mod model;
 mod model01;
 #[cfg(feature = "unstable-v2")]
@@ -48,13 +50,17 @@ pub use crate::decoder::iterators::{
     PropValueRef,
 };
 pub use crate::decoder::limits::{Decoder, Parser};
+#[cfg(feature = "unstable-v2")]
+pub use crate::decoder::mesh::{MeshFeature, MeshLayer};
 pub use crate::decoder::model::{Layer, LayerBytes, ParsedLayer, Unknown};
 pub(crate) use crate::decoder::model01::{BASE_TYPE_MASK, Column, OPTIONAL_FLAG};
 pub use crate::decoder::model01::{ColumnType, Layer01, ParsedLayer01};
 #[cfg(feature = "unstable-v2")]
-pub use crate::decoder::model02::{GeoLayout, Layer02, LayerLayout, ParsedLayer02};
+pub use crate::decoder::model02::{GeoLayout, Layer02, LayerLayout, MValueScope, ParsedLayer02};
 #[cfg(feature = "unstable-v2")]
-pub use crate::decoder::mvalue::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
+pub use crate::decoder::mvalue::{
+    MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue, RawMValues,
+};
 #[cfg(feature = "unstable-v2")]
 pub use crate::decoder::nested::{
     Nested, ParsedInterior, ParsedLeaf, ParsedList, ParsedMap, ParsedNested, ParsedNode,

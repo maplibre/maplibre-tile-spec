@@ -9,6 +9,8 @@ use compact_str::CompactString;
 use fast_mvt::{MvtFeatureBuilder, MvtGeomType, MvtLayerBuilder, MvtTileBuilder};
 use geo_types::Coord;
 
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::MValueScope;
 use crate::decoder::{GeometryType, GeometryValues};
 use crate::encoder::{EncoderConfig, LayerSource, encode_layer};
 #[cfg(feature = "unstable-v2")]
@@ -45,15 +47,246 @@ use crate::{MltError, MltResult, PropValueRef};
 pub struct LayerWriter<'a> {
     name: &'a str,
     extent: Extent,
+    columns: Columns<'a>,
+    geometry: Geometries,
+}
+
+/// Everything a layer written feature by feature holds besides its geometry.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Columns<'a> {
     property_names: Vec<&'a str>,
     property_kinds: Vec<PropKind>,
-    columns: Vec<Column<'a>>,
+    properties: Vec<Column<'a>>,
     /// Columns of an earlier layer, kept for their buffers.
-    spare_columns: Vec<Column<'a>>,
+    spare_properties: Vec<Column<'a>>,
     ids: Vec<Option<u64>>,
-    geometry: Geometries,
     #[cfg(feature = "unstable-v2")]
     m_values: MValueColumns<'a>,
+}
+
+impl<'a> Columns<'a> {
+    /// Starts over with no features and no columns, keeping the buffers.
+    pub(crate) fn clear(&mut self) {
+        self.property_kinds.clear();
+        self.property_names.clear();
+        self.spare_properties.append(&mut self.properties);
+        self.ids.clear();
+        #[cfg(feature = "unstable-v2")]
+        self.m_values.clear();
+    }
+
+    /// Every column name in use, with the kind of column that holds it.
+    fn taken_names(&self) -> impl Iterator<Item = (&'a str, ColumnRole)> + '_ {
+        let taken = self
+            .property_names
+            .iter()
+            .map(|&n| (n, ColumnRole::Property));
+        #[cfg(feature = "unstable-v2")]
+        let taken = taken.chain(self.m_values.names.iter().map(|&n| (n, ColumnRole::MValue)));
+        taken
+    }
+
+    /// Adds a property column, which the features written so far have no value in.
+    pub(crate) fn add_property(&mut self, name: &'a str, kind: PropKind) -> MltResult<PropertyKey> {
+        reject_taken_name(name, ColumnRole::Property, self.taken_names())?;
+        let mut column = self
+            .spare_properties
+            .pop()
+            .unwrap_or_else(|| Column::new(kind));
+        column.restart(kind);
+        column.resize(self.feature_count());
+        self.properties.push(column);
+        self.property_names.push(name);
+        self.property_kinds.push(kind);
+        Ok(PropertyKey::new(self.property_names.len() - 1))
+    }
+
+    /// Adds an m-value column holding one value per `scope` item, which the features written so
+    /// far are null in.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn add_m_value(
+        &mut self,
+        name: &'a str,
+        kind: PropKind,
+        scope: MValueScope,
+    ) -> MltResult<MValueKey> {
+        reject_taken_name(name, ColumnRole::MValue, self.taken_names())?;
+        let features = self.feature_count();
+        Ok(self.m_values.add(name, kind, scope, features))
+    }
+
+    pub(crate) fn feature_count(&self) -> usize {
+        self.ids.len()
+    }
+
+    /// Sets the value of the feature being written in the `key` column, which must be of the
+    /// value's kind.
+    pub(crate) fn set_property(
+        &mut self,
+        key: PropertyKey,
+        value: PropValueRef<'a>,
+    ) -> MltResult<()> {
+        let index = key.index();
+        let Some(&expected) = self.property_kinds.get(index) else {
+            return Err(MltError::UnknownProperty {
+                index,
+                count: self.property_kinds.len(),
+            });
+        };
+        let actual = value.kind();
+        if actual != expected {
+            return Err(MltError::PropertyKindMismatch {
+                index,
+                expected,
+                actual,
+            });
+        }
+        self.properties[index].set(self.ids.len(), value);
+        Ok(())
+    }
+
+    /// Sets the values of the feature being written in the `key` m-value column.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn set_m_values(
+        &mut self,
+        key: MValueKey,
+        values: impl IntoIterator<Item = impl Into<PropValueRef<'a>>>,
+    ) -> MltResult<()> {
+        let index = key.index();
+        let feature = self.ids.len();
+        let m_values = &mut self.m_values;
+        let Some(&expected) = m_values.kinds.get(index) else {
+            return Err(MltError::UnknownMValueKey {
+                index,
+                columns: m_values.kinds.len(),
+            });
+        };
+        let column = &mut m_values.columns[index];
+        column.values.truncate(column.run_start());
+        column.present.resize(feature, false);
+        for value in values {
+            let value = value.into();
+            let actual = value.kind();
+            if actual != expected {
+                column.values.truncate(column.run_start());
+                return Err(MltError::MValueKindMismatch {
+                    index,
+                    expected,
+                    actual,
+                });
+            }
+            column.values.push(value);
+        }
+        column.present.push(true);
+        Ok(())
+    }
+
+    /// Whether vertices `a` and `b` of the feature being written carry the same value in every
+    /// vertex-scoped column it sets.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn same_vertex_values(&self, a: usize, b: usize) -> bool {
+        let feature = self.ids.len();
+        let m_values = &self.m_values;
+        (m_values.columns.iter().zip(&m_values.scopes))
+            .filter(|&(column, &scope)| {
+                scope == MValueScope::Vertex && column.present.len() > feature
+            })
+            .all(|(column, _)| {
+                let start = column.run_start();
+                match &column.values {
+                    ColumnValues::Scalars(bits) => bits[start + a] == bits[start + b],
+                    ColumnValues::Strs(strs) => strs[start + a] == strs[start + b],
+                }
+            })
+    }
+
+    /// Checks the runs of the feature being written, `items` counting what it holds per scope.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn check_m_values(&self, items: impl Fn(MValueScope) -> usize) -> MltResult<()> {
+        self.m_values.check_runs(self.ids.len(), items)
+    }
+
+    /// Adds the feature being written to the layer with `id`.
+    pub(crate) fn finish_feature(&mut self, id: Option<u64>) -> MltResult<()> {
+        let feature = self.ids.len();
+        #[cfg(feature = "unstable-v2")]
+        self.m_values.finish_feature(feature)?;
+        for column in &mut self.properties {
+            column.resize(feature + 1);
+        }
+        self.ids.push(id);
+        Ok(())
+    }
+
+    /// Drops what the feature being written has set.
+    pub(crate) fn discard_feature(&mut self) {
+        let feature = self.ids.len();
+        for column in &mut self.properties {
+            column.truncate(feature);
+        }
+        #[cfg(feature = "unstable-v2")]
+        self.m_values.truncate(feature);
+    }
+
+    pub(crate) fn property_count(&self) -> usize {
+        self.property_names.len()
+    }
+
+    pub(crate) fn property_name(&self, column: usize) -> &'a str {
+        self.property_names[column]
+    }
+
+    pub(crate) fn property_kinds(&self) -> &[PropKind] {
+        &self.property_kinds
+    }
+
+    pub(crate) fn id(&self, feature: usize) -> Option<u64> {
+        self.ids[feature]
+    }
+
+    pub(crate) fn property(&self, feature: usize, column: usize) -> Option<PropValueRef<'_>> {
+        self.properties[column].get(feature)
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn m_value_kinds(&self) -> &[PropKind] {
+        &self.m_values.kinds
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn m_value_name(&self, column: usize) -> &'a str {
+        self.m_values.names[column]
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn m_value_scope(&self, column: usize) -> MValueScope {
+        self.m_values.scopes[column]
+    }
+
+    /// Appends the feature's values in m-value `column`, read through `moved`, and returns whether
+    /// it has any.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn push_m_values(
+        &self,
+        feature: usize,
+        column: usize,
+        moved: Option<Vec<usize>>,
+        values: &mut StagedValues,
+    ) -> bool {
+        let column = &self.m_values.columns[column];
+        if !column.present[feature] {
+            return false;
+        }
+        let run = item_range(&column.ends, feature);
+        match (&column.values, values) {
+            (ColumnValues::Strs(strs), StagedValues::Str(out)) => {
+                extend_run(out, &strs[run], moved, |&text| CompactString::from(text));
+            }
+            (ColumnValues::Scalars(bits), out) => extend_bits_run(out, &bits[run], moved),
+            (ColumnValues::Strs(_), _) => unreachable!("m-value kind matches its column"),
+        }
+        true
+    }
 }
 
 /// One value or none per feature. Strings are kept as references, and every other kind as the
@@ -177,6 +410,7 @@ impl<'a> ColumnValues<'a> {
 struct MValueColumns<'a> {
     names: Vec<&'a str>,
     kinds: Vec<PropKind>,
+    scopes: Vec<MValueScope>,
     columns: Vec<MValueColumn<'a>>,
     spare: Vec<MValueColumn<'a>>,
 }
@@ -198,11 +432,18 @@ impl<'a> MValueColumns<'a> {
     fn clear(&mut self) {
         self.names.clear();
         self.kinds.clear();
+        self.scopes.clear();
         self.spare.append(&mut self.columns);
     }
 
-    /// Adds a column of `kind` that the `features` written so far are null in.
-    fn add(&mut self, name: &'a str, kind: PropKind, features: usize) -> MValueKey {
+    /// Adds a column of `kind` over `scope` that the `features` written so far are null in.
+    fn add(
+        &mut self,
+        name: &'a str,
+        kind: PropKind,
+        scope: MValueScope,
+        features: usize,
+    ) -> MValueKey {
         let mut column = self.spare.pop().unwrap_or_else(|| MValueColumn {
             values: ColumnValues::new(kind),
             ends: Vec::new(),
@@ -216,26 +457,31 @@ impl<'a> MValueColumns<'a> {
         self.columns.push(column);
         self.names.push(name);
         self.kinds.push(kind);
+        self.scopes.push(scope);
         MValueKey::new(self.names.len() - 1)
     }
 
-    /// Checks that every run `feature` set holds one value per vertex it stores, which
-    /// `vertices` counts.
-    fn check_runs(&self, feature: usize, vertices: impl FnOnce() -> usize) -> MltResult<()> {
-        let mut set = (self.columns.iter().enumerate())
-            .filter(|(_, column)| column.present.len() > feature)
-            .peekable();
-        if set.peek().is_none() {
-            return Ok(());
-        }
-        let expected = vertices();
+    /// Checks that every run `feature` set holds one value per item of its scope, which `items`
+    /// counts.
+    fn check_runs(&self, feature: usize, items: impl Fn(MValueScope) -> usize) -> MltResult<()> {
+        let set =
+            (self.columns.iter().enumerate()).filter(|(_, column)| column.present.len() > feature);
         for (index, column) in set {
+            let scope = self.scopes[index];
+            let expected = items(scope);
             let actual = column.values.len() - column.run_start();
             if actual != expected {
-                return Err(MltError::MValueVertexCountMismatch {
-                    index,
-                    expected,
-                    actual,
+                return Err(match scope {
+                    MValueScope::Vertex => MltError::MValueVertexCountMismatch {
+                        index,
+                        expected,
+                        actual,
+                    },
+                    MValueScope::Triangle => MltError::MValueTriangleCountMismatch {
+                        index,
+                        expected,
+                        actual,
+                    },
                 });
             }
         }
@@ -286,14 +532,8 @@ impl<'a> LayerWriter<'a> {
         Ok(Self {
             name,
             extent: Extent::new(extent)?,
-            property_names: Vec::new(),
-            property_kinds: Vec::new(),
-            columns: Vec::new(),
-            spare_columns: Vec::new(),
-            ids: Vec::new(),
+            columns: Columns::default(),
             geometry: Geometries::default(),
-            #[cfg(feature = "unstable-v2")]
-            m_values: MValueColumns::default(),
         })
     }
 
@@ -302,49 +542,21 @@ impl<'a> LayerWriter<'a> {
         validate_layer_name(name)?;
         self.extent = Extent::new(extent)?;
         self.name = name;
-        self.property_kinds.clear();
-        self.property_names.clear();
-        self.spare_columns.append(&mut self.columns);
-        self.ids.clear();
+        self.columns.clear();
         self.geometry.clear();
-        #[cfg(feature = "unstable-v2")]
-        self.m_values.clear();
         Ok(())
-    }
-
-    /// Every column name in use, with the kind of column that holds it.
-    fn taken_names(&self) -> impl Iterator<Item = (&'a str, ColumnRole)> + '_ {
-        let taken = self
-            .property_names
-            .iter()
-            .map(|&n| (n, ColumnRole::Property));
-        #[cfg(feature = "unstable-v2")]
-        let taken = taken.chain(self.m_values.names.iter().map(|&n| (n, ColumnRole::MValue)));
-        taken
     }
 
     /// Adds a property column, which the features written so far have no value in.
     pub fn add_property(&mut self, name: &'a str, kind: PropKind) -> MltResult<PropertyKey> {
-        reject_taken_name(name, ColumnRole::Property, self.taken_names())?;
-        let mut column = self
-            .spare_columns
-            .pop()
-            .unwrap_or_else(|| Column::new(kind));
-        column.restart(kind);
-        column.resize(self.feature_count());
-        self.columns.push(column);
-        self.property_names.push(name);
-        self.property_kinds.push(kind);
-        Ok(PropertyKey::new(self.property_names.len() - 1))
+        self.columns.add_property(name, kind)
     }
 
     /// Adds an m-value column, holding one value per stored vertex, which the features written
     /// so far are null in.
     #[cfg(feature = "unstable-v2")]
     pub fn add_m_value(&mut self, name: &'a str, kind: PropKind) -> MltResult<MValueKey> {
-        reject_taken_name(name, ColumnRole::MValue, self.taken_names())?;
-        let features = self.feature_count();
-        Ok(self.m_values.add(name, kind, features))
+        self.columns.add_m_value(name, kind, MValueScope::Vertex)
     }
 
     /// Starts a feature of `geometry_type`. It joins the layer when [`FeatureWriter::finish`]
@@ -361,7 +573,7 @@ impl<'a> LayerWriter<'a> {
 
     #[must_use]
     pub fn feature_count(&self) -> usize {
-        self.ids.len()
+        self.columns.feature_count()
     }
 
     /// Encodes the layer as MLT, choosing every encoding as [`TileLayer::encode`] does.
@@ -402,24 +614,7 @@ impl<'a> FeatureWriter<'_, 'a> {
         key: PropertyKey,
         value: impl Into<PropValueRef<'a>>,
     ) -> MltResult<&mut Self> {
-        let value = value.into();
-        let index = key.index();
-        let layer = &mut *self.layer;
-        let Some(&expected) = layer.property_kinds.get(index) else {
-            return Err(MltError::UnknownProperty {
-                index,
-                count: layer.property_kinds.len(),
-            });
-        };
-        let actual = value.kind();
-        if actual != expected {
-            return Err(MltError::PropertyKindMismatch {
-                index,
-                expected,
-                actual,
-            });
-        }
-        layer.columns[index].set(layer.ids.len(), value);
+        self.layer.columns.set_property(key, value.into())?;
         Ok(self)
     }
 
@@ -433,32 +628,7 @@ impl<'a> FeatureWriter<'_, 'a> {
         key: MValueKey,
         values: impl IntoIterator<Item = impl Into<PropValueRef<'a>>>,
     ) -> MltResult<&mut Self> {
-        let index = key.index();
-        let feature = self.layer.ids.len();
-        let m_values = &mut self.layer.m_values;
-        let Some(&expected) = m_values.kinds.get(index) else {
-            return Err(MltError::UnknownMValueKey {
-                index,
-                columns: m_values.kinds.len(),
-            });
-        };
-        let column = &mut m_values.columns[index];
-        column.values.truncate(column.run_start());
-        column.present.resize(feature, false);
-        for value in values {
-            let value = value.into();
-            let actual = value.kind();
-            if actual != expected {
-                column.values.truncate(column.run_start());
-                return Err(MltError::MValueKindMismatch {
-                    index,
-                    expected,
-                    actual,
-                });
-            }
-            column.values.push(value);
-        }
-        column.present.push(true);
+        self.layer.columns.set_m_values(key, values)?;
         Ok(self)
     }
 
@@ -539,26 +709,27 @@ impl<'a> FeatureWriter<'_, 'a> {
                 .then_some("needs exactly one line"),
             (Family::Polygons, false) => (geometry.group_ends.len() - self.start.groups != 1)
                 .then_some("needs exactly one polygon"),
+            #[cfg(feature = "unstable-v2")]
+            (Family::Meshes, false) => Some("is written to a mesh layer"),
         };
         if let Some(reason) = invalid {
             return Err(MltError::InvalidFeatureGeometry(self.geometry_type, reason));
         }
         #[cfg(feature = "unstable-v2")]
         {
-            let feature = layer.ids.len();
             let rings = Family::of(self.geometry_type).0 == Family::Polygons;
-            layer
-                .m_values
-                .check_runs(feature, || geometry.stored_since(self.start, rings))?;
-            layer.m_values.finish_feature(feature)?;
+            let vertices = geometry.stored_since(self.start, rings);
+            layer.columns.check_m_values(|scope| match scope {
+                MValueScope::Vertex => vertices,
+                MValueScope::Triangle => {
+                    unreachable!("a LayerWriter has vertex-scoped columns only")
+                }
+            })?;
         }
-        // The last step that can fail, since a discarded feature leaves its geometry types behind.
+        layer.columns.finish_feature(self.id)?;
+        // A discarded feature would leave its geometry type behind, so this comes after the step
+        // that can fail.
         layer.geometry.finish_feature(self.geometry_type)?;
-        let len = layer.ids.len() + 1;
-        for column in &mut layer.columns {
-            column.resize(len);
-        }
-        layer.ids.push(self.id);
         self.finished = true;
         Ok(())
     }
@@ -569,14 +740,8 @@ impl Drop for FeatureWriter<'_, '_> {
         if self.finished {
             return;
         }
-        let layer = &mut *self.layer;
-        let feature = layer.ids.len();
-        for column in &mut layer.columns {
-            column.truncate(feature);
-        }
-        #[cfg(feature = "unstable-v2")]
-        layer.m_values.truncate(feature);
-        layer.geometry.rewind(self.start);
+        self.layer.columns.discard_feature();
+        self.layer.geometry.rewind(self.start);
     }
 }
 
@@ -586,6 +751,9 @@ enum Family {
     Points,
     Lines,
     Polygons,
+    /// A mesh, which a layer of its own holds instead.
+    #[cfg(feature = "unstable-v2")]
+    Meshes,
 }
 
 impl Family {
@@ -597,6 +765,8 @@ impl Family {
             GeometryType::MultiLineString => (Self::Lines, true),
             GeometryType::Polygon => (Self::Polygons, false),
             GeometryType::MultiPolygon => (Self::Polygons, true),
+            #[cfg(feature = "unstable-v2")]
+            GeometryType::Mesh => (Self::Meshes, false),
         }
     }
 }
@@ -715,23 +885,23 @@ impl LayerSource for LayerWriter<'_> {
     }
 
     fn property_count(&self) -> usize {
-        self.property_names.len()
+        self.columns.property_count()
     }
 
     fn property_name(&self, column: usize) -> &str {
-        self.property_names[column]
+        self.columns.property_name(column)
     }
 
     fn property_kinds(&self) -> &[PropKind] {
-        &self.property_kinds
+        self.columns.property_kinds()
     }
 
     fn id(&self, feature: usize) -> Option<u64> {
-        self.ids[feature]
+        self.columns.id(feature)
     }
 
     fn property(&self, feature: usize, column: usize) -> Option<PropValueRef<'_>> {
-        self.columns[column].get(feature)
+        self.columns.property(feature, column)
     }
 
     fn coords(&self) -> impl Iterator<Item = Coord<i32>> + '_ {
@@ -761,6 +931,8 @@ impl LayerSource for LayerWriter<'_> {
             GeometryType::Polygon => values.push_polygon(parts.map(part)),
             GeometryType::MultiPolygon => values
                 .push_multi_polygon(groups.map(|group| geometry.parts(group..group + 1).map(part))),
+            #[cfg(feature = "unstable-v2")]
+            GeometryType::Mesh => unreachable!("FeatureWriter::finish rejects a mesh"),
         }
     }
 
@@ -773,6 +945,8 @@ impl LayerSource for LayerWriter<'_> {
         let groups = match Family::of(geometry.types[feature]).0 {
             Family::Polygons => geometry.groups(feature),
             Family::Points | Family::Lines => 0..0,
+            #[cfg(feature = "unstable-v2")]
+            Family::Meshes => unreachable!("FeatureWriter::finish rejects a mesh"),
         };
         groups.map(move |group| {
             geometry
@@ -783,30 +957,18 @@ impl LayerSource for LayerWriter<'_> {
 
     #[cfg(feature = "unstable-v2")]
     fn m_value_kinds(&self) -> &[PropKind] {
-        &self.m_values.kinds
+        self.columns.m_value_kinds()
     }
 
     #[cfg(feature = "unstable-v2")]
     fn m_value_name(&self, column: usize) -> &str {
-        self.m_values.names[column]
+        self.columns.m_value_name(column)
     }
 
     #[cfg(feature = "unstable-v2")]
     fn push_m_values(&self, feature: usize, column: usize, values: &mut StagedValues) -> bool {
-        let column = &self.m_values.columns[column];
-        if !column.present[feature] {
-            return false;
-        }
-        let run = item_range(&column.ends, feature);
         let moved = self.vertex_order(feature);
-        match (&column.values, values) {
-            (ColumnValues::Strs(strs), StagedValues::Str(out)) => {
-                extend_run(out, &strs[run], moved, |&text| CompactString::from(text));
-            }
-            (ColumnValues::Scalars(bits), out) => extend_bits_run(out, &bits[run], moved),
-            (ColumnValues::Strs(_), _) => unreachable!("m-value kind matches its column"),
-        }
-        true
+        self.columns.push_m_values(feature, column, moved, values)
     }
 
     #[cfg(feature = "unstable-v2")]
@@ -841,6 +1003,8 @@ impl LayerSource for LayerWriter<'_> {
                 }
                 out
             }
+            #[cfg(feature = "unstable-v2")]
+            Family::Meshes => unreachable!("FeatureWriter::finish rejects a mesh"),
         })
     }
 }
@@ -904,13 +1068,13 @@ fn extend_bits_run(out: &mut StagedValues, bits: &[u64], moved: Option<Vec<usize
 }
 
 /// The range of item `index` among cumulative `ends`.
-fn item_range(ends: &[u32], index: usize) -> Range<usize> {
+pub(crate) fn item_range(ends: &[u32], index: usize) -> Range<usize> {
     let start = index.checked_sub(1).map_or(0, |prev| ends[prev] as usize);
     start..ends[index] as usize
 }
 
 /// A layer holds at most `u32::MAX` vertices.
-fn len32(len: usize) -> MltResult<u32> {
+pub(crate) fn len32(len: usize) -> MltResult<u32> {
     u32::try_from(len).map_err(|_| MltError::IntegerOverflow)
 }
 

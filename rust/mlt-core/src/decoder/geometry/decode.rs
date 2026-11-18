@@ -1,3 +1,5 @@
+#[cfg(feature = "unstable-v2")]
+use num_enum::TryFromPrimitiveError;
 use usize_cast::IntoUsize as _;
 
 use crate::codecs::varint::parse_varint;
@@ -48,7 +50,17 @@ pub fn decode_geometry_types(
     let vector_types: Vec<u32> = stream.decode_ints::<u32>(dec)?;
     let vector_types: Vec<GeometryType> = vector_types
         .into_iter()
-        .map::<MltResult<GeometryType>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
+        .map::<MltResult<GeometryType>, _>(|v| {
+            let geometry_type = u8::try_from(v)?.try_into()?;
+            // Only the uniform type names a mesh, so a types stream rejects it as v1 builds do.
+            #[cfg(feature = "unstable-v2")]
+            if geometry_type == GeometryType::Mesh {
+                return Err(
+                    TryFromPrimitiveError::<GeometryType>::new(GeometryType::Mesh as u8).into(),
+                );
+            }
+            Ok(geometry_type)
+        })
         .collect::<Result<_, _>>()?;
     Ok(vector_types)
 }
@@ -354,6 +366,47 @@ fn decode_triangle_offsets(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<
     Ok(offsets)
 }
 
+/// Check that the geo lengths of a `Meshes` layer split its vertices into runs, one per mesh.
+/// Every corner of a mesh's triangles must name a vertex in that mesh's run.
+#[cfg(feature = "unstable-v2")]
+fn check_mesh_runs(
+    runs: &[u32],
+    triangle_offsets: &[u32],
+    corners: &[u32],
+    vertex_count: usize,
+) -> MltResult<()> {
+    let total = runs.last().map_or(0, |&v| v.into_usize());
+    if total != vertex_count {
+        return Err(MltError::MeshVertexCountMismatch {
+            expected: total,
+            actual: vertex_count,
+        });
+    }
+    if triangle_offsets.len() != runs.len() {
+        return Err(MltError::MeshTriangleLengthsMismatch {
+            expected: runs.len().saturating_sub(1),
+            actual: triangle_offsets.len().saturating_sub(1),
+        });
+    }
+    for (feature, (run, tris)) in runs.windows(2).zip(triangle_offsets.windows(2)).enumerate() {
+        let (start, end) = (run[0], run[1]);
+        let mesh = corners
+            .get(tris[0].into_usize() * 3..tris[1].into_usize() * 3)
+            .ok_or(MltError::MalformedTriangles(
+                "triangle lengths do not sum to the symbol count",
+            ))?;
+        if let Some(&corner) = mesh.iter().find(|&&c| c < start || c >= end) {
+            return Err(MltError::MeshCornerOutsideRun {
+                feature,
+                corner,
+                start,
+                end,
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Decode the vertex stream once the topology `levels` is known, since rANS codes it over their runs.
 #[cfg_attr(
     not(feature = "unstable-v2"),
@@ -434,6 +487,14 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             index_base,
             items,
         } = self;
+        #[cfg(feature = "unstable-v2")]
+        let meshes = matches!(
+            types,
+            GeoTypes::Uniform {
+                geometry_type: GeometryType::Mesh,
+                ..
+            }
+        );
         let vector_types = decode_geometry_types(types, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
@@ -532,10 +593,21 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             if let Some((index, &geom_type)) = vector_types
                 .iter()
                 .enumerate()
-                .find(|(_, t)| !t.is_polygon())
+                .find(|(_, t)| !t.reads_from_triangles())
             {
                 return Err(MltError::NonPolygonWithoutOutlines(index, geom_type));
             }
+        }
+        // A mesh's geo length is its vertex count, one per feature, so the stream holds no more.
+        #[cfg(feature = "unstable-v2")]
+        if meshes
+            && let Some(lengths) = &geometry_offsets
+            && lengths.len() != vector_types.len()
+        {
+            return Err(MltError::MeshGeoLengthsMismatch {
+                expected: vector_types.len(),
+                actual: lengths.len(),
+            });
         }
 
         let levels = decode_topology(
@@ -571,6 +643,14 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             let vertex_count = vertices.as_ref().map_or(0, |v| v.len() / stride);
             if let Some(&idx) = cycles.iter().find(|&&i| i.into_usize() >= vertex_count) {
                 return Err(MltError::TreeVertexOutOfBounds(idx, vertex_count));
+            }
+            if meshes {
+                check_mesh_runs(
+                    geometry_offsets.as_deref().unwrap_or_default(),
+                    triangle_offsets.as_deref().unwrap_or_default(),
+                    index_buffer.as_deref().unwrap_or_default(),
+                    vertex_count,
+                )?;
             }
         }
 

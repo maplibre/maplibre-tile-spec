@@ -466,6 +466,7 @@ mod tests {
     const POLYGON: &[u8] = include_bytes!("../../../test/fixtures/simple/polygon-boolean.mvt");
     const MULTIPOLYGON: &[u8] =
         include_bytes!("../../../test/fixtures/simple/multipolygon-boolean.mvt");
+    const MESH: &[u8] = include_bytes!("../../../test/synthetic/0x02/mesh_roof_wall.mlt");
 
     #[test]
     fn v1_encoding_of_a_point_layer_decodes_to_the_same_layers() {
@@ -712,6 +713,14 @@ mod tests {
         out.clear();
 
         assert_eq!(out.len(), 0);
+    }
+
+    #[test]
+    fn a_mesh_layer_cannot_decode_to_mvt() {
+        let error = MltConverter::mlt_to_mvt(MESH).err().unwrap();
+
+        assert_eq!(error.kind(), ConvertErrorKind::InvalidInput);
+        assert_debug_snapshot!(error.message_text(), @r#""layer layer1 holds meshes, which a tile layer of geometries cannot hold""#);
     }
 
     #[test]

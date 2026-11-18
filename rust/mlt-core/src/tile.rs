@@ -13,6 +13,8 @@ use compact_str::{CompactString, ToCompactString as _};
 use geo_types::{Coord, Geometry, LineString};
 #[cfg(feature = "unstable-v2")]
 use num_traits::ToPrimitive as _;
+#[cfg(feature = "unstable-v2")]
+use usize_cast::IntoUsize as _;
 
 use crate::{MltError, MltResult};
 
@@ -148,6 +150,8 @@ pub enum HeightMode {
     #[strum(serialize = "absolute")]
     Absolute,
     /// Heights above the terrain under each vertex.
+    ///
+    /// A mesh takes one ground for all its vertices, the terrain at the centre of its `(x, y)` bounding box, and so moves as a rigid body.
     #[strum(serialize = "relative to ground")]
     RelativeToGround,
 }
@@ -209,6 +213,148 @@ impl std::fmt::Display for ZAxis {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}, {}", self.step, self.mode)
     }
+}
+
+/// A 3D triangle mesh: `(x, y, z)` vertices and the triangles between them.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mesh {
+    vertices: Vec<[i32; 3]>,
+    triangles: Vec<[u32; 3]>,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Mesh {
+    /// A mesh whose triangle corners index into `vertices`.
+    ///
+    /// Each triangle winds counter-clockwise in `(x, -y, z)` seen from outside.
+    /// Encoding rejects a [`MeshFault`], though a decoder reads one, as the spec requires.
+    pub fn new(vertices: Vec<[i32; 3]>, triangles: Vec<[u32; 3]>) -> MltResult<Self> {
+        if let Some(&corner) = triangles
+            .as_flattened()
+            .iter()
+            .find(|&&c| usize::try_from(c).map_or(true, |c| c >= vertices.len()))
+        {
+            return Err(MltError::MeshCornerOutOfRange {
+                corner,
+                vertices: vertices.len(),
+            });
+        }
+        Ok(Self {
+            vertices,
+            triangles,
+        })
+    }
+
+    #[must_use]
+    pub fn vertices(&self) -> &[[i32; 3]] {
+        &self.vertices
+    }
+
+    /// Each triangle's corners, counter-clockwise in `(x, -y, z)` seen from outside.
+    #[must_use]
+    pub fn triangles(&self) -> &[[u32; 3]] {
+        &self.triangles
+    }
+}
+
+/// What makes a mesh one the spec advises an encoder against, which the encoder refuses to write.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeshFault {
+    /// A triangle names one vertex twice.
+    RepeatedCorner { triangle: usize },
+    /// No triangle names the vertex.
+    UnusedVertex { vertex: usize },
+    /// Two vertices share their `(x, y, z)` and every vertex-scoped value.
+    DuplicateVertex { first: usize, second: usize },
+    /// A closed mesh whose triangles face inward.
+    InsideOut,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl std::fmt::Display for MeshFault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::RepeatedCorner { triangle } => write!(f, "triangle {triangle} repeats a corner"),
+            Self::UnusedVertex { vertex } => write!(f, "no triangle names vertex {vertex}"),
+            Self::DuplicateVertex { first, second } => {
+                write!(f, "vertices {first} and {second} are the same vertex")
+            }
+            Self::InsideOut => write!(f, "the closed mesh is wound inside out"),
+        }
+    }
+}
+
+/// The first fault of a mesh, `same_values` saying whether two of its vertices carry the same
+/// vertex-scoped values.
+///
+/// Winding is checked only on a closed mesh, the one kind with an outside to face.
+#[cfg(feature = "unstable-v2")]
+pub(crate) fn mesh_fault(
+    vertices: &[[i32; 3]],
+    triangles: &[[u32; 3]],
+    same_values: impl Fn(usize, usize) -> bool,
+) -> Option<MeshFault> {
+    if let Some(triangle) = triangles
+        .iter()
+        .position(|&[a, b, c]| a == b || b == c || c == a)
+    {
+        return Some(MeshFault::RepeatedCorner { triangle });
+    }
+    let mut named = vec![false; vertices.len()];
+    for &corner in triangles.as_flattened() {
+        named[corner.into_usize()] = true;
+    }
+    if let Some(vertex) = named.iter().position(|&n| !n) {
+        return Some(MeshFault::UnusedVertex { vertex });
+    }
+    let mut by_position: Vec<usize> = (0..vertices.len()).collect();
+    by_position.sort_by_key(|&v| (vertices[v], v));
+    for (i, &first) in by_position.iter().enumerate() {
+        let twins = by_position[i + 1..]
+            .iter()
+            .take_while(|&&other| vertices[other] == vertices[first]);
+        if let Some(&second) = twins.into_iter().find(|&&other| same_values(first, other)) {
+            return Some(MeshFault::DuplicateVertex { first, second });
+        }
+    }
+    if is_closed(triangles) && signed_volume_x6(vertices, triangles) < 0 {
+        return Some(MeshFault::InsideOut);
+    }
+    None
+}
+
+/// Whether every edge of the mesh is run once each way, so the triangles enclose a volume.
+#[cfg(feature = "unstable-v2")]
+fn is_closed(triangles: &[[u32; 3]]) -> bool {
+    if triangles.is_empty() {
+        return false;
+    }
+    let mut edges: Vec<(u32, u32)> = triangles
+        .iter()
+        .flat_map(|&[a, b, c]| [(a, b), (b, c), (c, a)])
+        .collect();
+    let mut reversed: Vec<(u32, u32)> = edges.iter().map(|&(a, b)| (b, a)).collect();
+    edges.sort_unstable();
+    reversed.sort_unstable();
+    edges == reversed
+}
+
+/// Six times the volume the triangles enclose in `(x, -y, z)`, positive when they face outward.
+#[cfg(feature = "unstable-v2")]
+fn signed_volume_x6(vertices: &[[i32; 3]], triangles: &[[u32; 3]]) -> i128 {
+    let at = |v: u32| {
+        let [x, y, z] = vertices[v.into_usize()];
+        [i128::from(x), -i128::from(y), i128::from(z)]
+    };
+    triangles
+        .iter()
+        .map(|&[a, b, c]| {
+            let ([ax, ay, az], [bx, by, bz], [cx, cy, cz]) = (at(a), at(b), at(c));
+            ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)
+        })
+        .sum()
 }
 
 /// The kind of column a name belongs to, which a layer's names are unique across.

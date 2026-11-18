@@ -4,6 +4,8 @@ use earcut::Earcut;
 use geo_types::{Coord, Geometry, LineString, Polygon};
 
 use crate::decoder::{GeometryType, GeometryValues};
+#[cfg(feature = "unstable-v2")]
+use crate::tile::{Mesh, ZAxis};
 use crate::tile::{TileLayer, stored_len};
 
 impl TryFrom<&Geometry<i32>> for GeometryType {
@@ -140,6 +142,46 @@ impl GeometryValues {
             triangle_offsets: Some(vec![0]),
             ..Default::default()
         }
+    }
+
+    /// Returns an empty [`GeometryValues`] for [`Self::push_mesh`], its z read on `axis`.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn new_meshes(axis: impl Into<ZAxis>) -> Self {
+        Self {
+            geometry_offsets: Some(vec![0]),
+            index_buffer: Some(Vec::new()),
+            triangle_offsets: Some(vec![0]),
+            z_axis: Some(axis.into()),
+            ..Default::default()
+        }
+    }
+
+    /// Add a mesh as one feature, its triangles shifted to name vertices of the whole layer.
+    #[cfg(feature = "unstable-v2")]
+    pub fn push_mesh(&mut self, mesh: &Mesh) {
+        self.push_mesh_parts(mesh.vertices(), mesh.triangles());
+    }
+
+    /// Add a mesh given as its vertices and the triangles between them, as [`Self::push_mesh`].
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn push_mesh_parts(&mut self, vertices: &[[i32; 3]], triangles: &[[u32; 3]]) {
+        let first_vertex = self.stored_vertex_count();
+        self.vector_types.push(GeometryType::Mesh);
+        self.vertices
+            .get_or_insert_with(Vec::new)
+            .extend(vertices.as_flattened());
+        let vertex_count = u32::try_from(vertices.len()).expect("vertex count overflow");
+        self.push_geometry_count(vertex_count);
+        self.index_buffer.get_or_insert_with(Vec::new).extend(
+            triangles
+                .as_flattened()
+                .iter()
+                .map(|&corner| first_vertex + corner),
+        );
+        let triangle_count = u32::try_from(triangles.len()).expect("triangle count overflow");
+        let offsets = self.triangle_offsets.get_or_insert_with(|| vec![0]);
+        offsets.push(offsets.last().expect("offsets start at 0") + triangle_count);
     }
 
     /// Reserve room for `geoms` more geometries, holding `coords` coordinates between them.

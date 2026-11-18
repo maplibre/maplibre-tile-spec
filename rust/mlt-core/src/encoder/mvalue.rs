@@ -2,6 +2,7 @@
 
 use compact_str::CompactString;
 
+use crate::decoder::MValueScope;
 use crate::encoder::StagedStrings;
 use crate::tile::PropKind;
 
@@ -16,6 +17,7 @@ pub struct StagedMValue {
     /// One bit per feature, or [`None`] when every feature carries values.
     pub(crate) presence: Option<Vec<bool>>,
     pub(crate) values: StagedValues,
+    pub(crate) scope: MValueScope,
 }
 
 /// The flat values of one staged column, of whichever type it holds.
@@ -50,6 +52,23 @@ macro_rules! impl_staged_m_values {
                 }
             }
 
+            /// Whether the values at `a` and `b` are equal.
+            #[expect(clippy::float_cmp, reason = "a duplicate vertex carries the very same value")]
+            pub(crate) fn same(&self, a: usize, b: usize) -> bool {
+                match self {
+                    $(Self::$sv(v) => v[a] == v[b],)*
+                    $(Self::$gv(v) => v[a] == v[b],)*
+                }
+            }
+
+            /// The values at `indices`, in that order.
+            pub(crate) fn gather(&self, indices: &[usize]) -> Self {
+                match self {
+                    $(Self::$sv(v) => Self::$sv(indices.iter().map(|&i| v[i]).collect()),)*
+                    $(Self::$gv(v) => Self::$gv(indices.iter().map(|&i| v[i].clone()).collect()),)*
+                }
+            }
+
             /// An empty column of `kind`.
             pub(crate) fn empty(kind: PropKind) -> Self {
                 match kind {
@@ -72,7 +91,15 @@ impl StagedMValue {
             name: name.into(),
             presence,
             values,
+            scope: MValueScope::Vertex,
         }
+    }
+
+    /// The column with one value per `scope` item instead of one per vertex.
+    #[must_use]
+    pub fn with_scope(mut self, scope: MValueScope) -> Self {
+        self.scope = scope;
+        self
     }
 
     #[must_use]
@@ -81,8 +108,20 @@ impl StagedMValue {
     }
 
     #[must_use]
+    pub fn scope(&self) -> MValueScope {
+        self.scope
+    }
+
+    #[must_use]
     pub fn values(&self) -> &StagedValues {
         &self.values
+    }
+
+    /// Whether feature `index` carries values in this column.
+    pub(crate) fn is_present(&self, index: usize) -> bool {
+        self.presence
+            .as_ref()
+            .is_none_or(|mask| mask.get(index).copied().unwrap_or(false))
     }
 
     /// How many features this column's presence mask covers, or [`None`] when it has no mask.

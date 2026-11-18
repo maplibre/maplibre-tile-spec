@@ -11,7 +11,7 @@ use serde_json::{Number, Value};
 use crate::decoder::PropValueRef;
 #[cfg(feature = "unstable-v2")]
 use crate::{
-    HeightMode, ParsedLayer02, ZAxis,
+    HeightMode, MValueScope, ParsedLayer02, ZAxis,
     tile::{MValue, NestedValue},
 };
 use crate::{LendingIterator, MltResult, ParsedLayer};
@@ -406,7 +406,7 @@ pub fn f64_to_json(f: f64) -> Value {
     }
 }
 
-/// Every feature's m-values as `m:<name>` properties, in feature order.
+/// Every feature's m-values as `m:<name>` properties, or `t:<name>` for a triangle-scoped column, in feature order.
 ///
 /// A feature with no values for a column has no property for it, the way a null
 /// property is left out.
@@ -415,7 +415,11 @@ fn m_value_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, V
     let geometry = layer.layer().geometry_values();
     let mut features = vec![Vec::new(); geometry.feature_count()];
     for column in layer.m_values() {
-        let key = format!("m:{}", column.name());
+        let prefix = match column.scope() {
+            MValueScope::Vertex => "m",
+            MValueScope::Triangle => "t",
+        };
+        let key = format!("{prefix}:{}", column.name());
         for (index, span) in column.spans(geometry).enumerate() {
             let values = column.values().row(column.name(), span?)?;
             if let Some(value) = m_value_to_json(&values) {

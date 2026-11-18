@@ -99,4 +99,7 @@ pub enum GeometryType {
     MultiPoint,
     MultiLineString,
     MultiPolygon,
+    /// A 3D triangle mesh, which only a v2 `Meshes` layout holds.
+    #[cfg(feature = "unstable-v2")]
+    Mesh,
 }

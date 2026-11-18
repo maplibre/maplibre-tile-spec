@@ -89,11 +89,18 @@ function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
 // view per run; `featureGeometry` is the same walk with views on top.
 // ---------------------------------------------------------------------------
 
-/** A `TessPolygons` layer: triangles, and no outlines to walk. */
+/** A `TessPolygons` or `Meshes` layer: triangles, and no outlines to walk. */
 export function isTrianglesOnly(geometry: MltGeometryColumns): boolean {
   return (
     geometry.indexBuffer !== undefined && geometry.partOffsets === undefined
   );
+}
+
+/** The layout of a layer holding triangles and no outlines, which names it in an error. */
+export function trianglesOnlyLayout(
+  geometry: MltGeometryColumns,
+): "TessPolygons" | "Meshes" {
+  return geometry.types[0] === MltGeometryType.Mesh ? "Meshes" : "TessPolygons";
 }
 
 /** Item `i` of an offset level, or `i` itself when the layer has no such level. */
@@ -262,8 +269,8 @@ const resolvedStarts = new WeakMap<MltGeometryColumns, MltGeometryStarts>();
  * offset columns are returned as they are; levels the layer leaves out are filled in. They are
  * resolved once per layer, and every call returns the same arrays, so they must not be modified.
  *
- * Throws for a `TessPolygons` layer, which stores triangles and no runs of vertices (see
- * `indexBuffer` and `triangleOffsets`), and when the offset levels are inconsistent.
+ * Throws for a `TessPolygons` or `Meshes` layer, which stores triangles and no runs of vertices
+ * (see `indexBuffer` and `triangleOffsets`), and when the offset levels are inconsistent.
  */
 export function geometryStarts(
   geometry: MltGeometryColumns,
@@ -279,7 +286,7 @@ export function geometryStarts(
 function resolveStarts(geometry: MltGeometryColumns): MltGeometryStarts {
   if (isTrianglesOnly(geometry)) {
     throw new Error(
-      "a TessPolygons layer stores triangles, not runs of vertices",
+      `a ${trianglesOnlyLayout(geometry)} layer stores triangles, not runs of vertices`,
     );
   }
   const {
@@ -327,8 +334,8 @@ function resolveStarts(geometry: MltGeometryColumns): MltGeometryStarts {
 /**
  * Feature `index` of `layer`, as views into the layer's buffers.
  *
- * Throws when `index` is not a feature of the layer, and for a `TessPolygons` layer, which
- * stores triangles and no outlines: read its `indexBuffer` and `triangleOffsets` instead.
+ * Throws when `index` is not a feature of the layer, and for a `TessPolygons` or `Meshes` layer,
+ * which stores triangles and no outlines: read its `indexBuffer` and `triangleOffsets` instead.
  */
 export function featureGeometry(
   layer: MltColumnLayer,
@@ -342,7 +349,7 @@ export function featureGeometry(
 
   if (isTrianglesOnly(geometry)) {
     throw new Error(
-      `layer "${layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
+      `layer "${layer.name}" is a ${trianglesOnlyLayout(geometry)} layer, which stores triangles, not outlines`,
     );
   }
 

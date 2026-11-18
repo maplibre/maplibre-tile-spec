@@ -22,6 +22,7 @@ use mlt_core::encoder::{
     Tessellation, WireVersion,
 };
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
+use mlt_core::wire::GeoLayout;
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
 use tilejson::Bounds;
@@ -699,6 +700,7 @@ fn convert_mlt_buffer(buffer: &[u8], reencoder: &Reencoder) -> AnyResult<Vec<u8>
             );
             continue;
         }
+        reject_meshes(&layer)?;
         let tile = layer
             .into_tile(&mut dec)?
             .expect("unknown layers are handled above");
@@ -727,6 +729,7 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
     let mut dec = Decoder::default();
     let mut tiles = Vec::new();
     for layer in layers {
+        reject_meshes(&layer)?;
         let Some(tile) = layer.into_tile(&mut dec)? else {
             bail!(
                 "cannot convert MLT tile to MVT: tile contains unknown/extension layers that MVT cannot represent"
@@ -735,6 +738,19 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
         tiles.push(tile);
     }
     Ok(tiles)
+}
+
+/// Fail on a layer of meshes, which convert cannot re-encode, rather than drop it.
+fn reject_meshes(layer: &Layer<'_>) -> AnyResult<()> {
+    if let Layer::Tag02(l) = layer
+        && l.layout().geometry == GeoLayout::Meshes
+    {
+        bail!(
+            "cannot convert layer {}: it holds meshes, which convert does not support",
+            l.layer().name()
+        );
+    }
+    Ok(())
 }
 
 #[hotpath::measure]
@@ -890,6 +906,33 @@ mod tests {
         let mlt = round_trip(mvt, WireVersion::V02, TileFormat::Mlt);
         let layers = Parser::default().parse_layers(&mlt).unwrap();
         assert_eq!(layers.len(), expected);
+    }
+
+    const MESH_TILE: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../test/synthetic/0x02/mesh_roof_wall.mlt"
+    );
+
+    #[test]
+    fn re_encoding_a_mesh_tile_fails_naming_the_layer() {
+        let mlt = fs::read(MESH_TILE).unwrap();
+        let err = convert_buffer(mlt, TileFormat::Mlt, TileFormat::Mlt, &Reencoder::default())
+            .unwrap_err();
+        insta::assert_snapshot!(
+            err.to_string(),
+            @"cannot convert layer layer1: it holds meshes, which convert does not support"
+        );
+    }
+
+    #[test]
+    fn converting_a_mesh_tile_to_mvt_fails_naming_the_layer() {
+        let mlt = fs::read(MESH_TILE).unwrap();
+        let err = convert_buffer(mlt, TileFormat::Mlt, TileFormat::Mvt, &Reencoder::default())
+            .unwrap_err();
+        insta::assert_snapshot!(
+            err.to_string(),
+            @"cannot convert layer layer1: it holds meshes, which convert does not support"
+        );
     }
 
     #[test]

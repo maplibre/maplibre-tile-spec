@@ -25,11 +25,11 @@ use crate::decoder::stream::header02::{
     Count02, Family, StreamCtx02, WordWidth, shared_coding_byte,
 };
 use crate::decoder::{
-    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, LayerHeader02,
-    LayerLayout, LengthType, LogicalEncoding, NodeKind02, NodePresence, NodeType02,
-    PhysicalEncoding, Presence02, StreamMeta, StreamType, ValueType02,
+    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, GeometryType,
+    LayerHeader02, LayerLayout, LengthType, LogicalEncoding, MValueScope, NodeKind02, NodePresence,
+    NodeType02, PhysicalEncoding, Presence02, StreamMeta, StreamType, ValueType02,
 };
-use crate::encoder::geometry::encode02::{Outlines, encode_geometry02};
+use crate::encoder::geometry::encode02::{GeometryHeader02, Outlines, encode_geometry02};
 use crate::encoder::model::{StagedLayer, StrAt, StreamCtx};
 use crate::encoder::nested::RowShapes;
 use crate::encoder::{
@@ -250,6 +250,10 @@ pub(crate) fn encode_into02(
     } else {
         Outlines::Keep
     };
+    // A `Meshes` vertex stream holds triples, so a mesh pushed without a z axis has none to write.
+    if geometry.z_axis.is_none() && geometry.vector_types.contains(&GeometryType::Mesh) {
+        return Err(MltError::MeshesNeedZ(name));
+    }
     let geometry = encode_geometry02(geometry, outlines)?;
     // The geometry layout is only settled once its vertex streams are written, so
     // the byte is reserved here and patched below.
@@ -285,7 +289,7 @@ pub(crate) fn encode_into02(
 
     // ── M-value section (not part of column_count either) ─────────────────
     for m_value in &m_values {
-        write_m_value02(m_value, &shared, &mut enc, codecs)?;
+        write_m_value02(m_value, &geo, &shared, &mut enc, codecs)?;
     }
 
     let header = LayerHeader02::new(extent, geo.uniform_type, !m_values.is_empty());
@@ -503,6 +507,7 @@ with_kinds!(impl_m_value_type02);
 /// stream states its own.
 fn write_m_value02(
     m_value: &StagedMValue,
+    geo: &GeometryHeader02,
     shared: &SharedPresence,
     enc: &mut Encoder,
     codecs: &mut Codecs,
@@ -515,7 +520,16 @@ fn write_m_value02(
         Some(mask) => shared.nibble_for(mask),
         None => Presence02::AllPresent,
     };
-    begin_col02(enc, nibble, typ, Some(name))?;
+    enc.family_context = StreamCtx02::Property(typ).family();
+    let data = enc.data_mut();
+    data.push(ColumnType02::new(nibble, typ).to_byte());
+    let scope = m_value.scope();
+    if geo.layout.has_m_value_scope() {
+        data.push(scope as u8);
+    } else if scope != MValueScope::Vertex {
+        return Err(MltError::ScopedMValueOutsideMeshes(name.to_string()));
+    }
+    data.write_string(name)?;
     if let Some(mask) = &m_value.presence {
         write_inline_presence(enc.data_mut(), nibble, mask);
     }
@@ -525,7 +539,18 @@ fn write_m_value02(
     // nothing lets a decoder infer its counts and each of its streams writes one.
     enc.count_context = Count02::Explicit;
     let ctx = StreamCtx::prop_data(name);
-    let result = match m_value.values() {
+    // The triangle trees decode a mesh's triangles in an order of their own, which the values follow.
+    let reordered;
+    let values = match &geo.triangle_order {
+        Some(order) if scope == MValueScope::Triangle => {
+            reordered = m_value
+                .values()
+                .gather(&order.value_order(m_value.presence.as_deref()));
+            &reordered
+        }
+        _ => m_value.values(),
+    };
+    let result = match values {
         V::Bool(v) => write_bool_bitfield(enc, v),
         V::I8(v) => codecs.write_int_stream(v, &ctx, enc),
         V::U8(v) => codecs.write_int_stream(v, &ctx, enc),
@@ -949,8 +974,7 @@ mod tests {
 
     use super::*;
     use crate::decoder::GeometryValues;
-    use crate::encoder::{EncoderConfig, StagedStruct, WireVersion};
-    use crate::encoder::{Network, Profile};
+    use crate::encoder::{EncoderConfig, Network, Profile, StagedStruct, WireVersion};
     use crate::geo_types::{Geometry, Point};
 
     fn points(count: usize) -> GeometryValues {

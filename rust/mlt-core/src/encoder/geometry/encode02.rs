@@ -1,5 +1,7 @@
 //! Geometry section writer for tag `0x02` (v2) layers.
 
+use usize_cast::IntoUsize as _;
+
 use super::streams::{
     dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_hilbert_xyz_vertex_streams02,
     encode_level1_length_stream, encode_level1_without_ring_buffer_length_stream,
@@ -188,16 +190,25 @@ pub(crate) fn encode_geometry02(
         (None, Some(_)) => return Err(MltError::RingLengthsWithoutPartLengths),
     };
 
+    let meshes = vector_types
+        .iter()
+        .filter(|&&t| t == GeometryType::Mesh)
+        .count();
+    if meshes > 0 && meshes < vector_types.len() {
+        return Err(MltError::MeshesMixedWithOtherTypes);
+    }
     // An empty index buffer means no polygon tessellated into a triangle, so the layer
     // keeps a plain layout: dropping the streams is lossless.
-    let tessellation = (!index_buffer.is_empty()).then_some(Tessellation {
+    // The `Meshes` layout declares its triangle streams even when they are empty.
+    let tessellation = (meshes > 0 || !index_buffer.is_empty()).then_some(Tessellation {
         triangles,
         index_buffer,
     });
     // The tessellated layouts declare all three topology streams or none, so a layer
     // missing one fills the gap with an empty stream rather than dropping the others:
     // the decoder then rebuilds what the stream would have said.
-    if tessellation.is_some() {
+    // A mesh's geo length is its vertex count, so no other topology stream is written.
+    if meshes == 0 && tessellation.is_some() {
         let polygons_only = vector_types.iter().all(|t| t.is_polygon());
         if outlines == Outlines::DropForPolygons && polygons_only {
             topology = Topology::Flat;
@@ -223,6 +234,40 @@ pub(crate) struct GeometryHeader02 {
     pub(crate) layout: GeoLayout,
     /// The type every feature has, when the section wrote no types stream.
     pub(crate) uniform_type: Option<GeometryType>,
+    /// The order the triangle trees decode a mesh layer's triangles in.
+    pub(crate) triangle_order: Option<TriangleOrder>,
+}
+
+/// Which given triangle each decoded one is, and how many triangles each feature holds.
+pub(crate) struct TriangleOrder {
+    order: Vec<u32>,
+    triangles: Vec<u32>,
+}
+
+impl TriangleOrder {
+    /// Where each value of a triangle-scoped column moves to keep with its triangle.
+    ///
+    /// `present` says which features hold values, none when every one does.
+    pub(crate) fn value_order(&self, present: Option<&[bool]>) -> Vec<usize> {
+        let mut out = Vec::with_capacity(self.order.len());
+        let mut first = 0;
+        let mut base = 0;
+        for (feature, &count) in self.triangles.iter().enumerate() {
+            let range = first..first + count.into_usize();
+            first = range.end;
+            if present.is_some_and(|p| !p[feature]) {
+                continue;
+            }
+            let start = range.start;
+            out.extend(
+                self.order[range.clone()]
+                    .iter()
+                    .map(|&t| base + t.into_usize() - start),
+            );
+            base += range.len();
+        }
+        out
+    }
 }
 
 impl GeometrySection02 {
@@ -250,7 +295,9 @@ impl GeometrySection02 {
 
     /// The layout declaring these streams, once the vertex storage is known.
     fn layout(&self, vertices: VertexStorage) -> GeoLayout {
-        if self.tessellation.is_some() {
+        if self.types.first() == Some(&GeometryType::Mesh) {
+            GeoLayout::Meshes
+        } else if self.tessellation.is_some() {
             GeoLayout::tessellated(self.geo_lengths.is_some())
         } else {
             GeoLayout::from_topology(&self.topology, self.geo_lengths.is_some(), vertices)
@@ -298,10 +345,17 @@ impl GeometrySection02 {
             }
         }
 
+        let mut triangle_order = None;
         if let Some(tess) = &self.tessellation {
             let ctx = StreamCtx::geom(StreamType::Length(LengthType::Triangles), "triangles");
             codecs.write_int_stream(&tess.triangles, &ctx, enc)?;
-            let trees = tess.trees();
+            let mut trees = tess.trees();
+            if uniform_type == Some(GeometryType::Mesh) {
+                triangle_order = Some(TriangleOrder {
+                    order: std::mem::take(&mut trees.order),
+                    triangles: tess.triangles.clone(),
+                });
+            }
             let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::TreeSymbols), "tree_symbols");
             codecs.write_int_stream(&trees.symbols, &ctx, enc)?;
             let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::TreeCycles), "tree_cycles");
@@ -322,6 +376,7 @@ impl GeometrySection02 {
         Ok(GeometryHeader02 {
             layout: self.layout(vertices),
             uniform_type,
+            triangle_order,
         })
     }
 }

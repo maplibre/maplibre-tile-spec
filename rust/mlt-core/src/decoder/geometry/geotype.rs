@@ -12,6 +12,8 @@ use crate::MltError::{
 #[cfg(feature = "unstable-v2")]
 use crate::MltError::{ZAlreadySet, ZVertexCountMismatch};
 use crate::MltResult;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::MValueScope;
 use crate::decoder::{GeometryType, GeometryValues};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
@@ -25,6 +27,15 @@ impl GeometryType {
     #[must_use]
     pub fn is_linestring(self) -> bool {
         matches!(self, Self::LineString | Self::MultiLineString)
+    }
+    /// Whether a feature of this type reads back from its triangles alone, with no outline topology.
+    #[must_use]
+    pub(crate) fn reads_from_triangles(self) -> bool {
+        #[cfg(feature = "unstable-v2")]
+        if self == Self::Mesh {
+            return true;
+        }
+        self.is_polygon()
     }
     #[must_use]
     pub fn is_multi(self) -> bool {
@@ -413,6 +424,44 @@ impl GeometryValues {
         Ok(range.end.saturating_sub(range.start))
     }
 
+    /// How many triangles feature `index` owns, or `0` when the layer holds none.
+    pub fn triangle_count(&self, index: usize) -> MltResult<usize> {
+        Ok(self.triangle_range(index)?.len())
+    }
+
+    /// The layer-wide triangles feature `index` owns, empty when the layer holds none.
+    pub(crate) fn triangle_range(&self, index: usize) -> MltResult<Range<usize>> {
+        let Some(offsets) = self.triangle_offsets.as_deref() else {
+            return Ok(0..0);
+        };
+        #[expect(
+            clippy::unnecessary_lazy_evaluations,
+            reason = "an eager error is dropped on every success"
+        )]
+        let entry = |idx: usize| {
+            offsets
+                .get(idx)
+                .map(|&v| v.into_usize())
+                .ok_or_else(|| GeometryOutOfBounds {
+                    index,
+                    field: "triangle_offsets",
+                    idx,
+                    len: offsets.len(),
+                })
+        };
+        let start = entry(index)?;
+        Ok(start..entry(index + 1)?.max(start))
+    }
+
+    /// How many values feature `index` owns in an m-value column of `scope`.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn scoped_count(&self, scope: MValueScope, index: usize) -> MltResult<usize> {
+        match scope {
+            MValueScope::Vertex => self.vertex_count(index),
+            MValueScope::Triangle => self.triangle_count(index),
+        }
+    }
+
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
@@ -659,6 +708,11 @@ impl GeometryValues {
                     })
                 })
             }
+            // A mesh is read from its triangles above, so reaching here means it has none.
+            #[cfg(feature = "unstable-v2")]
+            GeometryType::Mesh => Err(crate::MltError::MalformedTriangles(
+                "a mesh needs its triangles",
+            )),
         }
     }
 }

@@ -91,6 +91,13 @@ pub(crate) fn stage_layer(
     } else {
         GeometryValues::default()
     };
+    #[cfg(feature = "unstable-v2")]
+    let layout = source.v2_layout();
+    // A mesh brings its own triangles and its z.
+    #[cfg(feature = "unstable-v2")]
+    if layout.meshes {
+        geometry = GeometryValues::new_meshes(layout.z_axis.expect("a mesh layer has a z axis"));
+    }
     geometry.reserve(
         source.feature_count(),
         order.iter().map(|f| source.coord_count(f)).sum(),
@@ -99,7 +106,7 @@ pub(crate) fn stage_layer(
         source.push_geometry(f, &mut geometry);
     }
     #[cfg(feature = "unstable-v2")]
-    if let Some(axis) = source.v2_layout().z_axis {
+    if let Some(axis) = layout.z_axis.filter(|_| !layout.meshes) {
         let mut z = Vec::new();
         for f in order.iter() {
             let feature_z = source.z(f);
@@ -182,11 +189,10 @@ fn build_m_values(source: &impl LayerSource, order: &Order) -> Vec<StagedMValue>
         } else {
             Some(presence)
         };
-        columns.push(StagedMValue::new(
-            source.m_value_name(index),
-            presence,
-            values,
-        ));
+        columns.push(
+            StagedMValue::new(source.m_value_name(index), presence, values)
+                .with_scope(source.m_value_scope(index)),
+        );
     }
     columns
 }

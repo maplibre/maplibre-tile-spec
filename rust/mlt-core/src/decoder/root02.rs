@@ -58,12 +58,12 @@ use crate::decoder::stream::header02::{
 };
 use crate::decoder::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
-    DictionaryType, FloatLogical, GeoLayout, GeoTypes, Id, IdWidth02, IndexBase, Layer01, Layer02,
-    LayerBytes, LayerHeader02, LayerLayout, LengthType, LogicalEncoding, MValues, Nested,
-    Presence02, RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue,
-    RawMValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
-    SharedDictKind, ValueType02, ValuesColumn02,
+    DictionaryType, FloatLogical, GeoLayout, GeoTypes, GeometryType, Id, IdWidth02, IndexBase,
+    Layer01, Layer02, LayerBytes, LayerHeader02, LayerLayout, LengthType, LogicalEncoding,
+    MValueScope, MValues, Nested, Presence02, RawFloats, RawFloatsEncoding, RawFsstData,
+    RawGeometry, RawId, RawIdValue, RawMValue, RawMValues, RawPlainData, RawPresence, RawProperty,
+    RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
+    RawStringsEncoding, SharedDictKind, ValueType02, ValuesColumn02, VertexLogical,
 };
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8};
@@ -85,6 +85,15 @@ pub(crate) fn parse_layer02<'a>(
     let (input, feature_count) = parse_varint::<u32>(input)?;
     let (input, layout_byte) = parse_u8(input)?;
     let layout = LayerLayout::parse(layout_byte)?;
+
+    // A mesh is named only by the uniform type, and only under the Meshes layout.
+    let meshes = layout.geometry == GeoLayout::Meshes;
+    if header.uniform_type == Some(GeometryType::Mesh) && !meshes {
+        return Err(MltError::MeshTypeOutsideMeshes(layout.geometry.into()));
+    }
+    if meshes && header.uniform_type != Some(GeometryType::Mesh) {
+        return Err(MltError::MeshesWithoutMeshType(header_byte));
+    }
 
     if header.m_values && !layout.geometry.allows_m_values() {
         return Err(MltError::MValuesNeedVertexCounts(layout.geometry.into()));
@@ -190,7 +199,14 @@ pub(crate) fn parse_layer02<'a>(
     let before = input.len();
     let m_values;
     (input, m_values) = if header.m_values {
-        parse_m_values(input, counts.m_values, &cols, &mut column_names, parser)?
+        parse_m_values(
+            input,
+            counts.m_values,
+            layout.geometry,
+            &cols,
+            &mut column_names,
+            parser,
+        )?
     } else {
         (input, Vec::new())
     };
@@ -269,11 +285,13 @@ impl<'a> ColumnValues<'a> {
     /// Decode into the flat values the container holds, dropping the presence a
     /// nested leaf keeps in its own stream rather than in its column.
     pub(super) fn decode(self, dec: &mut Decoder) -> MltResult<MValues<'a>> {
-        Ok(crate::Decode::decode(RawMValue::from(self), dec)?.into_values())
+        Ok(RawMValues::from(self)
+            .decode(MValueScope::Vertex, dec)?
+            .into_values())
     }
 }
 
-impl<'a> From<ColumnValues<'a>> for RawMValue<'a> {
+impl<'a> From<ColumnValues<'a>> for RawMValues<'a> {
     fn from(values: ColumnValues<'a>) -> Self {
         match values {
             ColumnValues::Bool(v) => Self::Bool(v),
@@ -376,6 +394,7 @@ pub(super) fn parse_column_values<'a>(
 fn parse_m_values<'a>(
     mut input: &'a [u8],
     count: u32,
+    layout: GeoLayout,
     cols: &LayerCols<'a>,
     column_names: &mut Vec<(Cow<'a, str>, ColumnRole)>,
     parser: &mut Parser,
@@ -392,6 +411,12 @@ fn parse_m_values<'a>(
         let typ_byte;
         (input, typ_byte) = parse_u8(input)?;
         let column = ValuesColumn02::parse_m_value(typ_byte, cols.shared_count()?)?;
+        let mut scope = MValueScope::Vertex;
+        if layout.has_m_value_scope() {
+            let scope_byte;
+            (input, scope_byte) = parse_u8(input)?;
+            scope = MValueScope::parse(scope_byte)?;
+        }
         let name;
         let presence;
         (input, name, presence) = parse_column_header(input, column.into(), cols, parser)?;
@@ -407,7 +432,10 @@ fn parse_m_values<'a>(
             Count02::Explicit,
             parser,
         )?;
-        m_values.push(Raw(values.into()));
+        m_values.push(Raw(RawMValue {
+            scope,
+            values: values.into(),
+        }));
     }
     Ok((input, m_values))
 }
@@ -751,6 +779,16 @@ fn parse_geometry<'a>(
     // Vertex stream, holding the whole vertex sequence or a dictionary of the distinct
     // ones (explicit count in practice; context falls back to feature_count).
     input = stream(input, StreamCtx02::GeomVertices, &mut items)?;
+    if layout == GeoLayout::Meshes
+        && !items.last().is_some_and(|vertices| {
+            matches!(
+                vertices.meta.encoding.logical,
+                LogicalEncoding::Vertex(VertexLogical::Xyz(..))
+            )
+        })
+    {
+        return Err(MltError::MeshVerticesWithoutZ);
+    }
     if layout.is_dict() {
         input = stream(input, StreamCtx02::GeomVertexOffsets, &mut items)?;
     }

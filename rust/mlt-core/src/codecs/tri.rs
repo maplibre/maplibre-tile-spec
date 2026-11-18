@@ -17,6 +17,8 @@ use crate::{Decoder, MltResult};
 pub(crate) struct TriTrees {
     pub(crate) symbols: Vec<u32>,
     pub(crate) cycles: Vec<u32>,
+    /// The triangle of the input each decoded triangle is, counted across features.
+    pub(crate) order: Vec<u32>,
 }
 
 /// Code the triangles of each feature as trees, `tri_offsets` cumulative in triangles.
@@ -37,7 +39,7 @@ pub(crate) fn encode_trees(indices: &[u32], tri_offsets: &[u32]) -> TriTrees {
                 })
                 .unwrap_or(0);
             outline.rotate_left(start);
-            forest.symbols(outline[0], &mut out.symbols);
+            forest.symbols(outline[0], lo, &mut out.symbols, &mut out.order);
             out.cycles.extend(outline.iter().map(|&s| forest.ends(s).0));
         }
     }
@@ -170,12 +172,14 @@ impl<'a> Forest<'a> {
         self.twins[side.into_usize()] != NO_TWIN
     }
 
-    /// Append the symbol of each triangle of the tree entered across `entry`, in preorder.
-    fn symbols(&mut self, entry: u32, out: &mut Vec<u32>) {
+    /// Append the symbol of each triangle of the tree entered across `entry`, in preorder,
+    /// and which triangle it is, counted from `first`.
+    fn symbols(&mut self, entry: u32, first: u32, out: &mut Vec<u32>, order: &mut Vec<u32>) {
         self.stack.push(entry);
         while let Some(entry) = self.stack.pop() {
             let [left, right] = other_sides(entry);
             out.push(u32::from(self.joins(left)) | (u32::from(self.joins(right)) << 1));
+            order.push(first + entry / 3);
             for side in [right, left] {
                 if self.joins(side) {
                     self.stack.push(self.twins[side.into_usize()]);
@@ -365,6 +369,7 @@ mod tests {
             TriTrees {
                 symbols: vec![2, 2, 1, 0, 0],
                 cycles: vec![0, 1, 2, 3, 5, 4, 6, 7, 8],
+                order: vec![0, 1, 2, 3, 4],
             }
         );
         let decoded = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
@@ -392,6 +397,7 @@ mod tests {
             TriTrees {
                 symbols: vec![0, 2, 1, 1, 2, 1, 0, 0],
                 cycles: vec![0, 2, 1, 3, 6, 8, 7, 6, 3, 5, 4, 9, 11, 10],
+                order: vec![0, 1, 3, 5, 6, 4, 2, 7],
             }
         );
     }
@@ -432,7 +438,11 @@ mod tests {
         assert_eq!(triangles.len(), 201 * 3);
         assert_eq!(
             encode_trees(&triangles, &[0, 201]),
-            TriTrees { symbols, cycles }
+            TriTrees {
+                symbols,
+                cycles,
+                order: (0..201).collect(),
+            }
         );
     }
 

@@ -39,6 +39,8 @@ pub(crate) use optimizer::encode_layer;
 pub(crate) use property::*;
 pub(crate) use source::LayerSource;
 #[cfg(feature = "unstable-v2")]
+pub(crate) use source::V2Layout;
+#[cfg(feature = "unstable-v2")]
 pub(crate) use source::extend_run;
 pub(crate) use stream::*;
 

@@ -20,8 +20,8 @@ use crate::decoder::stream::header02::{
 };
 use crate::decoder::{
     AlpScale, Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02,
-    GeoLayout, Interior02, LayerHeader02, LayerLayout, LengthType, NodeKind02, NodePresence,
-    NodeType02, Presence02, SharedDictKind, StreamType, ValuesColumn02,
+    GeoLayout, Interior02, LayerHeader02, LayerLayout, LengthType, MValueScope, NodeKind02,
+    NodePresence, NodeType02, Presence02, SharedDictKind, StreamType, ValuesColumn02,
 };
 use crate::dump::model::{BitField, BlobInfo, DecodeHint};
 use crate::tile::{MAX_NESTED_DEPTH, ZAxis};
@@ -129,7 +129,13 @@ impl<'a> Walker<'a> {
         }
 
         if header.m_values {
-            input = self.walk_m_values02(input, counts.m_values, feature_count, &shared)?;
+            input = self.walk_m_values02(
+                input,
+                counts.m_values,
+                layout.geometry,
+                feature_count,
+                &shared,
+            )?;
         }
 
         // A well-formed layer consumes its whole body; record any trailing bytes.
@@ -241,6 +247,7 @@ impl<'a> Walker<'a> {
             label: &format!("column[{i}]"),
             feature_count,
             shared,
+            scoped: false,
         };
         let (input, presence_count) = self.walk_column_header02(input, column, typ)?;
         let input = match nested_root02(typ.data) {
@@ -476,6 +483,7 @@ impl<'a> Walker<'a> {
         &mut self,
         mut input: &'a [u8],
         count: u32,
+        layout: GeoLayout,
         feature_count: u32,
         shared: &[BitVec<u8, Lsb0>],
     ) -> MltResult<&'a [u8]> {
@@ -489,6 +497,7 @@ impl<'a> Walker<'a> {
                 label: &format!("m_value[{i}]"),
                 feature_count,
                 shared,
+                scoped: layout.has_m_value_scope(),
             };
             // An m-value column runs over the vertices, whose count only the geometry
             // knows, so its presence popcount says nothing about its streams, which
@@ -516,6 +525,7 @@ impl<'a> Walker<'a> {
             label,
             feature_count,
             shared,
+            scoped,
         } = column;
         let shared_count = u8::try_from(shared.len())?;
         let typ_byte = typ.to_byte();
@@ -525,6 +535,13 @@ impl<'a> Walker<'a> {
             |b| format!("0x{b:02X} {:?} {:?}", typ.presence, typ.data),
             move |b| column_type_bits02(b, shared_count),
         )?;
+        if scoped {
+            let scope;
+            (input, scope) = self.field(input, "scope", parse_u8, |b| {
+                Some(format!("{b} {:?}", MValueScope::parse(*b).ok()?))
+            })?;
+            MValueScope::parse(scope)?;
+        }
 
         let mut name_suffix = String::new();
         if typ.data.has_name() {
@@ -948,6 +965,8 @@ struct Column<'l> {
     feature_count: u32,
     /// The layer's shared presence bitfields, one of which the column may read.
     shared: &'l [BitVec<u8, Lsb0>],
+    /// Whether an [`MValueScope`] byte follows the type byte.
+    scoped: bool,
 }
 
 /// Bit breakdown of a shared-dictionary column's type byte, whose high nibble names the

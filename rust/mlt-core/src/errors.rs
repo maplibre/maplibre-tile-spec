@@ -88,6 +88,9 @@ pub enum MltError {
     #[error("error parsing v2 geometry layout: code={0}")]
     ParsingGeoLayout(u8),
     #[cfg(feature = "unstable-v2")]
+    #[error("error parsing v2 m-value scope: code={0}")]
+    ParsingMValueScope(u8),
+    #[cfg(feature = "unstable-v2")]
     #[error("error parsing v2 layer header byte: 0x{0:02X}")]
     ParsingLayerHeader02(u8),
     #[cfg(feature = "unstable-v2")]
@@ -101,6 +104,38 @@ pub enum MltError {
         "v2 geometry layout {0} gives no per-feature vertex count, so it cannot carry m-values"
     )]
     MValuesNeedVertexCounts(&'static str),
+    #[cfg(feature = "unstable-v2")]
+    #[error("the uniform geometry type Mesh needs the Meshes layout, not {0}")]
+    MeshTypeOutsideMeshes(&'static str),
+    #[cfg(feature = "unstable-v2")]
+    #[error("a Meshes layer must name the uniform geometry type Mesh: header byte 0x{0:02X}")]
+    MeshesWithoutMeshType(u8),
+    #[cfg(feature = "unstable-v2")]
+    #[error("a Meshes vertex stream must hold (x, y, z) triples")]
+    MeshVerticesWithoutZ,
+    #[cfg(feature = "unstable-v2")]
+    #[error("the geo lengths of a Meshes layer sum to {expected} vertices, but it holds {actual}")]
+    MeshVertexCountMismatch { expected: usize, actual: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a Meshes layer holds {expected} meshes, but its triangle lengths count {actual}")]
+    MeshTriangleLengthsMismatch { expected: usize, actual: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a Meshes layer holds {expected} meshes, but its geo lengths count {actual}")]
+    MeshGeoLengthsMismatch { expected: usize, actual: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("mesh {feature} names vertex {corner}, outside its vertex run {start}..{end}")]
+    MeshCornerOutsideRun {
+        feature: usize,
+        corner: u32,
+        start: u32,
+        end: u32,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error("layer {0} holds meshes, which a tile layer of geometries cannot hold")]
+    MeshLayerIntoTile(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("layer {0} holds no meshes")]
+    NotAMeshLayer(String),
     #[cfg(feature = "unstable-v2")]
     #[error("the v2 layer header byte claims an m-value section, but it holds no columns")]
     EmptyMValueSection,
@@ -148,6 +183,13 @@ pub enum MltError {
         expected: usize,
         actual: usize,
     },
+    #[cfg(feature = "unstable-v2")]
+    #[error("m-value {index} holds {actual} values, but the mesh has {expected} triangles")]
+    MValueTriangleCountMismatch {
+        index: usize,
+        expected: usize,
+        actual: usize,
+    },
     #[error("8-bit integers are a v2 feature, so column {0} cannot be written as v1")]
     EightBitNeedsV2(String),
     #[cfg(feature = "unstable-v2")]
@@ -158,6 +200,18 @@ pub enum MltError {
     #[cfg(feature = "unstable-v2")]
     #[error("z coordinates are a v2 feature, so layer {0} cannot be written as v1")]
     ZNeedsV2(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("meshes are a v2 feature, so layer {0} cannot be written as v1")]
+    MeshesNeedV2(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("layer {0} holds meshes without a z axis, which their vertices need")]
+    MeshesNeedZ(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("mesh {feature} cannot be written: {fault}")]
+    InvalidMesh {
+        feature: usize,
+        fault: crate::tile::MeshFault,
+    },
     #[cfg(feature = "unstable-v2")]
     #[error("a z step of 10^{0} m is outside 10^-3..=10^4 m")]
     InvalidZStep(i8),
@@ -175,6 +229,15 @@ pub enum MltError {
     #[cfg(feature = "unstable-v2")]
     #[error("the vertices already carry z coordinates")]
     ZAlreadySet,
+    #[cfg(feature = "unstable-v2")]
+    #[error("mesh triangle corner {corner} names no vertex of the {vertices} the mesh holds")]
+    MeshCornerOutOfRange { corner: u32, vertices: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a layer holding meshes must hold nothing else")]
+    MeshesMixedWithOtherTypes,
+    #[cfg(feature = "unstable-v2")]
+    #[error("m-value column {0} holds a value per triangle, which only a mesh layer can")]
+    ScopedMValueOutsideMeshes(String),
     #[cfg(feature = "unstable-v2")]
     #[error("a vertex stream of {0} words does not hold whole (x, y, z) triples")]
     InvalidTripleStreamSize(usize),

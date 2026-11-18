@@ -639,6 +639,25 @@ pub enum GeoLayout {
     TessPolygons = 0x0C,
     /// `Types`, `GeoLengths`, `PartLengths`, `RingLengths`, `TriLengths`, `TreeSymbols`, `TreeCycles`, `Vertices`
     TessPolygonsWithOutlines = 0x0D,
+    /// `GeoLengths`, `TriLengths`, `TreeSymbols`, `TreeCycles`, `Vertices`, one mesh per feature
+    Meshes = 0x0E,
+}
+
+/// What an [m-value column](super::root02) holds one value per, the byte a `Meshes` layer writes after its type.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum MValueScope {
+    /// One value per vertex, the only scope outside a `Meshes` layer.
+    #[default]
+    Vertex = 0,
+    /// One value per mesh triangle, in the order the triangle trees decode them.
+    Triangle = 1,
+}
+
+impl MValueScope {
+    pub(crate) fn parse(byte: u8) -> MltResult<Self> {
+        Self::try_from(byte).map_err(|_| MltError::ParsingMValueScope(byte))
+    }
 }
 
 /// How a v2 geometry section stores its vertices, which [`GeoLayout`] names alongside the topology.
@@ -743,6 +762,7 @@ impl GeoLayout {
                 | Self::MultiPolygons
                 | Self::MultiPolygonsDict
                 | Self::TessPolygonsWithOutlines
+                | Self::Meshes
         )
     }
 
@@ -799,10 +819,19 @@ impl GeoLayout {
         !matches!(self, Self::Points | Self::PointsDict | Self::TessPolygons)
     }
 
+    /// Whether each m-value column writes its [`MValueScope`] after its type byte.
+    #[must_use]
+    pub(crate) fn has_m_value_scope(self) -> bool {
+        self == Self::Meshes
+    }
+
     /// Whether tessellation streams (`TriLengths`, `TreeSymbols`, `TreeCycles`) are present.
     #[must_use]
     pub(crate) fn is_tess(self) -> bool {
-        matches!(self, Self::TessPolygons | Self::TessPolygonsWithOutlines)
+        matches!(
+            self,
+            Self::TessPolygons | Self::TessPolygonsWithOutlines | Self::Meshes
+        )
     }
 }
 
@@ -904,8 +933,9 @@ impl LayerHeader02 {
         )
     }
 
-    /// Read the uniform type nibble of a wire byte, rejecting the one code no
-    /// geometry type takes.
+    /// Read the uniform type nibble of a wire byte.
+    ///
+    /// Each of its seven non-zero codes names a type, `0x7` the [`GeometryType::Mesh`].
     fn parse_uniform_type(byte: u8) -> MltResult<Option<GeometryType>> {
         let (_, nibble, _) = Self::fields(byte);
         if nibble == Self::TYPES_STREAM {
@@ -1160,6 +1190,8 @@ mod tests {
     #[case::uniform_points(0x16, false, Some(GeometryType::Point), 4096)]
     #[case::uniform_multi_polygons(0x60, false, Some(GeometryType::MultiPolygon), 64)]
     #[case::m_values_over_a_uniform_type(0xCF, true, Some(GeometryType::MultiPoint), 2_097_152)]
+    #[case::uniform_meshes(0x7F, false, Some(GeometryType::Mesh), 2_097_152)]
+    #[case::m_values_over_meshes(0xF6, true, Some(GeometryType::Mesh), 4096)]
     fn layer_header_byte_roundtrip(
         #[case] byte: u8,
         #[case] m_values: bool,
@@ -1173,15 +1205,6 @@ mod tests {
         );
         assert_eq!(header.extent.get(), extent);
         assert_eq!(header.to_byte(), byte);
-    }
-
-    #[rstest]
-    #[case::reserved_uniform_type(0x70)]
-    #[case::reserved_uniform_type_over_an_extent(0x7F)]
-    #[case::reserved_uniform_type_with_m_values(0xF6)]
-    fn layer_header_byte_rejects_the_reserved_uniform_type(#[case] byte: u8) {
-        let err = LayerHeader02::parse(byte).unwrap_err();
-        assert!(matches!(err, MltError::ParsingLayerHeader02(b) if b == byte));
     }
 
     #[rstest]
@@ -1441,7 +1464,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case::unassigned_geo_layout(0b0000_1110)]
+    #[case::unassigned_geo_layout(0b0000_1111)]
     #[case::unassigned_geo_layout_with_shared(0b0010_1111)]
     fn layer_layout_byte_rejects_unassigned_geo_layout(#[case] byte: u8) {
         let err = LayerLayout::parse(byte).unwrap_err();

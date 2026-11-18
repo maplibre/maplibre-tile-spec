@@ -145,6 +145,14 @@ name = "tag02_mvalues"
 required-features = ["__private-v2"]
 
 [[test]]
+name = "tag02_mesh"
+required-features = ["__private-v2"]
+
+[[test]]
+name = "layer_writer_meshes"
+required-features = ["unstable-v2"]
+
+[[test]]
 name = "tag02_nested"
 required-features = ["__private-v2"]
 

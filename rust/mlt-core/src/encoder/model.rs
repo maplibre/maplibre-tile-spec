@@ -7,13 +7,15 @@ use derive_debug::Dbg;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::RleLayout;
 use crate::decoder::{DictionaryType, FastPForKind, GeometryValues, PhysicalEncoding, StreamType};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{GeometryType, MValueScope};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 #[cfg(feature = "unstable-v2")]
-use crate::encoder::{StagedInterior, StagedMValue, StagedNested, StagedNode};
-#[cfg(feature = "unstable-v2")]
-use crate::tile::MAX_NESTED_DEPTH;
+use crate::encoder::{StagedInterior, StagedMValue, StagedNested, StagedNode, StagedValues};
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
+#[cfg(feature = "unstable-v2")]
+use crate::tile::{MAX_NESTED_DEPTH, mesh_fault};
 use crate::{MltError, MltResult};
 
 /// Owned variant of `Unknown`.
@@ -101,6 +103,8 @@ impl StagedLayer {
         properties: Vec<StagedProperty>,
     ) -> MltResult<Self> {
         let (name, extent, _) = validate_staged(name, extent, &id, &geometry, &properties)?;
+        #[cfg(feature = "unstable-v2")]
+        validate_meshes(&geometry, &[])?;
         Ok(Self {
             name,
             extent,
@@ -126,6 +130,7 @@ impl StagedLayer {
     ) -> MltResult<Self> {
         let (name, extent, columns) = validate_staged(name, extent, &id, &geometry, &properties)?;
         validate_m_values(&geometry, &columns, &m_values)?;
+        validate_meshes(&geometry, &m_values)?;
         Ok(Self {
             name,
             extent,
@@ -150,6 +155,7 @@ impl StagedLayer {
     ) -> MltResult<Self> {
         let (name, extent, columns) = validate_staged(name, extent, &id, &geometry, &properties)?;
         validate_m_values(&geometry, &columns, &m_values)?;
+        validate_meshes(&geometry, &m_values)?;
         validate_nested(&geometry, &columns, &m_values, &nested)?;
         Ok(Self {
             name,
@@ -295,7 +301,7 @@ fn validate_m_values(
                 .as_ref()
                 .is_none_or(|mask| mask.get(index).copied().unwrap_or(false));
             if present {
-                expected += geometry.vertex_count(index)?;
+                expected += geometry.scoped_count(column.scope(), index)?;
             }
         }
         if expected != column.values().count() {
@@ -304,6 +310,64 @@ fn validate_m_values(
                 expected,
                 actual: column.values().count(),
             });
+        }
+    }
+    Ok(())
+}
+
+/// Check that no mesh is one the spec advises an encoder against.
+///
+/// `m_values` already hold one value per item of their scope, so each feature's vertex run is found by counting.
+#[cfg(feature = "unstable-v2")]
+fn validate_meshes(geometry: &GeometryValues, m_values: &[StagedMValue]) -> MltResult<()> {
+    if geometry.z_axis.is_none() || !geometry.vector_types.contains(&GeometryType::Mesh) {
+        return Ok(());
+    }
+    let vertices = geometry
+        .vertices
+        .as_deref()
+        .unwrap_or_default()
+        .as_chunks::<3>()
+        .0;
+    let corners = geometry
+        .index_buffer
+        .as_deref()
+        .unwrap_or_default()
+        .as_chunks::<3>()
+        .0;
+    let runs = geometry.geometry_offsets.as_deref().unwrap_or_default();
+    let tris = geometry.triangle_offsets.as_deref().unwrap_or_default();
+    let mut columns: Vec<(&StagedMValue, usize)> = m_values
+        .iter()
+        .filter(|column| column.scope() == MValueScope::Vertex)
+        .map(|column| (column, 0))
+        .collect();
+    for (feature, (run, tri)) in
+        (runs.array_windows::<2>().zip(tris.array_windows::<2>())).enumerate()
+    {
+        let [start, end] = run.map(|v| v as usize);
+        let first = run[0];
+        let triangles: Vec<[u32; 3]> = corners[tri[0] as usize..tri[1] as usize]
+            .iter()
+            .map(|t| t.map(|c| c - first))
+            .collect();
+        let present: Vec<(&StagedValues, usize)> = columns
+            .iter()
+            .filter(|(column, _)| column.is_present(feature))
+            .map(|&(column, offset)| (column.values(), offset))
+            .collect();
+        let same = |a: usize, b: usize| {
+            present
+                .iter()
+                .all(|&(values, offset)| values.same(offset + a, offset + b))
+        };
+        if let Some(fault) = mesh_fault(&vertices[start..end], &triangles, same) {
+            return Err(MltError::InvalidMesh { feature, fault });
+        }
+        for (column, offset) in &mut columns {
+            if column.is_present(feature) {
+                *offset += end - start;
+            }
         }
     }
     Ok(())

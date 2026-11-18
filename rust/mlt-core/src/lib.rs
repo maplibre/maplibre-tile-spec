@@ -39,6 +39,8 @@ pub mod dump;
 pub mod encoder;
 pub(crate) mod errors;
 pub(crate) mod layer_writer;
+#[cfg(feature = "unstable-v2")]
+pub(crate) mod mesh_writer;
 pub(crate) mod tile;
 pub(crate) mod utils;
 
@@ -59,19 +61,23 @@ pub(crate) use crate::decoder::{
 };
 #[cfg(feature = "unstable-v2")]
 pub use crate::decoder::{
-    Layer02, MValueColumn, MValueSpans, MValues, Nested, ParsedInterior, ParsedLayer02, ParsedLeaf,
-    ParsedList, ParsedMValue, ParsedMap, ParsedNested, ParsedNode, ParsedStruct, RawInterior,
-    RawLeaf, RawList, RawMValue, RawMap, RawNested, RawNode, RawStruct,
+    Layer02, MValueColumn, MValueScope, MValueSpans, MValues, MeshFeature, MeshLayer, Nested,
+    ParsedInterior, ParsedLayer02, ParsedLeaf, ParsedList, ParsedMValue, ParsedMap, ParsedNested,
+    ParsedNode, ParsedStruct, RawInterior, RawLeaf, RawList, RawMValue, RawMap, RawNested, RawNode,
+    RawStruct,
 };
 pub use crate::errors::{MltError, MltResult};
 pub use crate::layer_writer::{FeatureWriter, LayerWriter};
+#[cfg(feature = "unstable-v2")]
+pub use crate::mesh_writer::{MeshFeatureWriter, MeshLayerWriter};
 pub use crate::tile::{
     ColumnRole, Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder,
     TileLayer, TileLayerBuilder,
 };
 #[cfg(feature = "unstable-v2")]
 pub use crate::tile::{
-    HeightMode, MValue, MValueKey, NestedKey, NestedKind, NestedValue, ZAxis, ZStep,
+    HeightMode, MValue, MValueKey, Mesh, MeshFault, NestedKey, NestedKind, NestedValue, ZAxis,
+    ZStep,
 };
 pub(crate) use crate::utils::analyze::{Analyze, StatType};
 pub(crate) use crate::utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};

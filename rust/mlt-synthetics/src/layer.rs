@@ -12,7 +12,7 @@ use mlt_core::encoder::{
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
-use mlt_core::{GeometryValues, HeightMode, ZAxis, ZStep};
+use mlt_core::{GeometryValues, HeightMode, Mesh, ZAxis, ZStep};
 
 use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
@@ -196,6 +196,8 @@ pub struct Layer {
     ids: Option<(StagedId, IntEncoder)>,
     /// The z of every vertex and how it reads as a height, which only v2 can hold.
     z: Option<(ZAxis, Vec<i32>)>,
+    /// One mesh per feature, their z read on the axis in `z`, which only v2 can hold.
+    meshes: Vec<Mesh>,
     versions: &'static [WireVersion],
 }
 
@@ -218,6 +220,7 @@ impl Layer {
             versions: &[WireVersion::V01, WireVersion::V02],
             ids: None,
             z: None,
+            meshes: vec![],
         }
     }
 
@@ -691,7 +694,19 @@ impl Layer {
         self
     }
 
-    /// Measure the z set by [`Self::z`] from `mode` instead of mean sea level.
+    /// Add one feature per mesh, their z on a grid of `10^exponent` m.
+    /// v1 vertices are (x, y) pairs, so the layer is v2-only.
+    #[must_use]
+    #[track_caller]
+    pub fn meshes(mut self, exponent: i8, meshes: impl IntoIterator<Item = Mesh>) -> Self {
+        let step = ZStep::new(exponent).expect("a z step in range");
+        self.z = Some((step.into(), Vec::new()));
+        self.meshes.extend(meshes);
+        self.versions = &[WireVersion::V02];
+        self
+    }
+
+    /// Measure the z set by [`Self::z`] or [`Self::meshes`] from `mode` instead of mean sea level.
     #[must_use]
     #[track_caller]
     pub fn height_mode(mut self, mode: HeightMode) -> Self {
@@ -728,6 +743,7 @@ impl Layer {
             extent,
             ids,
             z,
+            meshes,
             versions: _,
         } = self;
 
@@ -741,7 +757,9 @@ impl Layer {
             .with_row_shapes(row_shapes)
             .with_wire_version(wire_version);
 
-        let mut geometry = if tessellate {
+        let mut geometry = if let Some((axis, _)) = z.as_ref().filter(|_| !meshes.is_empty()) {
+            GeometryValues::new_meshes(*axis)
+        } else if tessellate {
             GeometryValues::new_tessellated()
         } else {
             GeometryValues::default()
@@ -749,7 +767,10 @@ impl Layer {
         for geom in &geometry_items {
             geometry.push_geom(geom);
         }
-        if let Some((axis, z)) = z {
+        for mesh in &meshes {
+            geometry.push_mesh(mesh);
+        }
+        if let Some((axis, z)) = z.filter(|_| meshes.is_empty()) {
             geometry.add_z(axis, &z)?;
         }
 

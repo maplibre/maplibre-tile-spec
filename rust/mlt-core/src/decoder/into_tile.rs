@@ -5,12 +5,17 @@
 //! feature, owning its geometry and property values outright. That is the form
 //! the optimizer, the sorting pipeline, and the converters work in.
 
-use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty};
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::{Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested};
+use crate::MltError;
+use crate::decoder::{FeatureRef, Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{
+    GeoLayout, GeometryValues, Layer02, MValueSpans, MeshFeature, MeshLayer, ParsedLayer02,
+    ParsedMValue, ParsedNested,
+};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValue, NestedKind, NestedValue};
+use crate::tile::{MValue, Mesh, NestedKind, NestedValue};
 use crate::tile::{PropValue, TileFeature, TileLayer};
 use crate::{Decoder, Lazy, LendingIterator, MltResult};
 
@@ -42,12 +47,37 @@ impl ParsedLayer01<'_> {
         let name = self.name().to_string();
         let extent = self.extent().get();
         let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
+        let features = self.rows(dec, |feat, values| TileFeature {
+            id: feat.id(),
+            geometry: feat.geometry().clone(),
+            properties: values,
+            #[cfg(feature = "unstable-v2")]
+            m_values: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            nested: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            z: Vec::new(),
+        })?;
+        Ok(TileParts {
+            name,
+            extent,
+            names,
+            features,
+        })
+    }
+
+    /// One row per map feature, which `row` builds from the feature and its property values.
+    fn rows<T>(
+        &self,
+        dec: &mut Decoder,
+        mut row: impl FnMut(&FeatureRef<'_, '_>, Vec<PropValue>) -> T,
+    ) -> MltResult<Vec<T>> {
         let col_nulls = typed_nulls(&self.properties);
-        let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
+        let mut rows = dec.alloc::<T>(self.feature_count())?;
         let mut feat_iter = self.iter_features();
         while let Some(feat) = feat_iter.next() {
             let feat = feat?;
-            let mut values = dec.alloc::<PropValue>(names.len())?;
+            let mut values = dec.alloc::<PropValue>(col_nulls.len())?;
             for (col_idx, value) in feat.iter_all_properties().enumerate() {
                 values.push(match value {
                     Some(v) => v.into(),
@@ -57,24 +87,9 @@ impl ParsedLayer01<'_> {
 
             charge_str_props(dec, &values)?;
 
-            features.push(TileFeature {
-                id: feat.id(),
-                geometry: feat.geometry().clone(),
-                properties: values,
-                #[cfg(feature = "unstable-v2")]
-                m_values: Vec::new(),
-                #[cfg(feature = "unstable-v2")]
-                nested: Vec::new(),
-                #[cfg(feature = "unstable-v2")]
-                z: Vec::new(),
-            });
+            rows.push(row(&feat, values));
         }
-        Ok(TileParts {
-            name,
-            extent,
-            names,
-            features,
-        })
+        Ok(rows)
     }
 }
 
@@ -89,8 +104,13 @@ impl Layer01<'_> {
 impl ParsedLayer02<'_> {
     /// Decode and convert into a row-oriented [`TileLayer`], adding the m-value
     /// and nested columns only v2 carries.
+    ///
+    /// A `Meshes` layer is rejected, since [`Self::into_meshes`] reads it.
     #[hotpath::measure]
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
+        if self.layout.geometry == GeoLayout::Meshes {
+            return Err(MltError::MeshLayerIntoTile(self.layer.name().to_string()));
+        }
         let m_names: Vec<String> = self.m_values.iter().map(|m| m.name().to_string()).collect();
         let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();
         let nested_kinds: Vec<NestedKind> = self.nested.iter().map(ParsedNested::kind).collect();
@@ -118,6 +138,51 @@ impl ParsedLayer02<'_> {
             .with_nested(nested_names, nested_kinds)?
             .with_z_axis(geometry.z_axis())
     }
+
+    /// Decode a `Meshes` layer into a [`MeshLayer`], rejecting any other layout.
+    #[hotpath::measure]
+    pub fn into_meshes(self, dec: &mut Decoder) -> MltResult<MeshLayer> {
+        let name = self.layer.name().to_string();
+        if self.layout.geometry != GeoLayout::Meshes {
+            return Err(MltError::NotAMeshLayer(name));
+        }
+        let geometry = &self.layer.geometry;
+        let z_axis = geometry.z_axis().ok_or(MltError::MeshVerticesWithoutZ)?;
+        let mut m_spans = dec.alloc::<MValueSpans>(self.m_values.len())?;
+        m_spans.extend(self.m_values.iter().map(|m| m.spans(geometry)));
+
+        let rows = self.layer.rows(dec, |feat, values| (feat.id(), values))?;
+        let mut features = dec.alloc::<MeshFeature>(rows.len())?;
+        for (index, (id, properties)) in rows.into_iter().enumerate() {
+            features.push(MeshFeature {
+                id,
+                properties,
+                mesh: mesh_of(geometry, index, dec)?,
+                m_values: m_values_of(&self.m_values, &mut m_spans, dec)?,
+                nested: nested_of(&self.nested, index, dec)?,
+            });
+        }
+        Ok(MeshLayer {
+            name,
+            extent: self.layer.extent(),
+            z_axis,
+            property_names: self
+                .layer
+                .iterate_prop_names()
+                .map(|n| n.to_string())
+                .collect(),
+            property_kinds: typed_nulls(&self.layer.properties)
+                .iter()
+                .map(PropValue::kind)
+                .collect(),
+            m_value_names: self.m_values.iter().map(|m| m.name().to_string()).collect(),
+            m_value_kinds: self.m_values.iter().map(|m| m.values().kind()).collect(),
+            m_value_scopes: self.m_values.iter().map(ParsedMValue::scope).collect(),
+            nested_names: self.nested.iter().map(|n| n.name().to_string()).collect(),
+            nested_kinds: self.nested.iter().map(ParsedNested::kind).collect(),
+            features,
+        })
+    }
 }
 
 #[cfg(feature = "unstable-v2")]
@@ -125,6 +190,11 @@ impl Layer02<'_> {
     /// Decode and convert into a row-oriented [`TileLayer`]
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
         self.decode_all(dec)?.into_tile(dec)
+    }
+
+    /// Decode a `Meshes` layer into a [`MeshLayer`], rejecting any other layout.
+    pub fn into_meshes(self, dec: &mut Decoder) -> MltResult<MeshLayer> {
+        self.decode_all(dec)?.into_meshes(dec)
     }
 }
 
@@ -139,6 +209,17 @@ impl ParsedLayer<'_> {
             Self::Unknown(_) => Ok(None),
         }
     }
+
+    /// Convert a `Meshes` layer into a [`MeshLayer`], or `None` for a tag this build
+    /// does not know. Any other layer is rejected.
+    #[cfg(feature = "unstable-v2")]
+    pub fn into_meshes(self, dec: &mut Decoder) -> MltResult<Option<MeshLayer>> {
+        match self {
+            Self::Tag01(l) => Err(MltError::NotAMeshLayer(l.name().to_string())),
+            Self::Tag02(l) => l.into_meshes(dec).map(Some),
+            Self::Unknown(_) => Ok(None),
+        }
+    }
 }
 
 impl Layer<'_, Lazy> {
@@ -147,6 +228,48 @@ impl Layer<'_, Lazy> {
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<Option<TileLayer>> {
         self.decode_all(dec)?.into_tile(dec)
     }
+
+    /// Decode every column, then convert a `Meshes` layer into a [`MeshLayer`], or
+    /// `None` for a tag this build does not know. Any other layer is rejected.
+    #[cfg(feature = "unstable-v2")]
+    pub fn into_meshes(self, dec: &mut Decoder) -> MltResult<Option<MeshLayer>> {
+        self.decode_all(dec)?.into_meshes(dec)
+    }
+}
+
+/// The mesh of feature `index`, its corners shifted to name the feature's own vertices.
+#[cfg(feature = "unstable-v2")]
+fn mesh_of(geometry: &GeometryValues, index: usize, dec: &mut Decoder) -> MltResult<Mesh> {
+    let out_of_bounds = |field, idx, len| MltError::GeometryOutOfBounds {
+        index,
+        field,
+        idx,
+        len,
+    };
+    let run = geometry.vertex_range(index)?;
+    let xyz = geometry.vertices.as_deref().unwrap_or_default();
+    let coords = xyz
+        .get(run.start * 3..run.end * 3)
+        .ok_or_else(|| out_of_bounds("vertices", run.end * 3, xyz.len()))?;
+    let mut vertices = dec.alloc::<[i32; 3]>(run.len())?;
+    vertices.extend_from_slice(coords.as_chunks::<3>().0);
+
+    let tris = geometry.triangle_range(index)?;
+    let corners = geometry.index_buffer.as_deref().unwrap_or_default();
+    let corners = corners
+        .get(tris.start * 3..tris.end * 3)
+        .ok_or_else(|| out_of_bounds("index_buffer", tris.end * 3, corners.len()))?;
+    let first = u32::try_from(run.start).or_overflow()?;
+    let mut triangles = dec.alloc::<[u32; 3]>(tris.len())?;
+    // A corner below the run wraps past every vertex, which `Mesh::new` rejects.
+    triangles.extend(
+        corners
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .map(|t| t.map(|corner| corner.wrapping_sub(first))),
+    );
+    Mesh::new(vertices, triangles)
 }
 
 /// The m-values of the next feature, one per column, charged against `dec`.

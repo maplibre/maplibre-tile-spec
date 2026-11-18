@@ -8,6 +8,8 @@ use geo_types::{Coord, Geometry, Polygon};
 
 use crate::decoder::GeometryValues;
 #[cfg(feature = "unstable-v2")]
+use crate::decoder::MValueScope;
+#[cfg(feature = "unstable-v2")]
 use crate::encoder::StagedValues;
 use crate::encoder::geometry::coord_count;
 #[cfg(feature = "unstable-v2")]
@@ -53,6 +55,11 @@ pub(crate) trait LayerSource {
     fn m_value_kinds(&self) -> &[PropKind];
     #[cfg(feature = "unstable-v2")]
     fn m_value_name(&self, column: usize) -> &str;
+    /// What m-value `column` holds one value per.
+    #[cfg(feature = "unstable-v2")]
+    fn m_value_scope(&self, _column: usize) -> MValueScope {
+        MValueScope::Vertex
+    }
     /// Appends the feature's values in m-value `column` to `values`, which holds the column's
     /// kind, in [`Self::vertex_order`], and returns whether the feature is not null there.
     #[cfg(feature = "unstable-v2")]
@@ -82,6 +89,8 @@ pub(crate) struct V2Layout<'a> {
     pub(crate) nested_names: &'a [String],
     pub(crate) nested_kinds: &'a [NestedKind],
     pub(crate) z_axis: Option<ZAxis>,
+    /// Whether every feature is a mesh, whose vertices carry their z.
+    pub(crate) meshes: bool,
 }
 
 /// The order features are staged in: as stored, or a permutation of them.
@@ -190,6 +199,7 @@ impl LayerSource for TileLayer {
             nested_names: &self.nested_names,
             nested_kinds: &self.nested_kinds,
             z_axis: self.z_axis,
+            meshes: false,
         }
     }
 
