@@ -6,7 +6,7 @@
 <rect class="f0" x="176" y="40" width="44" height="28" rx="3"/>
 <text class="cell" x="198" y="54">52</text>
 <rect class="f0" x="222" y="40" width="72" height="28" rx="3"/>
-<text class="cell" x="258" y="54">100030</text>
+<text class="cell" x="258" y="54">30</text>
 <rect class="f0" x="222" y="88" width="72" height="28" rx="3"/>
 <text class="cell" x="258" y="102">3 m</text>
 <path class="link" d="M258 68V88"/>
@@ -17,7 +17,7 @@
 <rect class="f1" x="356" y="40" width="44" height="28" rx="3"/>
 <text class="cell" x="378" y="54">72</text>
 <rect class="f1" x="402" y="40" width="72" height="28" rx="3"/>
-<text class="cell" x="438" y="54">100050</text>
+<text class="cell" x="438" y="54">50</text>
 <rect class="f1" x="402" y="88" width="72" height="28" rx="3"/>
 <text class="cell" x="438" y="102">5 m</text>
 <path class="link" d="M438 68V88"/>
@@ -28,7 +28,7 @@
 <rect class="f0" x="536" y="40" width="44" height="28" rx="3"/>
 <text class="cell" x="558" y="54">22</text>
 <rect class="f0" x="582" y="40" width="72" height="28" rx="3"/>
-<text class="cell" x="618" y="54">100080</text>
+<text class="cell" x="618" y="54">80</text>
 <rect class="f0" x="582" y="88" width="72" height="28" rx="3"/>
 <text class="cell" x="618" y="102">8 m</text>
 <path class="link" d="M618 68V88"/>

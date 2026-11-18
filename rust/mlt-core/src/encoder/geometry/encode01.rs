@@ -31,7 +31,7 @@ impl GeometryValues {
             vertices,
             // The layer writer rejects a geometry with z coordinates before it gets here.
             #[cfg(feature = "unstable-v2")]
-                z_step: _,
+                z_axis: _,
         } = self;
 
         // Flatten every Option<Vec> -> Vec  (empty == not present).
@@ -272,7 +272,7 @@ fn feature_relative_triangles(
         triangle_offsets: Some(triangle_offsets),
         vertices: None,
         #[cfg(feature = "unstable-v2")]
-        z_step: None,
+        z_axis: None,
     };
     dense.rebase_indices_to_feature()?;
     Ok((triangles, dense.index_buffer.unwrap_or_default()))

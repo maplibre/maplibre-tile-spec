@@ -10,8 +10,8 @@ use js_sys::{
     Uint32Array,
 };
 use mlt_core::{
-    Decoder, GeometryValues, ParsedLayer, ParsedLayer01, ParsedProperty, ParsedStrings, Parser,
-    PresentValues, PropKind, ZStep,
+    Decoder, GeometryValues, HeightMode, ParsedLayer, ParsedLayer01, ParsedProperty, ParsedStrings,
+    Parser, PresentValues, PropKind,
 };
 use wasm_bindgen::prelude::*;
 
@@ -105,8 +105,13 @@ fn geometry_object(geometry: &GeometryValues) -> Object {
         "vertices",
         &Int32Array::from(geometry.vertices().unwrap_or_default()),
     );
-    if let Some(step) = geometry.z_step() {
-        set(&object, "zStep", &ZStep::exponent(step).into());
+    if let Some(axis) = geometry.z_axis() {
+        set(&object, "zStep", &axis.step.exponent().into());
+        let mode = match axis.mode {
+            HeightMode::Absolute => "absolute",
+            HeightMode::RelativeToGround => "relativeToGround",
+        };
+        set(&object, "heightMode", &mode.into());
     }
     for (key, offsets) in [
         ("geometryOffsets", geometry.geometry_offsets()),

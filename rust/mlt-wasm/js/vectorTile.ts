@@ -7,6 +7,7 @@ import type {
 import {
   columnValue,
   decodeTileColumns,
+  type HeightMode,
   type MltColumnLayer,
   type MltGeometryType,
   type MltNamedColumn,
@@ -316,6 +317,10 @@ export class MltLayer extends LayerBase implements VectorTileLayerLike {
   /** The z grid as the power of ten of its step in metres, or `undefined` when the layer has none. */
   readonly zStep: number | undefined = this._data.layer.geometry.zStep;
 
+  /** What a z of `0` stands for, or `undefined` when the layer has no z and sits on the ground. */
+  readonly heightMode: HeightMode | undefined =
+    this._data.layer.geometry.heightMode;
+
   feature(i: number): MltFeature {
     return new MltFeature(this.featureIndex(i), this._data);
   }
@@ -326,14 +331,17 @@ export class MltLayer3D extends LayerBase {
   /** The z grid as the power of ten of its step in metres; `toElevation` gives a z in metres. */
   readonly zStep: number;
 
+  /** What a z of `0` stands for. */
+  readonly heightMode: HeightMode;
+
   /**
    * Throws when the layer has no z coordinates, or uses the `TessPolygons` or
    * `TessPolygonsWithOutlines` geometry layout, which `decodeTile3D` does not support.
    */
   constructor(layer: MltColumnLayer) {
     super(layer);
-    const { zStep, indexBuffer } = layer.geometry;
-    if (zStep === undefined) {
+    const { zStep, heightMode, indexBuffer } = layer.geometry;
+    if (zStep === undefined || heightMode === undefined) {
       throw new Error(
         `layer "${layer.name}" has no z coordinates; decode the tile with decodeTile() instead`,
       );
@@ -347,6 +355,7 @@ export class MltLayer3D extends LayerBase {
       );
     }
     this.zStep = zStep;
+    this.heightMode = heightMode;
   }
 
   feature(i: number): MltFeature3D {

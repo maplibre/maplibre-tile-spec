@@ -62,7 +62,7 @@ fn layer(u: &mut Unstructured<'_>) -> arbitrary::Result<TileLayer> {
     let step = if u.arbitrary()? {
         let step = ZStep::new(u.int_in_range(ZStep::MIN_EXPONENT..=ZStep::MAX_EXPONENT)?)
             .expect("an exponent in range");
-        out.set_z_step(step).expect("an empty layer");
+        out.set_z_axis(step).expect("an empty layer");
         Some(step)
     } else {
         None
@@ -229,7 +229,7 @@ fn mutate(layer: &TileLayer, mutation: Mutation) -> Option<TileLayer> {
     let pick = |i: u8| (!features.is_empty()).then(|| usize::from(i) % features.len());
     let target = match mutation {
         Mutation::DropZStep => {
-            layer.z_step()?;
+            layer.z_axis()?;
             None
         }
         Mutation::Id(i)

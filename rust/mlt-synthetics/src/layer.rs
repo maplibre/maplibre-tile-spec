@@ -6,13 +6,13 @@ use std::path::Path;
 
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
-    Presence, StagedId, StagedLayer, StagedMValue, StagedNested, StagedProperty, StagedSharedDict,
-    StrEncoding, StreamCtx, Tessellation, VertexBufferType, WireVersion, wound_geometry,
+    Network, Presence, Profile, StagedId, StagedLayer, StagedMValue, StagedNested, StagedProperty,
+    StagedSharedDict, StrEncoding, StreamCtx, Tessellation, VertexBufferType, WireVersion,
+    wound_geometry,
 };
-use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
-use mlt_core::{GeometryValues, ZStep};
+use mlt_core::{GeometryValues, HeightMode, ZAxis, ZStep};
 
 use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
@@ -194,8 +194,8 @@ pub struct Layer {
     row_shapes: bool,
     extent: Option<u32>,
     ids: Option<(StagedId, IntEncoder)>,
-    /// The z of every vertex and the grid it lies on, which only v2 can hold.
-    z: Option<(ZStep, Vec<i32>)>,
+    /// The z of every vertex and how it reads as a height, which only v2 can hold.
+    z: Option<(ZAxis, Vec<i32>)>,
     versions: &'static [WireVersion],
 }
 
@@ -685,8 +685,18 @@ impl Layer {
     #[must_use]
     #[track_caller]
     pub fn z(mut self, exponent: i8, z: Vec<i32>) -> Self {
-        self.z = Some((ZStep::new(exponent).expect("a z step in range"), z));
+        let step = ZStep::new(exponent).expect("a z step in range");
+        self.z = Some((step.into(), z));
         self.versions = &[WireVersion::V02];
+        self
+    }
+
+    /// Measure the z set by [`Self::z`] from `mode` instead of mean sea level.
+    #[must_use]
+    #[track_caller]
+    pub fn height_mode(mut self, mode: HeightMode) -> Self {
+        let (axis, _) = self.z.as_mut().expect("height_mode after z");
+        axis.mode = mode;
         self
     }
 
@@ -739,8 +749,8 @@ impl Layer {
         for geom in &geometry_items {
             geometry.push_geom(geom);
         }
-        if let Some((step, z)) = z {
-            geometry.add_z(step, &z)?;
+        if let Some((axis, z)) = z {
+            geometry.add_z(axis, &z)?;
         }
 
         let (id, id_int_enc) = match ids {

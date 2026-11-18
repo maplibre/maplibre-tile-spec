@@ -52,10 +52,10 @@ fn same_layer(expected: &TileLayer, actual: &TileLayer) -> AnyResult<()> {
         expected.extent().get()
     );
     ensure!(
-        expected.z_step() == actual.z_step(),
-        "z step {:?}, not {:?}",
-        actual.z_step(),
-        expected.z_step()
+        expected.z_axis() == actual.z_axis(),
+        "z axis {:?}, not {:?}",
+        actual.z_axis(),
+        expected.z_axis()
     );
     ensure!(
         expected.feature_count() == actual.feature_count(),
@@ -323,7 +323,7 @@ mod tests {
         let mut layer = TileLayer::builder("l", 4096).unwrap();
         if let Some(step) = step {
             layer
-                .set_z_step(mlt_core::ZStep::new(step).unwrap())
+                .set_z_axis(mlt_core::ZStep::new(step).unwrap())
                 .unwrap();
         }
         let mut row = layer.feature(Point::new(1, 2).into());
@@ -339,7 +339,7 @@ mod tests {
     fn a_dropped_z_step_is_reported() {
         let a = layer_with_z(Some(0), vec![100]);
         let b = layer_with_z(None, vec![]);
-        insta::assert_snapshot!(same_layer(&a, &b).unwrap_err(), @"z step None, not Some(ZStep(0))");
+        insta::assert_snapshot!(same_layer(&a, &b).unwrap_err(), @"z axis None, not Some(ZAxis { step: ZStep(0), mode: Absolute })");
     }
 
     #[test]
@@ -352,7 +352,7 @@ mod tests {
     #[test]
     fn a_rewound_ring_carries_its_z_and_m_values_along() {
         let mut layer = TileLayer::builder("l", 4096).unwrap();
-        layer.set_z_step(mlt_core::ZStep::new(0).unwrap()).unwrap();
+        layer.set_z_axis(mlt_core::ZStep::new(0).unwrap()).unwrap();
         let key = layer.add_m_value("m", PropKind::I32).unwrap();
         let clockwise = Polygon::new(
             LineString::from(vec![(0, 0), (0, 9), (9, 9), (9, 0), (0, 0)]),

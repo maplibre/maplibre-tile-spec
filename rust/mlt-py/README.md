@@ -36,6 +36,7 @@ Each `MltLayer` represents one decoded MLT layer and exposes:
 - `name: str` - the layer name.
 - `extent: int` - the layer extent.
 - `z_step: int | None` - the power of ten of the z grid's step in metres, or `None` when the vertices carry no z.
+- `height_mode: str | None` - what a z of `0` stands for, `"absolute"` (mean sea level) or `"relative_to_ground"` (the terrain), or `None` when the vertices carry no z.
 - `features: list[MltFeature]` - the decoded features in that layer.
 
 Each `MltFeature` represents one decoded feature and exposes:
@@ -61,7 +62,7 @@ for layer in layers:
 ## Encoding
 
 
-`encode_geojson(geojson, name, extent=4096, *, tessellate=False, sort="auto", shared_dict=True, fsst=True, fastpfor=True, z_step=None) -> bytes` encodes a single layer to an MLT blob.
+`encode_geojson(geojson, name, extent=4096, *, tessellate=False, sort="auto", shared_dict=True, fsst=True, fastpfor=True, z_step=None, height_mode=None) -> bytes` encodes a single layer to an MLT blob.
 - `geojson` is a GeoJSON [`FeatureCollection`](https://datatracker.ietf.org/doc/html/rfc7946#section-3.3).
   Geometry is in **tile-local coordinate space** (no projection), matching `tilezen/mapbox-vector-tile`'s default.
   Coordinates must be integers, and 2D unless `z_step` is set.
@@ -74,7 +75,9 @@ for layer in layers:
 - `fsst` enables FSST string compression.
 - `fastpfor` enables FastPFOR integer compression.
 - `z_step` is the power of ten of the z grid's step in metres, from `-3` (1 mm) to `4` (10 km).
-  Every position is then `[x, y, z]`, where `z = 0` sits at -10000 m, and the layer is written in the experimental v2 format.
+  Every position is then `[x, y, z]`, and the layer is written in the experimental v2 format.
+- `height_mode` is what a z of `0` stands for: `"absolute"` (mean sea level, the default) or `"relative_to_ground"` (the terrain under each vertex).
+  It needs `z_step`.
 
 `encode_mvt(data, *, tessellate=False, sort="auto", shared_dict=True, fsst=True, fastpfor=True) -> bytes` encodes an entire raw Mapbox Vector Tile (protobuf) to MLT using the same encoding options.
 

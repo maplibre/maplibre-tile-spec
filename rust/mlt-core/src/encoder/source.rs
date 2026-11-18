@@ -14,7 +14,7 @@ use crate::encoder::geometry::coord_count;
 use crate::encoder::geometry::wound_vertex_order;
 use crate::tile::{Extent, PropKind, TileLayer};
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValue, NestedKind, NestedValue, ZStep};
+use crate::tile::{MValue, NestedKind, NestedValue, ZAxis};
 use crate::{MltResult, PropValueRef};
 
 /// Everything the encoder reads from a layer, feature by feature.
@@ -81,7 +81,7 @@ pub(crate) trait LayerSource {
 pub(crate) struct V2Layout<'a> {
     pub(crate) nested_names: &'a [String],
     pub(crate) nested_kinds: &'a [NestedKind],
-    pub(crate) z_step: Option<ZStep>,
+    pub(crate) z_axis: Option<ZAxis>,
 }
 
 /// The order features are staged in: as stored, or a permutation of them.
@@ -189,7 +189,7 @@ impl LayerSource for TileLayer {
         V2Layout {
             nested_names: &self.nested_names,
             nested_kinds: &self.nested_kinds,
-            z_step: self.z_step,
+            z_axis: self.z_axis,
         }
     }
 

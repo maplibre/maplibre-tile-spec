@@ -43,6 +43,11 @@ class MltLayer:
         The power of ten of the z grid's step in metres, or `None` when the vertices carry no z.
         """
     @property
+    def height_mode(self) -> typing.Optional[builtins.str]:
+        r"""
+        What a z of `0` stands for, `"absolute"` or `"relative_to_ground"`, or `None` when the vertices carry no z.
+        """
+    @property
     def features(self) -> builtins.list[MltFeature]: ...
     def __repr__(self) -> builtins.str: ...
 
@@ -67,7 +72,7 @@ def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     Decode an MLT binary blob and return `GeoJSON` as a string.
     """
 
-def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "none", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True, z_step: typing.Optional[builtins.int] = None) -> bytes:
+def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "none", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True, z_step: typing.Optional[builtins.int] = None, height_mode: typing.Optional[typing.Literal['absolute', 'relative_to_ground']] = None) -> bytes:
     r"""
     Encode a `GeoJSON` `FeatureCollection` into MLT bytes.
 
@@ -85,6 +90,7 @@ def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name:
     `fastpfor` allows `FastPFOR` integer compression.
     `z_step` is the power of ten of the z grid's step in metres, from -3 to 4.
     It takes `[x, y, z]` positions with z on that grid, and writes the experimental v2 format.
+    `height_mode` is what a z of `0` stands for, `"absolute"` (mean sea level, the default) or `"relative_to_ground"`.
     See the module docs.
     """
 

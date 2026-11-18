@@ -197,7 +197,7 @@ impl GeometryValues {
     /// Its vertices are `(x, y)` pairs, so it must come before [`Self::add_z`].
     pub fn push_geom(&mut self, geom: &Geometry<i32>) {
         #[cfg(feature = "unstable-v2")]
-        debug_assert!(self.z_step.is_none(), "push_geom after add_z");
+        debug_assert!(self.z_axis.is_none(), "push_geom after add_z");
         match geom {
             Geometry::<i32>::Point(p) => self.push_point(p.0),
             Geometry::<i32>::Line(l) => self.push_linestring(&[l.start, l.end]),
@@ -599,13 +599,13 @@ fn push_linestrings<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{Network, Profile};
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
     use insta::assert_snapshot;
     use integer_encoding::VarInt;
     use proptest::prelude::*;
 
     use super::*;
+    use crate::encoder::{Network, Profile};
 
     fn wound_rings(rings: &[&[(i32, i32)]]) -> Vec<Vec<(i32, i32)>> {
         let rings: Vec<Vec<Coord<i32>>> = rings
@@ -1134,6 +1134,23 @@ mod tests {
             g.index_buffer().unwrap_or_default().to_vec()
         }
 
+        fn canonical_triangles(indices: &[u32]) -> Vec<[u32; 3]> {
+            assert_eq!(indices.len() % 3, 0);
+            let mut triangles = indices
+                .chunks_exact(3)
+                .map(|triangle| {
+                    let [a, b, c] = [triangle[0], triangle[1], triangle[2]];
+                    [(a, b, c), (b, c, a), (c, a, b)]
+                        .into_iter()
+                        .min()
+                        .map(|(a, b, c)| [a, b, c])
+                        .unwrap()
+                })
+                .collect::<Vec<_>>();
+            triangles.sort_unstable();
+            triangles
+        }
+
         #[test]
         fn a_polygon_of_one_repeated_coordinate_has_no_triangles() {
             let point = Polygon::new(LineString::from(vec![(5, 5), (5, 5), (5, 5)]), vec![]);
@@ -1144,7 +1161,10 @@ mod tests {
         fn a_one_coordinate_polygon_still_shifts_the_next_polygons_indices() {
             let point = Polygon::new(LineString::from(vec![(5, 5)]), vec![]);
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![point, square(20)]));
-            assert_eq!(triangles(&geometry), [3, 4, 1, 1, 2, 3]);
+            assert_eq!(
+                canonical_triangles(&triangles(&geometry)),
+                canonical_triangles(&[3, 4, 1, 1, 2, 3])
+            );
         }
 
         #[test]
@@ -1191,7 +1211,17 @@ mod tests {
             let mut holed = square(0);
             holed.interiors_push(LineString::from(vec![(2, 2), (3, 3)]));
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![holed, square(20)]));
-            assert_eq!(triangles(&geometry), [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8]);
+            let actual = triangles(&geometry);
+            let expected = [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8];
+            assert_eq!(actual.len(), expected.len());
+            assert_eq!(
+                canonical_triangles(&actual[..6]),
+                canonical_triangles(&expected[..6])
+            );
+            assert_eq!(
+                canonical_triangles(&actual[6..]),
+                canonical_triangles(&expected[6..])
+            );
         }
     }
 

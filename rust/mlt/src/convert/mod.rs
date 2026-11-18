@@ -58,6 +58,25 @@ impl ContainerFormat {
     }
 }
 
+/// What a `GeoJSON` altitude of `0` stands for, after KML's `altitudeMode`.
+#[derive(Clone, Copy, Default, ValueEnum, Debug, PartialEq, Eq)]
+enum HeightModeArg {
+    /// Above mean sea level
+    #[default]
+    Absolute,
+    /// Above the terrain under each vertex
+    RelativeToGround,
+}
+
+impl From<HeightModeArg> for mlt_core::HeightMode {
+    fn from(mode: HeightModeArg) -> Self {
+        match mode {
+            HeightModeArg::Absolute => Self::Absolute,
+            HeightModeArg::RelativeToGround => Self::RelativeToGround,
+        }
+    }
+}
+
 /// CLI-facing subset of [`MbtType`] (hides the `hash_view` detail).
 #[derive(Clone, Copy, Default, ValueEnum, Debug, PartialEq)]
 enum MbtFormat {
@@ -375,6 +394,9 @@ pub struct ConvertArgs {
         help_heading = "GeoJSON input"
     )]
     z_step: Option<i8>,
+    /// What an altitude of `0` stands for (needs `--z-step`)
+    #[clap(long, value_name = "MODE", help_heading = "GeoJSON input")]
+    height_mode: Option<HeightModeArg>,
     #[command(flatten)]
     v2: V2EncoderArgs,
 }
@@ -527,6 +549,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         ("--max-zoom", args.max_zoom.is_some()),
         ("--layer", args.layer.is_some()),
         ("--z-step", args.z_step.is_some()),
+        ("--height-mode", args.height_mode.is_some()),
     ];
     if geojson_input {
         if args.max_zoom.is_none() {
