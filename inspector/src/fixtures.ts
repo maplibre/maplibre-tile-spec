@@ -177,7 +177,7 @@ export const AXES: Axis[] = [
     key: "heightMode",
     label: "height",
     section: "Geometry",
-    vocabulary: ["absolute", "relative-to-ground"],
+    vocabulary: ["absolute", "relative-to-ground", "clamp-to-ground"],
     of: field("heightMode"),
   },
   {

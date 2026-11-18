@@ -70,7 +70,9 @@ describe("indexFixtures", () => {
           "geometry": [
             "point",
           ],
-          "heightMode": [],
+          "heightMode": [
+            "clamp-to-ground",
+          ],
           "logical": [
             "componentwise-delta",
           ],
