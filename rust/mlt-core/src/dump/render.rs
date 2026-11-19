@@ -224,6 +224,11 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             }
             fmt_bits(n, |i| data[i / 8] >> (i % 8) & 1 == 1)
         }
+        #[cfg(feature = "unstable-v2")]
+        DecodeHint::Predicted => match crate::codecs::predicted::composition(data) {
+            Ok(composition) => fmt_composition(composition, data.len()),
+            Err(e) => format!("<undecodable: {e}>"),
+        },
         DecodeHint::Bool => fmt_res(RawStream::new(meta, data).decode_bools(dec)),
         DecodeHint::I32 => fmt_res(RawStream::new(meta, data).decode_ints::<i32>(dec)),
         DecodeHint::U32 | DecodeHint::GeometryType => {
@@ -242,6 +247,26 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             Err(_) => format!("<{} binary bytes>", data.len()),
         },
     }
+}
+
+/// The composition of a predicted vertex payload, e.g. `quad-corner, class streams, escaped, 812 B`.
+#[cfg(feature = "unstable-v2")]
+fn fmt_composition(composition: crate::codecs::predicted::Composition, len: usize) -> String {
+    use crate::codecs::predicted::{Layout, Predictor, Segmentation};
+    let predictor = match composition.predictor {
+        Predictor::Delta => "delta",
+        Predictor::QuadCorner => "quad-corner",
+        Predictor::LineContinuation => "line-continuation",
+    };
+    let segmentation = match composition.segmentation {
+        Segmentation::Flat => "one stream",
+        Segmentation::Class => "class streams",
+    };
+    let layout = match composition.layout {
+        Layout::SplitVarint => "split varint",
+        Layout::Escaped => "escaped",
+    };
+    format!("{predictor}, {segmentation}, {layout}, {len} B")
 }
 
 /// Render the first 96 of `n` presence bits as a `0`/`1` string.

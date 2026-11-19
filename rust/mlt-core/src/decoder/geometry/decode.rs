@@ -1,5 +1,7 @@
 use usize_cast::IntoUsize as _;
 
+#[cfg(feature = "unstable-v2")]
+use crate::codecs::predicted::{Run, RunKind};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
@@ -330,6 +332,56 @@ pub(crate) fn decode_topology(
     })
 }
 
+/// The rings and line parts of a layer, in vertex order, which predicted vertices are guessed over.
+/// Points belong to no run.
+#[cfg(feature = "unstable-v2")]
+pub(crate) fn vertex_runs(
+    types: &[GeometryType],
+    levels: &Levels,
+    dec: &mut Decoder,
+) -> MltResult<Vec<Run>> {
+    let present: Vec<&[u32]> = [
+        levels.geometries.as_deref(),
+        levels.parts.as_deref(),
+        levels.rings.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let Some((deepest, above)) = present.split_last() else {
+        return Ok(Vec::new());
+    };
+    let mut runs = dec.alloc(deepest.len().saturating_sub(1))?;
+    let at = |level: &[u32], idx: usize| {
+        level
+            .get(idx)
+            .copied()
+            .ok_or(MltError::GeometryIndexOutOfBounds(idx))
+    };
+    for (index, geometry_type) in types.iter().enumerate() {
+        let kind = if geometry_type.is_linestring() {
+            RunKind::Line
+        } else if geometry_type.is_polygon() {
+            RunKind::Ring
+        } else {
+            continue;
+        };
+        let mut range = index..index + 1;
+        for level in above {
+            range = at(level, range.start)?.into_usize()..at(level, range.end)?.into_usize();
+        }
+        for run in range {
+            let start = at(deepest, run)?;
+            let len = at(deepest, run + 1)?.checked_sub(start).or_overflow()?;
+            if runs.len() == runs.capacity() {
+                return Err(MltError::GeometryIndexOutOfBounds(run));
+            }
+            runs.push(Run { start, len, kind });
+        }
+    }
+    Ok(runs)
+}
+
 /// Turn one triangle count per polygon feature into offsets, starting at `0`.
 fn decode_triangle_offsets(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<u32>> {
     let alloc_size = lengths.len().checked_add(1).or_overflow()?;
@@ -341,6 +393,38 @@ fn decode_triangle_offsets(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<
         offsets.push(total);
     }
     Ok(offsets)
+}
+
+/// Decode the vertex stream once the topology `levels` is known, since predicted vertices are guessed over its runs.
+#[cfg_attr(
+    not(feature = "unstable-v2"),
+    expect(unused_variables, reason = "only predicted vertices read the topology")
+)]
+fn decode_vertex_stream(
+    stream: RawStream<'_>,
+    types: &[GeometryType],
+    levels: &Levels,
+    dictionary: bool,
+    dec: &mut Decoder,
+) -> MltResult<Vec<i32>> {
+    #[cfg(feature = "unstable-v2")]
+    if stream.meta.encoding.logical == LogicalEncoding::Vertex(VertexLogical::Predicted) {
+        if dictionary {
+            return Err(MltError::UnsupportedLogicalEncoding(
+                stream.meta.encoding.logical,
+                "a vertex dictionary",
+            ));
+        }
+        let words = stream.meta.num_words()?;
+        if !words.is_multiple_of(2) {
+            return Err(MltError::MalformedPredictedVertices(
+                "odd vertex word count",
+            ));
+        }
+        let runs = vertex_runs(types, levels, dec)?;
+        return crate::codecs::predicted::decode(stream.data, &runs, words / 2, dec);
+    }
+    stream.decode_ints::<i32>(dec)
 }
 
 impl<'a> RawGeometry<'a> {
@@ -401,7 +485,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
         let mut vertex_offsets: Option<Vec<u32>> = None;
         let mut index_buffer: Option<Vec<u32>> = None;
         let mut triangles: Option<Vec<u32>> = None;
-        let mut vertices: Option<Vec<i32>> = None;
+        let mut vertex_stream: Option<RawStream<'_>> = None;
         #[cfg(feature = "unstable-v2")]
         let mut z_axis = None;
         #[cfg(feature = "unstable-v2")]
@@ -420,7 +504,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                         {
                             z_axis = Some(step);
                         }
-                        vertices.set_once(stream.decode_ints::<i32>(dec)?)?;
+                        vertex_stream.set_once(stream)?;
                     }
                     DictionaryType::None
                     | DictionaryType::Single
@@ -498,11 +582,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             }
         }
 
-        let Levels {
-            geometries: geometry_offsets,
-            parts: part_offsets,
-            rings: ring_offsets,
-        } = decode_topology(
+        let levels = decode_topology(
             &vector_types,
             Levels {
                 geometries: geometry_offsets,
@@ -511,6 +591,22 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             },
             dec,
         )?;
+        let mut vertices = vertex_stream
+            .map(|stream| {
+                decode_vertex_stream(
+                    stream,
+                    &vector_types,
+                    &levels,
+                    vertex_offsets.is_some(),
+                    dec,
+                )
+            })
+            .transpose()?;
+        let Levels {
+            geometries: geometry_offsets,
+            parts: part_offsets,
+            rings: ring_offsets,
+        } = levels;
         let triangle_offsets = triangles
             .map(|lengths| decode_triangle_offsets(&lengths, dec))
             .transpose()?;

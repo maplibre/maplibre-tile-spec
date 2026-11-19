@@ -29,7 +29,8 @@ impl Arbitrary<'_> for EncoderConfig {
             .with_wire_version(u.arbitrary()?)
             .with_float_dict(u.arbitrary()?)
             .with_float_alp(u.arbitrary()?)
-            .with_triangles_only(u.arbitrary()?);
+            .with_triangles_only(u.arbitrary()?)
+            .with_predicted_vertices(u.arbitrary()?);
         Ok(config)
     }
 }
