@@ -1,8 +1,5 @@
 package org.maplibre.mlt.cli
 
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
-
 const val ENV_COMPRESSION_RATIO_THRESHOLD = "MLT_COMPRESSION_RATIO_THRESHOLD"
 const val DEFAULT_COMPRESSION_RATIO_THRESHOLD = 0.98
 val compressionRatioThreshold by lazy { computeCompressionRatioThreshold() }
@@ -24,17 +21,9 @@ const val DEFAULT_CACHE_MAX_HEAP_PERCENT = 0.0
 const val ENV_CACHE_MAX_HEAP_PERCENT = "MLT_CACHE_MAX_HEAP_PERCENT"
 val cacheMaxHeapPercent by lazy { computeCacheMaxHeapPercent() }
 
-const val ENV_CACHE_EXPIRE = "MLT_CACHE_EXPIRE"
-val DEFAULT_CACHE_EXPIRE = 0.seconds
-val cacheExpireAfterAccess by lazy { computeCacheExpireAfterAccess() }
-
 const val ENV_THREAD_QUEUE_SIZE = "MLT_THREAD_QUEUE_SIZE"
 const val DEFAULT_THREAD_QUEUE_SIZE = 10_000
 val threadQueueSize by lazy { computeThreadQueueSize() }
-
-const val ENV_CACHE_AVERAGE_WEIGHT = "MLT_CACHE_AVERAGE_SIZE"
-const val DEFAULT_CACHE_AVERAGE_WEIGHT = 4 * 1024
-val cacheAverageEntrySize by lazy { computeCacheAverageEntrySize() }
 
 const val ENV_CACHE_BLOCK_SIZE = "MLT_CACHE_BLOCK_SIZE"
 const val DEFAULT_CACHE_BLOCK_SIZE = 16 * 1024
@@ -90,24 +79,10 @@ internal fun computeCacheMaxHeapPercent(): Double =
         }
     }
 
-internal fun computeCacheExpireAfterAccess() =
-    resolveConfigValue(ENV_CACHE_EXPIRE, DEFAULT_CACHE_EXPIRE, Duration::parse).also {
-        if (it.isNegative()) {
-            throw IllegalArgumentException("Cache expire duration must be non-negative")
-        }
-    }
-
 internal fun computeThreadQueueSize() =
     resolveConfigValue(ENV_THREAD_QUEUE_SIZE, DEFAULT_THREAD_QUEUE_SIZE, String::toInt).also {
         if (it < 1) {
             throw IllegalArgumentException("Thread queue size must be positive")
-        }
-    }
-
-internal fun computeCacheAverageEntrySize() =
-    resolveConfigValue(ENV_CACHE_AVERAGE_WEIGHT, DEFAULT_CACHE_AVERAGE_WEIGHT, String::toInt).also {
-        if (it < 0) {
-            throw IllegalArgumentException("Cache average weight must not be negative")
         }
     }
 
