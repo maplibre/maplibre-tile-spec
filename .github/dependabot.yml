@@ -41,10 +41,8 @@ updates:
         patterns:
           - "*"
 
-  - package-ecosystem: gradle  # should this be "maven" or "gradle"?
+  - package-ecosystem: gradle
     directory: "/java"
-    # Version updates only; security updates are raised as advisories come in,
-    # independent of this schedule.
     schedule:
       interval: yearly
     groups:
