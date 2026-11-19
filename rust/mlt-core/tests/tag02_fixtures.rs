@@ -4,8 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use mlt_core::dump::{DumpTree, annotate_tile};
-use mlt_core::encoder::{EncoderConfig, WireVersion};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, MltError, Parser, TileLayer};
 use rstest::rstest;

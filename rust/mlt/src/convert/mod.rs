@@ -827,7 +827,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use futures::TryStreamExt as _;
-    use pmtiles::{AsyncPmTilesReader, HashMapCache, MmapBackend, TileCoord, TileType};
+    use pmtiles::{AsyncPmTilesReader, FileBackend, HashMapCache, TileCoord, TileType};
 
     use super::*;
 
@@ -870,7 +870,7 @@ mod tests {
         }
     }
 
-    type TestReader = AsyncPmTilesReader<MmapBackend, HashMapCache>;
+    type TestReader = AsyncPmTilesReader<FileBackend, HashMapCache>;
 
     fn read_archive(path: &Path) -> (TileType, Bounds, Vec<(u8, u32, u32)>) {
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -879,7 +879,7 @@ mod tests {
             .expect("runtime builds");
         runtime.block_on(async {
             let reader = Arc::new(
-                TestReader::new_with_cached_path(HashMapCache::default(), path)
+                TestReader::new_with_path_and_cache(path, HashMapCache::default())
                     .await
                     .expect("output archive opens"),
             );

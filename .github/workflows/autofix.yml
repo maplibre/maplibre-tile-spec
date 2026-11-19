@@ -17,6 +17,8 @@ jobs:
   autofix:
     name: Autofix
     runs-on: ubuntu-latest
+    # Successful runs take up to ~8.5 min; a hung hook would otherwise run until GitHub's 6h limit
+    timeout-minutes: 20
     permissions: { contents: read }
     if: |
       github.event.action == 'opened' ||
@@ -60,7 +62,7 @@ jobs:
               - 'rust/mlt/**'
               - 'rust/mlt-core/**'
 
-      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with: { tool: 'just' }
 
       # TypeScript
@@ -96,7 +98,7 @@ jobs:
 
       - name: Setup Java for jextract
         if: steps.filter.outputs.ffi == 'true'
-        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: 'temurin'
           java-version: '25'
@@ -136,6 +138,8 @@ jobs:
   bless:
     name: Bless test output
     runs-on: ubuntu-latest
+    # Runs every component's tests; no successful run to measure, so generous
+    timeout-minutes: 60
     permissions:
       contents: read
     if: |
@@ -160,7 +164,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js

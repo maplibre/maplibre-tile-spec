@@ -1,7 +1,6 @@
 //! Helpers shared across the encoding entry points (independent of input format).
 
-use mlt_core::encoder::{EncoderConfig, Tessellation};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
