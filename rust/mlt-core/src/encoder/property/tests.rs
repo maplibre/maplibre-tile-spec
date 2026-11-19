@@ -9,10 +9,9 @@ use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
 use crate::encoder::optimizer::{Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::property::encode::write_prop;
 use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId,
-    StagedProperty, StagedSharedDict, stage_tile,
+    Codecs, Encoder, EncoderConfig, IntEncoder, LogicalEncoder, Network, PhysicalEncoder, Profile,
+    StagedId, StagedProperty, StagedSharedDict, stage_tile,
 };
-use crate::encoder::{Network, Profile};
 use crate::test_helpers::{dec, parser};
 use crate::{
     DictRange, Extent, GeometryValues, Layer, MltError, MltResult, PropValue, TileFeature,

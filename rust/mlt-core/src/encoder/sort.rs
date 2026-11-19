@@ -117,7 +117,6 @@ pub(crate) fn curve_params(source: &impl LayerSource) -> CurveParams {
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{Network, Profile};
     use geo_types::{
         Coord, Geometry as GeoGeom, Geometry, GeometryCollection, Line, LineString,
         MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, Rect, Triangle,
@@ -127,7 +126,8 @@ mod tests {
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry};
     use crate::encoder::model::CurveParams;
     use crate::encoder::{
-        Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile,
+        Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Network, Profile,
+        SortStrategy, stage_tile,
     };
     use crate::test_helpers::{assert_empty, dec, into_layer01, parser};
     use crate::tile::{TileFeature, TileLayer};
