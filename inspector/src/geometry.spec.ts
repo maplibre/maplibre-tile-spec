@@ -8,9 +8,12 @@ import type {
 import {
   extentOf,
   factsOf,
+  hasMeshes,
   hueOf,
   layerOf,
   layersOf,
+  meshScene,
+  metresPerUnit,
   runsOf,
   triangleHues,
   vertexCount,
@@ -340,5 +343,80 @@ describe("triangleHues", () => {
       geometry: { ...meshes.geometry, layout: "outlines" as const },
     };
     expect(triangleHues(tileOf(plain, outlines)).size).toBe(0);
+  });
+});
+
+describe("hasMeshes", () => {
+  it("finds a Meshes layer in the whole tile, or under the scoped name", () => {
+    const meshes = meshLayer("buildings", [mesh(1)]);
+    const outlines = {
+      ...meshLayer("roads", [mesh(1)]),
+      geometry: { ...meshes.geometry, layout: "outlines" as const },
+    };
+    const tile = tileOf(outlines, meshes);
+    expect(hasMeshes(tile, null)).toBe(true);
+    expect(hasMeshes(tile, "buildings")).toBe(true);
+    expect(hasMeshes(tile, "roads")).toBe(false);
+    expect(hasMeshes(tileOf(outlines), null)).toBe(false);
+  });
+});
+
+describe("meshScene", () => {
+  it("lays mesh triangles out as x, height in tile units, y, with each triangle's hue", () => {
+    const house = meshLayer(
+      "buildings",
+      [mesh(2)],
+      [strings("surface", [["roof", "wall"]])],
+      { zStep: -1 },
+    );
+    const scene = meshScene(tileOf(house), null, 2);
+    expect(Array.from(scene.positions)).toEqual([
+      0, 0, 0, 0, 0, 1, 1, 0.25, 0, 1, 0, 0, 1, 0, 1, 2, 0.25, 0,
+    ]);
+    expect(Array.from(scene.hues)).toEqual([0, 1]);
+    expect(scene.legend).toEqual([
+      { value: "roof", hue: 0 },
+      { value: "wall", hue: 1 },
+    ]);
+  });
+
+  it("reads each mesh's triangles from the layer-wide index buffer", () => {
+    const street = meshLayer("buildings", [mesh(1), mesh(1)]);
+    const scene = meshScene(tileOf(street), null, 1);
+    expect(Array.from(scene.positions)).toEqual([
+      0, 0, 0, 0, 0, 1, 1, 5, 0, 0, 0, 0, 0, 0, 1, 1, 5, 0,
+    ]);
+  });
+
+  it("leaves out layers that are not meshes, and layers outside the scoped one", () => {
+    const house = meshLayer("buildings", [mesh(1)]);
+    const shed = meshLayer("sheds", [mesh(1)]);
+    const outline = {
+      ...meshLayer("outlines", [mesh(1)]),
+      geometry: { ...house.geometry, layout: "outlines" as const },
+    };
+    expect(
+      meshScene(tileOf(house, shed, outline), "sheds", 1).positions,
+    ).toEqual(new Float32Array([0, 0, 0, 0, 0, 1, 1, 5, 0]));
+    expect(meshScene(tileOf(outline), null, 1).positions.length).toBe(0);
+  });
+
+  it("gives a triangle without a triangle column the hue past the palette", () => {
+    const plain = meshLayer("buildings", [mesh(1)]);
+    const scene = meshScene(tileOf(plain), null, 1);
+    expect(Array.from(scene.hues)).toEqual([6]);
+  });
+});
+
+describe("metresPerUnit", () => {
+  it("reads the tile's latitude and zoom from a z/x/y address", () => {
+    expect(
+      metresPerUnit("http://localhost:5181/16/33561/21645.mlt", 4096),
+    ).toBeCloseTo(0.0918986, 6);
+  });
+
+  it("takes a unit as a metre when the address names no tile", () => {
+    expect(metresPerUnit("0x02/mesh_roof_wall", 64)).toBe(1);
+    expect(metresPerUnit(null, 4096)).toBe(1);
   });
 });
