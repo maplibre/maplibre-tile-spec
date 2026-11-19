@@ -423,6 +423,7 @@ watch(
       :error="tile?.error ?? null"
       :tile="decoded"
       :columns="columns"
+      :address="href ?? fixture"
     />
     <section v-else class="empty">
       <a
