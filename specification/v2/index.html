@@ -552,6 +552,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#meshes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Meshes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#z-coordinates" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -927,7 +938,7 @@ This page describes that implementation.
 Where the two disagree, the implementation is authoritative.</p>
 </div>
 <h2 id="differences-from-v1">Differences from v1<a class="headerlink" href="#differences-from-v1" title="Link to this section">&para;</a></h2>
-<p>v2 extends v1's <a href="../../overview/">data model</a> with Z and M values and nested properties, and adds a few minor restrictions.
+<p>v2 extends v1's <a href="../../overview/">data model</a> with Z and M values, nested properties and meshes, and adds a few minor restrictions.
 It also changes the byte layout to make tiles smaller.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 150" role="img" aria-label="One v2 feature: a line whose vertices carry an elevation and a lane count, a ref property holding a list and a name property holding a map" xmlns="http://www.w3.org/2000/svg">
 <text class="bold mid" x="170" y="14">geometry</text>
@@ -953,6 +964,7 @@ It also changes the byte layout to make tiles smaller.</p>
 <li><strong>Z-values.</strong> Every vertex can carry an elevation. See <a href="#z-coordinates">Z coordinates</a>.</li>
 <li><strong>M-values.</strong> Every vertex can carry any number of values, such as road lane count and colors, or a timestamp per GPS fix. See <a href="#m-values">M-values</a>.</li>
 <li><strong>Nested properties.</strong> Maps and lists stay maps and lists instead of being flattened into columns like <code>name:en</code> and <code>name:de</code>. See <a href="#nested-properties">nested properties</a>.</li>
+<li><strong>Meshes.</strong> A layer can hold 3D triangle meshes, such as landmark buildings, with heights above the ground and <a href="#m-values">m-values</a> per vertex or per triangle. See <a href="#meshes">meshes</a>.</li>
 <li><strong>Smaller metadata.</strong> A stream needs one byte instead of four or more, since its role, value count and byte length are implied wherever they can be derived.</li>
 </ul>
 <p><svg class="mlt-diagram" viewBox="0 0 710 130" role="img" aria-label="Per-stream metadata: v1 writes a stream type, an encoding, a value count and a byte length; v2 writes one encoding byte and implies the rest" xmlns="http://www.w3.org/2000/svg">
@@ -1104,12 +1116,8 @@ An encoder given an extent v2 cannot encode MUST reject the layer rather than ro
 <td>The <a href="#geometry-section">geometry section</a> leads with a types stream</td>
 </tr>
 <tr>
-<td style="text-align: right;"><code>0x1</code>-<code>0x6</code></td>
+<td style="text-align: right;"><code>0x1</code>-<code>0x7</code></td>
 <td>No types stream, since every feature has <a href="#geometry-types">geometry type</a> <code>code - 1</code></td>
-</tr>
-<tr>
-<td style="text-align: right;"><code>0x7</code></td>
-<td>Reserved, MUST be rejected</td>
 </tr>
 </tbody>
 </table>
@@ -1409,7 +1417,7 @@ Which streams it contains is given by the geometry layout nibble.</p>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                    [part lengths]               } present per the layout
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>                    [ring lengths]              /
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                    [triangle lengths]          \
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                    [tree symbols]               } tessellated layouts only
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                    [tree symbols]               } tessellated and mesh layouts only
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>                    [tree cycles]               /
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>                    [vertex stream]             every vertex, or the distinct ones
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>                    [vertex offsets]            dictionary layouts only
@@ -1427,6 +1435,7 @@ Each stream's role is given by its position.</p>
 <th><code>0x3</code></th>
 <th><code>0x4</code></th>
 <th><code>0x5</code></th>
+<th><code>0x6</code></th>
 </tr>
 </thead>
 <tbody>
@@ -1438,12 +1447,15 @@ Each stream's role is given by its position.</p>
 <td><code>MultiPoint</code></td>
 <td><code>MultiLineString</code></td>
 <td><code>MultiPolygon</code></td>
+<td><code>Mesh</code></td>
 </tr>
 </tbody>
 </table>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types" target="_blank">View example</a> - all six kinds in one layer, so the types stream carries each.</p>
 <p>The types stream holds one of these per feature.
 A layer whose features all share one type writes the <a href="#uniform-geometry-type">uniform geometry type</a> nibble instead.</p>
+<p>A <code>Mesh</code>, a set of <code>(x, y, z)</code> vertices and the triangles between them, is held only by the <a href="#meshes"><code>Meshes</code></a> layout, which names it through the <a href="#uniform-geometry-type">uniform geometry type</a> <code>0x7</code>, type <code>6</code> plus one.
+A types stream therefore MUST NOT hold <code>6</code>, and a layer of any other layout MUST NOT name the uniform geometry type <code>0x7</code>.</p>
 <h3 id="geometry-layout">Geometry Layout<a class="headerlink" href="#geometry-layout" title="Link to this section">&para;</a></h3>
 <p>The low nibble of the layer layout byte:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fpoly.mlt&amp;at=layout" target="_blank">View example</a> - the <code>Polygons</code> layout: part and ring lengths, no vertex offsets.</p>
@@ -1633,10 +1645,22 @@ The streams it writes after that, in column order:</p>
 <td style="text-align: center;">all</td>
 <td style="text-align: center;"></td>
 </tr>
+<tr>
+<td style="text-align: right;"><code>0xE</code></td>
+<td><a href="#meshes">Meshes</a></td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">●</td>
+<td style="text-align: center;">all</td>
+<td style="text-align: center;"></td>
+</tr>
 </tbody>
 </table>
 <p><code>all</code> is every vertex in sequence, <code>distinct</code> the dictionary the vertex offsets index into.</p>
-<p><code>0xE</code> and <code>0xF</code> are unassigned and MUST be rejected.</p>
+<p><code>0xF</code> is unassigned and MUST be rejected.</p>
 <p>There is no layout with ring lengths but without part lengths.
 A tessellated layer either has no outline topology (<code>0xC</code>) or all three outline streams (<code>0xD</code>).
 A tessellated layer that needs only some of the outline streams uses <code>0xD</code> and writes the others as empty streams.</p>
@@ -2654,10 +2678,235 @@ A feature that is not a polygon stores no triangle count and owns no triangles.<
 </div>
 </div>
 </div>
+<h3 id="meshes">Meshes<a class="headerlink" href="#meshes" title="Link to this section">&para;</a></h3>
+<p>A <code>Meshes</code> layer (<code>0xE</code>) holds one 3D triangle mesh per feature, such as the model of a building.
+Every feature is a <a href="#geometry-types"><code>Mesh</code></a>, so the header byte MUST name the <a href="#uniform-geometry-type">uniform geometry type</a> <code>0x7</code>, and the layer writes no types stream.</p>
+<table>
+<thead>
+<tr>
+<th>Stream</th>
+<th>Holds</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Geo lengths</td>
+<td>One vertex count per feature</td>
+<td><code>feature_count</code></td>
+</tr>
+<tr>
+<td>Triangle lengths</td>
+<td>One triangle count per feature</td>
+<td><code>feature_count</code></td>
+</tr>
+<tr>
+<td>Tree symbols</td>
+<td>One <a href="#triangle-trees">symbol</a> per triangle</td>
+<td>Explicit</td>
+</tr>
+<tr>
+<td>Tree cycles</td>
+<td>The <a href="#triangle-trees">outline</a> of each tree of triangles</td>
+<td>Explicit</td>
+</tr>
+<tr>
+<td>Vertices</td>
+<td><code>(x, y, z)</code> <a href="#z-coordinates">triples</a></td>
+<td>Explicit</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The vertex stream MUST hold <code>(x, y, z)</code> triples, as elevations or as <a href="#heights-above-the-ground">heights above the ground</a>.</li>
+<li>Feature <code>f</code> owns the next <code>GeoLengths[f]</code> vertices, its vertex run, and the next <code>TriLengths[f]</code> triangles decoded from the <a href="#triangle-trees">triangle trees</a>.</li>
+<li>The geo lengths MUST sum to the number of vertices, and the triangle lengths to the number of tree symbols.</li>
+<li>Every corner of a triangle of feature <code>f</code> MUST name a vertex in the run of <code>f</code>.</li>
+</ul>
+<p>A decoder MUST reject a <code>Meshes</code> layer that breaks one of these rules.
+An encoder SHOULD NOT write a vertex that no triangle names, a triangle with a repeated corner, or two vertices of a feature with the same <code>(x, y, z)</code> and vertex-scoped m-values, but a decoder MUST accept them.</p>
+<p>The indices are layer-wide, so a whole layer goes to a GPU as one vertex buffer and one index buffer.
+Because each triangle stays within its feature's run, a feature can still be picked or extracted on its own.</p>
+<p>A pyramid roof, then a wall:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 403" role="img" aria-label="Two meshes: a pyramid roof of 5 vertices and 4 triangles, and a wall of 4 vertices and 2 triangles. Triangle lengths 4 and 2 split the decoded triangles, geo lengths 5 and 4 split the x, y, z vertices, and the wall's first triangle names layer-wide vertices 5, 6 and 7" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="mesh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="mesh1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<polygon class="f0" points="385.0,78.0 285.0,78.0 307.5,19.0"/>
+<polygon class="f0" points="330.0,110.0 385.0,78.0 307.5,19.0"/>
+<polygon class="f0" points="285.0,78.0 230.0,110.0 307.5,19.0"/>
+<polygon class="f0" points="230.0,110.0 330.0,110.0 307.5,19.0"/>
+<polygon class="f1" points="430.0,110.0 530.0,110.0 530.0,60.0"/>
+<polygon class="f1" points="430.0,110.0 530.0,60.0 430.0,60.0"/>
+<circle class="dot" cx="285.0" cy="78.0" r="3.5"/>
+<text class="vert halo" x="275.0" y="70.0">0</text>
+<circle class="dot" cx="385.0" cy="78.0" r="3.5"/>
+<text class="vert halo" x="391.0" y="68.0">1</text>
+<circle class="dot" cx="330.0" cy="110.0" r="3.5"/>
+<text class="vert halo" x="338.0" y="122.0">2</text>
+<circle class="dot" cx="230.0" cy="110.0" r="3.5"/>
+<text class="vert halo" x="220.0" y="122.0">3</text>
+<circle class="dot" cx="307.5" cy="19.0" r="3.5"/>
+<text class="vert halo" x="307.5" y="5.0">4</text>
+<circle class="dot" cx="430.0" cy="110.0" r="3.5"/>
+<text class="vert halo" x="422.0" y="122.0">5</text>
+<circle class="dot" cx="530.0" cy="110.0" r="3.5"/>
+<text class="vert halo" x="540.0" y="122.0">6</text>
+<circle class="dot" cx="530.0" cy="60.0" r="3.5"/>
+<text class="vert halo" x="542.0" y="54.0">7</text>
+<circle class="dot" cx="430.0" cy="60.0" r="3.5"/>
+<text class="vert halo" x="418.0" y="54.0">8</text>
+<text class="row" x="0" y="161">tri lengths</text>
+<text class="row" x="0" y="201">triangles</text>
+<text class="row" x="0" y="289">vertices</text>
+<text class="row" x="0" y="345">geo lengths</text>
+<rect class="f0" x="130" y="147" width="304" height="28" rx="3"/>
+<text class="cell" x="282" y="161">4</text>
+<rect class="f0" x="130" y="331" width="236" height="28" rx="3"/>
+<text class="cell" x="248" y="345">5</text>
+<rect class="f1" x="448" y="147" width="148" height="28" rx="3"/>
+<text class="cell" x="522" y="161">2</text>
+<rect class="f1" x="380" y="331" width="188" height="28" rx="3"/>
+<text class="cell" x="474" y="345">4</text>
+<rect class="f0" x="130" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="141" y="201">3</text>
+<rect class="f0" x="154" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="165" y="201">2</text>
+<rect class="f0" x="178" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="189" y="201">4</text>
+<rect class="f0" x="208" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="219" y="201">2</text>
+<rect class="f0" x="232" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="243" y="201">1</text>
+<rect class="f0" x="256" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="267" y="201">4</text>
+<rect class="f0" x="286" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="297" y="201">1</text>
+<rect class="f0" x="310" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="321" y="201">0</text>
+<rect class="f0" x="334" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="345" y="201">4</text>
+<rect class="f0" x="364" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="375" y="201">0</text>
+<rect class="f0" x="388" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="399" y="201">3</text>
+<rect class="f0" x="412" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="423" y="201">4</text>
+<rect class="f1" x="448" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="459" y="201">5</text>
+<rect class="f1" x="472" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="483" y="201">6</text>
+<rect class="f1" x="496" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="507" y="201">7</text>
+<rect class="f1" x="526" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="537" y="201">5</text>
+<rect class="f1" x="550" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="561" y="201">7</text>
+<rect class="f1" x="574" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="585" y="201">8</text>
+<rect class="pick" x="445" y="184" width="76" height="34" rx="5"/>
+<path class="link t1" d="M459 218C459 257 402 247 402 265" marker-end="url(#mesh1)"/>
+<path class="link t1" d="M483 218C483 257 450 247 450 265" marker-end="url(#mesh1)"/>
+<path class="link t1" d="M507 218C507 257 498 247 498 265" marker-end="url(#mesh1)"/>
+<text class="muted small" x="122" y="277" text-anchor="end">x</text>
+<text class="muted small" x="122" y="291" text-anchor="end">y</text>
+<text class="muted small" x="122" y="305" text-anchor="end">z</text>
+<rect class="f0" x="130" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="152" y="277">10</text>
+<text class="cell small" x="152" y="291">10</text>
+<text class="cell small" x="152" y="305">0</text>
+<text class="muted small mid" x="152" y="325">0</text>
+<rect class="f0" x="178" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="200" y="277">30</text>
+<text class="cell small" x="200" y="291">10</text>
+<text class="cell small" x="200" y="305">0</text>
+<text class="muted small mid" x="200" y="325">1</text>
+<rect class="f0" x="226" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="248" y="277">30</text>
+<text class="cell small" x="248" y="291">30</text>
+<text class="cell small" x="248" y="305">0</text>
+<text class="muted small mid" x="248" y="325">2</text>
+<rect class="f0" x="274" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="296" y="277">10</text>
+<text class="cell small" x="296" y="291">30</text>
+<text class="cell small" x="296" y="305">0</text>
+<text class="muted small mid" x="296" y="325">3</text>
+<rect class="f0" x="322" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="344" y="277">20</text>
+<text class="cell small" x="344" y="291">20</text>
+<text class="cell small" x="344" y="305">15</text>
+<text class="muted small mid" x="344" y="325">4</text>
+<rect class="f1" x="380" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="402" y="277">50</text>
+<text class="cell small" x="402" y="291">30</text>
+<text class="cell small" x="402" y="305">0</text>
+<text class="muted small mid" x="402" y="325">5</text>
+<rect class="f1" x="428" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="450" y="277">70</text>
+<text class="cell small" x="450" y="291">30</text>
+<text class="cell small" x="450" y="305">0</text>
+<text class="muted small mid" x="450" y="325">6</text>
+<rect class="f1" x="476" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="498" y="277">70</text>
+<text class="cell small" x="498" y="291">30</text>
+<text class="cell small" x="498" y="305">10</text>
+<text class="muted small mid" x="498" y="325">7</text>
+<rect class="f1" x="524" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="546" y="277">50</text>
+<text class="cell small" x="546" y="291">30</text>
+<text class="cell small" x="546" y="305">10</text>
+<text class="muted small mid" x="546" y="325">8</text>
+<path class="bracket t0" d="M130 371V377H366V371"/>
+<text class="t0 bold" x="130" y="392">feature 0</text>
+<path class="bracket t1" d="M380 371V377H568V371"/>
+<text class="t1 bold" x="380" y="392">feature 1</text>
+</svg></p>
+<p>The order of a feature's vertices and of its triangles carries no meaning, so an encoder MAY choose both, such as to compress better, as long as each m-value stays with its <a href="#the-vertex-sequence">vertex</a> or <a href="#the-triangle-sequence">triangle</a>.</p>
+<h4 id="tile-boundaries">Tile Boundaries<a class="headerlink" href="#tile-boundaries" title="Link to this section">&para;</a></h4>
+<p>An encoder MUST NOT clip a mesh to its tile.
+Its vertices MAY lie outside <code>0</code> to <code>extent</code>, as any vertex may, see <a href="../../overview/#geometry-and-extent">geometry and extent</a>.
+A tileset SHOULD store each mesh in only one tile per zoom level, the one that contains the center of the <code>(x, y)</code> bounding box of its vertices, so that a renderer draws it once.
+That center is also the point its <a href="#heights-above-the-ground">ground</a> is taken at.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 316" role="img" aria-label="Two neighbouring tiles and a mesh footprint that crosses the edge between them. The center of its bounding box lies in the left tile, which stores the whole mesh, unclipped; the right tile stores none of it" xmlns="http://www.w3.org/2000/svg">
+<rect class="grid" x="100" y="40" width="240" height="240"/>
+<rect class="grid" x="340" y="40" width="240" height="240"/>
+<polygon class="f0" points="210,110 400,110 400,170 290,170 290,230 210,230"/>
+<rect class="implicit" x="204" y="104" width="202" height="132"/>
+<circle class="dot" cx="305" cy="170" r="3.5"/>
+<text class="small halo" x="313" y="184">center</text>
+<text class="bold mid" x="220.0" y="302">stores the whole mesh</text>
+<text class="muted mid" x="460.0" y="302">stores none of it</text>
+<text class="muted small mid" x="340" y="28">x = extent</text>
+</svg></p>
+<h4 id="front-faces">Front Faces<a class="headerlink" href="#front-faces" title="Link to this section">&para;</a></h4>
+<p>An encoder MUST wind each triangle <code>(a, b, c)</code> counter-clockwise in <code>(x, -y, z)</code> (east, north, up) as seen from outside the mesh, as in glTF.
+Since tile <code>y</code> points south, a triangle facing up has a negative signed area in <code>(x, y)</code>, the opposite of an <a href="#polygon-rings">exterior ring</a>.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 250" role="img" aria-label="A mesh triangle facing up, wound a, b, c counter-clockwise as seen from above, so its signed area in tile x, y is negative, next to a polygon exterior ring, wound clockwise with a positive area" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ff" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="bold" x="40" y="14">mesh triangle facing up</text>
+<text class="muted small" x="40" y="34">ccw seen from above, area in (x, y) &lt; 0</text>
+<path class="f0 area" d="M60,230L240,230L150,70Z"/>
+<path class="f0 edge wind" d="M60,230L240,230L150,70Z"/>
+<path class="head t0" d="M145,225L154,230L145,235Z"/>
+<circle class="dot" cx="60" cy="230" r="3.5"/>
+<text class="vert halo" x="48" y="238">a</text>
+<circle class="dot" cx="240" cy="230" r="3.5"/>
+<text class="vert halo" x="252" y="238">b</text>
+<circle class="dot" cx="150" cy="70" r="3.5"/>
+<text class="vert halo" x="150" y="56">c</text>
+<text class="bold" x="400" y="14">polygon exterior ring</text>
+<text class="muted small" x="400" y="34">cw seen from above, area in (x, y) &gt; 0</text>
+<path class="f1 area" d="M400,70H580V230H400Z"/>
+<path class="f1 edge wind" d="M400,70H580V230H400Z"/>
+<path class="head t1" d="M485,65L494,70L485,75Z"/>
+<path class="link" d="M300 160H340" marker-end="url(#ff)"/>
+<path class="link" d="M300 160V200" marker-end="url(#ff)"/>
+<text class="muted small" x="346" y="160">x east</text>
+<text class="muted small mid" x="300" y="214">y south</text>
+</svg></p>
+<p>A renderer SHOULD NOT cull back faces unless it knows the mesh to be closed.</p>
 <h3 id="z-coordinates">Z Coordinates<a class="headerlink" href="#z-coordinates" title="Link to this section">&para;</a></h3>
 <p>A vertex stream MAY hold <code>(x, y, z)</code> triples instead of <code>(x, y)</code> pairs.
 Bit 0 of the extension field of its <a href="#encoding-byte">encoding byte</a> is <code>1</code> for triples and <code>0</code> for pairs.
-The z axis byte is the stream's <a href="#parameters">parameter</a>.
+A byte holding <code>z_step + 3</code>, plus <code>8</code> when <code>z</code> is a <a href="#heights-above-the-ground">height above the ground</a>, is the stream's <a href="#parameters">parameter</a>.
 <code>byte_length</code> does not count it.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="The z axis byte 0x0A: bits 7 to 4 are reserved and 0, bit 3 is 1 for relative to ground, bits 2 to 0 hold 2 for a 1 dm step. Below, z = 400 at 1 dm is 40 m: byte 0x02 puts the vertex 40 m above sea level, byte 0x0A puts it 40 m above the terrain, and a layer without z sits on the terrain" xmlns="http://www.w3.org/2000/svg">
 <text class="row" x="0" y="54">z_axis</text>
@@ -2767,32 +3016,8 @@ Bits 7-4 are reserved, and a byte with any of them set MUST be rejected.</p>
 </tr>
 </tbody>
 </table>
-<p>The height mode says what <code>z = 0</code> stands for, with the names of KML's <code>altitudeMode</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Bit 3</th>
-<th>Mode</th>
-<th><code>z = 0</code> is</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>0</code></td>
-<td><code>absolute</code></td>
-<td>mean sea level</td>
-</tr>
-<tr>
-<td><code>1</code></td>
-<td><code>relativeToGround</code></td>
-<td>the terrain under the vertex</td>
-</tr>
-</tbody>
-</table>
-<p>A layer without <code>z</code> is <code>clampToGround</code>, and its vertices lie on the terrain.
-A renderer with no terrain reads the terrain as sea level, so <code>relativeToGround</code> reads as <code>absolute</code>.</p>
-<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_height_absolute.mlt&amp;at=vertices" target="_blank">View example</a> - a line 412 m to 418 m above sea level, bit 3 clear.</p>
-<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_height_relative_to_ground.mlt&amp;at=vertices" target="_blank">View example</a> - a line 12 m to 18 m above the terrain, bit 3 set.</p>
+<p>Bytes <code>8</code>-<code>15</code> mark a mesh's <a href="#heights-above-the-ground">heights above the ground</a> on the same steps.
+Bytes <code>16</code>-<code>255</code> are reserved and MUST be rejected.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices" target="_blank">View example</a> - a polygon with a hole at a <code>z_step</code> of <code>-1</code>, one unit per decimeter.</p>
 <p><code>z</code> is a signed 32-bit word like <code>x</code> and <code>y</code>, so a point below its base has a negative <code>z</code>.
 At the finest step the grid spans about 2147 km either side of the base.</p>
@@ -2837,7 +3062,7 @@ At the finest step the grid spans about 2147 km either side of the base.</p>
 </svg></p>
 <p>Logical <code>None</code>, <code>Delta</code> and <code>Componentwise Delta</code> read as they do over pairs, with <code>Componentwise Delta</code> running over three components.
 A Morton code spans only <code>x</code> and <code>y</code>, so a vertex stream with bit 0 set and logical <code>Morton</code> MUST be rejected.
-<code>Componentwise Delta2</code> is defined only over pairs, so a vertex stream with bit 0 set and logical <code>Componentwise Delta2</code> MUST be rejected.
+<code>Componentwise Delta2</code> and <a href="../../encodings/#rans">rANS</a> are defined only over pairs, so a vertex stream with bit 0 set and either of them MUST be rejected.
 Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices" target="_blank">View example</a> - all six geometry types, each vertex an interleaved triple.</p>
 <p>The vertex stream is indexed, so (<span class="arithmatex">\(x_1, y_1, z_1, x_2, y_2, z_2, ..., x_i, y_i, z_i\)</span>) has index <span class="arithmatex">\(i\)</span>:</p>
@@ -2865,6 +3090,29 @@ A power-of-ten step represents such values exactly.
 <p>Because each vertex is three adjacent words, a decoded vertex buffer can go directly to a GPU, with no lookup into another stream to find its <code>z</code>.
 A layer without <code>z</code> is unaffected, since the extension bit marks which vertex streams carry it.</p>
 </details>
+<h4 id="heights-above-the-ground">Heights Above the Ground<a class="headerlink" href="#heights-above-the-ground" title="Link to this section">&para;</a></h4>
+<p>Bit 3 of the z step byte marks <code>z</code> as a height above the ground instead of an elevation:</p>
+<div class="arithmatex">\[
+\text{height} = z \cdot 10^{\,\mathit{byte} - 11}\,\text{m}
+\]</div>
+<p>Byte <code>9</code> is therefore a height on a 1 cm grid, and <code>z = 0</code> is the ground.
+A decoder MUST reject bytes <code>8</code>-<code>15</code> on a vertex stream of any layout but <a href="#meshes"><code>Meshes</code></a>.</p>
+<p>The ground of a mesh is the terrain elevation at the center of the <code>(x, y)</code> bounding box of its vertex run.
+The same ground is added to every vertex, so the mesh moves as a rigid body and is not draped over the terrain.
+The terrain is the renderer's, which the producer need not know, and is 0 m where the renderer has none.
+A producer SHOULD model a mesh's foundations below <code>z = 0</code>, down to the lowest terrain under its footprint, so that the mesh does not float on a slope.</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 280" role="img" aria-label="A side view of a mesh on a slope. The terrain under the center of its (x, y) bounding box is its ground, z = 0, and its foundations reach below z = 0 to the lowest terrain under its footprint" xmlns="http://www.w3.org/2000/svg">
+<polygon class="land" points="40,280 40,140.0 670,266.0 670,280"/>
+<polygon class="f0" points="230,214.0 230,106.0 320,71.0 410,106.0 410,214.0"/>
+<path class="implicit" d="M60 196.0H560"/>
+<text class="small" x="566" y="196.0">z = 0</text>
+<circle class="dot" cx="320" cy="196.0" r="3.5"/>
+<text class="small mid halo" x="320" y="182.0">ground</text>
+<path class="bracket" d="M230 61.0V55.0H410V61.0"/>
+<text class="muted small mid" x="320" y="43.0">(x, y) bounding box</text>
+<path class="bracket" d="M418 196.0H424V214.0H418"/>
+<text class="small" x="432" y="205.0">foundations, z &lt; 0</text>
+</svg></p>
 <h2 id="columns">Attribute Columns<a class="headerlink" href="#columns" title="Link to this section">&para;</a></h2>
 <p><code>column_count</code> columns follow the geometry section.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>column := [u8 column_type]
@@ -4397,30 +4645,142 @@ It reads them against its own count, and is otherwise identical to such a column
 <ul>
 <li>a distance along a road,</li>
 <li>a timestamp per GPS fix,</li>
-<li>a width that varies along a river.</li>
+<li>a width that varies along a river,</li>
+<li>a color per mesh vertex, or a building part per mesh triangle.</li>
 </ul>
-<p>A layer stores them as named columns that run over its vertices instead of its features.</p>
+<p>A layer stores them as named columns that run over its vertices instead of its features.
+In a <a href="#meshes"><code>Meshes</code></a> layer, a column can instead run over the triangles, such as the building part, like a roof, each triangle belongs to.
+Its <a href="#scope">scope</a> says which.</p>
+<p>A renderer can upload a vertex-scoped column as a vertex attribute, such as a color, once it has filled in the features the column is <a href="#nulls">null</a> on.
+The format gives no meaning to a column's name: which column becomes which attribute is up to the style or the renderer.</p>
 <p>The section is present only when bit 7 of the <a href="#layer-header-byte">layer header byte</a> is set, and is then the last thing in the layer body.
 Its column count comes from the layer's <a href="#column-counts">column counts</a> varint, so the section itself starts with its first column.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>m_value_section := m_value_column * m_value_count
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>m_value_column  := [u8 column_type]           presence nibble over data type, as for a column
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>                   [string name]
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>                   [presence field]           only when the presence nibble names an encoding
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>                   [data streams]             one, or a set, per the data type
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>                   [u8 scope]                 only in a Meshes layer, see Scope
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>                   [string name]
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>                   [presence field]           only when the presence nibble names an encoding
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>                   [data streams]             one, or a set, per the data type
 </span></code></pre></div>
 <p>An m-value column reads the same <a href="#column-type-byte">column type byte</a>, the same <a href="#presence-nibble">presence nibble</a> and the same data streams as a <a href="#columns">column</a>.
-Only its value count differs.
+Only its value count differs, and, in a <code>Meshes</code> layer, its <a href="#scope">scope</a> byte.
 Its name comes from the layer's one namespace of <a href="#column-names">column names</a>, which the counted columns share.
 An m-value column is not counted in <code>column_count</code>.</p>
 <h4 id="data-types-in-m-value-columns">Data Types in M-Value Columns<a class="headerlink" href="#data-types-in-m-value-columns" title="Link to this section">&para;</a></h4>
 <p><code>Bool</code> through <code>String</code>, codes <code>0x2</code>-<code>0xB</code>, carry exactly the streams they carry in a property column.
 <code>0x0</code>, <code>0x1</code> and <code>0xC</code>-<code>0xF</code> are reserved and MUST be rejected.
-A vertex carries a measurement, not a structure.</p>
+A vertex or a triangle carries a measurement, not a structure.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt" target="_blank">View example</a> - an <code>i32</code> and a <code>u32</code> m-value column.</p>
+<h4 id="scope">Scope<a class="headerlink" href="#scope" title="Link to this section">&para;</a></h4>
+<p>An m-value column of a <a href="#meshes"><code>Meshes</code></a> layer writes a scope byte after its column type byte:</p>
+<table>
+<thead>
+<tr>
+<th>Byte</th>
+<th>Scope</th>
+<th>One value per</th>
+<th>In the order of</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Vertex</td>
+<td>vertex</td>
+<td>the <a href="#the-vertex-sequence">vertex sequence</a></td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Triangle</td>
+<td>triangle</td>
+<td>the <a href="#the-triangle-sequence">triangle sequence</a></td>
+</tr>
+<tr>
+<td><code>2</code>-<code>255</code></td>
+<td>Reserved, MUST be rejected</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>An m-value column under any other layout writes no scope byte and is vertex-scoped.
+A <code>Meshes</code> layer MAY hold columns of both scopes.</p>
+<p><code>shade</code> and <code>part</code> over the <a href="#meshes">meshes</a> example, with <code>shade</code> null on feature 1:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 206" role="img" aria-label="shade, vertex-scoped, holds 5 values for the 5 vertices of feature 0 and is null on feature 1; part, triangle-scoped, holds roof for the 4 triangles of feature 0 and wall for the 2 of feature 1" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">vertices</text>
+<text class="row" x="0" y="94">shade</text>
+<text class="row" x="0" y="144">triangles</text>
+<text class="row" x="0" y="184">part</text>
+<text class="muted small" x="0" y="110">vertex</text>
+<text class="muted small" x="0" y="200">triangle</text>
+<text class="bold mid t0" x="248" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H366V34"/>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">0</text>
+<rect class="f0" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="94">200</text>
+<rect class="f0" x="178" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="54">1</text>
+<rect class="f0" x="178" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="94">200</text>
+<rect class="f0" x="226" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="54">2</text>
+<rect class="f0" x="226" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="94">200</text>
+<rect class="f0" x="274" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="54">3</text>
+<rect class="f0" x="274" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="94">200</text>
+<rect class="f0" x="322" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="54">4</text>
+<rect class="f0" x="322" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="94">255</text>
+<rect class="f0" x="130" y="130" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="144">0</text>
+<rect class="f0" x="130" y="170" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="184">roof</text>
+<rect class="f0" x="190" y="130" width="56" height="28" rx="3"/>
+<text class="cell" x="218" y="144">1</text>
+<rect class="f0" x="190" y="170" width="56" height="28" rx="3"/>
+<text class="cell" x="218" y="184">roof</text>
+<rect class="f0" x="250" y="130" width="56" height="28" rx="3"/>
+<text class="cell" x="278" y="144">2</text>
+<rect class="f0" x="250" y="170" width="56" height="28" rx="3"/>
+<text class="cell" x="278" y="184">roof</text>
+<rect class="f0" x="310" y="130" width="56" height="28" rx="3"/>
+<text class="cell" x="338" y="144">3</text>
+<rect class="f0" x="310" y="170" width="56" height="28" rx="3"/>
+<text class="cell" x="338" y="184">roof</text>
+<text class="bold mid t1" x="474" y="14">feature 1</text>
+<path class="bracket t1" d="M380 34V28H568V34"/>
+<rect class="f1" x="380" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="402" y="54">5</text>
+<rect class="f1" x="428" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="450" y="54">6</text>
+<rect class="f1" x="476" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="498" y="54">7</text>
+<rect class="f1" x="524" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="546" y="54">8</text>
+<rect class="implicit" x="380" y="80" width="188" height="28" rx="3"/>
+<text class="cell muted" x="474" y="94">null</text>
+<rect class="f1" x="380" y="130" width="92" height="28" rx="3"/>
+<text class="cell" x="426" y="144">4</text>
+<rect class="f1" x="380" y="170" width="92" height="28" rx="3"/>
+<text class="cell" x="426" y="184">wall</text>
+<rect class="f1" x="476" y="130" width="92" height="28" rx="3"/>
+<text class="cell" x="522" y="144">5</text>
+<rect class="f1" x="476" y="170" width="92" height="28" rx="3"/>
+<text class="cell" x="522" y="184">wall</text>
+</svg></p>
+<details class="question">
+<summary>Why a triangle scope</summary>
+<p>A building part such as <code>roof</code> or <code>window</code> belongs to a face, not a vertex.
+Storing it per vertex would duplicate every <code>(x, y, z)</code> position where two parts meet and split the <a href="#triangle-trees">triangle tree</a> along that seam; storing it per triangle keeps each shared vertex once and splits vertices only on the client when needed.</p>
+</details>
 <h4 id="the-vertex-sequence">The Vertex Sequence<a class="headerlink" href="#the-vertex-sequence" title="Link to this section">&para;</a></h4>
 <p>A layer's vertex sequence is every vertex of every feature, in feature order, as the <a href="#geometry-section">geometry section</a>'s topology streams lay them out.
 Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> vertices.</p>
-<p>An m-value column holds one value per vertex of that run, in the same order.</p>
+<p>A vertex-scoped m-value column holds one value per vertex of that run, in the same order.</p>
 <p><code>dist</code> and <code>height</code> from <a href="#examples"><code>mvalues</code></a>, with <code>height</code> null on feature 1:</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 196" role="img" aria-label="mvalues: three lines of 3, 3 and 2 vertices; dist holds one value per vertex, height none for the null feature 1" xmlns="http://www.w3.org/2000/svg">
 <text class="row" x="0" y="54">part lengths</text>
@@ -4491,13 +4851,19 @@ Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> ver
 <li>Under a dictionary layout the sequence is the one the vertex offsets stream spells out, not the distinct vertices the vertex stream holds.
   Two vertices that share a dictionary entry still have an m-value each.</li>
 <li>Under <code>TessPolygonsWithOutlines</code> the sequence is the outline vertices, which the triangles index into.</li>
+<li>Under <code>Meshes</code> the sequence is the vertex stream, and <code>vertex_count(f)</code> is the geo length of feature <code>f</code>, its <a href="#meshes">vertex run</a>.</li>
 </ul>
+<h4 id="the-triangle-sequence">The Triangle Sequence<a class="headerlink" href="#the-triangle-sequence" title="Link to this section">&para;</a></h4>
+<p>A <code>Meshes</code> layer's triangle sequence is every triangle of every feature, in the order the <a href="#triangle-trees">triangle trees</a> decode them.
+Each feature holds one contiguous run of it, of <code>triangle_count(f)</code> triangles, the triangle length of feature <code>f</code>.</p>
+<p>A triangle-scoped column holds one value per triangle of that run, in the same order.
+The tree symbols fix that order, which need not be the one the encoder was given the triangles in.</p>
 <h4 id="nulls">Nulls<a class="headerlink" href="#nulls" title="Link to this section">&para;</a></h4>
-<p>M-value columns are nullable at the feature level, not the vertex level.
-A single vertex's m-value cannot be null.
+<p>M-value columns are nullable at the feature level, not the vertex or triangle level.
+A single vertex's or triangle's m-value cannot be null.
 A whole feature's m-values can be null.</p>
 <h4 id="value-count">Value Count<a class="headerlink" href="#value-count" title="Link to this section">&para;</a></h4>
-<p>An m-value column's value count is the sum of <code>vertex_count(f)</code> over the features whose presence bit is set, which is every feature under presence nibble <code>0</code>.</p>
+<p>An m-value column's value count is the sum of <code>vertex_count(f)</code>, or of <code>triangle_count(f)</code> for a triangle-scoped column, over the features whose presence bit is set, which is every feature under presence nibble <code>0</code>.</p>
 <p>That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count.
 An m-value column's leading data stream MUST set bit 7 of its <a href="#encoding-byte">encoding byte</a> and write the count explicitly.
 The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one.
@@ -4532,6 +4898,10 @@ Delta encoding and RLE run through them without a break at each feature.</p>
 <tr>
 <td><code>0xD</code> TessPolygonsWithOutlines</td>
 <td>Allowed</td>
+</tr>
+<tr>
+<td><code>0xE</code> Meshes</td>
+<td>Allowed, vertex- or triangle-scoped</td>
 </tr>
 </tbody>
 </table>
@@ -4837,7 +5207,7 @@ A decoder MUST select the variant by the layer tag.</p>
 </tr>
 <tr>
 <td>Any, on a vertex stream with extension bit 0 set</td>
-<td>The z axis byte. See <a href="#z-coordinates">Z coordinates</a>.</td>
+<td><code>z_step + 3</code>, plus <code>8</code> for a height above the ground (byte). See <a href="#z-coordinates">Z coordinates</a>.</td>
 </tr>
 </tbody>
 </table>

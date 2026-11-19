@@ -1,0 +1,131 @@
+<svg class="mlt-diagram" viewBox="0 0 710 403" role="img" aria-label="Two meshes: a pyramid roof of 5 vertices and 4 triangles, and a wall of 4 vertices and 2 triangles. Triangle lengths 4 and 2 split the decoded triangles, geo lengths 5 and 4 split the x, y, z vertices, and the wall's first triangle names layer-wide vertices 5, 6 and 7" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="mesh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="mesh1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<polygon class="f0" points="385.0,78.0 285.0,78.0 307.5,19.0"/>
+<polygon class="f0" points="330.0,110.0 385.0,78.0 307.5,19.0"/>
+<polygon class="f0" points="285.0,78.0 230.0,110.0 307.5,19.0"/>
+<polygon class="f0" points="230.0,110.0 330.0,110.0 307.5,19.0"/>
+<polygon class="f1" points="430.0,110.0 530.0,110.0 530.0,60.0"/>
+<polygon class="f1" points="430.0,110.0 530.0,60.0 430.0,60.0"/>
+<circle class="dot" cx="285.0" cy="78.0" r="3.5"/>
+<text class="vert halo" x="275.0" y="70.0">0</text>
+<circle class="dot" cx="385.0" cy="78.0" r="3.5"/>
+<text class="vert halo" x="391.0" y="68.0">1</text>
+<circle class="dot" cx="330.0" cy="110.0" r="3.5"/>
+<text class="vert halo" x="338.0" y="122.0">2</text>
+<circle class="dot" cx="230.0" cy="110.0" r="3.5"/>
+<text class="vert halo" x="220.0" y="122.0">3</text>
+<circle class="dot" cx="307.5" cy="19.0" r="3.5"/>
+<text class="vert halo" x="307.5" y="5.0">4</text>
+<circle class="dot" cx="430.0" cy="110.0" r="3.5"/>
+<text class="vert halo" x="422.0" y="122.0">5</text>
+<circle class="dot" cx="530.0" cy="110.0" r="3.5"/>
+<text class="vert halo" x="540.0" y="122.0">6</text>
+<circle class="dot" cx="530.0" cy="60.0" r="3.5"/>
+<text class="vert halo" x="542.0" y="54.0">7</text>
+<circle class="dot" cx="430.0" cy="60.0" r="3.5"/>
+<text class="vert halo" x="418.0" y="54.0">8</text>
+<text class="row" x="0" y="161">tri lengths</text>
+<text class="row" x="0" y="201">triangles</text>
+<text class="row" x="0" y="289">vertices</text>
+<text class="row" x="0" y="345">geo lengths</text>
+<rect class="f0" x="130" y="147" width="304" height="28" rx="3"/>
+<text class="cell" x="282" y="161">4</text>
+<rect class="f0" x="130" y="331" width="236" height="28" rx="3"/>
+<text class="cell" x="248" y="345">5</text>
+<rect class="f1" x="448" y="147" width="148" height="28" rx="3"/>
+<text class="cell" x="522" y="161">2</text>
+<rect class="f1" x="380" y="331" width="188" height="28" rx="3"/>
+<text class="cell" x="474" y="345">4</text>
+<rect class="f0" x="130" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="141" y="201">3</text>
+<rect class="f0" x="154" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="165" y="201">2</text>
+<rect class="f0" x="178" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="189" y="201">4</text>
+<rect class="f0" x="208" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="219" y="201">2</text>
+<rect class="f0" x="232" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="243" y="201">1</text>
+<rect class="f0" x="256" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="267" y="201">4</text>
+<rect class="f0" x="286" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="297" y="201">1</text>
+<rect class="f0" x="310" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="321" y="201">0</text>
+<rect class="f0" x="334" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="345" y="201">4</text>
+<rect class="f0" x="364" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="375" y="201">0</text>
+<rect class="f0" x="388" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="399" y="201">3</text>
+<rect class="f0" x="412" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="423" y="201">4</text>
+<rect class="f1" x="448" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="459" y="201">5</text>
+<rect class="f1" x="472" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="483" y="201">6</text>
+<rect class="f1" x="496" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="507" y="201">7</text>
+<rect class="f1" x="526" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="537" y="201">5</text>
+<rect class="f1" x="550" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="561" y="201">7</text>
+<rect class="f1" x="574" y="187" width="22" height="28" rx="3"/>
+<text class="cell" x="585" y="201">8</text>
+<rect class="pick" x="445" y="184" width="76" height="34" rx="5"/>
+<path class="link t1" d="M459 218C459 257 402 247 402 265" marker-end="url(#mesh1)"/>
+<path class="link t1" d="M483 218C483 257 450 247 450 265" marker-end="url(#mesh1)"/>
+<path class="link t1" d="M507 218C507 257 498 247 498 265" marker-end="url(#mesh1)"/>
+<text class="muted small" x="122" y="277" text-anchor="end">x</text>
+<text class="muted small" x="122" y="291" text-anchor="end">y</text>
+<text class="muted small" x="122" y="305" text-anchor="end">z</text>
+<rect class="f0" x="130" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="152" y="277">10</text>
+<text class="cell small" x="152" y="291">10</text>
+<text class="cell small" x="152" y="305">0</text>
+<text class="muted small mid" x="152" y="325">0</text>
+<rect class="f0" x="178" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="200" y="277">30</text>
+<text class="cell small" x="200" y="291">10</text>
+<text class="cell small" x="200" y="305">0</text>
+<text class="muted small mid" x="200" y="325">1</text>
+<rect class="f0" x="226" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="248" y="277">30</text>
+<text class="cell small" x="248" y="291">30</text>
+<text class="cell small" x="248" y="305">0</text>
+<text class="muted small mid" x="248" y="325">2</text>
+<rect class="f0" x="274" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="296" y="277">10</text>
+<text class="cell small" x="296" y="291">30</text>
+<text class="cell small" x="296" y="305">0</text>
+<text class="muted small mid" x="296" y="325">3</text>
+<rect class="f0" x="322" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="344" y="277">20</text>
+<text class="cell small" x="344" y="291">20</text>
+<text class="cell small" x="344" y="305">15</text>
+<text class="muted small mid" x="344" y="325">4</text>
+<rect class="f1" x="380" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="402" y="277">50</text>
+<text class="cell small" x="402" y="291">30</text>
+<text class="cell small" x="402" y="305">0</text>
+<text class="muted small mid" x="402" y="325">5</text>
+<rect class="f1" x="428" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="450" y="277">70</text>
+<text class="cell small" x="450" y="291">30</text>
+<text class="cell small" x="450" y="305">0</text>
+<text class="muted small mid" x="450" y="325">6</text>
+<rect class="f1" x="476" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="498" y="277">70</text>
+<text class="cell small" x="498" y="291">30</text>
+<text class="cell small" x="498" y="305">10</text>
+<text class="muted small mid" x="498" y="325">7</text>
+<rect class="f1" x="524" y="269" width="44" height="44" rx="3"/>
+<text class="cell small" x="546" y="277">50</text>
+<text class="cell small" x="546" y="291">30</text>
+<text class="cell small" x="546" y="305">10</text>
+<text class="muted small mid" x="546" y="325">8</text>
+<path class="bracket t0" d="M130 371V377H366V371"/>
+<text class="t0 bold" x="130" y="392">feature 0</text>
+<path class="bracket t1" d="M380 371V377H568V371"/>
+<text class="t1 bold" x="380" y="392">feature 1</text>
+</svg>

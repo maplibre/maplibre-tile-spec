@@ -33,7 +33,7 @@ In MLT v1 and v2, each frame is a layer, called a `FeatureTable` in the specific
 
 A feature has:
 
-- a geometry, typed by the OGC Simple Feature Access model, excluding `GeometryCollection`
+- a geometry, typed by the OGC Simple Feature Access model, excluding `GeometryCollection`, or, in v2, a 3D triangle [mesh](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#meshes>)
 - an optional id
 - any number of properties
 
