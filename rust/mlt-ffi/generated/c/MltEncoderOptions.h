@@ -39,8 +39,6 @@ void MltEncoderOptions_set_allow_float_alp(MltEncoderOptions* self, bool enabled
 
 void MltEncoderOptions_set_allow_packed_dict_codes(MltEncoderOptions* self, bool enabled);
 
-void MltEncoderOptions_set_allow_rans_vertices(MltEncoderOptions* self, bool enabled);
-
 void MltEncoderOptions_set_allow_row_shapes(MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_destroy(MltEncoderOptions* self);
