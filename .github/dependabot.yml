@@ -32,6 +32,10 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
+    ignore:
+      # biome 2.6.x hangs on inspector/src/App.vue, see .pre-commit-config.yaml
+      - dependency-name: "https://github.com/biomejs/pre-commit"
+        versions: [">=2.6.0"]
     groups:
       all-pre-commit-updates:
         patterns:
