@@ -3,7 +3,8 @@ import { useElementSize, useWindowSize } from "@vueuse/core";
 import { geoIdentity, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection } from "geojson";
 import { computed, ref, watch } from "vue";
-import { extentOf, factsOf, hueOf, layerOf } from "./geometry.ts";
+import type { MltColumnLayer, MltColumnTile } from "./annotate.ts";
+import { extentOf, factsOf, hueOf, layerOf, triangleHues } from "./geometry.ts";
 import { tipPlacement } from "./hex.ts";
 import ValueText from "./ValueText.vue";
 
@@ -12,6 +13,8 @@ const props = defineProps<{
   tile: FeatureCollection | null;
   /** Name of the layer the region tree has scoped to, or null for the whole tile. */
   layer: string | null;
+  /** The decoded columns, whose `Meshes` layers draw their triangles. */
+  columns?: MltColumnTile | null;
 }>();
 
 /**
@@ -57,7 +60,7 @@ interface Bucket {
   layer: string;
   /** Everything the layer holds, for the subdued pass, which needs no colour. */
   all: Path2D;
-  /** Per hue, so the lit pass keeps a geometry type's own colour. */
+  /** Per hue, so the lit pass keeps a geometry type's colour, or a mesh triangle's category colour. */
   strokes: Map<number, Path2D>;
   /** Closed geometry only, since an open path has nothing to fill. */
   fills: Map<number, Path2D>;
@@ -66,16 +69,7 @@ interface Bucket {
 const scene = computed(() => {
   const shapes: Shape[] = [];
   const buckets = new Map<string, Bucket>();
-  for (const feature of props.tile?.features ?? []) {
-    const d = draw.value(feature.geometry);
-    if (d === null) continue;
-    const path = new Path2D(d);
-    const [[x0, y0], [x1, y1]] = draw.value.bounds(feature);
-    const hue = hueOf(feature.geometry);
-    const layer = layerOf(feature);
-    const closed = feature.geometry.type.endsWith("Polygon");
-    shapes.push({ path, x0, y0, x1, y1, hue, layer, closed, feature });
-
+  const bucketOf = (layer: string) => {
     let bucket = buckets.get(layer);
     if (!bucket) {
       bucket = {
@@ -86,9 +80,45 @@ const scene = computed(() => {
       };
       buckets.set(layer, bucket);
     }
+    return bucket;
+  };
+  const meshHues = props.columns
+    ? triangleHues(props.columns)
+    : new Map<MltColumnLayer, number[]>();
+  const coloured = new Set([...meshHues.keys()].map((l) => l.name));
+  for (const feature of props.tile?.features ?? []) {
+    const d = draw.value(feature.geometry);
+    if (d === null) continue;
+    const path = new Path2D(d);
+    const [[x0, y0], [x1, y1]] = draw.value.bounds(feature);
+    const hue = hueOf(feature.geometry);
+    const layer = layerOf(feature);
+    const closed = feature.geometry.type.endsWith("Polygon");
+    shapes.push({ path, x0, y0, x1, y1, hue, layer, closed, feature });
+    // A coloured mesh draws as its triangles below, not as the vertices its feature holds.
+    if (coloured.has(layer)) continue;
+    const bucket = bucketOf(layer);
     bucket.all.addPath(path);
     merge(bucket.strokes, hue, path);
     if (closed) merge(bucket.fills, hue, path);
+  }
+  for (const [layer, hues] of meshHues) {
+    const {
+      vertices,
+      dimension,
+      indexBuffer = new Uint32Array(),
+    } = layer.geometry;
+    const bucket = bucketOf(layer.name);
+    hues.forEach((hue, t) => {
+      const corners = [0, 1, 2].map((corner) => {
+        const at = indexBuffer[t * 3 + corner] * dimension;
+        return `${vertices[at]} ${vertices[at + 1]}`;
+      });
+      const triangle = new Path2D(`M${corners.join("L")}Z`);
+      bucket.all.addPath(triangle);
+      merge(bucket.strokes, hue, triangle);
+      merge(bucket.fills, hue, triangle);
+    });
   }
   return { shapes, buckets: [...buckets.values()] };
 });

@@ -1,5 +1,10 @@
 import type { Feature, FeatureCollection } from "geojson";
 import { describe, expect, it } from "vitest";
+import type {
+  MltColumnLayer,
+  MltColumnTile,
+  MltMValueColumn,
+} from "./annotate.ts";
 import {
   extentOf,
   factsOf,
@@ -7,6 +12,7 @@ import {
   layerOf,
   layersOf,
   runsOf,
+  triangleHues,
   vertexCount,
 } from "./geometry.ts";
 
@@ -190,5 +196,149 @@ describe("hueOf", () => {
       hueOf({ type, coordinates: [] } as unknown as Feature["geometry"]),
     );
     expect(new Set(hues).size).toBe(types.length);
+  });
+});
+
+type Corner = [number, number, number];
+
+const MLT_GEOMETRY_TYPE_MESH = 6;
+
+interface Mesh {
+  vertices: Corner[];
+  triangles: Corner[];
+}
+
+const mesh = (triangles: number): Mesh => ({
+  vertices: Array.from({ length: triangles }, (_, i): Corner[] => [
+    [i, 0, 0],
+    [i, 1, 0],
+    [i + 1, 0, 5],
+  ]).flat(),
+  triangles: Array.from(
+    { length: triangles },
+    (_, i): Corner => [i * 3, i * 3 + 1, i * 3 + 2],
+  ),
+});
+
+function strings(
+  name: string,
+  perMesh: (string[] | undefined)[],
+): MltMValueColumn {
+  const dictionary = [...new Set(perMesh.flatMap((values) => values ?? []))];
+  const offsets = [0];
+  for (const values of perMesh)
+    offsets.push(offsets[offsets.length - 1] + (values?.length ?? 0));
+  return {
+    name,
+    type: "string",
+    offsets: Uint32Array.from(offsets),
+    codes: Uint32Array.from(
+      perMesh
+        .flatMap((values) => values ?? [])
+        .map((value) => dictionary.indexOf(value)),
+    ),
+    dictionary,
+  };
+}
+
+function meshLayer(
+  name: string,
+  meshes: Mesh[],
+  triangleValues: MltMValueColumn[] = [],
+  { extent = 4096, zStep = 0 } = {},
+): MltColumnLayer {
+  const geometryOffsets = [0];
+  const triangleOffsets = [0];
+  const indices: number[] = [];
+  for (const { vertices, triangles } of meshes) {
+    const base = geometryOffsets[geometryOffsets.length - 1];
+    indices.push(...triangles.flat().map((corner) => base + corner));
+    geometryOffsets.push(base + vertices.length);
+    triangleOffsets.push(
+      triangleOffsets[triangleOffsets.length - 1] + triangles.length,
+    );
+  }
+  return {
+    name,
+    extent,
+    version: 2,
+    featureCount: meshes.length,
+    geometry: {
+      types: new Uint8Array(meshes.length).fill(MLT_GEOMETRY_TYPE_MESH),
+      layout: "meshes",
+      dimension: 3,
+      zStep,
+      heightMode: "absolute",
+      geometryOffsets: Uint32Array.from(geometryOffsets),
+      vertices: Int32Array.from(meshes.flatMap((m) => m.vertices.flat())),
+      triangleOffsets: Uint32Array.from(triangleOffsets),
+      indexBuffer: Uint32Array.from(indices),
+    },
+    properties: [],
+    vertexValues: [],
+    triangleValues,
+  };
+}
+
+const tileOf = (...layers: MltColumnLayer[]): MltColumnTile => ({ layers });
+
+describe("triangleHues", () => {
+  it("numbers triangle values tile-wide in first-seen order, so a value keeps its hue across meshes", () => {
+    const houses = meshLayer(
+      "houses",
+      [mesh(3)],
+      [strings("surface", [["roof", "wall", "roof"]])],
+    );
+    const sheds = meshLayer(
+      "sheds",
+      [mesh(2)],
+      [strings("surface", [["ground", "wall"]])],
+    );
+    const hues = triangleHues(tileOf(houses, sheds));
+    expect(hues.get(houses)).toEqual([0, 1, 0]);
+    expect(hues.get(sheds)).toEqual([2, 1]);
+  });
+
+  it("cycles past the six palette hues", () => {
+    const values = ["a", "b", "c", "d", "e", "f", "g"];
+    const tower = meshLayer("tower", [mesh(7)], [strings("part", [values])]);
+    expect(triangleHues(tileOf(tower)).get(tower)).toEqual([
+      0, 1, 2, 3, 4, 5, 0,
+    ]);
+  });
+
+  it("colours by a layer's first triangle column", () => {
+    const house = meshLayer(
+      "house",
+      [mesh(2)],
+      [
+        strings("material", [["brick", "brick"]]),
+        strings("surface", [["roof", "wall"]]),
+      ],
+    );
+    expect(triangleHues(tileOf(house)).get(house)).toEqual([0, 0]);
+  });
+
+  it("gives the hue past the palette to the triangles of a mesh without values in the column", () => {
+    const street = meshLayer(
+      "street",
+      [mesh(1), mesh(2)],
+      [strings("surface", [undefined, ["roof", "wall"]])],
+    );
+    expect(triangleHues(tileOf(street)).get(street)).toEqual([6, 0, 1]);
+  });
+
+  it("leaves out a layer without a triangle column, and one that is not meshes", () => {
+    const plain = meshLayer("plain", [mesh(2)]);
+    const meshes = meshLayer(
+      "outlines",
+      [mesh(1)],
+      [strings("surface", [["roof"]])],
+    );
+    const outlines = {
+      ...meshes,
+      geometry: { ...meshes.geometry, layout: "outlines" as const },
+    };
+    expect(triangleHues(tileOf(plain, outlines)).size).toBe(0);
   });
 });
