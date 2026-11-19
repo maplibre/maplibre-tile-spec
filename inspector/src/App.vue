@@ -6,6 +6,8 @@ import {
   type AnnotatedTile,
   annotateTile,
   type DecodedBlob,
+  decodeTileColumns,
+  MltGeometryType,
   tileGeoJson,
 } from "./annotate.ts";
 import {
@@ -42,6 +44,8 @@ const view = ref<ViewState>({
 });
 const tile = shallowRef<AnnotatedTile | null>(null);
 const decoded = shallowRef<FeatureCollection | null>(null);
+/** Names of the tile's `Meshes` layers, which the geometry panel draws in 3D. */
+const meshLayers = shallowRef<ReadonlySet<string>>(new Set());
 const bytes = shallowRef<Uint8Array>(new Uint8Array());
 /** Index key of the loaded tile, or null when it came from anywhere but the index. */
 const fixture = ref<string | null>(null);
@@ -98,6 +102,15 @@ function load(raw: Uint8Array, from: { fixture?: string; href?: string }) {
     decoded.value = tileGeoJson(raw);
   } catch {
     decoded.value = null;
+  }
+  try {
+    meshLayers.value = new Set(
+      decodeTileColumns(raw)
+        .layers.filter((l) => l.geometry.types[0] === MltGeometryType.Mesh)
+        .map((l) => l.name),
+    );
+  } catch {
+    meshLayers.value = new Set();
   }
   bytes.value = raw;
   fixture.value = from.fixture ?? null;
@@ -414,6 +427,8 @@ watch(
       :decode="decode"
       :error="tile?.error ?? null"
       :tile="decoded"
+      :mesh-layers="meshLayers"
+      :address="href ?? fixture"
     />
     <section v-else class="empty">
       <a

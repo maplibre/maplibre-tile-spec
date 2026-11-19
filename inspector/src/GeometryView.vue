@@ -3,7 +3,7 @@ import { useElementSize, useWindowSize } from "@vueuse/core";
 import { geoIdentity, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection } from "geojson";
 import { computed, ref, watch } from "vue";
-import { extentOf, factsOf, hueOf, layerOf, triangleHues } from "./geometry.ts";
+import { extentOf, factsOf, hueOf, layerOf } from "./geometry.ts";
 import { tipPlacement } from "./hex.ts";
 import ValueText from "./ValueText.vue";
 
@@ -57,7 +57,7 @@ interface Bucket {
   layer: string;
   /** Everything the layer holds, for the subdued pass, which needs no colour. */
   all: Path2D;
-  /** Per hue, so the lit pass keeps a geometry type's colour, or a mesh triangle's category colour. */
+  /** Per hue, so the lit pass keeps a geometry type's own colour. */
   strokes: Map<number, Path2D>;
   /** Closed geometry only, since an open path has nothing to fill. */
   fills: Map<number, Path2D>;
@@ -66,9 +66,6 @@ interface Bucket {
 const scene = computed(() => {
   const shapes: Shape[] = [];
   const buckets = new Map<string, Bucket>();
-  const meshHues = props.tile
-    ? triangleHues(props.tile)
-    : new Map<Feature, number[]>();
   for (const feature of props.tile?.features ?? []) {
     const d = draw.value(feature.geometry);
     if (d === null) continue;
@@ -90,19 +87,8 @@ const scene = computed(() => {
       buckets.set(layer, bucket);
     }
     bucket.all.addPath(path);
-    const hues = meshHues.get(feature);
-    if (hues && feature.geometry.type === "MultiPolygon") {
-      feature.geometry.coordinates.forEach((coordinates, at) => {
-        const d = draw.value({ type: "Polygon", coordinates });
-        if (d === null) return;
-        const triangle = new Path2D(d);
-        merge(bucket.strokes, hues[at], triangle);
-        merge(bucket.fills, hues[at], triangle);
-      });
-    } else {
-      merge(bucket.strokes, hue, path);
-      if (closed) merge(bucket.fills, hue, path);
-    }
+    merge(bucket.strokes, hue, path);
+    if (closed) merge(bucket.fills, hue, path);
   }
   return { shapes, buckets: [...buckets.values()] };
 });

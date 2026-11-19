@@ -113,6 +113,14 @@ const PALETTE_SIZE = 6;
  * Values are numbered tile-wide in first-seen order, so a value keeps its hue across meshes.
  */
 export function triangleHues(tile: FeatureCollection): Map<Feature, number[]> {
+  return categorise(tile).hues;
+}
+
+/** `triangleHues`, plus every triangle value in the order it was numbered. */
+function categorise(tile: FeatureCollection): {
+  hues: Map<Feature, number[]>;
+  values: unknown[];
+} {
   const categories = new Map<unknown, number>();
   const hues = new Map<Feature, number[]>();
   for (const feature of tile.features) {
@@ -137,5 +145,63 @@ export function triangleHues(tile: FeatureCollection): Map<Feature, number[]> {
       }),
     );
   }
-  return hues;
+  return { hues, values: [...categories.keys()] };
+}
+
+/** Positions and per-triangle hues of the meshes a 3D view draws. */
+export interface MeshScene {
+  /** Three corners per triangle, each `x, height, y` in tile units, so `y` grows south as in the tile. */
+  positions: Float32Array;
+  /** One per triangle, from `triangleHues`, or `PALETTE_SIZE` for a triangle without a triangle column. */
+  hues: Uint8Array;
+  /** Each triangle value of the tile and the hue it is drawn in. */
+  legend: { value: string; hue: number }[];
+}
+
+/** The triangles of every mesh in `meshLayers`, or only in `layer` when one is scoped. */
+export function meshScene(
+  tile: FeatureCollection,
+  meshLayers: ReadonlySet<string>,
+  layer: string | null,
+  metresPerUnit: number,
+): MeshScene {
+  const { hues, values } = categorise(tile);
+  const positions: number[] = [];
+  const triangleHue: number[] = [];
+  for (const feature of tile.features) {
+    const name = layerOf(feature);
+    if (!meshLayers.has(name) || (layer !== null && name !== layer)) continue;
+    if (feature.geometry.type !== "MultiPolygon") continue;
+    const step = 10 ** Number(feature.properties?._z_step ?? 0);
+    const own = hues.get(feature);
+    feature.geometry.coordinates.forEach((polygon, at) => {
+      for (const [x, y, z = 0] of polygon[0].slice(0, 3))
+        positions.push(x, (z * step) / metresPerUnit, y);
+      triangleHue.push(own?.[at] ?? PALETTE_SIZE);
+    });
+  }
+  return {
+    positions: Float32Array.from(positions),
+    hues: Uint8Array.from(triangleHue),
+    legend: values.map((value, at) => ({
+      value: String(value),
+      hue: at % PALETTE_SIZE,
+    })),
+  };
+}
+
+/** The Earth's circumference at the equator in metres, which Web Mercator tiles divide. */
+const EARTH_CIRCUMFERENCE = 40_075_016.686;
+
+/**
+ * Ground metres per tile unit, read from a `z/x/y.mlt` address at the tile's centre latitude.
+ * An address naming no tile, such as a synthetic fixture, takes a unit as a metre.
+ */
+export function metresPerUnit(address: string | null, extent: number): number {
+  const match = address?.match(/(\d+)\/\d+\/(\d+)\.mlt$/);
+  if (!match) return 1;
+  const tiles = 2 ** Number(match[1]);
+  const north = Math.PI * (1 - (2 * (Number(match[2]) + 0.5)) / tiles);
+  const latitude = Math.atan(Math.sinh(north));
+  return (EARTH_CIRCUMFERENCE * Math.cos(latitude)) / tiles / extent;
 }

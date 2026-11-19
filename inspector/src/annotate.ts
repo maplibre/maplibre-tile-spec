@@ -9,4 +9,9 @@ export type {
   DumpTree,
   Region,
 } from "@maplibre/mlt-wasm";
-export { annotateTile, tileGeoJson } from "@maplibre/mlt-wasm";
+export {
+  annotateTile,
+  decodeTileColumns,
+  MltGeometryType,
+  tileGeoJson,
+} from "@maplibre/mlt-wasm";
