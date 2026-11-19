@@ -1,9 +1,9 @@
 //! What a v2 m-value section can make the decoder allocate, which its budget has to bound.
 
 use mlt_core::encoder::{
-    Codecs, Encoder, EncoderConfig, StagedId, StagedLayer, StagedMValue, StagedValues, WireVersion,
+    Codecs, Encoder, EncoderConfig, Network, Profile, StagedId, StagedLayer, StagedMValue,
+    StagedValues, WireVersion,
 };
-use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{Coord, Geometry, LineString};
 use mlt_core::{Decoder, GeometryValues, Layer, MltError, Parser};
 

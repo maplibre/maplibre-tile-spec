@@ -2,11 +2,10 @@
 
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{
-    Codecs, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder, StagedId,
-    StagedLayer, StagedMValue, StagedValues, StrEncoding, Tessellation, VertexBufferType,
+    Codecs, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder, Network, Profile,
+    StagedId, StagedLayer, StagedMValue, StagedValues, StrEncoding, Tessellation, VertexBufferType,
     WireVersion,
 };
-use mlt_core::encoder::{Network, Profile};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
