@@ -178,10 +178,8 @@ public final class Json {
         "features",
         mlTile
             .getLayerStream()
-            .flatMap(
-                layer ->
-                    layer.features().stream()
-                        .map(feature -> featureToGeoJson(layer, feature, gson)))
+            .flatMap(layer ->
+                layer.features().stream().map(feature -> featureToGeoJson(layer, feature, gson)))
             .toList());
     return featureCollectionMap;
   }

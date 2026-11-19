@@ -24,7 +24,7 @@ use crate::decoder::{
 use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
 #[cfg(feature = "unstable-v2")]
-use crate::tile::ZStep;
+use crate::tile::ZAxis;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
@@ -623,13 +623,13 @@ pub(super) fn encode_hilbert_vertex_streams02(
 #[cfg(feature = "unstable-v2")]
 pub(super) fn encode_vec3_vertex_stream02(
     vertices: &[i32],
-    step: ZStep,
+    axis: ZAxis,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     let delta = encode_componentwise_delta_vec3s(vertices, &mut codecs.logical.u32_tmp);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
-    let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(step, XyzLogical::ComponentwiseDelta));
+    let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(axis, XyzLogical::ComponentwiseDelta));
     write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical, false)?;
     Ok(())
 }
@@ -666,7 +666,7 @@ fn build_hilbert_xyz_dict(vertices: &[i32], params: CurveParams) -> (Vec<i32>, V
 #[cfg(feature = "unstable-v2")]
 pub(super) fn encode_hilbert_xyz_vertex_streams02(
     vertices: &[i32],
-    step: ZStep,
+    axis: ZAxis,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
@@ -675,7 +675,7 @@ pub(super) fn encode_hilbert_xyz_vertex_streams02(
     let mut delta = mem::take(&mut codecs.logical.u32_tmp);
     encode_componentwise_delta_vec3s(&dict, &mut delta);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
-    let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(step, XyzLogical::ComponentwiseDelta));
+    let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(axis, XyzLogical::ComponentwiseDelta));
     enc.family_context = Family::Vertex;
     write_geo_precomputed_stream(&delta, ctx, logical, enc, &mut codecs.physical, true)?;
     codecs.logical.u32_tmp = delta;

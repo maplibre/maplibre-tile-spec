@@ -171,6 +171,8 @@ impl SynthWriter {
             };
             // FSST frequently generates binary-different but compatible data
             is_rust_specific |= name.contains("_fsst");
+            // Java's earcut4j 3.0 cuts other triangles than earcut 0.4.11+ (mapbox earcut 3.2).
+            is_rust_specific |= version == WireVersion::V01 && name.contains("_tes");
             let name_mlt = format!("{name}.mlt");
             let name_json = format!("{name}.json");
 

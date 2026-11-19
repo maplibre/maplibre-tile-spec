@@ -4,7 +4,11 @@
 #include <mlt/util/noncopyable.hpp>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
+#include <iterator>
+#include <stdexcept>
 #include <type_traits>
 
 namespace mlt::metadata::stream {
@@ -98,8 +102,10 @@ private:
 /// @param byteSize The number of bytes to consume from the source buffer
 /// @throws std::runtime_error The provided buffer does not contain enough data
 inline void decodeByte(BufferStream& tileData, std::uint8_t* out, std::uint32_t numBytes, std::uint32_t byteSize) {
-    detail::ByteRleDecoder{tileData.getData(), tileData.getSize()}.next(out, numBytes);
+    // Check that the data is available, and don't read past it
+    const auto* const data = tileData.getReadPosition();
     tileData.consume(byteSize);
+    detail::ByteRleDecoder{data, byteSize}.next(out, numBytes);
 }
 
 /// Decode RLE bits to a vector
@@ -107,10 +113,12 @@ inline void decodeByte(BufferStream& tileData, std::uint8_t* out, std::uint32_t 
 void decodeBoolean(BufferStream&, std::vector<uint8_t>&, const metadata::stream::StreamMetadata&, bool consume);
 
 /// Decode RLE bits to int/long values
-/// @param in The source data
+/// @param in The source data, which consists of the lengths of the runs followed by their values
+/// @param inCount The number of values in the source data
 /// @param out The target for output, must already be sized to contain the resulting data
+/// @param outCount The number of values in the output, which the runs must fill exactly
 /// @param numRuns The number of RLE runs in the input
-/// @throws std::runtime_error The provided buffer does not contain enough data
+/// @throws std::runtime_error The provided buffer does not contain enough data, or the runs do not fit the output
 template <typename T, typename TTarget = T, typename F = std::function<TTarget(T)>>
     requires(std::is_integral_v<T> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
              sizeof(T) <= sizeof(TTarget) && std::regular_invocable<F, T> &&
@@ -122,20 +130,25 @@ void decodeInt(
     const std::size_t outCount,
     const std::uint32_t numRuns,
     const std::function<TTarget(T)>& convert = [](T x) { return static_cast<TTarget>(x); }) {
-    std::uint32_t inOffset = 0;
-    std::uint32_t outOffset = 0;
-    for (std::uint32_t i = 0; i < numRuns; ++i) {
-        if (inCount < inOffset + 2) {
-            throw std::runtime_error("Unexpected end of buffer");
-        }
-        const T runLength = in[inOffset];
-        const TTarget runValue = convert(in[inOffset++ + numRuns]);
-        if (outCount < outOffset + runLength) {
-            throw std::runtime_error("Unexpected end of buffer");
-        }
+    if (inCount / 2 < numRuns) {
+        throw std::runtime_error("Unexpected end of buffer");
+    }
 
-        std::fill_n(std::next(out, outOffset), runLength, runValue);
-        outOffset += runLength;
+    std::size_t outOffset = 0;
+    for (std::size_t i = 0; i < numRuns; ++i) {
+        // Negative lengths become large, and fail the same check
+        const auto runLength = static_cast<std::uint64_t>(in[i]);
+        if (runLength > outCount - outOffset) {
+            throw std::runtime_error("RLE run exceeds output buffer size");
+        }
+        const TTarget runValue = convert(in[i + numRuns]);
+
+        std::fill_n(
+            std::next(out, static_cast<std::ptrdiff_t>(outOffset)), static_cast<std::size_t>(runLength), runValue);
+        outOffset += static_cast<std::size_t>(runLength);
+    }
+    if (outOffset != outCount) {
+        throw std::runtime_error("RLE runs do not fill the output");
     }
 }
 

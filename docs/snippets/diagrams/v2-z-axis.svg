@@ -1,0 +1,63 @@
+<svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="The z axis byte 0x0A: bits 7 to 4 are reserved and 0, bit 3 is 1 for relative to ground, bits 2 to 0 hold 2 for a 1 dm step. Below, z = 400 at 1 dm is 40 m: byte 0x02 puts the vertex 40 m above sea level, byte 0x0A puts it 40 m above the terrain, and a layer without z sits on the terrain" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">z_axis</text>
+<text class="muted small" x="0" y="82">bit</text>
+<text class="row" x="0" y="112">reads</text>
+<text class="small mid muted" x="251" y="14">reserved</text>
+<path class="bracket" d="M130 34V28H372V34"/>
+<text class="small mid t1" x="406" y="14">mode</text>
+<path class="bracket t1" d="M378 34V28H434V34"/>
+<text class="small mid t0" x="530" y="14">z_step + 3</text>
+<path class="bracket t0" d="M440 34V28H620V34"/>
+<rect class="plain" x="130" y="40" width="56" height="28" rx="3"/>
+<text class="cell muted" x="158" y="54">0</text>
+<rect class="plain" x="192" y="40" width="56" height="28" rx="3"/>
+<text class="cell muted" x="220" y="54">0</text>
+<rect class="plain" x="254" y="40" width="56" height="28" rx="3"/>
+<text class="cell muted" x="282" y="54">0</text>
+<rect class="plain" x="316" y="40" width="56" height="28" rx="3"/>
+<text class="cell muted" x="344" y="54">0</text>
+<rect class="f1" x="378" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="406" y="54">1</text>
+<rect class="f0" x="440" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="468" y="54">0</text>
+<rect class="f0" x="502" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="530" y="54">1</text>
+<rect class="f0" x="564" y="40" width="56" height="28" rx="3"/>
+<text class="cell" x="592" y="54">0</text>
+<text class="cell" x="664" y="54">= 0x0A</text>
+<text class="muted small mid" x="158" y="82">7</text>
+<text class="muted small mid" x="220" y="82">6</text>
+<text class="muted small mid" x="282" y="82">5</text>
+<text class="muted small mid" x="344" y="82">4</text>
+<text class="muted small mid" x="406" y="82">3</text>
+<text class="muted small mid" x="468" y="82">2</text>
+<text class="muted small mid" x="530" y="82">1</text>
+<text class="muted small mid" x="592" y="82">0</text>
+<path class="bracket" d="M130 92V98H372V92"/>
+<text class="small mid muted" x="251" y="112">MUST be 0</text>
+<path class="bracket t1" d="M378 92V98H434V92"/>
+<text class="small mid t1" x="406" y="112">relativeToGround</text>
+<path class="bracket t0" d="M440 92V98H620V92"/>
+<text class="small mid t0" x="530" y="112">2 = 1 dm</text>
+<text class="row" x="0" y="150">z = 400</text>
+<text class="muted small" x="0" y="168">40 m at 1 dm</text>
+<text class="bold mid t0" x="290" y="150">absolute</text>
+<text class="small mid muted" x="290" y="168">byte 0x02</text>
+<text class="bold mid t1" x="460" y="150">relativeToGround</text>
+<text class="small mid muted" x="460" y="168">byte 0x0A</text>
+<text class="bold mid" x="630" y="150">clampToGround</text>
+<text class="small mid muted" x="630" y="168">no z</text>
+<rect class="sea" x="130" y="290" width="70" height="30"/>
+<path class="land" d="M200 320V290L260 275L320 262L400 245L460 225L540 210L600 222L660 214L700 218V320Z"/>
+<path class="implicit" d="M130 290H700"/>
+<text class="muted small" x="0" y="290">sea level</text>
+<text class="muted small mid" x="165" y="305">sea</text>
+<text class="muted small mid" x="560" y="300">terrain</text>
+<path class="link t0" d="M290 290V250"/>
+<text class="small t0" x="282" y="262" text-anchor="end">40 m</text>
+<circle class="f0" cx="290" cy="250" r="5"/>
+<path class="link t1" d="M460 225V185"/>
+<text class="small t1" x="468" y="205">40 m</text>
+<circle class="f1" cx="460" cy="185" r="5"/>
+<circle class="dot" cx="630" cy="218" r="4"/>
+</svg>

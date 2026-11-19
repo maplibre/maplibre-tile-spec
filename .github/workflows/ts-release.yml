@@ -19,7 +19,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with: { tool: 'just,cargo-binstall' }
 
       - name: Check if version has been updated
@@ -42,7 +42,7 @@ jobs:
         working-directory: ts
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with: { tool: 'just,cargo-binstall' }
 
       - uses: ./.github/actions/mlt-setup-node
@@ -74,7 +74,7 @@ jobs:
           } > LICENSE.txt
 
       - name: Release (GitHub) - Create Draft
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           name: js-v${{ env.version }}
           tag_name: js-v${{ env.version }}
@@ -86,7 +86,7 @@ jobs:
         run: npm publish --access=public
 
       - name: Publish GitHub release (remove draft)
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: js-v${{ env.version }}
           name: js-v${{ env.version }}

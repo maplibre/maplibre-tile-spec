@@ -44,7 +44,7 @@ use crate::decoder::{
     RawStream, RleMeta, StreamMeta, StreamType, VertexLogical, XyzLogical,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::tile::ZStep;
+use crate::tile::ZAxis;
 use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 
@@ -66,7 +66,7 @@ const PHYSICAL_SHIFT: u32 = 2;
 /// Mask of the encoding byte holding the per-encoding extension field.
 pub(crate) const EXTENSION_MASK: u8 = 0b0000_0011;
 
-/// Extension bit of a vertex stream whose vertices are `(x, y, z)` triples, a z step byte then following the byte length.
+/// Extension bit of a vertex stream whose vertices are `(x, y, z)` triples, a z axis byte then following the byte length.
 pub(crate) const XYZ: u8 = 0b0000_0001;
 
 /// Physical field of a raw stream that leaves its byte length unwritten, the same pattern in every family.
@@ -869,7 +869,7 @@ impl Encoding02 {
                     LogicalXyz::CwDelta(p) => (XyzLogical::ComponentwiseDelta, flat_int(p)),
                 };
                 IntEncoding::new(
-                    LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::from_code(step)?, logical)),
+                    LogicalEncoding::Vertex(VertexLogical::Xyz(ZAxis::from_code(step)?, logical)),
                     physical,
                 )
             }
@@ -1271,6 +1271,7 @@ mod tests {
 
     use super::*;
     use crate::test_helpers::parser;
+    use crate::tile::{HeightMode, ZStep};
 
     const INT: StreamCtx02 = StreamCtx02::Property(DataType02::U32);
     const LONG: StreamCtx02 = StreamCtx02::Property(DataType02::U64);
@@ -1311,7 +1312,7 @@ mod tests {
 
     /// An xyz vertex encoding on a 10^-2 m grid, whose code is `1`.
     fn xyz(logical: XyzLogical) -> VertexLogical {
-        VertexLogical::Xyz(ZStep::new(-2).unwrap(), logical)
+        VertexLogical::Xyz(ZStep::new(-2).unwrap().into(), logical)
     }
 
     fn rle(num: u32) -> RleMeta {
@@ -1614,12 +1615,17 @@ mod tests {
     #[case::xyz_delta(vertex(xyz(XyzLogical::Delta), PE::VarInt, 9), 9, VERTEX)]
     #[case::xyz_cw_delta(vertex(xyz(XyzLogical::ComponentwiseDelta), FPF128, 9), 5, VERTEX)]
     #[case::xyz_finest_step(
-        vertex(VertexLogical::Xyz(ZStep::new(-3).unwrap(), XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
+        vertex(VertexLogical::Xyz(ZStep::new(-3).unwrap().into(), XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
         3,
         VERTEX
     )]
     #[case::xyz_coarsest_step(
-        vertex(VertexLogical::Xyz(ZStep::new(4).unwrap(), XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
+        vertex(VertexLogical::Xyz(ZStep::new(4).unwrap().into(), XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
+        3,
+        VERTEX
+    )]
+    #[case::xyz_relative_to_ground(
+        vertex(VertexLogical::Xyz(ZAxis { step: ZStep::new(-1).unwrap(), mode: HeightMode::RelativeToGround }, XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
         3,
         VERTEX
     )]
@@ -1860,13 +1866,13 @@ mod tests {
     }
 
     #[rstest]
-    #[case::one_past_the_coarsest(8)]
+    #[case::bit_4(0x10)]
     #[case::high_bit(0x80)]
-    fn parse_rejects_a_z_step_code_outside_the_grid_range(#[case] code: u8) {
+    fn parse_rejects_a_z_byte_with_a_reserved_bit(#[case] code: u8) {
         let buf = [0b0010_1001, 0, code];
         let err = parse_stream(&buf, VERTEX, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(
-            matches!(err, MltError::InvalidZStepCode(c) if c == code),
+            matches!(err, MltError::InvalidZCode(c) if c == code),
             "{err:?}"
         );
     }

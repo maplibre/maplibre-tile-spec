@@ -597,11 +597,10 @@ mod z {
         for f in features(&fc) {
             assert_eq!(f["properties"]["_z_step"], json!(-1), "{f}");
         }
-        // z = (metres + 10000) * 10 on the decimetre grid.
-        assert_eq!(coordinates(named(&fc, "p")), &json!([2048, 2048, 100_123]));
+        assert_eq!(coordinates(named(&fc, "p")), &json!([2048, 2048, 123]));
         assert_eq!(
             coordinates(named(&fc, "l")),
-            &json!([[2048, 2048, 99_960], [2048, 1189, 103_500]])
+            &json!([[2048, 2048, -40], [2048, 1189, 3_500]])
         );
         let ring = &coordinates(named(&fc, "poly"))[0];
         let zs: Vec<i64> = positions(ring).iter().map(|p| p[2]).collect();
@@ -609,7 +608,7 @@ mod z {
         assert_eq!(zs[0], zs[4]);
         let mut distinct = zs[..4].to_vec();
         distinct.sort_unstable();
-        assert_eq!(distinct, [100_010, 100_020, 100_030, 100_040]);
+        assert_eq!(distinct, [10, 20, 30, 40]);
     }
 
     #[test]
@@ -628,16 +627,16 @@ mod z {
         let fc = decode(&output, "0/0/0.mlt");
         assert_eq!(
             coordinates(named(&fc, "pole")),
-            &json!([[2048, 2048, 10_000], [2048, 2048, 10_010]])
+            &json!([[2048, 2048, 0], [2048, 2048, 10]])
         );
         assert_eq!(
             coordinates(named(&fc, "wall")),
             &json!([[
-                [2048, 2048, 10_000],
-                [2162, 2048, 10_000],
-                [2162, 2048, 10_050],
-                [2048, 2048, 10_050],
-                [2048, 2048, 10_000]
+                [2048, 2048, 0],
+                [2162, 2048, 0],
+                [2162, 2048, 50],
+                [2048, 2048, 50],
+                [2048, 2048, 0]
             ]])
         );
     }
@@ -658,12 +657,12 @@ mod z {
         let fc = decode(&output, "1/0/0.mlt");
         assert_eq!(
             coordinates(named(&fc, "ramp")),
-            &json!([[2048, 4096, 10_000], [4160, 4096, 10_516]])
+            &json!([[2048, 4096, 0], [4160, 4096, 516]])
         );
         let fc = decode(&output, "1/1/0.mlt");
         assert_eq!(
             coordinates(named(&fc, "ramp")),
-            &json!([[-64, 4096, 10_484], [2048, 4096, 11_000]])
+            &json!([[-64, 4096, 484], [2048, 4096, 1_000]])
         );
     }
 
@@ -695,5 +694,62 @@ mod z {
         )]);
         let stderr = run_failing(&geojson, &["--max-zoom", "0", "--z-step", "5"]);
         insta::assert_snapshot!(stderr, @"Error: a z step of 10^5 m is outside 10^-3..=10^4 m");
+    }
+
+    #[test]
+    fn relative_to_ground_altitudes_keep_their_mode() {
+        let geojson = collection(&[feature(
+            &json!({ "type": "Point", "coordinates": [0, 0, 12] }),
+            &json!({}),
+        )]);
+        let (_dir, output) = run(
+            &geojson,
+            &[
+                "--max-zoom",
+                "0",
+                "--z-step",
+                "0",
+                "--height-mode",
+                "relative-to-ground",
+            ],
+        );
+        let fc = decode(&output, "0/0/0.mlt");
+        let f = &features(&fc)[0];
+        assert_eq!(f["properties"]["_height_mode"], json!("relative_to_ground"));
+        assert_eq!(coordinates(f), &json!([2048, 2048, 12]));
+    }
+
+    #[test]
+    fn absolute_altitudes_carry_no_mode_property() {
+        let geojson = collection(&[feature(
+            &json!({ "type": "Point", "coordinates": [0, 0, 12] }),
+            &json!({}),
+        )]);
+        let (_dir, output) = run(
+            &geojson,
+            &[
+                "--max-zoom",
+                "0",
+                "--z-step",
+                "0",
+                "--height-mode",
+                "absolute",
+            ],
+        );
+        let fc = decode(&output, "0/0/0.mlt");
+        assert!(features(&fc)[0]["properties"].get("_height_mode").is_none());
+    }
+
+    #[test]
+    fn a_height_mode_without_a_z_step_is_rejected() {
+        let geojson = collection(&[feature(
+            &json!({ "type": "Point", "coordinates": [0, 0] }),
+            &json!({}),
+        )]);
+        let stderr = run_failing(
+            &geojson,
+            &["--max-zoom", "0", "--height-mode", "relative-to-ground"],
+        );
+        insta::assert_snapshot!(stderr, @"Error: --height-mode says what an altitude measures from, so it needs --z-step");
     }
 }

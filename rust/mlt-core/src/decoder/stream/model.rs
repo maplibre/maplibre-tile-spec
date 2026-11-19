@@ -5,7 +5,7 @@ use num_enum::TryFromPrimitive;
 
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::ZStep;
+use crate::tile::ZAxis;
 use crate::utils::formatter::{bytes_dbg, compact_dbg};
 use crate::{MltError, MltResult};
 
@@ -268,7 +268,7 @@ pub enum VertexLogical {
     Rans,
     /// Interleaved `(x, y, z)` triples, whose z lie on the grid of the step.
     #[cfg(feature = "unstable-v2")]
-    Xyz(ZStep, XyzLogical),
+    Xyz(ZAxis, XyzLogical),
 }
 
 impl VertexLogical {
@@ -673,6 +673,8 @@ mod tests {
     use usize_cast::IntoUsize as _;
 
     use super::*;
+    #[cfg(feature = "unstable-v2")]
+    use crate::tile::ZStep;
 
     fn morton() -> Morton {
         Morton { bits: 4, shift: 0 }
@@ -777,7 +779,7 @@ mod tests {
         #[case] xyz: XyzLogical,
         #[case] expected: &str,
     ) {
-        let step = ZStep::new(0).unwrap();
+        let step = ZStep::new(0).unwrap().into();
         assert_eq!(
             LogicalEncoding::Vertex(VertexLogical::Xyz(step, xyz)).to_string(),
             expected
@@ -817,7 +819,7 @@ mod tests {
     #[case::pairs(LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta), 6, 3)]
     #[case::morton_codes(LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())), 6, 6)]
     #[cfg_attr(feature = "unstable-v2", case::triples(
-        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap(), XyzLogical::Delta)),
+        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap().into(), XyzLogical::Delta)),
         6,
         2
     ))]
@@ -840,7 +842,7 @@ mod tests {
     #[rstest]
     #[case::pairs(LogicalEncoding::Vertex(VertexLogical::Delta), 5, 2)]
     #[cfg_attr(feature = "unstable-v2", case::triples(
-        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap(), XyzLogical::Delta)),
+        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap().into(), XyzLogical::Delta)),
         4,
         3
     ))]

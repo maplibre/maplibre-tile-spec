@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use geo::{Convert as _, TriangulateEarcut as _};
+use earcut::Earcut;
 use geo_types::{Coord, Geometry, LineString, Polygon};
 
 use crate::decoder::{GeometryType, GeometryValues};
@@ -77,18 +77,19 @@ fn earcut_into<'c>(
         }
         stored_start += stored_len(ring);
     }
-    let polygon_f64: Polygon<f64> = Polygon::new(exterior, holes).convert();
-    let raw = polygon_f64.earcut_triangles_raw();
-    let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
-
     // Earcut numbers the kept rings' vertices back to back, one per coordinate but the closing one.
+    let mut vertices = Vec::new();
     let mut earcut_starts = Vec::with_capacity(stored_starts.len());
-    let mut earcut_start = 0;
-    for ring in std::iter::once(polygon_f64.exterior()).chain(polygon_f64.interiors()) {
-        earcut_starts.push(earcut_start);
-        earcut_start += ring.0.len() - 1;
+    for ring in std::iter::once(&exterior).chain(&holes) {
+        earcut_starts.push(vertices.len());
+        let open = &ring.0[..ring.0.len() - 1];
+        vertices.extend(open.iter().map(|c| [f64::from(c.x), f64::from(c.y)]));
     }
-    for i in raw.triangle_indices {
+    let mut triangle_indices: Vec<usize> = Vec::new();
+    Earcut::new().earcut(vertices, &earcut_starts[1..], &mut triangle_indices);
+    let num_triangles = u32::try_from(triangle_indices.len() / 3).expect("too many triangles");
+
+    for i in triangle_indices {
         let ring = earcut_starts.partition_point(|&start| start <= i) - 1;
         let stored = stored_starts[ring] + (i - earcut_starts[ring]);
         let idx = u32::try_from(stored)
@@ -196,7 +197,7 @@ impl GeometryValues {
     /// Its vertices are `(x, y)` pairs, so it must come before [`Self::add_z`].
     pub fn push_geom(&mut self, geom: &Geometry<i32>) {
         #[cfg(feature = "unstable-v2")]
-        debug_assert!(self.z_step.is_none(), "push_geom after add_z");
+        debug_assert!(self.z_axis.is_none(), "push_geom after add_z");
         match geom {
             Geometry::<i32>::Point(p) => self.push_point(p.0),
             Geometry::<i32>::Line(l) => self.push_linestring(&[l.start, l.end]),
@@ -481,17 +482,7 @@ pub(crate) fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
         order.extend(order.len()..order.len() + len);
     }
     fn polygon(order: &mut Vec<usize>, reversed: &mut bool, polygon: &Polygon<i32>) {
-        for (i, ring) in rings(polygon).enumerate() {
-            let start = order.len();
-            let end = start + stored_len(ring);
-            if needs_reversal(ring, i == 0) {
-                *reversed = true;
-                // Reversing the closed ring leaves its first vertex where it was.
-                order.extend((start..end.min(start + 1)).chain((start + 1..end).rev()));
-            } else {
-                order.extend(start..end);
-            }
-        }
+        push_wound_rings(order, reversed, rings(polygon));
     }
     fn walk(order: &mut Vec<usize>, reversed: &mut bool, geom: &Geometry<i32>) {
         match geom {
@@ -521,6 +512,40 @@ pub(crate) fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
     let mut reversed = false;
     walk(&mut order, &mut reversed, geom);
     reversed.then_some(order)
+}
+
+/// [`wound_vertex_order`] of a feature made of `polygons`, each given as its rings, exterior first.
+#[cfg(feature = "unstable-v2")]
+pub(crate) fn wound_polygons_order<'c>(
+    polygons: impl Iterator<Item = impl Iterator<Item = &'c [Coord<i32>]>>,
+) -> Option<Vec<usize>> {
+    let mut order = Vec::new();
+    let mut reversed = false;
+    for rings in polygons {
+        push_wound_rings(&mut order, &mut reversed, rings);
+    }
+    reversed.then_some(order)
+}
+
+/// Appends where each stored vertex of one polygon's `rings` ends up once they are wound, and
+/// sets `reversed` when any ring is.
+#[cfg(feature = "unstable-v2")]
+fn push_wound_rings<'c>(
+    order: &mut Vec<usize>,
+    reversed: &mut bool,
+    rings: impl Iterator<Item = &'c [Coord<i32>]>,
+) {
+    for (i, ring) in rings.enumerate() {
+        let start = order.len();
+        let end = start + stored_len(ring);
+        if needs_reversal(ring, i == 0) {
+            *reversed = true;
+            // Reversing the closed ring leaves its first vertex where it was.
+            order.extend((start..end.min(start + 1)).chain((start + 1..end).rev()));
+        } else {
+            order.extend(start..end);
+        }
+    }
 }
 
 /// Ensure offset array starts with 0.
@@ -574,13 +599,13 @@ fn push_linestrings<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{Network, Profile};
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
     use insta::assert_snapshot;
     use integer_encoding::VarInt;
     use proptest::prelude::*;
 
     use super::*;
+    use crate::encoder::{Network, Profile};
 
     fn wound_rings(rings: &[&[(i32, i32)]]) -> Vec<Vec<(i32, i32)>> {
         let rings: Vec<Vec<Coord<i32>>> = rings
@@ -1041,6 +1066,19 @@ mod tests {
         use crate::decoder::GeometryValues;
 
         #[test]
+        fn a_hole_reaching_past_the_bounding_box_of_its_shell_is_tessellated() {
+            let shell: Vec<(i32, i32)> = (0..=100)
+                .map(|i| (i, 0))
+                .chain([(100, 100), (0, 100), (0, 0)])
+                .collect();
+            let hole = vec![(10, 40), (40, 40), (30, -5), (10, 40)];
+            let polygon = Polygon::new(LineString::from(shell), vec![LineString::from(hole)]);
+            let mut g = GeometryValues::new_tessellated();
+            g.push_geom(&Geometry::<i32>::Polygon(polygon));
+            assert!(g.triangle_offsets().expect("triangle offsets")[1] > 0);
+        }
+
+        #[test]
         fn earcut_polygon_indices_in_range() {
             let exterior = LineString::from(vec![(0_i32, 0), (10, 0), (10, 10), (0, 10), (0, 0)]);
             let polygon = Polygon::new(exterior, vec![]);
@@ -1096,6 +1134,24 @@ mod tests {
             g.index_buffer().unwrap_or_default().to_vec()
         }
 
+        fn canonical_triangles(indices: &[u32]) -> Vec<[u32; 3]> {
+            assert_eq!(indices.len() % 3, 0);
+            let mut triangles = indices
+                .as_chunks::<3>()
+                .0
+                .iter()
+                .map(|&[a, b, c]| {
+                    [(a, b, c), (b, c, a), (c, a, b)]
+                        .into_iter()
+                        .min()
+                        .map(|(a, b, c)| [a, b, c])
+                        .unwrap()
+                })
+                .collect::<Vec<_>>();
+            triangles.sort_unstable();
+            triangles
+        }
+
         #[test]
         fn a_polygon_of_one_repeated_coordinate_has_no_triangles() {
             let point = Polygon::new(LineString::from(vec![(5, 5), (5, 5), (5, 5)]), vec![]);
@@ -1106,7 +1162,10 @@ mod tests {
         fn a_one_coordinate_polygon_still_shifts_the_next_polygons_indices() {
             let point = Polygon::new(LineString::from(vec![(5, 5)]), vec![]);
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![point, square(20)]));
-            assert_eq!(triangles(&geometry), [3, 4, 1, 1, 2, 3]);
+            assert_eq!(
+                canonical_triangles(&triangles(&geometry)),
+                canonical_triangles(&[3, 4, 1, 1, 2, 3])
+            );
         }
 
         #[test]
@@ -1153,7 +1212,17 @@ mod tests {
             let mut holed = square(0);
             holed.interiors_push(LineString::from(vec![(2, 2), (3, 3)]));
             let geometry = Geometry::MultiPolygon(MultiPolygon(vec![holed, square(20)]));
-            assert_eq!(triangles(&geometry), [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8]);
+            let actual = triangles(&geometry);
+            let expected = [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8];
+            assert_eq!(actual.len(), expected.len());
+            assert_eq!(
+                canonical_triangles(&actual[..6]),
+                canonical_triangles(&expected[..6])
+            );
+            assert_eq!(
+                canonical_triangles(&actual[6..]),
+                canonical_triangles(&expected[6..])
+            );
         }
     }
 

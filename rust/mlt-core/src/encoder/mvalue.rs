@@ -3,6 +3,7 @@
 use compact_str::CompactString;
 
 use crate::encoder::StagedStrings;
+use crate::tile::PropKind;
 
 /// An m-value column prepared for encoding: one value per vertex of every
 /// feature whose presence bit is set.
@@ -46,6 +47,14 @@ macro_rules! impl_staged_m_values {
                 match self {
                     $(Self::$sv(v) => v.len(),)*
                     $(Self::$gv(v) => v.len(),)*
+                }
+            }
+
+            /// An empty column of `kind`.
+            pub(crate) fn empty(kind: PropKind) -> Self {
+                match kind {
+                    $(PropKind::$sv => Self::$sv(Vec::new()),)*
+                    $(PropKind::$gv => Self::$gv(Vec::new()),)*
                 }
             }
         }

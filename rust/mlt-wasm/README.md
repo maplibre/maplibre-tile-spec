@@ -92,6 +92,8 @@ lose precision.
 
 A 3D layer's `zStep` is the power of ten of its z grid's step in metres; `toElevation(z, zStep)`
 converts one z to metres, exactly as `mlt-core` does.
+Its `heightMode` says what a z of `0` stands for: `"absolute"` is mean sea level and
+`"relativeToGround"` the terrain under each vertex.
 
 ### Features
 

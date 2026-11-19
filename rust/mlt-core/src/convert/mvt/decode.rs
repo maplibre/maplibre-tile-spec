@@ -80,9 +80,10 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
     let mut key_cols: Vec<Option<usize>> = vec![None; keys.len()];
 
     for feat in layer.features() {
-        for pair in feat.tags().chunks(2) {
-            let &[key_idx, value_idx] = pair else {
-                return Err(MvtError::InvalidTagsLength(pair.len()).into());
+        let mut tags = feat.tags();
+        while let Some(key_idx) = tags.next() {
+            let Some(value_idx) = tags.next() else {
+                return Err(MvtError::InvalidTagsLength(1).into());
             };
             let (Some(&key), Some(slot)) = (
                 keys.get(key_idx.into_usize()),
@@ -105,12 +106,12 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
         // Start every slot with a typed null; fill in present values below.
         let mut properties: Vec<PropValue> =
             col_kinds.iter().map(|&k| PropValue::null(k)).collect();
-        let (pairs, _) = feat.tags().as_chunks::<2>();
-        for pair in pairs {
-            let value = table[pair[1].into_usize()];
+        let mut tags = feat.tags();
+        while let (Some(key_idx), Some(value_idx)) = (tags.next(), tags.next()) {
+            let value = table[value_idx.into_usize()];
             if !matches!(value, MvtValueRef::Null) {
                 let idx =
-                    key_cols[pair[0].into_usize()].expect("the first pass resolved every key");
+                    key_cols[key_idx.into_usize()].expect("the first pass resolved every key");
                 properties[idx] = convert(col_kinds[idx], value);
             }
         }

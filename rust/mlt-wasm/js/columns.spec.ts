@@ -25,6 +25,7 @@ describe("decodeTileColumns", () => {
     expect(layer.featureCount).toBe(1);
     expect(layer.geometry.dimension).toBe(2);
     expect(layer.geometry.zStep).toBeUndefined();
+    expect(layer.geometry.heightMode).toBeUndefined();
     expect(Array.from(layer.geometry.vertices)).toEqual([13, 42]);
     expect(layer.ids).toBeUndefined();
   });
@@ -37,7 +38,14 @@ describe("decodeTileColumns", () => {
     // `dimension` narrows `zStep` to a number, which tsc checks here.
     const zStep: number = geometry.zStep;
     expect(zStep).toBe(-1);
-    expect(Array.from(geometry.vertices)).toEqual([13, 42, 100_120]);
+    expect(geometry.heightMode).toBe("absolute");
+    expect(Array.from(geometry.vertices)).toEqual([13, 42, 120]);
+  });
+
+  it("reads bit 3 of the z axis byte as relativeToGround", () => {
+    const { geometry } = onlyLayer("0x02/z_height_relative_to_ground");
+    if (geometry.dimension !== 3) throw new Error("expected 3D vertices");
+    expect(geometry.heightMode).toBe("relativeToGround");
   });
 
   it("marks absent ids in a bitmap and leaves their slots at 0", () => {
@@ -150,14 +158,14 @@ describe("columnValue", () => {
 });
 
 describe("toElevation", () => {
-  it("offsets by -10000 m and scales by the step", () => {
-    expect(toElevation(10000, 0)).toBe(0);
-    expect(toElevation(21000, 0)).toBe(11000);
-    expect(toElevation(1012, 1)).toBe(120);
+  it("scales by the step from sea level", () => {
+    expect(toElevation(0, 0)).toBe(0);
+    expect(toElevation(-994, 0)).toBe(-994);
+    expect(toElevation(12, 1)).toBe(120);
   });
 
   it("keeps a fine grid's decimals exact", () => {
-    expect(toElevation(1001234, -2)).toBe(12.34);
-    expect(toElevation(10012345, -3)).toBe(12.345);
+    expect(toElevation(1234, -2)).toBe(12.34);
+    expect(toElevation(12345, -3)).toBe(12.345);
   });
 });

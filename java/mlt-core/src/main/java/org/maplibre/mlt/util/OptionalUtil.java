@@ -37,12 +37,10 @@ public class OptionalUtil {
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public static <T, U> void apply(
       @NotNull Optional<T> a, @NotNull Optional<U> b, @NotNull BiConsumer<? super T, ? super U> f) {
-    a.flatMap(
-        av ->
-            b.map(
-                bv -> {
-                  f.accept(av, bv);
-                  return 0;
-                }));
+    a.flatMap(av ->
+        b.map(bv -> {
+          f.accept(av, bv);
+          return 0;
+        }));
   }
 }

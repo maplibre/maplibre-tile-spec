@@ -143,7 +143,7 @@ public class MltDecoderTest2 {
   }
 
   @DisplayName("Decode OMT Tiles (advanced encodings, non-sorted)")
-  @ParameterizedTest()
+  @ParameterizedTest
   @MethodSource("omtProvider")
   @Disabled
   public void decodeOMTTiles(String tileId) throws IOException {
@@ -156,7 +156,7 @@ public class MltDecoderTest2 {
   }
 
   @DisplayName("Decode OMT Tiles (non-advanced encodings)")
-  @ParameterizedTest()
+  @ParameterizedTest
   @MethodSource("omtProvider")
   @Disabled
   public void decodeOMTTiles2(String tileId) throws IOException {

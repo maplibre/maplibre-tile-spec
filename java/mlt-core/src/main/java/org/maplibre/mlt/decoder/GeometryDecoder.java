@@ -402,9 +402,8 @@ public class GeometryDecoder {
 
   public static boolean containsPolygon(List<Integer> geometryTypes) {
     return geometryTypes.stream()
-        .anyMatch(
-            geometryType ->
-                geometryType == GeometryType.POLYGON.ordinal()
-                    || geometryType == GeometryType.MULTIPOLYGON.ordinal());
+        .anyMatch(geometryType ->
+            geometryType == GeometryType.POLYGON.ordinal()
+                || geometryType == GeometryType.MULTIPOLYGON.ordinal());
   }
 }

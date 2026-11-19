@@ -47,11 +47,10 @@ public abstract class Feature implements FeatureInterface {
   public Optional<Property> findProperty(
       @NotNull String name, @NotNull MltMetadata.ScalarType type) {
     return findProperty(name)
-        .filter(
-            p ->
-                !p.isNested()
-                    && p.getType().scalarType() != null
-                    && p.getType().scalarType().physicalType().equals(type));
+        .filter(p ->
+            !p.isNested()
+                && p.getType().scalarType() != null
+                && p.getType().scalarType().physicalType().equals(type));
   }
 
   /**

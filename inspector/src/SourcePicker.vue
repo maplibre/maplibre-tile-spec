@@ -55,6 +55,7 @@ const ROW_HINTS: Record<string, string> = {
   optional: "Filter to files with columns some features may have no value for",
   mValue: "Filter to files with per-vertex values",
   zStep: "Filter to files whose vertices carry z, by the step of its grid",
+  heightMode: "Filter to files by what their z is measured from",
 };
 
 const rowHint = (row: AxisRow) => ROW_HINTS[row.key];

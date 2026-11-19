@@ -25,6 +25,8 @@ mod writer;
 
 #[cfg(not(feature = "__private"))]
 pub(crate) use geometry::VertexBufferType;
+#[cfg(feature = "unstable-v2")]
+pub(crate) use geometry::wound_polygons_order;
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use model::{ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding};
 #[cfg(all(feature = "unstable-v2", not(feature = "__private")))]
@@ -36,6 +38,8 @@ pub(crate) use nested::{
 pub(crate) use optimizer::encode_layer;
 pub(crate) use property::*;
 pub(crate) use source::LayerSource;
+#[cfg(feature = "unstable-v2")]
+pub(crate) use source::extend_run;
 pub(crate) use stream::*;
 
 #[cfg(feature = "__private")]

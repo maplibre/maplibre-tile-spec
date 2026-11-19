@@ -7,19 +7,26 @@ on:
 
 jobs:
   relay:
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         benchmark: [mlt-convert, mlt-convert-v2, mlt-decode-v1, mlt-decode-v2]
-    uses: hotpath-rs/hotpath/.github/workflows/hotpath-relay.yml@f8724d1e001c8a7f8ab805c26627a4fa0f9407f6 # v0.30.1
+    # A newer run of the same benchmark and branch supersedes an older one
+    concurrency:
+      group: hotpath-relay-${{ matrix.benchmark }}-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: true
     permissions:
       actions: read # download the artifact of the benchmark run
       id-token: write # authenticate the upload
       pull-requests: read # find the pull request the run belongs to
-    with:
-      benchmark: ${{ matrix.benchmark }}
-      artifact_name: hotpath-report
-      report_file: ${{ matrix.benchmark }}.json
+    steps:
+      - uses: hotpath-rs/hotpath-relay@d40b0e465fa852b0c1f4e33989140d11d7b2742c # v1.0.0
+        with:
+          benchmark: ${{ matrix.benchmark }}
+          artifact_name: hotpath-report
+          report_file: ${{ matrix.benchmark }}.json
 
   size-diff:
     if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
@@ -32,7 +39,7 @@ jobs:
       COMMENT_MARKER: '<!-- bench-comment:mlt-size-diff -->'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with: { tool: 'just' }
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v3.1.0-node20

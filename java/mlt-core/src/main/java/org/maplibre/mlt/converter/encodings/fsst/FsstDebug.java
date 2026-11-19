@@ -19,10 +19,9 @@ class FsstDebug implements Fsst {
   static {
     Runtime.getRuntime()
         .addShutdownHook(
-            new Thread(
-                () -> {
-                  System.err.print(FsstDebug.printStatsOnce());
-                }));
+            new Thread(() -> {
+              System.err.print(FsstDebug.printStatsOnce());
+            }));
   }
 
   @Override

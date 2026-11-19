@@ -10,6 +10,10 @@
 #include <mlt/util/raw.hpp>
 #include <mlt/util/varint.hpp>
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -110,6 +114,9 @@ public:
             const auto streamMetadata = metadata::stream::StreamMetadata::decode(tileData);
             switch (streamMetadata->getPhysicalStreamType()) {
                 case PhysicalStreamType::LENGTH: {
+                    if (!streamMetadata->getLogicalStreamType()) {
+                        throw std::runtime_error("Length stream missing logical type");
+                    }
                     const bool isDict = streamMetadata->getLogicalStreamType()->getLengthType() ==
                                         LengthType::DICTIONARY;
                     auto& target = isDict ? dictionaryLengthStream : symbolLengthStream;
@@ -117,6 +124,9 @@ public:
                     break;
                 }
                 case PhysicalStreamType::DATA: {
+                    if (!streamMetadata->getLogicalStreamType()) {
+                        throw std::runtime_error("Data stream missing logical type");
+                    }
                     const auto type = streamMetadata->getLogicalStreamType()->getDictionaryType();
                     const auto isDict = (type == DictionaryType::SINGLE || type == DictionaryType::SHARED);
                     auto& targetStream = isDict ? *dictionaryStream : symbolTableStream;
@@ -145,7 +155,8 @@ public:
         for (const auto& child : column.getComplexType().children) {
             [[maybe_unused]] const auto childStreams = decodeVarint<std::uint32_t>(tileData);
 
-            if (!child.hasScalarType() || child.getScalarType().getPhysicalType() != ScalarType::STRING) {
+            if (!child.hasScalarType() || !child.getScalarType().hasPhysicalType() ||
+                child.getScalarType().getPhysicalType() != ScalarType::STRING) {
                 throw std::runtime_error("Currently only string fields are implemented for a struct");
             }
 
@@ -208,59 +219,65 @@ public:
                                                 const std::uint8_t* compressedData,
                                                 const std::size_t compressedDataCount,
                                                 const std::size_t decompressedLength) {
-        std::vector<std::uint8_t> output;
-
-        if (decompressedLength > 0) {
-            output.resize(decompressedLength);
+        // The table has a code for each symbol, except for the escape code
+        constexpr std::size_t maxSymbols = 255;
+        constexpr std::size_t maxSymbolLength = 8;
+        if (symbolLengthCount > maxSymbols) {
+            throw std::runtime_error("FSST decode: too many symbols");
         }
-        std::vector<std::uint32_t> symbolOffsets(symbolLengthCount);
-        for (size_t i = 1; i < symbolLengthCount; i++) {
+
+        std::array<std::size_t, maxSymbols> symbolOffsets{};
+        for (std::size_t i = 1; i < symbolLengthCount; i++) {
             symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
         }
 
-        std::size_t idx = 0;
-        for (size_t i = 0; i < compressedDataCount; i++) {
+        // The size hint comes from the tile and may be wrong, but a compressed byte makes at most 8 bytes.
+        std::vector<std::uint8_t> output;
+        output.reserve(std::min(decompressedLength, maxSymbolLength * compressedDataCount));
+
+        for (std::size_t i = 0; i < compressedDataCount; i++) {
             const std::uint8_t symbolIndex = compressedData[i];
 
             // 255 is our escape byte -> take the next symbol as it is
             if (symbolIndex == 255) {
-                if (idx == output.size()) {
-                    output.resize(output.size() * 2);
+                if (++i == compressedDataCount) {
+                    throw std::runtime_error("FSST decode: escape without a byte to escape");
                 }
-                output[idx++] = compressedData[++i];
+                output.push_back(compressedData[i]);
             } else if (symbolIndex < symbolLengthCount) {
                 const auto len = symbolLengths[symbolIndex];
-                if (idx + len > output.size()) {
-                    output.resize((output.size() + len) * 2);
-                }
                 const auto offset = symbolOffsets[symbolIndex];
-                if (offset >= symbolCount) {
+                if (len > maxSymbolLength || offset > symbolCount || len > symbolCount - offset) {
                     throw std::runtime_error("FSST decode: symbol index out of bounds");
                 }
-                std::memcpy(&output[idx], &symbols[offset], len);
-                idx += len;
+                output.insert(output.end(), symbols + offset, symbols + offset + len);
             } else {
                 throw std::runtime_error("FSST decode: invalid symbol index");
             }
         }
 
-        output.resize(idx);
         return output;
     }
 
 private:
     IntegerDecoder& intDecoder;
 
+    /// The lengths of strings come from the tile and may not fit the data
+    static void checkLength(std::size_t length, std::size_t available) {
+        if (length > available) {
+            throw std::runtime_error("StringDecoder: string length exceeds the data");
+        }
+    }
+
     static void decodePlain(const std::vector<std::uint32_t>& lengthStream,
                             const std::vector<std::uint8_t>& utf8bytes,
                             std::vector<std::string_view>& out) {
+        const auto* const utf8Ptr = reinterpret_cast<const char*>(utf8bytes.data());
         std::size_t dataOffset = 0;
-        std::size_t lengthOffset = 0;
         out.reserve(lengthStream.size());
-        for (std::uint32_t i = 0; i < lengthStream.size(); ++i) {
-            const auto length = lengthStream[lengthOffset++];
-            const char* bytes = reinterpret_cast<std::string::const_pointer>(utf8bytes.data() + dataOffset);
-            out.emplace_back(bytes, length);
+        for (const auto length : lengthStream) {
+            checkLength(length, utf8bytes.size() - dataOffset);
+            out.emplace_back(utf8Ptr + dataOffset, length);
             dataOffset += length;
         }
     }
@@ -271,7 +288,9 @@ private:
         const auto* const utf8Ptr = reinterpret_cast<const char*>(utf8bytes.data());
 
         std::size_t offset = 0;
+        out.reserve(lengthStream.size());
         for (auto length : lengthStream) {
+            checkLength(length, utf8bytes.size() - offset);
             out.emplace_back(utf8Ptr + offset, length);
             offset += length;
         }
@@ -286,14 +305,18 @@ private:
         std::vector<std::string_view> dictionary;
         dictionary.reserve(lengthStream.size());
 
-        std::uint32_t dictionaryOffset = 0;
+        std::size_t dictionaryOffset = 0;
         for (const auto length : lengthStream) {
+            checkLength(length, utf8bytes.size() - dictionaryOffset);
             dictionary.emplace_back(utf8Ptr + dictionaryOffset, length);
             dictionaryOffset += length;
         }
 
         out.reserve(offsets.size());
         for (const auto offset : offsets) {
+            if (offset >= dictionary.size()) {
+                throw std::runtime_error("StringDecoder: dictionary index out of bounds");
+            }
             out.push_back(dictionary[offset]);
         }
     }

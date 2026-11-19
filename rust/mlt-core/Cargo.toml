@@ -1,7 +1,7 @@
 [package]
 name = "mlt-core"
 description = "MapLibre Tile library code"
-version = "0.22.1"
+version = "0.22.2"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -60,11 +60,12 @@ bitvec.workspace = true
 bytemuck.workspace = true
 compact_str.workspace = true
 derive-debug.workspace = true
+earcut.workspace = true
 enum_dispatch.workspace = true
 fast-mvt.workspace = true
 fastpfor.workspace = true
 fsst-rs.workspace = true
-geo = { workspace = true, features = ["earcut"] }
+geo.workspace = true
 geo-types.workspace = true
 hex.workspace = true
 hilbert_2d.workspace = true
@@ -117,6 +118,10 @@ required-features = ["__private-v2"]
 
 [[test]]
 name = "layer_bytes"
+required-features = ["unstable-v2"]
+
+[[test]]
+name = "layer_writer_m_values"
 required-features = ["unstable-v2"]
 
 [[test]]

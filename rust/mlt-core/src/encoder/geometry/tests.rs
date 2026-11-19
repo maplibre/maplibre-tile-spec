@@ -7,8 +7,9 @@ use rstest::rstest;
 
 use crate::decoder::{GeoTypes, RawGeometry, RawStream};
 use crate::encoder::model::EncoderConfig;
-use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder, VertexBufferType};
-use crate::encoder::{Network, Profile};
+use crate::encoder::{
+    Codecs, Encoder, ExplicitEncoder, IntEncoder, Network, Profile, VertexBufferType,
+};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, StreamType};
 
@@ -352,6 +353,24 @@ fn push_geoms_tessellated(geoms: &[Geometry<i32>]) -> GeometryValues {
     d
 }
 
+fn canonical_triangles(indices: &[u32]) -> Vec<[u32; 3]> {
+    assert_eq!(indices.len() % 3, 0);
+    let mut triangles = indices
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .map(|&[a, b, c]| {
+            [(a, b, c), (b, c, a), (c, a, b)]
+                .into_iter()
+                .min()
+                .map(|(a, b, c)| [a, b, c])
+                .unwrap()
+        })
+        .collect::<Vec<_>>();
+    triangles.sort_unstable();
+    triangles
+}
+
 fn stage(geoms: &[Geometry<i32>], tessellate: bool) -> GeometryValues {
     if tessellate {
         push_geoms_tessellated(geoms)
@@ -470,9 +489,14 @@ fn squares_after_a_point_and_a_line() -> Vec<Geometry<i32>> {
 fn triangle_indices_count_from_the_layer_first_vertex() {
     let staged = push_geoms_tessellated(&two_squares());
     assert_eq!(staged.triangle_offsets(), Some(&[0, 2, 4][..]));
+    let index_buffer = staged.index_buffer().unwrap();
     assert_eq!(
-        staged.index_buffer(),
-        Some(&[2, 3, 0, 0, 1, 2, 6, 7, 4, 4, 5, 6][..])
+        canonical_triangles(&index_buffer[..6]),
+        canonical_triangles(&[2, 3, 0, 0, 1, 2])
+    );
+    assert_eq!(
+        canonical_triangles(&index_buffer[6..]),
+        canonical_triangles(&[6, 7, 4, 4, 5, 6])
     );
 }
 

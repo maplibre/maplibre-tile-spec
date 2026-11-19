@@ -245,9 +245,9 @@ fn reject_antimeridian_crossing(a: &Position, b: &Position) -> AnyResult<()> {
 fn grid_z(step: ZStep, metres: f64) -> f64 {
     let power = 10_f64.powi(i32::from(step.exponent().unsigned_abs()));
     if step.exponent() < 0 {
-        metres * power - ZStep::BASE_METRES * power
+        metres * power
     } else {
-        (metres - ZStep::BASE_METRES) / power
+        metres / power
     }
 }
 
@@ -400,14 +400,13 @@ mod tests {
 
     #[test]
     fn an_altitude_is_mapped_onto_the_z_grid_and_an_m_value_is_ignored() {
-        // Terrain-RGB's decimetre grid: 12.3 m is (12.3 + 10000) * 10.
         assert!(close(
             point_z(step(-1), r#"{"type":"Point","coordinates":[0,0,12.3,7]}"#),
-            100_123.0
+            123.0
         ));
         assert!(close(
             point_z(step(2), r#"{"type":"Point","coordinates":[0,0,250]}"#),
-            102.5
+            2.5
         ));
     }
 

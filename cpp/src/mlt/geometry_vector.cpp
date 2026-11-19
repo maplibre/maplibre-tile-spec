@@ -6,6 +6,7 @@
 #include <mlt/polyfill.hpp> // NOLINT(misc-include-cleaner)
 #include <mlt/util/morton_curve.hpp>
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -17,7 +18,6 @@
 #include <vector>
 
 #ifndef NDEBUG
-#include <algorithm>
 #include <iterator>
 #endif
 
@@ -33,17 +33,39 @@ constexpr void checkBuffer(std::size_t index, std::size_t size, std::string_view
 }
 #define CHECK_BUFFER(I, B) checkBuffer(I, (B).size(), #B)
 
+/// The number of items between two consecutive offsets, which must be there and not decrease
+inline std::uint32_t offsetDelta(const std::vector<std::uint32_t>& offsets, std::size_t index, std::string_view name) {
+    if (index == 0 || index >= offsets.size()) {
+        throw std::runtime_error(std::string(name) + " underflow");
+    }
+    if (offsets[index] < offsets[index - 1]) {
+        throw std::runtime_error(std::string(name) + " decreases");
+    }
+    return offsets[index] - offsets[index - 1];
+}
+#define OFFSET_DELTA(B, I) offsetDelta(B, I, #B)
+
+/// Check that `count` items are available from `start`, where each takes `perItem` elements
+constexpr void checkRange(
+    std::size_t start, std::size_t count, std::size_t perItem, std::size_t size, std::string_view name) {
+    if (start > size || count > (size - start) / perItem) {
+        throw std::runtime_error(std::string(name) + " underflow");
+    }
+}
+#define CHECK_RANGE(S, N, P, B) checkRange(S, N, P, (B).size(), #B)
+
 inline Coordinate coord(std::int32_t x, std::int32_t y) {
     return {static_cast<float>(x), static_cast<float>(y)};
 }
 
 std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& vertexBuffer,
-                                            std::uint32_t startIndex,
+                                            std::size_t startIndex,
                                             const std::uint32_t numVertices,
                                             bool closeLineString) {
+    // Each vertex takes two values
+    CHECK_RANGE(startIndex, numVertices, 2, vertexBuffer);
     std::vector<Coordinate> coords;
-    coords.reserve(numVertices + 1);
-    CHECK_BUFFER(startIndex + numVertices - 1, vertexBuffer);
+    coords.reserve(std::size_t{numVertices} + 1);
     for (std::uint32_t i = 0; i < numVertices; ++i) {
         const auto x = vertexBuffer[startIndex++];
         coords.push_back(coord(x, vertexBuffer[startIndex++]));
@@ -57,14 +79,14 @@ std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& ver
 
 std::vector<Coordinate> getDictionaryEncodedLineStringCoords(const std::vector<std::int32_t>& vertexBuffer,
                                                              const std::vector<std::uint32_t>& vertexOffsets,
-                                                             std::uint32_t vertexOffset,
+                                                             std::size_t vertexOffset,
                                                              const std::uint32_t numVertices,
                                                              const bool closeLineString) {
+    CHECK_RANGE(vertexOffset, numVertices, 1, vertexOffsets);
     std::vector<Coordinate> coords;
-    coords.reserve(numVertices + 1);
-    CHECK_BUFFER(vertexOffset + numVertices - 1, vertexOffsets);
+    coords.reserve(std::size_t{numVertices} + 1);
     for (std::uint32_t i = 0; i < numVertices; ++i) {
-        const auto offset = 2 * vertexOffsets[vertexOffset++];
+        const auto offset = 2 * std::size_t{vertexOffsets[vertexOffset++]};
         CHECK_BUFFER(offset + 1, vertexBuffer);
         coords.push_back(coord(vertexBuffer[offset], vertexBuffer[offset + 1]));
     }
@@ -76,13 +98,13 @@ std::vector<Coordinate> getDictionaryEncodedLineStringCoords(const std::vector<s
 
 std::vector<Coordinate> getMortonEncodedLineStringCoords(const std::vector<std::int32_t>& vertexBuffer,
                                                          const std::vector<std::uint32_t>& vertexOffsets,
-                                                         std::uint32_t vertexOffset,
+                                                         std::size_t vertexOffset,
                                                          const std::uint32_t numVertices,
                                                          const MortonSettings& mortonSettings,
                                                          const bool closeLineString) {
+    CHECK_RANGE(vertexOffset, numVertices, 1, vertexOffsets);
     std::vector<Coordinate> coords;
-    coords.reserve(numVertices + 1);
-    CHECK_BUFFER(vertexOffset + numVertices - 1, vertexOffsets);
+    coords.reserve(std::size_t{numVertices} + 1);
     for (std::uint32_t i = 0; i < numVertices; ++i) {
         const auto offset = vertexOffsets[vertexOffset++];
         CHECK_BUFFER(offset, vertexBuffer);
@@ -97,9 +119,9 @@ std::vector<Coordinate> getMortonEncodedLineStringCoords(const std::vector<std::
 } // namespace
 
 void GeometryVector::applyTriangles(Geometry& geom,
-                                    std::uint32_t& triangleOffset,
-                                    std::uint32_t& indexBufferOffset,
-                                    [[maybe_unused]] std::uint32_t totalVertices,
+                                    std::size_t& triangleOffset,
+                                    std::size_t& indexBufferOffset,
+                                    std::uint32_t totalVertices,
                                     [[maybe_unused]] bool multiPolygon) const {
     if (triangleCounts.empty()) {
         return;
@@ -108,12 +130,16 @@ void GeometryVector::applyTriangles(Geometry& geom,
     CHECK_BUFFER(triangleOffset, triangleCounts);
     const auto numTriangles = triangleCounts[triangleOffset++];
     if (numTriangles) {
-        CHECK_BUFFER(indexBufferOffset + (3 * numTriangles) - 1, indexBuffer);
-        assert(std::all_of(std::next(indexBuffer.cbegin(), indexBufferOffset),
-                           std::next(indexBuffer.cbegin(), indexBufferOffset + (3 * numTriangles)),
-                           [=](auto i) { return i < totalVertices; }));
-        geom.setTriangles({&indexBuffer[indexBufferOffset], 3 * numTriangles});
-        indexBufferOffset += 3 * numTriangles;
+        CHECK_RANGE(indexBufferOffset, numTriangles, 3, indexBuffer);
+        const std::size_t numIndexes = 3 * std::size_t{numTriangles};
+        // The indexes are used by whatever draws the triangles, to refer to the vertices
+        if (!std::all_of(std::next(indexBuffer.cbegin(), static_cast<std::ptrdiff_t>(indexBufferOffset)),
+                         std::next(indexBuffer.cbegin(), static_cast<std::ptrdiff_t>(indexBufferOffset + numIndexes)),
+                         [=](auto i) { return i < totalVertices; })) {
+            throw std::runtime_error("Triangle index out of range");
+        }
+        geom.setTriangles({&indexBuffer[indexBufferOffset], numIndexes});
+        indexBufferOffset += numIndexes;
     }
 }
 
@@ -121,13 +147,13 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
     std::vector<std::unique_ptr<Geometry>> geometries;
     geometries.reserve(numGeometries);
 
-    std::uint32_t partOffsetCounter = 1;
-    std::uint32_t ringOffsetsCounter = 1;
-    std::uint32_t geometryOffsetsCounter = 1;
-    std::uint32_t vertexBufferOffset = 0;
-    std::uint32_t vertexOffsetsOffset = 0;
-    std::uint32_t indexBufferOffset = 0;
-    std::uint32_t triangleOffset = 0;
+    std::size_t partOffsetCounter = 1;
+    std::size_t ringOffsetsCounter = 1;
+    std::size_t geometryOffsetsCounter = 1;
+    std::size_t vertexBufferOffset = 0;
+    std::size_t vertexOffsetsOffset = 0;
+    std::size_t indexBufferOffset = 0;
+    std::size_t triangleOffset = 0;
 
     const auto containsPolygon = containsPolygonGeometry();
 
@@ -145,12 +171,14 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     vertexBufferOffset += 2;
                 } else if (vertexBufferType == VertexBufferType::VEC_2) {
                     CHECK_BUFFER(vertexOffsetsOffset, vertexOffsets);
-                    const auto vertexOffset = vertexOffsets[vertexOffsetsOffset++] * 2;
+                    const auto vertexOffset = 2 * std::size_t{vertexOffsets[vertexOffsetsOffset++]};
                     CHECK_BUFFER(vertexOffset + 1, vertexBuffer);
                     geometries.push_back(factory.createPoint({static_cast<float>(vertexBuffer[vertexOffset]),
                                                               static_cast<float>(vertexBuffer[vertexOffset + 1])}));
                 } else {
-                    assert(vertexBufferType == VertexBufferType::MORTON);
+                    if (vertexBufferType != VertexBufferType::MORTON || !mortonSettings) {
+                        throw std::runtime_error("Invalid vertex buffer type");
+                    }
                     CHECK_BUFFER(vertexOffsetsOffset, vertexOffsets);
                     const auto mortonCode = vertexOffsets[vertexOffsetsOffset++];
                     geometries.push_back(factory.createPoint(util::MortonCurve::decode(
@@ -170,33 +198,33 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 [[maybe_unused]] const auto& partOffsets = topologyVector->getPartOffsets();
                 [[maybe_unused]] const auto& ringOffsets = topologyVector->getRingOffsets();
 
-                CHECK_BUFFER(geometryOffsetsCounter, geometryOffsets);
-                const auto numPoints = geometryOffsets[geometryOffsetsCounter] -
-                                       geometryOffsets[geometryOffsetsCounter - 1];
+                const auto numPoints = OFFSET_DELTA(geometryOffsets, geometryOffsetsCounter);
                 geometryOffsetsCounter++;
 
                 if (numPoints) {
                     std::vector<Coordinate> vertices;
-                    vertices.reserve(numPoints);
 
                     if (vertexOffsets.empty()) {
-                        CHECK_BUFFER(vertexBufferOffset + (2 * numPoints) - 1, vertexBuffer);
+                        CHECK_RANGE(vertexBufferOffset, numPoints, 2, vertexBuffer);
+                        vertices.reserve(numPoints);
                         for (std::uint32_t j = 0; j < numPoints; ++j) {
                             const auto x = vertexBuffer[vertexBufferOffset++];
                             vertices.push_back(coord(x, vertexBuffer[vertexBufferOffset++]));
                         }
                     } else {
-                        CHECK_BUFFER(vertexOffsetsOffset + numPoints - 1, vertexOffsets);
+                        CHECK_RANGE(vertexOffsetsOffset, numPoints, 1, vertexOffsets);
+                        vertices.reserve(numPoints);
                         for (std::uint32_t j = 0; j < numPoints; ++j) {
-                            const auto offset = vertexOffsets[vertexOffsetsOffset++] * 2;
+                            const auto offset = 2 * std::size_t{vertexOffsets[vertexOffsetsOffset++]};
+                            CHECK_BUFFER(offset + 1, vertexBuffer);
                             vertices.push_back(coord(vertexBuffer[offset], vertexBuffer[offset + 1]));
                         }
                     }
                     geometries.push_back(factory.createMultiPoint(std::move(vertices)));
                 }
 
-                partOffsetCounter += numPoints;
-                ringOffsetsCounter += numPoints;
+                partOffsetCounter += std::size_t{numPoints};
+                ringOffsetsCounter += std::size_t{numPoints};
                 break;
             }
             case GeometryType::LINESTRING: {
@@ -207,13 +235,11 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 std::uint32_t numVertices = 0;
                 if (containsPolygon) {
                     const auto& ringOffsets = topologyVector->getRingOffsets();
-                    CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                    numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                    numVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                     ringOffsetsCounter++;
                 } else {
                     const auto& partOffsets = topologyVector->getPartOffsets();
-                    CHECK_BUFFER(partOffsetCounter, partOffsets);
-                    numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                    numVertices = OFFSET_DELTA(partOffsets, partOffsetCounter);
                 }
                 partOffsetCounter++;
 
@@ -221,7 +247,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 if (vertexOffsets.empty()) {
                     vertices = getLineStringCoords(
                         vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/false);
-                    vertexBufferOffset += numVertices * 2;
+                    vertexBufferOffset += 2 * std::size_t{numVertices};
                 } else {
                     vertices = (vertexBufferType == VertexBufferType::VEC_2)
                                    ? getDictionaryEncodedLineStringCoords(vertexBuffer,
@@ -251,37 +277,29 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 const auto& partOffsets = topologyVector->getPartOffsets();
                 const auto& ringOffsets = topologyVector->getRingOffsets();
 
-                CHECK_BUFFER(partOffsetCounter, partOffsets);
-                const auto numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                const auto numRings = OFFSET_DELTA(partOffsets, partOffsetCounter);
                 partOffsetCounter++;
 
-                CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                const auto numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                const auto numVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                 ringOffsetsCounter++;
 
                 std::vector<CoordVec> rings;
-                rings.reserve(numRings);
+                rings.reserve(std::min<std::size_t>(numRings, ringOffsets.size()));
 
                 auto totalVertices = numVertices;
                 if (vertexOffsets.empty()) {
                     rings.push_back(
                         getLineStringCoords(vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/true));
-                    vertexBufferOffset += numVertices * 2;
-                    assert(triangleCounts.empty() || numVertices == rings.back().size() ||
-                           numVertices == rings.back().size() - 1);
+                    vertexBufferOffset += 2 * std::size_t{numVertices};
 
                     for (std::uint32_t j = 1; j < numRings; ++j) {
-                        CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                        const auto numRingVertices = ringOffsets[ringOffsetsCounter] -
-                                                     ringOffsets[ringOffsetsCounter - 1];
+                        const auto numRingVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                         totalVertices += numRingVertices;
                         ringOffsetsCounter++;
                         const auto vbo = vertexBufferOffset;
-                        vertexBufferOffset += numRingVertices * 2;
+                        vertexBufferOffset += 2 * std::size_t{numRingVertices};
                         rings.push_back(
                             getLineStringCoords(vertexBuffer, vbo, numRingVertices, /*closeLineString=*/true));
-                        assert(triangleCounts.empty() || numRingVertices == rings.back().size() ||
-                               numRingVertices == rings.back().size() - 1);
                     }
 
                     auto newGeometry = factory.createPolygon(std::move(rings));
@@ -301,14 +319,10 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                                                                            *mortonSettings,
                                                                            /*closeLineString=*/true));
                     vertexOffsetsOffset += numVertices;
-                    assert(triangleCounts.empty() || numVertices == rings.back().size() ||
-                           numVertices == rings.back().size() - 1);
 
                     auto dictTotalVertices = numVertices;
                     for (std::uint32_t j = 1; j < numRings; ++j) {
-                        CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                        const auto numRingVertices = ringOffsets[ringOffsetsCounter] -
-                                                     ringOffsets[ringOffsetsCounter - 1];
+                        const auto numRingVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                         ringOffsetsCounter++;
 
                         dictTotalVertices += numRingVertices;
@@ -326,7 +340,6 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                                                                    numRingVertices,
                                                                    *mortonSettings,
                                                                    /*closeLineString=*/true));
-                        assert(triangleCounts.empty() || numRingVertices == rings.back().size());
                     }
 
                     auto newGeometry = factory.createPolygon(std::move(rings));
@@ -347,42 +360,36 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 const auto& partOffsets = topologyVector->getPartOffsets();
                 const auto& ringOffsets = topologyVector->getRingOffsets();
 
-                CHECK_BUFFER(geometryOffsetsCounter, geometryOffsets);
-                const auto numLineStrings = geometryOffsets[geometryOffsetsCounter] -
-                                            geometryOffsets[geometryOffsetsCounter - 1];
+                const auto numLineStrings = OFFSET_DELTA(geometryOffsets, geometryOffsetsCounter);
                 geometryOffsetsCounter++;
 
                 std::vector<CoordVec> lineStrings;
-                lineStrings.reserve(numLineStrings);
+                lineStrings.reserve(std::min<std::size_t>(numLineStrings, partOffsets.size()));
 
                 if (vertexOffsets.empty()) {
                     for (std::uint32_t j = 0; j < numLineStrings; j++) {
                         std::uint32_t numVertices = 0;
                         if (containsPolygon) {
-                            CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                            numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            numVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                             ringOffsetsCounter++;
                         } else {
-                            CHECK_BUFFER(partOffsetCounter, partOffsets);
-                            numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                            numVertices = OFFSET_DELTA(partOffsets, partOffsetCounter);
                         }
                         partOffsetCounter++;
 
                         lineStrings.push_back(getLineStringCoords(
                             vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/false));
-                        vertexBufferOffset += numVertices * 2;
+                        vertexBufferOffset += 2 * std::size_t{numVertices};
                     }
                     geometries.push_back(factory.createMultiLineString(std::move(lineStrings)));
                 } else {
                     for (std::uint32_t j = 0; j < numLineStrings; ++j) {
                         std::uint32_t numVertices = 0;
                         if (containsPolygon) {
-                            CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                            numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            numVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                             ringOffsetsCounter++;
                         } else {
-                            CHECK_BUFFER(partOffsetCounter, partOffsets);
-                            numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                            numVertices = OFFSET_DELTA(partOffsets, partOffsetCounter);
                         }
                         partOffsetCounter++;
 
@@ -412,45 +419,39 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 const auto& partOffsets = topologyVector->getPartOffsets();
                 const auto& ringOffsets = topologyVector->getRingOffsets();
 
-                CHECK_BUFFER(geometryOffsetsCounter, geometryOffsets);
-                const auto numPolygons = geometryOffsets[geometryOffsetsCounter] -
-                                         geometryOffsets[geometryOffsetsCounter - 1];
+                const auto numPolygons = OFFSET_DELTA(geometryOffsets, geometryOffsetsCounter);
                 geometryOffsetsCounter++;
 
                 std::vector<MultiPolygon::RingVec> polygons;
-                polygons.reserve(numPolygons);
+                polygons.reserve(std::min<std::size_t>(numPolygons, partOffsets.size()));
 
                 if (vertexOffsets.empty()) {
                     [[maybe_unused]] std::uint32_t plainTotalVertices = 0;
                     for (std::uint32_t j = 0; j < numPolygons; ++j) {
-                        CHECK_BUFFER(partOffsetCounter, partOffsets);
-                        const auto numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                        const auto numRings = OFFSET_DELTA(partOffsets, partOffsetCounter);
                         partOffsetCounter++;
 
-                        CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                        const auto numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                        const auto numVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                         ringOffsetsCounter++;
 
                         plainTotalVertices += numVertices;
 
                         std::vector<CoordVec> rings;
-                        rings.reserve(numRings);
+                        rings.reserve(std::min<std::size_t>(numRings, ringOffsets.size()));
 
                         rings.push_back(getLineStringCoords(
                             vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/true));
-                        vertexBufferOffset += numVertices * 2;
+                        vertexBufferOffset += 2 * std::size_t{numVertices};
 
                         for (std::uint32_t k = 1; k < numRings; ++k) {
-                            CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                            const auto numRingVertices = ringOffsets[ringOffsetsCounter] -
-                                                         ringOffsets[ringOffsetsCounter - 1];
+                            const auto numRingVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                             ringOffsetsCounter++;
 
                             plainTotalVertices += numRingVertices;
 
                             rings.push_back(getLineStringCoords(
                                 vertexBuffer, vertexBufferOffset, numRingVertices, /*closeLineString=*/true));
-                            vertexBufferOffset += numRingVertices * 2;
+                            vertexBufferOffset += 2 * std::size_t{numRingVertices};
                         }
 
                         polygons.push_back(std::move(rings));
@@ -462,18 +463,16 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 } else {
                     [[maybe_unused]] std::uint32_t dictTotalVertices = 0;
                     for (std::uint32_t j = 0; j < numPolygons; ++j) {
-                        CHECK_BUFFER(partOffsetCounter, partOffsets);
-                        const auto numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                        const auto numRings = OFFSET_DELTA(partOffsets, partOffsetCounter);
                         partOffsetCounter++;
 
-                        CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                        const auto numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                        const auto numVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                         ringOffsetsCounter++;
 
                         dictTotalVertices += numVertices;
 
                         std::vector<CoordVec> rings;
-                        rings.reserve(numRings);
+                        rings.reserve(std::min<std::size_t>(numRings, ringOffsets.size()));
 
                         rings.push_back((vertexBufferType == VertexBufferType::VEC_2)
                                             ? getDictionaryEncodedLineStringCoords(vertexBuffer,
@@ -490,9 +489,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                         vertexOffsetsOffset += numVertices;
 
                         for (std::uint32_t k = 1; k < numRings; ++k) {
-                            CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
-                            const auto numRingVertices = ringOffsets[ringOffsetsCounter] -
-                                                         ringOffsets[ringOffsetsCounter - 1];
+                            const auto numRingVertices = OFFSET_DELTA(ringOffsets, ringOffsetsCounter);
                             ringOffsetsCounter++;
 
                             dictTotalVertices += numRingVertices;
@@ -526,22 +523,29 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
         }
     }
 
-    // If we didn't use all the input data, that's a bug.
-    assert(indexBufferOffset == indexBuffer.size());
-    assert(triangleOffset == triangleCounts.size());
+    // If we didn't use all the input data, the tile isn't valid.
+    if (indexBufferOffset != indexBuffer.size() || triangleOffset != triangleCounts.size()) {
+        throw std::runtime_error("Unused triangle data");
+    }
 
     // TODO: this fails for `test/expected/amazon_here/8_132_85.mlt`
-    // assert(!topologyVector || topologyVector->getPartOffsets().empty() ||
-    //        partOffsetCounter == topologyVector->getPartOffsets().size());
-    assert(!topologyVector || topologyVector->getRingOffsets().empty() ||
-           ringOffsetsCounter == topologyVector->getRingOffsets().size());
-    assert(!topologyVector || topologyVector->getGeometryOffsets().empty() ||
-           geometryOffsetsCounter == topologyVector->getGeometryOffsets().size());
+    // if (topologyVector && !topologyVector->getPartOffsets().empty() &&
+    //     partOffsetCounter != topologyVector->getPartOffsets().size()) {
+    //     throw std::runtime_error("Unused part offsets");
+    // }
+    if (topologyVector &&
+        ((!topologyVector->getRingOffsets().empty() && ringOffsetsCounter != topologyVector->getRingOffsets().size()) ||
+         (!topologyVector->getGeometryOffsets().empty() &&
+          geometryOffsetsCounter != topologyVector->getGeometryOffsets().size()))) {
+        throw std::runtime_error("Unused topology data");
+    }
 
     // If we're using vertex offsets, we should have used all
     // of them, and we won't have used vertex buffer offsets.
-    assert(!vertexOffsets.empty() || vertexBufferOffset == vertexBuffer.size());
-    assert(vertexOffsets.empty() || vertexOffsetsOffset == vertexOffsets.size());
+    if (vertexOffsets.empty() ? (vertexBufferOffset != vertexBuffer.size())
+                              : (vertexOffsetsOffset != vertexOffsets.size())) {
+        throw std::runtime_error("Unused vertex data");
+    }
 
     return geometries;
 }

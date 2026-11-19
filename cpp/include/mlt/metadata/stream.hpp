@@ -5,8 +5,11 @@
 #include <mlt/util/noncopyable.hpp>
 #include <mlt/util/varint.hpp>
 
+#include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <vector>
 
 namespace mlt::metadata::stream {
@@ -234,6 +237,11 @@ public:
 
     static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& tileData) {
         const auto [numBits, coordShift] = util::decoding::decodeVarints<std::uint32_t, 2>(tileData);
+        // The parameters are used as bit counts and offsets by the decoder, so they must be sane.
+        // 16 bits per coordinate is the most the encoder supports.
+        if (numBits > 16 || coordShift > static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max())) {
+            throw std::runtime_error("Invalid Morton parameters");
+        }
         return {std::move(streamMetadata), static_cast<int>(numBits), static_cast<int>(coordShift)};
     }
 
