@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.2.4...rust-mlt-wasm-v0.2.5) - 2026-11-19
+
+### Added
+
+- *(v2)* sea-level z and KML height modes ([#2053](https://github.com/maplibre/maplibre-tile-spec/pull/2053))
+
 ## [0.2.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.2.3...rust-mlt-wasm-v0.2.4) - 2026-11-15
 
 ### Other

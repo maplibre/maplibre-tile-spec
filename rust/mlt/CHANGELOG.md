@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.6.2...rust-mlt-v0.7.0) - 2026-11-19
+
+### Added
+
+- *(v2)* sea-level z and KML height modes ([#2053](https://github.com/maplibre/maplibre-tile-spec/pull/2053))
+
+### Other
+
+- *(rust)* bump pmtiles, fast-mvt, pyo3, hotpath to latest ([#2062](https://github.com/maplibre/maplibre-tile-spec/pull/2062))
+- *(rust)* pass the layer by reference in the convert_fields helpers ([#2054](https://github.com/maplibre/maplibre-tile-spec/pull/2054))
+
 ## [0.6.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.6.1...rust-mlt-v0.6.2) - 2026-11-15
 
 ### Other
