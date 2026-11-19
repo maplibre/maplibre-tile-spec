@@ -163,7 +163,9 @@ export function tileGeoJson(data, options = {}) {
       }
       if (layer.geometry.zStep !== undefined) {
         rawProps["_z_step"] = layer.geometry.zStep;
-        if (layer.geometry.zDatum === "ground") rawProps["_z_datum"] = "ground";
+        if (layer.geometry.heightMode === "relativeToGround") {
+          rawProps["_height_mode"] = "relative_to_ground";
+        }
       }
       rawProps["_layer"] = layer.name;
       rawProps["_extent"] = layer.extent;

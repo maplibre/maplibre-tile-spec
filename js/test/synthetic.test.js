@@ -124,6 +124,9 @@ function vectorTileToFeatureCollection(tile) {
       Object.assign(properties, feature.properties);
       if (feature.zStep !== undefined) {
         properties._z_step = feature.zStep;
+        if (feature.heightMode === "relativeToGround") {
+          properties._height_mode = "relative_to_ground";
+        }
       }
       const z = feature.zStep === undefined ? undefined : feature.loadZ();
       let next = 0;

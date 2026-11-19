@@ -39,8 +39,9 @@ for (const layer of colTile.layers) {
     const m: number = toElevation(
       layer.geometry.vertices[2] ?? 0,
       layer.geometry.zStep,
-      layer.geometry.zDatum,
     );
+    const mode: "absolute" | "relativeToGround" = layer.geometry.heightMode;
+    void mode;
     const m2: number = columnsElev(0, layer.geometry.zStep);
     void m;
     void m2;

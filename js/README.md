@@ -122,9 +122,10 @@ lose precision.
 
 The typed arrays of a layer are its own: they stay valid after the next tile is decoded.
 
-A 3D layer's `zStep` is the power of ten of its z grid's step in metres, and its `zDatum` is what
-`z = 0` stands for: `"elevation"`, Terrain-RGB's base of -10000 m, or `"ground"`, so that z is a
-height above it. `toElevation(z, zStep, zDatum)` converts one z to metres, exactly as `mlt-core` does.
+A 3D layer's `zStep` is the power of ten of its z grid's step in metres, and its `heightMode` is
+what `z = 0` stands for: `"absolute"`, mean sea level, or `"relativeToGround"`, the terrain under
+each vertex. `toElevation(z, zStep)` converts one z to metres above that base, exactly as
+`mlt-core` does.
 
 A v2 layer's `mValues` hold its m-value columns, packed over the vertices or, in a `Meshes` layer,
 the triangles of the features whose `present` bit is set, with strings as dictionary codes;
@@ -133,7 +134,8 @@ does the same on `decodeTile3D`.
 
 A `Meshes` layer's features are all `MltGeometryType.Mesh`: `geometryOffsets` starts each feature's
 run of vertices, and `triangleOffsets` each feature's triangles in the layer-wide `indexBuffer`.
-A mesh on the `"ground"` datum meets the terrain at the centre of its vertices' `(x, y)` bounding box.
+A mesh in the `"relativeToGround"` height mode meets the terrain at the centre of its vertices'
+`(x, y)` bounding box.
 
 ```ts
 import { decodeTileColumns, toElevation } from '@maplibre/mlt-js/columns';
@@ -143,7 +145,7 @@ for (const layer of decodeTileColumns(data).layers) {
     if (!g.meshes) continue;
     // one draw call per layer: upload g.vertices as ivec3 and g.indexBuffer as the index buffer,
     // and scale z in the shader by 10 ** g.zStep metres
-    const metres = toElevation(g.vertices[2], g.zStep, g.zDatum);
+    const metres = toElevation(g.vertices[2], g.zStep);
 }
 ```
 

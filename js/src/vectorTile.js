@@ -201,7 +201,7 @@ export class MltFeature extends FeatureBase {
   constructor(featureIdx, layerData) {
     super(featureIdx, layerData);
     this.zStep = layerData.layer.geometry.zStep;
-    this.zDatum = layerData.layer.geometry.zDatum;
+    this.heightMode = layerData.layer.geometry.heightMode;
   }
 
   loadGeometry() {
@@ -232,12 +232,12 @@ export class MltFeature3D extends FeatureBase {
    * @param {number} featureIdx
    * @param {{ layer: any, trianglesOnly: boolean }} layerData
    * @param {number} zStep
-   * @param {"elevation" | "ground"} [zDatum="elevation"]
+   * @param {"absolute" | "relativeToGround"} [heightMode="absolute"]
    */
-  constructor(featureIdx, layerData, zStep, zDatum = "elevation") {
+  constructor(featureIdx, layerData, zStep, heightMode = "absolute") {
     super(featureIdx, layerData);
     this.zStep = zStep;
-    this.zDatum = zDatum;
+    this.heightMode = heightMode;
   }
 
   loadGeometry() {
@@ -302,7 +302,7 @@ export class MltLayer extends LayerBase {
     super(layer);
     this.version = 1;
     this.zStep = this._data.layer.geometry.zStep;
-    this.zDatum = this._data.layer.geometry.zDatum;
+    this.heightMode = this._data.layer.geometry.heightMode;
   }
 
   /** @param {number} i */
@@ -330,7 +330,7 @@ export class MltLayer3D extends LayerBase {
       );
     }
     this.zStep = geometry.zStep;
-    this.zDatum = geometry.zDatum;
+    this.heightMode = geometry.heightMode;
     this.mValues = layer.mValues ?? [];
   }
 
@@ -340,7 +340,7 @@ export class MltLayer3D extends LayerBase {
       this._featureIndex(i),
       this._data,
       this.zStep,
-      this.zDatum,
+      this.heightMode,
     );
   }
 }

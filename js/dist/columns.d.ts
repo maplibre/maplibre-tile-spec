@@ -60,11 +60,12 @@ export type MltNamedColumn = {
 }[MltColumnType];
 
 /**
- * Reference datum for a 3D layer's `z = 0`:
- * - `"elevation"`: Terrain-RGB base of `-10000` m (`z` is absolute elevation).
- * - `"ground"`: terrain height at the centre of a mesh feature's `(x, y)` bounding box (`z` is height above ground).
+ * What a 3D layer's `z = 0` stands for:
+ * - `"absolute"`: mean sea level.
+ * - `"relativeToGround"`: the terrain under each vertex; for a `Meshes` layer, the terrain at the
+ *   centre of each mesh's `(x, y)` bounding box.
  */
-export type MltZDatum = "elevation" | "ground";
+export type MltHeightMode = "absolute" | "relativeToGround";
 
 interface MltGeometryColumnsBase {
   /** `MltGeometryType` code for each feature (`types.length === featureCount`). */
@@ -89,7 +90,7 @@ interface MltGeometryColumnsBase {
 export interface MltGeometryColumns2D extends MltGeometryColumnsBase {
   readonly dimension: 2;
   readonly zStep?: undefined;
-  readonly zDatum?: undefined;
+  readonly heightMode?: undefined;
 }
 
 /** Decoded 3D geometry columns (`(x, y, z)` vertices). */
@@ -97,7 +98,7 @@ export interface MltGeometryColumns3D extends MltGeometryColumnsBase {
   readonly dimension: 3;
   /** Power of ten of the `z` grid step in metres; convert to metres with `toElevation`. */
   readonly zStep: number;
-  readonly zDatum: MltZDatum;
+  readonly heightMode: MltHeightMode;
 }
 
 /** Decoded geometry columns of a layer, discriminated by `dimension` (`2` or `3`). */
@@ -193,9 +194,5 @@ export declare function mValueSlice<C extends MltMValueColumn>(
   featureIndex: number,
 ): MltMValueSlice<C> | undefined;
 
-/** Convert an integer `z` coordinate on a `10 ** zStep` metre grid into metres relative to `zDatum`. */
-export declare function toElevation(
-  z: number,
-  zStep: number,
-  zDatum?: MltZDatum,
-): number;
+/** Convert an integer `z` coordinate on a `10 ** zStep` metre grid into metres above the layer's `heightMode` base. */
+export declare function toElevation(z: number, zStep: number): number;

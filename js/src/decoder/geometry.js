@@ -206,7 +206,7 @@ export function decodeGeometry(
   let treeCycles;
   let vertexStream = null;
   let zStep = NO_Z;
-  let zDatum = 0;
+  let heightMode = 0;
 
   for (let i = 0; i < items.length; i++) {
     const s = items[i];
@@ -218,7 +218,7 @@ export function decodeGeometry(
         if (vertexStream !== null) throw new Error("dup vtx");
         if (s.zStep !== NO_Z) {
           zStep = s.zStep;
-          zDatum = s.zDatum;
+          heightMode = s.heightMode;
         }
         vertexStream = s;
         break;
@@ -264,8 +264,6 @@ export function decodeGeometry(
     if ((geoLengths ? geoLengths.length : 0) !== types.length) {
       throw new Error("mesh glen");
     }
-  } else if (zStep !== NO_Z && zDatum === 1) {
-    throw new Error("ground z");
   }
 
   if (treeSymbols !== undefined || treeCycles !== undefined) {
@@ -415,7 +413,7 @@ export function decodeGeometry(
   if (isMeshes) geom.meshes = true;
   if (zStep !== NO_Z) {
     geom.zStep = zStep;
-    geom.zDatum = zDatum === 1 ? "ground" : "elevation";
+    geom.heightMode = heightMode === 1 ? "relativeToGround" : "absolute";
   }
   if (levels.geometryOffsets !== undefined) geom.geometryOffsets = levels.geometryOffsets;
   if (levels.partOffsets !== undefined) geom.partOffsets = levels.partOffsets;

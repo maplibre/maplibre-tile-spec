@@ -59,7 +59,7 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
       assert.equal(layer.featureCount, geo.features.length);
       assert.equal(layer.geometry.dimension, 3);
       assert.equal(layer.geometry.zStep, -2);
-      assert.equal(layer.geometry.zDatum, "ground");
+      assert.equal(layer.geometry.heightMode, "relativeToGround");
       assert.equal(layer.geometry.meshes, true);
       assert.equal(isMeshes(layer.geometry), true);
       assert.equal(isTrianglesOnly(layer.geometry), false);
@@ -75,12 +75,12 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
 
       const tile2d = decodeTile(data).layers.buildings;
       assert.equal(tile2d.zStep, -2);
-      assert.equal(tile2d.zDatum, "ground");
+      assert.equal(tile2d.heightMode, "relativeToGround");
       assert.throws(() => tile2d.feature(0).loadPolygons(), /is a mesh/);
 
       const tile3d = decodeTile3D(data).layers.buildings;
       assert.equal(tile3d.zStep, -2);
-      assert.equal(tile3d.zDatum, "ground");
+      assert.equal(tile3d.heightMode, "relativeToGround");
 
       for (let f = 0; f < layer.featureCount; f++) {
         const expected = geo.features[f];
@@ -91,7 +91,7 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
 
         const f3d = tile3d.feature(f);
         assert.equal(f3d.id, expected.id);
-        assert.equal(f3d.zDatum, "ground");
+        assert.equal(f3d.heightMode, "relativeToGround");
         assert.equal(f3d.properties.gml_id, expected.properties.gml_id);
         assert.deepEqual(f3d.loadGeometry(), [expected.geometry.coordinates]);
         assert.deepEqual(triples(f3d.loadTriangles()), expected.triangles);
@@ -148,10 +148,10 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
     assert.throws(() => mValueSlice(layer, dist, -1), RangeError);
     assert.throws(() => mValueSlice(layer, dist, layer.featureCount), RangeError);
 
-    assert.equal(toElevation(1234, -2, "ground"), 12.34);
-    assert.equal(Object.is(toElevation(-0, 0, "ground"), 0), true);
-    assert.equal(toElevation(1_001_234, -2), 12.34);
-    assert.equal(toElevation(10_012_345, -3), 12.345);
+    assert.equal(toElevation(1234, -2), 12.34);
+    assert.equal(toElevation(12_345, -3), 12.345);
+    assert.equal(toElevation(-5, 1), -50);
+    assert.equal(Object.is(toElevation(-0, 0), 0), true);
   });
 
   it("decodes large real-world OpenStreetMap tile (xlarge.mlt)", () => {

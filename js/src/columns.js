@@ -112,9 +112,8 @@ export function mValueSlice(layer, column, featureIndex) {
   return column.values.subarray(start, end);
 }
 
-export function toElevation(z, zStep, zDatum = "elevation") {
-  const base = zDatum === "ground" ? 0 : -10000;
+export function toElevation(z, zStep) {
   const power = 10 ** Math.abs(zStep);
-  const metres = zStep < 0 ? (z + base * power) / power : base + z * power;
+  const metres = zStep < 0 ? z / power : z * power;
   return metres === 0 ? 0 : metres;
 }

@@ -579,9 +579,6 @@ function decodeLayer02(r, keepNested) {
   if (geoLayout === 0x0e && vtxStream.zStep === NO_Z) {
     throw new Error("v2 mesh z");
   }
-  if (geoLayout !== 0x0e && vtxStream.zStep !== NO_Z && vtxStream.zDatum === 1) {
-    throw new Error("v2 ground z");
-  }
   items.push(vtxStream);
   if (geoLayout <= 0x0b && (geoLayout & 1) === 1) {
     items.push(parseStream02(r, FM_INT, 4, ST_OFF_VERTEX, featureCount));

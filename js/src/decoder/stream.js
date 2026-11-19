@@ -137,7 +137,7 @@ function makeStream(
   alpScale,
   alpBase,
   zStep,
-  zDatum,
+  heightMode,
   xyzLog,
   front,
   d,
@@ -155,7 +155,7 @@ function makeStream(
     alpScale,
     alpBase,
     zStep,
-    zDatum,
+    heightMode,
     xyzLog,
     front,
     d,
@@ -427,7 +427,7 @@ export function parseStream02(
   let alpScale = 0;
   let alpBase = 0n;
   let zStep = NO_Z;
-  let zDatum = 0;
+  let heightMode = 0;
   let xyzLog = 0;
 
   if (l === LG_RLE || l === LG_DELTA_RLE) {
@@ -440,7 +440,7 @@ export function parseStream02(
     const codeByte = readU8(r);
     if (codeByte >= 16) throw new Error("z_step");
     zStep = (codeByte & 7) - 3;
-    zDatum = (codeByte & 8) >>> 3;
+    heightMode = (codeByte & 8) >>> 3;
     xyzLog = l;
   } else if (family === FM_VERTEX && l === LG_MORTON) {
     mBits = readVarintU32(r);
@@ -462,7 +462,7 @@ export function parseStream02(
     alpScale,
     alpBase,
     zStep,
-    zDatum,
+    heightMode,
     xyzLog,
     front,
     d,

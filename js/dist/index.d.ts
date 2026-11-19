@@ -4,8 +4,8 @@ import type {
   MltGeometryColumns,
   MltGeometryType,
   MltMValueColumn,
+  MltHeightMode,
   MltNamedColumn,
-  MltZDatum,
 } from "./columns.js";
 
 export * from "./columns.js";
@@ -106,7 +106,7 @@ export declare class MltPoint {
 export declare class MltFeature {
   readonly extent: number;
   readonly zStep: number | undefined;
-  readonly zDatum: MltZDatum | undefined;
+  readonly heightMode: MltHeightMode | undefined;
   get mltType(): MltGeometryType;
   /** MVT geometry type: `1` (Point), `2` (LineString), `3` (Polygon), or `0` (Mesh). */
   get type(): 0 | 1 | 2 | 3;
@@ -121,7 +121,7 @@ export declare class MltFeature {
 export declare class MltFeature3D {
   readonly extent: number;
   readonly zStep: number;
-  readonly zDatum: MltZDatum;
+  readonly heightMode: MltHeightMode;
   get mltType(): MltGeometryType;
   get type(): 0 | 1 | 2 | 3;
   get id(): number | undefined;
@@ -143,7 +143,7 @@ export declare class MltLayer {
   readonly propertyColumns: readonly MltNamedColumn[];
   readonly propertyKeys: readonly string[];
   readonly zStep: number | undefined;
-  readonly zDatum: MltZDatum | undefined;
+  readonly heightMode: MltHeightMode | undefined;
   feature(i: number): MltFeature;
 }
 
@@ -155,7 +155,7 @@ export declare class MltLayer3D {
   readonly propertyColumns: readonly MltNamedColumn[];
   readonly propertyKeys: readonly string[];
   readonly zStep: number;
-  readonly zDatum: MltZDatum;
+  readonly heightMode: MltHeightMode;
   readonly mValues: readonly MltMValueColumn[];
   feature(i: number): MltFeature3D;
 }

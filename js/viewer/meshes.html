@@ -528,8 +528,6 @@ function layerArrays(layer, width) {
   const g = layer.geometry;
   const n = g.vertices.length / 3;
   const zScale = 10 ** g.zStep;
-  // An elevation is above Terrain-RGB's base of -10000 m, a height above the ground.
-  const base = g.zDatum === "ground" ? 0 : -10000;
   let [low, high] = [Infinity, -Infinity];
   const colors = colorColumn(layer);
   const { index, source, keys } = colors?.scope === "triangle"
@@ -546,7 +544,7 @@ function layerArrays(layer, width) {
     const v = source ? source[o] : o;
     featureOf[o] = featureOfVertex[v];
     position[o * 3] = (g.vertices[v * 3] / layer.extent) * width;
-    const up = base + g.vertices[v * 3 + 2] * zScale;
+    const up = g.vertices[v * 3 + 2] * zScale;
     [low, high] = [Math.min(low, up), Math.max(high, up)];
     position[o * 3 + 1] = up;
     position[o * 3 + 2] = (g.vertices[v * 3 + 1] / layer.extent) * width;
@@ -556,7 +554,7 @@ function layerArrays(layer, width) {
     color[o * 4 + 1] = Math.round(c.g * 255);
     color[o * 4 + 2] = Math.round(c.b * 255);
   }
-  if (g.zDatum !== "ground" && count > 0) {
+  if (g.heightMode !== "relativeToGround" && count > 0) {
     [heights.low, heights.high] = [Math.min(heights.low, low), Math.max(heights.high, high)];
   }
   return { position, color, featureOf, index };
