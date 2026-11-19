@@ -4,12 +4,75 @@ export const IS_LE = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
 
 const ARENA_BASE_U32 = 16384; // 64 KB initial
 const ARENA_MAX_KEEP_U32 = 262144; // 1 MB max retained
+export const DEFAULT_MAX_BYTES = 67108864; // 64 MiB, matching mlt-core::Decoder::default()
+
 let arenaU32 = new Uint32Array(ARENA_BASE_U32);
 let arenaTop = 0;
 let scratchU64 = new BigUint64Array(1024);
+let budgetLeft = DEFAULT_MAX_BYTES;
 
 export const EMPTY_U32 = new Uint32Array(0);
 export const EMPTY_I32 = new Int32Array(0);
+
+export function resetBudget(maxBytes = DEFAULT_MAX_BYTES) {
+  if (maxBytes !== Infinity && (!Number.isFinite(maxBytes) || maxBytes < 0)) {
+    throw new RangeError("maxBytes must be a non-negative number or Infinity");
+  }
+  budgetLeft = maxBytes;
+}
+
+export function checkScratchBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0 || bytes > budgetLeft) {
+    throw new RangeError("memory limit exceeded");
+  }
+}
+
+export function chargeBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0 || bytes > budgetLeft) {
+    throw new RangeError("memory limit exceeded");
+  }
+  budgetLeft -= bytes;
+}
+
+export function allocU8(n) {
+  chargeBytes(n);
+  return new Uint8Array(n);
+}
+
+export function allocI8(n) {
+  chargeBytes(n);
+  return new Int8Array(n);
+}
+
+export function allocU32(n) {
+  chargeBytes(n * 4);
+  return new Uint32Array(n);
+}
+
+export function allocI32(n) {
+  chargeBytes(n * 4);
+  return new Int32Array(n);
+}
+
+export function allocF32(n) {
+  chargeBytes(n * 4);
+  return new Float32Array(n);
+}
+
+export function allocF64(n) {
+  chargeBytes(n * 8);
+  return new Float64Array(n);
+}
+
+export function allocU64(n) {
+  chargeBytes(n * 8);
+  return new BigUint64Array(n);
+}
+
+export function allocArray(n, bytesPerSlot = 8) {
+  chargeBytes(n * bytesPerSlot);
+  return new Array(n);
+}
 
 export function resetArena() {
   arenaTop = 0;
@@ -27,6 +90,7 @@ export function trimArena() {
 
 export function takeU32(n) {
   if (n === 0) return EMPTY_U32;
+  checkScratchBytes(n * 4);
   const end = arenaTop + n;
   if (end <= arenaU32.length) {
     const view = arenaU32.subarray(arenaTop, end);
@@ -41,6 +105,7 @@ export function takeU32(n) {
 }
 
 export function takeU64(n) {
+  checkScratchBytes(n * 8);
   if (n > scratchU64.length) {
     let cap = scratchU64.length * 2;
     while (cap < n) cap *= 2;
@@ -282,5 +347,5 @@ export const decodeRawU64Into = (bytes, count, out) =>
 
 export const decodeRawFloats = (bytes, count, isF32) =>
   isF32
-    ? copyLeTyped(bytes, count, 4, Float32Array, new Float32Array(count))
-    : copyLeTyped(bytes, count, 8, Float64Array, new Float64Array(count));
+    ? copyLeTyped(bytes, count, 4, Float32Array, allocF32(count))
+    : copyLeTyped(bytes, count, 8, Float64Array, allocF64(count));

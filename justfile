@@ -2,6 +2,7 @@
 
 mod cpp
 mod java
+mod js
 mod inspector 'inspector'
 mod rust
 mod ts
@@ -29,6 +30,7 @@ bless: _clean-int-test _test-run-int
 clean:
     {{just}} rust::clean
     {{just}} java::clean
+    {{just}} js::clean
     {{just}} ts::clean
     {{just}} cpp::clean
 
@@ -43,6 +45,7 @@ fmt:
 lint:
     {{just}} rust::lint
     {{just}} java::lint
+    {{just}} js::lint
     {{just}} ts::lint
     {{just}} cpp::lint
 
@@ -50,6 +53,7 @@ lint:
 test: test-int
     {{just}} rust::test
     {{just}} java::test
+    {{just}} js::test
     {{just}} ts::test
     {{just}} cpp::test
 

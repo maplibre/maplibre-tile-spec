@@ -1,4 +1,12 @@
-import { EMPTY_I32, cursor, readBytes, readVarintU32, takeU32 } from "./binary.js";
+import {
+  EMPTY_I32,
+  allocI32,
+  checkScratchBytes,
+  cursor,
+  readBytes,
+  readVarintU32,
+  takeU32,
+} from "./binary.js";
 
 const STATE_LOW = 65536;
 const SYMBOLS = 257;
@@ -72,7 +80,7 @@ const laneBytes = [null, null, null, null];
 export function decodeRansVertices(data, runOffsets, numWords) {
   if ((numWords & 1) !== 0) throw new Error("rans odd");
   const vertexCount = numWords >>> 1;
-
+  checkScratchBytes(vertexCount);
   if (!firstScratch || firstScratch.length < vertexCount) {
     firstScratch = new Uint8Array(Math.max(1024, vertexCount));
   }
@@ -255,7 +263,7 @@ export function decodeRansVertices(data, runOffsets, numWords) {
     return ((mag ^ sign) - sign) | 0;
   };
 
-  const out = numWords === 0 ? EMPTY_I32 : new Int32Array(numWords);
+  const out = numWords === 0 ? EMPTY_I32 : allocI32(numWords);
   let x = 0;
   let y = 0;
   let bad = 0;

@@ -1,4 +1,4 @@
-import { EMPTY_U32 } from "./binary.js";
+import { EMPTY_U32, allocU32, checkScratchBytes } from "./binary.js";
 
 let triSizes = new Int32Array(4096);
 let triFrames = new Int32Array(2048);
@@ -93,6 +93,8 @@ export function decodeTrees(symbols, cycles) {
     throw new Error("tree symbols");
   }
 
+  const frameWords = (triangles + 2) << 2;
+  checkScratchBytes((triangles + 1 + frameWords) * 4);
   if (triSizes.length <= triangles) {
     triSizes = new Int32Array(triangles + 1);
   }
@@ -101,12 +103,11 @@ export function decodeTrees(symbols, cycles) {
     throw new Error("tree symbols");
   }
 
-  const frameWords = (triangles + 2) << 2;
   if (triFrames.length < frameWords) {
     triFrames = new Int32Array(frameWords);
   }
 
-  const out = new Uint32Array(triangles * 3);
+  const out = allocU32(triangles * 3);
   const outI32 = new Int32Array(out.buffer);
   const cyclesI32 = new Int32Array(
     cycles.buffer,

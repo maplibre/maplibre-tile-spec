@@ -1,5 +1,11 @@
 import { decodeAlpFloats, parseAlpScale } from "../codecs/alp.js";
 import {
+  allocF32,
+  allocF64,
+  allocI8,
+  allocU8,
+  allocU32,
+  allocU64,
   cursor,
   decodeRawFloats,
   decodeRawU32Into,
@@ -485,7 +491,7 @@ export function decodeBoolBitmap(s) {
 
 export function decodeBoolValues(s) {
   const bits = decodeBoolBitmap(s);
-  const out = new Uint8Array(s.n);
+  const out = allocU8(s.n);
   const full = s.n >>> 3;
   for (let b = 0; b < full; b++) {
     const v = bits[b];
@@ -545,7 +551,7 @@ function decodeRleWordsU32(s, scratch) {
     s.rleRuns === -1 && s.p === PH_VARINT
       ? decodeVarintU32sAllScratch(s.d)
       : decodePhysicalU32Into(s, takeU32(s.w));
-  const out = scratch ? takeU32(s.rleVals) : new Uint32Array(s.rleVals);
+  const out = scratch ? takeU32(s.rleVals) : allocU32(s.rleVals);
   return s.rleRuns === -1
     ? decodeRleInterleavedInto(words, s.rleVals, out, false)
     : decodeRleSplitU32Into(words, s.rleRuns, s.rleVals, out);
@@ -562,7 +568,7 @@ export function decodeStreamU32(s, scratch = false) {
   if (s.l === LG_DELTA_RLE) {
     return zigzagDelta32InPlace(decodeRleWordsU32(s, scratch));
   }
-  const out = scratch ? takeU32(s.w) : new Uint32Array(s.w);
+  const out = scratch ? takeU32(s.w) : allocU32(s.w);
   decodePhysicalU32Into(s, out);
   if (s.l === LG_NONE || s.l === LG_DICT) return out;
   if (s.l === LG_DELTA) return zigzagDelta32InPlace(out);
@@ -588,7 +594,7 @@ export function decodeStreamI32(s, scratch = false) {
     return asI32(zigzagDelta32InPlace(decodeRleWordsU32(s, scratch)));
   }
 
-  const out = scratch ? takeU32(s.w) : new Uint32Array(s.w);
+  const out = scratch ? takeU32(s.w) : allocU32(s.w);
   decodePhysicalU32Into(s, out);
 
   if (s.zStep !== NO_Z) {
@@ -617,7 +623,7 @@ export function decodeStreamI32(s, scratch = false) {
 
 export function decodeStreamI8(s) {
   const i32s = decodeStreamI32(s, true);
-  const out = new Int8Array(i32s.length);
+  const out = allocI8(i32s.length);
   for (let i = 0; i < i32s.length; i++) {
     const v = i32s[i];
     if (v < -128 || v > 127) throw new RangeError("i8");
@@ -628,7 +634,7 @@ export function decodeStreamI8(s) {
 
 export function decodeStreamU8(s) {
   const u32s = decodeStreamU32(s, true);
-  const out = new Uint8Array(u32s.length);
+  const out = allocU8(u32s.length);
   for (let i = 0; i < u32s.length; i++) {
     const v = u32s[i];
     if (v > 255) throw new RangeError("u8");
@@ -639,7 +645,7 @@ export function decodeStreamU8(s) {
 
 function decodeRleWordsU64(s, owned) {
   const words = decodePhysicalU64Scratch(s);
-  const out = owned ? new BigUint64Array(s.rleVals) : takeU64(s.rleVals);
+  const out = owned ? allocU64(s.rleVals) : takeU64(s.rleVals);
   return s.rleRuns === -1
     ? decodeRleInterleavedInto(words, s.rleVals, out, true)
     : decodeRleSplitU64Into(words, s.rleRuns, s.rleVals, out);
@@ -655,7 +661,7 @@ function decode64Core(s, signed, owned) {
   }
   const phys = decodePhysicalU64Scratch(s);
   if (owned) {
-    words = new BigUint64Array(s.w);
+    words = allocU64(s.w);
     words.set(phys);
   } else {
     words = phys;
@@ -682,7 +688,7 @@ export function decodeFloatColumnValues(dataStream, dictStream, isF32) {
     const dict = decodeRawFloatStream(dictStream, isF32);
     const codes = decodeStreamU32(dataStream, true);
     const n = codes.length;
-    const out = isF32 ? new Float32Array(n) : new Float64Array(n);
+    const out = isF32 ? allocF32(n) : allocF64(n);
     const dLen = dict.length;
     const stride = isF32 ? 1 : 2;
     const dBits = new Uint32Array(dict.buffer, dict.byteOffset, dLen * stride);

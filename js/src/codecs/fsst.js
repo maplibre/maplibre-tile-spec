@@ -1,4 +1,4 @@
-import { takeU32 } from "./binary.js";
+import { checkScratchBytes, takeU32 } from "./binary.js";
 
 const symLo = new Uint32Array(256);
 const symHi = new Uint32Array(256);
@@ -48,6 +48,7 @@ export function decodeFsstBytes(symbolLengths, symbolTable, corpus) {
 
   const cLen = corpus.length;
   const maxOut = cLen * 8 + 8;
+  checkScratchBytes(maxOut);
   if (fsstBuf.length < maxOut) {
     let cap = fsstBuf.length * 2;
     while (cap < maxOut) cap *= 2;
@@ -100,7 +101,7 @@ export function decodeFrontCoded(lengths, suffixes) {
     totalBytes += prevLen;
   }
   if (suffixSum !== suffixes.length) throw new Error("front trailing");
-
+  checkScratchBytes(totalBytes);
   if (frontBuf.length < totalBytes) {
     let cap = frontBuf.length * 2;
     while (cap < totalBytes) cap *= 2;

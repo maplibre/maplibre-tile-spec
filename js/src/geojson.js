@@ -135,8 +135,11 @@ function buildFeatureGeoJsonGeometry(layer, f) {
   }
 }
 
-export function tileGeoJson(data) {
-  const rawLayers = decodeRawTileLayers(data, { keepNested: true });
+export function tileGeoJson(data, options = {}) {
+  const rawLayers = decodeRawTileLayers(data, {
+    keepNested: true,
+    maxBytes: options.maxBytes,
+  });
   const features = [];
 
   for (const layer of rawLayers) {

@@ -18,7 +18,12 @@ export const MltGeometryType = Object.freeze({
 });
 
 export function decodeTileColumns(data, options = {}) {
-  return { layers: decodeRawTileLayers(data, { layers: options.layers }) };
+  return {
+    layers: decodeRawTileLayers(data, {
+      layers: options.layers,
+      maxBytes: options.maxBytes,
+    }),
+  };
 }
 
 export function columnValue(column, index) {

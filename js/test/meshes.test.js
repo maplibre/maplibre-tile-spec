@@ -239,4 +239,34 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
       assert.ok(existsSync(path.join(pkgDir, rel)), `missing required package file ${rel}`);
     }
   });
+
+  it("enforces the 64 MiB default maxBytes decompression-bomb budget and custom maxBytes limits", () => {
+    const sample = new Uint8Array(
+      readFileSync(path.join(MESHES_DIR, "16/34588/21180.mlt")),
+    );
+    assert.throws(
+      () => decodeTileColumns(sample, { maxBytes: 64 }),
+      /memory limit exceeded/,
+    );
+    assert.throws(
+      () => decodeTile3D(sample, { maxBytes: 64 }),
+      /memory limit exceeded/,
+    );
+    assert.throws(
+      () => tileGeoJson(sample, { maxBytes: 64 }),
+      /memory limit exceeded/,
+    );
+    assert.throws(
+      () => decodeTileColumns(sample, { maxBytes: -1 }),
+      RangeError,
+    );
+
+    // Crafted 15-byte v2 decompression bomb claiming 100,000,000 Point features:
+    // [size=14, tag=2, name="x", hdr=0x16(uniform Point, extent=4096), featCount=100_000_000,
+    //  layout=0x00, vtxEnc=0x18(delta+varint), vtxByteLen=1, 0x00]
+    const bomb = new Uint8Array([
+      14, 2, 1, 0x78, 0x16, 0x80, 0xc2, 0xd7, 0x2f, 0x00, 0x18, 1, 0x00, 0x00, 0x00,
+    ]);
+    assert.throws(() => decodeTileColumns(bomb), /memory limit exceeded/);
+  });
 });

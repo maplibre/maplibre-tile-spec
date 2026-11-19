@@ -1,4 +1,9 @@
-import { decodeUtf8 } from "../codecs/binary.js";
+import {
+  allocArray,
+  allocU32,
+  chargeBytes,
+  decodeUtf8,
+} from "../codecs/binary.js";
 import { decodeFrontCoded, decodeFsstBytes } from "../codecs/fsst.js";
 import {
   bitmapPopcount,
@@ -28,7 +33,8 @@ import {
 export function sliceStrings(bytes, lengths) {
   const bLen = bytes.length;
   const count = lengths.length;
-  const entries = new Array(count);
+  chargeBytes(bLen * 2);
+  const entries = allocArray(count);
   let pos = 0;
 
   if (bLen <= 64) {
@@ -231,7 +237,7 @@ export function materializeStringProperty(
     let values;
     if (dense.dict) {
       const { entries, codes } = dense;
-      values = new Array(featureCount);
+      values = allocArray(featureCount);
       for (let i = 0; i < featureCount; i++) values[i] = entries[codes[i]];
     } else {
       values = dense.values;
@@ -246,7 +252,7 @@ export function materializeStringProperty(
     let values;
     if (dense.dict) {
       const { entries, codes } = dense;
-      values = new Array(featureCount);
+      values = allocArray(featureCount);
       for (let i = 0; i < featureCount; i++) values[i] = entries[codes[i]];
     } else {
       values = dense.values;
@@ -254,7 +260,7 @@ export function materializeStringProperty(
     return { name, type: "string", values };
   }
 
-  const values = new Array(featureCount).fill("");
+  const values = allocArray(featureCount).fill("");
   if (pop > 0) {
     if (dense.dict) {
       scatterDictPresent(
@@ -308,7 +314,7 @@ export function stringCodesForMValue(dense) {
   const map = new Map();
   const dictionary = [];
   const vals = dense.values;
-  const codes = new Uint32Array(vals.length);
+  const codes = allocU32(vals.length);
   for (let i = 0; i < vals.length; i++) {
     const s = vals[i];
     let c = map.get(s);

@@ -1,0 +1,22 @@
+name: JavaScript CI
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test-mlt-js:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with: { tool: 'just' }
+      - uses: ./.github/actions/mlt-setup-node
+      - name: Build, typecheck, and test @maplibre/mlt-js
+        run: just -v js::ci-test

@@ -170,11 +170,23 @@ export interface MltTile3D {
   readonly layers: Record<string, MltLayer3D>;
 }
 
+/** Options controlling per-tile decoded memory budget. */
+export interface DecodeTileOptions {
+  /** Maximum decoded output and scratch memory budget in bytes per tile (default: `67108864` = 64 MiB). */
+  readonly maxBytes?: number;
+}
+
 /** Decode uncompressed MLT tile bytes into a MapLibre-compatible 2D `VectorTileLike` object. */
-export declare function decodeTile(data: Uint8Array): MltTile;
+export declare function decodeTile(
+  data: Uint8Array,
+  options?: DecodeTileOptions,
+): MltTile;
 
 /** Decode uncompressed 3D MLT tile bytes into `MltLayer3D` / `MltFeature3D` layers. */
-export declare function decodeTile3D(data: Uint8Array): MltTile3D;
+export declare function decodeTile3D(
+  data: Uint8Array,
+  options?: DecodeTileOptions,
+): MltTile3D;
 
 /** 2D `[x, y]` or 3D `[x, y, z]` tile-space GeoJSON coordinate. */
 export type MltGeoJsonPosition = [x: number, y: number] | Position3D;
@@ -206,4 +218,5 @@ export interface MltGeoJsonFeatureCollection {
 /** Decode an MLT tile into a tile-coordinate GeoJSON `FeatureCollection`. */
 export declare function tileGeoJson(
   data: Uint8Array,
+  options?: DecodeTileOptions,
 ): MltGeoJsonFeatureCollection;

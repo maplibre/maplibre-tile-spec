@@ -1,10 +1,18 @@
 import {
+  allocF32,
+  allocF64,
+  allocI8,
+  allocI32,
+  allocU8,
+  allocU32,
+  checkScratchBytes,
   cursor,
   readStr,
   readU8,
   readVarintU32,
   readVarintU64,
   resetArena,
+  resetBudget,
   subCursor,
   trimArena,
 } from "../codecs/binary.js";
@@ -102,19 +110,20 @@ function expand64(denseBig, bits, featureCount) {
   const n = denseBig.length;
   if (bits === undefined) {
     if (n !== featureCount) throw new Error("col64 count");
-    const values = new Float64Array(featureCount);
+    const values = allocF64(featureCount);
     for (let i = 0; i < featureCount; i++) values[i] = Number(denseBig[i]);
     return { values };
   }
   const pop = bitmapPopcount(bits, featureCount);
   if (pop !== n) throw new Error("popcount64");
   const present = normalizePresentBitmap(bits, featureCount);
-  const values = new Float64Array(featureCount);
+  const values = allocF64(featureCount);
   if (present === undefined) {
     for (let i = 0; i < featureCount; i++) values[i] = Number(denseBig[i]);
     return { values };
   }
   if (pop > 0) {
+    checkScratchBytes(pop * 8);
     const denseF64 = new Float64Array(pop);
     for (let i = 0; i < pop; i++) denseF64[i] = Number(denseBig[i]);
     scatterPresent(bits, featureCount, denseF64, values);
@@ -128,11 +137,11 @@ function decodeId(is64, bits, stream, featureCount) {
   const u32s = decodeStreamU32(stream, true);
   if (!hasSparse) {
     if (u32s.length !== featureCount) throw new Error("id count");
-    const values = new Float64Array(featureCount);
+    const values = allocF64(featureCount);
     for (let i = 0; i < featureCount; i++) values[i] = u32s[i];
     return { values };
   }
-  return expandScalar(u32s, bits, featureCount, (n) => new Float64Array(n));
+  return expandScalar(u32s, bits, featureCount, allocF64);
 }
 
 function decodeValueProp(name, dt, s, dictStream, bits, featureCount) {
@@ -165,31 +174,31 @@ function decodeValueProp(name, dt, s, dictStream, bits, featureCount) {
   switch (dt) {
     case 2:
       dense = decodeBoolValues(s);
-      alloc = (n) => new Uint8Array(n);
+      alloc = allocU8;
       break;
     case 3:
       dense = decodeStreamI8(s);
-      alloc = (n) => new Int8Array(n);
+      alloc = allocI8;
       break;
     case 4:
       dense = decodeStreamU8(s);
-      alloc = (n) => new Uint8Array(n);
+      alloc = allocU8;
       break;
     case 5:
       dense = decodeStreamI32(s, scratch);
-      alloc = (n) => new Int32Array(n);
+      alloc = allocI32;
       break;
     case 6:
       dense = decodeStreamU32(s, scratch);
-      alloc = (n) => new Uint32Array(n);
+      alloc = allocU32;
       break;
     case 9:
       dense = decodeFloatColumnValues(s, dictStream, true);
-      alloc = (n) => new Float32Array(n);
+      alloc = allocF32;
       break;
     default:
       dense = decodeFloatColumnValues(s, dictStream, false);
-      alloc = (n) => new Float64Array(n);
+      alloc = allocF64;
       break;
   }
   return {
@@ -751,6 +760,7 @@ export function decodeRawTileLayers(data, options = {}) {
   if (!(data instanceof Uint8Array)) {
     throw new TypeError("expected Uint8Array");
   }
+  resetBudget(options.maxBytes);
   const filterSet =
     options.layers !== undefined ? new Set(options.layers) : null;
   const keepNested = options.keepNested === true;

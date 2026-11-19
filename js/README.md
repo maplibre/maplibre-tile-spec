@@ -112,6 +112,8 @@ for (const layer of decodeTileColumns(data).layers) {
 
 `decodeTileColumns(data, { layers: ['roads', 'water'] })` decodes only the layers with those names,
 every one that has it, since layer names need not be unique. The other layers are skipped undecoded.
+Like `mlt-core`, decoding enforces a `64 MiB` per-tile memory budget (`{ maxBytes }`, or `Infinity`
+to disable it) before allocating typed arrays.
 
 Each column is `{ name, type, values, present? }`. `present` is a bitmap with one bit per
 feature, LSB-first, left out when every feature has a value. `bool` comes as `0`/`1`, and

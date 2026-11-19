@@ -345,10 +345,10 @@ export class MltLayer3D extends LayerBase {
   }
 }
 
-function decodeLayers(data, LayerClass) {
+function decodeLayers(data, LayerClass, options) {
   /** @type {Record<string, any>} */
   const layers = {};
-  for (const layer of decodeTileColumns(data).layers) {
+  for (const layer of decodeTileColumns(data, options).layers) {
     if (Object.hasOwn(layers, layer.name)) {
       throw new Error(
         `the tile has two layers named "${layer.name}"; decodeTileColumns keeps both`,
@@ -362,15 +362,17 @@ function decodeLayers(data, LayerClass) {
 /**
  * Decode `data` into a MapLibre / `@mapbox/vector-tile`-compatible `{ layers }` object.
  * @param {Uint8Array} data
+ * @param {{ maxBytes?: number }} [options]
  */
-export function decodeTile(data) {
-  return { layers: decodeLayers(data, MltLayer) };
+export function decodeTile(data, options) {
+  return { layers: decodeLayers(data, MltLayer, options) };
 }
 
 /**
  * Decode a 3D tile whose every layer carries z coordinates (including `Meshes` layers).
  * @param {Uint8Array} data
+ * @param {{ maxBytes?: number }} [options]
  */
-export function decodeTile3D(data) {
-  return { layers: decodeLayers(data, MltLayer3D) };
+export function decodeTile3D(data, options) {
+  return { layers: decodeLayers(data, MltLayer3D, options) };
 }

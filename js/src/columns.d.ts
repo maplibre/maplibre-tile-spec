@@ -155,6 +155,11 @@ export interface MltColumnTile {
 export interface DecodeTileColumnsOptions {
   /** Decode only layers whose name is in this list; all other layers are skipped undecoded. */
   readonly layers?: readonly string[];
+  /**
+   * Maximum decoded output and scratch memory budget in bytes per tile (default: `67108864` = 64 MiB,
+   * matching `mlt-core::Decoder::default()`). Pass `Infinity` to disable the limit.
+   */
+  readonly maxBytes?: number;
 }
 
 /** Slice type returned by `mValueSlice` for a given `MltMValueColumn`. */

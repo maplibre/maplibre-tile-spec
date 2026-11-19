@@ -1,4 +1,10 @@
-import { EMPTY_I32, EMPTY_U32 } from "../codecs/binary.js";
+import {
+  EMPTY_I32,
+  EMPTY_U32,
+  allocI32,
+  allocU8,
+  allocU32,
+} from "../codecs/binary.js";
 import { decodeRansVertices } from "../codecs/rans.js";
 import { decodeTrees } from "../codecs/tri.js";
 import {
@@ -32,7 +38,7 @@ const isLine = (t) => t === GEOM_LINESTRING || t === GEOM_MULTILINESTRING;
 
 function decodeRootLengths(types, rootLengths, bufferId) {
   const n = types.length;
-  const out = new Uint32Array(n + 1);
+  const out = allocU32(n + 1);
   let off = 0;
   let k = 0;
   const rLen = rootLengths.length;
@@ -50,7 +56,7 @@ function decodeRootLengths(types, rootLengths, bufferId) {
 }
 
 function decodeLevel1Lengths(types, rootOffsets, l1Lengths, hasLine) {
-  const out = new Uint32Array(rootOffsets[rootOffsets.length - 1] + 1);
+  const out = allocU32(rootOffsets[rootOffsets.length - 1] + 1);
   let outPos = 1;
   let off = 0;
   let k = 0;
@@ -74,7 +80,7 @@ function decodeLevel1Lengths(types, rootOffsets, l1Lengths, hasLine) {
 }
 
 function decodeLevel2Lengths(types, rootOffsets, l1Offsets, l2Lengths) {
-  const out = new Uint32Array(l1Offsets[l1Offsets.length - 1] + 1);
+  const out = allocU32(l1Offsets[l1Offsets.length - 1] + 1);
   let outPos = 1;
   let off = 0;
   let l1Pos = 0;
@@ -178,11 +184,11 @@ export function decodeGeometry(
   const isMeshes = uniformType === GEOM_MESH;
   let types;
   if (uniformType >= 0) {
-    types = new Uint8Array(featureCount);
+    types = allocU8(featureCount);
     types.fill(uniformType);
   } else {
     const rawTypes = decodeStreamU32(typesStream, true);
-    types = new Uint8Array(rawTypes.length);
+    types = allocU8(rawTypes.length);
     for (let i = 0; i < rawTypes.length; i++) {
       const t = rawTypes[i];
       if (t > GEOM_MULTIPOLYGON) throw new Error("geom type");
@@ -300,7 +306,7 @@ export function decodeGeometry(
 
   let triangleOffsets;
   if (triLengths !== undefined) {
-    triangleOffsets = new Uint32Array(triLengths.length + 1);
+    triangleOffsets = allocU32(triLengths.length + 1);
     let total = 0;
     for (let i = 0; i < triLengths.length; i++) {
       total += triLengths[i];
@@ -362,7 +368,7 @@ export function decodeGeometry(
   if (hasDict) {
     const dictCount = vertices.length / dimension;
     const nOff = vertexOffsets.length;
-    const expanded = new Int32Array(nOff * dimension);
+    const expanded = allocI32(nOff * dimension);
     if (dimension === 2) {
       for (let i = 0; i < nOff; i++) {
         const idx = vertexOffsets[i];

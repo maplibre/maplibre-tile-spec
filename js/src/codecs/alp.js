@@ -1,3 +1,5 @@
+import { allocF32, allocF64 } from "./binary.js";
+
 const POW10 = [
   1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14,
   1e15, 1e16, 1e17, 1e18,
@@ -18,9 +20,7 @@ export function parseAlpScale(byte) {
 export function decodeAlpFloats(offsets, base, scalePacked, isF32) {
   const down = POW10[scalePacked & 0xff];
   const upRecip = FRAC10[scalePacked >>> 8];
-  const out = isF32
-    ? new Float32Array(offsets.length)
-    : new Float64Array(offsets.length);
+  const out = isF32 ? allocF32(offsets.length) : allocF64(offsets.length);
 
   if (
     offsets instanceof Uint32Array &&

@@ -1,4 +1,4 @@
-import { cursor, readBytes, readVarintU64 } from "./binary.js";
+import { allocU8, cursor, readBytes, readVarintU64 } from "./binary.js";
 
 export const PRES_BITMAP = 0;
 export const PRES_RUNS = 1;
@@ -100,7 +100,7 @@ export function readPresenceBits(r, count, coding) {
       }
     }
     const stored = readBytes(r, bitmapPopcount(summary, byteLen));
-    const plain = new Uint8Array(byteLen);
+    const plain = allocU8(byteLen);
     let s = 0;
     for (let i = 0; i < byteLen; i++) {
       if (((summary[i >>> 3] >>> (i & 7)) & 1) !== 0) {
@@ -112,7 +112,7 @@ export function readPresenceBits(r, count, coding) {
     return maskBitmapTail(plain, count);
   }
   if (coding === PRES_RUNS) {
-    const plain = new Uint8Array(byteLen);
+    const plain = allocU8(byteLen);
     let at = 0;
     let present = false;
     const maxBig = BigInt(count);

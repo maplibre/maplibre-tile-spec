@@ -1,3 +1,5 @@
+import { allocI32 } from "./binary.js";
+
 export function deinterleaveU64(code) {
   return [compactU64(code), compactU64(code >> 1n)];
 }
@@ -27,7 +29,7 @@ export function decodeMortonDelta(data, bits, shift) {
   if (bits > 16) throw new Error("morton bits");
   const mask = bits === 0 ? 0 : (1 << bits) - 1;
   const n = data.length;
-  const out = new Int32Array(n * 2);
+  const out = allocI32(n * 2);
   let prev = 0;
   for (let i = 0; i < n; i++) {
     prev = (prev + (data[i] | 0)) | 0;

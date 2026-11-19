@@ -1,3 +1,5 @@
+import { allocU8 } from "./binary.js";
+
 export function decodeRleSplitU32Into(data, runs, numRleValues, out) {
   if (data.length !== runs * 2) throw new Error("rle len");
   let pos = 0;
@@ -51,7 +53,7 @@ export function decodeRleInterleavedInto(data, numRleValues, out, isU64 = false)
 }
 
 export function decodeByteRle(input, numBytes) {
-  const out = new Uint8Array(numBytes);
+  const out = allocU8(numBytes);
   let outPos = 0;
   let inPos = 0;
   const inLen = input.length;

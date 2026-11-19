@@ -28,8 +28,8 @@ import {
 } from "@maplibre/mlt-js/columns";
 
 const bytes = new Uint8Array(0);
-const colTile = decodeTileColumns(bytes, { layers: ["buildings"] });
-const colTile2 = columnsDecode(bytes);
+const colTile = decodeTileColumns(bytes, { layers: ["buildings"], maxBytes: 64 * 1024 * 1024 });
+const colTile2 = columnsDecode(bytes, { maxBytes: Infinity });
 void colTile2;
 
 for (const layer of colTile.layers) {
@@ -80,9 +80,9 @@ const meshName: string = ColumnsGeomType[6];
 void meshCode;
 void meshName;
 
-const vt = decodeTile(bytes);
-const vt3d = decodeTile3D(bytes);
-const fc: MltGeoJsonFeatureCollection = tileGeoJson(bytes);
+const vt = decodeTile(bytes, { maxBytes: 1024 });
+const vt3d = decodeTile3D(bytes, { maxBytes: 1024 });
+const fc: MltGeoJsonFeatureCollection = tileGeoJson(bytes, { maxBytes: 1024 });
 const pt = new MltPoint(1, 2).clone();
 void vt;
 void vt3d;

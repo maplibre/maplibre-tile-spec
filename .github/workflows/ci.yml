@@ -16,6 +16,7 @@ jobs:
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
       java: ${{ steps.filter.outputs.java }}
+      js: ${{ steps.filter.outputs.js }}
       ts: ${{ steps.filter.outputs.ts }}
       cpp: ${{ steps.filter.outputs.cpp }}
       docs: ${{ steps.filter.outputs.docs }}
@@ -37,6 +38,12 @@ jobs:
               - 'java/mod.just'
               - '.github/**'
               - 'java/**'
+              - 'test/**'
+            js:
+              - 'justfile'
+              - 'js/mod.just'
+              - '.github/**'
+              - 'js/**'
               - 'test/**'
             ts:
               - 'justfile'
@@ -80,6 +87,12 @@ jobs:
       code-quality: write
       pull-requests: read
 
+  js:
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
+    uses: ./.github/workflows/js.yml
+    permissions: { contents: read }
+
   ts:
     needs: changes
     if: needs.changes.outputs.ts == 'true'
@@ -104,7 +117,7 @@ jobs:
     permissions: { contents: write }
 
   ci-passed:
-    needs: [ rust, java, ts, cpp, docs ]
+    needs: [ rust, java, js, ts, cpp, docs ]
     if: always()
     runs-on: ubuntu-latest
     steps:
