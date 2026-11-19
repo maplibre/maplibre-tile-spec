@@ -5,8 +5,7 @@ use std::fs;
 use std::path::Path;
 
 use geo_types::{Geometry, Polygon};
-use mlt_core::encoder::{EncoderConfig, Tessellation};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation};
 use mlt_core::fast_mvt::MvtTileBuilder;
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, TileLayer};

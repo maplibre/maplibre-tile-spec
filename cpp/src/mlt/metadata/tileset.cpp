@@ -70,9 +70,8 @@ Column decodeColumn(BufferStream& tileData, util::MemoryBudget& budget, const un
         }
         auto& complex = column->getComplexType();
         const auto childCount = decodeColumnCount(tileData, budget);
-        complex.children = util::generateVector<Column>(childCount, [&](auto) {
-            return decodeColumn(tileData, budget, depth + 1);
-        });
+        complex.children = util::generateVector<Column>(
+            childCount, [&](auto) { return decodeColumn(tileData, budget, depth + 1); });
     }
 
     return std::move(*column);
@@ -86,9 +85,7 @@ FeatureTable decodeFeatureTable(BufferStream& tileData, util::MemoryBudget& budg
     }
     const auto extent = decodeVarint<std::uint32_t>(tileData);
     const auto columnCount = decodeColumnCount(tileData, budget);
-    auto columns = util::generateVector<Column>(columnCount, [&](auto) {
-        return decodeColumn(tileData, budget);
-    });
+    auto columns = util::generateVector<Column>(columnCount, [&](auto) { return decodeColumn(tileData, budget); });
     return {.name = std::move(name), .extent = extent, .columns = std::move(columns)};
 }
 

@@ -949,8 +949,7 @@ mod tests {
 
     use super::*;
     use crate::decoder::GeometryValues;
-    use crate::encoder::{EncoderConfig, StagedStruct, WireVersion};
-    use crate::encoder::{Network, Profile};
+    use crate::encoder::{EncoderConfig, Network, Profile, StagedStruct, WireVersion};
     use crate::geo_types::{Geometry, Point};
 
     fn points(count: usize) -> GeometryValues {
