@@ -7,7 +7,7 @@ The `mlt` binary provides several commands for working with MLT files:
 * **`dump`** - Parse an MLT file and dump raw layer data without decoding
 * **`decode`** - Parse an MLT file, decode all layers, and dump the result (supports text and `GeoJSON` output)
 * **`hexdump`** - Annotated byte/bit-level hexdump of an MLT file's metadata and stream payloads
-* **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT, or tile a `GeoJSON` file, including 3D positions, into MLT files
+* **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT, or tile a `GeoJSON` file, including 3D positions, or the surfaces of a `CityJSON` file into MLT files
 * **`ui`** - Interactive terminal visualizer for MLT files
 
 ### Format conversion
@@ -61,6 +61,20 @@ mlt convert power_lines.geojson tiles --mlt-version 2 --max-zoom 14 --z-step -1
 ```
 
 An altitude is metres above mean sea level unless `--height-mode relative-to-ground` makes it metres above the terrain.
+
+### Tiling CityJSON
+
+Give `convert` a `.city.json` file in EPSG:4326 to tile its surfaces into a v2 `Meshes` layer, one mesh per city object.
+Reproject other files first, for example with `cjio <in> reproject 4326 save <out>`.
+`--z-step` is required, and `--lod` picks the level of detail, the file's highest by default:
+
+```bash
+mlt convert delft.city.json tiles --mlt-version 2 --min-zoom 14 --max-zoom 16 --z-step -2
+```
+
+Each triangle keeps its face's semantic surface type, such as `RoofSurface`, in a `surface` column.
+`--height-mode relative-to-ground --ground-attribute <name>` subtracts each object's ground height attribute from its heights.
+Meshes are cut at tile edges, and the tiler reports the triangles it dropped and the meshes it turned over for the strict mesh rules.
 
 ### Visualizer
 

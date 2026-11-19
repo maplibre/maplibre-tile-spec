@@ -2759,6 +2759,7 @@ dependencies = [
  "clap",
  "crossbeam-channel",
  "crossterm",
+ "earcut",
  "flate2",
  "futures",
  "geojson",

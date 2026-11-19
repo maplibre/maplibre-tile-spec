@@ -16,7 +16,7 @@ const MAX_LAT: f64 = 85.051_128_779_806_59;
 /// A projected position: `x`/`y` in the unit square, `z` in grid units of the
 /// layer's [`ZStep`], or `0` on a flat layer.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct Vertex {
+pub(in crate::convert) struct Vertex {
     pub x: f64,
     pub y: f64,
     pub z: f64,
@@ -242,7 +242,7 @@ fn reject_antimeridian_crossing(a: &Position, b: &Position) -> AnyResult<()> {
 
 /// The exact (unrounded) grid value of an elevation, with the arithmetic order
 /// of [`ZStep::z`] so that rounding it later lands on the same integer.
-fn grid_z(step: ZStep, metres: f64) -> f64 {
+pub(in crate::convert) fn grid_z(step: ZStep, metres: f64) -> f64 {
     let power = 10_f64.powi(i32::from(step.exponent().unsigned_abs()));
     if step.exponent() < 0 {
         metres * power
@@ -254,7 +254,7 @@ fn grid_z(step: ZStep, metres: f64) -> f64 {
 /// Project lon/lat into the unit square: `x` grows east from the antimeridian,
 /// `y` grows south from the northern Mercator bound, both in `0..=1`. A latitude
 /// past the Mercator bound sits on the edge, as the projection has no room for it.
-pub(super) fn mercator_unit(lon: f64, lat: f64) -> (f64, f64) {
+pub(in crate::convert) fn mercator_unit(lon: f64, lat: f64) -> (f64, f64) {
     let lat = lat.clamp(-MAX_LAT, MAX_LAT);
     let (x, y) = wgs84_to_webmercator(lon, lat);
     let half = EARTH_CIRCUMFERENCE / 2.0;

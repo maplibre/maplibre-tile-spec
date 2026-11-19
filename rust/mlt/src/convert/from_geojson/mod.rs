@@ -10,9 +10,9 @@
 //! Altitudes become MLT z coordinates on a `--z-step` grid. Only the v2 wire
 //! format holds them, so this path always writes v2 and needs `--mlt-version 2`.
 
-mod clip;
+pub(super) mod clip;
 mod feature_id;
-mod project;
+pub(super) mod project;
 mod round;
 
 use std::fs;
@@ -34,7 +34,7 @@ use self::round::to_tile;
 use super::{ConvertArgs, Reencoder};
 
 /// The number of grid units across a tile, the value every MVT/MLT consumer expects.
-const EXTENT: u32 = 4096;
+pub(super) const EXTENT: u32 = 4096;
 
 /// Lines and polygons are kept this far past each tile edge, in extent units, so
 /// strokes and fills meet seamlessly at tile seams.
@@ -222,7 +222,7 @@ fn tile_index(unit: f64, n: u32) -> u32 {
 }
 
 /// The buffered rectangle of tile `(zoom, col, row)` in unit coordinates.
-fn tile_rect(zoom: u8, col: u32, row: u32) -> Rect {
+pub(super) fn tile_rect(zoom: u8, col: u32, row: u32) -> Rect {
     let n = f64::from(1_u32 << zoom);
     let size = 1.0 / n;
     let buffer = f64::from(BUFFER) / (f64::from(EXTENT) * n);

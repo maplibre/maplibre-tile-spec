@@ -30,6 +30,7 @@ bytes.workspace = true
 clap.workspace = true
 crossbeam-channel.workspace = true
 crossterm.workspace = true
+earcut.workspace = true
 flate2.workspace = true
 futures.workspace = true
 geojson.workspace = true
