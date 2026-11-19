@@ -228,6 +228,9 @@ npm run bench      # decode speed and heap use per tile
 node bench/compare_wasm.js   # the same tiles with mlt-wasm, which needs rust/mlt-wasm/pkg/
 ```
 
+To include the Hamburg tiles, set `MLT_BENCH_TILES` to a `z/x/y.mlt` tile directory made by the
+CityGML converter. Without it, both benchmarks use only the fixtures in `test/`.
+
 Run `npm install` to install the build and type-checking devDependencies (`esbuild`, `typescript`).
 
 ## Performance

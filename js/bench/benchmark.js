@@ -90,8 +90,8 @@ workloads.push({
   iterations: 2000,
 });
 
-const hamburgTemp = "C:\\Users\\thur_mat\\AppData\\Local\\Temp\\mlt-mesh-run\\hamburg_v7_tiles";
-if (existsSync(hamburgTemp)) {
+const hamburgTemp = process.env.MLT_BENCH_TILES;
+if (hamburgTemp && existsSync(hamburgTemp)) {
   const hhTiles = [
     "16/34584/21177.mlt",
     "15/17292/10588.mlt",

@@ -13,6 +13,9 @@ if (existsSync(wasmPkgPath)) {
   wasmDecode = wasmMod.decodeTileColumns;
 }
 
+const hamburgTiles = process.env.MLT_BENCH_TILES;
+const hamburgTile = (rel) => (hamburgTiles ? path.join(hamburgTiles, rel) : "");
+
 const cases = [
   [
     "CityGML fixture z16",
@@ -26,25 +29,25 @@ const cases = [
   ],
   [
     "Hamburg z16 (88 KB)",
-    "C:\\Users\\thur_mat\\AppData\\Local\\Temp\\mlt-mesh-run\\hamburg_v7_tiles\\16\\34584\\21177.mlt",
+    hamburgTile("16/34584/21177.mlt"),
     500,
   ],
   [
     "Hamburg z15 (61 KB)",
-    "C:\\Users\\thur_mat\\AppData\\Local\\Temp\\mlt-mesh-run\\hamburg_v7_tiles\\15\\17292\\10588.mlt",
+    hamburgTile("15/17292/10588.mlt"),
     500,
   ],
   [
     "Hamburg z14 (255 KB)",
-    "C:\\Users\\thur_mat\\AppData\\Local\\Temp\\mlt-mesh-run\\hamburg_v7_tiles\\14\\8646\\5294.mlt",
+    hamburgTile("14/8646/5294.mlt"),
     300,
   ],
   [
     "Hamburg z13 (196 KB)",
-    "C:\\Users\\thur_mat\\AppData\\Local\\Temp\\mlt-mesh-run\\hamburg_v7_tiles\\13\\4323\\2647.mlt",
+    hamburgTile("13/4323/2647.mlt"),
     300,
   ],
-].filter(([, p]) => existsSync(p));
+].filter(([, p]) => p && existsSync(p));
 
 console.log(
   "Workload               | Pure JS (ms) | JS (MB/s) | Rust WASM (ms) | WASM (MB/s) | Speedup vs WASM",
