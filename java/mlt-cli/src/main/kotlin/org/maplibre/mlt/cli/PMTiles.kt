@@ -1,7 +1,5 @@
 package org.maplibre.mlt.cli
 
-import com.github.benmanes.caffeine.cache.RemovalCause
-import com.github.benmanes.caffeine.cache.Scheduler
 import com.onthegomap.planetiler.archive.TileArchiveMetadata
 import com.onthegomap.planetiler.archive.TileArchiveWriter
 import com.onthegomap.planetiler.archive.TileCompression
@@ -12,13 +10,10 @@ import com.onthegomap.planetiler.geo.TileCoord
 import com.onthegomap.planetiler.pmtiles.Pmtiles
 import com.onthegomap.planetiler.pmtiles.Pmtiles.TileType
 import com.onthegomap.planetiler.pmtiles.WriteablePmtiles
-import io.tileverse.cache.Cache
+import io.tileverse.cache.CacheBudgets
 import io.tileverse.cache.CacheManager
 import io.tileverse.cache.CachePool
-import io.tileverse.cache.CaffeineCache
 import io.tileverse.cache.CaffeineCacheManager
-import io.tileverse.cache.PartitionSpec
-import io.tileverse.io.ByteRange
 import io.tileverse.storage.AbstractRangeReader
 import io.tileverse.storage.RangeReader
 import io.tileverse.storage.StorageFactory
@@ -28,9 +23,7 @@ import org.apache.commons.lang3.ArrayUtils
 import org.apache.commons.lang3.mutable.MutableBoolean
 import java.io.ByteArrayInputStream
 import java.io.IOException
-import java.lang.ref.WeakReference
 import java.net.URI
-import java.nio.ByteBuffer
 import java.nio.file.Path
 import java.util.Optional
 import java.util.OptionalLong
@@ -40,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.time.toJavaDuration
 
 /** Encode the MVT tiles in a PMTiles file */
 fun encodePMTiles(
@@ -48,7 +40,7 @@ fun encodePMTiles(
     outputPath: Path,
     config: EncodeConfig,
 ): Boolean {
-    val cacheManager = getCacheManager(config)
+    val cacheManager = getCacheManager()
     // A Storage is rooted at a container, never at a single file
     return StorageFactory.open(inputURI.resolve(".")).use { storage ->
         storage.openRangeReader(inputURI).use { rawReader ->
@@ -59,11 +51,11 @@ fun encodePMTiles(
                     .use { pmTilesReader ->
                         WriteablePmtiles.newWriteToFile(outputPath).use { writer ->
                             logger.debug("Opened '{}' for writing", outputPath)
-                            encodePMTiles(inputURI, pmTilesReader, writer, outputPath, config)
+                            encodePMTiles(inputURI, pmTilesReader, writer, outputPath, config, cacheManager)
                         }
                     }.also {
                         if (config.logCacheStats) {
-                            rangeReaderCache.get()?.also(::logCacheStats)
+                            logCacheStats(cacheManager)
                         }
                     }
             }
@@ -71,67 +63,17 @@ fun encodePMTiles(
     }
 }
 
-// Tileverse keeps byte ranges in a partition of its shared data pool, with a fixed expiry and
-// only the size of the pool configurable. To keep our own limits, we replace that partition.
-// See `io.tileverse.storage.cache.ByteRangeCache`
-private fun getCacheManager(config: EncodeConfig): CacheManager {
-    val maxMemory = Runtime.getRuntime().maxMemory()
+// The byte range cache is the only user of Tileverse's data pool here, so the budget of that pool is the cache size
+private fun getCacheManager(): CacheManager {
     val cacheSize =
         if (cacheMaxHeapPercent > 0) {
-            (cacheMaxHeapPercent / 100 * maxMemory).toLong()
+            (cacheMaxHeapPercent / 100 * Runtime.getRuntime().maxMemory()).toLong()
         } else {
             cacheMaxSize
         }
-
-    logger.debug(
-        "Initializing cache with max size {}, max age {}",
-        formatSize(cacheSize),
-        cacheExpireAfterAccess,
-    )
-    val cache =
-        CaffeineCache
-            .newBuilder<ByteRange, ByteBuffer>()
-            .maximumWeight(cacheSize)
-            .weigher(::weigh)
-            .scheduler(Scheduler.systemScheduler())
-            .also {
-                if (cacheAverageEntrySize > 0) {
-                    it.averageWeight(weigh(cacheAverageEntrySize))
-                }
-                if (cacheExpireAfterAccess.isPositive()) {
-                    it.expireAfterAccess(cacheExpireAfterAccess.toJavaDuration())
-                }
-                if (config.logCacheStats) {
-                    it.recordStats()
-                    it.removalListener(::onRemoval)
-                }
-            }.build()
-    rangeReaderCache = WeakReference(cache)
-    return ByteRangeCacheManager(cache)
+    logger.debug("Initializing cache with max size {}", formatSize(cacheSize))
+    return CaffeineCacheManager(CacheBudgets(cacheSize, CacheBudgets.fromSettings().metadataBytes))
 }
-
-/** Serves [byteRangeCache] as the byte range partition, and leaves every other cache to Tileverse */
-private class ByteRangeCacheManager(
-    private val byteRangeCache: CaffeineCache<ByteRange, ByteBuffer>,
-    private val delegate: CacheManager = CaffeineCacheManager(),
-) : CacheManager by delegate {
-    @Suppress("UNCHECKED_CAST")
-    override fun <K : Any, V : Any> partition(
-        pool: CachePool,
-        name: String,
-        spec: PartitionSpec<K, V>,
-    ): Cache<K, V> =
-        if (pool == CachePool.DATA && name == BYTE_RANGE_PARTITION_NAME) {
-            byteRangeCache as Cache<K, V>
-        } else {
-            delegate.partition(pool, name, spec)
-        }
-}
-
-// `ByteRangeCache.SHARED_CACHE_NAME` is package-private
-private const val BYTE_RANGE_PARTITION_NAME = "tileverse-storage-cache"
-
-private var rangeReaderCache: WeakReference<CaffeineCache<ByteRange, ByteBuffer>> = WeakReference(null)
 
 // Block alignment sits above the cache, so that whole blocks are fetched and cached on a miss
 private fun getCachingReader(
@@ -146,8 +88,8 @@ private fun getCachingReader(
     return if (cacheBlockSize > 0) BlockAlignedRangeReader(cachingReader, cacheBlockSize) else cachingReader
 }
 
-private fun logCacheStats(cache: CaffeineCache<ByteRange, ByteBuffer>) {
-    val stats = cache.stats()
+private fun logCacheStats(cacheManager: CacheManager) {
+    val stats = cacheManager.stats()[CachePool.DATA.cacheName()] ?: return
     val runtime = Runtime.getRuntime()
     val usedMem = runtime.totalMemory() - runtime.freeMemory()
     val freeMem = runtime.maxMemory() - usedMem
@@ -173,35 +115,13 @@ private fun getReaderAdapter(reader: AbstractRangeReader) =
         ) = reader.readRange(offset, length).array()
     }
 
-private fun weigh(
-    key: ByteRange,
-    value: ByteBuffer,
-) = weigh(value.capacity())
-
-private fun weigh(size: Int): Int {
-    // Approximate overhead of the key record (long + int + object header)
-    val keyWeight = 24
-    // Value weight: object header + int field + the actual data in the ByteBuffer
-    val valueWeight = 16 + size
-    return keyWeight + valueWeight
-}
-
-private fun onRemoval(
-    key: ByteRange?,
-    value: ByteBuffer?,
-    cause: RemovalCause,
-) {
-    if (logger.isTraceEnabled && cause != RemovalCause.EXPLICIT) {
-        logger.trace(cacheMarker, "Evicted {}, {}, cause: {}", value, key, cause)
-    }
-}
-
 private fun encodePMTiles(
     inputURI: URI,
     reader: ReadablePmtiles,
     writer: WriteablePmtiles,
     outputPath: Path,
     config: EncodeConfig,
+    cacheManager: CacheManager,
 ): Boolean {
     val timer = if (config.willTime) Timer() else null
     val header = reader.header
@@ -256,7 +176,7 @@ private fun encodePMTiles(
 
     val newMetadata =
         updateMetadata(reader.metadata(), minZoom, maxZoom, targetCompressType)
-    val state = ConversionState(targetConfig)
+    val state = ConversionState(targetConfig, cacheManager)
 
     try {
         writer.newTileWriter().use { tileWriter ->
@@ -392,7 +312,7 @@ private fun processTileRange(
                 )
             }
             if (config.logCacheStats) {
-                rangeReaderCache.get()?.also(::logCacheStats)
+                logCacheStats(state.cacheManager)
             }
         }
     }
@@ -546,6 +466,8 @@ private fun toCompressionOption(compression: TileCompression): String? =
 private data class ConversionState(
     // Options passed to each tile conversion
     val encodeConfig: EncodeConfig,
+    // Used to log cache statistics
+    val cacheManager: CacheManager,
     // Used to track tile hashes to identify repeated tiles in separate tile ranges.
     // Maps from the byte offset in the source file to the hash of the generated contents.
     val offsetToHashMap: ConcurrentHashMap<Long, Long> = ConcurrentHashMap(),
