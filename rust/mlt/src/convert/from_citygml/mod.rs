@@ -514,12 +514,67 @@ impl Mesh {
         for t in &mut triangles {
             *t = t.map(|i| renumbered[i as usize]);
         }
-        Some(Self {
+        let mut mesh = Self {
             xyz,
             triangles,
             parts,
-        })
+        };
+        mesh.orient_outward();
+        Some(mesh)
     }
+
+    /// Turns a closed mesh whose triangles face inward (`(x, -y, z)` signed volume `< 0`) outward
+    /// so every triangle winds counter-clockwise seen from outside. Open shells have no enclosed
+    /// volume and keep their source winding.
+    fn orient_outward(&mut self) {
+        if self.triangles.len() < 4 || !is_closed_shell(&self.triangles) {
+            return;
+        }
+        if signed_volume_x6(&self.xyz, &self.triangles) < 0 {
+            for t in &mut self.triangles {
+                t.swap(1, 2);
+            }
+        }
+    }
+}
+
+/// Whether every directed edge `(a, b)` of `triangles` is paired with `(b, a)`, so the mesh
+/// encloses a volume without open boundary edges.
+fn is_closed_shell(triangles: &[[u32; 3]]) -> bool {
+    let mut forward = Vec::with_capacity(triangles.len() * 3);
+    let mut reverse = Vec::with_capacity(triangles.len() * 3);
+    for &[a, b, c] in triangles {
+        for (u, v) in [(a, b), (b, c), (c, a)] {
+            forward.push((u64::from(u) << 32) | u64::from(v));
+            reverse.push((u64::from(v) << 32) | u64::from(u));
+        }
+    }
+    forward.sort_unstable();
+    reverse.sort_unstable();
+    forward == reverse
+}
+
+/// Six times the signed volume enclosed by `triangles` in right-handed `(x, -y, z)` coordinates,
+/// positive when triangles wind counter-clockwise seen from outside.
+fn signed_volume_x6(xyz: &[[i32; 3]], triangles: &[[u32; 3]]) -> i128 {
+    let Some(&[x0, y0, z0]) = xyz.first() else {
+        return 0;
+    };
+    let at = |v: u32| {
+        let [x, y, z] = xyz[v as usize];
+        [
+            i128::from(x) - i128::from(x0),
+            -(i128::from(y) - i128::from(y0)),
+            i128::from(z) - i128::from(z0),
+        ]
+    };
+    triangles
+        .iter()
+        .map(|&[a, b, c]| {
+            let ([ax, ay, az], [bx, by, bz], [cx, cy, cz]) = (at(a), at(b), at(c));
+            ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)
+        })
+        .sum()
 }
 
 /// A building on a tile: its mesh, or its footprint, to be merged with those of the tile's others.
@@ -602,7 +657,8 @@ fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(
         1 => (LOD2_ERROR_PIXELS * px_metres, Parts::Faced),
         _ => (COARSE_ERROR_PIXELS * px_metres, Parts::Faced),
     };
-    let mesh = simplify(&mesh, [metres, metres, z_step.metres()], error, parts)?;
+    let mut mesh = simplify(&mesh, [metres, metres, z_step.metres()], error, parts)?;
+    mesh.orient_outward();
     (!mesh.triangles.is_empty()).then_some((tile, Placed::Mesh(mesh)))
 }
 
@@ -1228,5 +1284,47 @@ mod tests {
             mislabelled(&files[3..]).unwrap(),
             [] as [(usize, u16, u16); 0]
         );
+    }
+
+    #[test]
+    fn an_inside_out_closed_mesh_is_turned_outward_while_an_open_shell_stays_as_given() {
+        // Outward-wound 10x10x10 cube in `(x, -y, z)`:
+        let pts = vec![
+            [0, 0, 0],
+            [10, 0, 0],
+            [10, -10, 0],
+            [0, -10, 0],
+            [0, 0, 10],
+            [10, 0, 10],
+            [10, -10, 10],
+            [0, -10, 10],
+        ];
+        let outward_tris = vec![
+            [4, 5, 6],
+            [4, 6, 7], // top (+Z)
+            [0, 2, 1],
+            [0, 3, 2], // bottom (-Z)
+            [0, 1, 5],
+            [0, 5, 4], // south (-Y)
+            [2, 3, 7],
+            [2, 7, 6], // north (+Y)
+            [1, 2, 6],
+            [1, 6, 5], // east (+X)
+            [3, 0, 4],
+            [3, 4, 7], // west (-X)
+        ];
+        let inward_tris: Vec<[u32; 3]> = outward_tris.iter().map(|&[a, b, c]| [a, c, b]).collect();
+
+        let closed_inward = surface(Part::Wall, inward_tris.clone());
+        let welded = Mesh::weld([&closed_inward], std::slice::from_ref(&pts)).unwrap();
+        assert!(is_closed_shell(&welded.triangles));
+        assert!(signed_volume_x6(&welded.xyz, &welded.triangles) > 0);
+
+        // Removing the bottom two triangles leaves an open shell: winding must stay untouched.
+        let open_inward = surface(Part::Wall, inward_tris[2..].to_vec());
+        let open_welded = Mesh::weld([&open_inward], &[pts]).unwrap();
+        assert!(!is_closed_shell(&open_welded.triangles));
+        assert_eq!(open_welded.triangles.len(), 10);
+        assert_eq!(open_welded.triangles[0], inward_tris[2]);
     }
 }
