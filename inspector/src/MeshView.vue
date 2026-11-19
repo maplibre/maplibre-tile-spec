@@ -104,14 +104,30 @@ function frame(toward: THREE.Vector3) {
         );
       }
   distance *= 1.05;
-  const size = bounds.getSize(new THREE.Vector3()).length();
-  camera.near = Math.max(distance - size, distance / 100);
-  camera.far = distance + size;
   camera.position.copy(center).addScaledVector(back, distance);
-  camera.updateProjectionMatrix();
   controls?.target.copy(center);
   controls?.update();
+  clip();
   render();
+}
+
+/** Put the clipping planes around the meshes as seen from where the camera is now. */
+function clip() {
+  const bounds = mesh.geometry.boundingBox;
+  if (!bounds || bounds.isEmpty()) return;
+  const eye = camera.position;
+  let farthest = 0;
+  for (const x of [bounds.min.x, bounds.max.x])
+    for (const y of [bounds.min.y, bounds.max.y])
+      for (const z of [bounds.min.z, bounds.max.z])
+        farthest = Math.max(
+          farthest,
+          eye.distanceTo(new THREE.Vector3(x, y, z)),
+        );
+  // Inside the box the nearest surface can be arbitrarily close, so the near plane only keeps depth precision.
+  camera.near = Math.max(bounds.distanceToPoint(eye) * 0.9, farthest / 10_000);
+  camera.far = farthest * 1.1;
+  camera.updateProjectionMatrix();
 }
 
 onMounted(() => {
@@ -120,7 +136,10 @@ onMounted(() => {
   renderer.setPixelRatio(devicePixelRatio || 1);
   box.value.prepend(renderer.domElement);
   controls = new OrbitControls(camera, renderer.domElement);
-  controls.addEventListener("change", render);
+  controls.addEventListener("change", () => {
+    clip();
+    render();
+  });
   rebuild();
 });
 
