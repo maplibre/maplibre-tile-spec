@@ -17,6 +17,7 @@ import {
   runsOf,
   triangleHues,
   vertexCount,
+  widestExtent,
 } from "./geometry.ts";
 
 function feature(
@@ -346,6 +347,20 @@ describe("triangleHues", () => {
   });
 });
 
+describe("widestExtent", () => {
+  it("takes the widest extent of the tile's layers", () => {
+    const tile = tileOf(
+      meshLayer("fine", [], [], { extent: 8192 }),
+      meshLayer("coarse", [], [], { extent: 64 }),
+    );
+    expect(widestExtent(tile)).toBe(8192);
+  });
+
+  it("falls back for a tile without layers", () => {
+    expect(widestExtent(tileOf())).toBe(4096);
+  });
+});
+
 describe("hasMeshes", () => {
   it("finds a Meshes layer in the whole tile, or under the scoped name", () => {
     const meshes = meshLayer("buildings", [mesh(1)]);
@@ -401,6 +416,15 @@ describe("meshScene", () => {
     expect(meshScene(tileOf(outline), null, 1).positions.length).toBe(0);
   });
 
+  it("brings every layer onto the widest extent, heights included", () => {
+    const fine = meshLayer("fine", [mesh(1)], [], { extent: 8192 });
+    const coarse = meshLayer("coarse", [mesh(1)], [], { extent: 4096 });
+    const scene = meshScene(tileOf(fine, coarse), null, 0.5);
+    expect(Array.from(scene.positions)).toEqual([
+      0, 0, 0, 0, 0, 1, 1, 10, 0, 0, 0, 0, 0, 0, 2, 2, 10, 0,
+    ]);
+  });
+
   it("gives a triangle without a triangle column the hue past the palette", () => {
     const plain = meshLayer("buildings", [mesh(1)]);
     const scene = meshScene(tileOf(plain), null, 1);
@@ -412,6 +436,12 @@ describe("metresPerUnit", () => {
   it("reads the tile's latitude and zoom from a z/x/y address", () => {
     expect(
       metresPerUnit("http://localhost:5181/16/33561/21645.mlt", 4096),
+    ).toBeCloseTo(0.0918986, 6);
+  });
+
+  it("reads the tile from the path of an address with a query", () => {
+    expect(
+      metresPerUnit("https://host/16/33561/21645.mlt?token=abc#top", 4096),
     ).toBeCloseTo(0.0918986, 6);
   });
 
