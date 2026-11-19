@@ -12,9 +12,12 @@ import com.onthegomap.planetiler.geo.TileCoord
 import com.onthegomap.planetiler.pmtiles.Pmtiles
 import com.onthegomap.planetiler.pmtiles.Pmtiles.TileType
 import com.onthegomap.planetiler.pmtiles.WriteablePmtiles
+import io.tileverse.cache.Cache
 import io.tileverse.cache.CacheManager
+import io.tileverse.cache.CachePool
 import io.tileverse.cache.CaffeineCache
 import io.tileverse.cache.CaffeineCacheManager
+import io.tileverse.cache.PartitionSpec
 import io.tileverse.io.ByteRange
 import io.tileverse.storage.AbstractRangeReader
 import io.tileverse.storage.RangeReader
@@ -68,48 +71,65 @@ fun encodePMTiles(
     }
 }
 
-// To have any effect on the cache size limit, we have to entirely replace the cache setup.
-// See `io.tileverse.storage.cache.ByteRangeCache.buildSharedCache`
-private fun getCacheManager(config: EncodeConfig) =
-    CaffeineCacheManager().also {
-        // `ByteRangeCache.SHARED_CACHE_NAME` is package-private
-        val cacheName = "tileverse-storage-cache"
-        val maxMemory = Runtime.getRuntime().maxMemory()
-        val cacheSize =
-            if (cacheMaxHeapPercent > 0) {
-                (cacheMaxHeapPercent / 100 * maxMemory).toLong()
-            } else {
-                cacheMaxSize
-            }
+// Tileverse keeps byte ranges in a partition of its shared data pool, with a fixed expiry and
+// only the size of the pool configurable. To keep our own limits, we replace that partition.
+// See `io.tileverse.storage.cache.ByteRangeCache`
+private fun getCacheManager(config: EncodeConfig): CacheManager {
+    val maxMemory = Runtime.getRuntime().maxMemory()
+    val cacheSize =
+        if (cacheMaxHeapPercent > 0) {
+            (cacheMaxHeapPercent / 100 * maxMemory).toLong()
+        } else {
+            cacheMaxSize
+        }
 
-        logger.debug(
-            "Initializing cache with max size {}, max age {}",
-            formatSize(cacheSize),
-            cacheExpireAfterAccess,
-        )
-        rangeReaderCache =
-            WeakReference(
-                it.getCache(cacheName, {
-                    CaffeineCache
-                        .newBuilder<ByteRange, ByteBuffer>()
-                        .maximumWeight(cacheSize)
-                        .weigher(::weigh)
-                        .scheduler(Scheduler.systemScheduler())
-                        .also {
-                            if (cacheAverageEntrySize > 0) {
-                                it.averageWeight(weigh(cacheAverageEntrySize))
-                            }
-                            if (cacheExpireAfterAccess.isPositive()) {
-                                it.expireAfterAccess(cacheExpireAfterAccess.toJavaDuration())
-                            }
-                            if (config.logCacheStats) {
-                                it.recordStats()
-                                it.removalListener(::onRemoval)
-                            }
-                        }.build()
-                }),
-            )
-    }
+    logger.debug(
+        "Initializing cache with max size {}, max age {}",
+        formatSize(cacheSize),
+        cacheExpireAfterAccess,
+    )
+    val cache =
+        CaffeineCache
+            .newBuilder<ByteRange, ByteBuffer>()
+            .maximumWeight(cacheSize)
+            .weigher(::weigh)
+            .scheduler(Scheduler.systemScheduler())
+            .also {
+                if (cacheAverageEntrySize > 0) {
+                    it.averageWeight(weigh(cacheAverageEntrySize))
+                }
+                if (cacheExpireAfterAccess.isPositive()) {
+                    it.expireAfterAccess(cacheExpireAfterAccess.toJavaDuration())
+                }
+                if (config.logCacheStats) {
+                    it.recordStats()
+                    it.removalListener(::onRemoval)
+                }
+            }.build()
+    rangeReaderCache = WeakReference(cache)
+    return ByteRangeCacheManager(cache)
+}
+
+/** Serves [byteRangeCache] as the byte range partition, and leaves every other cache to Tileverse */
+private class ByteRangeCacheManager(
+    private val byteRangeCache: CaffeineCache<ByteRange, ByteBuffer>,
+    private val delegate: CacheManager = CaffeineCacheManager(),
+) : CacheManager by delegate {
+    @Suppress("UNCHECKED_CAST")
+    override fun <K : Any, V : Any> partition(
+        pool: CachePool,
+        name: String,
+        spec: PartitionSpec<K, V>,
+    ): Cache<K, V> =
+        if (pool == CachePool.DATA && name == BYTE_RANGE_PARTITION_NAME) {
+            byteRangeCache as Cache<K, V>
+        } else {
+            delegate.partition(pool, name, spec)
+        }
+}
+
+// `ByteRangeCache.SHARED_CACHE_NAME` is package-private
+private const val BYTE_RANGE_PARTITION_NAME = "tileverse-storage-cache"
 
 private var rangeReaderCache: WeakReference<CaffeineCache<ByteRange, ByteBuffer>> = WeakReference(null)
 
