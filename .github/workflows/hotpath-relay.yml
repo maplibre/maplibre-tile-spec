@@ -6,7 +6,9 @@ on:
     types: [completed]
 
 jobs:
+  # hotpath v0.31.0 replaced its reusable `hotpath-relay.yml` workflow with the `hotpath-rs/hotpath-relay` action
   relay:
+    # Only successful pull request runs have a report to relay; the action checks this too, so this only saves runners.
     if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     strategy:
@@ -17,7 +19,7 @@ jobs:
     concurrency:
       group: hotpath-relay-${{ matrix.benchmark }}-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
       cancel-in-progress: true
-    uses: hotpath-rs/hotpath/.github/workflows/hotpath-relay.yml@ca0fb29fa6a42805df93d0f4a40a7a13a7eea2d7 # v0.31.3
+    # A composite action cannot grant these itself
     permissions:
       actions: read # download the artifact of the benchmark run
       id-token: write # authenticate the upload
