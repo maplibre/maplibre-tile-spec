@@ -17,6 +17,8 @@ jobs:
   autofix:
     name: Autofix
     runs-on: ubuntu-latest
+    # Successful runs take up to ~8.5 min; a hung hook would otherwise run until GitHub's 6h limit
+    timeout-minutes: 20
     permissions: { contents: read }
     if: |
       github.event.action == 'opened' ||
@@ -136,6 +138,8 @@ jobs:
   bless:
     name: Bless test output
     runs-on: ubuntu-latest
+    # Runs every component's tests; no successful run to measure, so generous
+    timeout-minutes: 60
     permissions:
       contents: read
     if: |
