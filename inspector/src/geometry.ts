@@ -184,13 +184,24 @@ export interface MeshScene {
   legend: { value: string; hue: number }[];
 }
 
-/** The triangles of every `Meshes` layer, or only of `layer` when one is scoped. */
+/** The tile's coordinate space, which is the widest extent any of its layers declares. */
+export function widestExtent(tile: MltColumnTile): number {
+  return (
+    tile.layers.reduce((widest, l) => Math.max(widest, l.extent), 0) || 4096
+  );
+}
+
+/**
+ * The triangles of every `Meshes` layer, or only of `layer` when one is scoped.
+ * Every layer is brought onto `widestExtent`, whose unit `metresPerUnit` measures.
+ */
 export function meshScene(
   tile: MltColumnTile,
   layer: string | null,
   metresPerUnit: number,
 ): MeshScene {
   const { hues, values } = categorise(tile);
+  const extent = widestExtent(tile);
   const positions: number[] = [];
   const triangleHue: number[] = [];
   for (const each of tile.layers) {
@@ -199,14 +210,15 @@ export function meshScene(
     if (geometry.layout !== "meshes" || geometry.dimension !== 3) continue;
     const { vertices, indexBuffer = new Uint32Array(), zStep } = geometry;
     const step = 10 ** zStep;
+    const scale = extent / each.extent;
     const own = hues.get(each);
     for (let t = 0; t < indexBuffer.length / 3; t++) {
       for (let corner = 0; corner < 3; corner++) {
         const at = indexBuffer[t * 3 + corner] * 3;
         positions.push(
-          vertices[at],
+          vertices[at] * scale,
           (vertices[at + 2] * step) / metresPerUnit,
-          vertices[at + 1],
+          vertices[at + 1] * scale,
         );
       }
       triangleHue.push(own?.[t] ?? PALETTE_SIZE);
@@ -230,7 +242,14 @@ const EARTH_CIRCUMFERENCE = 40_075_016.686;
  * An address naming no tile, such as a synthetic fixture, takes a unit as a metre.
  */
 export function metresPerUnit(address: string | null, extent: number): number {
-  const match = address?.match(/(\d+)\/\d+\/(\d+)\.mlt$/);
+  if (address === null) return 1;
+  let path = address;
+  try {
+    path = new URL(address, "http://localhost/").pathname;
+  } catch {
+    // Not a URL, so the address is taken as a path.
+  }
+  const match = path.match(/(\d+)\/\d+\/(\d+)\.mlt$/);
   if (!match) return 1;
   const tiles = 2 ** Number(match[1]);
   const north = Math.PI * (1 - (2 * (Number(match[2]) + 0.5)) / tiles);

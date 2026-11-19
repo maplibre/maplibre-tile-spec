@@ -4,7 +4,12 @@ import type { FeatureCollection } from "geojson";
 import { computed, defineAsyncComponent, onMounted, ref, watch } from "vue";
 import type { DecodedBlob, DumpTree, MltColumnTile } from "./annotate.ts";
 import GeometryView from "./GeometryView.vue";
-import { extentOf, hasMeshes, layersOf, metresPerUnit } from "./geometry.ts";
+import {
+  hasMeshes,
+  layersOf,
+  metresPerUnit,
+  widestExtent,
+} from "./geometry.ts";
 import HexMap from "./HexMap.vue";
 import HexTip from "./HexTip.vue";
 import {
@@ -180,7 +185,7 @@ const showsMeshes = computed(
 const unitScale = computed(() =>
   metresPerUnit(
     props.address ?? null,
-    props.tile ? extentOf(props.tile) : 4096,
+    props.columns ? widestExtent(props.columns) : 4096,
   ),
 );
 /** Index among the tree's layers of the one the pointer is over, for the statistics to light. */
