@@ -6,9 +6,7 @@ on:
     types: [completed]
 
 jobs:
-  # hotpath v0.31.0 replaced its reusable `hotpath-relay.yml` workflow with the `hotpath-rs/hotpath-relay` action
   relay:
-    # Only successful pull request runs have a report to relay; the action checks this too, so this only saves runners.
     if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     strategy:
