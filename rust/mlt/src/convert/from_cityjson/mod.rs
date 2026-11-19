@@ -17,7 +17,9 @@ use serde_json::Value;
 
 use super::from_geojson::clip::clip_ring;
 use super::from_geojson::project::{Vertex, grid_z, mercator_unit};
-use super::from_geojson::{EXTENT, tile_rect};
+use super::from_geojson::{
+    EXTENT, decode_with_default_budget, is_memory_limit, tile_rect, too_heavy,
+};
 use super::orient::orient_outward;
 use super::triangulate::{Triangulator, has_area};
 use super::{ConvertArgs, Reencoder};
@@ -28,6 +30,9 @@ pub(super) fn is_cityjson(path: &Path) -> bool {
         .and_then(std::ffi::OsStr::to_str)
         .is_some_and(|name| name.ends_with(".city.json"))
 }
+
+/// The triangle-scoped column holding each face's semantic surface type.
+const SURFACE: &str = "surface";
 
 /// What every tile's layer shares.
 struct LayerSpec {
@@ -61,6 +66,8 @@ struct Written {
     tiles: usize,
     meshes: usize,
     cleanup: Cleanup,
+    /// `(zoom, col, row)` of the highest-zoom tile left unwritten for outgrowing the default decoder budget.
+    too_heavy: Option<(u8, u32, u32)>,
 }
 
 impl Written {
@@ -69,6 +76,8 @@ impl Written {
         self.meshes += other.meshes;
         self.cleanup.degenerate += other.cleanup.degenerate;
         self.cleanup.flipped += other.cleanup.flipped;
+        // `None` sorts first and the tuples by zoom first, so this keeps the highest zoom.
+        self.too_heavy = self.too_heavy.max(other.too_heavy);
     }
 }
 
@@ -201,6 +210,17 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
             props: Arc::new(schema.values(attributes)?),
         });
     }
+    if !surfaces.is_empty()
+        && let Some(object) = city
+            .objects
+            .iter()
+            .zip(&attributes)
+            .find_map(|(object, map)| map.contains_key(SURFACE).then_some(&object.id))
+    {
+        bail!(
+            "object {object} has an attribute named {SURFACE}, which convert stores each triangle's semantic surface type in"
+        );
+    }
     drop(attributes);
 
     let layer = LayerSpec {
@@ -217,6 +237,9 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
         max_zoom,
     };
     let written = tiler.tile(0, 0, 0, &sources)?;
+    if let Some(tile) = written.too_heavy {
+        return Err(too_heavy(tile, max_zoom));
+    }
     eprintln!(
         "{} -> {}: wrote {} tile(s) holding {} mesh(es) of LoD {} at zooms {min_zoom}..={max_zoom}",
         input.display(),
@@ -402,7 +425,7 @@ impl Tiler<'_> {
             .map(|(name, kind)| builder.add_property(name.clone(), *kind))
             .collect::<Result<Vec<_>, _>>()?;
         let surface = (!spec.surfaces.is_empty())
-            .then(|| builder.add_scoped_m_value("surface", PropKind::Str, MValueScope::Triangle))
+            .then(|| builder.add_scoped_m_value(SURFACE, PropKind::Str, MValueScope::Triangle))
             .transpose()?;
         for (src, mesh) in meshes {
             let points = mesh.vertices.iter().map(|&[x, y, _]| Point::new(x, y));
@@ -424,7 +447,23 @@ impl Tiler<'_> {
             feature.finish()?;
             written.meshes += 1;
         }
-        let bytes = self.reencoder.encode(builder.finish())?;
+        let checked = self.reencoder.encode(builder.finish()).and_then(|bytes| {
+            // `--verify` has already decoded the tile with the default budget.
+            if !self.reencoder.verify {
+                decode_with_default_budget(&bytes).context("decoding the tile back")?;
+            }
+            Ok(bytes)
+        });
+        let bytes = match checked {
+            Ok(bytes) => bytes,
+            Err(e) if is_memory_limit(&e) => {
+                return Ok(Written {
+                    too_heavy: Some((zoom, col, row)),
+                    ..Written::default()
+                });
+            }
+            Err(e) => return Err(e),
+        };
         let dir = self.output.join(zoom.to_string()).join(col.to_string());
         fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
         let path = dir.join(format!("{row}.mlt"));

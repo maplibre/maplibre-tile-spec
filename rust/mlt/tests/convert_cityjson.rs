@@ -402,3 +402,55 @@ fn an_object_without_the_ground_attribute_is_rejected_by_name() {
         @"Error: object house has no numeric b3_h_maaiveld attribute",
     );
 }
+
+#[test]
+fn an_attribute_named_like_the_surface_column_is_rejected_up_front() {
+    let cityjson = city(
+        &json!({
+            "house": {
+                "type": "Building",
+                "attributes": { "surface": 120.5 },
+                "geometry": [cube_solid("2.2")],
+            },
+        }),
+        &cube_vertices(0, 0, 10),
+    );
+    insta::assert_snapshot!(run_failing(&cityjson, &["--max-zoom", "0", "--z-step", "0"]), @"Error: object house has an attribute named surface, which convert stores each triangle's semantic surface type in");
+}
+
+#[test]
+fn a_tile_too_heavy_to_decode_is_skipped_naming_the_min_zoom_that_fits() {
+    let mut objects = serde_json::Map::new();
+    let mut vertices = Vec::new();
+    for i in 0..2000_i64 {
+        let lon = if i % 2 == 0 { -90 } else { 89 };
+        let lat = if i % 4 < 2 { -45 } else { 44 };
+        let first = vertices.len();
+        vertices.extend([
+            json!([lon, lat, 0]),
+            json!([lon + 1, lat, 0]),
+            json!([lon, lat + 1, 0]),
+        ]);
+        objects.insert(
+            format!("o{i}"),
+            json!({
+                "type": "Building",
+                "attributes": { format!("p{i}"): i },
+                "geometry": [{
+                    "type": "MultiSurface",
+                    "lod": "2.2",
+                    "boundaries": [[[first, first + 1, first + 2]]],
+                }],
+            }),
+        );
+    }
+    let mut cityjson = city(&Value::Object(objects), &Value::Array(vertices));
+    cityjson["transform"]["scale"] = json!([1.0, 1.0, 1.0]);
+    let (dir, output, out) = run_into(&cityjson, &["--max-zoom", "1", "--z-step", "0"]);
+    assert!(!out.status.success(), "mlt convert unexpectedly succeeded");
+    insta::assert_snapshot!(stderr_of(&dir, &out), @"Error: tile 0/0/0 needs more memory to decode than mlt-core's default decoder budget allows, so it and any such tile at a lower zoom were not written; pass --min-zoom 1");
+    assert_eq!(
+        mlt_files(&output),
+        ["1/0/0.mlt", "1/0/1.mlt", "1/1/0.mlt", "1/1/1.mlt"]
+    );
+}
