@@ -581,10 +581,10 @@ udeps: (just 'cargo-install' 'cargo-udeps')
     cargo +nightly udeps --all-targets --workspace --all-features
 
 # Update all dependencies, including breaking changes
-update:
-    cargo +nightly -Z unstable-options update --breaking
+update:  (just 'cargo-install' 'cargo-upgrade' 'cargo-edit')
+    cargo upgrade --incompatible --compatible ignore
     cargo update
-    cd mlt-core/fuzz && cargo +nightly -Z unstable-options update --breaking
+    cd mlt-core/fuzz && cargo upgrade --incompatible --compatible ignore
     cd mlt-core/fuzz && cargo update
 
 # Generate synthetic .mlt files and ensure there are no duplicates
