@@ -2,7 +2,7 @@
 import { useEventListener, useResizeObserver } from "@vueuse/core";
 import type { FeatureCollection } from "geojson";
 import { computed, onMounted, ref, watch } from "vue";
-import type { DecodedBlob, DumpTree } from "./annotate.ts";
+import type { DecodedBlob, DumpTree, MltColumnTile } from "./annotate.ts";
 import GeometryView from "./GeometryView.vue";
 import { layersOf } from "./geometry.ts";
 import HexMap from "./HexMap.vue";
@@ -28,6 +28,8 @@ const props = defineProps<{
   error: string | null;
   /** The decoded tile the geometry panel draws, absent when it could not be decoded. */
   tile?: FeatureCollection | null;
+  /** The decoded columns, from which the geometry panel draws meshes, absent when they could not be decoded. */
+  columns?: MltColumnTile | null;
 }>();
 const view = defineModel<ViewState>("view", { required: true });
 const selected = defineModel<number | null>("selected", { required: true });
@@ -295,6 +297,7 @@ onMounted(() => {
             v-if="view.geo"
             :tile="props.tile ?? null"
             :layer="scopeLayer"
+            :columns="props.columns ?? null"
           />
           <StatsView
             v-if="view.stats"

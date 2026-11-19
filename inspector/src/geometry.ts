@@ -1,6 +1,11 @@
 /** What the geometry panel reads out of the GeoJSON `tileGeoJson` hands back. */
 
 import type { Feature, FeatureCollection, Geometry } from "geojson";
+import type {
+  MltColumnLayer,
+  MltColumnTile,
+  MltMValueColumn,
+} from "./annotate.ts";
 
 /** `from_layers` tags every feature with the layer it came from and that layer's extent. */
 const LAYER = "_layer";
@@ -101,4 +106,53 @@ const HUES: Record<string, number> = {
 
 export function hueOf(geometry: Geometry): number {
   return HUES[geometry.type] ?? 0;
+}
+
+/** The number of hues in the block palette, which category hues cycle through. */
+const PALETTE_SIZE = 6;
+
+/** Value `at` of an m-value column, a string column's resolved through its dictionary. */
+function valueAt(column: MltMValueColumn, at: number): unknown {
+  return column.type === "string"
+    ? column.dictionary[column.codes[at]]
+    : column.values[at];
+}
+
+/**
+ * One hue per triangle of each `Meshes` layer with a triangle column, from its first such column.
+ * Values are numbered tile-wide in first-seen order, so a value keeps its hue across meshes.
+ * A triangle of a mesh without values in the column gets `PALETTE_SIZE`, the hue past the palette.
+ */
+export function triangleHues(
+  tile: MltColumnTile,
+): Map<MltColumnLayer, number[]> {
+  const categories = new Map<unknown, number>();
+  const hues = new Map<MltColumnLayer, number[]>();
+  for (const layer of tile.layers) {
+    const { layout, triangleOffsets } = layer.geometry;
+    const column = layer.triangleValues[0];
+    if (layout !== "meshes" || triangleOffsets === undefined || !column)
+      continue;
+    const own: number[] = [];
+    for (let f = 0; f < layer.featureCount; f++) {
+      const count = triangleOffsets[f + 1] - triangleOffsets[f];
+      const start = column.offsets[f];
+      const covered = column.offsets[f + 1] - start === count;
+      for (let t = 0; t < count; t++) {
+        if (!covered) {
+          own.push(PALETTE_SIZE);
+          continue;
+        }
+        const value = valueAt(column, start + t);
+        let category = categories.get(value);
+        if (category === undefined) {
+          category = categories.size;
+          categories.set(value, category);
+        }
+        own.push(category % PALETTE_SIZE);
+      }
+    }
+    hues.set(layer, own);
+  }
+  return hues;
 }
