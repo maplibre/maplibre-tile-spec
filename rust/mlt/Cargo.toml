@@ -19,7 +19,7 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 [features]
-citygml = ["dep:earcut", "dep:meshopt", "dep:proj4rs", "dep:quick-xml"]
+citygml = ["dep:meshopt", "dep:proj4rs", "dep:quick-xml"]
 default = ["citygml"]
 hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
 hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
@@ -32,7 +32,7 @@ bytes.workspace = true
 clap.workspace = true
 crossbeam-channel.workspace = true
 crossterm.workspace = true
-earcut = { workspace = true, optional = true }
+earcut.workspace = true
 flate2.workspace = true
 futures.workspace = true
 geojson.workspace = true

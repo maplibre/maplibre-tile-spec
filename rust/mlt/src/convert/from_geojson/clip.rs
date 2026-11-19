@@ -25,7 +25,7 @@ use super::project::{Geom, Vertex};
 
 /// An axis-aligned rectangle in the same coordinates as the vertices.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct Rect {
+pub(in crate::convert) struct Rect {
     pub min_x: f64,
     pub min_y: f64,
     pub max_x: f64,
@@ -135,7 +135,7 @@ impl Edge {
 /// Clip a ring to `rect` with Sutherland-Hodgman. The input may or may not
 /// repeat its first vertex at the end; the output never does and is empty when
 /// fewer than three vertices remain.
-pub(super) fn clip_ring(ring: &[Vertex], rect: &Rect) -> Vec<Vertex> {
+pub(in crate::convert) fn clip_ring(ring: &[Vertex], rect: &Rect) -> Vec<Vertex> {
     // A closing vertex is an exact repeat of the first, z included: one only
     // above or below it is a corner of a vertical ring.
     let open = match ring {

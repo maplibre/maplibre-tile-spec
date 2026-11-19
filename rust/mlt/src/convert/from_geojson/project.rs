@@ -16,7 +16,7 @@ const MAX_LAT: f64 = 85.051_128_779_806_59;
 /// A projected position: `x`/`y` in the unit square, `z` in grid units of the
 /// layer's [`ZStep`], or `0` on a flat layer.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct Vertex {
+pub(in crate::convert) struct Vertex {
     pub x: f64,
     pub y: f64,
     pub z: f64,
@@ -242,7 +242,7 @@ fn reject_antimeridian_crossing(a: &Position, b: &Position) -> AnyResult<()> {
 
 /// The exact (unrounded) grid value of an elevation, with the arithmetic order
 /// of [`ZStep::z`] so that rounding it later lands on the same integer.
-fn grid_z(step: ZStep, metres: f64) -> f64 {
+pub(in crate::convert) fn grid_z(step: ZStep, metres: f64) -> f64 {
     let power = 10_f64.powi(i32::from(step.exponent().unsigned_abs()));
     if step.exponent() < 0 {
         metres * power
