@@ -152,18 +152,8 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
 
     // TODO: simplify geometries at low zooms, as other tilers do, so the tiles there
     // stay light enough to decode, rather than failing and asking for a higher --min-zoom.
-    if let Some((zoom, col, row)) = written.too_heavy {
-        let fits = zoom + 1;
-        let raise_max = if fits > max_zoom {
-            format!(" and a --max-zoom of at least {fits}")
-        } else {
-            String::new()
-        };
-        bail!(
-            "tile {zoom}/{col}/{row} needs more memory to decode than mlt-core's default \
-             decoder budget allows, so it and any such tile at a lower zoom were not written; \
-             pass --min-zoom {fits}{raise_max}"
-        );
+    if let Some(tile) = written.too_heavy {
+        return Err(too_heavy(tile, max_zoom));
     }
 
     if sources.is_empty() {
@@ -373,8 +363,23 @@ impl Tiler<'_> {
     }
 }
 
+/// The error for tile `(zoom, col, row)`, the highest-zoom one left unwritten for outgrowing the default decoder budget.
+pub(super) fn too_heavy((zoom, col, row): (u8, u32, u32), max_zoom: u8) -> anyhow::Error {
+    let fits = zoom + 1;
+    let raise_max = if fits > max_zoom {
+        format!(" and a --max-zoom of at least {fits}")
+    } else {
+        String::new()
+    };
+    anyhow::anyhow!(
+        "tile {zoom}/{col}/{row} needs more memory to decode than mlt-core's default \
+         decoder budget allows, so it and any such tile at a lower zoom were not written; \
+         pass --min-zoom {fits}{raise_max}"
+    )
+}
+
 /// Whether `err` stems from a decoder running out of its memory budget.
-fn is_memory_limit(err: &anyhow::Error) -> bool {
+pub(super) fn is_memory_limit(err: &anyhow::Error) -> bool {
     err.chain().any(|cause| {
         matches!(
             cause.downcast_ref::<MltError>(),

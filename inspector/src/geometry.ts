@@ -158,7 +158,10 @@ export interface MeshScene {
   legend: { value: string; hue: number }[];
 }
 
-/** The triangles of every mesh in `meshLayers`, or only in `layer` when one is scoped. */
+/**
+ * The triangles of every mesh in `meshLayers`, or only in `layer` when one is scoped.
+ * Every layer is brought onto the tile's widest extent, whose unit `metresPerUnit` measures.
+ */
 export function meshScene(
   tile: FeatureCollection,
   meshLayers: ReadonlySet<string>,
@@ -166,6 +169,7 @@ export function meshScene(
   metresPerUnit: number,
 ): MeshScene {
   const { hues, values } = categorise(tile);
+  const extent = extentOf(tile);
   const positions: number[] = [];
   const triangleHue: number[] = [];
   for (const feature of tile.features) {
@@ -173,10 +177,11 @@ export function meshScene(
     if (!meshLayers.has(name) || (layer !== null && name !== layer)) continue;
     if (feature.geometry.type !== "MultiPolygon") continue;
     const step = 10 ** Number(feature.properties?._z_step ?? 0);
+    const scale = extent / Number(feature.properties?.[EXTENT] ?? extent);
     const own = hues.get(feature);
     feature.geometry.coordinates.forEach((polygon, at) => {
       for (const [x, y, z = 0] of polygon[0].slice(0, 3))
-        positions.push(x, (z * step) / metresPerUnit, y);
+        positions.push(x * scale, (z * step) / metresPerUnit, y * scale);
       triangleHue.push(own?.[at] ?? PALETTE_SIZE);
     });
   }
@@ -198,7 +203,14 @@ const EARTH_CIRCUMFERENCE = 40_075_016.686;
  * An address naming no tile, such as a synthetic fixture, takes a unit as a metre.
  */
 export function metresPerUnit(address: string | null, extent: number): number {
-  const match = address?.match(/(\d+)\/\d+\/(\d+)\.mlt$/);
+  if (address === null) return 1;
+  let path = address;
+  try {
+    path = new URL(address, "http://localhost/").pathname;
+  } catch {
+    // Not a URL, so the address is taken as a path.
+  }
+  const match = path.match(/(\d+)\/\d+\/(\d+)\.mlt$/);
   if (!match) return 1;
   const tiles = 2 ** Number(match[1]);
   const north = Math.PI * (1 - (2 * (Number(match[2]) + 0.5)) / tiles);

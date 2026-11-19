@@ -69,18 +69,45 @@ function rebuild() {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(rgb, 3));
   geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
+  geometry.computeBoundingBox();
   mesh.geometry.dispose();
   mesh.geometry = geometry;
+  frame(new THREE.Vector3(-0.45, 0.55, 0.7));
+}
 
-  const sphere = geometry.boundingSphere;
-  if (!sphere || sphere.radius === 0) return render();
-  const { center, radius } = sphere;
-  camera.near = radius / 100;
-  camera.far = radius * 20;
-  // Close enough to fill the view with a flat tile, whose bounding sphere is mostly empty.
-  const away = new THREE.Vector3(-0.45, 0.55, 0.7).setLength(radius * 2.2);
-  camera.position.copy(center).add(away);
+/**
+ * Aim the camera at the meshes from `toward`, just far enough that every corner of their
+ * bounding box fits both the vertical and the horizontal field of view.
+ */
+function frame(toward: THREE.Vector3) {
+  const bounds = mesh.geometry.boundingBox;
+  if (!bounds || bounds.isEmpty()) return render();
+  const center = bounds.getCenter(new THREE.Vector3());
+  const back = toward.clone().normalize();
+  const forward = back.clone().negate();
+  const right = new THREE.Vector3()
+    .crossVectors(forward, camera.up)
+    .normalize();
+  const up = new THREE.Vector3().crossVectors(right, forward);
+  const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const tanH = tanV * camera.aspect;
+  let distance = 0;
+  for (const x of [bounds.min.x, bounds.max.x])
+    for (const y of [bounds.min.y, bounds.max.y])
+      for (const z of [bounds.min.z, bounds.max.z]) {
+        const corner = new THREE.Vector3(x, y, z).sub(center);
+        const depth = corner.dot(forward);
+        distance = Math.max(
+          distance,
+          Math.abs(corner.dot(right)) / tanH - depth,
+          Math.abs(corner.dot(up)) / tanV - depth,
+        );
+      }
+  distance *= 1.05;
+  const size = bounds.getSize(new THREE.Vector3()).length();
+  camera.near = Math.max(distance - size, distance / 100);
+  camera.far = distance + size;
+  camera.position.copy(center).addScaledVector(back, distance);
   camera.updateProjectionMatrix();
   controls?.target.copy(center);
   controls?.update();
@@ -110,8 +137,8 @@ watch([width, height], ([w, h]) => {
   if (!renderer || w === 0 || h === 0) return;
   renderer.setSize(w, h);
   camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  render();
+  // Refit from where the camera looks now, so a narrower panel never crops the meshes.
+  frame(camera.position.clone().sub(controls?.target ?? new THREE.Vector3()));
 });
 </script>
 

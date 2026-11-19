@@ -267,6 +267,28 @@ describe("meshScene", () => {
     expect(scene.positions.length).toBe(9);
   });
 
+  it("brings every layer onto the widest extent, heights included", () => {
+    const fine = feature(mesh(1), {
+      _layer: "fine",
+      _extent: 8192,
+      _z_step: 0,
+    });
+    const coarse = feature(mesh(1), {
+      _layer: "coarse",
+      _extent: 4096,
+      _z_step: 0,
+    });
+    const scene = meshScene(
+      collection(fine, coarse),
+      new Set(["fine", "coarse"]),
+      null,
+      0.5,
+    );
+    expect(Array.from(scene.positions)).toEqual([
+      0, 0, 0, 0, 0, 1, 1, 10, 0, 0, 0, 0, 0, 0, 2, 2, 10, 0,
+    ]);
+  });
+
   it("gives a triangle without a triangle column the hue past the palette", () => {
     const plain = feature(mesh(1), { _layer: "buildings", _z_step: 0 });
     const scene = meshScene(collection(plain), new Set(["buildings"]), null, 1);
@@ -278,6 +300,12 @@ describe("metresPerUnit", () => {
   it("reads the tile's latitude and zoom from a z/x/y address", () => {
     expect(
       metresPerUnit("http://localhost:5181/16/33561/21645.mlt", 4096),
+    ).toBeCloseTo(0.0918986, 6);
+  });
+
+  it("reads the tile from the path of an address with a query", () => {
+    expect(
+      metresPerUnit("https://host/16/33561/21645.mlt?token=abc#top", 4096),
     ).toBeCloseTo(0.0918986, 6);
   });
 

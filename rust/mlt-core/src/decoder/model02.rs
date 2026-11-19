@@ -643,7 +643,7 @@ pub enum GeoLayout {
     Meshes = 0x0E,
 }
 
-/// What an [m-value column](super::root02) holds one value per, the byte a `Meshes` layer writes after its type.
+/// What an m-value column holds one value per, the byte a `Meshes` layer writes after its type.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum MValueScope {
