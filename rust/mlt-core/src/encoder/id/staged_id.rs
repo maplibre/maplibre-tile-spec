@@ -193,7 +193,6 @@ impl StagedId {
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{Network, Profile};
     use geo_types::Point;
     use proptest::prelude::*;
     use rstest::rstest;
@@ -201,7 +200,8 @@ mod tests {
     use crate::decoder::{ColumnType as CT, GeometryValues, RawId, RawIdValue};
     use crate::encoder::stream::LogicalEncoder;
     use crate::encoder::{
-        Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, StagedId, StagedLayer,
+        Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Network, Profile, StagedId,
+        StagedLayer,
     };
     use crate::test_helpers::{dec, into_layer01, parser};
     use crate::{Layer, LazyParsed, MltError, MltResult};

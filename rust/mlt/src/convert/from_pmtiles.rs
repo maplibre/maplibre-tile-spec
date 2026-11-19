@@ -9,7 +9,7 @@ use bytes::Bytes;
 use futures::TryStreamExt;
 use martin_tile_utils::Encoding;
 use pmtiles::{
-    AsyncPmTilesReader, Compression, HashMapCache, Header, MmapBackend, PmTilesWriter, TileCoord,
+    AsyncPmTilesReader, Compression, FileBackend, HashMapCache, Header, PmTilesWriter, TileCoord,
     TileId, TileType,
 };
 use tilejson::{Bounds, Center};
@@ -40,9 +40,9 @@ pub async fn convert(
     }
 }
 
-/// Mmap-backed reader over a local `.pmtiles` file.
+/// File-backed reader over a local `.pmtiles` file.
 /// The [`HashMapCache`] avoids re-decoding leaf directories on every `get_tile`.
-type PmReader = AsyncPmTilesReader<MmapBackend, HashMapCache>;
+type PmReader = AsyncPmTilesReader<FileBackend, HashMapCache>;
 
 /// Maps `PMTiles` tile compression to the [`Encoding`] used by `encode_tile`.
 /// `PMTiles` has no zlib/deflate variant.
@@ -94,8 +94,9 @@ fn geography_from_header(source: &Header) -> PmTilesGeography {
 
 /// Open a local `.pmtiles`, require MVT tiles, and report its tile [`Encoding`].
 async fn open_mvt_pmtiles(input: &Path) -> AnyResult<(Arc<PmReader>, Encoding)> {
-    let reader =
-        Arc::new(AsyncPmTilesReader::new_with_cached_path(HashMapCache::default(), input).await?);
+    let reader = Arc::new(
+        AsyncPmTilesReader::new_with_path_and_cache(input, HashMapCache::default()).await?,
+    );
     let header = reader.get_header();
     if header.tile_type != TileType::Mvt {
         bail!(
@@ -147,7 +148,7 @@ fn log_progress_line(done: u64, total: u64, elapsed: std::time::Duration) {
 
 /// Re-encodes every tile MVT -> MLT and emits results in ascending tile-id order,
 /// so [`PmTilesWriter`] keeps the archive clustered and run-length encoded.
-/// Three thread roles: a reader pulls raw MVT off the mmap, a worker pool encodes
+/// Three thread roles: a reader pulls raw MVT off the file, a worker pool encodes
 /// in parallel via a lock-free MPMC channel, and an emitter reorders results back
 /// into id order. A `cap`-sized permit pool backpressures the reader.
 fn spawn_encode_pipeline(
@@ -472,7 +473,7 @@ mod tests {
         .expect("conversion succeeds");
 
         let reader = Arc::new(
-            PmReader::new_with_cached_path(HashMapCache::default(), &output.0)
+            PmReader::new_with_path_and_cache(&output.0, HashMapCache::default())
                 .await
                 .expect("output opens"),
         );
@@ -522,7 +523,7 @@ mod tests {
         .expect("conversion succeeds");
 
         let reader = Arc::new(
-            PmReader::new_with_cached_path(HashMapCache::default(), &output.0)
+            PmReader::new_with_path_and_cache(&output.0, HashMapCache::default())
                 .await
                 .expect("output opens"),
         );

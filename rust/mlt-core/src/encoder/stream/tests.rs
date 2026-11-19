@@ -10,9 +10,9 @@ use crate::decoder::{
 };
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{
-    Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, PhysicalEncoder,
+    Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Network,
+    PhysicalEncoder, Profile,
 };
-use crate::encoder::{Network, Profile};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
 
