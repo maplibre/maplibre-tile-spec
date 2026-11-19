@@ -7,6 +7,7 @@ import {
   layerOf,
   layersOf,
   runsOf,
+  triangleHues,
   vertexCount,
 } from "./geometry.ts";
 
@@ -190,5 +191,49 @@ describe("hueOf", () => {
       hueOf({ type, coordinates: [] } as unknown as Feature["geometry"]),
     );
     expect(new Set(hues).size).toBe(types.length);
+  });
+});
+
+const mesh = (triangles: number): Feature["geometry"] => ({
+  type: "MultiPolygon",
+  coordinates: Array.from({ length: triangles }, (_, i) => [
+    [
+      [i, 0, 0],
+      [i, 1, 0],
+      [i + 1, 0, 5],
+      [i, 0, 0],
+    ],
+  ]),
+});
+
+describe("triangleHues", () => {
+  it("numbers triangle values tile-wide in first-seen order, so a value keeps its hue across meshes", () => {
+    const house = feature(mesh(3), { "t:surface": ["roof", "wall", "roof"] });
+    const shed = feature(mesh(2), { "t:surface": ["ground", "wall"] });
+    const hues = triangleHues(collection(house, shed));
+    expect(hues.get(house)).toEqual([0, 1, 0]);
+    expect(hues.get(shed)).toEqual([2, 1]);
+  });
+
+  it("cycles past the six palette hues", () => {
+    const values = ["a", "b", "c", "d", "e", "f", "g"];
+    const tower = feature(mesh(7), { "t:part": values });
+    expect(triangleHues(collection(tower)).get(tower)).toEqual([
+      0, 1, 2, 3, 4, 5, 0,
+    ]);
+  });
+
+  it("colours by a feature's first triangle column", () => {
+    const house = feature(mesh(2), {
+      "t:material": ["brick", "brick"],
+      "t:surface": ["roof", "wall"],
+    });
+    expect(triangleHues(collection(house)).get(house)).toEqual([0, 0]);
+  });
+
+  it("leaves out a feature without a triangle column, or one whose column does not cover its triangles", () => {
+    const outline = feature(mesh(2), { "m:height": [1, 2, 3, 4, 5, 6, 7, 8] });
+    const short = feature(mesh(2), { "t:surface": ["roof"] });
+    expect(triangleHues(collection(outline, short)).size).toBe(0);
   });
 });

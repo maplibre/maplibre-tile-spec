@@ -7,6 +7,8 @@ const LAYER = "_layer";
 const EXTENT = "_extent";
 /** Prefix `from_layers` gives a vertex-scoped column, whose value is one entry per vertex. */
 const M_PREFIX = "m:";
+/** Prefix `from_layers` gives a triangle-scoped column, whose value is one entry per mesh triangle. */
+const T_PREFIX = "t:";
 
 export function layerOf(feature: Feature): string {
   return String(feature.properties?.[LAYER] ?? "");
@@ -101,4 +103,39 @@ const HUES: Record<string, number> = {
 
 export function hueOf(geometry: Geometry): number {
   return HUES[geometry.type] ?? 0;
+}
+
+/** The number of hues in the block palette, which category hues cycle through. */
+const PALETTE_SIZE = 6;
+
+/**
+ * One hue per triangle for each mesh with a triangle column, from its first such column.
+ * Values are numbered tile-wide in first-seen order, so a value keeps its hue across meshes.
+ */
+export function triangleHues(tile: FeatureCollection): Map<Feature, number[]> {
+  const categories = new Map<unknown, number>();
+  const hues = new Map<Feature, number[]>();
+  for (const feature of tile.features) {
+    if (feature.geometry.type !== "MultiPolygon") continue;
+    const column = Object.entries(feature.properties ?? {}).find(([name]) =>
+      name.startsWith(T_PREFIX),
+    )?.[1];
+    if (
+      !Array.isArray(column) ||
+      column.length !== feature.geometry.coordinates.length
+    )
+      continue;
+    hues.set(
+      feature,
+      column.map((value) => {
+        let category = categories.get(value);
+        if (category === undefined) {
+          category = categories.size;
+          categories.set(value, category);
+        }
+        return category % PALETTE_SIZE;
+      }),
+    );
+  }
+  return hues;
 }
