@@ -50,12 +50,12 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
         let parsed = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
         // `ParsedLayer` is non_exhaustive: a layer of a tag this binding does not know is skipped.
         let object = match &parsed {
-            ParsedLayer::Tag01(layer) => layer_object(layer, 1, false)?,
+            ParsedLayer::Tag01(layer) => layer_object(&mut dec, layer, 1, false)?,
             // A v2 layer's nested columns are not passed on.
             #[cfg(feature = "unstable-v2")]
             ParsedLayer::Tag02(layer) => {
                 let is_meshes = layer.layout().geometry == mlt_core::wire::GeoLayout::Meshes;
-                let object = layer_object(layer.layer(), 2, is_meshes)?;
+                let object = layer_object(&mut dec, layer.layer(), 2, is_meshes)?;
                 let m_values = layer
                     .m_values()
                     .iter()
@@ -73,6 +73,7 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
 
 /// The columns every wire version has.
 fn layer_object(
+    dec: &mut Decoder,
     layer: &ParsedLayer01<'_>,
     version: u8,
     is_meshes: bool,
@@ -95,7 +96,7 @@ fn layer_object(
     let properties = Array::new();
     let mut names = layer.iterate_prop_names();
     for property in layer.properties() {
-        for (kind, values, present) in property_columns(property)? {
+        for (kind, values, present) in property_columns(dec, property)? {
             let Some(name) = names.next() else {
                 return Err(JsError::new("a property column has no name"));
             };
@@ -216,7 +217,10 @@ type ColumnParts = (&'static str, JsValue, Option<Uint8Array>);
 
 /// The values and presence of each column `property` holds: a shared dictionary holds one
 /// per child, every other property one.
-fn property_columns(property: &ParsedProperty<'_>) -> Result<Vec<ColumnParts>, JsError> {
+fn property_columns(
+    dec: &mut Decoder,
+    property: &ParsedProperty<'_>,
+) -> Result<Vec<ColumnParts>, JsError> {
     let (values, present) = match property {
         ParsedProperty::Bool(v) => scalar(v),
         ParsedProperty::I8(v) => scalar(v),
@@ -227,16 +231,17 @@ fn property_columns(property: &ParsedProperty<'_>) -> Result<Vec<ColumnParts>, J
         ParsedProperty::U64(v) => scalar(v),
         ParsedProperty::F32(v) => scalar(v),
         ParsedProperty::F64(v) => scalar(v),
-        ParsedProperty::Str(s) => strings(s.feature_count(), |i| string_at(s, i)),
+        ParsedProperty::Str(s) => strings(dec, s.feature_count(), |i| string_at(s, i))?,
         ParsedProperty::SharedDict(dict) => {
-            return Ok(dict
+            return dict
                 .items()
                 .iter()
                 .map(|item| {
-                    let (values, present) = strings(item.feature_count(), |i| item.get(dict, i));
-                    ("string", values, present)
+                    let (values, present) =
+                        strings(dec, item.feature_count(), |i| item.get(dict, i))?;
+                    Ok(("string", values, present))
                 })
-                .collect());
+                .collect();
         }
         other => {
             return Err(JsError::new(&format!(
@@ -337,7 +342,20 @@ fn type_name(kind: PropKind) -> &'static str {
 }
 
 /// A string per feature, `""` where a feature has none, and the presence if any has none.
-fn strings<'s>(n: usize, get: impl Fn(usize) -> Option<&'s str>) -> (JsValue, Option<Uint8Array>) {
+///
+/// Dictionary-coded columns keep only codes in [`ParsedStrings`], so every expanded feature
+/// string is charged to `dec` before allocating JavaScript strings.
+fn strings<'s>(
+    dec: &mut Decoder,
+    n: usize,
+    get: impl Fn(usize) -> Option<&'s str>,
+) -> Result<(JsValue, Option<Uint8Array>), JsError> {
+    for i in 0..n {
+        if let Some(value) = get(i) {
+            dec.consume_items::<u8>(value.len())
+                .map_err(|e| to_js_err(&e))?;
+        }
+    }
     let values = Array::new_with_length(js_index(n));
     // One lookup per feature: the bitmap's walk fills `values` as it goes.
     let present = bitmap(n, |i| {
@@ -345,7 +363,7 @@ fn strings<'s>(n: usize, get: impl Fn(usize) -> Option<&'s str>) -> (JsValue, Op
         values.set(js_index(i), JsValue::from_str(value.unwrap_or("")));
         value.is_some()
     });
-    (values.into(), present)
+    Ok((values.into(), present))
 }
 
 fn string_at<'s>(strings: &'s ParsedStrings<'_>, index: usize) -> Option<&'s str> {
