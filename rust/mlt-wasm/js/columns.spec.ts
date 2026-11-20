@@ -288,7 +288,7 @@ describe("memory budget", () => {
   it("keeps repeated dictionary string m-values coded within the budget", () => {
     const tile = repeatedDictTile("mValue", features, entryBytes);
     const [layer] = decodeTileColumns(tile).layers;
-    const [col] = layer.mValues ?? [];
+    const [col] = layer.vertexValues ?? [];
     expect(col?.type).toBe("string");
     if (col?.type !== "string") return;
     expect(col.dictionary).toHaveLength(1);

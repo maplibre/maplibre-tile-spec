@@ -28,7 +28,6 @@ export {
   type MltGeometryColumns3D,
   MltGeometryType,
   type MltMValueColumn,
-  type MltMValueScope,
   type MltNamedColumn,
   mValueSlice,
   toElevation,

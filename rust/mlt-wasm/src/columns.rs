@@ -56,12 +56,19 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
             ParsedLayer::Tag02(layer) => {
                 let object = layer_object(&mut dec, layer.layer(), 2)?;
                 let geometry = layer.layer().geometry_values();
-                let m_values = layer
-                    .m_values()
-                    .iter()
-                    .map(|column| m_value_column(column, geometry))
-                    .collect::<Result<Array, _>>()?;
-                set(&object, "mValues", &m_values);
+                let (vertex_values, triangle_values) = (Array::new(), Array::new());
+                for column in layer.m_values() {
+                    let target = match column.scope() {
+                        MValueScope::Vertex => &vertex_values,
+                        MValueScope::Triangle => &triangle_values,
+                    };
+                    let object = m_value_column(column, geometry)?;
+                    target.push(&object);
+                }
+                set(&object, "vertexValues", &vertex_values);
+                if geometry.is_meshes() {
+                    set(&object, "triangleValues", &triangle_values);
+                }
                 object
             }
             _ => continue,
@@ -150,12 +157,10 @@ fn geometry_object(geometry: &GeometryValues) -> Object {
     object
 }
 
-/// `{ name, scope, type, offsets, values, present? }`, or for strings
-/// `{ name, scope, type, offsets, codes, dictionary, present? }`.
+/// `{ name, type, offsets, values, present? }`, or for strings
+/// `{ name, type, offsets, codes, dictionary, present? }`.
 ///
-/// The values run over the vertices of the features that carry the column, in feature order:
-/// with every feature present, one per vertex of the layer. A `"triangle"`-scoped column of a
-/// `Meshes` layer runs over the triangles instead, in the order of the index buffer.
+/// The values run over the vertices, or the triangles, of the features that carry the column, in feature order.
 /// Feature `f` owns values `offsets[f]..offsets[f + 1]`, as [`ParsedMValue::spans`] cuts them.
 /// `present` is one bit per feature.
 #[cfg(feature = "unstable-v2")]
@@ -171,11 +176,6 @@ fn m_value_column(column: &ParsedMValue<'_>, geometry: &GeometryValues) -> Resul
     }
     let object = Object::new();
     set(&object, "name", &column.name().into());
-    let scope = match column.scope() {
-        MValueScope::Vertex => "vertex",
-        MValueScope::Triangle => "triangle",
-    };
-    set(&object, "scope", &scope.into());
     set(&object, "type", &type_name(column.values().kind()).into());
     set(&object, "offsets", &Uint32Array::from(&offsets[..]));
     match column.values() {

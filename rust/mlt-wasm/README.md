@@ -80,7 +80,8 @@ for (const layer of decodeTileColumns(data).layers) {
             const value = columnValue(column, f); // undefined when feature f has no value
         }
     }
-    // a v2 layer's m-value columns are in layer.mValues; nested columns are not passed on
+    // a v2 layer's m-value columns are in layer.vertexValues and, for Meshes, layer.triangleValues
+    // nested columns are not passed on
 }
 ```
 
@@ -97,11 +98,13 @@ converts one z to metres, exactly as `mlt-core` does.
 Its `heightMode` says what a z of `0` stands for: `"absolute"` is mean sea level and
 `"relativeToGround"` the terrain under each vertex.
 
-A v2 layer's `mValues` hold its m-value columns, packed over the vertices or, in a `Meshes` layer,
-the triangles of the features whose `present` bit is set (absent features store zero items rather
+A v2 layer's `vertexValues` hold its m-value columns over the vertices, and a `Meshes` layer's
+`triangleValues` its m-value columns over the triangles.
+Each is packed over the features whose `present` bit is set (absent features store zero items rather
 than `0`/`""` padding), with strings as dictionary codes.
 A column's `offsets` give feature `f` the values `offsets[f]..offsets[f + 1]`; `mValueSlice(column, f)`
-reads one feature's slice, and `MltFeature3D.loadMValues(name)` does the same on `decodeTile3D`.
+reads one feature's slice, and `MltFeature3D.loadVertexValues(name)` and `loadTriangleValues(name)`
+do the same on `decodeTile3D`.
 
 A `Meshes` layer's features are all `MltGeometryType.Mesh`: `geometryOffsets` starts each feature's
 run of vertices, and `triangleOffsets` each feature's triangles in the layer-wide `indexBuffer`.

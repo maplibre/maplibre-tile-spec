@@ -2,13 +2,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
-  columnValue,
   decodeTileColumns,
-  type MltColumn,
   type MltColumnLayer,
   type MltGeometryColumns,
   MltGeometryType,
-  type MltMValueColumn,
   mValueSlice,
   toElevation,
 } from "./columns";
@@ -47,12 +44,6 @@ function triples(words: ArrayLike<number>): [number, number, number][] {
     out.push([words[i], words[i + 1], words[i + 2]]);
   }
   return out;
-}
-
-function mValue(layer: MltColumnLayer, name: string): MltMValueColumn {
-  const column = layer.mValues?.find((c) => c.name === name);
-  if (column === undefined) throw new Error(`no m-value column ${name}`);
-  return column;
 }
 
 describe("the mesh tiles", () => {
@@ -95,9 +86,10 @@ describe("the mesh tiles", () => {
     });
 
     it("has a part per triangle", () => {
-      const part = mValue(layer, "part");
-      if (part.type !== "string") throw new Error("column type");
-      expect(part.scope).toBe("triangle");
+      expect(layer.vertexValues).toEqual([]);
+      expect(layer.triangleValues?.map((c) => c.name)).toEqual(["part"]);
+      const [part] = layer.triangleValues ?? [];
+      if (part?.type !== "string") throw new Error("column type");
       expect(part.present).toBeUndefined();
       expect(new Set(part.dictionary).size).toBe(part.dictionary.length);
       expect(part.codes.length).toBe(
@@ -124,7 +116,8 @@ describe("the mesh tiles", () => {
         -2,
         "relativeToGround",
       ]);
-      expect(layer3d.mValues.map((c) => c.name)).toEqual(["part"]);
+      expect(layer3d.vertexValues).toEqual([]);
+      expect(layer3d.triangleValues.map((c) => c.name)).toEqual(["part"]);
       expected.forEach((feature, f) => {
         const decoded = layer3d.feature(f);
         expect(decoded.id).toBe(feature.id);
@@ -132,10 +125,11 @@ describe("the mesh tiles", () => {
         expect(decoded.properties.gml_id).toBe(feature.properties.gml_id);
         expect(decoded.loadGeometry()).toEqual([feature.geometry.coordinates]);
         expect(triples(decoded.loadTriangles())).toEqual(feature.triangles);
-        expect(decoded.loadMValues("part")).toEqual(
+        expect(decoded.loadTriangleValues("part")).toEqual(
           feature.properties["m:part"],
         );
-        expect(decoded.loadMValues("missing")).toBeUndefined();
+        expect(decoded.loadVertexValues("part")).toBeUndefined();
+        expect(decoded.loadTriangleValues("missing")).toBeUndefined();
         expect(() => decoded.loadPolygons()).toThrow(/is a mesh/);
       });
     });
@@ -165,45 +159,51 @@ describe("synthetic v2 m-value columns", () => {
     const data = new Uint8Array(readFileSync(new URL(file, SYNTHETIC_V2)));
     const [layer] = decodeTileColumns(data).layers;
     const geo = tileGeoJson(data);
-    for (const col of layer.mValues ?? []) {
-      expect(col.scope).toBe("vertex");
+    expect(layer.triangleValues).toBeUndefined();
+    for (const col of layer.vertexValues ?? []) {
       for (let f = 0; f < layer.featureCount; f++) {
-        const slice = mValueSlice(col, f);
-        const expected = geo.features[f]?.properties?.[`m:${col.name}`];
-        if (expected === undefined) {
-          expect(slice).toBeUndefined();
-        } else if (col.type === "bool") {
-          expect(Array.from(slice as Uint8Array, Boolean)).toEqual(expected);
+        const expected = geo.features[f]?.properties?.[`m:${col.name}`] as
+          | number[]
+          | undefined;
+        if (col.type === "bool") {
+          const slice = mValueSlice(col, f);
+          expect(slice && Array.from(slice, Boolean)).toEqual(expected);
         } else if (col.type === "f32") {
-          const arr = Array.from(slice as Float32Array);
-          expect(arr).toHaveLength((expected as number[]).length);
-          arr.forEach((v, i) => {
-            expect(v).toBeCloseTo((expected as number[])[i], 5);
+          const slice = mValueSlice(col, f);
+          expect(slice?.length).toBe(expected?.length);
+          slice?.forEach((v, i) => {
+            expect(v).toBeCloseTo(expected?.[i] ?? Number.NaN, 5);
           });
         } else {
-          expect(Array.from(slice as ArrayLike<unknown>)).toEqual(expected);
+          const slice = mValueSlice(col, f);
+          expect(slice && [...slice]).toEqual(expected);
         }
       }
     }
   });
 
-  it("rejects m-value columns passed to columnValue and bad indices", () => {
+  it("rejects feature indices outside the column", () => {
     const data = new Uint8Array(
       readFileSync(new URL("z_mvalues.mlt", SYNTHETIC_V2)),
     );
     const [layer] = decodeTileColumns(data).layers;
-    const dist = mValue(layer, "dist");
-    expect(() => columnValue(dist as unknown as MltColumn, 0)).toThrow(
-      TypeError,
-    );
+    const [dist] = layer.vertexValues ?? [];
+    expect(dist?.name).toBe("dist");
+    if (dist === undefined) return;
     expect(() => mValueSlice(dist, -1)).toThrow(RangeError);
     expect(() => mValueSlice(dist, layer.featureCount)).toThrow(RangeError);
+  });
 
+  it("reads a line's vertex values and no triangle values through decodeTile3D", () => {
+    const data = new Uint8Array(
+      readFileSync(new URL("z_mvalues.mlt", SYNTHETIC_V2)),
+    );
     const line3d = decodeTile3D(data).layers.layer1.feature(0);
     expect(() => line3d.loadTriangles()).toThrow(/is not a mesh/);
-    expect(Array.from(line3d.loadMValues("dist") as Uint32Array)).toEqual([
-      0, 10, 25,
-    ]);
+    expect(line3d.loadVertexValues("dist")).toEqual(
+      new Uint32Array([0, 10, 25]),
+    );
+    expect(line3d.loadTriangleValues("dist")).toBeUndefined();
   });
 });
 

@@ -43,8 +43,8 @@ export type MltColumnValues = MltColumnValuesByType[MltColumnType];
 export interface MltColumn<V extends MltColumnValues = MltColumnValues> {
   readonly values: V;
   readonly present?: Uint8Array;
-  /** Absent on per-feature columns; prevents passing sparse `MltMValueColumn` to `columnValue`. */
-  readonly scope?: undefined;
+  /** Only an `MltMValueColumn` has offsets, so one cannot be passed to `columnValue`. */
+  readonly offsets?: never;
 }
 
 /** A property column. Checking `type` narrows `values` to its array. */
@@ -108,17 +108,8 @@ export interface MltGeometryColumns3D extends MltGeometryColumnsBase {
 }
 
 /**
- * What an m-value column runs over: the vertices, or, in a `Meshes` layer, the triangles.
- */
-export type MltMValueScope = "vertex" | "triangle";
-
-/**
- * An m-value column of a v2 layer. A `"vertex"`-scoped column's values run over the vertices of
- * the features that carry it, in feature order: when `present` is left out, that is one value
- * per vertex of the layer, aligned with `geometry.vertices`. A `"triangle"`-scoped column of a
- * `Meshes` layer runs over the triangles the same way, aligned with `geometry.indexBuffer`
- * three indices per value. `present` has one bit per feature, LSB-first; a feature whose bit is
- * clear carries no values at all.
+ * An m-value column of a v2 layer, one value per vertex or per triangle of the features that carry it, in feature order.
+ * `present` has one bit per feature, LSB-first, and a feature whose bit is clear carries no values at all.
  *
  * A string column comes as one dictionary code per value, and `dictionary[code]` is the string.
  */
@@ -137,7 +128,6 @@ export type MltMValueColumn =
 
 interface MltMValueColumnBase {
   readonly name: string;
-  readonly scope: MltMValueScope;
   /** Feature `f` owns values `offsets[f]..offsets[f + 1]`, one entry per feature and one more. */
   readonly offsets: Uint32Array;
   readonly present?: Uint8Array;
@@ -157,8 +147,10 @@ export interface MltColumnLayer {
    * v2 nested columns are not passed on.
    */
   readonly properties: readonly MltNamedColumn[];
-  /** A v2 layer's m-value columns, in wire order; left out for a v1 layer. */
-  readonly mValues?: readonly MltMValueColumn[];
+  /** A v2 layer's m-value columns over its vertices, in wire order; left out for a v1 layer. */
+  readonly vertexValues?: readonly MltMValueColumn[];
+  /** A `Meshes` layer's m-value columns over its triangles, in wire order; left out for any other layer. */
+  readonly triangleValues?: readonly MltMValueColumn[];
 }
 
 export interface MltColumnTile {
@@ -193,11 +185,6 @@ export function columnValue<C extends MltColumn>(
   column: C,
   index: number,
 ): C["values"][number] | undefined {
-  if ("scope" in column && column.scope !== undefined) {
-    throw new TypeError(
-      "m-value columns are sparse per vertex or triangle; use mValueSlice instead of columnValue",
-    );
-  }
   const { values, present } = column;
   if (!Number.isInteger(index) || index < 0 || index >= values.length) {
     throw new RangeError(`the column has no feature ${index}`);
