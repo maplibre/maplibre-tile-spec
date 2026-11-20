@@ -296,4 +296,3 @@ describe("memory budget", () => {
     expect(col.codes).toHaveLength(features);
   });
 });
-
