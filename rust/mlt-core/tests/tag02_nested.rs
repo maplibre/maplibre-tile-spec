@@ -483,7 +483,7 @@ fn a_nested_column_becomes_a_json_object() {
     let mut dec = Decoder::default();
     let parsed = dec.decode_all(layers).expect("decode_all");
     let collection =
-        mlt_core::geojson::FeatureCollection::from_layers(parsed).expect("feature collection");
+        mlt_core::geojson::FeatureCollection::from_layers(parsed, &mut dec).expect("feature collection");
 
     assert_eq!(
         collection.features[0].properties["n"],

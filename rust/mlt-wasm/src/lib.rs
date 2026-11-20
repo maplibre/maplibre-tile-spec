@@ -54,7 +54,7 @@ pub fn tile_geojson(data: &[u8]) -> Result<String, JsError> {
     for raw_layer in raw_layers {
         layers.push(raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?);
     }
-    let collection = FeatureCollection::from_layers(layers).map_err(|e| to_js_err(&e))?;
+    let collection = FeatureCollection::from_layers(layers, &mut dec).map_err(|e| to_js_err(&e))?;
     Ok(serde_json::to_string(&collection)?)
 }
 

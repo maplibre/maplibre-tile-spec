@@ -120,8 +120,9 @@ fn mlt_files(dir: &Path) -> Vec<String> {
 fn decode(output: &Path, tile: &str) -> Value {
     let buffer = fs::read(output.join(tile)).unwrap();
     let layers = Parser::default().parse_layers(&buffer).unwrap();
-    let decoded = Decoder::default().decode_all(layers).unwrap();
-    let fc = FeatureCollection::from_layers(decoded).unwrap();
+    let mut dec = Decoder::default();
+    let decoded = dec.decode_all(layers).unwrap();
+    let fc = FeatureCollection::from_layers(decoded, &mut dec).unwrap();
     serde_json::to_value(&fc).unwrap()
 }
 

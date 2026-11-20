@@ -29,9 +29,11 @@ pub struct FeatureCollection {
 
 impl FeatureCollection {
     /// Convert already-decoded layers to a `GeoJSON` [`FeatureCollection`], consuming them.
-    /// Make sure to call `decode_all` on Layer before calling this (won't compile otherwise)
-    pub fn from_layers<'a>(layers: impl IntoIterator<Item = ParsedLayer<'a>>) -> MltResult<Self> {
-        let mut dec = Decoder::default();
+    /// Pass the decoder that decoded them, so the copies count against the same budget.
+    pub fn from_layers<'a>(
+        layers: impl IntoIterator<Item = ParsedLayer<'a>>,
+        dec: &mut Decoder,
+    ) -> MltResult<Self> {
         let mut features = Vec::new();
         for layer in layers {
             // Read the v2-only columns first: the rest of the loop needs only the
@@ -39,7 +41,7 @@ impl FeatureCollection {
             #[cfg(feature = "unstable-v2")]
             let mut m_values = match &layer {
                 ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
-                ParsedLayer::Tag02(l) => m_value_properties(l, &mut dec)?.into_iter(),
+                ParsedLayer::Tag02(l) => m_value_properties(l, dec)?.into_iter(),
             };
             #[cfg(feature = "unstable-v2")]
             let mut nested = match &layer {
@@ -54,7 +56,7 @@ impl FeatureCollection {
             #[cfg(feature = "unstable-v2")]
             let mut triangles = match &layer {
                 ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
-                ParsedLayer::Tag02(l) => mesh_triangles(l, &mut dec)?.into_iter(),
+                ParsedLayer::Tag02(l) => mesh_triangles(l, dec)?.into_iter(),
             };
             let parsed = match layer {
                 ParsedLayer::Tag01(l) => l,
@@ -64,7 +66,7 @@ impl FeatureCollection {
             };
             let layer_name = parsed.name();
             let extent = parsed.extent().get();
-            parsed.charge_string_copies(&mut dec)?;
+            parsed.charge_string_copies(dec)?;
             let mut feat_iter = parsed.iter_features();
             while let Some(feat) = feat_iter.next() {
                 let feat = feat?;

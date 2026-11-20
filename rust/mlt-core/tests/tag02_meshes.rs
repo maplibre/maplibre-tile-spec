@@ -356,10 +356,12 @@ fn a_missing_triangle_value_stays_missing() {
 fn geojson_writes_a_mesh_as_a_multi_point_with_triangles() {
     let mesh = (vec![[0, 0, 0], [10, 0, 0], [0, -10, 250]], vec![[0, 1, 2]]);
     let bytes = mesh_layer(&[mesh]).encode(cfg_v2()).unwrap();
-    let layers = Decoder::default()
+    let mut dec = Decoder::default();
+    let layers = dec
         .decode_all(Parser::default().parse_layers(&bytes).unwrap())
         .unwrap();
-    let json = serde_json::to_string(&FeatureCollection::from_layers(layers).unwrap()).unwrap();
+    let json =
+        serde_json::to_string(&FeatureCollection::from_layers(layers, &mut dec).unwrap()).unwrap();
     assert_snapshot!(json, @r#"{"type":"FeatureCollection","features":[{"type":"Feature","id":0,"properties":{"_extent":16384,"_height_mode":"relative_to_ground","_layer":"landmarks","_z_step":-2,"m:face":[0],"m:part":["ground","ground","roof"],"name":"mesh 0"},"geometry":{"type":"MultiPoint","coordinates":[[0,0,0],[10,0,0],[0,-10,250]]},"triangles":[[0,1,2]]}]}"#);
 }
 
