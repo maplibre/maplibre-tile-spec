@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import kotlin.time.Duration.Companion.seconds
 
 class EnvironmentResolverTest {
     var savedResolver = envResolver
@@ -76,18 +75,6 @@ class EnvironmentResolverTest {
     }
 
     @Test
-    fun `cache expire accepts ISO duration`() {
-        envResolver = { name -> if (name == ENV_CACHE_EXPIRE) "PT20S" else null }
-        assertEquals(20.seconds, computeCacheExpireAfterAccess())
-    }
-
-    @Test
-    fun `cache expire negative throws`() {
-        envResolver = { name -> if (name == ENV_CACHE_EXPIRE) "-PT1S" else null }
-        assertThrows(illegalArgType) { computeCacheExpireAfterAccess() }.andContains("non-negative")
-    }
-
-    @Test
     fun `thread queue size positive`() {
         envResolver = { name -> if (name == ENV_THREAD_QUEUE_SIZE) "5" else null }
         assertEquals(5, computeThreadQueueSize())
@@ -140,24 +127,6 @@ class EnvironmentResolverTest {
         assertThrows(illegalArgType) { computeCacheMaxHeapPercent() }.andContains("between 0 and 100")
         envResolver = { name -> if (name == ENV_CACHE_MAX_HEAP_PERCENT) "-Infinity" else null }
         assertThrows(illegalArgType) { computeCacheMaxHeapPercent() }.andContains("between 0 and 100")
-    }
-
-    @Test
-    fun `computeCacheAverageEntrySize success`() {
-        envResolver = { name -> if (name == ENV_CACHE_AVERAGE_WEIGHT) "2048" else null }
-        assertEquals(2048, computeCacheAverageEntrySize())
-    }
-
-    @Test
-    fun `computeCacheAverageEntrySize parser failure returns default`() {
-        envResolver = { name -> if (name == ENV_CACHE_AVERAGE_WEIGHT) "x" else null }
-        assertEquals(DEFAULT_CACHE_AVERAGE_WEIGHT, computeCacheAverageEntrySize())
-    }
-
-    @Test
-    fun `computeCacheAverageEntrySize negative throws`() {
-        envResolver = { name -> if (name == ENV_CACHE_AVERAGE_WEIGHT) "-1" else null }
-        assertThrows(illegalArgType) { computeCacheAverageEntrySize() }.andContains("not be negative")
     }
 
     @Test

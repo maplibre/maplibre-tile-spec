@@ -8,6 +8,8 @@ export enum MltGeometryType {
   MultiPoint = 3,
   MultiLineString = 4,
   MultiPolygon = 5,
+  /** A triangle mesh, which only a v2 `Meshes` layer holds. */
+  Mesh = 6,
 }
 
 /**
@@ -71,16 +73,20 @@ interface MltGeometryColumnsBase {
    * A polygon ring's closing vertex is not stored.
    */
   readonly vertices: Int32Array;
-  /** Cumulative triangle counts per polygon feature, for a tessellated layer. */
+  /** Cumulative triangle counts per polygon feature of a tessellated layer, or per mesh. */
   readonly triangleOffsets?: Uint32Array;
   /** Three vertex indices per triangle, counted from the layer's first vertex. */
   readonly indexBuffer?: Uint32Array;
 }
 
-/** `(x, y)` vertices. */
+/** What a z of `0` stands for: mean sea level, or the terrain under each vertex. */
+export type HeightMode = "absolute" | "relativeToGround";
+
+/** `(x, y)` vertices, which sit on the ground. */
 export interface MltGeometryColumns2D extends MltGeometryColumnsBase {
   readonly dimension: 2;
   readonly zStep?: undefined;
+  readonly heightMode?: undefined;
 }
 
 /** `(x, y, z)` vertices. */
@@ -88,6 +94,7 @@ export interface MltGeometryColumns3D extends MltGeometryColumnsBase {
   readonly dimension: 3;
   /** The z grid as the power of ten of its step in metres; `toElevation` gives a z in metres. */
   readonly zStep: number;
+  readonly heightMode: HeightMode;
 }
 
 export interface MltColumnLayer {
@@ -148,10 +155,10 @@ export function columnValue<C extends MltColumn>(
 }
 
 /**
- * A z of a 3D layer in metres, `-10000 + z * 10 ** zStep`, as mlt-core's `ZStep::elevation`:
- * a fine grid divides last, so `1001234` on the `-2` grid is exactly `12.34`.
+ * A z of a 3D layer in metres above the layer's `heightMode` base, `z * 10 ** zStep`, as mlt-core's `ZStep::elevation`:
+ * a fine grid divides by an exact integer, so `1234` on the `-2` grid is exactly `12.34`.
  */
 export function toElevation(z: number, zStep: number): number {
   const power = 10 ** Math.abs(zStep);
-  return zStep < 0 ? (z - 10000 * power) / power : -10000 + z * power;
+  return zStep < 0 ? z / power : z * power;
 }

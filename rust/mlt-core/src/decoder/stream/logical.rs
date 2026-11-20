@@ -371,7 +371,7 @@ mod tests {
         use crate::tile::ZStep;
 
         let encoding = IntEncoding::new(
-            LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap(), logical)),
+            LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap().into(), logical)),
             PhysicalEncoding::VarInt,
         );
         LogicalValue::new(StreamMeta::new(

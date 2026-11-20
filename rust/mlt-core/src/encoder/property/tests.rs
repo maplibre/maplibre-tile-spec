@@ -9,10 +9,9 @@ use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
 use crate::encoder::optimizer::{Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::property::encode::write_prop;
 use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId,
-    StagedProperty, StagedSharedDict, stage_tile,
+    Codecs, Encoder, EncoderConfig, IntEncoder, LogicalEncoder, Network, PhysicalEncoder, Profile,
+    StagedId, StagedProperty, StagedSharedDict, stage_tile,
 };
-use crate::encoder::{Network, Profile};
 use crate::test_helpers::{dec, parser};
 use crate::{
     DictRange, Extent, GeometryValues, Layer, MltError, MltResult, PropValue, TileFeature,
@@ -717,6 +716,8 @@ fn try_tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> MltResult<TileLayer> {
             nested: vec![],
             #[cfg(feature = "unstable-v2")]
             z: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            triangles: None,
         })
         .collect();
     TileLayer::from_parts("test", 4096, property_names, features)
@@ -750,6 +751,8 @@ fn tile_from_ids(ids: &[Option<u64>]) -> TileLayer {
                 nested: vec![],
                 #[cfg(feature = "unstable-v2")]
                 z: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                triangles: None,
             })
             .collect(),
     )

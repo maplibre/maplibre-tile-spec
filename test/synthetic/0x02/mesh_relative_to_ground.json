@@ -1,0 +1,66 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_height_mode": "relative_to_ground",
+        "_layer": "layer1",
+        "_z_step": -1
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            10,
+            10,
+            0
+          ],
+          [
+            20,
+            20,
+            15
+          ],
+          [
+            10,
+            30,
+            0
+          ],
+          [
+            30,
+            30,
+            0
+          ],
+          [
+            30,
+            10,
+            0
+          ]
+        ]
+      },
+      "triangles": [
+        [
+          0,
+          1,
+          4
+        ],
+        [
+          4,
+          1,
+          3
+        ],
+        [
+          3,
+          1,
+          2
+        ],
+        [
+          2,
+          1,
+          0
+        ]
+      ]
+    }
+  ]
+}

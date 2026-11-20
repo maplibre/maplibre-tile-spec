@@ -466,6 +466,7 @@ mod tests {
     const POLYGON: &[u8] = include_bytes!("../../../test/fixtures/simple/polygon-boolean.mvt");
     const MULTIPOLYGON: &[u8] =
         include_bytes!("../../../test/fixtures/simple/multipolygon-boolean.mvt");
+    const MESH: &[u8] = include_bytes!("../../../test/synthetic/0x02/mesh_roof_wall.mlt");
 
     #[test]
     fn v1_encoding_of_a_point_layer_decodes_to_the_same_layers() {
@@ -536,9 +537,10 @@ mod tests {
                 ],
                 m_value_names: [],
                 m_value_kinds: [],
+                m_value_scopes: [],
                 nested_names: [],
                 nested_kinds: [],
-                z_step: None,
+                z_axis: None,
                 features: [
                     TileFeature {
                         id: Some(
@@ -555,6 +557,7 @@ mod tests {
                         m_values: [],
                         nested: [],
                         z: [],
+                        triangles: None,
                     },
                 ],
             },
@@ -624,6 +627,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         "#);
@@ -715,6 +719,14 @@ mod tests {
     }
 
     #[test]
+    fn a_mesh_layer_cannot_decode_to_mvt() {
+        let error = MltConverter::mlt_to_mvt(MESH).err().unwrap();
+
+        assert_eq!(error.kind(), ConvertErrorKind::InvalidInput);
+        assert_debug_snapshot!(error.message_text(), @r#""MVT has no meshes, so layer layer1 cannot be written as MVT""#);
+    }
+
+    #[test]
     fn setting_a_property_before_a_feature_begins_is_invalid() {
         let mut builder = MltLayerBuilder::new("layer", 4096).ok().unwrap();
 
@@ -771,6 +783,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
             TileFeature {
                 id: None,
@@ -785,6 +798,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         ");
@@ -824,6 +838,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
             TileFeature {
                 id: None,
@@ -838,6 +853,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         "#);
@@ -935,6 +951,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         ");
@@ -968,6 +985,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
             TileFeature {
                 id: None,
@@ -976,6 +994,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
             TileFeature {
                 id: None,
@@ -984,6 +1003,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         ");
@@ -1006,6 +1026,7 @@ mod tests {
                 m_values: [],
                 nested: [],
                 z: [],
+                triangles: None,
             },
         ]
         ");

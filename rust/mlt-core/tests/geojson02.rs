@@ -1,8 +1,7 @@
 //! `GeoJSON` for the v2-only columns: vertex-scoped m-values and nested properties.
 
 use insta::assert_snapshot;
-use mlt_core::encoder::{EncoderConfig, WireVersion};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::geo_types::{Coord, Geometry, LineString};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::test_helpers::{dec, parser};

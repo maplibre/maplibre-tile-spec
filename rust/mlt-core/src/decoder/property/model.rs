@@ -290,7 +290,9 @@ pub struct ParsedSharedDictItem<'a> {
 }
 
 /// Parsed string values for a single property.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Two columns are equal when they hold the same values, whether coded or not.
+#[derive(Debug, Clone)]
 pub struct ParsedStrings<'a> {
     pub(crate) name: &'a str,
     /// Per-feature cumulative end offsets into `data`.
@@ -309,6 +311,10 @@ pub struct ParsedStrings<'a> {
     /// ```
     pub(crate) lengths: Vec<i32>,
     pub(crate) data: Cow<'a, str>,
+    /// For a dictionary-coded column, the entry each value names, or
+    /// [`ParsedStrings::NULL_CODE`] for a null. `lengths` and `data` then hold the dictionary,
+    /// one present entry each, so that the values are never copied out of it.
+    pub(crate) codes: Option<Vec<u32>>,
 }
 
 /// Parsed shared dictionary payload shared by one or more child string properties.

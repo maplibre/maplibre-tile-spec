@@ -140,6 +140,7 @@ export const AXES: Axis[] = [
       "multi-point",
       "multi-line-string",
       "multi-polygon",
+      "mesh",
     ],
     of: field("geometry"),
   },
@@ -162,6 +163,7 @@ export const AXES: Axis[] = [
       "multi-polygons-dict",
       "tess-polygons",
       "tess-polygons-with-outlines",
+      "meshes",
     ],
     of: field("geomLayout"),
   },
@@ -172,6 +174,13 @@ export const AXES: Axis[] = [
     // The steps of the spec's table; `any` asks only that the vertices carry a z.
     vocabulary: [ANY, "1mm", "1cm", "1dm", "1m", "10m", "100m", "1km", "10km"],
     of: withAny(field("zStep")),
+  },
+  {
+    key: "heightMode",
+    label: "height",
+    section: "Geometry",
+    vocabulary: ["absolute", "relative-to-ground", "clamp-to-ground"],
+    of: field("heightMode"),
   },
   {
     key: "extent",

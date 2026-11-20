@@ -5,7 +5,7 @@
 //! layer, re-projected and clipped into every tile of every requested zoom.
 //! The property schema and the vertical grid are decided once, globally, so all
 //! tiles share one schema: an encoder layer holds one kind per column and one
-//! [`ZStep`] for all its vertices.
+//! [`ZAxis`] for all its vertices.
 //!
 //! Altitudes become MLT z coordinates on a `--z-step` grid. Only the v2 wire
 //! format holds them, so this path always writes v2 and needs `--mlt-version 2`.
@@ -24,7 +24,7 @@ use geojson::{Feature, FeatureCollection, GeoJson};
 use martin_tile_utils::MAX_ZOOM;
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::PropertySchema;
-use mlt_core::{Decoder, MltError, Parser, PropValue, TileLayer, ZStep};
+use mlt_core::{Decoder, MltError, Parser, PropValue, TileLayer, ZAxis, ZStep};
 use rayon::prelude::*;
 
 use self::clip::Rect;
@@ -44,8 +44,8 @@ const BUFFER: u32 = 64;
 struct LayerSpec {
     name: String,
     schema: PropertySchema,
-    /// The vertical grid of the layer: a step when the input has altitudes, or none.
-    z_step: Option<ZStep>,
+    /// How the layer's z read as heights when the input has altitudes, or none.
+    z_axis: Option<ZAxis>,
 }
 
 /// A feature in the Web Mercator unit square, clipped to the tile being visited.
@@ -101,6 +101,9 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
     let features = read_features(input)?;
     let schema = PropertySchema::infer(features.iter().map(|f| f.properties.iter().flatten()))?;
     let z_step = args.z_step.map(ZStep::new).transpose()?;
+    if args.height_mode.is_some() && z_step.is_none() {
+        bail!("--height-mode says what an altitude measures from, so it needs --z-step");
+    }
     let mut projector = Projector::new(z_step);
     let mut sources = Vec::with_capacity(features.len());
     for (index, feature) in features.iter().enumerate() {
@@ -132,7 +135,10 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
     let layer = LayerSpec {
         name,
         schema,
-        z_step,
+        z_axis: z_step.map(|step| ZAxis {
+            step,
+            mode: args.height_mode.unwrap_or_default().into(),
+        }),
     };
     let tiler = Tiler {
         output,
@@ -395,8 +401,8 @@ fn encode_tile(
     entries: Vec<Entry>,
 ) -> AnyResult<Vec<u8>> {
     let mut builder = TileLayer::builder(layer.name.clone(), EXTENT)?;
-    if let Some(step) = layer.z_step {
-        builder.set_z_step(step)?;
+    if let Some(axis) = layer.z_axis {
+        builder.set_z_axis(axis)?;
     }
     let keys = layer
         .schema
@@ -409,7 +415,7 @@ fn encode_tile(
     for entry in entries {
         let mut feature = builder.feature(entry.geometry);
         feature.id(entry.id);
-        if layer.z_step.is_some() {
+        if layer.z_axis.is_some() {
             feature.z(entry.z)?;
         }
         for (idx, value) in entry.props.iter() {

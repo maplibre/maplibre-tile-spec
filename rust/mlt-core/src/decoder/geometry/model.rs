@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::decoder::RawStream;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::ZStep;
+use crate::tile::ZAxis;
 use crate::utils::formatter::{opt_vec_seq, vec_seq};
 use crate::{DecodeState, Lazy};
 
@@ -68,7 +68,11 @@ pub struct GeometryValues {
     pub(crate) vertices: Option<Vec<i32>>,
     /// The grid of each vertex's third word, or [`None`] when the vertices are `(x, y)` pairs.
     #[cfg(feature = "unstable-v2")]
-    pub(crate) z_step: Option<ZStep>,
+    pub(crate) z_axis: Option<ZAxis>,
+    /// Whether this geometry belongs to a v2 `Meshes` layer, kept even when it holds zero features.
+    #[cfg(feature = "unstable-v2")]
+    #[dbg(skip)]
+    pub(crate) meshes: bool,
 }
 
 /// Types of geometries supported in MLT
@@ -99,4 +103,10 @@ pub enum GeometryType {
     MultiPoint,
     MultiLineString,
     MultiPolygon,
+    /// `(x, y, z)` vertices and the triangles between them.
+    ///
+    /// Only a v2 layer with the `Meshes` layout holds one, and it names the type in its
+    /// header byte, so no types stream may carry it.
+    #[cfg(feature = "unstable-v2")]
+    Mesh,
 }

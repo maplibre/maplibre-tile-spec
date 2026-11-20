@@ -70,7 +70,9 @@ pub use crate::tile::{
     TileLayer, TileLayerBuilder,
 };
 #[cfg(feature = "unstable-v2")]
-pub use crate::tile::{MValue, MValueKey, NestedKey, NestedKind, NestedValue, ZStep};
+pub use crate::tile::{
+    HeightMode, MValue, MValueKey, MValueScope, NestedKey, NestedKind, NestedValue, ZAxis, ZStep,
+};
 pub(crate) use crate::utils::analyze::{Analyze, StatType};
 pub(crate) use crate::utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 pub use crate::utils::{PresenceOptIter, PresentValues};

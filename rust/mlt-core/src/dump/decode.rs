@@ -287,10 +287,7 @@ fn fsst_strings(
         stream(corpus)?,
     )?;
     let (bytes, lengths) = decode_fsst_bytes(raw, dec)?;
-    let (text, lengths) = rebuild_dictionary(layout, &lengths, &bytes)?;
-    if let Cow::Owned(entries) = &text {
-        dec.consume_items::<u8>(entries.len())?;
-    }
+    let (text, lengths) = rebuild_dictionary(layout, &lengths, &bytes, dec)?;
     let (kept, truncated_from) = cap(lengths.into_owned(), max_values);
 
     let mut rest = &*text;

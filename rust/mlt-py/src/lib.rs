@@ -7,8 +7,8 @@ use std::iter::once;
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{
-    Decoder, GeometryType, Layer, LendingIterator, MltError, MltResult, ParsedLayer01, Parser,
-    PropValueRef, ZStep,
+    Decoder, GeometryType, HeightMode, Layer, LendingIterator, MltError, MltResult, ParsedLayer01,
+    Parser, PropValueRef, ZStep,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -35,6 +35,9 @@ struct MltLayer {
     /// The power of ten of the z grid's step in metres, or `None` when the vertices carry no z.
     #[pyo3(get)]
     z_step: Option<i8>,
+    /// What a z of `0` stands for, `"absolute"` or `"relative_to_ground"`, or `None` when the vertices carry no z.
+    #[pyo3(get)]
+    height_mode: Option<&'static str>,
     #[pyo3(get)]
     features: Vec<Py<MltFeature>>,
 }
@@ -243,14 +246,18 @@ fn build_features(
     xf: Option<TileTransform>,
 ) -> PyResult<Vec<Py<MltFeature>>> {
     let geometry = layer.geometry_values();
-    let z_step = geometry.z_step();
+    let z_step = geometry.z_axis().map(|axis| axis.step);
     let mut features = Vec::new();
     let mut feat_iter = layer.iter_features();
     let mut index = 0;
     while let Some(feat_result) = feat_iter.next() {
         let feat = feat_result.map_err(mlt_err)?;
-        let geometry_type = GeometryType::try_from(feat.geometry())
-            .map_or_else(|()| "Unknown".to_string(), |gt| gt.to_string());
+        let geometry_type = geometry
+            .vector_types()
+            .get(index)
+            .copied()
+            .or_else(|| GeometryType::try_from(feat.geometry()).ok())
+            .map_or_else(|| "Unknown".to_string(), |gt| gt.to_string());
         let z = z_step
             .map(|step| geometry.z(index).map(|z| (step, z)))
             .transpose()
@@ -269,6 +276,13 @@ fn build_features(
     Ok(features)
 }
 
+fn height_mode_name(mode: HeightMode) -> &'static str {
+    match mode {
+        HeightMode::Absolute => "absolute",
+        HeightMode::RelativeToGround => "relative_to_ground",
+    }
+}
+
 /// Decode an MLT binary blob into a list of `MltLayer` objects.
 ///
 /// If `z`, `x`, `y` are provided, tile-local coordinates are transformed
@@ -276,7 +290,8 @@ fn build_features(
 /// are preserved.
 ///
 /// A layer whose vertices carry z writes them into the WKB as its third ordinate.
-/// They are grid values in raw tile coordinates, and elevations in metres once transformed.
+/// They are grid values in raw tile coordinates, and elevations (or heights above the
+/// ground, on ground-datum `Meshes` layers) in metres once transformed.
 ///
 /// `tms`: when True (the default), treat `y` as TMS convention (y=0 at south,
 /// used by `OpenMapTiles` / `MBTiles`). Set to False for XYZ / slippy-map tiles
@@ -312,7 +327,14 @@ fn decode_mlt(
         result.push(MltLayer {
             name: decoded.name().to_string(),
             extent,
-            z_step: decoded.geometry_values().z_step().map(ZStep::exponent),
+            z_step: decoded
+                .geometry_values()
+                .z_axis()
+                .map(|axis| axis.step.exponent()),
+            height_mode: decoded
+                .geometry_values()
+                .z_axis()
+                .map(|axis| height_mode_name(axis.mode)),
             features: build_features(py, &decoded, xf)?,
         });
     }

@@ -4,15 +4,21 @@
 use std::ops::Range;
 
 use bitvec::vec::BitVec;
+#[cfg(feature = "unstable-v2")]
+use compact_str::CompactString;
 use fast_mvt::{MvtFeatureBuilder, MvtGeomType, MvtLayerBuilder, MvtTileBuilder};
 use geo_types::Coord;
 
 use crate::decoder::{GeometryType, GeometryValues};
 use crate::encoder::{EncoderConfig, LayerSource, encode_layer};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::{StagedValues, extend_run, wound_polygons_order};
 use crate::mvt::write_mvt_layer;
 use crate::tile::{
     ColumnRole, Extent, PropKind, PropertyKey, reject_taken_name, validate_layer_name,
 };
+#[cfg(feature = "unstable-v2")]
+use crate::tile::{MValueKey, stored_len};
 use crate::{MltError, MltResult, PropValueRef};
 
 /// A layer written feature by feature, straight from borrowed values, and encoded exactly as the
@@ -20,7 +26,7 @@ use crate::{MltError, MltResult, PropValueRef};
 ///
 /// Names and string values are borrowed for `'a`.
 /// [`LayerWriter::reset`] keeps the buffers for the next layer.
-/// A [`PropertyKey`] means nothing after [`LayerWriter::reset`].
+/// A [`PropertyKey`] or `MValueKey` means nothing after [`LayerWriter::reset`].
 ///
 /// ```
 /// use mlt_core::encoder::{EncoderConfig, Network, Profile};
@@ -46,6 +52,8 @@ pub struct LayerWriter<'a> {
     spare_columns: Vec<Column<'a>>,
     ids: Vec<Option<u64>>,
     geometry: Geometries,
+    #[cfg(feature = "unstable-v2")]
+    m_values: MValueColumns<'a>,
 }
 
 /// One value or none per feature. Strings are kept as references, and every other kind as the
@@ -71,6 +79,29 @@ impl ColumnValues<'_> {
             Self::Scalars(Vec::new())
         }
     }
+
+    /// Empties the values and makes them hold values of `kind`.
+    fn restart(&mut self, kind: PropKind) {
+        self.truncate(0);
+        if (kind == PropKind::Str) != matches!(self, Self::Strs(_)) {
+            *self = Self::new(kind);
+        }
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn len(&self) -> usize {
+        match self {
+            Self::Scalars(bits) => bits.len(),
+            Self::Strs(strs) => strs.len(),
+        }
+    }
+
+    fn truncate(&mut self, len: usize) {
+        match self {
+            Self::Scalars(bits) => bits.truncate(len),
+            Self::Strs(strs) => strs.truncate(len),
+        }
+    }
 }
 
 impl<'a> Column<'a> {
@@ -85,10 +116,8 @@ impl<'a> Column<'a> {
     /// Empties the column and makes it hold values of `kind`.
     fn restart(&mut self, kind: PropKind) {
         self.kind = kind;
-        self.clear();
-        if (kind == PropKind::Str) != matches!(self.values, ColumnValues::Strs(_)) {
-            self.values = ColumnValues::new(kind);
-        }
+        self.values.restart(kind);
+        self.present.clear();
     }
 
     /// Makes the column hold exactly `len` features, the ones it had or none.
@@ -98,10 +127,6 @@ impl<'a> Column<'a> {
             ColumnValues::Strs(strs) => strs.resize(len, ""),
         }
         self.present.resize(len, false);
-    }
-
-    fn clear(&mut self) {
-        self.truncate(0);
     }
 
     /// Sets the value of `feature`, replacing the one it already has.
@@ -119,10 +144,7 @@ impl<'a> Column<'a> {
 
     /// Drops every feature from `len` on.
     fn truncate(&mut self, len: usize) {
-        match &mut self.values {
-            ColumnValues::Scalars(bits) => bits.truncate(len),
-            ColumnValues::Strs(strs) => strs.truncate(len),
-        }
+        self.values.truncate(len);
         self.present.truncate(len);
     }
 
@@ -134,6 +156,116 @@ impl<'a> Column<'a> {
             ColumnValues::Scalars(bits) => value_of_bits(self.kind, bits[feature]),
             ColumnValues::Strs(strs) => Some(PropValueRef::Str(strs[feature])),
         }
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl<'a> ColumnValues<'a> {
+    /// Appends `value`, which is of the kind the values hold.
+    fn push(&mut self, value: PropValueRef<'a>) {
+        match (self, scalar_bits(value)) {
+            (Self::Scalars(bits), Ok(value)) => bits.push(value),
+            (Self::Strs(strs), Err(text)) => strs.push(text),
+            _ => unreachable!("the writer checked the value is of the column's kind"),
+        }
+    }
+}
+
+/// The m-value columns of a layer, and the columns of an earlier layer kept for their buffers.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Default)]
+struct MValueColumns<'a> {
+    names: Vec<&'a str>,
+    kinds: Vec<PropKind>,
+    columns: Vec<MValueColumn<'a>>,
+    spare: Vec<MValueColumn<'a>>,
+}
+
+/// One run of values, one per stored vertex, or none per feature, flat across features.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone)]
+struct MValueColumn<'a> {
+    values: ColumnValues<'a>,
+    /// The cumulative end of each finished feature's run in `values`.
+    ends: Vec<u32>,
+    /// Whether each feature has a run, the one being written included once it sets one.
+    present: BitVec<u8>,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl<'a> MValueColumns<'a> {
+    /// Starts over with no columns, keeping their buffers.
+    fn clear(&mut self) {
+        self.names.clear();
+        self.kinds.clear();
+        self.spare.append(&mut self.columns);
+    }
+
+    /// Adds a column of `kind` that the `features` written so far are null in.
+    fn add(&mut self, name: &'a str, kind: PropKind, features: usize) -> MValueKey {
+        let mut column = self.spare.pop().unwrap_or_else(|| MValueColumn {
+            values: ColumnValues::new(kind),
+            ends: Vec::new(),
+            present: BitVec::new(),
+        });
+        column.values.restart(kind);
+        column.ends.clear();
+        column.ends.resize(features, 0);
+        column.present.clear();
+        column.present.resize(features, false);
+        self.columns.push(column);
+        self.names.push(name);
+        self.kinds.push(kind);
+        MValueKey::new(self.names.len() - 1)
+    }
+
+    /// Checks that every run `feature` set holds one value per vertex it stores, which
+    /// `vertices` counts.
+    fn check_runs(&self, feature: usize, vertices: impl FnOnce() -> usize) -> MltResult<()> {
+        let mut set = (self.columns.iter().enumerate())
+            .filter(|(_, column)| column.present.len() > feature)
+            .peekable();
+        if set.peek().is_none() {
+            return Ok(());
+        }
+        let expected = vertices();
+        for (index, column) in set {
+            let actual = column.values.len() - column.run_start();
+            if actual != expected {
+                return Err(MltError::MValueVertexCountMismatch {
+                    index,
+                    expected,
+                    actual,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Ends the run of `feature` in every column, null where it set none.
+    fn finish_feature(&mut self, feature: usize) -> MltResult<()> {
+        for column in &mut self.columns {
+            column.present.resize(feature + 1, false);
+            column.ends.push(len32(column.values.len())?);
+        }
+        Ok(())
+    }
+
+    /// Drops every feature from `len` on, the one being written included.
+    fn truncate(&mut self, len: usize) {
+        for column in &mut self.columns {
+            column.ends.truncate(len);
+            column.values.truncate(column.run_start());
+            column.present.truncate(len);
+        }
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl MValueColumn<'_> {
+    /// Where the run of the feature after the last finished one starts.
+    fn run_start(&self) -> usize {
+        self.ends.last().map_or(0, |&end| end as usize)
     }
 }
 
@@ -160,6 +292,8 @@ impl<'a> LayerWriter<'a> {
             spare_columns: Vec::new(),
             ids: Vec::new(),
             geometry: Geometries::default(),
+            #[cfg(feature = "unstable-v2")]
+            m_values: MValueColumns::default(),
         })
     }
 
@@ -173,16 +307,25 @@ impl<'a> LayerWriter<'a> {
         self.spare_columns.append(&mut self.columns);
         self.ids.clear();
         self.geometry.clear();
+        #[cfg(feature = "unstable-v2")]
+        self.m_values.clear();
         Ok(())
     }
 
-    /// Adds a property column, which the features written so far have no value in.
-    pub fn add_property(&mut self, name: &'a str, kind: PropKind) -> MltResult<PropertyKey> {
+    /// Every column name in use, with the kind of column that holds it.
+    fn taken_names(&self) -> impl Iterator<Item = (&'a str, ColumnRole)> + '_ {
         let taken = self
             .property_names
             .iter()
             .map(|&n| (n, ColumnRole::Property));
-        reject_taken_name(name, ColumnRole::Property, taken)?;
+        #[cfg(feature = "unstable-v2")]
+        let taken = taken.chain(self.m_values.names.iter().map(|&n| (n, ColumnRole::MValue)));
+        taken
+    }
+
+    /// Adds a property column, which the features written so far have no value in.
+    pub fn add_property(&mut self, name: &'a str, kind: PropKind) -> MltResult<PropertyKey> {
+        reject_taken_name(name, ColumnRole::Property, self.taken_names())?;
         let mut column = self
             .spare_columns
             .pop()
@@ -193,6 +336,15 @@ impl<'a> LayerWriter<'a> {
         self.property_names.push(name);
         self.property_kinds.push(kind);
         Ok(PropertyKey::new(self.property_names.len() - 1))
+    }
+
+    /// Adds an m-value column, holding one value per stored vertex, which the features written
+    /// so far are null in.
+    #[cfg(feature = "unstable-v2")]
+    pub fn add_m_value(&mut self, name: &'a str, kind: PropKind) -> MltResult<MValueKey> {
+        reject_taken_name(name, ColumnRole::MValue, self.taken_names())?;
+        let features = self.feature_count();
+        Ok(self.m_values.add(name, kind, features))
     }
 
     /// Starts a feature of `geometry_type`. It joins the layer when [`FeatureWriter::finish`]
@@ -271,6 +423,45 @@ impl<'a> FeatureWriter<'_, 'a> {
         Ok(self)
     }
 
+    /// Sets the feature's values in the `key` m-value column, one per vertex it stores (a ring's
+    /// closing coordinate is not stored), each of the column's kind.
+    ///
+    /// A feature that sets none is null in the column, as is one whose values are rejected.
+    #[cfg(feature = "unstable-v2")]
+    pub fn m_values(
+        &mut self,
+        key: MValueKey,
+        values: impl IntoIterator<Item = impl Into<PropValueRef<'a>>>,
+    ) -> MltResult<&mut Self> {
+        let index = key.index();
+        let feature = self.layer.ids.len();
+        let m_values = &mut self.layer.m_values;
+        let Some(&expected) = m_values.kinds.get(index) else {
+            return Err(MltError::UnknownMValueKey {
+                index,
+                columns: m_values.kinds.len(),
+            });
+        };
+        let column = &mut m_values.columns[index];
+        column.values.truncate(column.run_start());
+        column.present.resize(feature, false);
+        for value in values {
+            let value = value.into();
+            let actual = value.kind();
+            if actual != expected {
+                column.values.truncate(column.run_start());
+                return Err(MltError::MValueKindMismatch {
+                    index,
+                    expected,
+                    actual,
+                });
+            }
+            column.values.push(value);
+        }
+        column.present.push(true);
+        Ok(self)
+    }
+
     /// Adds points to a [`GeometryType::Point`] (which holds exactly one) or
     /// [`GeometryType::MultiPoint`] feature.
     pub fn points(&mut self, coords: impl IntoIterator<Item = Coord<i32>>) -> MltResult<&mut Self> {
@@ -341,6 +532,9 @@ impl<'a> FeatureWriter<'_, 'a> {
         let layer = &mut *self.layer;
         let geometry = &layer.geometry;
         let invalid = match Family::of(self.geometry_type) {
+            _ if self.geometry_type.is_mesh() => {
+                Some("has triangles, which a layer writer cannot take")
+            }
             (_, true) => None,
             (Family::Points, false) => (geometry.coords.len() - self.start.coords != 1)
                 .then_some("needs exactly one point"),
@@ -352,6 +546,16 @@ impl<'a> FeatureWriter<'_, 'a> {
         if let Some(reason) = invalid {
             return Err(MltError::InvalidFeatureGeometry(self.geometry_type, reason));
         }
+        #[cfg(feature = "unstable-v2")]
+        {
+            let feature = layer.ids.len();
+            let rings = Family::of(self.geometry_type).0 == Family::Polygons;
+            layer
+                .m_values
+                .check_runs(feature, || geometry.stored_since(self.start, rings))?;
+            layer.m_values.finish_feature(feature)?;
+        }
+        // The last step that can fail, since a discarded feature leaves its geometry types behind.
         layer.geometry.finish_feature(self.geometry_type)?;
         let len = layer.ids.len() + 1;
         for column in &mut layer.columns {
@@ -373,6 +577,8 @@ impl Drop for FeatureWriter<'_, '_> {
         for column in &mut layer.columns {
             column.truncate(feature);
         }
+        #[cfg(feature = "unstable-v2")]
+        layer.m_values.truncate(feature);
         layer.geometry.rewind(self.start);
     }
 }
@@ -386,10 +592,13 @@ enum Family {
 }
 
 impl Family {
+    /// A mesh's vertices are a `MultiPoint`'s, though [`FeatureWriter::finish`] rejects it.
     fn of(geometry_type: GeometryType) -> (Self, bool) {
         match geometry_type {
             GeometryType::Point => (Self::Points, false),
             GeometryType::MultiPoint => (Self::Points, true),
+            #[cfg(feature = "unstable-v2")]
+            GeometryType::Mesh => (Self::Points, true),
             GeometryType::LineString => (Self::Lines, false),
             GeometryType::MultiLineString => (Self::Lines, true),
             GeometryType::Polygon => (Self::Polygons, false),
@@ -458,6 +667,18 @@ impl Geometries {
         self.feature_ends.push(len32(self.group_ends.len())?);
         self.types.push(geometry_type);
         Ok(())
+    }
+
+    /// How many vertices the feature started at `start` stores, which drops a closing coordinate
+    /// of each of its parts when they are `rings`.
+    #[cfg(feature = "unstable-v2")]
+    fn stored_since(&self, start: FeatureStart, rings: bool) -> usize {
+        if !rings {
+            return self.coords.len() - start.coords;
+        }
+        (start.parts..self.part_ends.len())
+            .map(|part| stored_len(self.part(part)))
+            .sum()
     }
 
     fn groups(&self, feature: usize) -> Range<usize> {
@@ -546,6 +767,8 @@ impl LayerSource for LayerWriter<'_> {
             GeometryType::Polygon => values.push_polygon(parts.map(part)),
             GeometryType::MultiPolygon => values
                 .push_multi_polygon(groups.map(|group| geometry.parts(group..group + 1).map(part))),
+            #[cfg(feature = "unstable-v2")]
+            GeometryType::Mesh => unreachable!("FeatureWriter::finish rejects meshes"),
         }
     }
 
@@ -564,6 +787,39 @@ impl LayerSource for LayerWriter<'_> {
                 .parts(group..group + 1)
                 .map(move |part| geometry.part(part))
         })
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn m_value_kinds(&self) -> &[PropKind] {
+        &self.m_values.kinds
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn m_value_name(&self, column: usize) -> &str {
+        self.m_values.names[column]
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn push_m_values(&self, feature: usize, column: usize, values: &mut StagedValues) -> bool {
+        let column = &self.m_values.columns[column];
+        if !column.present[feature] {
+            return false;
+        }
+        let run = item_range(&column.ends, feature);
+        let moved = self.vertex_order(feature);
+        match (&column.values, values) {
+            (ColumnValues::Strs(strs), StagedValues::Str(out)) => {
+                extend_run(out, &strs[run], moved, |&text| CompactString::from(text));
+            }
+            (ColumnValues::Scalars(bits), out) => extend_bits_run(out, &bits[run], moved),
+            (ColumnValues::Strs(_), _) => unreachable!("m-value kind matches its column"),
+        }
+        true
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn vertex_order(&self, feature: usize) -> Option<Vec<usize>> {
+        wound_polygons_order(LayerSource::polygons(self, feature))
     }
 
     fn mvt_feature(&self, feature: usize, layer: MvtLayerBuilder) -> MltResult<MvtFeatureBuilder> {
@@ -631,6 +887,28 @@ fn value_of_bits(kind: PropKind, bits: u64) -> Option<PropValueRef<'static>> {
         PropKind::F64 => PropValueRef::F64(f64::from_bits(bits)),
         PropKind::Str => return None,
     })
+}
+
+/// Appends a feature's run of scalar values stored as `bits` to `out`, which holds their kind,
+/// read through `moved` as [`extend_run`] does.
+#[cfg(feature = "unstable-v2")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the bits were stored from a value of the column's kind"
+)]
+fn extend_bits_run(out: &mut StagedValues, bits: &[u64], moved: Option<Vec<usize>>) {
+    match out {
+        StagedValues::Bool(out) => extend_run(out, bits, moved, |&b| b != 0),
+        StagedValues::I8(out) => extend_run(out, bits, moved, |&b| b.cast_signed() as i8),
+        StagedValues::U8(out) => extend_run(out, bits, moved, |&b| b as u8),
+        StagedValues::I32(out) => extend_run(out, bits, moved, |&b| b.cast_signed() as i32),
+        StagedValues::U32(out) => extend_run(out, bits, moved, |&b| b as u32),
+        StagedValues::I64(out) => extend_run(out, bits, moved, |&b| b.cast_signed()),
+        StagedValues::U64(out) => extend_run(out, bits, moved, |&b| b),
+        StagedValues::F32(out) => extend_run(out, bits, moved, |&b| f32::from_bits(b as u32)),
+        StagedValues::F64(out) => extend_run(out, bits, moved, |&b| f64::from_bits(b)),
+        StagedValues::Str(_) => unreachable!("m-value kind matches its column"),
+    }
 }
 
 /// The range of item `index` among cumulative `ends`.

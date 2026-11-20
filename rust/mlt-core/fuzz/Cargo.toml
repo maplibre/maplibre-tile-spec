@@ -78,6 +78,11 @@ mlt-core = { path = "..", features = ["arbitrary", "__private", "unstable-v2"] }
 serde_json = { version = "1", features = ["arbitrary_precision"] }
 toml = "1"
 
+# TODO: drop once maplibre/martin#4005 is released; without a lockfile, mbtiles 0.23 resolves rusqlite 0.43 and fails to build.
+[patch.crates-io]
+mbtiles = { git = "https://github.com/CommanderStorm/martin", rev = "b5673ba2245006c8b3bea92d428748d065b1bbe7" }
+martin-tile-utils = { git = "https://github.com/CommanderStorm/martin", rev = "b5673ba2245006c8b3bea92d428748d065b1bbe7" }
+
 [lints.rust]
 unsafe_code = "forbid"
 unused_qualifications = "warn"

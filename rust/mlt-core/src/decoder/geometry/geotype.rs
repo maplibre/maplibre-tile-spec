@@ -5,6 +5,8 @@ use geo_types::{
 };
 use usize_cast::IntoUsize as _;
 
+#[cfg(feature = "unstable-v2")]
+use crate::Decoder;
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
     NoGeometryOffsets, NoPartOffsets, NoRingOffsets,
@@ -15,9 +17,21 @@ use crate::MltResult;
 use crate::decoder::{GeometryType, GeometryValues};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::ZStep;
+use crate::tile::ZAxis;
 
 impl GeometryType {
+    /// Whether this is a mesh, which only a v2 layer holds.
+    #[must_use]
+    #[cfg_attr(
+        not(feature = "unstable-v2"),
+        expect(clippy::unused_self, reason = "only v2 has meshes")
+    )]
+    pub fn is_mesh(self) -> bool {
+        #[cfg(feature = "unstable-v2")]
+        return self == Self::Mesh;
+        #[cfg(not(feature = "unstable-v2"))]
+        false
+    }
     #[must_use]
     pub fn is_polygon(self) -> bool {
         matches!(self, Self::Polygon | Self::MultiPolygon)
@@ -137,6 +151,13 @@ impl GeometryValues {
         self.vector_types.len()
     }
 
+    /// Whether this geometry belongs to a v2 `Meshes` layer.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn is_meshes(&self) -> bool {
+        self.meshes || self.vector_types.first() == Some(&GeometryType::Mesh)
+    }
+
     /// Geometry types for each feature, in insertion order.
     #[must_use]
     pub fn vector_types(&self) -> &[GeometryType] {
@@ -236,7 +257,7 @@ impl GeometryValues {
         self.rebase_indices(u32::checked_sub)
     }
 
-    /// Flat vertex buffer in tile coordinates: `[x0, y0, x1, y1, …]`, or `[x0, y0, z0, …]` when [`Self::z_step`] is set.
+    /// Flat vertex buffer in tile coordinates: `[x0, y0, x1, y1, ...]`, or `[x0, y0, z0, ...]` when [`Self::z_axis`] is set.
     #[must_use]
     pub fn vertices(&self) -> Option<&[i32]> {
         self.vertices.as_deref()
@@ -250,25 +271,25 @@ impl GeometryValues {
     )]
     pub fn stride(&self) -> usize {
         #[cfg(feature = "unstable-v2")]
-        if self.z_step.is_some() {
+        if self.z_axis.is_some() {
             return 3;
         }
         2
     }
 
-    /// The grid of the vertices' z coordinates, or [`None`] when they have none.
+    /// How the vertices' z coordinates read as heights, or [`None`] when they have none.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
-    pub fn z_step(&self) -> Option<ZStep> {
-        self.z_step
+    pub fn z_axis(&self) -> Option<ZAxis> {
+        self.z_axis
     }
 
-    /// Interleave one z per vertex into the `(x, y)` pairs, putting them on `step`.
+    /// Interleave one z per vertex into the `(x, y)` pairs, reading them on `axis`.
     ///
     /// `z` runs over the vertices in the order the pushed geometries stored them.
     #[cfg(feature = "unstable-v2")]
-    pub fn add_z(&mut self, step: ZStep, z: &[i32]) -> MltResult<()> {
-        if self.z_step.is_some() {
+    pub fn add_z(&mut self, axis: impl Into<ZAxis>, z: &[i32]) -> MltResult<()> {
+        if self.z_axis.is_some() {
             return Err(ZAlreadySet);
         }
         let pairs = self.vertices.take().unwrap_or_default();
@@ -284,7 +305,7 @@ impl GeometryValues {
             xyz.extend([x, y, z]);
         }
         self.vertices = (!xyz.is_empty()).then_some(xyz);
-        self.z_step = Some(step);
+        self.z_axis = Some(axis.into());
         Ok(())
     }
 
@@ -327,10 +348,11 @@ impl GeometryValues {
     /// The vertices feature `index` stores, in the order its z run over them.
     #[cfg(feature = "unstable-v2")]
     fn z_vertices(&self, index: usize) -> MltResult<ZVertices<'_>> {
-        if self.z_step.is_none() {
+        if self.z_axis.is_none() {
             return Ok(ZVertices::Range(0..0));
         }
         if self.part_offsets.is_none()
+            && self.vector_types.get(index) != Some(&GeometryType::Mesh)
             && let Some(indices) = self.index_buffer.as_deref()
         {
             let tris = self.triangle_offsets.as_deref().unwrap_or(&[]);
@@ -411,6 +433,51 @@ impl GeometryValues {
     pub fn vertex_count(&self, index: usize) -> MltResult<usize> {
         let range = self.vertex_range(index)?;
         Ok(range.end.saturating_sub(range.start))
+    }
+
+    /// The triangles of feature `index` when it is a [`GeometryType::Mesh`], or [`None`] when it is not.
+    ///
+    /// Each corner names a vertex of the whole layer, within the feature's [`Self::vertex_range`].
+    #[cfg(feature = "unstable-v2")]
+    pub fn mesh_triangles(&self, index: usize) -> MltResult<Option<&[[u32; 3]]>> {
+        if self.vector_types.get(index) != Some(&GeometryType::Mesh) {
+            return Ok(None);
+        }
+        let tris = self.triangle_offsets.as_deref().unwrap_or(&[]);
+        let triangles = self.index_buffer.as_deref().unwrap_or(&[]);
+        let run = tris
+            .get(index..=index + 1)
+            .and_then(|run| {
+                let run = run[0].into_usize()..run[1].into_usize();
+                triangles.as_chunks::<3>().0.get(run)
+            })
+            .ok_or_else(|| GeometryOutOfBounds {
+                index,
+                field: "triangle_offsets",
+                idx: index + 1,
+                len: tris.len(),
+            })?;
+        Ok(Some(run))
+    }
+
+    /// The triangles of feature `index`, each corner counted from the feature's first vertex,
+    /// or [`None`] when it is not a mesh.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn local_mesh_triangles(
+        &self,
+        index: usize,
+        dec: &mut Decoder,
+    ) -> MltResult<Option<Vec<[u32; 3]>>> {
+        let Some(triangles) = self.mesh_triangles(index)? else {
+            return Ok(None);
+        };
+        let start = u32::try_from(self.vertex_range(index)?.start).or_overflow()?;
+        let local = |vertex: u32| vertex.checked_sub(start).or_overflow();
+        let mut out = dec.alloc::<[u32; 3]>(triangles.len())?;
+        for &[a, b, c] in triangles {
+            out.push([local(a)?, local(b)?, local(c)?]);
+        }
+        Ok(Some(out))
     }
 
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
@@ -512,6 +579,7 @@ impl GeometryValues {
             .ok_or_else(|| GeometryIndexOutOfBounds(index))?;
 
         if parts.is_none()
+            && !geom_type.is_mesh()
             && let Some(indices) = self.index_buffer.as_deref()
         {
             let tris = self.triangle_offsets.as_deref().unwrap_or(&[]);
@@ -589,6 +657,26 @@ impl GeometryValues {
                 let part_rng = part_range(parts, idx)?;
                 reuse(out, empty_polygon, |poly| {
                     poly_from_rings(poly, part_rng, rings)
+                })
+            }
+            #[cfg(feature = "unstable-v2")]
+            GeometryType::Mesh => {
+                // A mesh's vertices are its run of the vertex stream, as a MultiPoint's are,
+                // which keeps them aligned with its z and m-values. The triangles are
+                // read separately, see `mesh_triangles`.
+                #[expect(
+                    clippy::unnecessary_lazy_evaluations,
+                    reason = "an eager error is dropped on every success"
+                )]
+                let geoms = geoms.ok_or_else(|| NoGeometryOffsets(index, geom_type))?;
+                let geom_rng = geom_range(geoms, index)?;
+                reuse(out, empty_multi_point, |points| {
+                    points.0.clear();
+                    points.0.reserve(geom_rng.len());
+                    for idx in geom_rng {
+                        points.0.push(Point(vert(idx)?));
+                    }
+                    Ok(())
                 })
             }
             GeometryType::MultiPoint => {

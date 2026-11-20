@@ -14,7 +14,7 @@ use mlt_core::compact_str::{CompactString, ToCompactString as _};
 use mlt_core::encoder::WireVersion;
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{PropKind, PropValue, TileLayer, ZStep};
+use mlt_core::{HeightMode, PropKind, PropValue, TileLayer, ZAxis, ZStep};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -39,10 +39,11 @@ use super::shared::{encoder_config, val_err};
 /// `fastpfor` allows `FastPFOR` integer compression.
 /// `z_step` is the power of ten of the z grid's step in metres, from -3 to 4.
 /// It takes `[x, y, z]` positions with z on that grid, and writes the experimental v2 format.
+/// `height_mode` is what a z of `0` stands for, `"absolute"` (mean sea level, the default) or `"relative_to_ground"`.
 /// See the module docs.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(signature = (geojson, name, extent=4096, *, tessellate=false, sort="none", shared_dict=true, fsst=true, fastpfor=true, z_step=None))]
+#[pyo3(signature = (geojson, name, extent=4096, *, tessellate=false, sort="none", shared_dict=true, fsst=true, fastpfor=true, z_step=None, height_mode=None))]
 #[expect(
     clippy::too_many_arguments,
     clippy::fn_params_excessive_bools,
@@ -63,6 +64,10 @@ pub fn encode_geojson(
     fsst: bool,
     fastpfor: bool,
     z_step: Option<i8>,
+    #[gen_stub(override_type(
+        type_repr = "typing.Optional[typing.Literal['absolute', 'relative_to_ground']]"
+    ))]
+    height_mode: Option<&str>,
 ) -> PyResult<Py<PyBytes>> {
     if name.is_empty() {
         return Err(val_err("'name' must be non-empty"));
@@ -71,6 +76,19 @@ pub fn encode_geojson(
         .map(ZStep::new)
         .transpose()
         .map_err(|e| val_err(e.to_string()))?;
+    let mode = match height_mode {
+        None | Some("absolute") => HeightMode::Absolute,
+        Some("relative_to_ground") => HeightMode::RelativeToGround,
+        Some(other) => {
+            return Err(val_err(format!(
+                "'height_mode' must be 'absolute' or 'relative_to_ground', not {other:?}"
+            )));
+        }
+    };
+    if height_mode.is_some() && z_step.is_none() {
+        return Err(val_err("'height_mode' needs a 'z_step'"));
+    }
+    let z_axis = z_step.map(|step| ZAxis { step, mode });
 
     let fc: FeatureCollection = pythonize::depythonize(geojson)
         .map_err(|e| val_err(format!("input must be a GeoJSON FeatureCollection: {e}")))?;
@@ -83,9 +101,9 @@ pub fn encode_geojson(
         return Err(val_err("FeatureCollection has no features"));
     }
 
-    let tile = build_layer(fc, name, extent, z_step)?;
+    let tile = build_layer(fc, name, extent, z_axis)?;
     let mut cfg = encoder_config(tessellate, sort, shared_dict, fsst, fastpfor)?;
-    if z_step.is_some() {
+    if z_axis.is_some() {
         cfg = cfg.with_wire_version(WireVersion::V02);
     }
     // The steps above read Python input, so they keep the GIL; release it for the pure-Rust encode.
@@ -203,7 +221,7 @@ fn build_layer(
     fc: FeatureCollection,
     name: String,
     extent: u32,
-    z_step: Option<ZStep>,
+    z_axis: Option<ZAxis>,
 ) -> PyResult<TileLayer> {
     let mut names: Vec<String> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
@@ -216,7 +234,7 @@ fn build_layer(
             ));
         }
         validate_non_empty(&feat.geometry)?;
-        match (z_step, &feat.z) {
+        match (z_axis, &feat.z) {
             (Some(_), None) => return Err(val_err("'z_step' needs [x, y, z] positions")),
             (None, Some(_)) => return Err(val_err("[x, y, z] positions need a 'z_step'")),
             _ => {}
@@ -241,9 +259,9 @@ fn build_layer(
 
     let mut builder =
         TileLayer::builder(name, extent).map_err(|err| PyValueError::new_err(err.to_string()))?;
-    if let Some(step) = z_step {
+    if let Some(axis) = z_axis {
         builder
-            .set_z_step(step)
+            .set_z_axis(axis)
             .map_err(|err| PyValueError::new_err(err.to_string()))?;
     }
     let keys = names

@@ -42,9 +42,10 @@ use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
     line_string as line, wkt,
 };
+use mlt_core::{HeightMode, MValueScope};
 
 use crate::layer::{
-    Layer, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle, morton_curve,
+    Layer, Mesh, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle, morton_curve,
 };
 use crate::writer::SynthWriter;
 
@@ -120,6 +121,7 @@ fn main() {
     generate_m_values(&mut writer);
     generate_nested(&mut writer);
     generate_z(&mut writer);
+    generate_meshes(&mut writer);
 
     writer.report_ungenerated();
 
@@ -2649,11 +2651,9 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         .write_per_version(w, "props_shared_dict_codes-rust", "props_shared_dict_bp");
 }
 
-/// Elevations on Terrain-RGB's grid of 10^-1 m, whose `0` is its base of -10000 m.
-///
-/// `100_000` is sea level, so these read as heights of a few tens of metres.
+/// Elevations above mean sea level on a grid of 10^-1 m.
 fn decimetres(metres: &[i32]) -> Vec<i32> {
-    metres.iter().map(|m| (m + 10_000) * 10).collect()
+    metres.iter().map(|m| m * 10).collect()
 }
 
 /// Vertices of three coordinates, which only v2 can hold.
@@ -2682,7 +2682,7 @@ fn generate_z(w: &mut SynthWriter) {
     let mix: Vec<Geometry<i32>> = MIX_TYPES.iter().map(|(_, g)| g.clone()).collect();
     geo_varint()
         .geos(mix)
-        .z(0, (0..30).map(|i| 10_000 + i * 3).collect())
+        .z(0, (0..30).map(|i| i * 3).collect())
         .write(w, "z_mix");
     geo_varint()
         .tessellate()
@@ -2701,9 +2701,20 @@ fn generate_z(w: &mut SynthWriter) {
         .vertex_offsets(E::varint())
         .z(-1, decimetres(&[5, 6, 5, 7, 8]))
         .write(w, "z_points_hilbert");
+    // The same line twice, its z read from sea level and from the terrain under each vertex.
+    geo_varint()
+        .geo(line1())
+        .z(-1, decimetres(&[412, 415, 418]))
+        .height_mode(HeightMode::Absolute)
+        .write(w, "z_height_absolute");
+    geo_varint()
+        .geo(line1())
+        .z(-1, decimetres(&[12, 15, 18]))
+        .height_mode(HeightMode::RelativeToGround)
+        .write(w, "z_height_relative_to_ground");
     geo_varint()
         .geos([P0, P1])
-        .z(-3, vec![10_000_000, 10_000_001])
+        .z(-3, vec![0, 1])
         .write(w, "z_step_finest");
     geo_varint()
         .geos([P0, P1])
@@ -2717,4 +2728,77 @@ fn generate_z(w: &mut SynthWriter) {
             M::new("dist", None, MV::U32(vec![0, 10, 25])),
         )
         .write(w, "z_mvalues");
+}
+
+/// 3D triangle meshes, one per feature, which only v2 can hold.
+fn generate_meshes(w: &mut SynthWriter) {
+    geo_varint()
+        .meshes(
+            -2,
+            [Mesh::new(
+                &[[10, 10, 0], [10, 20, 0], [20, 10, 250]],
+                &[[0, 1, 2]],
+            )],
+        )
+        .write(w, "mesh_triangle");
+    geo_varint()
+        .meshes(0, [roof(), wall()])
+        .write(w, "mesh_roof_wall");
+    geo_varint()
+        .meshes(-1, [roof()])
+        .height_mode(HeightMode::RelativeToGround)
+        .write(w, "mesh_relative_to_ground");
+    // Null on the wall, which therefore stores no values at all.
+    geo_varint()
+        .meshes(0, [roof(), wall()])
+        .add_m_value(
+            E::varint(),
+            M::new(
+                "shade",
+                Some(vec![true, false]),
+                MV::U32(vec![10, 11, 12, 13, 14]),
+            ),
+        )
+        .write(w, "mesh_mvalues_vertex");
+    // Given in the order the meshes list their triangles, which the triangle trees reorder.
+    geo_varint()
+        .meshes(0, [roof(), wall()])
+        .add_m_value(
+            E::varint(),
+            M::new("part", None, MV::U8(vec![1, 2, 3, 4, 5, 6])).with_scope(MValueScope::Triangle),
+        )
+        .write(w, "mesh_mvalues_triangle");
+    // Both scopes in one layer, each null on a different feature.
+    geo_varint()
+        .meshes(0, [wall(), roof()])
+        .add_m_value(
+            E::varint(),
+            M::new("shade", Some(vec![true, false]), MV::U32(vec![7, 8, 9, 10])),
+        )
+        .add_m_value(
+            E::varint(),
+            M::new("part", Some(vec![false, true]), MV::U8(vec![1, 2, 3, 4]))
+                .with_scope(MValueScope::Triangle),
+        )
+        .write(w, "mesh_mvalues_both");
+}
+
+fn roof() -> Mesh {
+    Mesh::new(
+        &[
+            [10, 10, 0],
+            [30, 10, 0],
+            [30, 30, 0],
+            [10, 30, 0],
+            [20, 20, 15],
+        ],
+        &[[3, 2, 4], [2, 1, 4], [1, 0, 4], [0, 3, 4]],
+    )
+}
+
+fn wall() -> Mesh {
+    Mesh::new(
+        &[[50, 30, 0], [70, 30, 0], [70, 30, 10], [50, 30, 10]],
+        &[[0, 1, 2], [0, 2, 3]],
+    )
 }

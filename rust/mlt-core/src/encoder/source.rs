@@ -7,12 +7,14 @@ use geo::CoordsIter as _;
 use geo_types::{Coord, Geometry, Polygon};
 
 use crate::decoder::GeometryValues;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::StagedValues;
 use crate::encoder::geometry::coord_count;
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::geometry::wound_vertex_order;
 use crate::tile::{Extent, PropKind, TileLayer};
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValue, NestedKind, NestedValue, ZStep};
+use crate::tile::{MValue, MValueScope, NestedKind, NestedValue, ZAxis};
 use crate::{MltResult, PropValueRef};
 
 /// Everything the encoder reads from a layer, feature by feature.
@@ -45,10 +47,16 @@ pub(crate) trait LayerSource {
     fn v2_layout(&self) -> V2Layout<'_> {
         V2Layout::default()
     }
+    /// The kind of each m-value column, which [`Self::m_value_name`] and
+    /// [`Self::push_m_values`] index.
     #[cfg(feature = "unstable-v2")]
-    fn m_value(&self, _feature: usize, _column: usize) -> Option<&MValue> {
-        None
-    }
+    fn m_value_kinds(&self) -> &[PropKind];
+    #[cfg(feature = "unstable-v2")]
+    fn m_value_name(&self, column: usize) -> &str;
+    /// Appends the feature's values in m-value `column` to `values`, which holds the column's
+    /// kind, in [`Self::vertex_order`], and returns whether the feature is not null there.
+    #[cfg(feature = "unstable-v2")]
+    fn push_m_values(&self, feature: usize, column: usize, values: &mut StagedValues) -> bool;
     #[cfg(feature = "unstable-v2")]
     fn nested(&self, _feature: usize, _column: usize) -> Option<&NestedValue> {
         None
@@ -66,16 +74,17 @@ pub(crate) trait LayerSource {
     }
 }
 
-/// The columns only the v2 wire format has, which [`LayerSource::m_value`] and
-/// [`LayerSource::nested`] index.
+/// The nested columns, which [`LayerSource::nested`] indexes, and the z grid, which only the v2
+/// wire format has.
 #[cfg(feature = "unstable-v2")]
 #[derive(Default)]
 pub(crate) struct V2Layout<'a> {
-    pub(crate) m_value_names: &'a [String],
-    pub(crate) m_value_kinds: &'a [PropKind],
+    /// Parallel to [`LayerSource::m_value_kinds`]; a source without scopes holds vertex-scoped
+    /// columns only.
+    pub(crate) m_value_scopes: &'a [MValueScope],
     pub(crate) nested_names: &'a [String],
     pub(crate) nested_kinds: &'a [NestedKind],
-    pub(crate) z_step: Option<ZStep>,
+    pub(crate) z_axis: Option<ZAxis>,
 }
 
 /// The order features are staged in: as stored, or a permutation of them.
@@ -148,7 +157,15 @@ impl LayerSource for TileLayer {
     }
 
     fn push_geometry(&self, feature: usize, geometry: &mut GeometryValues) {
-        geometry.push_geom(&self.features[feature].geometry);
+        let feature = &self.features[feature];
+        #[cfg(feature = "unstable-v2")]
+        if let (Some(triangles), Geometry::MultiPoint(points)) =
+            (&feature.triangles, &feature.geometry)
+        {
+            geometry.push_mesh(points.0.iter().map(|p| p.0), triangles);
+            return;
+        }
+        geometry.push_geom(&feature.geometry);
     }
 
     fn polygons(
@@ -175,23 +192,74 @@ impl LayerSource for TileLayer {
     }
 
     fn mvt_feature(&self, feature: usize, layer: MvtLayerBuilder) -> MltResult<MvtFeatureBuilder> {
-        Ok(layer.feature(&self.features[feature].geometry)?)
+        let feature = &self.features[feature];
+        #[cfg(feature = "unstable-v2")]
+        if feature.triangles.is_some() {
+            return Err(crate::MltError::MeshNotMvt(self.name.clone()));
+        }
+        Ok(layer.feature(&feature.geometry)?)
     }
 
     #[cfg(feature = "unstable-v2")]
     fn v2_layout(&self) -> V2Layout<'_> {
         V2Layout {
-            m_value_names: &self.m_value_names,
-            m_value_kinds: &self.m_value_kinds,
+            m_value_scopes: &self.m_value_scopes,
             nested_names: &self.nested_names,
             nested_kinds: &self.nested_kinds,
-            z_step: self.z_step,
+            z_axis: self.z_axis,
         }
     }
 
     #[cfg(feature = "unstable-v2")]
-    fn m_value(&self, feature: usize, column: usize) -> Option<&MValue> {
-        self.features[feature].m_values.get(column)
+    fn m_value_kinds(&self) -> &[PropKind] {
+        &self.m_value_kinds
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn m_value_name(&self, column: usize) -> &str {
+        &self.m_value_names[column]
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn push_m_values(&self, feature: usize, column: usize, values: &mut StagedValues) -> bool {
+        /// Appends the run of a non-null value, in the feature's vertex order.
+        fn push<T: Clone>(
+            run: Option<&[T]>,
+            out: &mut Vec<T>,
+            moved: impl FnOnce() -> Option<Vec<usize>>,
+        ) -> bool {
+            let Some(run) = run else {
+                return false;
+            };
+            extend_run(out, run, moved(), T::clone);
+            true
+        }
+        let Some(m_value) = self.features[feature].m_values.get(column) else {
+            return false;
+        };
+        // A triangle's value belongs to the triangle, so it stays put when the vertices move.
+        let per_triangle = self.m_value_scopes.get(column) == Some(&MValueScope::Triangle);
+        let moved = || {
+            if per_triangle {
+                None
+            } else {
+                self.vertex_order(feature)
+            }
+        };
+        /// Pairs each kind of value with the staged column of that kind.
+        macro_rules! push_kinds {
+            (
+                scalar { $($sv:ident),* $(,)? }
+                string { $($gv:ident),* $(,)? }
+            ) => {
+                match (m_value, values) {
+                    $((MValue::$sv(run), StagedValues::$sv(out)) => push(run.as_deref(), out, moved),)*
+                    $((MValue::$gv(run), StagedValues::$gv(out)) => push(run.as_deref(), out, moved),)*
+                    _ => unreachable!("m-value kind matches its column"),
+                }
+            };
+        }
+        with_kinds!(push_kinds)
     }
 
     #[cfg(feature = "unstable-v2")]
@@ -207,6 +275,23 @@ impl LayerSource for TileLayer {
     #[cfg(feature = "unstable-v2")]
     fn vertex_order(&self, feature: usize) -> Option<Vec<usize>> {
         wound_vertex_order(&self.features[feature].geometry)
+    }
+}
+
+/// Appends a feature's `run` of values held per stored vertex to `out`, each converted, read
+/// through `moved` (see [`LayerSource::vertex_order`]) when that covers the run.
+#[cfg(feature = "unstable-v2")]
+pub(crate) fn extend_run<S, T>(
+    out: &mut Vec<T>,
+    run: &[S],
+    moved: Option<Vec<usize>>,
+    convert: impl Fn(&S) -> T,
+) {
+    match moved {
+        Some(moved) if moved.len() == run.len() => {
+            out.extend(moved.iter().map(|&i| convert(&run[i])));
+        }
+        _ => out.extend(run.iter().map(convert)),
     }
 }
 

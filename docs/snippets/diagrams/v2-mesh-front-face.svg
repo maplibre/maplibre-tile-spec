@@ -1,0 +1,23 @@
+<svg class="mlt-diagram" viewBox="0 0 710 250" role="img" aria-label="A mesh triangle facing up, wound a, b, c counter-clockwise as seen from above, so its signed area in tile x, y is negative, next to a polygon exterior ring, wound clockwise with a positive area" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ff" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="bold" x="40" y="14">mesh triangle facing up</text>
+<text class="muted small" x="40" y="34">ccw seen from above, area in (x, y) &lt; 0</text>
+<path class="f0 area" d="M60,230L240,230L150,70Z"/>
+<path class="f0 edge wind" d="M60,230L240,230L150,70Z"/>
+<path class="head t0" d="M145,225L154,230L145,235Z"/>
+<circle class="dot" cx="60" cy="230" r="3.5"/>
+<text class="vert halo" x="48" y="238">a</text>
+<circle class="dot" cx="240" cy="230" r="3.5"/>
+<text class="vert halo" x="252" y="238">b</text>
+<circle class="dot" cx="150" cy="70" r="3.5"/>
+<text class="vert halo" x="150" y="56">c</text>
+<text class="bold" x="400" y="14">polygon exterior ring</text>
+<text class="muted small" x="400" y="34">cw seen from above, area in (x, y) &gt; 0</text>
+<path class="f1 area" d="M400,70H580V230H400Z"/>
+<path class="f1 edge wind" d="M400,70H580V230H400Z"/>
+<path class="head t1" d="M485,65L494,70L485,75Z"/>
+<path class="link" d="M300 160H340" marker-end="url(#ff)"/>
+<path class="link" d="M300 160V200" marker-end="url(#ff)"/>
+<text class="muted small" x="346" y="160">x east</text>
+<text class="muted small mid" x="300" y="214">y south</text>
+</svg>

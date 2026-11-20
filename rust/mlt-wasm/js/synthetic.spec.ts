@@ -18,6 +18,10 @@ const V2_GAPS: [RegExp, string][] = [
     /_tri$/,
     "a TessPolygons layer stores triangles, not the outlines loadGeometry reads",
   ],
+  [
+    /^mesh_/,
+    "a Meshes layer stores triangles, not the outlines loadGeometry reads",
+  ],
 ];
 
 const UNIMPLEMENTED_SYNTHETICS = new Map(
@@ -85,6 +89,9 @@ function tileToFeatureCollection(
 
       if (feature.zStep !== undefined) {
         properties._z_step = feature.zStep;
+      }
+      if (mltLayer.heightMode === "relativeToGround") {
+        properties._height_mode = "relative_to_ground";
       }
 
       const geojsonFeature: GeoJSON.Feature = {

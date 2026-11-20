@@ -28,7 +28,7 @@ use crate::tile::PropKind;
 #[cfg(any(test, feature = "__private"))]
 use crate::tile::TileLayer;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValue, NestedKind, NestedValue, PropValue};
+use crate::tile::{NestedKind, NestedValue, PropValue};
 
 #[cfg(any(test, feature = "__private"))]
 impl StagedLayer {
@@ -99,7 +99,7 @@ pub(crate) fn stage_layer(
         source.push_geometry(f, &mut geometry);
     }
     #[cfg(feature = "unstable-v2")]
-    if let Some(step) = source.v2_layout().z_step {
+    if let Some(axis) = source.v2_layout().z_axis {
         let mut z = Vec::new();
         for f in order.iter() {
             let feature_z = source.z(f);
@@ -111,7 +111,7 @@ pub(crate) fn stage_layer(
             }
         }
         geometry
-            .add_z(step, &z)
+            .add_z(axis, &z)
             .expect("the source holds one z per stored vertex");
     }
 
@@ -168,78 +168,27 @@ pub(crate) fn stage_layer(
 /// nothing to the values, which is the whole of how m-values are null.
 #[cfg(feature = "unstable-v2")]
 fn build_m_values(source: &impl LayerSource, order: &Order) -> Vec<StagedMValue> {
-    /// Gather one column, naming the run and the staged column that hold its kind of values.
-    macro_rules! column {
-        ($index:expr, $variant:ident) => {{
-            let (presence, values) = take_column(source, order, $index, |m_value| match m_value {
-                MValue::$variant(run) => Some(run.as_deref()),
-                _ => None,
-            });
-            (presence, StagedValues::$variant(values))
-        }};
-    }
-
-    let layout = source.v2_layout();
-    let mut columns = Vec::with_capacity(layout.m_value_names.len());
-    for (index, (name, &kind)) in layout
-        .m_value_names
-        .iter()
-        .zip(layout.m_value_kinds)
-        .enumerate()
-    {
-        let (presence, values) = match kind {
-            PropKind::Bool => column!(index, Bool),
-            PropKind::I8 => column!(index, I8),
-            PropKind::U8 => column!(index, U8),
-            PropKind::I32 => column!(index, I32),
-            PropKind::U32 => column!(index, U32),
-            PropKind::I64 => column!(index, I64),
-            PropKind::U64 => column!(index, U64),
-            PropKind::F32 => column!(index, F32),
-            PropKind::F64 => column!(index, F64),
-            PropKind::Str => column!(index, Str),
-        };
+    let kinds = source.m_value_kinds();
+    let scopes = source.v2_layout().m_value_scopes;
+    let mut columns = Vec::with_capacity(kinds.len());
+    for (index, &kind) in kinds.iter().enumerate() {
+        let scope = scopes.get(index).copied().unwrap_or_default();
+        let mut values = StagedValues::empty(kind);
+        let presence: Vec<bool> = order
+            .iter()
+            .map(|f| source.push_m_values(f, index, &mut values))
+            .collect();
         // A column no feature is null on needs no mask at all.
         let presence = if presence.iter().all(|&p| p) {
             None
         } else {
             Some(presence)
         };
-        columns.push(StagedMValue::new(name.clone(), presence, values));
+        columns.push(
+            StagedMValue::new(source.m_value_name(index), presence, values).with_scope(scope),
+        );
     }
     columns
-}
-
-/// Column `index` of the features in staging order: which of them carry values, and the
-/// values themselves, flat.
-///
-/// `run` projects a feature's value to its run of `T`, and is [`None`] only for a
-/// value of another kind, which a source never holds.
-#[cfg(feature = "unstable-v2")]
-fn take_column<T: Clone>(
-    source: &impl LayerSource,
-    order: &Order,
-    index: usize,
-    run: fn(&MValue) -> Option<Option<&[T]>>,
-) -> (Vec<bool>, Vec<T>) {
-    let mut presence = Vec::with_capacity(source.feature_count());
-    let mut values = Vec::new();
-    for f in order.iter() {
-        let Some(m_value) = source.m_value(f, index) else {
-            presence.push(false);
-            continue;
-        };
-        let run = run(m_value).expect("m-value kind matches its column");
-        presence.push(run.is_some());
-        let run = run.unwrap_or_default();
-        match source.vertex_order(f) {
-            Some(moved) if moved.len() == run.len() => {
-                values.extend(moved.iter().map(|&i| run[i].clone()));
-            }
-            _ => values.extend_from_slice(run),
-        }
-    }
-    (presence, values)
 }
 
 /// Shred each nested column out of the features, in staging order.
@@ -458,12 +407,11 @@ fn build_shared_dict(
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{EncoderConfig, Network, Profile};
     use geo_types::Point;
 
     use super::*;
     use crate::decoder::GeometryValues;
-    use crate::encoder::{Codecs, Encoder};
+    use crate::encoder::{Codecs, Encoder, EncoderConfig, Network, Profile};
     use crate::test_helpers::{dec, parser};
     use crate::{Layer, PropValue};
 

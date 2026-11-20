@@ -132,7 +132,7 @@ const POINT_TILE = [
   region(3, "encoding"),
   region(3, "num_values"),
   region(3, "byte_length"),
-  region(3, "z_step"),
+  region(3, "z_axis"),
   region(3, "data", {
     streamType: "data[vertex]",
     logical: "vertex/componentwise-delta",

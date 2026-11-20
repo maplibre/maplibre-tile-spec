@@ -7,7 +7,7 @@ import pytest
 import maplibre_tiles as mlt
 
 SYNTHETIC = Path(__file__).parents[3] / "test" / "synthetic" / "0x02"
-Z_FIXTURES = sorted(SYNTHETIC.glob("z_*.mlt"))
+Z_FIXTURES = sorted([*SYNTHETIC.glob("z_*.mlt"), *SYNTHETIC.glob("mesh_*.mlt")])
 WKB_TYPES = {
     1: "Point",
     2: "LineString",
@@ -94,10 +94,27 @@ def test_a_flat_layer_has_no_z_step_and_2d_wkb():
 
 def test_a_transformed_z_reads_as_metres():
     blob = mlt.encode_geojson(
-        _fc({"type": "Point", "coordinates": [0, 0, 100_120]}), "r", z_step=-1
+        _fc({"type": "Point", "coordinates": [0, 0, 120]}), "r", z_step=-1
     )
     wkb = mlt.decode_mlt(blob, z=0, x=0, y=0, tms=False)[0].features[0].wkb
     assert _wkb_geometry(wkb)["coordinates"][2] == 12.0
+
+
+@pytest.mark.parametrize(
+    ("height_mode", "decoded"),
+    [(None, "absolute"), ("absolute", "absolute"), ("relative_to_ground", "relative_to_ground")],
+    ids=["default", "absolute", "relative_to_ground"],
+)
+def test_the_height_mode_roundtrips(height_mode, decoded):
+    blob = mlt.encode_geojson(
+        _fc({"type": "Point", "coordinates": [0, 0, 12]}), "r", z_step=0, height_mode=height_mode
+    )
+    assert mlt.decode_mlt(blob)[0].height_mode == decoded
+
+
+def test_a_flat_layer_has_no_height_mode():
+    blob = mlt.encode_geojson(_fc({"type": "Point", "coordinates": [0, 0]}), "r")
+    assert mlt.decode_mlt(blob)[0].height_mode is None
 
 
 @pytest.mark.parametrize(
@@ -133,3 +150,26 @@ def test_z_roundtrips_through_encode_geojson(geometry):
 def test_z_and_z_step_must_agree(geometry, z_step, message):
     with pytest.raises(ValueError, match=f"^{message}$"):
         mlt.encode_geojson(_fc(geometry), "r", z_step=z_step)
+
+
+@pytest.mark.parametrize(
+    ("coordinates", "z_step", "height_mode", "message"),
+    [
+        ([1, 2], None, "relative_to_ground", r"'height_mode' needs a 'z_step'"),
+        (
+            [1, 2, 3],
+            0,
+            "clamp_to_ground",
+            r"'height_mode' must be 'absolute' or 'relative_to_ground', not \"clamp_to_ground\"",
+        ),
+    ],
+    ids=["height_mode_without_z_step", "unknown_height_mode"],
+)
+def test_an_invalid_height_mode_is_rejected(coordinates, z_step, height_mode, message):
+    with pytest.raises(ValueError, match=f"^{message}$"):
+        mlt.encode_geojson(
+            _fc({"type": "Point", "coordinates": coordinates}),
+            "r",
+            z_step=z_step,
+            height_mode=height_mode,
+        )

@@ -1,0 +1,66 @@
+<svg class="mlt-diagram" viewBox="0 0 710 206" role="img" aria-label="shade, vertex-scoped, holds 5 values for the 5 vertices of feature 0 and is null on feature 1; part, triangle-scoped, holds roof for the 4 triangles of feature 0 and wall for the 2 of feature 1" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">vertices</text>
+<text class="row" x="0" y="94">shade</text>
+<text class="row" x="0" y="144">triangles</text>
+<text class="row" x="0" y="184">part</text>
+<text class="muted small" x="0" y="110">vertex</text>
+<text class="muted small" x="0" y="200">triangle</text>
+<text class="bold mid t0" x="248" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H366V34"/>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">0</text>
+<rect class="f0" x="130" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="94">200</text>
+<rect class="f0" x="178" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="54">1</text>
+<rect class="f0" x="178" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="94">200</text>
+<rect class="f0" x="226" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="54">2</text>
+<rect class="f0" x="226" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="94">200</text>
+<rect class="f0" x="274" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="54">3</text>
+<rect class="f0" x="274" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="94">200</text>
+<rect class="f0" x="322" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="54">4</text>
+<rect class="f0" x="322" y="80" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="94">255</text>
+<rect class="f0" x="130" y="130" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="144">0</text>
+<rect class="f0" x="130" y="170" width="56" height="28" rx="3"/>
+<text class="cell" x="158" y="184">roof</text>
+<rect class="f0" x="190" y="130" width="56" height="28" rx="3"/>
+<text class="cell" x="218" y="144">1</text>
+<rect class="f0" x="190" y="170" width="56" height="28" rx="3"/>
+<text class="cell" x="218" y="184">roof</text>
+<rect class="f0" x="250" y="130" width="56" height="28" rx="3"/>
+<text class="cell" x="278" y="144">2</text>
+<rect class="f0" x="250" y="170" width="56" height="28" rx="3"/>
+<text class="cell" x="278" y="184">roof</text>
+<rect class="f0" x="310" y="130" width="56" height="28" rx="3"/>
+<text class="cell" x="338" y="144">3</text>
+<rect class="f0" x="310" y="170" width="56" height="28" rx="3"/>
+<text class="cell" x="338" y="184">roof</text>
+<text class="bold mid t1" x="474" y="14">feature 1</text>
+<path class="bracket t1" d="M380 34V28H568V34"/>
+<rect class="f1" x="380" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="402" y="54">5</text>
+<rect class="f1" x="428" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="450" y="54">6</text>
+<rect class="f1" x="476" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="498" y="54">7</text>
+<rect class="f1" x="524" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="546" y="54">8</text>
+<rect class="implicit" x="380" y="80" width="188" height="28" rx="3"/>
+<text class="cell muted" x="474" y="94">null</text>
+<rect class="f1" x="380" y="130" width="92" height="28" rx="3"/>
+<text class="cell" x="426" y="144">4</text>
+<rect class="f1" x="380" y="170" width="92" height="28" rx="3"/>
+<text class="cell" x="426" y="184">wall</text>
+<rect class="f1" x="476" y="130" width="92" height="28" rx="3"/>
+<text class="cell" x="522" y="144">5</text>
+<rect class="f1" x="476" y="170" width="92" height="28" rx="3"/>
+<text class="cell" x="522" y="184">wall</text>
+</svg>
