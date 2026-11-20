@@ -23050,6 +23050,250 @@
     }
   },
   {
+    "name": "mesh_mvalues_both.mlt",
+    "directory": "0x02",
+    "bytes": 105,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "mesh"
+      ],
+      "geomLayout": [
+        "meshes"
+      ],
+      "zStep": [
+        "1m"
+      ],
+      "heightMode": [
+        "absolute"
+      ],
+      "dataType": [],
+      "mValue": [
+        "u32",
+        "u8"
+      ],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data",
+        "data[vertex]",
+        "length[geometries]",
+        "length[triangles]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mesh_mvalues_triangle.mlt",
+    "directory": "0x02",
+    "bytes": 90,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "mesh"
+      ],
+      "geomLayout": [
+        "meshes"
+      ],
+      "zStep": [
+        "1m"
+      ],
+      "heightMode": [
+        "absolute"
+      ],
+      "dataType": [],
+      "mValue": [
+        "u8"
+      ],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data",
+        "data[vertex]",
+        "length[geometries]",
+        "length[triangles]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mesh_mvalues_vertex.mlt",
+    "directory": "0x02",
+    "bytes": 91,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "mesh"
+      ],
+      "geomLayout": [
+        "meshes"
+      ],
+      "zStep": [
+        "1m"
+      ],
+      "heightMode": [
+        "absolute"
+      ],
+      "dataType": [],
+      "mValue": [
+        "u32"
+      ],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data",
+        "data[vertex]",
+        "length[geometries]",
+        "length[triangles]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mesh_relative_to_ground.mlt",
+    "directory": "0x02",
+    "bytes": 54,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "mesh"
+      ],
+      "geomLayout": [
+        "meshes"
+      ],
+      "zStep": [
+        "1dm"
+      ],
+      "heightMode": [
+        "relative-to-ground"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[triangles]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mesh_roof_wall.mlt",
+    "directory": "0x02",
+    "bytes": 74,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "mesh"
+      ],
+      "geomLayout": [
+        "meshes"
+      ],
+      "zStep": [
+        "1m"
+      ],
+      "heightMode": [
+        "absolute"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[triangles]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mesh_triangle.mlt",
+    "directory": "0x02",
+    "bytes": 42,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "mesh"
+      ],
+      "geomLayout": [
+        "meshes"
+      ],
+      "zStep": [
+        "1cm"
+      ],
+      "heightMode": [
+        "absolute"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[triangles]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_2_line_line.mlt",
     "directory": "0x02",
     "bytes": 32,
