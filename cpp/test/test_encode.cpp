@@ -731,6 +731,67 @@ TEST(Encode, LargeIntegerEncoding) {
     }
 }
 
+// With a fixed integer encoding option (PLAIN, or DELTA, which unsigned streams store as plain), the
+// encoder builds only the requested encoding instead of all candidates. The decoded tile must not change.
+TEST(Encode, FixedIntegerEncodingOptionsRoundtrip) {
+    std::vector<Encoder::Vertex> line;
+    line.reserve(200);
+    for (int i = 0; i < 200; ++i) {
+        // steps of equal size with occasional jumps, so delta and RLE candidates would differ
+        line.push_back({.x = (i % 10 == 0) ? i * 7 : i * 3, .y = 4000 - (i * 5)});
+    }
+
+    std::vector<Encoder::Feature> features;
+    features.reserve(60);
+    for (int i = 0; i < 60; ++i) {
+        Encoder::Feature f;
+        f.id = 1000 + i;
+        f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
+        f.geometry.coordinates = line;
+        f.properties["rank"] = std::int32_t{i < 30 ? 5 : i}; // a run, then a sequence
+        f.properties["count"] = static_cast<std::uint32_t>(i * 1000);
+        f.properties["big"] = std::int64_t{1} << (20 + (i % 30));
+        // Above INT32_MAX, so the column can't take the signed path and uses the unsigned encoding
+        f.properties["huge"] = static_cast<std::uint32_t>(3'000'000'000U + static_cast<std::uint32_t>(i));
+        features.push_back(std::move(f));
+    }
+    const auto layer = makeLayer("fixed", std::move(features));
+
+    for (const auto option : {IntegerEncodingOption::PLAIN, IntegerEncodingOption::DELTA}) {
+        EncoderConfig config;
+        config.sortFeatures = false;
+        config.enableMortonEncoding = false;
+        config.integerEncodingOption = option;
+        config.geometryEncodingOption = option;
+
+        auto tile = encodeDecode({layer}, config);
+        const auto* decoded = tile.getLayer("fixed");
+        ASSERT_TRUE(decoded);
+        ASSERT_EQ(decoded->getFeatures().size(), 60u);
+
+        const auto& rank = decoded->getProperties().at("rank");
+        const auto& count = decoded->getProperties().at("count");
+        const auto& big = decoded->getProperties().at("big");
+        const auto& huge = decoded->getProperties().at("huge");
+        for (int i = 0; i < 60; ++i) {
+            const auto& feature = decoded->getFeatures()[i];
+            EXPECT_EQ(feature.getID(), static_cast<std::uint64_t>(1000 + i));
+
+            const auto& ls = dynamic_cast<const geometry::LineString&>(feature.getGeometry());
+            ASSERT_EQ(ls.getCoordinates().size(), line.size());
+            for (std::size_t v = 0; v < line.size(); ++v) {
+                EXPECT_EQ(ls.getCoordinates()[v].x, static_cast<float>(line[v].x));
+                EXPECT_EQ(ls.getCoordinates()[v].y, static_cast<float>(line[v].y));
+            }
+
+            EXPECT_EQ(std::get<std::int32_t>(*rank.getProperty(i)), i < 30 ? 5 : i);
+            EXPECT_EQ(std::get<std::uint32_t>(*count.getProperty(i)), static_cast<std::uint32_t>(i * 1000));
+            EXPECT_EQ(std::get<std::int64_t>(*big.getProperty(i)), std::int64_t{1} << (20 + (i % 30)));
+            EXPECT_EQ(std::get<std::uint32_t>(*huge.getProperty(i)), 3'000'000'000U + static_cast<std::uint32_t>(i));
+        }
+    }
+}
+
 TEST(Encode, LongIdRoundtrip) {
     auto layer = makeLayer("longids", {makePointFeature(0xFFFFFFFF00000001ULL, {.x = 10, .y = 20})});
 
