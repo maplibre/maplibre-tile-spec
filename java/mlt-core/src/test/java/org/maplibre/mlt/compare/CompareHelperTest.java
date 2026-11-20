@@ -118,6 +118,37 @@ class CompareHelperTest {
   }
 
   @Test
+  void topologicallyEqualGeometriesAreEqual() {
+    // Same square, but the ring starts at a different vertex
+    final var square1 = squareStartingAt(0);
+    final var square2 = squareStartingAt(1);
+    assertFalse(square1.equalsExact(square2));
+    final var mlt = mltOf(createLayer("roads", createFeature(1, square1)));
+    final var mvt = mvtOf(createLayer("roads", createFeature(1, square2)));
+    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.Geometry);
+    assertFalse(result.isPresent());
+  }
+
+  @Test
+  void differentGeometryValidityIsDetected() {
+    final var valid = squareStartingAt(0);
+    final var bowtie =
+        FACTORY.createPolygon(
+            new Coordinate[] {
+              new Coordinate(0, 0),
+              new Coordinate(1, 1),
+              new Coordinate(1, 0),
+              new Coordinate(0, 1),
+              new Coordinate(0, 0)
+            });
+    final var mlt = mltOf(createLayer("roads", createFeature(1, bowtie)));
+    final var mvt = mvtOf(createLayer("roads", createFeature(1, valid)));
+    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.Geometry);
+    assertTrue(result.isPresent());
+    assertTrue(result.get().toString().contains("Geometry validity does not match"));
+  }
+
+  @Test
   void geometryDifferencesAreNotCheckedInLayersOnlyMode() {
     final var point1 = FACTORY.createPoint(new Coordinate(1, 2));
     final var point2 = FACTORY.createPoint(new Coordinate(3, 4));
@@ -374,6 +405,19 @@ class CompareHelperTest {
 
   private static MVTFeature createFeature(long id, Geometry geom, int index) {
     return MVTFeature.builder().index(index).id(id).geometry(geom).properties(Map.of()).build();
+  }
+
+  private static Geometry squareStartingAt(int start) {
+    final var corners =
+        new Coordinate[] {
+          new Coordinate(0, 0), new Coordinate(1, 0), new Coordinate(1, 1), new Coordinate(0, 1)
+        };
+    final var ring = new Coordinate[corners.length + 1];
+    for (var i = 0; i < corners.length; i++) {
+      ring[i] = corners[(start + i) % corners.length];
+    }
+    ring[corners.length] = ring[0];
+    return FACTORY.createPolygon(ring);
   }
 
   private static MVTFeature createPointFeature(Map<String, Object> props) {
