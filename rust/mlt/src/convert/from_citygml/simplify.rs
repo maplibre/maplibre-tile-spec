@@ -1,26 +1,19 @@
-//! Meshes simplified by meshoptimizer within an error in metres, removing the pieces smaller than
-//! it: with the seams where parts meet kept, their vertices sliding along them, or as a whole, each
-//! triangle then of the part its facing says.
+//! Meshes simplified by meshoptimizer within an error in metres: each triangle keeps its semantic
+//! `part`, and vertices shared between parts slide along the seams where parts meet without
+//! pulling wall triangles onto roofs or roof triangles down facades.
 
 use meshopt::{SimplifyOptions, simplify_decoder};
 
+use super::Mesh;
 use super::parser::Part;
-use super::{Mesh, ROOF_MIN_UP};
 
-/// How the parts of a mesh are kept by [`simplify`].
-#[derive(Clone, Copy)]
-pub(super) enum Parts {
-    /// The parts are simplified together, the seams between them kept, their vertices sliding
-    /// along them.
-    Seamed,
-    /// The mesh is simplified as a whole, and a triangle facing up is a roof, one facing down a
-    /// ground, and the others walls.
-    Faced,
-}
-
-/// `mesh`, `metres` per grid unit along x, y and z, simplified within `error` metres. `None` if
-/// its vertices, one copy per part they are in, are more than a `u32` indexes.
-pub(super) fn simplify(mesh: &Mesh, metres: [f64; 3], error: f64, parts: Parts) -> Option<Mesh> {
+/// `mesh`, `metres` per grid unit along x, y and z, simplified within `error` metres while
+/// keeping fold lines, the seams between parts, and each triangle's semantic `part`. When `prune`
+/// is `true`, disconnected slivers smaller than `error` are removed; when `false`, open borders
+/// are locked so overhanging eaves and unwelded T-junctions between `CityGML` roof facets cannot
+/// tear apart or collapse away at coarse zoom levels. `None` if its vertices, one copy per part
+/// they are in, are more than a `u32` indexes.
+pub(super) fn simplify(mesh: &Mesh, metres: [f64; 3], error: f64, prune: bool) -> Option<Mesh> {
     let Some(&origin) = mesh.xyz.first() else {
         return compact(&[], Vec::new(), Vec::new());
     };
@@ -38,71 +31,44 @@ pub(super) fn simplify(mesh: &Mesh, metres: [f64; 3], error: f64, parts: Parts) 
         reason = "an error of centimetres to metres fits an f32"
     )]
     let error = error as f32;
-    let options = SimplifyOptions::ErrorAbsolute | SimplifyOptions::Prune;
+    let mut options = SimplifyOptions::ErrorAbsolute | SimplifyOptions::PreserveFolds;
+    if prune {
+        options |= SimplifyOptions::Prune;
+    } else {
+        options |= SimplifyOptions::LockBorder;
+    }
+    // Each part gets its own copy of any vertex it shares: meshoptimizer keeps the seams between
+    // parts, sliding their vertices along them, while preserving every triangle's semantic `Part`
+    // (including steep spires, domes and barrel vaults).
+    let mut copies: Vec<Vec<(Part, u32)>> = vec![Vec::new(); mesh.xyz.len()];
+    let mut source = Vec::new();
+    let mut part_of = Vec::new();
+    let split: Vec<u32> = mesh
+        .triangles
+        .iter()
+        .zip(&mesh.parts)
+        .flat_map(|(t, &part)| t.map(|v| (v, part)))
+        .map(|(v, part)| {
+            let copies = &mut copies[v as usize];
+            if let Some(&(_, copy)) = copies.iter().find(|&&(p, _)| p == part) {
+                return Some(copy);
+            }
+            let copy = u32::try_from(source.len()).ok()?;
+            copies.push((part, copy));
+            source.push(v);
+            part_of.push(part);
+            Some(copy)
+        })
+        .collect::<Option<_>>()?;
+    let split_positions: Vec<[f32; 3]> = source.iter().map(|&v| positions[v as usize]).collect();
+    let simplified = simplify_decoder(&split, &split_positions, 0, error, options, None);
     let mut triangles = Vec::new();
     let mut kept = Vec::new();
-    match parts {
-        Parts::Seamed => {
-            // Each part its own copy of a vertex it shares: meshoptimizer then keeps the seams
-            // between parts, sliding their vertices along them, and each copy names its part.
-            let mut copies: Vec<Vec<(Part, u32)>> = vec![Vec::new(); mesh.xyz.len()];
-            let mut source = Vec::new();
-            let mut part_of = Vec::new();
-            let split: Vec<u32> = mesh
-                .triangles
-                .iter()
-                .zip(&mesh.parts)
-                .flat_map(|(t, &part)| t.map(|v| (v, part)))
-                .map(|(v, part)| {
-                    let copies = &mut copies[v as usize];
-                    if let Some(&(_, copy)) = copies.iter().find(|&&(p, _)| p == part) {
-                        return Some(copy);
-                    }
-                    let copy = u32::try_from(source.len()).ok()?;
-                    copies.push((part, copy));
-                    source.push(v);
-                    part_of.push(part);
-                    Some(copy)
-                })
-                .collect::<Option<_>>()?;
-            let split_positions: Vec<[f32; 3]> =
-                source.iter().map(|&v| positions[v as usize]).collect();
-            let simplified = simplify_decoder(&split, &split_positions, 0, error, options, None);
-            for t in simplified.as_chunks::<3>().0 {
-                triangles.push(t.map(|copy| source[copy as usize]));
-                kept.push(part_of[t[0] as usize]);
-            }
-        }
-        Parts::Faced => {
-            let indices: Vec<u32> = mesh.triangles.iter().flatten().copied().collect();
-            let simplified = simplify_decoder(&indices, &positions, 0, error, options, None);
-            for t in simplified.as_chunks::<3>().0 {
-                triangles.push(*t);
-                kept.push(facing(t.map(|i| positions[i as usize])));
-            }
-        }
+    for t in simplified.as_chunks::<3>().0 {
+        triangles.push(t.map(|copy| source[copy as usize]));
+        kept.push(part_of[t[0] as usize]);
     }
     compact(&mesh.xyz, triangles, kept)
-}
-
-/// The part of a triangle by its facing: a roof facing up, a ground facing down, else a wall.
-fn facing([first, second, third]: [[f32; 3]; 3]) -> Part {
-    // The grid's y points south, so (x, -y, z) is right-handed.
-    let [first, second, third] = [first, second, third].map(|[x, y, z]| [x, -y, z].map(f64::from));
-    let [along, across] = [second, third].map(|p| [0, 1, 2].map(|i| p[i] - first[i]));
-    let normal = [
-        along[1] * across[2] - along[2] * across[1],
-        along[2] * across[0] - along[0] * across[2],
-        along[0] * across[1] - along[1] * across[0],
-    ];
-    let length = normal.iter().map(|n| n * n).sum::<f64>().sqrt();
-    if normal[2] > ROOF_MIN_UP * length {
-        Part::Roof
-    } else if normal[2] < -ROOF_MIN_UP * length {
-        Part::Ground
-    } else {
-        Part::Wall
-    }
 }
 
 /// The mesh of the `triangles` and their `parts` between `xyz`, without the vertices none names.
@@ -156,7 +122,7 @@ mod tests {
     #[test]
     fn a_flat_part_keeps_its_outline_and_loses_its_inside() {
         let roof = grid(4, Part::Roof);
-        let simplified = simplify(&roof, [1.0; 3], 0.05, Parts::Seamed).unwrap();
+        let simplified = simplify(&roof, [1.0; 3], 0.05, true).unwrap();
         assert!(simplified.triangles.len() < roof.triangles.len());
         assert!(simplified.parts.iter().all(|&p| p == Part::Roof));
         assert!(
@@ -177,7 +143,7 @@ mod tests {
                 *part = Part::Wall;
             }
         }
-        let simplified = simplify(&mesh, [1.0; 3], 0.05, Parts::Seamed).unwrap();
+        let simplified = simplify(&mesh, [1.0; 3], 0.05, false).unwrap();
         assert!(simplified.triangles.len() < mesh.triangles.len());
         for part in [Part::Wall, Part::Roof] {
             let doubled_area: i32 = simplified
@@ -195,9 +161,9 @@ mod tests {
     }
 
     #[test]
-    fn a_piece_smaller_than_the_error_goes_and_a_whole_mesh_is_faced() {
-        // A square of 10 m in cm, and a sliver of 1 cm far from it.
-        let mut mesh = grid(1, Part::Wall);
+    fn prune_removes_debris_only_when_enabled() {
+        // A 10 m roof square in cm, plus a disconnected 1 cm sliver.
+        let mut mesh = grid(1, Part::Roof);
         for p in &mut mesh.xyz {
             *p = p.map(|v| v * 1000);
         }
@@ -205,9 +171,68 @@ mod tests {
         mesh.xyz
             .extend([[5000, 5000, 0], [5001, 5000, 0], [5000, 5001, 0]]);
         mesh.triangles.push([n, n + 2, n + 1]);
-        mesh.parts.push(Part::Wall);
-        let simplified = simplify(&mesh, [0.01; 3], 0.05, Parts::Faced).unwrap();
-        assert_eq!(simplified.triangles.len(), 2);
-        assert_eq!(simplified.parts, [Part::Roof, Part::Roof]);
+        mesh.parts.push(Part::Roof);
+
+        let pruned = simplify(&mesh, [0.01; 3], 0.05, true).unwrap();
+        assert_eq!(pruned.triangles.len(), 2);
+        assert_eq!(pruned.parts, [Part::Roof, Part::Roof]);
+
+        let unpruned = simplify(&mesh, [0.01; 3], 0.05, false).unwrap();
+        assert_eq!(unpruned.triangles.len(), 3);
+        assert!(unpruned.parts.iter().all(|&p| p == Part::Roof));
+    }
+
+    #[test]
+    fn a_steep_spire_roof_keeps_its_roof_part_when_simplified() {
+        // 8 x 8 m brick tower rising to 40 m (`Wall`), topped by an 81-degree spire rising to 65 m (`Roof`).
+        let xyz = vec![
+            [0, 0, 0],
+            [8, 0, 0],
+            [8, -8, 0],
+            [0, -8, 0],
+            [0, 0, 40],
+            [8, 0, 40],
+            [8, -8, 40],
+            [0, -8, 40],
+            [4, -4, 65],
+        ];
+        let triangles = vec![
+            [0, 1, 5],
+            [0, 5, 4],
+            [1, 2, 6],
+            [1, 6, 5],
+            [2, 3, 7],
+            [2, 7, 6],
+            [3, 0, 4],
+            [3, 4, 7],
+            [4, 5, 8],
+            [5, 6, 8],
+            [6, 7, 8],
+            [7, 4, 8],
+        ];
+        let mut parts = vec![Part::Wall; 8];
+        parts.extend([Part::Roof; 4]);
+        let mesh = Mesh {
+            xyz,
+            triangles,
+            parts,
+        };
+        let simplified = simplify(&mesh, [1.0; 3], 1.5, false).unwrap();
+        let max_roof_z = simplified
+            .triangles
+            .iter()
+            .zip(&simplified.parts)
+            .filter(|&(_, &p)| p == Part::Roof)
+            .flat_map(|(t, _)| t.map(|v| simplified.xyz[v as usize][2]))
+            .max();
+        let max_wall_z = simplified
+            .triangles
+            .iter()
+            .zip(&simplified.parts)
+            .filter(|&(_, &p)| p == Part::Wall)
+            .flat_map(|(t, _)| t.map(|v| simplified.xyz[v as usize][2]))
+            .max();
+        assert_eq!(max_roof_z, Some(65));
+        assert_eq!(max_wall_z, Some(40));
     }
 }

@@ -9,20 +9,19 @@
 //! without semantics is a roof where it faces up and a wall otherwise.
 //!
 //! The highest zoom holds the highest LOD of each part of a building. The zoom below holds its
-//! LOD2: the highest LOD of 2 or less of each part, or else its highest LOD without windows, doors,
-//! installations and holes, its vertices clustered in cells of half a pixel. Lower zooms hold a
-//! block: the outline of its ground, or its bounding box without one, clustered in cells of a
-//! pixel and raised from 0 to its top as walls and a roof. A building under 2 pixels across has
-//! no block. A pixel is a 512th of a tile. From three zooms below the highest, the buildings of a
-//! tile lower than 40 m are merged where they touch: the cells of a pixel their grounds cover at
-//! least half of are joined with their neighbours in the same 10 m band of tops, and each group is
-//! one block at its mean top, with a `buildings` property counting the buildings it holds. Its
-//! outline is simplified to within a pixel, and it has no wall where it stands less than a pixel
-//! above its neighbour or the ground. Higher buildings stay blocks of their own there, whatever
-//! their size.
+//! LOD2: the highest LOD of 2 or less of each part, or else its highest LOD without windows, doors
+//! and installations, with window and door holes closed while courtyard holes stay open. Two zooms
+//! below the highest, prominent buildings keep their 3D LOD2 roofs and spires, while smaller ones
+//! become a block: the outline of their ground, or their bounding box without one, raised from 0
+//! to their top as walls and a roof. From three zooms below the highest, buildings lower than 40 m
+//! are merged where they touch: the cells of a pixel their grounds or roofs cover at least half of
+//! are joined with their neighbours in the same 10 m band of tops, and each group is one block at
+//! its mean top, with a `buildings` property counting the buildings it holds. Landmarks of 40 m or
+//! higher stay 3D meshes of their own.
 //!
-//! Every mesh but the merged blocks is then simplified by meshoptimizer: within 5 cm at the highest
-//! zoom and a third of a pixel below, its pieces smaller than that removed.
+//! Every 3D mesh and single block is simplified by meshoptimizer with part seams kept so semantic
+//! `part` values (including steep spires and vaults) are preserved: within 5 cm at the highest
+//! zoom and 0.45 pixels below.
 //!
 //! A file whose coordinates lie far from the input's other files in the CRS it declares, but near
 //! them in the CRS most files declare, is read in the latter: some Hamburg files declare
@@ -51,7 +50,7 @@ use walkdir::WalkDir;
 use self::crs::{Reprojector, epsg_of_srs_name};
 use self::merge::{Footprint, merge};
 use self::parser::{Lods, Part};
-use self::simplify::{Parts, simplify};
+use self::simplify::simplify;
 use super::from_geojson::{decode_with_default_budget, is_memory_limit, mercator_unit, tile_index};
 use super::{ConvertArgs, Reencoder};
 
@@ -69,12 +68,10 @@ const ROOF_MIN_UP: f64 = 0.34;
 const MISLABELLED_MIN_DEGREES: f64 = 1.0;
 /// The pixels across a tile that the detail of zooms below the highest is measured in.
 const TILE_PIXELS: f64 = 512.0;
-/// The cell, in pixels, the `z_max - 1` `LoD2` mesh clusters its vertices in.
-const LOD2_CELL_PIXELS: f64 = 0.5;
 /// The longer side of its bounding box, in pixels, under which a building is left out one zoom
 /// below the highest.
 const LOD2_MIN_PIXELS: f64 = 1.5;
-/// The cell, in pixels, a coarse `z_max - 2` mesh or block clusters its corners in.
+/// The cell, in pixels, merged footprint blocks rasterise their coverage in.
 const BLOCK_CELL_PIXELS: f64 = 1.0;
 /// The longer side of its bounding box, in pixels, under which a building has no coarse mesh or
 /// block two zooms below the highest.
@@ -480,6 +477,7 @@ impl Mesh {
         let mut welded = Vec::new();
         let mut triangles = Vec::new();
         let mut parts = Vec::new();
+        let mut seen = HashSet::new();
         for (surface, points) in surfaces.into_iter().zip(points) {
             let local: Vec<u32> = points
                 .iter()
@@ -493,7 +491,7 @@ impl Mesh {
                 .collect::<Option<_>>()?;
             for t in &surface.triangles {
                 let [a, b, c] = t.map(|i| local[i as usize]);
-                if a != b && b != c && c != a {
+                if a != b && b != c && c != a && seen.insert((rotated([a, b, c]), surface.part)) {
                     triangles.push([a, b, c]);
                     parts.push(surface.part);
                 }
@@ -523,16 +521,53 @@ impl Mesh {
         Some(mesh)
     }
 
-    /// Turns a closed mesh whose triangles face inward (`(x, -y, z)` signed volume `< 0`) outward
-    /// so every triangle winds counter-clockwise seen from outside. Open shells have no enclosed
-    /// volume and keep their source winding.
+    /// Turns each closed shell component whose triangles face inward (`(x, -y, z)` signed volume
+    /// `< 0`) outward so every triangle winds counter-clockwise seen from outside. Open shells
+    /// have no enclosed volume and keep their source winding.
     fn orient_outward(&mut self) {
-        if self.triangles.len() < 4 || !is_closed_shell(&self.triangles) {
+        let count = self.triangles.len();
+        if count < 4 {
             return;
         }
-        if signed_volume_x6(&self.xyz, &self.triangles) < 0 {
-            for t in &mut self.triangles {
-                t.swap(1, 2);
+        let mut parent: Vec<usize> = (0..count).collect();
+        let find = |parent: &mut [usize], mut x: usize| {
+            while parent[x] != x {
+                parent[x] = parent[parent[x]];
+                x = parent[x];
+            }
+            x
+        };
+        let mut by_edge: Vec<(u64, usize)> = Vec::with_capacity(count * 3);
+        for (i, &[a, b, c]) in self.triangles.iter().enumerate() {
+            for (u, v) in [(a, b), (b, c), (c, a)] {
+                let (lo, hi) = (u.min(v), u.max(v));
+                by_edge.push(((u64::from(lo) << 32) | u64::from(hi), i));
+            }
+        }
+        by_edge.sort_unstable_by_key(|&(edge, _)| edge);
+        for pair in by_edge.windows(2) {
+            if pair[0].0 == pair[1].0 {
+                let (ra, rb) = (find(&mut parent, pair[0].1), find(&mut parent, pair[1].1));
+                if ra != rb {
+                    parent[rb] = ra;
+                }
+            }
+        }
+        let mut components: HashMap<usize, Vec<usize>> = HashMap::new();
+        for i in 0..count {
+            components.entry(find(&mut parent, i)).or_default().push(i);
+        }
+        let mut shell = Vec::new();
+        for indices in components.into_values() {
+            if indices.len() < 4 {
+                continue;
+            }
+            shell.clear();
+            shell.extend(indices.iter().map(|&i| self.triangles[i]));
+            if is_closed_shell(&shell) && signed_volume_x6(&self.xyz, &shell) < 0 {
+                for i in indices {
+                    self.triangles[i].swap(1, 2);
+                }
             }
         }
     }
@@ -584,14 +619,14 @@ enum Placed {
 }
 
 /// `building` at `zoom` on the tile that holds the centre of its bounding box, matching
-/// simplification error to screen pixel size so distant views drop sub-pixel triangles:
-/// - `below == 0`: highest LOD (`LoD3`), welded, simplified within 5 cm (`Parts::Seamed`).
-/// - `below == 1`: `LoD2` (`>= 1.5 px`) in `0.5 px` cells, simplified as a whole within `0.5 px`
-///   (`Parts::Faced`, unlocking 3-part corners since `LoD2` carries no windows or doors).
+/// simplification error to screen pixel size so distant views drop sub-pixel triangles while
+/// preserving part seams and semantic `part` labels across all zooms:
+/// - `below == 0`: highest LOD (`LoD3`), welded, simplified within 5 cm (`prune = true`).
+/// - `below == 1`: `LoD2` (`>= 1.5 px`), welded, simplified within `0.45 px` (`prune = false`).
 /// - `below == 2`: prominent buildings (`>= 14 m` tall or `>= 6 px` wide) keep 3D `LoD2` roofs
-///   and spires in `1.0 px` cells (`0.75 px` error); smaller ones (`>= 2.5 px`) become blocks.
+///   and spires simplified within `0.45 px`; smaller ones (`>= 2.5 px`) become blocks.
 /// - `below >= 3`: merged footprint blocks for buildings `< 40 m`, and simplified 3D `LoD2`
-///   meshes (`1.0 px` cells, `0.75 px` error) for `>= 40 m` landmarks.
+///   meshes (`0.45 px` error) for `>= 40 m` landmarks.
 fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(Tile, Placed)> {
     let below = max_zoom - zoom;
     let lods = if below == 0 {
@@ -628,42 +663,31 @@ fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(
             return None;
         }
     }
-    let z_px = tile.width() / TILE_PIXELS / z_step.metres();
     let keep_3d_at_z2 =
         landmark || view.height >= COARSE_3D_MIN_METRES || span >= COARSE_3D_MIN_PIXELS * pixel;
-    let mut mesh = match below {
-        0 => Mesh::weld(view.surfaces.iter().copied(), &points),
-        1 => {
-            let cell = [pixel, pixel, z_px].map(|c| c * LOD2_CELL_PIXELS);
-            cluster(&view.surfaces, &points, cell)
-        }
-        2 if keep_3d_at_z2 => {
-            let cell = [pixel, pixel, z_px].map(|c| c * BLOCK_CELL_PIXELS);
-            cluster(&view.surfaces, &points, cell)
-        }
-        2 => block(&view.surfaces, &points, pixel, BLOCK_MIN_PIXELS),
-        _ => {
-            let cell = [pixel, pixel, z_px].map(|c| c * BLOCK_CELL_PIXELS);
-            cluster(&view.surfaces, &points, cell)
-        }
-    }?;
+    let mut mesh = if below == 2 && !keep_3d_at_z2 {
+        block(&view.surfaces, &points, pixel, BLOCK_MIN_PIXELS, z_step)?
+    } else {
+        Mesh::weld(view.surfaces.iter().copied(), &points)?
+    };
     if below >= 1 {
         drop_ground_caps(&mut mesh, z_step);
     }
     let metres = tile.width() / f64::from(extent);
     let px_metres = tile.width() / TILE_PIXELS;
-    let (error, parts) = match below {
-        0 => (HIGHEST_ERROR_METRES, Parts::Seamed),
-        1 => (LOD2_ERROR_PIXELS * px_metres, Parts::Faced),
-        _ => (COARSE_ERROR_PIXELS * px_metres, Parts::Faced),
+    let (error, prune) = match below {
+        0 => (HIGHEST_ERROR_METRES, true),
+        1 => (LOD2_ERROR_PIXELS * px_metres, false),
+        _ => (COARSE_ERROR_PIXELS * px_metres, false),
     };
-    let mut mesh = simplify(&mesh, [metres, metres, z_step.metres()], error, parts)?;
+    let mut mesh = simplify(&mesh, [metres, metres, z_step.metres()], error, prune)?;
     mesh.orient_outward();
     (!mesh.triangles.is_empty()).then_some((tile, Placed::Mesh(mesh)))
 }
 
-/// Drops downward `Part::Ground` triangles sitting within [`HIDDEN_GROUND_CAP_METRES`] of `z = 0`
-/// below `max_zoom`, keeping elevated overhangs and bridge/tower undersides up in the air.
+/// Drops downward `Part::Ground` triangles at or below [`HIDDEN_GROUND_CAP_METRES`] above `z = 0`
+/// below `max_zoom` (including subterranean foundation floor plates on sloped terrain), keeping
+/// elevated overhangs and bridge/tower undersides up in the air.
 fn drop_ground_caps(mesh: &mut Mesh, z_step: ZStep) {
     #[expect(
         clippy::cast_possible_truncation,
@@ -675,9 +699,7 @@ fn drop_ground_caps(mesh: &mut Mesh, z_step: ZStep) {
         .iter()
         .zip(&mesh.parts)
         .filter(|&(&t, &part)| {
-            part != Part::Ground
-                || t.iter()
-                    .any(|&v| mesh.xyz[v as usize][2].saturating_abs() > cap)
+            part != Part::Ground || t.iter().any(|&v| mesh.xyz[v as usize][2] > cap)
         })
         .map(|(&t, &p)| (t, p))
         .unzip();
@@ -803,30 +825,6 @@ impl<'a> View<'a> {
     }
 }
 
-/// `surfaces` with each of their `points` moved to the nearest multiple of `cell` in x, y and z,
-/// welded, keeping one of the triangles that wind alike through the same vertices. `None` as
-/// [`Mesh::weld`] says.
-fn cluster(surfaces: &[&Surface], points: &[Vec<[i32; 3]>], cell: [f64; 3]) -> Option<Mesh> {
-    let snapped: Vec<Vec<[i32; 3]>> = points
-        .iter()
-        .map(|p| {
-            p.iter()
-                .map(|v| [0, 1, 2].map(|i| snap(v[i], cell[i])))
-                .collect()
-        })
-        .collect();
-    let mut mesh = Mesh::weld(surfaces.iter().copied(), &snapped)?;
-    let mut seen = HashSet::new();
-    (mesh.triangles, mesh.parts) = mesh
-        .triangles
-        .iter()
-        .zip(&mesh.parts)
-        .filter(|&(t, _)| seen.insert(rotated(*t)))
-        .map(|(&t, &p)| (t, p))
-        .unzip();
-    Some(mesh)
-}
-
 /// The triangle turned to start at its least vertex, alike for the triangles that wind alike
 /// through the same vertices.
 fn rotated([a, b, c]: [u32; 3]) -> [u32; 3] {
@@ -840,8 +838,9 @@ fn rotated([a, b, c]: [u32; 3]) -> [u32; 3] {
 }
 
 /// The block of `surfaces` at `points` on a grid of `pixel` units per pixel: the outline of
-/// their ground or, without one, their bounding box, its corners clustered, raised from 0 to
-/// their top. Its walls and roof face out, and it has no bottom.
+/// their ground collar or, without one, their bounding box, raised from 0 to their top without
+/// pre-snapping corners so concave outlines never fold over themselves before simplification.
+/// Its walls and roof face out, and it has no bottom.
 /// `None` if the longer side of their bounding box is under `min_pixels`, or if its vertices are
 /// more than a `u32` indexes.
 fn block(
@@ -849,6 +848,7 @@ fn block(
     points: &[Vec<[i32; 3]>],
     pixel: f64,
     min_pixels: f64,
+    z_step: ZStep,
 ) -> Option<Mesh> {
     let (min, max) =
         points
@@ -864,23 +864,30 @@ fn block(
     if side(0).max(side(1)) < min_pixels * pixel {
         return None;
     }
-    let cell = BLOCK_CELL_PIXELS * pixel;
     // Extend foundations below `z = 0` when downhill ground vertices lie below the centre datum;
     // otherwise start the block at `z = 0`.
     let base = min[2].min(0);
     if max[2] <= base {
         return None;
     }
-    let (grounds, flat): (Vec<&Surface>, Vec<Vec<[i32; 3]>>) = surfaces
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "15 m in z_step units of at least 1 mm fits in i32"
+    )]
+    let slope_cap = (MAX_GROUND_SLOPE_METRES / z_step.metres()).round() as i32;
+    let min_ground_z = surfaces
         .iter()
         .zip(points)
         .filter(|(s, _)| s.part == Part::Ground)
-        .map(|(&s, p)| {
-            let flat = p
-                .iter()
-                .map(|&[x, y, _]| [snap(x, cell), snap(y, cell), base]);
-            (s, flat.collect())
-        })
+        .flat_map(|(_, p)| p.iter().map(|v| v[2]))
+        .min()
+        .unwrap_or(0);
+    let max_collar_z = min_ground_z.saturating_add(slope_cap);
+    let (grounds, flat): (Vec<&Surface>, Vec<Vec<[i32; 3]>>) = surfaces
+        .iter()
+        .zip(points)
+        .filter(|(s, p)| s.part == Part::Ground && p.iter().all(|v| v[2] <= max_collar_z))
+        .map(|(&s, p)| (s, p.iter().map(|&[x, y, _]| [x, y, base]).collect()))
         .unzip();
     let ground = Mesh::weld(grounds, &flat)?;
     let mut xyz = ground.xyz;
@@ -894,7 +901,7 @@ fn block(
         ];
         triangles = facing_down(&xyz, &[[0, 1, 2], [0, 2, 3]]);
     }
-    // Grounds snapped onto each other would count their edges twice, leaving out their walls.
+    // Grounds stacked onto each other would count their edges twice, leaving out their walls.
     let mut seen = HashSet::new();
     triangles.retain(|&t| seen.insert(rotated(t)));
     let edges = |&[a, b, c]: &[u32; 3]| [[a, b], [b, c], [c, a]];
@@ -944,15 +951,6 @@ fn facing_down(xyz: &[[i32; 3]], triangles: &[[u32; 3]]) -> Vec<[u32; 3]> {
             }
         })
         .collect()
-}
-
-/// The multiple of `cell` nearest `v`, which is `v` for a cell under 1.
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "the multiple is within a cell of an i32, and saturates past it"
-)]
-fn snap(v: i32, cell: f64) -> i32 {
-    ((f64::from(v) / cell).round_ties_even() * cell).round() as i32
 }
 
 /// 16-bit Hilbert curve index of `[x, y]` over `[-extent, 2 * extent)`, grouping spatially
@@ -1104,12 +1102,45 @@ mod tests {
     }
 
     #[test]
-    fn clustering_collapses_edges_under_a_cell_and_keeps_one_of_triangles_winding_alike() {
-        let wall = surface(Part::Wall, vec![[0, 1, 2], [1, 3, 2], [1, 2, 0], [2, 1, 0]]);
-        let points = [vec![[0, 0, 0], [100, 0, 0], [0, 0, 100], [104, 0, 3]]];
-        let mesh = cluster(&[&wall], &points, [10.0, 10.0, 10.0]).unwrap();
+    fn welding_deduplicates_identical_faces_and_orients_each_closed_part_outward() {
+        let wall = surface(Part::Wall, vec![[0, 1, 2], [1, 2, 0], [2, 1, 0]]);
+        let points = [vec![[0, 0, 0], [100, 0, 0], [0, 0, 100]]];
+        let mesh = Mesh::weld([&wall], &points).unwrap();
         assert_eq!(mesh.xyz, [[0, 0, 0], [100, 0, 0], [0, 0, 100]]);
         assert_eq!(mesh.triangles, [[0, 1, 2], [2, 1, 0]]);
+
+        // An inside-out closed cube paired with a separate open triangle in the same building:
+        // the closed cube still flips outward even though the whole mesh has open edges.
+        let cube_pts = vec![
+            [0, 0, 0],
+            [10, 0, 0],
+            [10, -10, 0],
+            [0, -10, 0],
+            [0, 0, 10],
+            [10, 0, 10],
+            [10, -10, 10],
+            [0, -10, 10],
+        ];
+        let outward_cube = [
+            [4, 5, 6],
+            [4, 6, 7],
+            [0, 2, 1],
+            [0, 3, 2],
+            [0, 1, 5],
+            [0, 5, 4],
+            [2, 3, 7],
+            [2, 7, 6],
+            [1, 2, 6],
+            [1, 6, 5],
+            [3, 0, 4],
+            [3, 4, 7],
+        ];
+        let inward_cube = surface(Part::Roof, outward_cube.map(|[a, b, c]| [a, c, b]).to_vec());
+        let open_wing = surface(Part::Wall, vec![[0, 1, 2]]);
+        let wing_pts = vec![[50, 0, 0], [60, 0, 0], [50, 0, 10]];
+        let combined = Mesh::weld([&inward_cube, &open_wing], &[cube_pts, wing_pts]).unwrap();
+        assert!(signed_volume_x6(&combined.xyz, &combined.triangles[..12]) > 0);
+        assert_eq!(combined.triangles[12], [8, 9, 10]);
     }
 
     #[test]
@@ -1174,7 +1205,8 @@ mod tests {
             [50, 50, 7],
         ];
         let points = [square.clone(), square];
-        let mesh = block(&[&ground, &again], &points, 1.0, BLOCK_MIN_PIXELS).unwrap();
+        let z_step = ZStep::new(DEFAULT_Z_STEP).unwrap();
+        let mesh = block(&[&ground, &again], &points, 1.0, BLOCK_MIN_PIXELS, z_step).unwrap();
         assert_eq!([count(&mesh, Part::Wall), count(&mesh, Part::Roof)], [8, 4]);
     }
 
@@ -1196,7 +1228,8 @@ mod tests {
             ],
             vec![[0, 0, 7], [100, 0, 7], [0, 100, 7]],
         ];
-        let mesh = block(&[&ground, &roof], &points, 1.0, BLOCK_MIN_PIXELS).unwrap();
+        let z_step = ZStep::new(DEFAULT_Z_STEP).unwrap();
+        let mesh = block(&[&ground, &roof], &points, 1.0, BLOCK_MIN_PIXELS, z_step).unwrap();
         assert_eq!(mesh.xyz.len(), 9);
         assert_eq!([count(&mesh, Part::Wall), count(&mesh, Part::Roof)], [8, 4]);
 
@@ -1241,7 +1274,8 @@ mod tests {
             vec![[0, 0, 5], [30, 0, 5], [0, 20, 9]],
             vec![[0, 0, 5], [30, 0, 5], [15, 0, 5]],
         ];
-        let mesh = block(&[&roof, &line], &points, 10.0, BLOCK_MIN_PIXELS).unwrap();
+        let z_step = ZStep::new(DEFAULT_Z_STEP).unwrap();
+        let mesh = block(&[&roof, &line], &points, 10.0, BLOCK_MIN_PIXELS, z_step).unwrap();
         let mut xyz = mesh.xyz.clone();
         xyz.sort_unstable();
         assert_eq!(
@@ -1258,7 +1292,7 @@ mod tests {
             ]
         );
         assert_eq!([count(&mesh, Part::Wall), count(&mesh, Part::Roof)], [8, 2]);
-        assert!(block(&[&roof, &line], &points, 16.0, BLOCK_MIN_PIXELS).is_none());
+        assert!(block(&[&roof, &line], &points, 16.0, BLOCK_MIN_PIXELS, z_step).is_none());
     }
 
     #[test]
