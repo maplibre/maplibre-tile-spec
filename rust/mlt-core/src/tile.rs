@@ -489,21 +489,6 @@ impl NestedValue {
         }
     }
 
-    /// The heap bytes this value holds, which the decoder charges its budget for.
-    #[must_use]
-    pub(crate) fn heap_bytes(&self) -> usize {
-        match self {
-            Self::Leaf(PropValue::Str(Some(value))) => value.len(),
-            Self::Leaf(_) => size_of::<PropValue>(),
-            Self::List(items) => items.iter().flatten().map(Self::heap_bytes).sum::<usize>(),
-            Self::Map(entries) => entries
-                .iter()
-                .flatten()
-                .map(|(key, value)| key.len() + value.heap_bytes())
-                .sum(),
-        }
-    }
-
     /// Whether the two are the same kind of value, which is all a feature can check
     /// without the column's shape.
     fn same_shape(&self, other: &Self) -> bool {

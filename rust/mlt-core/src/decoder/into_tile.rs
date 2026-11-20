@@ -96,6 +96,9 @@ impl ParsedLayer02<'_> {
         let m_scopes: Vec<MValueScope> = self.m_values.iter().map(ParsedMValue::scope).collect();
         let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();
         let nested_kinds: Vec<NestedKind> = self.nested.iter().map(ParsedNested::kind).collect();
+        for column in &self.nested {
+            column.charge_row_copies(dec)?;
+        }
         // One walk per m-value column, stepped alongside the features. Cutting the
         // columns up front instead would cost a span per feature per column, which is
         // memory the tile declares rather than memory it carries.
@@ -173,7 +176,7 @@ fn m_values_of(
     Ok(values)
 }
 
-/// The nested values of feature `index`, one per column, charged against `dec`.
+/// The nested values of feature `index`, one per column.
 #[cfg(feature = "unstable-v2")]
 fn nested_of(
     columns: &[ParsedNested<'_>],
@@ -182,9 +185,7 @@ fn nested_of(
 ) -> MltResult<Vec<NestedValue>> {
     let mut values = dec.alloc::<NestedValue>(columns.len())?;
     for column in columns {
-        let value = column.row(index)?;
-        dec.consume(u32::try_from(value.heap_bytes()).or_overflow()?)?;
-        values.push(value);
+        values.push(column.row(index)?);
     }
     Ok(values)
 }

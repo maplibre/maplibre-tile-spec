@@ -46,7 +46,7 @@ impl FeatureCollection {
             #[cfg(feature = "unstable-v2")]
             let mut nested = match &layer {
                 ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
-                ParsedLayer::Tag02(l) => nested_properties(l)?.into_iter(),
+                ParsedLayer::Tag02(l) => nested_properties(l, dec)?.into_iter(),
             };
             #[cfg(feature = "unstable-v2")]
             let (z_axis, mut z) = match &layer {
@@ -489,9 +489,13 @@ fn mesh_triangles(
 
 /// Every feature's nested columns as JSON, one entry per column under its own name.
 #[cfg(feature = "unstable-v2")]
-fn nested_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
+fn nested_properties(
+    layer: &ParsedLayer02<'_>,
+    dec: &mut Decoder,
+) -> MltResult<Vec<Vec<(String, Value)>>> {
     let mut features = vec![Vec::new(); layer.layer().geometry_values().feature_count()];
     for column in layer.nested() {
+        column.charge_row_copies(dec)?;
         for (index, feature) in features.iter_mut().enumerate() {
             feature.push((
                 column.name().to_string(),
