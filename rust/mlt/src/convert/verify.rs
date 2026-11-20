@@ -42,6 +42,14 @@ pub fn check_round_trip(
         .with_context(|| format!("layer {} does not decode back to its input", source.name()))
 }
 
+/// Require `restored` to hold what `source` does, with every vertex where `source` has it.
+///
+/// This checks that `--fields` formats its parsed columns back into the strings they came from, with no encoding in between.
+pub fn check_restored(source: &TileLayer, restored: &TileLayer) -> AnyResult<()> {
+    same_layer(source, restored, VertexOrder::Exact)
+        .with_context(|| format!("layer {} does not format back to its input", source.name()))
+}
+
 /// Which orders of a feature's vertices count as the same.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VertexOrder {

@@ -474,6 +474,12 @@ impl FieldConfig {
         self.layers.is_empty()
     }
 
+    /// Whether this config names fields of the layer called `layer`.
+    #[must_use]
+    pub fn configures(&self, layer: &str) -> bool {
+        self.layers.contains_key(layer)
+    }
+
     /// `layer` with its configured string properties replaced by the columns they parse into.
     pub fn apply(&self, layer: TileLayer) -> AnyResult<TileLayer> {
         let Some(forms) = self.layers.get(layer.name()) else {

@@ -202,10 +202,10 @@ impl GeometryValues {
         GeometryStager::new(self).geom(geom);
     }
 
-    /// The vertex pushed last, while vertices are `(x, y)` pairs.
+    /// The `x` and `y` of the vertex pushed last, or [`None`] before the first one.
     pub(crate) fn last_vertex(&self) -> Option<Coord<i32>> {
-        match self.vertices.as_deref() {
-            Some(&[.., x, y]) if self.stride() == 2 => Some(Coord { x, y }),
+        match self.vertices.as_deref()?.rchunks_exact(self.stride()).next()? {
+            &[x, y, ..] => Some(Coord { x, y }),
             _ => None,
         }
     }

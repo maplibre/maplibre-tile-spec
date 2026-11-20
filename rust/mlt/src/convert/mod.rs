@@ -298,14 +298,15 @@ impl Default for Reencoder {
 impl Reencoder {
     #[hotpath::measure]
     fn encode(&self, layer: mlt_core::TileLayer) -> AnyResult<Vec<u8>> {
-        let source = self.verify.then(|| layer.clone());
+        let source = (self.verify && self.fields.configures(layer.name())).then(|| layer.clone());
         let layer = self.fields.apply(layer)?;
-        let encoded = layer.encode(self.encoder)?;
         if let Some(source) = source {
+            verify::check_restored(&source, &self.fields.restore(layer.clone())?)?;
+        }
+        let encoded = layer.encode(self.encoder)?;
+        if self.verify {
             let vertices = verify::VertexOrder::allowed_by(self.encoder);
-            verify::check_round_trip(&source, &encoded, vertices, |decoded| {
-                self.fields.restore(decoded)
-            })?;
+            verify::check_round_trip(&layer, &encoded, vertices, Ok)?;
         }
         Ok(encoded)
     }
