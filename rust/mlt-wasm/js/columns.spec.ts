@@ -169,3 +169,131 @@ describe("toElevation", () => {
     expect(toElevation(12345, -3)).toBe(12.345);
   });
 });
+
+function varint(value: number): Uint8Array {
+  const bytes: number[] = [];
+  let n = value >>> 0;
+  while (n >= 0x80) {
+    bytes.push((n & 0x7f) | 0x80);
+    n >>>= 7;
+  }
+  bytes.push(n);
+  return Uint8Array.from(bytes);
+}
+
+/**
+ * A ~68 KB v2 Point layer of `features` points at (0, 0) referencing one `entryBytes`-byte
+ * dictionary entry in every feature, as a `Str` property, a `SharedDict` property, or an m-value.
+ */
+function repeatedDictTile(
+  kind: "property" | "sharedDict" | "mValue",
+  features: number,
+  entryBytes: number,
+): Uint8Array {
+  const name = new TextEncoder().encode("layer1");
+  const vertices = new Uint8Array(features * 2);
+  const entryLen = varint(entryBytes);
+  const dictLengths = concat(
+    Uint8Array.of(0x88, 0x01),
+    varint(entryLen.length),
+    entryLen,
+  );
+  const dictValues = concat(
+    Uint8Array.of(0x04),
+    varint(entryBytes),
+    new Uint8Array(entryBytes).fill(0x41),
+  );
+  const rlePayload = concat(varint(features), Uint8Array.of(0x00));
+  const codes = concat(
+    Uint8Array.of(0x21),
+    varint(rlePayload.length),
+    rlePayload,
+  );
+
+  let columns: Uint8Array;
+  if (kind === "property") {
+    columns = concat(
+      Uint8Array.of(0x01, 0x0b, 0x03, 0x76, 0x61, 0x6c),
+      codes,
+      dictLengths,
+      dictValues,
+    );
+  } else if (kind === "sharedDict") {
+    columns = concat(
+      Uint8Array.of(0x01, 0x0f, 0x02, 0x70, 0x3a, 0x01),
+      dictLengths,
+      dictValues,
+      Uint8Array.of(0x0b, 0x01, 0x61),
+      codes,
+    );
+  } else {
+    // 1 LineString of `features` vertices so the m-value column carries `features` codes.
+    const partLen = varint(features);
+    const geom = concat(
+      Uint8Array.of(0x04, 0x08),
+      varint(partLen.length),
+      partLen,
+      Uint8Array.of(0xa8),
+      varint(features),
+      varint(vertices.length),
+      vertices,
+    );
+    const mCodes = concat(
+      Uint8Array.of(0xa1),
+      varint(features),
+      varint(rlePayload.length),
+      rlePayload,
+    );
+    const body = concat(
+      Uint8Array.of(0x02, name.length),
+      name,
+      Uint8Array.of(0xa0, 0x01),
+      geom,
+      Uint8Array.of(0x02, 0x0b, 0x03, 0x76, 0x61, 0x6c),
+      mCodes,
+      dictLengths,
+      dictValues,
+    );
+    return concat(varint(body.length), body);
+  }
+
+  const body = concat(
+    Uint8Array.of(0x02, name.length),
+    name,
+    Uint8Array.of(0x10),
+    varint(features),
+    Uint8Array.of(0x00, 0x28),
+    varint(vertices.length),
+    vertices,
+    columns,
+  );
+  return concat(varint(body.length), body);
+}
+
+describe("memory budget", () => {
+  // 1,100 * 64 KiB = 70.4 MiB expanded (> 64 MiB Decoder default), in a ~68 KB tile.
+  const features = 1100;
+  const entryBytes = 65_536;
+
+  it("rejects repeated dictionary property strings whose expanded size exceeds 64 MiB", () => {
+    const tile = repeatedDictTile("property", features, entryBytes);
+    expect(() => decodeTileColumns(tile)).toThrow(/memory limit exceeded/i);
+  });
+
+  it("rejects repeated shared-dictionary property strings whose expanded size exceeds 64 MiB", () => {
+    const tile = repeatedDictTile("sharedDict", features, entryBytes);
+    expect(() => decodeTileColumns(tile)).toThrow(/memory limit exceeded/i);
+  });
+
+  it("keeps repeated dictionary string m-values coded within the budget", () => {
+    const tile = repeatedDictTile("mValue", features, entryBytes);
+    const [layer] = decodeTileColumns(tile).layers;
+    const [col] = layer.mValues ?? [];
+    expect(col?.type).toBe("string");
+    if (col?.type !== "string") return;
+    expect(col.dictionary).toHaveLength(1);
+    expect(col.dictionary[0]).toHaveLength(entryBytes);
+    expect(col.codes).toHaveLength(features);
+  });
+});
+
