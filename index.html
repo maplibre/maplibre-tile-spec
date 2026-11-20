@@ -605,7 +605,7 @@ MLT is natively supported by <a href="https://maplibre.org/maplibre-gl-js/">MapL
 <li><strong>Smaller and faster.</strong> On whole-planet tilesets, <strong>uncompressed</strong> MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster.
   With gzip, v2 is 10-18% smaller than gzipped MVT.
   See <a href="benchmarks/">benchmarks</a> for details.</li>
-<li><strong>Richer data.</strong> MLT v2 adds per-vertex elevation and values, and keeps lists and maps as nested properties, none of which MVT can store.
+<li><strong>Richer data.</strong> MLT v2 adds 3D triangle meshes, per-vertex elevation, per-vertex and per-triangle values, and keeps lists and maps as nested properties, none of which MVT can store.
   Each layer carries its own format version, so new kinds of data can be added later.</li>
 </ul>
 <p>Each geometry and attribute is stored as a separate column, with compression optimized for its data type.
@@ -680,10 +680,10 @@ Elevation and per-vertex values like lane count are lost, and lists or maps are 
 <text class="cell" x="560" y="104">{en: "Bridge", de: "Brücke"}</text>
 </svg></p>
 <p>Each layer in a tile carries its own <a href="overview/#frames">format version</a>, so new formats can be added without breaking existing readers.
-One tile can mix formats, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.</p>
+One tile can mix formats, so future formats can add textured 3D scenes and other kinds of data, including non-visual data, alongside existing layers.</p>
 <div class="admonition tip">
 <p class="admonition-title">MLT 0x03</p>
-<p>A <a href="https://github.com/maplibre/maplibre-tile-spec/discussions/1182">3D extension to MLT</a> will expand these capabilities and is in the requirements engineering stage.
+<p>Untextured 3D triangle meshes are part of <a href="specification/v2/#meshes">MLT v2</a>; a broader <a href="https://github.com/maplibre/maplibre-tile-spec/discussions/1182">3D extension to MLT</a> covering richer 3D scenes and materials is in the requirements engineering stage.
 Join the MapLibre <a href="https://maplibre.org/community/">Slack</a> to learn more and share your ideas.</p>
 </div>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Link to this section">&para;</a></h2>
@@ -711,7 +711,7 @@ Stable features are those without experimental tags.</p>
 </tr>
 <tr>
 <td><a href="specification/v2/">MLT v2</a> <span class="experimental"></span></td>
-<td>The next wire format: v1 content in a smaller layout, plus Z and M values and nested properties.</td>
+<td>The next wire format: v1 content in a smaller layout, plus Z and M values, nested properties and 3D triangle meshes.</td>
 </tr>
 <tr>
 <td><a href="encodings/">Encoding Algorithms</a></td>

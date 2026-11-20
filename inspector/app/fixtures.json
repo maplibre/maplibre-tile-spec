@@ -55252,7 +55252,7 @@
   {
     "name": "10_518_352.mlt",
     "directory": "0x02-amazon",
-    "bytes": 62596,
+    "bytes": 62594,
     "facets": {
       "extent": [
         "4096"
@@ -55400,7 +55400,7 @@
   {
     "name": "5_16_11.mlt",
     "directory": "0x02-amazon",
-    "bytes": 201884,
+    "bytes": 201912,
     "facets": {
       "extent": [
         "4096"
@@ -55474,7 +55474,7 @@
   {
     "name": "5_5_11.mlt",
     "directory": "0x02-amazon",
-    "bytes": 200286,
+    "bytes": 200185,
     "facets": {
       "extent": [
         "4096"
@@ -55548,7 +55548,7 @@
   {
     "name": "5_6_21.mlt",
     "directory": "0x02-amazon",
-    "bytes": 189053,
+    "bytes": 189071,
     "facets": {
       "extent": [
         "4096"
@@ -55626,7 +55626,7 @@
   {
     "name": "5_8_12.mlt",
     "directory": "0x02-amazon",
-    "bytes": 196533,
+    "bytes": 196605,
     "facets": {
       "extent": [
         "4096"
@@ -55700,7 +55700,7 @@
   {
     "name": "6_33_21.mlt",
     "directory": "0x02-amazon",
-    "bytes": 166150,
+    "bytes": 166171,
     "facets": {
       "extent": [
         "4096"
@@ -55854,7 +55854,7 @@
   {
     "name": "7_68_44.mlt",
     "directory": "0x02-amazon",
-    "bytes": 87985,
+    "bytes": 87997,
     "facets": {
       "extent": [
         "4096"
@@ -55932,7 +55932,7 @@
   {
     "name": "8_136_89.mlt",
     "directory": "0x02-amazon",
-    "bytes": 60044,
+    "bytes": 60030,
     "facets": {
       "extent": [
         "4096"
@@ -56007,7 +56007,7 @@
   {
     "name": "9_259_176.mlt",
     "directory": "0x02-amazon",
-    "bytes": 89220,
+    "bytes": 89224,
     "facets": {
       "extent": [
         "4096"
@@ -56081,7 +56081,7 @@
   {
     "name": "4_8_5.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 148291,
+    "bytes": 148285,
     "facets": {
       "extent": [
         "4096"
@@ -56162,7 +56162,7 @@
   {
     "name": "4_9_4.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 93692,
+    "bytes": 93689,
     "facets": {
       "extent": [
         "4096"
@@ -56239,7 +56239,7 @@
   {
     "name": "5_16_10.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 82357,
+    "bytes": 82365,
     "facets": {
       "extent": [
         "4096"
@@ -56317,7 +56317,7 @@
   {
     "name": "6_33_22.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 130181,
+    "bytes": 130179,
     "facets": {
       "extent": [
         "4096"
@@ -56399,7 +56399,7 @@
   {
     "name": "8_132_85.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 87271,
+    "bytes": 87266,
     "facets": {
       "extent": [
         "4096"
@@ -56478,7 +56478,7 @@
   {
     "name": "4-12-6.mlt",
     "directory": "0x02-bing",
-    "bytes": 139497,
+    "bytes": 139495,
     "facets": {
       "extent": [
         "4096"
@@ -56630,7 +56630,7 @@
   {
     "name": "4-8-5.mlt",
     "directory": "0x02-bing",
-    "bytes": 131575,
+    "bytes": 131586,
     "facets": {
       "extent": [
         "4096"
@@ -56712,7 +56712,7 @@
   {
     "name": "4-9-5.mlt",
     "directory": "0x02-bing",
-    "bytes": 46521,
+    "bytes": 46525,
     "facets": {
       "extent": [
         "4096"
@@ -56792,7 +56792,7 @@
   {
     "name": "5-15-10.mlt",
     "directory": "0x02-bing",
-    "bytes": 60782,
+    "bytes": 60769,
     "facets": {
       "extent": [
         "4096"
@@ -56872,7 +56872,7 @@
   {
     "name": "5-16-11.mlt",
     "directory": "0x02-bing",
-    "bytes": 108668,
+    "bytes": 108695,
     "facets": {
       "extent": [
         "4096"
@@ -56950,7 +56950,7 @@
   {
     "name": "5-16-9.mlt",
     "directory": "0x02-bing",
-    "bytes": 42588,
+    "bytes": 42620,
     "facets": {
       "extent": [
         "4096"
@@ -57024,7 +57024,7 @@
   {
     "name": "5-17-10.mlt",
     "directory": "0x02-bing",
-    "bytes": 71645,
+    "bytes": 71667,
     "facets": {
       "extent": [
         "4096"
@@ -57103,7 +57103,7 @@
   {
     "name": "5-17-11.mlt",
     "directory": "0x02-bing",
-    "bytes": 81013,
+    "bytes": 81026,
     "facets": {
       "extent": [
         "4096"
@@ -57182,7 +57182,7 @@
   {
     "name": "6-32-21.mlt",
     "directory": "0x02-bing",
-    "bytes": 36291,
+    "bytes": 36295,
     "facets": {
       "extent": [
         "4096"
@@ -57261,7 +57261,7 @@
   {
     "name": "6-32-22.mlt",
     "directory": "0x02-bing",
-    "bytes": 41976,
+    "bytes": 41975,
     "facets": {
       "extent": [
         "4096"
@@ -57338,7 +57338,7 @@
   {
     "name": "6-32-23.mlt",
     "directory": "0x02-bing",
-    "bytes": 37545,
+    "bytes": 37550,
     "facets": {
       "extent": [
         "4096"
@@ -57414,7 +57414,7 @@
   {
     "name": "6-33-22.mlt",
     "directory": "0x02-bing",
-    "bytes": 50334,
+    "bytes": 50348,
     "facets": {
       "extent": [
         "4096"
@@ -57569,7 +57569,7 @@
   {
     "name": "7-66-42.mlt",
     "directory": "0x02-bing",
-    "bytes": 85301,
+    "bytes": 85318,
     "facets": {
       "extent": [
         "4096"
@@ -57648,7 +57648,7 @@
   {
     "name": "7-66-43.mlt",
     "directory": "0x02-bing",
-    "bytes": 81257,
+    "bytes": 81240,
     "facets": {
       "extent": [
         "4096"
@@ -57729,7 +57729,7 @@
   {
     "name": "7-66-44.mlt",
     "directory": "0x02-bing",
-    "bytes": 80132,
+    "bytes": 80115,
     "facets": {
       "extent": [
         "4096"
@@ -58241,7 +58241,7 @@
   {
     "name": "10_531_684.mlt",
     "directory": "0x02-omt",
-    "bytes": 36175,
+    "bytes": 36178,
     "facets": {
       "extent": [
         "4096"
@@ -58464,7 +58464,7 @@
   {
     "name": "10_532_684.mlt",
     "directory": "0x02-omt",
-    "bytes": 38877,
+    "bytes": 38869,
     "facets": {
       "extent": [
         "4096"
@@ -59132,7 +59132,7 @@
   {
     "name": "11_1063_1368.mlt",
     "directory": "0x02-omt",
-    "bytes": 20874,
+    "bytes": 20873,
     "facets": {
       "extent": [
         "4096"
@@ -60361,7 +60361,7 @@
   {
     "name": "12_3229_2032_big_transportation.mlt",
     "directory": "0x02-omt",
-    "bytes": 139357,
+    "bytes": 139355,
     "facets": {
       "extent": [
         "4096"
@@ -63789,7 +63789,7 @@
   {
     "name": "1_1_1.mlt",
     "directory": "0x02-omt",
-    "bytes": 148209,
+    "bytes": 148213,
     "facets": {
       "extent": [
         "4096"
@@ -63863,7 +63863,7 @@
   {
     "name": "2_2_1_big_place.mlt",
     "directory": "0x02-omt",
-    "bytes": 519068,
+    "bytes": 519072,
     "facets": {
       "extent": [
         "4096"
@@ -63937,7 +63937,7 @@
   {
     "name": "2_2_2.mlt",
     "directory": "0x02-omt",
-    "bytes": 232938,
+    "bytes": 232892,
     "facets": {
       "extent": [
         "4096"
@@ -64012,7 +64012,7 @@
   {
     "name": "3_4_5.mlt",
     "directory": "0x02-omt",
-    "bytes": 172404,
+    "bytes": 172434,
     "facets": {
       "extent": [
         "4096"
@@ -64236,7 +64236,7 @@
   {
     "name": "5_16_11.mlt",
     "directory": "0x02-omt",
-    "bytes": 159769,
+    "bytes": 159741,
     "facets": {
       "extent": [
         "4096"
@@ -64315,7 +64315,7 @@
   {
     "name": "5_16_20.mlt",
     "directory": "0x02-omt",
-    "bytes": 159769,
+    "bytes": 159741,
     "facets": {
       "extent": [
         "4096"
@@ -64394,7 +64394,7 @@
   {
     "name": "5_16_21.mlt",
     "directory": "0x02-omt",
-    "bytes": 182339,
+    "bytes": 182361,
     "facets": {
       "extent": [
         "4096"
@@ -64470,7 +64470,7 @@
   {
     "name": "5_17_20.mlt",
     "directory": "0x02-omt",
-    "bytes": 151581,
+    "bytes": 151603,
     "facets": {
       "extent": [
         "4096"
@@ -64547,7 +64547,7 @@
   {
     "name": "5_17_21.mlt",
     "directory": "0x02-omt",
-    "bytes": 115091,
+    "bytes": 115087,
     "facets": {
       "extent": [
         "4096"
@@ -64700,7 +64700,7 @@
   {
     "name": "6_32_41.mlt",
     "directory": "0x02-omt",
-    "bytes": 93809,
+    "bytes": 93807,
     "facets": {
       "extent": [
         "4096"
@@ -64780,7 +64780,7 @@
   {
     "name": "6_32_42.mlt",
     "directory": "0x02-omt",
-    "bytes": 149121,
+    "bytes": 149123,
     "facets": {
       "extent": [
         "4096"
@@ -64856,7 +64856,7 @@
   {
     "name": "6_33_41.mlt",
     "directory": "0x02-omt",
-    "bytes": 157504,
+    "bytes": 157508,
     "facets": {
       "extent": [
         "4096"
@@ -64937,7 +64937,7 @@
   {
     "name": "6_33_42.mlt",
     "directory": "0x02-omt",
-    "bytes": 180016,
+    "bytes": 180024,
     "facets": {
       "extent": [
         "4096"
@@ -65094,7 +65094,7 @@
   {
     "name": "6_34_42.mlt",
     "directory": "0x02-omt",
-    "bytes": 116347,
+    "bytes": 116361,
     "facets": {
       "extent": [
         "4096"
@@ -65463,7 +65463,7 @@
   {
     "name": "7_67_84.mlt",
     "directory": "0x02-omt",
-    "bytes": 130898,
+    "bytes": 130902,
     "facets": {
       "extent": [
         "4096"
@@ -66354,7 +66354,7 @@
   {
     "name": "8_135_171.mlt",
     "directory": "0x02-omt",
-    "bytes": 104754,
+    "bytes": 104710,
     "facets": {
       "extent": [
         "4096"
@@ -66432,7 +66432,7 @@
   {
     "name": "8_69_107_big_landuse.mlt",
     "directory": "0x02-omt",
-    "bytes": 207203,
+    "bytes": 207205,
     "facets": {
       "extent": [
         "4096"

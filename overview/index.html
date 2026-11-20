@@ -600,7 +600,7 @@ New capabilities go into a new format with a new tag.</p>
 <p>A decoder that supports a tag MUST support every feature of that format.
 An encoder MUST produce valid data for its tag, but MAY choose not to use some encodings.
 A decoder skips a frame whose tag it does not know, so new formats can be added without breaking existing readers.
-One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds of data in future formats, such as 3D or non-visual data.</p>
+One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds of data in future formats, such as textured 3D scenes or non-visual data.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 100" role="img" aria-label="A tile holding three frames, each a size, a format tag and a body: an MLT v1 layer, an MLT v2 layer, and a future format that older readers skip" xmlns="http://www.w3.org/2000/svg">
 <text class="row" x="0" y="54">tile</text>
 <text class="muted small mid" x="168.0" y="14">MLT v1</text>
@@ -648,7 +648,7 @@ One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds 
 <tr>
 <td><code>0x02</code></td>
 <td><a href="../specification/v2/">MLT v2</a></td>
-<td>v1 content in a smaller layout, plus per-vertex Z and M values and nested properties.</td>
+<td>v1 content in a smaller layout, plus Z values, per-vertex and per-triangle M values, nested properties and 3D triangle meshes.</td>
 <td><span class="experimental"></span> Under development. The wire format may change without notice.</td>
 </tr>
 </tbody>
@@ -692,7 +692,7 @@ Layers are equivalent to layers in MVT.</p>
 <li>any number of properties</li>
 </ul>
 <p>Features in one layer share a single set of property columns and normally share one geometry type.
-Mixing geometry types in a layer is allowed, but one type per layer compresses better.</p>
+Mixing the six 2D geometry types in a layer is allowed, though one type per layer compresses better; v2 <a href="../specification/v2/#meshes">meshes</a> live in their own layer without other geometry types.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The terms <code>column</code>, <code>field</code>, <code>attribute</code>, and <code>property</code> are used interchangeably in the specification.</p>

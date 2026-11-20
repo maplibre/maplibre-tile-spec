@@ -961,8 +961,8 @@ It also changes the byte layout to make tiles smaller.</p>
 <text class="cell" x="560" y="104">{en: "Bridge", de: "Brücke"}</text>
 </svg></p>
 <ul>
-<li><strong>Z-values.</strong> Every vertex can carry an elevation. See <a href="#z-coordinates">Z coordinates</a>.</li>
-<li><strong>M-values.</strong> Every vertex can carry any number of values, such as road lane count and colors, or a timestamp per GPS fix. See <a href="#m-values">M-values</a>.</li>
+<li><strong>Z-values.</strong> Every vertex can carry an elevation or, in a mesh layer, a height above the ground. See <a href="#z-coordinates">Z coordinates</a>.</li>
+<li><strong>M-values.</strong> Every vertex, or in a mesh layer every triangle, can carry any number of values, such as road lane count, a timestamp per GPS fix, or a building part per face. See <a href="#m-values">M-values</a>.</li>
 <li><strong>Nested properties.</strong> Maps and lists stay maps and lists instead of being flattened into columns like <code>name:en</code> and <code>name:de</code>. See <a href="#nested-properties">nested properties</a>.</li>
 <li><strong>Meshes.</strong> A layer can hold 3D triangle meshes, such as landmark buildings, with heights above the ground and <a href="#m-values">m-values</a> per vertex or per triangle. See <a href="#meshes">meshes</a>.</li>
 <li><strong>Smaller metadata.</strong> A stream needs one byte instead of four or more, since its role, value count and byte length are implied wherever they can be derived.</li>
@@ -1451,11 +1451,11 @@ Each stream's role is given by its position.</p>
 </tr>
 </tbody>
 </table>
-<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types" target="_blank">View example</a> - all six kinds in one layer, so the types stream carries each.</p>
-<p>The types stream holds one of these per feature.
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types" target="_blank">View example</a> - all six non-mesh kinds in one layer, so the types stream carries each.</p>
+<p>The types stream holds one of codes <code>0x0</code>-<code>0x5</code> per feature.
 A layer whose features all share one type writes the <a href="#uniform-geometry-type">uniform geometry type</a> nibble instead.</p>
 <p>A <code>Mesh</code>, a set of <code>(x, y, z)</code> vertices and the triangles between them, is held only by the <a href="#meshes"><code>Meshes</code></a> layout, which names it through the <a href="#uniform-geometry-type">uniform geometry type</a> <code>0x7</code>, type <code>6</code> plus one.
-A types stream therefore MUST NOT hold <code>6</code>, and a layer of any other layout MUST NOT name the uniform geometry type <code>0x7</code>.</p>
+A types stream therefore MUST NOT hold <code>6</code> or any unassigned code (<code>&gt;= 7</code>), and a layer of any other layout MUST NOT name the uniform geometry type <code>0x7</code>.</p>
 <h3 id="geometry-layout">Geometry Layout<a class="headerlink" href="#geometry-layout" title="Link to this section">&para;</a></h3>
 <p>The low nibble of the layer layout byte:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fpoly.mlt&amp;at=layout" target="_blank">View example</a> - the <code>Polygons</code> layout: part and ring lengths, no vertex offsets.</p>
@@ -2285,15 +2285,15 @@ The triangle lengths MUST sum to the number of symbols.</p>
 </div>
 </div>
 <h4 id="triangle-trees">Triangle Trees<a class="headerlink" href="#triangle-trees" title="Link to this section">&para;</a></h4>
-<div class="admonition question">
-<p class="admonition-title">Why trees</p>
-<p>Earcut adds no vertex inside a polygon, so every triangle it emits has a corner on the outline of the triangles before it.
-That makes two bits per triangle and one index per outline vertex enough, instead of three indices per triangle.</p>
-</div>
+<details class="question">
+<summary>Why trees</summary>
+<p>Cutting non-tree shared edges unfolds any spanning tree of <span class="arithmatex">\(n\)</span> edge-adjacent triangles into a topological disk bounded by a closed walk of <span class="arithmatex">\(n + 2\)</span> corners.
+That works for both 2D earcut polygons and arbitrary 3D meshes, taking two symbol bits per triangle and <span class="arithmatex">\(n + 2\)</span> cycle indices per tree instead of <span class="arithmatex">\(3n\)</span> indices.</p>
+</details>
 <p>A triangle <span class="arithmatex">\((\mathit{from}, \mathit{to}, \mathit{apex})\)</span> has the edges <span class="arithmatex">\(\mathit{from} \to \mathit{to}\)</span>, <span class="arithmatex">\(\mathit{to} \to \mathit{apex}\)</span> and <span class="arithmatex">\(\mathit{apex} \to \mathit{from}\)</span>.
 Two triangles are neighbours when one has the edge <span class="arithmatex">\(a \to b\)</span> and the other <span class="arithmatex">\(b \to a\)</span>.
 The triangles are stored as trees of neighbours, one after another.
-Each triangle of a tree but its root is the neighbour of its parent.</p>
+Each triangle of a tree but its root is the neighbour of its parent across an edge not already joined in the tree, and each input triangle appears at most once across the forest (so the dual graph has no cycles; non-tree shared edges and extra faces on non-manifold edges remain unjoined boundary edges of their cycles).</p>
 <p>A triangle is entered across its edge <span class="arithmatex">\(\mathit{from} \to \mathit{to}\)</span>, from its parent or, for a root, from the tree's cycle.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 262" role="img" aria-label="A triangle from, to, apex entered across from to to: on the left from its parent, which lies across that edge, on the right as a root, whose from and to are cycle[0] and cycle[1] on the outline" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="tent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="tent0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="tent1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
@@ -2614,17 +2614,17 @@ That is why <code>0xC</code> cannot carry <a href="#m-values">m-values</a>.</p>
 <tr>
 <td>Tree symbols</td>
 <td>One <a href="#triangle-trees">symbol</a> per triangle</td>
-<td>Explicit</td>
+<td><code>triangle_count</code></td>
 </tr>
 <tr>
 <td>Tree cycles</td>
-<td>The <a href="#triangle-trees">outline</a> of each tree of triangles</td>
-<td>Explicit</td>
+<td>The <a href="#triangle-trees">cycle</a> of each tree of triangles</td>
+<td><code>cycle_count</code></td>
 </tr>
 <tr>
 <td>Vertices</td>
 <td>The vertices the triangles index</td>
-<td>Explicit</td>
+<td><code>vertex_count</code></td>
 </tr>
 </tbody>
 </table>
@@ -2681,6 +2681,10 @@ A feature that is not a polygon stores no triangle count and owns no triangles.<
 <h3 id="meshes">Meshes<a class="headerlink" href="#meshes" title="Link to this section">&para;</a></h3>
 <p>A <code>Meshes</code> layer (<code>0xE</code>) holds one 3D triangle mesh per feature, such as the model of a building.
 Every feature is a <a href="#geometry-types"><code>Mesh</code></a>, so the header byte MUST name the <a href="#uniform-geometry-type">uniform geometry type</a> <code>0x7</code>, and the layer writes no types stream.</p>
+<details class="question">
+<summary>Why uniform geometry type <code>0x7</code></summary>
+<p><code>layer_header</code> precedes <code>layer_layout</code>, so naming <code>0x7</code> in <code>layer_header</code> tells a parser before reading <code>layer_layout</code> that no <code>types</code> stream leads the geometry section, matching every other single-type layer.</p>
+</details>
 <table>
 <thead>
 <tr>
@@ -2703,25 +2707,26 @@ Every feature is a <a href="#geometry-types"><code>Mesh</code></a>, so the heade
 <tr>
 <td>Tree symbols</td>
 <td>One <a href="#triangle-trees">symbol</a> per triangle</td>
-<td>Explicit</td>
+<td><code>triangle_count</code></td>
 </tr>
 <tr>
 <td>Tree cycles</td>
-<td>The <a href="#triangle-trees">outline</a> of each tree of triangles</td>
-<td>Explicit</td>
+<td>The <a href="#triangle-trees">cycle</a> of each tree of triangles</td>
+<td><code>cycle_count</code></td>
 </tr>
 <tr>
 <td>Vertices</td>
 <td><code>(x, y, z)</code> <a href="#z-coordinates">triples</a></td>
-<td>Explicit</td>
+<td><code>vertex_count</code></td>
 </tr>
 </tbody>
 </table>
+<p>As on every stream of the <a href="#value-count_1">geometry section</a>, the implied count is <code>feature_count</code>, so <code>Tree symbols</code>, <code>Tree cycles</code> and <code>Vertices</code> write an explicit <code>num_values</code> varint unless their count happens to equal <code>feature_count</code>.</p>
 <ul>
 <li>The vertex stream MUST hold <code>(x, y, z)</code> triples, as elevations or as <a href="#heights-above-the-ground">heights above the ground</a>.</li>
 <li>Feature <code>f</code> owns the next <code>GeoLengths[f]</code> vertices, its vertex run, and the next <code>TriLengths[f]</code> triangles decoded from the <a href="#triangle-trees">triangle trees</a>.</li>
-<li>The geo lengths MUST sum to the number of vertices, and the triangle lengths to the number of tree symbols.</li>
-<li>Every corner of a triangle of feature <code>f</code> MUST name a vertex in the run of <code>f</code>.</li>
+<li>The geo lengths MUST sum without integer overflow to <code>vertex_count</code>, and the triangle lengths without integer overflow to <code>triangle_count</code> (the number of tree symbols).</li>
+<li>Each entry in <code>Tree cycles</code> is a 0-based index into the layer's vertex stream (<code>0</code> to <code>vertex_count - 1</code>), and every corner of a triangle of feature <code>f</code> MUST name a vertex in the run of <code>f</code> (so a feature with <code>GeoLengths[f] == 0</code> MUST have <code>TriLengths[f] == 0</code>).</li>
 </ul>
 <p>A decoder MUST reject a <code>Meshes</code> layer that breaks one of these rules.
 An encoder SHOULD NOT write a vertex that no triangle names, a triangle with a repeated corner, or two vertices of a feature with the same <code>(x, y, z)</code> and vertex-scoped m-values, but a decoder MUST accept them.</p>
@@ -2861,10 +2866,11 @@ Because each triangle stays within its feature's run, a feature can still be pic
 </svg></p>
 <p>The order of a feature's vertices and of its triangles carries no meaning, so an encoder MAY choose both, such as to compress better, as long as each m-value stays with its <a href="#the-vertex-sequence">vertex</a> or <a href="#the-triangle-sequence">triangle</a>.</p>
 <h4 id="tile-boundaries">Tile Boundaries<a class="headerlink" href="#tile-boundaries" title="Link to this section">&para;</a></h4>
-<p>An encoder MUST NOT clip a mesh to its tile.
-Its vertices MAY lie outside <code>0</code> to <code>extent</code>, as any vertex may, see <a href="../../overview/#geometry-and-extent">geometry and extent</a>.
-A tileset SHOULD store each mesh in only one tile per zoom level, the one that contains the center of the <code>(x, y)</code> bounding box of its vertices, so that a renderer draws it once.
-That center is also the point its <a href="#heights-above-the-ground">ground</a> is taken at.</p>
+<p>A tileset SHOULD NOT clip discrete object meshes, such as buildings, to tile boundaries.
+A mesh's vertices MAY lie outside <code>0</code> to <code>extent</code>, as any vertex may, see <a href="../../overview/#geometry-and-extent">geometry and extent</a>.
+For a feature with a non-empty vertex run (<code>GeoLengths[f] &gt; 0</code>), the center of its <code>(x, y)</code> bounding box is the exact real midpoint <span class="arithmatex">\(\bigl(\frac{x_{\min} + x_{\max}}{2},\, \frac{y_{\min} + y_{\max}}{2}\bigr)\)</span> over all vertices in its run.
+A tileset SHOULD store each discrete mesh in only one tile per zoom level, the tile whose half-open bounds <span class="arithmatex">\([0, \text{extent}) \times [0, \text{extent})\)</span> contain that center, so that a renderer draws it once.
+When <code>z</code> stores <a href="#heights-above-the-ground">heights above the ground</a>, that center is also the point the mesh's ground elevation is taken at (a 0-vertex mesh has no bounding box or ground lookup).</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 316" role="img" aria-label="Two neighbouring tiles and a mesh footprint that crosses the edge between them. The center of its bounding box lies in the left tile, which stores the whole mesh, unclipped; the right tile stores none of it" xmlns="http://www.w3.org/2000/svg">
 <rect class="grid" x="100" y="40" width="240" height="240"/>
 <rect class="grid" x="340" y="40" width="240" height="240"/>
@@ -2877,8 +2883,9 @@ That center is also the point its <a href="#heights-above-the-ground">ground</a>
 <text class="muted small mid" x="340" y="28">x = extent</text>
 </svg></p>
 <h4 id="front-faces">Front Faces<a class="headerlink" href="#front-faces" title="Link to this section">&para;</a></h4>
-<p>An encoder MUST wind each triangle <code>(a, b, c)</code> counter-clockwise in <code>(x, -y, z)</code> (east, north, up) as seen from outside the mesh, as in glTF.
-Since tile <code>y</code> points south, a triangle facing up has a negative signed area in <code>(x, y)</code>, the opposite of an <a href="#polygon-rings">exterior ring</a>.</p>
+<p>An encoder MUST wind each non-degenerate triangle <code>(a, b, c)</code> counter-clockwise in right-handed <code>(x, -y, z)</code> (east, north, up, scaled to meters) as seen from its front side (outside a closed mesh).
+Since tile <code>y</code> points south, a triangle facing up has a negative signed area in <code>(x, y)</code>, the opposite of an <a href="#polygon-rings">exterior ring</a>.
+A triangle that encloses no area MAY wind either way, and decoders MAY rely on winding and need not check it.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 250" role="img" aria-label="A mesh triangle facing up, wound a, b, c counter-clockwise as seen from above, so its signed area in tile x, y is negative, next to a polygon exterior ring, wound clockwise with a positive area" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="ff" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
 <text class="bold" x="40" y="14">mesh triangle facing up</text>
@@ -2975,7 +2982,7 @@ A byte holding <code>z_step + 3</code>, plus <code>8</code> when <code>z</code> 
 Bits 7-4 are reserved, and a byte with any of them set MUST be rejected.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_point.mlt&amp;at=vertices" target="_blank">View example</a> - a point 12 m up, its <code>z</code> one word after <code>x</code> and <code>y</code>.</p>
 <div class="arithmatex">\[
-\text{height} = z \cdot 10^{\,z\_step}\,\text{m}
+\text{height} = z \cdot 10^{\,\mathit{z\_step}}\,\text{m}
 \]</div>
 <table>
 <thead>
@@ -3064,7 +3071,7 @@ At the finest step the grid spans about 2147 km either side of the base.</p>
 A Morton code spans only <code>x</code> and <code>y</code>, so a vertex stream with bit 0 set and logical <code>Morton</code> MUST be rejected.
 <code>Componentwise Delta2</code> and <a href="../../encodings/#rans">rANS</a> are defined only over pairs, so a vertex stream with bit 0 set and either of them MUST be rejected.
 Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
-<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices" target="_blank">View example</a> - all six geometry types, each vertex an interleaved triple.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices" target="_blank">View example</a> - all six non-mesh geometry types, each vertex an interleaved triple.</p>
 <p>The vertex stream is indexed, so (<span class="arithmatex">\(x_1, y_1, z_1, x_2, y_2, z_2, ..., x_i, y_i, z_i\)</span>) has index <span class="arithmatex">\(i\)</span>:</p>
 <ul>
 <li>Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them.
@@ -3091,16 +3098,16 @@ A power-of-ten step represents such values exactly.
 A layer without <code>z</code> is unaffected, since the extension bit marks which vertex streams carry it.</p>
 </details>
 <h4 id="heights-above-the-ground">Heights Above the Ground<a class="headerlink" href="#heights-above-the-ground" title="Link to this section">&para;</a></h4>
-<p>Bit 3 of the z step byte marks <code>z</code> as a height above the ground instead of an elevation:</p>
+<p>Bit 3 of the z step byte (<code>8</code>-<code>15</code>, where <span class="arithmatex">\(\mathit{z\_step} = \mathit{byte} - 11\)</span>) marks <code>z</code> as a height above the ground instead of an elevation:</p>
 <div class="arithmatex">\[
-\text{height} = z \cdot 10^{\,\mathit{byte} - 11}\,\text{m}
+\text{height} = z \cdot 10^{\,\mathit{z\_step}}\,\text{m}
 \]</div>
 <p>Byte <code>9</code> is therefore a height on a 1 cm grid, and <code>z = 0</code> is the ground.
 A decoder MUST reject bytes <code>8</code>-<code>15</code> on a vertex stream of any layout but <a href="#meshes"><code>Meshes</code></a>.</p>
-<p>The ground of a mesh is the terrain elevation at the center of the <code>(x, y)</code> bounding box of its vertex run.
-The same ground is added to every vertex, so the mesh moves as a rigid body and is not draped over the terrain.
-The terrain is the renderer's, which the producer need not know, and is 0 m where the renderer has none.
-A producer SHOULD model a mesh's foundations below <code>z = 0</code>, down to the lowest terrain under its footprint, so that the mesh does not float on a slope.</p>
+<p>For a feature with a non-empty vertex run (<code>GeoLengths[f] &gt; 0</code>), the ground of the mesh is the terrain elevation at the <a href="#tile-boundaries">center of the <code>(x, y)</code> bounding box</a> of its vertex run.
+In source data, <code>z = 0</code> represents the ground elevation at that center, so subterranean structures and hillside vertices below that center ground have negative <code>z</code> (<code>z &lt; 0</code>).
+The renderer adds its terrain elevation at that center (or <code>0 m</code> where the renderer has no terrain) to every vertex of the feature, so the mesh moves as a rigid body and is not draped over the terrain.
+A producer SHOULD extend a surface mesh's foundations below <code>z = 0</code>, down to at least the lowest terrain under its footprint, so that downhill walls do not float on a slope.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 280" role="img" aria-label="A side view of a mesh on a slope. The terrain under the center of its (x, y) bounding box is its ground, z = 0, and its foundations reach below z = 0 to the lowest terrain under its footprint" xmlns="http://www.w3.org/2000/svg">
 <polygon class="land" points="40,280 40,140.0 670,266.0 670,280"/>
 <polygon class="f0" points="230,214.0 230,106.0 320,71.0 410,106.0 410,214.0"/>
@@ -4640,7 +4647,7 @@ It reads them against its own count, and is otherwise identical to such a column
 </tbody>
 </table>
 <h3 id="m-values">M-Values<a class="headerlink" href="#m-values" title="Link to this section">&para;</a></h3>
-<p>An m-value is a measurement taken at a vertex rather than at a feature:</p>
+<p>An m-value is a measurement taken at a vertex, or in a <a href="#meshes"><code>Meshes</code></a> layer at a triangle, rather than at a feature:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt&amp;at=m_value%5B0%5D" target="_blank">View example</a> - two m-value columns over the vertices.</p>
 <ul>
 <li>a distance along a road,</li>
@@ -4874,7 +4881,7 @@ A decoder that has decoded both the geometry and an m-value column MUST reject a
 <p>Values are one flat sequence across feature boundaries.
 Delta encoding and RLE run through them without a break at each feature.</p>
 <h4 id="geometry-layouts">Geometry Layouts<a class="headerlink" href="#geometry-layouts" title="Link to this section">&para;</a></h4>
-<p>An m-value section requires a <a href="#geometry-layout">geometry layout</a> whose topology gives every feature's vertex count.</p>
+<p>An m-value section requires a <a href="#geometry-layout">geometry layout</a> whose topology gives every feature's vertex or triangle count.</p>
 <table>
 <thead>
 <tr>

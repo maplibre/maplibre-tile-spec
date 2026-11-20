@@ -12,12 +12,12 @@ Typically, a dataset is cut into a pyramid of square tiles addressed as `z/x/y`,
 
 An MLT tile is a sequence of frames, with no common header. Each frame starts with its byte size and a format version tag, followed by the body in that format. Once a format is finalized, its byte layout and capabilities do not change. New capabilities go into a new format with a new tag.
 
-A decoder that supports a tag MUST support every feature of that format. An encoder MUST produce valid data for its tag, but MAY choose not to use some encodings. A decoder skips a frame whose tag it does not know, so new formats can be added without breaking existing readers. One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds of data in future formats, such as 3D or non-visual data.
+A decoder that supports a tag MUST support every feature of that format. An encoder MUST produce valid data for its tag, but MAY choose not to use some encodings. A decoder skips a frame whose tag it does not know, so new formats can be added without breaking existing readers. One tile can therefore mix formats: MLT v1 and v2 layers today, and other kinds of data in future formats, such as textured 3D scenes or non-visual data.
 
 | Tag | Format | Contents | Status |
 | --- | --- | --- | --- |
 | `0x01` | [MLT v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md>) | 2D features with scalar properties, compatible with MVT. | Stable. Implemented by every shipped encoder and decoder. |
-| `0x02` | [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) | v1 content in a smaller layout, plus per-vertex Z and M values and nested properties. | Under development. The wire format may change without notice. |
+| `0x02` | [MLT v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md>) | v1 content in a smaller layout, plus Z values, per-vertex and per-triangle M values, nested properties and 3D triangle meshes. | Under development. The wire format may change without notice. |
 
 # Geometry and extent
 
@@ -37,7 +37,7 @@ A feature has:
 - an optional id
 - any number of properties
 
-Features in one layer share a single set of property columns and normally share one geometry type. Mixing geometry types in a layer is allowed, but one type per layer compresses better.
+Features in one layer share a single set of property columns and normally share one geometry type. Mixing the six 2D geometry types in a layer is allowed, though one type per layer compresses better; v2 [meshes](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#meshes>) live in their own layer without other geometry types.
 
 > [!NOTE]
 >
