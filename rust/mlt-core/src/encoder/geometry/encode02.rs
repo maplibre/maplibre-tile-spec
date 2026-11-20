@@ -1,5 +1,7 @@
 //! Geometry section writer for tag `0x02` (v2) layers.
 
+use usize_cast::IntoUsize as _;
+
 use super::streams::{
     dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_hilbert_xyz_vertex_streams02,
     encode_level1_length_stream, encode_level1_without_ring_buffer_length_stream,
@@ -27,32 +29,52 @@ fn non_empty(data: Vec<u32>) -> Option<Vec<u32>> {
     if data.is_empty() { None } else { Some(data) }
 }
 
-/// The triangle streams of a tessellated layer, which precede its vertices.
+/// The triangle streams of a tessellated or mesh layer, which precede its vertices.
 struct Tessellation {
     triangles: Vec<u32>,
-    index_buffer: Vec<u32>,
+    data: TessData,
+}
+
+enum TessData {
+    IndexBuffer(Vec<u32>),
+    Prebuilt {
+        trees: TriTrees,
+        vertex_order: Vec<u32>,
+    },
 }
 
 impl Tessellation {
-    /// The triangle trees that store the index buffer.
-    fn trees(&self) -> TriTrees {
-        let offsets: Vec<u32> = std::iter::once(0)
-            .chain(self.triangles.iter().scan(0, |total, &n| {
-                *total += n;
-                Some(*total)
-            }))
-            .collect();
-        let trees = tri::encode_trees(&self.index_buffer, &offsets);
-        debug_assert!(
-            tri::decode_trees(
-                &trees.symbols,
-                &trees.cycles,
-                &mut Decoder::with_max_size(u32::MAX)
-            )
-            .is_ok_and(|back| tri::same_triangles(&self.index_buffer, &back, &offsets)),
-            "triangle trees keep each feature's triangles"
-        );
-        trees
+    /// The triangle trees that store the index buffer, and any mesh vertex permutation.
+    fn into_trees(self) -> (Vec<u32>, TriTrees, Vec<u32>) {
+        match self.data {
+            TessData::Prebuilt {
+                trees,
+                vertex_order,
+            } => (self.triangles, trees, vertex_order),
+            TessData::IndexBuffer(index_buffer) => {
+                let offsets: Vec<u32> = std::iter::once(0)
+                    .chain(self.triangles.iter().scan(0, |total, &n| {
+                        *total += n;
+                        Some(*total)
+                    }))
+                    .collect();
+                let trees = tri::encode_trees(&index_buffer, &offsets);
+                debug_assert!(
+                    tri::decode_trees(
+                        &trees.symbols,
+                        &trees.cycles,
+                        &mut Decoder::with_max_size(u32::MAX)
+                    )
+                    .is_ok_and(|back| tri::same_triangles(
+                        &index_buffer,
+                        &back,
+                        &offsets
+                    )),
+                    "triangle trees keep each feature's triangles"
+                );
+                (self.triangles, trees, Vec::new())
+            }
+        }
     }
 }
 
@@ -74,6 +96,7 @@ pub(crate) struct GeometrySection02 {
     vertices: Vec<i32>,
     /// The grid of each vertex's third word, or [`None`] when the vertices are `(x, y)` pairs.
     z_axis: Option<ZAxis>,
+    meshes: bool,
 }
 
 /// Turn a layer's geometries into the v2 stream set.
@@ -90,7 +113,19 @@ pub(crate) fn encode_geometry02(
         triangle_offsets,
         vertices,
         z_axis,
+        meshes,
     } = geometry;
+
+    if meshes || vector_types.contains(&GeometryType::Mesh) {
+        return encode_meshes02(
+            vector_types,
+            geometry_offsets,
+            triangle_offsets,
+            index_buffer,
+            vertices,
+            z_axis,
+        );
+    }
 
     let geom_offsets = geometry_offsets.unwrap_or_default();
     let part_offsets = part_offsets.unwrap_or_default();
@@ -192,7 +227,7 @@ pub(crate) fn encode_geometry02(
     // keeps a plain layout: dropping the streams is lossless.
     let tessellation = (!index_buffer.is_empty()).then_some(Tessellation {
         triangles,
-        index_buffer,
+        data: TessData::IndexBuffer(index_buffer),
     });
     // The tessellated layouts declare all three topology streams or none, so a layer
     // missing one fills the gap with an empty stream rather than dropping the others:
@@ -215,7 +250,127 @@ pub(crate) fn encode_geometry02(
         tessellation,
         vertices,
         z_axis,
+        meshes: false,
     })
+}
+
+/// The streams of a `Meshes` layer: each feature's vertex count and triangles, then its
+/// `(x, y, z)` vertices.
+///
+/// The layout holds meshes only, and always writes the triangle streams, even when no
+/// feature has a triangle.
+fn encode_meshes02(
+    vector_types: Vec<GeometryType>,
+    geometry_offsets: Option<Vec<u32>>,
+    triangle_offsets: Option<Vec<u32>>,
+    index_buffer: Option<Vec<u32>>,
+    vertices: Option<Vec<i32>>,
+    z_axis: Option<ZAxis>,
+) -> MltResult<GeometrySection02> {
+    if vector_types.iter().any(|&t| t != GeometryType::Mesh) {
+        return Err(MltError::MixedMeshLayer);
+    }
+    if z_axis.is_none() {
+        return Err(MltError::MeshWithoutZ);
+    }
+    let geo_offsets = geometry_offsets.unwrap_or_default();
+    let tri_offsets = triangle_offsets.unwrap_or_default();
+    let index_buffer = index_buffer.unwrap_or_default();
+    let mut vertices = vertices.unwrap_or_default();
+    let geo_lengths = geo_offsets.windows(2).map(|w| w[1] - w[0]).collect();
+    let triangles = tri_offsets.windows(2).map(|w| w[1] - w[0]).collect();
+
+    let mut trees = tri::encode_trees(&index_buffer, &tri_offsets);
+    debug_assert!(
+        tri::decode_trees(
+            &trees.symbols,
+            &trees.cycles,
+            &mut Decoder::with_max_size(u32::MAX)
+        )
+        .is_ok_and(|back| tri::same_triangles(&index_buffer, &back, &tri_offsets)),
+        "triangle trees keep each feature's triangles"
+    );
+    let vertex_order = reorder_mesh_vertices(&geo_offsets, &mut trees.cycles, &mut vertices);
+
+    Ok(GeometrySection02 {
+        types: vector_types,
+        geo_lengths: Some(geo_lengths),
+        topology: Topology::Flat,
+        tessellation: Some(Tessellation {
+            triangles,
+            data: TessData::Prebuilt {
+                trees,
+                vertex_order,
+            },
+        }),
+        vertices,
+        z_axis,
+        meshes: true,
+    })
+}
+
+/// Number each feature's vertices in the order `cycles` first visits them (followed by any
+/// unreferenced vertices of the feature), rewriting `cycles` and `vertices` in place and
+/// returning `new_to_old` so vertex-scoped m-values stay attached to their vertices.
+fn reorder_mesh_vertices(
+    geo_offsets: &[u32],
+    cycles: &mut [u32],
+    vertices: &mut Vec<i32>,
+) -> Vec<u32> {
+    let vertex_count = vertices.len() / 3;
+    if vertex_count == 0
+        || vertices.len() != vertex_count * 3
+        || geo_offsets.last().copied().map(u32::into_usize) != Some(vertex_count)
+    {
+        return Vec::new();
+    }
+    let mut old_to_new = vec![u32::MAX; vertex_count];
+    let mut new_to_old = Vec::with_capacity(vertex_count);
+    let mut relabelled = Vec::with_capacity(cycles.len());
+    let mut cursor = 0;
+    for &[v_lo, v_hi] in geo_offsets.array_windows() {
+        if v_hi < v_lo || v_hi.into_usize() > vertex_count {
+            return Vec::new();
+        }
+        while let Some(&v) = cycles.get(cursor)
+            && v < v_hi
+        {
+            if v < v_lo {
+                return Vec::new();
+            }
+            let slot = &mut old_to_new[v.into_usize()];
+            if *slot == u32::MAX {
+                *slot = u32::try_from(new_to_old.len()).expect("<= vertex_count < 2^32");
+                new_to_old.push(v);
+            }
+            relabelled.push(*slot);
+            cursor += 1;
+        }
+        for v in v_lo..v_hi {
+            let slot = &mut old_to_new[v.into_usize()];
+            if *slot == u32::MAX {
+                *slot = u32::try_from(new_to_old.len()).expect("<= vertex_count < 2^32");
+                new_to_old.push(v);
+            }
+        }
+    }
+    if cursor != cycles.len() {
+        return Vec::new();
+    }
+    cycles.copy_from_slice(&relabelled);
+    if new_to_old
+        .iter()
+        .enumerate()
+        .any(|(new, &old)| old.into_usize() != new)
+    {
+        let mut reordered = Vec::with_capacity(vertices.len());
+        for &old in &new_to_old {
+            let base = old.into_usize() * 3;
+            reordered.extend_from_slice(&vertices[base..base + 3]);
+        }
+        *vertices = reordered;
+    }
+    new_to_old
 }
 
 /// What a written geometry section puts in the layer's two header bytes.
@@ -223,6 +378,12 @@ pub(crate) struct GeometryHeader02 {
     pub(crate) layout: GeoLayout,
     /// The type every feature has, when the section wrote no types stream.
     pub(crate) uniform_type: Option<GeometryType>,
+    /// For each triangle in the order the trees decode, its index in the layer's triangle
+    /// sequence as staged; empty when the layer has no triangles.
+    pub(crate) triangle_order: Vec<u32>,
+    /// For each mesh vertex as written, its index in the layer's vertex sequence as staged;
+    /// empty when vertices were not reordered.
+    pub(crate) vertex_order: Vec<u32>,
 }
 
 impl GeometrySection02 {
@@ -231,30 +392,11 @@ impl GeometrySection02 {
     /// Such a types stream is a single run saying nothing the header byte's nibble
     /// cannot, so the section drops it and the nibble carries the type instead.
     fn uniform_type(&self) -> Option<GeometryType> {
+        if self.meshes {
+            return Some(GeometryType::Mesh);
+        }
         let (first, rest) = self.types.split_first()?;
         rest.iter().all(|t| t == first).then_some(*first)
-    }
-
-    /// Where the vertex runs start that the decoder will rebuild from these streams,
-    /// which rANS vertices are coded over.
-    fn run_offsets(&self) -> MltResult<Option<Vec<u32>>> {
-        let (parts, rings) = self.topology.streams();
-        let lengths = Levels {
-            geometries: self.geo_lengths.clone(),
-            parts: parts.map(<[u32]>::to_vec),
-            rings: rings.map(<[u32]>::to_vec),
-        };
-        let levels = decode_topology(&self.types, lengths, &mut Decoder::with_max_size(u32::MAX))?;
-        Ok(run_offsets(&levels).map(<[u32]>::to_vec))
-    }
-
-    /// The layout declaring these streams, once the vertex storage is known.
-    fn layout(&self, vertices: VertexStorage) -> GeoLayout {
-        if self.tessellation.is_some() {
-            GeoLayout::tessellated(self.geo_lengths.is_some())
-        } else {
-            GeoLayout::from_topology(&self.topology, self.geo_lengths.is_some(), vertices)
-        }
     }
 
     /// Write the geometry streams to `enc` and return what the header bytes must say.
@@ -298,30 +440,56 @@ impl GeometrySection02 {
             }
         }
 
-        if let Some(tess) = &self.tessellation {
+        let tessellated = self.tessellation.is_some();
+        let mut triangle_order = Vec::new();
+        let mut vertex_order = Vec::new();
+        if let Some(tess) = self.tessellation {
+            let (triangles, trees, v_order) = tess.into_trees();
             let ctx = StreamCtx::geom(StreamType::Length(LengthType::Triangles), "triangles");
-            codecs.write_int_stream(&tess.triangles, &ctx, enc)?;
-            let trees = tess.trees();
+            codecs.write_int_stream(&triangles, &ctx, enc)?;
             let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::TreeSymbols), "tree_symbols");
             codecs.write_int_stream(&trees.symbols, &ctx, enc)?;
             let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::TreeCycles), "tree_cycles");
             codecs.write_int_stream(&trees.cycles, &ctx, enc)?;
+            triangle_order = trees.order;
+            vertex_order = v_order;
         }
 
-        let tessellated = self.tessellation.is_some();
+        let geo_lengths = self.geo_lengths;
+        let topology = self.topology;
+        let types = self.types;
         let vertices = match self.z_axis {
             Some(axis) => write_xyz_vertices(&self.vertices, axis, tessellated, enc, codecs)?,
             None => write_vertices(
                 &self.vertices,
-                &|| self.run_offsets(),
+                &|| {
+                    let (parts, rings) = topology.streams();
+                    let lengths = Levels {
+                        geometries: geo_lengths.clone(),
+                        parts: parts.map(<[u32]>::to_vec),
+                        rings: rings.map(<[u32]>::to_vec),
+                    };
+                    let levels =
+                        decode_topology(&types, lengths, &mut Decoder::with_max_size(u32::MAX))?;
+                    Ok(run_offsets(&levels).map(<[u32]>::to_vec))
+                },
                 tessellated,
                 enc,
                 codecs,
             )?,
         };
+        let layout = if uniform_type == Some(GeometryType::Mesh) {
+            GeoLayout::Meshes
+        } else if tessellated {
+            GeoLayout::tessellated(geo_lengths.is_some())
+        } else {
+            GeoLayout::from_topology(&topology, geo_lengths.is_some(), vertices)
+        };
         Ok(GeometryHeader02 {
-            layout: self.layout(vertices),
+            layout,
             uniform_type,
+            triangle_order,
+            vertex_order,
         })
     }
 }
@@ -430,6 +598,13 @@ fn write_xyz_vertices(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<VertexStorage> {
+    enc.family_context = Family::Vertex;
+
+    if tessellated {
+        encode_vec3_vertex_stream02(vertices, axis, enc, codecs)?;
+        return Ok(VertexStorage::Plain);
+    }
+
     if enc.hilbert_cache.is_none() || enc.morton_cache.is_none() {
         let xy: Vec<i32> = vertices
             .as_chunks::<3>()
@@ -438,12 +613,6 @@ fn write_xyz_vertices(
             .flat_map(|&[x, y, _]| [x, y])
             .collect();
         seed_curve_caches(enc, &xy);
-    }
-    enc.family_context = Family::Vertex;
-
-    if tessellated {
-        encode_vec3_vertex_stream02(vertices, axis, enc, codecs)?;
-        return Ok(VertexStorage::Plain);
     }
 
     if let Some(forced) = enc.override_vertex_buffer_type() {

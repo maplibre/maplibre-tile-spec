@@ -7,7 +7,9 @@ use std::fmt;
 use anyhow::{Context as _, Result as AnyResult, anyhow, bail, ensure};
 use mlt_core::encoder::wound_layer;
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
-use mlt_core::{Decoder, MValue, NestedValue, Parser, PropValue, TileFeature, TileLayer};
+use mlt_core::{
+    Decoder, MValue, MValueScope, NestedValue, Parser, PropValue, TileFeature, TileLayer,
+};
 
 /// Decode `encoded`, hand it to `restore`, and require the result to hold what `source` does.
 ///
@@ -67,30 +69,56 @@ fn same_layer(expected: &TileLayer, actual: &TileLayer) -> AnyResult<()> {
         let id =
             e.id.map_or_else(|| "without an id".to_owned(), |id| id.to_string());
         ensure!(e.id == a.id, "feature {id} is missing");
-        ensure!(
-            e.geometry == a.geometry,
-            "feature {id} has another geometry"
-        );
-        ensure!(
-            e.z == a.z,
-            "feature {id} has other z: {:?}, not {:?}",
-            a.z,
-            e.z
-        );
+        if e.mesh.is_none() && a.mesh.is_none() {
+            ensure!(
+                e.geometry == a.geometry,
+                "feature {id} has another geometry"
+            );
+            ensure!(
+                e.z == a.z,
+                "feature {id} has other z: {:?}, not {:?}",
+                a.z,
+                e.z
+            );
+        }
         if let Some(difference) = first_difference(&e.values, &a.values) {
             bail!("feature {id} has other values: {difference}");
+        }
+        if let (Some(em), Some(am)) = (&e.mesh, &a.mesh) {
+            ensure!(
+                em.0 == am.0,
+                "feature {id} has other mesh vertices: {:?}, not {:?}",
+                am.0,
+                em.0
+            );
+            ensure!(
+                em.1 == am.1,
+                "feature {id} has other triangles: {:?}, not {:?}",
+                am.1,
+                em.1
+            );
+        } else {
+            ensure!(e.mesh == a.mesh, "feature {id} has another geometry");
         }
     }
     Ok(())
 }
 
+/// One mesh vertex (`[x, y, z]` plus its non-null vertex-scoped m-values) and canonicalized
+/// mesh `(sorted_vertices, sorted_triangles)` invariant under vertex and triangle reordering.
+type MeshVertex<'a> = ([i32; 3], Vec<(&'a str, Value<'a>)>);
+type MeshTriangle<'a> = ([MeshVertex<'a>; 3], Vec<(&'a str, Value<'a>)>);
+type CanonicalMesh<'a> = (Vec<MeshVertex<'a>>, Vec<MeshTriangle<'a>>);
+
 /// One feature, its non-null values keyed by the kind of column and its name.
 struct Row<'a> {
     id: Option<u64>,
     geometry: &'a Geometry<i32>,
-    /// Empty in a flat layer.
+    /// Empty in a flat layer or a mesh row (whose z lives in `mesh`).
     z: &'a [i32],
     values: BTreeMap<(Role, &'a str), Value<'a>>,
+    /// [`None`] unless the feature is a mesh.
+    mesh: Option<CanonicalMesh<'a>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -101,7 +129,7 @@ enum Role {
 }
 
 /// A value with its storage type left out: integers by number, floats by their `f64` bits.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum Value<'a> {
     Bool(bool),
     Int(i128),
@@ -204,10 +232,18 @@ fn rows(layer: &TileLayer) -> Vec<Row<'_>> {
     let mut rows: Vec<(Shape, Row<'_>)> = layer
         .features()
         .iter()
-        .map(|f| (Shape::of(f.geometry()), row(layer, f)))
+        .map(|f| {
+            let r = row(layer, f);
+            let shape = if r.mesh.is_some() {
+                Shape::Mesh
+            } else {
+                Shape::of(f.geometry())
+            };
+            (shape, r)
+        })
         .collect();
     rows.sort_by(|(a_shape, a), (b_shape, b)| {
-        (a.id, a_shape, a.z, &a.values).cmp(&(b.id, b_shape, b.z, &b.values))
+        (a.id, a_shape, a.z, &a.values, &a.mesh).cmp(&(b.id, b_shape, b.z, &b.values, &b.mesh))
     });
     rows.into_iter().map(|(_, row)| row).collect()
 }
@@ -225,6 +261,7 @@ enum Shape {
     Rect(Xy, Xy),
     Triangle(Xy, Xy, Xy),
     Collection(Vec<Self>),
+    Mesh,
 }
 
 type Xy = (i32, i32);
@@ -261,22 +298,90 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature) -> Row<'a> {
             values.insert((Role::Property, name.as_str()), value);
         }
     }
-    for (name, value) in layer.m_value_names().iter().zip(feature.m_values()) {
-        if let Some(value) = Value::of_m_value(value) {
-            values.insert((Role::MValue, name.as_str()), value);
+    let is_mesh = feature.triangles().is_some();
+    let mut per_triangle = Vec::new();
+    let mut per_vertex = Vec::new();
+    let columns = layer.m_value_names().iter().zip(feature.m_values());
+    for ((name, value), scope) in columns.zip(layer.m_value_scopes()) {
+        let Some(value) = Value::of_m_value(value) else {
+            continue;
+        };
+        match (scope, value) {
+            (MValueScope::Triangle, Value::List(items)) => {
+                per_triangle.push((name.as_str(), items.into_iter()));
+            }
+            (MValueScope::Vertex, Value::List(items)) if is_mesh => {
+                per_vertex.push((name.as_str(), items.into_iter()));
+            }
+            (_, value) => {
+                values.insert((Role::MValue, name.as_str()), value);
+            }
         }
     }
+    per_triangle.sort_by_key(|&(name, _)| name);
+    per_vertex.sort_by_key(|&(name, _)| name);
     for (name, value) in layer.nested_names().iter().zip(feature.nested()) {
         if let Some(value) = Value::of_nested(value) {
             values.insert((Role::Nested, name.as_str()), value);
         }
     }
+    let mesh = feature.triangles().map(|triangles| {
+        let pts = if let Geometry::MultiPoint(mp) = feature.geometry() {
+            &mp.0[..]
+        } else {
+            &[]
+        };
+        let z = feature.z();
+        let verts: Vec<MeshVertex<'_>> = (0..pts.len())
+            .map(|i| {
+                let xyz = [pts[i].x(), pts[i].y(), z.get(i).copied().unwrap_or(0)];
+                let v_vals = per_vertex
+                    .iter_mut()
+                    .filter_map(|(name, items)| Some((*name, items.next()??)))
+                    .collect();
+                (xyz, v_vals)
+            })
+            .collect();
+        let mut paired: Vec<MeshTriangle<'_>> = triangles
+            .iter()
+            .map(|&[a, b, c]| {
+                let corners = canonical_corners([
+                    verts[a as usize].clone(),
+                    verts[b as usize].clone(),
+                    verts[c as usize].clone(),
+                ]);
+                let t_vals = per_triangle
+                    .iter_mut()
+                    .filter_map(|(name, items)| Some((*name, items.next()??)))
+                    .collect();
+                (corners, t_vals)
+            })
+            .collect();
+        paired.sort();
+        let mut sorted_verts = verts;
+        sorted_verts.sort();
+        (sorted_verts, paired)
+    });
     Row {
         id: feature.id(),
         geometry: feature.geometry(),
-        z: feature.z(),
+        z: if is_mesh { &[] } else { feature.z() },
         values,
+        mesh,
     }
+}
+
+/// A triangle rotated to start at its smallest corner, which keeps its winding even when two
+/// corners are equal.
+fn canonical_corners<T: Ord + Clone>([a, b, c]: [T; 3]) -> [T; 3] {
+    [
+        [a.clone(), b.clone(), c.clone()],
+        [b.clone(), c.clone(), a.clone()],
+        [c, a, b],
+    ]
+    .into_iter()
+    .min()
+    .expect("three rotations")
 }
 
 /// The first column whose value differs, described, or [`None`] if every value matches.
@@ -370,6 +475,50 @@ mod tests {
         .with_wire_version(mlt_core::encoder::WireVersion::V02);
         let encoded = layer.clone().encode(config).unwrap();
         check_round_trip(&layer, &encoded, Ok).unwrap();
+    }
+
+    /// A square mesh of two triangles, with one triangle-scoped value each.
+    fn square_mesh(faces: [i32; 2]) -> TileLayer {
+        let mut layer = TileLayer::builder("l", 4096).unwrap();
+        layer
+            .set_z_axis(mlt_core::ZAxis {
+                step: mlt_core::ZStep::new(0).unwrap(),
+                mode: mlt_core::HeightMode::RelativeToGround,
+            })
+            .unwrap();
+        let face = layer
+            .add_scoped_m_value("face", PropKind::I32, MValueScope::Triangle)
+            .unwrap();
+        let corners = [(0, 0), (9, 0), (9, 9), (0, 9)].map(|(x, y)| Point::new(x, y));
+        let mut row = layer.feature(Geometry::MultiPoint(corners.into_iter().collect()));
+        row.id(Some(1));
+        row.z(vec![0, 0, 5, 5]).unwrap();
+        row.triangles(vec![[0, 1, 2], [0, 2, 3]]).unwrap();
+        row.m_value(face, MValue::I32(Some(faces.to_vec())))
+            .unwrap();
+        row.finish().unwrap();
+        layer.finish()
+    }
+
+    #[test]
+    fn a_mesh_comes_back_with_each_triangle_value_on_its_triangle() {
+        let layer = square_mesh([7, 8]);
+        let config = mlt_core::encoder::EncoderConfig::from_profile(
+            mlt_core::encoder::Profile::Native(mlt_core::encoder::Network::Cellular4G),
+        )
+        .with_wire_version(mlt_core::encoder::WireVersion::V02);
+        let encoded = layer.clone().encode(config).unwrap();
+        check_round_trip(&layer, &encoded, Ok).unwrap();
+    }
+
+    #[test]
+    fn a_triangle_value_moved_to_another_triangle_is_reported() {
+        let err = same_layer(&square_mesh([7, 8]), &square_mesh([8, 7])).unwrap_err();
+        assert!(
+            err.to_string()
+                .starts_with("feature 1 has other triangles:"),
+            "{err}"
+        );
     }
 
     fn layer_with_nested(kind: mlt_core::NestedKind, value: NestedValue) -> TileLayer {

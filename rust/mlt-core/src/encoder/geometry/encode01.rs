@@ -29,10 +29,20 @@ impl GeometryValues {
             index_buffer,
             triangle_offsets,
             vertices,
-            // The layer writer rejects a geometry with z coordinates before it gets here.
             #[cfg(feature = "unstable-v2")]
-                z_axis: _,
+            z_axis,
+            #[cfg(feature = "unstable-v2")]
+            meshes,
         } = self;
+
+        #[cfg(feature = "unstable-v2")]
+        if meshes || vector_types.contains(&GeometryType::Mesh) {
+            return Err(MltError::MeshNeedsV2(String::new()));
+        }
+        #[cfg(feature = "unstable-v2")]
+        if z_axis.is_some() {
+            return Err(MltError::ZNeedsV2(String::new()));
+        }
 
         // Flatten every Option<Vec> -> Vec  (empty == not present).
         // vertices: None means no coordinate data (e.g. empty layer).
@@ -273,6 +283,8 @@ fn feature_relative_triangles(
         vertices: None,
         #[cfg(feature = "unstable-v2")]
         z_axis: None,
+        #[cfg(feature = "unstable-v2")]
+        meshes: false,
     };
     dense.rebase_indices_to_feature()?;
     Ok((triangles, dense.index_buffer.unwrap_or_default()))

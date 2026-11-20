@@ -137,6 +137,10 @@ name = "tag02_fixtures"
 required-features = ["unstable-v2"]
 
 [[test]]
+name = "tag02_meshes"
+required-features = ["unstable-v2"]
+
+[[test]]
 name = "tag02_mvalue_memory"
 required-features = ["__private-v2"]
 

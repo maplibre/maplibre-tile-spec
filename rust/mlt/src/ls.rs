@@ -285,6 +285,7 @@ fn geometry_token(geometry: GeometryType) -> &'static str {
         GeometryType::MultiPoint => "multi-point",
         GeometryType::MultiLineString => "multi-line-string",
         GeometryType::MultiPolygon => "multi-polygon",
+        GeometryType::Mesh => "mesh",
     }
 }
 
@@ -321,6 +322,7 @@ fn geom_layout_token(layout: mlt_core::wire::GeoLayout) -> &'static str {
         G::MultiPolygonsDict => "multi-polygons-dict",
         G::TessPolygons => "tess-polygons",
         G::TessPolygonsWithOutlines => "tess-polygons-with-outlines",
+        G::Meshes => "meshes",
     }
 }
 
@@ -1030,6 +1032,7 @@ fn geometries_display(geometries: &BTreeSet<GeometryType>) -> String {
         GeometryType::MultiPoint => "MPt",
         GeometryType::MultiLineString => "MLine",
         GeometryType::MultiPolygon => "MPoly",
+        GeometryType::Mesh => "Mesh",
     };
     let mut v: Vec<GeometryType> = geometries.iter().copied().collect();
     v.sort_unstable();

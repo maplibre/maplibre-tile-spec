@@ -60,7 +60,8 @@ def decode_mlt(data: bytes, z: typing.Optional[builtins.int] = None, x: typing.O
     are preserved.
 
     A layer whose vertices carry z writes them into the WKB as its third ordinate.
-    They are grid values in raw tile coordinates, and elevations in metres once transformed.
+    They are grid values in raw tile coordinates, and elevations (or heights above the
+    ground, on ground-datum `Meshes` layers) in metres once transformed.
 
     `tms`: when True (the default), treat `y` as TMS convention (y=0 at south,
     used by `OpenMapTiles` / `MBTiles`). Set to False for XYZ / slippy-map tiles

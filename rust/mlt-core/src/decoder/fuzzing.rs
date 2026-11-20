@@ -53,6 +53,38 @@ impl Arbitrary<'_> for GeometryValues {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound geometry count to prevent OOM from unbounded iteration
         let count = u.int_in_range(1..=32u16)?.into_usize();
+        #[cfg(feature = "unstable-v2")]
+        if u.ratio(1, 4)? {
+            let mut decoded = Self::default();
+            for _ in 0..count.min(8) {
+                let n_verts = u.int_in_range(0..=8u8)?;
+                let coords: Vec<Coord<i32>> = (0..n_verts)
+                    .map(|_| {
+                        Ok(Coord {
+                            x: u.arbitrary()?,
+                            y: u.arbitrary()?,
+                        })
+                    })
+                    .collect::<Result<_>>()?;
+                let n_tris = if n_verts == 0 {
+                    0
+                } else {
+                    u.int_in_range(0..=8u8)?
+                };
+                let tris: Vec<[u32; 3]> = (0..n_tris)
+                    .map(|_| {
+                        let v = u32::from(n_verts - 1);
+                        Ok([
+                            u.int_in_range(0..=v)?,
+                            u.int_in_range(0..=v)?,
+                            u.int_in_range(0..=v)?,
+                        ])
+                    })
+                    .collect::<Result<_>>()?;
+                decoded.push_mesh(coords.into_iter(), &tris);
+            }
+            return Ok(decoded);
+        }
         let mut decoded = Self::default();
         for _ in 0..count {
             let geo: ArbitraryGeometry = u.arbitrary()?;

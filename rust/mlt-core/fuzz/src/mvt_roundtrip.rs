@@ -21,6 +21,9 @@ impl MvtRoundtripInput {
         let Some(canonical) = encode_decode(self.layer, self.config) else {
             return; // the wire version cannot represent this layer
         };
+        if canonical.features().iter().any(|f| f.triangles().is_some()) {
+            return; // MVT has no mesh geometry type
+        }
         let normalized = mvt_roundtrip(canonical);
         let again = mvt_roundtrip(normalized.clone());
         assert_mvt_equivalent_layers(&normalized, &again);

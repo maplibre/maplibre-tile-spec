@@ -37,6 +37,8 @@ pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCol
             features.push(Feature {
                 geometry: feat.geometry,
                 z: None,
+                #[cfg(feature = "unstable-v2")]
+                triangles: None,
                 id: feat.id,
                 properties,
                 ty: "Feature".into(),
@@ -125,6 +127,8 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
             nested: Vec::new(),
             #[cfg(feature = "unstable-v2")]
             z: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            triangles: None,
         });
     }
 
@@ -176,6 +180,8 @@ impl TryFrom<MvtLayer> for TileLayer {
                 nested: Vec::new(),
                 #[cfg(feature = "unstable-v2")]
                 z: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                triangles: None,
             });
         }
 

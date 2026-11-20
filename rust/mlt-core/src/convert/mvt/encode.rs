@@ -84,6 +84,8 @@ mod tests {
             #[cfg(feature = "unstable-v2")]
             m_value_kinds: vec![],
             #[cfg(feature = "unstable-v2")]
+            m_value_scopes: vec![],
+            #[cfg(feature = "unstable-v2")]
             nested_names: vec![],
             #[cfg(feature = "unstable-v2")]
             nested_kinds: vec![],
@@ -124,6 +126,8 @@ mod tests {
                 nested: vec![],
                 #[cfg(feature = "unstable-v2")]
                 z: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                triangles: None,
             }],
         )
         .unwrap();

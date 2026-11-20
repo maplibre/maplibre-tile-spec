@@ -142,6 +142,19 @@ impl GeometryValues {
         }
     }
 
+    /// Returns an empty [`GeometryValues`] for a v2 `Meshes` layer on `z_axis`.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn new_meshes(z_axis: crate::tile::ZAxis) -> Self {
+        Self {
+            geometry_offsets: Some(vec![0]),
+            triangle_offsets: Some(vec![0]),
+            z_axis: Some(z_axis),
+            meshes: true,
+            ..Default::default()
+        }
+    }
+
     /// Reserve room for `geoms` more geometries, holding `coords` coordinates between them.
     pub(crate) fn reserve(&mut self, geoms: usize, coords: usize) {
         self.vector_types.reserve(geoms);
@@ -367,6 +380,39 @@ impl GeometryValues {
         self.tessellate_polygons(polygons, first_vertex);
     }
 
+    /// Add a mesh of `vertices` and the `triangles` between them, which name the vertices
+    /// by their index among them.
+    ///
+    /// The vertices run on from the layer's, so the triangles are stored shifted past those.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn push_mesh(
+        &mut self,
+        vertices: impl Iterator<Item = Coord<i32>>,
+        triangles: &[[u32; 3]],
+    ) {
+        self.meshes = true;
+        self.vector_types.push(GeometryType::Mesh);
+        let first_vertex = self.stored_vertex_count();
+        let verts = self.vertices.get_or_insert_with(Vec::new);
+        let start = verts.len();
+        verts.extend(vertices.flat_map(|vertex| [vertex.x, vertex.y]));
+        let count = u32::try_from((verts.len() - start) / 2).expect("vertex count overflow");
+        self.push_geometry_count(count);
+
+        let offsets = self.triangle_offsets.get_or_insert_with(|| vec![0]);
+        let total = u32::try_from(triangles.len())
+            .ok()
+            .and_then(|n| offsets.last()?.checked_add(n))
+            .expect("triangle count overflow");
+        offsets.push(total);
+        self.index_buffer.get_or_insert_with(Vec::new).extend(
+            triangles
+                .as_flattened()
+                .iter()
+                .map(|&v| v.checked_add(first_vertex).expect("vertex index overflow")),
+        );
+    }
+
     /// Initialize and update `geometry_offsets` with a sub-geometry count.
     fn push_geometry_count(&mut self, count: u32) {
         let g = self.geometry_offsets.get_or_insert_with(Vec::new);
@@ -418,8 +464,11 @@ pub fn wound_layer(layer: &TileLayer) -> TileLayer {
             if order.len() == feature.z.len() {
                 feature.z = order.iter().map(|&i| feature.z[i]).collect();
             }
-            for m_value in &mut feature.m_values {
-                m_value.reorder(&order);
+            for (i, m_value) in feature.m_values.iter_mut().enumerate() {
+                let scope = layer.m_value_scopes.get(i).copied().unwrap_or_default();
+                if scope == crate::MValueScope::Vertex {
+                    m_value.reorder(&order);
+                }
             }
         }
         feature.geometry = wound_geometry(&feature.geometry);

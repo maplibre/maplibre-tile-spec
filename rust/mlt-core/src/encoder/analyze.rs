@@ -41,6 +41,6 @@ impl Analyze for ParsedStrings<'_> {
         } else {
             0
         };
-        meta + self.dense_values().collect_statistic(stat)
+        meta + self.values().flatten().map(str::len).sum::<usize>()
     }
 }

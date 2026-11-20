@@ -2,17 +2,21 @@
 
 use compact_str::CompactString;
 
+use crate::MValueScope;
 use crate::encoder::StagedStrings;
 use crate::tile::PropKind;
 
 /// An m-value column prepared for encoding: one value per vertex of every
-/// feature whose presence bit is set.
+/// feature whose presence bit is set, or per triangle for a triangle-scoped column.
 ///
 /// Its values are flat across features, the way the wire holds them, so nothing
 /// here remembers where one feature's run ends - the geometry says that.
+/// A triangle-scoped column holds its values in the order the features gave their
+/// triangles; the layer writer puts them in the order the triangle trees decode.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StagedMValue {
     pub(crate) name: String,
+    pub(crate) scope: MValueScope,
     /// One bit per feature, or [`None`] when every feature carries values.
     pub(crate) presence: Option<Vec<bool>>,
     pub(crate) values: StagedValues,
@@ -57,6 +61,14 @@ macro_rules! impl_staged_m_values {
                     $(PropKind::$gv => Self::$gv(Vec::new()),)*
                 }
             }
+
+            /// The values at `indices`, in their order.
+            pub(crate) fn pick(&self, indices: &[usize]) -> Self {
+                match self {
+                    $(Self::$sv(v) => Self::$sv(indices.iter().map(|&i| v[i].clone()).collect()),)*
+                    $(Self::$gv(v) => Self::$gv(indices.iter().map(|&i| v[i].clone()).collect()),)*
+                }
+            }
         }
     };
 }
@@ -70,9 +82,17 @@ impl StagedMValue {
     pub fn new(name: impl Into<String>, presence: Option<Vec<bool>>, values: StagedValues) -> Self {
         Self {
             name: name.into(),
+            scope: MValueScope::Vertex,
             presence,
             values,
         }
+    }
+
+    /// Set what the column holds one value per: each vertex, or each triangle of a mesh.
+    #[must_use]
+    pub const fn with_scope(mut self, scope: MValueScope) -> Self {
+        self.scope = scope;
+        self
     }
 
     #[must_use]

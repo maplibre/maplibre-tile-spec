@@ -17,6 +17,8 @@ use crate::{Decoder, MltResult};
 pub(crate) struct TriTrees {
     pub(crate) symbols: Vec<u32>,
     pub(crate) cycles: Vec<u32>,
+    /// For each triangle in the order the trees decode, its index in the buffer they were coded from.
+    pub(crate) order: Vec<u32>,
 }
 
 /// Code the triangles of each feature as trees, `tri_offsets` cumulative in triangles.
@@ -37,7 +39,11 @@ pub(crate) fn encode_trees(indices: &[u32], tri_offsets: &[u32]) -> TriTrees {
                 })
                 .unwrap_or(0);
             outline.rotate_left(start);
-            forest.symbols(outline[0], &mut out.symbols);
+            let first = out.order.len();
+            forest.symbols(outline[0], &mut out.symbols, &mut out.order);
+            for triangle in &mut out.order[first..] {
+                *triangle += lo;
+            }
             out.cycles.extend(outline.iter().map(|&s| forest.ends(s).0));
         }
     }
@@ -66,13 +72,14 @@ struct Forest<'a> {
     twins: Vec<u32>,
     /// The triangle each tree was claimed from, in claim order.
     roots: Vec<u32>,
-    /// The sides by the bucket of their first vertex, each bucket in side order.
-    by_from: Vec<(u64, u32)>,
-    /// Where each bucket of [`Self::by_from`] starts, then where the last one ends.
-    starts: Vec<u32>,
-    /// The first vertex of the feature, and the bucket mask over vertices counted from it.
-    min: u32,
-    mask: u32,
+    /// Open-addressed table mapping each directed edge to its first side, or [`NO_TWIN`].
+    heads: Vec<u32>,
+    /// For each side, a later side carrying the same directed edge, or [`NO_TWIN`].
+    ///
+    /// For the first side of an edge (stored in [`Self::heads`]), [`Self::unclaimed_side`]
+    /// advances this entry past sides whose triangles have been claimed.
+    next_side: Vec<u32>,
+    mask: usize,
     claimed: Vec<bool>,
     stack: Vec<u32>,
 }
@@ -80,14 +87,14 @@ struct Forest<'a> {
 impl<'a> Forest<'a> {
     /// Claim a tree from each unclaimed triangle in turn.
     ///
-    /// A side joins the first triangle holding the same edge reversed, unless that one is claimed already.
+    /// A side joins the first unclaimed triangle holding the same edge reversed.
     fn grow(&mut self, indices: &'a [u32]) {
         self.indices = indices;
         let triangles = u32::try_from(indices.len() / 3).expect("fewer than 2^32 triangles");
         self.twins.clear();
         self.twins.resize(indices.len(), NO_TWIN);
         self.roots.clear();
-        self.bucket_sides();
+        self.index_sides();
         self.claimed.clear();
         self.claimed.resize(indices.len() / 3, false);
         for root in 0..triangles {
@@ -98,11 +105,12 @@ impl<'a> Forest<'a> {
             self.roots.push(root);
             self.stack.push(root * 3);
             while let Some(entry) = self.stack.pop() {
-                for side in other_sides(entry) {
+                // Push `right` before `left` so the LIFO stack visits `left` first,
+                // matching `symbols` preorder and keeping re-encodes idempotent.
+                let [left, right] = other_sides(entry);
+                for side in [right, left] {
                     let (from, to) = self.ends(side);
-                    if let Some(child) = self.first_side(to, from)
-                        && !self.claimed[(child / 3).into_usize()]
-                    {
+                    if let Some(child) = self.unclaimed_side(to, from) {
                         self.claimed[(child / 3).into_usize()] = true;
                         self.twins[side.into_usize()] = child;
                         self.twins[child.into_usize()] = side;
@@ -120,61 +128,82 @@ impl<'a> Forest<'a> {
         )
     }
 
-    fn key(&self, side: u32) -> u64 {
-        let (from, to) = self.ends(side);
-        edge_key(from, to)
+    fn slot_of(&self, from: u32, to: u32) -> usize {
+        let mut h = from.wrapping_mul(0x9E37_79B9) ^ to.rotate_left(16).wrapping_mul(0x85EB_CA6B);
+        h ^= h >> 16;
+        h = h.wrapping_mul(0x7FEB_352D);
+        h ^= h >> 15;
+        h.into_usize() & self.mask
     }
 
-    fn bucket_of(&self, vertex: u32) -> usize {
-        (vertex.wrapping_sub(self.min) & self.mask).into_usize()
-    }
-
-    /// Counting-sort the sides into buckets by their first vertex.
-    ///
-    /// The vertices of an earcut feature are consecutive, so a bucket rarely holds more than one vertex.
-    fn bucket_sides(&mut self) {
+    /// Link the sides sharing each directed edge in ascending side order and record each edge's
+    /// first side in [`Self::heads`], so [`Self::unclaimed_side`] walks each side at most once.
+    fn index_sides(&mut self) {
         let sides = u32::try_from(self.indices.len()).expect("fewer than 2^32 sides");
-        self.min = self.indices.iter().copied().min().unwrap_or(0);
-        self.mask = sides.next_power_of_two() - 1;
-        self.starts.clear();
-        self.starts.resize(self.mask.into_usize() + 3, 0);
-        for &vertex in self.indices {
-            let bucket = self.bucket_of(vertex);
-            self.starts[bucket + 2] += 1;
-        }
-        for bucket in 2..self.starts.len() {
-            self.starts[bucket] += self.starts[bucket - 1];
-        }
-        self.by_from.clear();
-        self.by_from.resize(self.indices.len(), (0, 0));
-        for side in 0..sides {
-            let bucket = self.bucket_of(self.indices[side.into_usize()]);
-            let key = self.key(side);
-            let slot = self.starts[bucket + 1];
-            self.by_from[slot.into_usize()] = (key, side);
-            self.starts[bucket + 1] = slot + 1;
+        let table_len = self
+            .indices
+            .len()
+            .checked_mul(2)
+            .and_then(|n| n.max(2).checked_next_power_of_two())
+            .expect("edge table fits in memory");
+        self.mask = table_len - 1;
+        self.heads.clear();
+        self.heads.resize(table_len, NO_TWIN);
+        self.next_side.clear();
+        self.next_side.resize(self.indices.len(), NO_TWIN);
+        for side in (0..sides).rev() {
+            let (from, to) = self.ends(side);
+            let mut slot = self.slot_of(from, to);
+            loop {
+                let head = self.heads[slot];
+                if head == NO_TWIN {
+                    self.heads[slot] = side;
+                    break;
+                }
+                if self.ends(head) == (from, to) {
+                    self.next_side[side.into_usize()] = head;
+                    self.heads[slot] = side;
+                    break;
+                }
+                slot = (slot + 1) & self.mask;
+            }
         }
     }
 
-    /// The first side running from `from` to `to`.
-    fn first_side(&self, from: u32, to: u32) -> Option<u32> {
-        let bucket = self.bucket_of(from);
-        let key = edge_key(from, to);
-        self.by_from[self.starts[bucket].into_usize()..self.starts[bucket + 1].into_usize()]
-            .iter()
-            .find(|&&(k, _)| k == key)
-            .map(|&(_, s)| s)
+    /// The first unclaimed side running from `from` to `to`.
+    fn unclaimed_side(&mut self, from: u32, to: u32) -> Option<u32> {
+        let mut slot = self.slot_of(from, to);
+        loop {
+            let head = self.heads[slot];
+            if head == NO_TWIN {
+                return None;
+            }
+            if self.ends(head) == (from, to) {
+                if !self.claimed[(head / 3).into_usize()] {
+                    return Some(head);
+                }
+                let mut cur = self.next_side[head.into_usize()];
+                while cur != NO_TWIN && self.claimed[(cur / 3).into_usize()] {
+                    cur = self.next_side[cur.into_usize()];
+                }
+                self.next_side[head.into_usize()] = cur;
+                return (cur != NO_TWIN).then_some(cur);
+            }
+            slot = (slot + 1) & self.mask;
+        }
     }
 
     fn joins(&self, side: u32) -> bool {
         self.twins[side.into_usize()] != NO_TWIN
     }
 
-    /// Append the symbol of each triangle of the tree entered across `entry`, in preorder.
-    fn symbols(&mut self, entry: u32, out: &mut Vec<u32>) {
+    /// Append the symbol of each triangle of the tree entered across `entry`, in preorder,
+    /// and the triangle itself to `order`.
+    fn symbols(&mut self, entry: u32, out: &mut Vec<u32>, order: &mut Vec<u32>) {
         self.stack.push(entry);
         while let Some(entry) = self.stack.pop() {
             let [left, right] = other_sides(entry);
+            order.push(entry / 3);
             out.push(u32::from(self.joins(left)) | (u32::from(self.joins(right)) << 1));
             for side in [right, left] {
                 if self.joins(side) {
@@ -200,10 +229,6 @@ impl<'a> Forest<'a> {
             }
         }
     }
-}
-
-fn edge_key(from: u32, to: u32) -> u64 {
-    u64::from(from) << 32 | u64::from(to)
 }
 
 /// Rebuild three vertex indices per symbol from the trees.
@@ -355,24 +380,35 @@ mod tests {
     use super::*;
     use crate::test_helpers::{dec, starved_dec};
 
+    /// Assert that decoded triangle `k` is input triangle `order[k]`, up to rotation.
+    fn assert_order_names_decoded(input: &[u32], trees: &TriTrees) {
+        let decoded = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
+        let input = input.as_chunks::<3>().0;
+        let decoded = decoded.as_chunks::<3>().0;
+        assert_eq!(trees.order.len(), decoded.len());
+        for (back, &source) in decoded.iter().zip(&trees.order) {
+            let [a, b, c] = input[source.into_usize()];
+            assert!(
+                [[a, b, c], [b, c, a], [c, a, b]].contains(back),
+                "{back:?} decoded for input triangle {source}"
+            );
+        }
+    }
+
     #[test]
     fn fan_with_a_hole_bridge_round_trips() {
         let triangles = [[0, 1, 2], [0, 2, 3], [0, 3, 4], [4, 3, 5], [6, 7, 8]];
         let tri_offsets = [0, 4, 5];
         let trees = encode_trees(triangles.as_flattened(), &tri_offsets);
-        assert_eq!(
-            trees,
-            TriTrees {
-                symbols: vec![2, 2, 1, 0, 0],
-                cycles: vec![0, 1, 2, 3, 5, 4, 6, 7, 8],
-            }
-        );
+        assert_eq!(trees.symbols, [2, 2, 1, 0, 0]);
+        assert_eq!(trees.cycles, [0, 1, 2, 3, 5, 4, 6, 7, 8]);
         let decoded = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
         assert!(same_triangles(
             triangles.as_flattened(),
             &decoded,
             &tri_offsets
         ));
+        assert_order_names_decoded(triangles.as_flattened(), &trees);
     }
 
     #[test]
@@ -387,13 +423,16 @@ mod tests {
             [8, 7, 5],
             [10, 9, 11],
         ];
+        let trees = encode_trees(triangles.as_flattened(), &[0, 1, 8]);
         assert_eq!(
-            encode_trees(triangles.as_flattened(), &[0, 1, 8]),
+            trees,
             TriTrees {
                 symbols: vec![0, 2, 1, 1, 2, 1, 0, 0],
                 cycles: vec![0, 2, 1, 3, 6, 8, 7, 6, 3, 5, 4, 9, 11, 10],
+                order: vec![0, 1, 3, 5, 6, 4, 2, 7],
             }
         );
+        assert_order_names_decoded(triangles.as_flattened(), &trees);
     }
 
     #[test]
@@ -430,10 +469,10 @@ mod tests {
         let cycles: Vec<u32> = (0..203).collect();
         let triangles = decode_trees(&symbols, &cycles, &mut dec()).unwrap();
         assert_eq!(triangles.len(), 201 * 3);
-        assert_eq!(
-            encode_trees(&triangles, &[0, 201]),
-            TriTrees { symbols, cycles }
-        );
+        let trees = encode_trees(&triangles, &[0, 201]);
+        assert_eq!(trees.symbols, symbols);
+        assert_eq!(trees.cycles, cycles);
+        assert_eq!(trees.order, (0..201).collect::<Vec<u32>>());
     }
 
     #[test]
@@ -488,7 +527,26 @@ mod tests {
                 same_triangles(&indices, &decoded, &tri_offsets),
                 "{indices:?} {tri_offsets:?}"
             );
+            assert_order_names_decoded(&indices, &trees);
         }
+    }
+
+    #[test]
+    fn repeated_faces_encode_without_quadratic_rescan() {
+        let count = 50_000_u32;
+        let degenerate = vec![0_u32; count.into_usize() * 3];
+        let trees = encode_trees(&degenerate, &[0, count]);
+        assert_eq!(trees.symbols.len(), count.into_usize());
+        let decoded = decode_trees(&trees.symbols, &trees.cycles, &mut dec()).unwrap();
+        assert_eq!(decoded, degenerate);
+        assert_order_names_decoded(&degenerate, &trees);
+
+        let pairs: Vec<u32> = (0..count)
+            .flat_map(|i| if i % 2 == 0 { [0, 1, 2] } else { [2, 1, 0] })
+            .collect();
+        let pair_trees = encode_trees(&pairs, &[0, count]);
+        assert_eq!(pair_trees.symbols.len(), count.into_usize());
+        assert_order_names_decoded(&pairs, &pair_trees);
     }
 
     #[rstest::rstest]

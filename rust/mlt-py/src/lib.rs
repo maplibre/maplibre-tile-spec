@@ -252,8 +252,12 @@ fn build_features(
     let mut index = 0;
     while let Some(feat_result) = feat_iter.next() {
         let feat = feat_result.map_err(mlt_err)?;
-        let geometry_type = GeometryType::try_from(feat.geometry())
-            .map_or_else(|()| "Unknown".to_string(), |gt| gt.to_string());
+        let geometry_type = geometry
+            .vector_types()
+            .get(index)
+            .copied()
+            .or_else(|| GeometryType::try_from(feat.geometry()).ok())
+            .map_or_else(|| "Unknown".to_string(), |gt| gt.to_string());
         let z = z_step
             .map(|step| geometry.z(index).map(|z| (step, z)))
             .transpose()
@@ -286,7 +290,8 @@ fn height_mode_name(mode: HeightMode) -> &'static str {
 /// are preserved.
 ///
 /// A layer whose vertices carry z writes them into the WKB as its third ordinate.
-/// They are grid values in raw tile coordinates, and elevations in metres once transformed.
+/// They are grid values in raw tile coordinates, and elevations (or heights above the
+/// ground, on ground-datum `Meshes` layers) in metres once transformed.
 ///
 /// `tms`: when True (the default), treat `y` as TMS convention (y=0 at south,
 /// used by `OpenMapTiles` / `MBTiles`). Set to False for XYZ / slippy-map tiles
