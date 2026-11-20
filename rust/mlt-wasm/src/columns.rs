@@ -50,17 +50,17 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
         let parsed = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
         // `ParsedLayer` is non_exhaustive: a layer of a tag this binding does not know is skipped.
         let object = match &parsed {
-            ParsedLayer::Tag01(layer) => layer_object(&mut dec, layer, 1, false)?,
+            ParsedLayer::Tag01(layer) => layer_object(&mut dec, layer, 1)?,
             // A v2 layer's nested columns are not passed on.
             #[cfg(feature = "unstable-v2")]
             ParsedLayer::Tag02(layer) => {
-                let is_meshes = layer.layout().geometry == mlt_core::wire::GeoLayout::Meshes;
-                let object = layer_object(&mut dec, layer.layer(), 2, is_meshes)?;
+                let object = layer_object(&mut dec, layer.layer(), 2)?;
+                let geometry = layer.layer().geometry_values();
                 let m_values = layer
                     .m_values()
                     .iter()
-                    .map(|column| m_value_column(column, layer.layer().feature_count()))
-                    .collect::<Array>();
+                    .map(|column| m_value_column(column, geometry))
+                    .collect::<Result<Array, _>>()?;
                 set(&object, "mValues", &m_values);
                 object
             }
@@ -76,7 +76,6 @@ fn layer_object(
     dec: &mut Decoder,
     layer: &ParsedLayer01<'_>,
     version: u8,
-    is_meshes: bool,
 ) -> Result<Object, JsError> {
     let object = Object::new();
     set(&object, "name", &layer.name().into());
@@ -86,7 +85,7 @@ fn layer_object(
     set(
         &object,
         "geometry",
-        &geometry_object(layer.geometry_values(), is_meshes),
+        &geometry_object(layer.geometry_values()),
     );
     if let Some(ids) = layer.id() {
         let (values, present) = scalar(ids);
@@ -114,7 +113,7 @@ fn layer_object(
     Ok(object)
 }
 
-fn geometry_object(geometry: &GeometryValues, is_meshes: bool) -> Object {
+fn geometry_object(geometry: &GeometryValues) -> Object {
     let object = Object::new();
     let types: Vec<u8> = geometry.vector_types().iter().map(|&t| t as u8).collect();
     set(&object, "types", &Uint8Array::from(&types[..]));
@@ -124,7 +123,8 @@ fn geometry_object(geometry: &GeometryValues, is_meshes: bool) -> Object {
         "vertices",
         &Int32Array::from(geometry.vertices().unwrap_or_default()),
     );
-    if is_meshes {
+    #[cfg(feature = "unstable-v2")]
+    if geometry.is_meshes() {
         set(&object, "meshes", &true.into());
     }
     #[cfg(feature = "unstable-v2")]
@@ -150,15 +150,25 @@ fn geometry_object(geometry: &GeometryValues, is_meshes: bool) -> Object {
     object
 }
 
-/// `{ name, scope, type, values, present? }`, or for strings
-/// `{ name, scope, type, codes, dictionary, present? }`.
+/// `{ name, scope, type, offsets, values, present? }`, or for strings
+/// `{ name, scope, type, offsets, codes, dictionary, present? }`.
 ///
 /// The values run over the vertices of the features that carry the column, in feature order:
 /// with every feature present, one per vertex of the layer. A `"triangle"`-scoped column of a
 /// `Meshes` layer runs over the triangles instead, in the order of the index buffer.
+/// Feature `f` owns values `offsets[f]..offsets[f + 1]`, as [`ParsedMValue::spans`] cuts them.
 /// `present` is one bit per feature.
 #[cfg(feature = "unstable-v2")]
-fn m_value_column(column: &ParsedMValue<'_>, feature_count: usize) -> Object {
+fn m_value_column(column: &ParsedMValue<'_>, geometry: &GeometryValues) -> Result<Object, JsError> {
+    let mut offsets = Vec::with_capacity(geometry.feature_count() + 1);
+    let mut end = 0;
+    offsets.push(0);
+    for span in column.spans(geometry) {
+        if let Some(run) = span.map_err(|e| to_js_err(&e))? {
+            end = run.end;
+        }
+        offsets.push(js_index(end));
+    }
     let object = Object::new();
     set(&object, "name", &column.name().into());
     let scope = match column.scope() {
@@ -167,6 +177,7 @@ fn m_value_column(column: &ParsedMValue<'_>, feature_count: usize) -> Object {
     };
     set(&object, "scope", &scope.into());
     set(&object, "type", &type_name(column.values().kind()).into());
+    set(&object, "offsets", &Uint32Array::from(&offsets[..]));
     match column.values() {
         MValues::Bool(v) => set(&object, "values", &bool::js_array(v)),
         MValues::I8(v) => set(&object, "values", &i8::js_array(v)),
@@ -183,10 +194,10 @@ fn m_value_column(column: &ParsedMValue<'_>, feature_count: usize) -> Object {
             set(&object, "dictionary", &dictionary);
         }
     }
-    if let Some(present) = bitmap(feature_count, |i| column.is_present(i)) {
+    if let Some(present) = bitmap(geometry.feature_count(), |i| column.is_present(i)) {
         set(&object, "present", &present);
     }
-    object
+    Ok(object)
 }
 
 /// A string m-value column as codes into its distinct values: a renderer evaluates a style once

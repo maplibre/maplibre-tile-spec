@@ -35,10 +35,10 @@ export {
 } from "./columns";
 export {
   featureGeometry,
+  geometryLayout,
   geometryStarts,
-  isMeshes,
-  isTrianglesOnly,
   type MltFeatureGeometry,
+  type MltGeometryLayout,
   type MltGeometryStarts,
   type MltLineGeometry,
   type MltMeshGeometry,

@@ -8,8 +8,8 @@ import {
 } from "./columns";
 import {
   featureGeometry,
+  geometryLayout,
   geometryStarts,
-  isTrianglesOnly,
   type MltFeatureGeometry,
 } from "./featureGeometry";
 
@@ -233,10 +233,8 @@ describe("geometryStarts against featureGeometry on every synthetic fixture", ()
       );
       for (const layer of layers) {
         const { geometry } = layer;
-        if (isTrianglesOnly(geometry)) {
-          expect(() => geometryStarts(geometry)).toThrow(
-            /^a TessPolygons layer stores triangles, not runs of vertices$/,
-          );
+        if (geometryLayout(geometry) === "tessPolygons") {
+          expect(() => geometryStarts(geometry)).toThrow(/TessPolygons/);
           continue;
         }
         const starts = geometryStarts(geometry);

@@ -75,9 +75,6 @@ export interface MltPolygonRings extends MltVertexRun {
 const polygonOrdinals = new WeakMap<MltGeometryColumns, Uint32Array>();
 
 function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
-  if (isMeshes(geometry)) {
-    return index;
-  }
   let ordinals = polygonOrdinals.get(geometry);
   if (!ordinals) {
     const { types } = geometry;
@@ -87,7 +84,8 @@ function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
       ordinals[f] = polygons;
       if (
         types[f] === MltGeometryType.Polygon ||
-        types[f] === MltGeometryType.MultiPolygon
+        types[f] === MltGeometryType.MultiPolygon ||
+        types[f] === MltGeometryType.Mesh
       ) {
         polygons++;
       }
@@ -104,21 +102,28 @@ function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
 // view per run; `featureGeometry` is the same walk with views on top.
 // ---------------------------------------------------------------------------
 
-/** A `TessPolygons` layer: triangles, and no outlines to walk. */
-export function isTrianglesOnly(geometry: MltGeometryColumns): boolean {
-  return (
-    geometry.indexBuffer !== undefined &&
-    geometry.partOffsets === undefined &&
-    !isMeshes(geometry)
-  );
-}
-
 /**
- * A `Meshes` layer, whose every feature is a `Mesh`: its geometry offsets are each feature's
- * run of vertices, as a `MultiPoint` layer's are.
+ * How a layer stores its features' geometry.
+ *
+ * - `"outlines"`: runs of vertices only.
+ * - `"tessPolygons"`: triangles, and no outlines to walk.
+ * - `"tessPolygonsWithOutlines"`: outlines, and triangles for its polygons.
+ * - `"meshes"`: every feature a `Mesh`, its geometry offsets each feature's run of vertices.
  */
-export function isMeshes(geometry: MltGeometryColumns): boolean {
-  return geometry.meshes === true || geometry.types[0] === MltGeometryType.Mesh;
+export type MltGeometryLayout =
+  | "outlines"
+  | "tessPolygons"
+  | "tessPolygonsWithOutlines"
+  | "meshes";
+
+export function geometryLayout(
+  geometry: MltGeometryColumns,
+): MltGeometryLayout {
+  if (geometry.meshes === true) return "meshes";
+  if (geometry.indexBuffer === undefined) return "outlines";
+  return geometry.partOffsets === undefined
+    ? "tessPolygons"
+    : "tessPolygonsWithOutlines";
 }
 
 /** Item `i` of an offset level, or `i` itself when the layer has no such level. */
@@ -304,7 +309,7 @@ export function geometryStarts(
 }
 
 function resolveStarts(geometry: MltGeometryColumns): MltGeometryStarts {
-  if (isTrianglesOnly(geometry)) {
+  if (geometryLayout(geometry) === "tessPolygons") {
     throw new Error(
       `a TessPolygons layer stores triangles, not runs of vertices`,
     );
@@ -367,7 +372,7 @@ export function featureGeometry(
   }
   const type = geometry.types[index] as MltGeometryType;
 
-  if (isTrianglesOnly(geometry)) {
+  if (geometryLayout(geometry) === "tessPolygons") {
     throw new Error(
       `layer "${layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
     );

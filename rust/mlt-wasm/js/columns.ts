@@ -124,22 +124,24 @@ export type MltMValueScope = "vertex" | "triangle";
  */
 export type MltMValueColumn =
   | {
-      [T in Exclude<MltColumnType, "string">]: {
-        readonly name: string;
-        readonly scope: MltMValueScope;
+      [T in Exclude<MltColumnType, "string">]: MltMValueColumnBase & {
         readonly type: T;
         readonly values: MltColumnValuesByType[T];
-        readonly present?: Uint8Array;
       };
     }[Exclude<MltColumnType, "string">]
-  | {
-      readonly name: string;
-      readonly scope: MltMValueScope;
+  | (MltMValueColumnBase & {
       readonly type: "string";
       readonly codes: Uint32Array;
       readonly dictionary: readonly string[];
-      readonly present?: Uint8Array;
-    };
+    });
+
+interface MltMValueColumnBase {
+  readonly name: string;
+  readonly scope: MltMValueScope;
+  /** Feature `f` owns values `offsets[f]..offsets[f + 1]`, one entry per feature and one more. */
+  readonly offsets: Uint32Array;
+  readonly present?: Uint8Array;
+}
 
 export interface MltColumnLayer {
   readonly name: string;
@@ -205,35 +207,6 @@ export function columnValue<C extends MltColumn>(
   return has ? values[index] : undefined;
 }
 
-const mValueOffsets = new WeakMap<
-  MltColumnLayer,
-  WeakMap<MltMValueColumn, Uint32Array>
->();
-
-function itemCount(
-  geometry: MltGeometryColumns,
-  scope: MltMValueScope,
-  featureIndex: number,
-): number {
-  if (scope === "triangle") {
-    const offsets = geometry.triangleOffsets;
-    return offsets === undefined
-      ? 0
-      : offsets[featureIndex + 1] - offsets[featureIndex];
-  }
-  const at = (level: Uint32Array | undefined, i: number) =>
-    level === undefined ? i : level[i];
-  const v0 = at(
-    geometry.ringOffsets,
-    at(geometry.partOffsets, at(geometry.geometryOffsets, featureIndex)),
-  );
-  const v1 = at(
-    geometry.ringOffsets,
-    at(geometry.partOffsets, at(geometry.geometryOffsets, featureIndex + 1)),
-  );
-  return v1 - v0;
-}
-
 type MltMValueSlice<C extends MltMValueColumn> = C extends {
   readonly type: "string";
 }
@@ -250,45 +223,23 @@ type MltMValueSlice<C extends MltMValueColumn> = C extends {
  * columns resolve their dictionary codes into a `string[]`.
  */
 export function mValueSlice<C extends MltMValueColumn>(
-  layer: MltColumnLayer,
   column: C,
   featureIndex: number,
 ): MltMValueSlice<C> | undefined {
+  const { offsets, present } = column;
   if (
     !Number.isInteger(featureIndex) ||
     featureIndex < 0 ||
-    featureIndex >= layer.featureCount
+    featureIndex >= offsets.length - 1
   ) {
     throw new RangeError(
-      `layer "${layer.name}" has no feature ${featureIndex}`,
+      `m-value column "${column.name}" has no feature ${featureIndex}`,
     );
   }
-  const { present } = column;
   const has =
     present === undefined ||
     ((present[featureIndex >> 3] >> (featureIndex & 7)) & 1) === 1;
   if (!has) return undefined;
-
-  let byColumn = mValueOffsets.get(layer);
-  if (byColumn === undefined) {
-    byColumn = new WeakMap();
-    mValueOffsets.set(layer, byColumn);
-  }
-  let offsets = byColumn.get(column);
-  if (offsets === undefined) {
-    offsets = new Uint32Array(layer.featureCount + 1);
-    let total = 0;
-    for (let f = 0; f < layer.featureCount; f++) {
-      offsets[f] = total;
-      const fHas =
-        present === undefined || ((present[f >> 3] >> (f & 7)) & 1) === 1;
-      if (fHas) {
-        total += itemCount(layer.geometry, column.scope, f);
-      }
-    }
-    offsets[layer.featureCount] = total;
-    byColumn.set(column, offsets);
-  }
 
   const start = offsets[featureIndex];
   const end = offsets[featureIndex + 1];

@@ -17,10 +17,10 @@ import {
 } from "./columns";
 import {
   featureGeometry,
+  geometryLayout,
   geometryStart,
-  isMeshes,
-  isTrianglesOnly,
   lineStart,
+  type MltGeometryLayout,
   polygonLevels,
   runLength,
 } from "./featureGeometry";
@@ -97,8 +97,7 @@ const MVT_TYPES = [
 /** A layer's decoded columns, and what its features read off them once per layer. */
 interface LayerData {
   readonly layer: MltColumnLayer;
-  /** A `TessPolygons` layer, which has triangles and no outlines for its geometry. */
-  readonly trianglesOnly: boolean;
+  readonly layout: MltGeometryLayout;
 }
 
 /** Reads `column` at `index` as the value a feature's `properties` holds. */
@@ -157,10 +156,9 @@ abstract class FeatureBase<V> {
    * `TessPolygons` feature, whose outlines are not stored.
    */
   protected geometries(): [start: number, end: number] {
-    if (this._layer.trianglesOnly) {
-      const { layer } = this._layer;
+    if (this._layer.layout === "tessPolygons") {
       throw new Error(
-        `layer "${layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
+        `layer "${this._layer.layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
       );
     }
     const { geometry } = this._layer.layer;
@@ -300,11 +298,6 @@ export class MltFeature3D extends FeatureBase<Position3D> {
    * Throws for a feature that is not a mesh.
    */
   loadTriangles(): Uint32Array {
-    if (this.mltType !== MltGeometryType.Mesh) {
-      throw new Error(
-        `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`,
-      );
-    }
     const geometry = featureGeometry(this._layer.layer, this._featureIdx);
     if (geometry.kind !== "mesh") {
       throw new Error(
@@ -323,7 +316,7 @@ export class MltFeature3D extends FeatureBase<Position3D> {
   ): Exclude<MltColumnValues, string[]> | string[] | undefined {
     const column = this._layer.layer.mValues?.find((c) => c.name === name);
     if (column === undefined) return undefined;
-    return mValueSlice(this._layer.layer, column, this._featureIdx);
+    return mValueSlice(column, this._featureIdx);
   }
 
   protected vertex(): VertexOf<Position3D> {
@@ -347,7 +340,7 @@ abstract class LayerBase {
   protected readonly _data: LayerData;
 
   constructor(layer: MltColumnLayer) {
-    this._data = { layer, trianglesOnly: isTrianglesOnly(layer.geometry) };
+    this._data = { layer, layout: geometryLayout(layer.geometry) };
     this.name = layer.name;
     this.extent = layer.extent;
     this.length = layer.featureCount;
@@ -395,19 +388,16 @@ export class MltLayer3D extends LayerBase {
    */
   constructor(layer: MltColumnLayer) {
     super(layer);
-    const { geometry } = layer;
-    const { zStep, heightMode } = geometry;
+    const { zStep, heightMode } = layer.geometry;
     if (zStep === undefined || heightMode === undefined) {
       throw new Error(
         `layer "${layer.name}" has no z coordinates; decode the tile with decodeTile() instead`,
       );
     }
-    if (geometry.indexBuffer !== undefined && !isMeshes(geometry)) {
-      const layout = this._data.trianglesOnly
-        ? "TessPolygons"
-        : "TessPolygonsWithOutlines";
+    const { layout } = this._data;
+    if (layout === "tessPolygons" || layout === "tessPolygonsWithOutlines") {
       throw new Error(
-        `layer "${layer.name}" uses the ${layout} geometry layout, which decodeTile3D does not support`,
+        `layer "${layer.name}" uses the ${layout === "tessPolygons" ? "TessPolygons" : "TessPolygonsWithOutlines"} geometry layout, which decodeTile3D does not support`,
       );
     }
     this.zStep = zStep;

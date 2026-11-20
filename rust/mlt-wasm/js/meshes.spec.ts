@@ -14,9 +14,8 @@ import {
 } from "./columns";
 import {
   featureGeometry,
+  geometryLayout,
   geometryStarts,
-  isMeshes,
-  isTrianglesOnly,
 } from "./featureGeometry";
 import { tileGeoJson } from "./geojson";
 import { decodeTile, decodeTile3D } from "./vectorTile";
@@ -107,9 +106,7 @@ describe("the mesh tiles", () => {
       const parts = [...part.codes].map((code) => part.dictionary[code]);
       expect(parts).toEqual(expected.flatMap((f) => f.properties["m:part"]));
       expected.forEach((feature, f) => {
-        expect(mValueSlice(layer, part, f)).toEqual(
-          feature.properties["m:part"],
-        );
+        expect(mValueSlice(part, f)).toEqual(feature.properties["m:part"]);
       });
     });
 
@@ -171,7 +168,7 @@ describe("synthetic v2 m-value columns", () => {
     for (const col of layer.mValues ?? []) {
       expect(col.scope).toBe("vertex");
       for (let f = 0; f < layer.featureCount; f++) {
-        const slice = mValueSlice(layer, col, f);
+        const slice = mValueSlice(col, f);
         const expected = geo.features[f]?.properties?.[`m:${col.name}`];
         if (expected === undefined) {
           expect(slice).toBeUndefined();
@@ -199,10 +196,8 @@ describe("synthetic v2 m-value columns", () => {
     expect(() => columnValue(dist as unknown as MltColumn, 0)).toThrow(
       TypeError,
     );
-    expect(() => mValueSlice(layer, dist, -1)).toThrow(RangeError);
-    expect(() => mValueSlice(layer, dist, layer.featureCount)).toThrow(
-      RangeError,
-    );
+    expect(() => mValueSlice(dist, -1)).toThrow(RangeError);
+    expect(() => mValueSlice(dist, layer.featureCount)).toThrow(RangeError);
 
     const line3d = decodeTile3D(data).layers.layer1.feature(0);
     expect(() => line3d.loadTriangles()).toThrow(/is not a mesh/);
@@ -225,8 +220,7 @@ describe("Meshes edge cases", () => {
       indexBuffer: new Uint32Array(0),
       vertices: new Int32Array(0),
     };
-    expect(isMeshes(geometry)).toBe(true);
-    expect(isTrianglesOnly(geometry)).toBe(false);
+    expect(geometryLayout(geometry)).toBe("meshes");
     expect(() => geometryStarts(geometry)).not.toThrow();
   });
 

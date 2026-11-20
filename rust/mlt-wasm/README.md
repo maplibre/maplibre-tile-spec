@@ -99,8 +99,9 @@ Its `heightMode` says what a z of `0` stands for: `"absolute"` is mean sea level
 
 A v2 layer's `mValues` hold its m-value columns, packed over the vertices or, in a `Meshes` layer,
 the triangles of the features whose `present` bit is set (absent features store zero items rather
-than `0`/`""` padding), with strings as dictionary codes; `mValueSlice(layer, column, f)` reads
-one feature's slice, and `MltFeature3D.loadMValues(name)` does the same on `decodeTile3D`.
+than `0`/`""` padding), with strings as dictionary codes.
+A column's `offsets` give feature `f` the values `offsets[f]..offsets[f + 1]`; `mValueSlice(column, f)`
+reads one feature's slice, and `MltFeature3D.loadMValues(name)` does the same on `decodeTile3D`.
 
 A `Meshes` layer's features are all `MltGeometryType.Mesh`: `geometryOffsets` starts each feature's
 run of vertices, and `triangleOffsets` each feature's triangles in the layer-wide `indexBuffer`.
