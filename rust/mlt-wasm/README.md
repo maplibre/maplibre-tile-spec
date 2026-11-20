@@ -103,8 +103,8 @@ A v2 layer's `vertexValues` hold its m-value columns over the vertices, and a `M
 Each is packed over the features whose `present` bit is set (absent features store zero items rather
 than `0`/`""` padding), with strings as dictionary codes.
 A column's `offsets` give feature `f` the values `offsets[f]..offsets[f + 1]`; `mValueSlice(column, f)`
-reads one feature's slice, and `MltFeature3D.loadVertexValues(name)` and `loadTriangleValues(name)`
-do the same on `decodeTile3D`.
+reads one feature's slice, and a feature's `loadVertexValues(name)` and `loadTriangleValues(name)`
+do the same on `decodeTile` and `decodeTile3D`.
 
 A `Meshes` layer's features are all `MltGeometryType.Mesh`: `geometryOffsets` starts each feature's
 run of vertices, and `triangleOffsets` each feature's triangles in the layer-wide `indexBuffer`.
@@ -199,8 +199,8 @@ Shapes that need tessellation on the CPU work one polygon or line at a time:
 
 `decodeTile3D` reads a tile whose every layer has z coordinates. Its features have the same
 `loadGeometry()` and `loadPolygons()`, with every vertex an `[x, y, z]` array, so the rest of the
-code can assume 3D. A mesh's `loadGeometry()` is one ring of its vertices, and `loadTriangles()`
-indexes into it. It throws when any layer has no z coordinates, for which `decodeTile` reads the
+code can assume 3D. In both readers, a mesh's `loadGeometry()` is one ring of its vertices, and
+`loadTriangles()` indexes into it. `decodeTile3D` throws when any layer has no z coordinates, for which `decodeTile` reads the
 tile in 2D, and when any layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry
 layout. `decodeTileColumns` reads every layout, in 2D and 3D.
 

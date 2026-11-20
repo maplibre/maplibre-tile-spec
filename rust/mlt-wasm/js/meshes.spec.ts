@@ -102,15 +102,36 @@ describe("the mesh tiles", () => {
       });
     });
 
-    it("reads the same through decodeTile3D and exposes heightMode in 2D", () => {
+    it("reads each mesh's vertices, triangles and parts through decodeTile", () => {
       const layer2d = decodeTile(data).layers.buildings;
       expect([layer2d.zStep, layer2d.heightMode]).toEqual([
         -2,
         "relativeToGround",
       ]);
-      expect(layer2d.feature(0).heightMode).toBe("relativeToGround");
-      expect(() => layer2d.feature(0).loadPolygons()).toThrow(/is a mesh/);
+      expect(layer2d.vertexValues).toEqual([]);
+      expect(layer2d.triangleValues.map((c) => c.name)).toEqual(["part"]);
+      expected.forEach((feature, f) => {
+        const decoded = layer2d.feature(f);
+        expect(decoded.id).toBe(feature.id);
+        expect(decoded.heightMode).toBe("relativeToGround");
+        expect(decoded.properties.gml_id).toBe(feature.properties.gml_id);
+        expect(decoded.loadGeometry()[0]?.map((p) => [p.x, p.y])).toEqual(
+          feature.geometry.coordinates.map(([x, y]) => [x, y]),
+        );
+        expect(decoded.loadZ()).toEqual(
+          feature.geometry.coordinates.map(([, , z]) => z),
+        );
+        expect(triples(decoded.loadTriangles())).toEqual(feature.triangles);
+        expect(decoded.loadTriangleValues("part")).toEqual(
+          feature.properties["m:part"],
+        );
+        expect(decoded.loadVertexValues("part")).toBeUndefined();
+        expect(decoded.loadTriangleValues("missing")).toBeUndefined();
+        expect(() => decoded.loadPolygons()).toThrow(/is a mesh/);
+      });
+    });
 
+    it("reads each mesh's vertices, triangles and parts through decodeTile3D", () => {
       const layer3d = decodeTile3D(data).layers.buildings;
       expect([layer3d.zStep, layer3d.heightMode]).toEqual([
         -2,
@@ -194,11 +215,27 @@ describe("synthetic v2 m-value columns", () => {
     expect(() => mValueSlice(dist, layer.featureCount)).toThrow(RangeError);
   });
 
+  it("reads a line's vertex values and no triangle values through decodeTile", () => {
+    const data = new Uint8Array(
+      readFileSync(new URL("z_mvalues.mlt", SYNTHETIC_V2)),
+    );
+    const layer2d = decodeTile(data).layers.layer1;
+    expect(layer2d.triangleValues).toEqual([]);
+    const line2d = layer2d.feature(0);
+    expect(() => line2d.loadTriangles()).toThrow(/is not a mesh/);
+    expect(line2d.loadVertexValues("dist")).toEqual(
+      new Uint32Array([0, 10, 25]),
+    );
+    expect(line2d.loadTriangleValues("dist")).toBeUndefined();
+  });
+
   it("reads a line's vertex values and no triangle values through decodeTile3D", () => {
     const data = new Uint8Array(
       readFileSync(new URL("z_mvalues.mlt", SYNTHETIC_V2)),
     );
-    const line3d = decodeTile3D(data).layers.layer1.feature(0);
+    const layer3d = decodeTile3D(data).layers.layer1;
+    expect(layer3d.triangleValues).toEqual([]);
+    const line3d = layer3d.feature(0);
     expect(() => line3d.loadTriangles()).toThrow(/is not a mesh/);
     expect(line3d.loadVertexValues("dist")).toEqual(
       new Uint32Array([0, 10, 25]),

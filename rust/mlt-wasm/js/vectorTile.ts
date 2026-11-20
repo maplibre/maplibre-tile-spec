@@ -148,6 +148,44 @@ abstract class FeatureBase<V> {
     return result;
   }
 
+  /**
+   * A mesh's triangles, three indices per triangle into the one ring `loadGeometry()` returns.
+   * Throws for a feature that is not a mesh.
+   */
+  loadTriangles(): Uint32Array {
+    const geometry = featureGeometry(this._layer.layer, this._featureIdx);
+    if (geometry.kind !== "mesh") {
+      throw new Error(
+        `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`,
+      );
+    }
+    return geometry.triangles;
+  }
+
+  /**
+   * This feature's values of vertex m-value column `name`, one per stored vertex, or `undefined` when the layer has no such column or it is null here.
+   * A polygon ring's closing point is not stored, so it has no value, as in `MltFeature.loadZ`.
+   */
+  loadVertexValues(name: string): MltColumnValues | undefined {
+    return this.slice(this._layer.layer.vertexValues, name);
+  }
+
+  /**
+   * This feature's values of triangle m-value column `name`, one per triangle of `loadTriangles()`, or `undefined` when the layer has no such column or it is null here.
+   * Only a `Meshes` layer has triangle m-value columns.
+   */
+  loadTriangleValues(name: string): MltColumnValues | undefined {
+    return this.slice(this._layer.layer.triangleValues, name);
+  }
+
+  private slice(
+    columns: readonly MltMValueColumn[] | undefined,
+    name: string,
+  ): MltColumnValues | undefined {
+    const column = columns?.find((c) => c.name === name);
+    return column && mValueSlice(column, this._featureIdx);
+  }
+
   /** Builds the value this feature's geometry holds for vertex `i`. */
   protected abstract vertex(): VertexOf<V>;
 
@@ -293,44 +331,6 @@ export class MltFeature3D extends FeatureBase<Position3D> {
     return this.polygons();
   }
 
-  /**
-   * A mesh's triangles, three indices per triangle into the one ring `loadGeometry()` returns.
-   * Throws for a feature that is not a mesh.
-   */
-  loadTriangles(): Uint32Array {
-    const geometry = featureGeometry(this._layer.layer, this._featureIdx);
-    if (geometry.kind !== "mesh") {
-      throw new Error(
-        `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`,
-      );
-    }
-    return geometry.triangles;
-  }
-
-  /**
-   * This feature's values of vertex m-value column `name`, one per stored vertex, or `undefined` when the layer has no such column or it is null here.
-   * A polygon ring's closing point is not stored, so it has no value, as in `MltFeature.loadZ`.
-   */
-  loadVertexValues(name: string): MltColumnValues | undefined {
-    return this.slice(this._layer.layer.vertexValues, name);
-  }
-
-  /**
-   * This feature's values of triangle m-value column `name`, one per triangle of `loadTriangles()`, or `undefined` when the layer has no such column or it is null here.
-   * Only a `Meshes` layer has triangle m-value columns.
-   */
-  loadTriangleValues(name: string): MltColumnValues | undefined {
-    return this.slice(this._layer.layer.triangleValues, name);
-  }
-
-  private slice(
-    columns: readonly MltMValueColumn[] | undefined,
-    name: string,
-  ): MltColumnValues | undefined {
-    const column = columns?.find((c) => c.name === name);
-    return column && mValueSlice(column, this._featureIdx);
-  }
-
   protected vertex(): VertexOf<Position3D> {
     const { vertices } = this._layer.layer.geometry;
     return (i) => [vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]];
@@ -349,6 +349,10 @@ abstract class LayerBase {
   readonly propertyColumns: readonly MltNamedColumn[];
   /** The property column names, parallel to `propertyColumns`. */
   readonly propertyKeys: readonly string[];
+  /** The m-value columns over the vertices, see `decodeTileColumns`; empty for a v1 layer. */
+  readonly vertexValues: readonly MltMValueColumn[];
+  /** The m-value columns over the triangles; empty unless the layer is a `Meshes` layer. */
+  readonly triangleValues: readonly MltMValueColumn[];
   protected readonly _data: LayerData;
 
   constructor(layer: MltColumnLayer) {
@@ -358,6 +362,8 @@ abstract class LayerBase {
     this.length = layer.featureCount;
     this.propertyColumns = layer.properties;
     this.propertyKeys = layer.properties.map((column) => column.name);
+    this.vertexValues = layer.vertexValues ?? [];
+    this.triangleValues = layer.triangleValues ?? [];
   }
 
   /** `i`, checked to be a feature of this layer, so that a bad index fails where it is given. */
@@ -388,11 +394,6 @@ export class MltLayer extends LayerBase implements VectorTileLayerLike {
 export class MltLayer3D extends LayerBase {
   /** The z grid as the power of ten of its step in metres; `toElevation` gives a z in metres. */
   readonly zStep: number;
-  /** The m-value columns over the vertices, see `decodeTileColumns`; empty for a v1 layer. */
-  readonly vertexValues: readonly MltMValueColumn[];
-  /** The m-value columns over the triangles; empty unless the layer is a `Meshes` layer. */
-  readonly triangleValues: readonly MltMValueColumn[];
-
   /** What a z of `0` stands for. */
   readonly heightMode: HeightMode;
 
@@ -416,8 +417,6 @@ export class MltLayer3D extends LayerBase {
     }
     this.zStep = zStep;
     this.heightMode = heightMode;
-    this.vertexValues = layer.vertexValues ?? [];
-    this.triangleValues = layer.triangleValues ?? [];
   }
 
   feature(i: number): MltFeature3D {
