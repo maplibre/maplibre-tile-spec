@@ -67,7 +67,7 @@ pub use crate::errors::{MltError, MltResult};
 pub use crate::layer_writer::{FeatureWriter, LayerWriter};
 pub use crate::tile::{
     ColumnRole, Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder,
-    TileLayer, TileLayerBuilder,
+    TileLayer, TileLayerBuilder, stored_ring_len,
 };
 #[cfg(feature = "unstable-v2")]
 pub use crate::tile::{

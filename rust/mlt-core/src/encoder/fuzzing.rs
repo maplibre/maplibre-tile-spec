@@ -23,7 +23,8 @@ impl Arbitrary<'_> for EncoderConfig {
             .with_id_sort(u.arbitrary()?)
             .with_fsst(u.arbitrary()?)
             .with_fastpfor(u.arbitrary()?)
-            .with_shared_dict(u.arbitrary()?);
+            .with_shared_dict(u.arbitrary()?)
+            .with_vertex_sort(u.arbitrary()?);
         #[cfg(feature = "unstable-v2")]
         let config = config
             .with_wire_version(u.arbitrary()?)

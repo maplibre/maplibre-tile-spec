@@ -9,16 +9,16 @@ use compact_str::CompactString;
 use fast_mvt::{MvtFeatureBuilder, MvtGeomType, MvtLayerBuilder, MvtTileBuilder};
 use geo_types::Coord;
 
-use crate::decoder::{GeometryType, GeometryValues};
-use crate::encoder::{EncoderConfig, LayerSource, encode_layer};
+use crate::decoder::GeometryType;
 #[cfg(feature = "unstable-v2")]
-use crate::encoder::{StagedValues, extend_run, wound_polygons_order};
+use crate::encoder::StagedValues;
+use crate::encoder::{EncoderConfig, GeometryStager, LayerSource, encode_layer};
 use crate::mvt::write_mvt_layer;
 use crate::tile::{
     ColumnRole, Extent, PropKind, PropertyKey, reject_taken_name, validate_layer_name,
 };
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValueKey, stored_len};
+use crate::tile::{MValueKey, VertexMoves, stored_len};
 use crate::{MltError, MltResult, PropValueRef};
 
 /// A layer written feature by feature, straight from borrowed values, and encoded exactly as the
@@ -752,21 +752,23 @@ impl LayerSource for LayerWriter<'_> {
         self.geometry.feature_coords(feature).len()
     }
 
-    fn push_geometry(&self, feature: usize, values: &mut GeometryValues) {
+    fn push_geometry(&self, feature: usize, values: &mut GeometryStager<'_>) {
         let geometry = &self.geometry;
         let groups = geometry.groups(feature);
         let parts = geometry.parts(groups.clone());
         let part = |p| geometry.part(p);
         match geometry.types[feature] {
-            GeometryType::Point => values.push_point(geometry.feature_coords(feature)[0]),
+            GeometryType::Point => values.point(geometry.feature_coords(feature)[0]),
             GeometryType::MultiPoint => {
-                values.push_multi_point(geometry.feature_coords(feature).iter().copied());
+                values.multi_point(geometry.feature_coords(feature).iter().copied());
             }
-            GeometryType::LineString => values.push_linestring(part(parts.start)),
-            GeometryType::MultiLineString => values.push_multi_linestring(parts.map(part)),
-            GeometryType::Polygon => values.push_polygon(parts.map(part)),
-            GeometryType::MultiPolygon => values
-                .push_multi_polygon(groups.map(|group| geometry.parts(group..group + 1).map(part))),
+            GeometryType::LineString => values.line(part(parts.start)),
+            GeometryType::MultiLineString => values.multi_line(parts.map(part)),
+            GeometryType::Polygon => values.polygon(parts.map(part)),
+            GeometryType::MultiPolygon => {
+                values
+                    .multi_polygon(groups.map(|group| geometry.parts(group..group + 1).map(part)));
+            }
             #[cfg(feature = "unstable-v2")]
             GeometryType::Mesh => unreachable!("FeatureWriter::finish rejects meshes"),
         }
@@ -800,26 +802,26 @@ impl LayerSource for LayerWriter<'_> {
     }
 
     #[cfg(feature = "unstable-v2")]
-    fn push_m_values(&self, feature: usize, column: usize, values: &mut StagedValues) -> bool {
+    fn push_m_values(
+        &self,
+        feature: usize,
+        column: usize,
+        moves: &VertexMoves,
+        values: &mut StagedValues,
+    ) -> bool {
         let column = &self.m_values.columns[column];
         if !column.present[feature] {
             return false;
         }
         let run = item_range(&column.ends, feature);
-        let moved = self.vertex_order(feature);
         match (&column.values, values) {
             (ColumnValues::Strs(strs), StagedValues::Str(out)) => {
-                extend_run(out, &strs[run], moved, |&text| CompactString::from(text));
+                moves.extend(out, &strs[run], |&text| CompactString::from(text));
             }
-            (ColumnValues::Scalars(bits), out) => extend_bits_run(out, &bits[run], moved),
+            (ColumnValues::Scalars(bits), out) => extend_bits_run(out, &bits[run], moves),
             (ColumnValues::Strs(_), _) => unreachable!("m-value kind matches its column"),
         }
         true
-    }
-
-    #[cfg(feature = "unstable-v2")]
-    fn vertex_order(&self, feature: usize) -> Option<Vec<usize>> {
-        wound_polygons_order(LayerSource::polygons(self, feature))
     }
 
     fn mvt_feature(&self, feature: usize, layer: MvtLayerBuilder) -> MltResult<MvtFeatureBuilder> {
@@ -889,24 +891,24 @@ fn value_of_bits(kind: PropKind, bits: u64) -> Option<PropValueRef<'static>> {
     })
 }
 
-/// Appends a feature's run of scalar values stored as `bits` to `out`, which holds their kind,
-/// read through `moved` as [`extend_run`] does.
+/// Appends a feature's run of scalar values stored as `bits` to `out`, which holds their kind.
+/// Each value moves with its vertex.
 #[cfg(feature = "unstable-v2")]
 #[expect(
     clippy::cast_possible_truncation,
     reason = "the bits were stored from a value of the column's kind"
 )]
-fn extend_bits_run(out: &mut StagedValues, bits: &[u64], moved: Option<Vec<usize>>) {
+fn extend_bits_run(out: &mut StagedValues, bits: &[u64], moves: &VertexMoves) {
     match out {
-        StagedValues::Bool(out) => extend_run(out, bits, moved, |&b| b != 0),
-        StagedValues::I8(out) => extend_run(out, bits, moved, |&b| b.cast_signed() as i8),
-        StagedValues::U8(out) => extend_run(out, bits, moved, |&b| b as u8),
-        StagedValues::I32(out) => extend_run(out, bits, moved, |&b| b.cast_signed() as i32),
-        StagedValues::U32(out) => extend_run(out, bits, moved, |&b| b as u32),
-        StagedValues::I64(out) => extend_run(out, bits, moved, |&b| b.cast_signed()),
-        StagedValues::U64(out) => extend_run(out, bits, moved, |&b| b),
-        StagedValues::F32(out) => extend_run(out, bits, moved, |&b| f32::from_bits(b as u32)),
-        StagedValues::F64(out) => extend_run(out, bits, moved, |&b| f64::from_bits(b)),
+        StagedValues::Bool(out) => moves.extend(out, bits, |&b| b != 0),
+        StagedValues::I8(out) => moves.extend(out, bits, |&b| b.cast_signed() as i8),
+        StagedValues::U8(out) => moves.extend(out, bits, |&b| b as u8),
+        StagedValues::I32(out) => moves.extend(out, bits, |&b| b.cast_signed() as i32),
+        StagedValues::U32(out) => moves.extend(out, bits, |&b| b as u32),
+        StagedValues::I64(out) => moves.extend(out, bits, |&b| b.cast_signed()),
+        StagedValues::U64(out) => moves.extend(out, bits, |&b| b),
+        StagedValues::F32(out) => moves.extend(out, bits, |&b| f32::from_bits(b as u32)),
+        StagedValues::F64(out) => moves.extend(out, bits, |&b| f64::from_bits(b)),
         StagedValues::Str(_) => unreachable!("m-value kind matches its column"),
     }
 }

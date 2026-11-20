@@ -298,11 +298,15 @@ impl Default for Reencoder {
 impl Reencoder {
     #[hotpath::measure]
     fn encode(&self, layer: mlt_core::TileLayer) -> AnyResult<Vec<u8>> {
-        let source = self.verify.then(|| layer.clone());
+        let source = (self.verify && self.fields.configures(layer.name())).then(|| layer.clone());
         let layer = self.fields.apply(layer)?;
-        let encoded = layer.encode(self.encoder)?;
         if let Some(source) = source {
-            verify::check_round_trip(&source, &encoded, |decoded| self.fields.restore(decoded))?;
+            verify::check_restored(&source, &self.fields.restore(layer.clone())?)?;
+        }
+        let encoded = layer.encode(self.encoder)?;
+        if self.verify {
+            let vertices = verify::VertexOrder::allowed_by(self.encoder);
+            verify::check_round_trip(&layer, &encoded, vertices, Ok)?;
         }
         Ok(encoded)
     }
@@ -335,6 +339,12 @@ pub struct ConvertArgs {
     /// Feature orders to try when re-encoding, each against the source order, keeping the smallest (default: none)
     #[clap(long)]
     sort: Option<SortMode>,
+    /// Start each feature's rings, lines and points near where the previous feature ended (default: off under every profile)
+    ///
+    /// Rings are rotated without changing their winding, the points of a `MultiPoint` are reordered, and lines may be reversed.
+    /// Only use it when no meaning hangs on vertex order, such as one-way streets, flow direction or per-vertex values packed into plain properties.
+    #[clap(long)]
+    vertex_sort: bool,
     /// Schema type for the output `.mbtiles` file; defaults to the input file's schema
     #[clap(long)]
     mbtiles_format: Option<MbtFormat>,
@@ -347,7 +357,7 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
-    /// Decode every encoded layer and fail unless it matches the input, parsed fields formatted back
+    /// Decode every encoded layer and fail unless it matches the input, parsed fields formatted back and vertices in any order `--vertex-sort` allows
     #[clap(long)]
     verify: bool,
     /// TOML file naming the string properties to parse into typed columns, per layer
@@ -464,6 +474,9 @@ impl ConvertArgs {
             EncoderConfig::from_profile(profile).with_wire_version(self.mlt_version.into());
         if let Some(sort) = self.sort {
             encoder = sort.apply(encoder);
+        }
+        if self.vertex_sort {
+            encoder = encoder.with_vertex_sort(true);
         }
         if let Some(mode) = self.tessellate {
             encoder = encoder.with_tessellation(match mode {
@@ -1277,6 +1290,30 @@ mod tests {
             .unwrap();
         assert!(!encoder.attempt_spatial_hilbert_sort());
         assert!(!encoder.attempt_id_sort());
+    }
+
+    #[test]
+    fn profile_min_size_keeps_the_vertex_order() {
+        let encoder = parse_args(&["--profile", "min_size", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.vertex_sort());
+    }
+
+    #[test]
+    fn vertex_sort_turns_on_vertex_sort() {
+        let encoder = parse_args(&["--vertex-sort", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.vertex_sort());
+    }
+
+    #[test]
+    fn vertex_sort_adds_to_the_min_size_profile() {
+        let encoder = parse_args(&["--profile", "min_size", "--vertex-sort", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.vertex_sort());
     }
 
     #[test]

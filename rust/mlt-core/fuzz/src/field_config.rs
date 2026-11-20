@@ -1,6 +1,6 @@
 use arbitrary::{Arbitrary, Unstructured};
 use mlt::convert::fields::FieldConfig;
-use mlt::convert::verify::check_round_trip;
+use mlt::convert::verify::{VertexOrder, check_restored, check_round_trip};
 use mlt_core::compact_str::{CompactString, format_compact};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::{
@@ -18,8 +18,9 @@ const NAMES: [&str; 6] = ["a", "b", "c", "m", "n", "x"];
 
 /// A layer of packed string properties and a `--fields` file naming some of them, re-encoded as v2.
 ///
-/// Whenever the config loads and parses the layer, its encoding must verify against the layer,
-/// and the verifier must refuse the encoding once one value of the restored layer changes.
+/// Whenever the config loads and parses the layer, the parsed layer must format back to the layer.
+/// Its encoding must also verify against the parsed layer.
+/// Both checks must refuse a layer once one of its values changes.
 #[derive(Debug)]
 pub struct FieldConfigInput {
     pub layer: TileLayer,
@@ -198,23 +199,35 @@ impl FieldConfigInput {
         let Ok(parsed) = fields.apply(self.layer.clone()) else {
             return;
         };
+        let restored = fields
+            .restore(parsed.clone())
+            .expect("a parsed layer should format back");
+        check_restored(&self.layer, &restored)
+            .expect("a parsed layer should format back to its input");
+        if let Some(changed) = mutate(&restored, self.mutation) {
+            assert!(
+                check_restored(&self.layer, &changed).is_err(),
+                "the restore check missed {:?}",
+                self.mutation
+            );
+        }
+
         let encoded = match parsed.encode(self.encoder) {
             Ok(encoded) => encoded,
             Err(MltError::NotImplemented(_) | MltError::MValuesNeedVertexCounts(_)) => return,
             Err(e) => panic!("a parsed layer should encode: {e}"),
         };
-        check_round_trip(&self.layer, &encoded, |decoded| fields.restore(decoded))
-            .expect("a parsed layer should verify");
+        let vertices = VertexOrder::allowed_by(self.encoder);
+        check_round_trip(&parsed, &encoded, vertices, Ok).expect("a parsed layer should verify");
 
         let mut mutated = false;
-        let result = check_round_trip(&self.layer, &encoded, |decoded| {
-            let restored = fields.restore(decoded)?;
-            Ok(match mutate(&restored, self.mutation) {
+        let result = check_round_trip(&parsed, &encoded, vertices, |decoded| {
+            Ok(match mutate(&decoded, self.mutation) {
                 Some(changed) => {
                     mutated = true;
                     changed
                 }
-                None => restored,
+                None => decoded,
             })
         });
         if mutated {

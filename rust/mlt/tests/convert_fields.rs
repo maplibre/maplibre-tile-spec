@@ -733,9 +733,43 @@ fn every_column_kind_survives_verify() {
 }
 
 #[test]
+fn a_reversed_line_keeps_its_parsed_m_values_in_vertex_order_under_verify() {
+    let mut layer = TileLayer::builder("l", 4096).unwrap();
+    let f = layer.add_property("f", PropKind::Str).unwrap();
+    for (id, line, f_value) in [
+        (1, vec![(0, 0), (10, 0)], "a|b"),
+        (2, vec![(100, 5), (50, 5), (11, 5)], "gravel|sand|asphalt"),
+    ] {
+        let mut row = layer.feature(Geometry::from(LineString::from(line)));
+        row.id(Some(id));
+        row.property(f, PropValue::Str(Some(f_value.into())))
+            .unwrap();
+        row.finish().unwrap();
+    }
+    let v2 = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        .with_wire_version(WireVersion::V02);
+
+    let bytes = run_tile(
+        Some("[layers.l]\nf = { split = '|', kind = 'str', into = 'm-value' }"),
+        &["--vertex-sort"],
+        "tile.mlt",
+        &layer.finish().encode(v2).unwrap(),
+    )
+    .unwrap();
+
+    let [layer] = <[_; 1]>::try_from(Parser::default().parse_layers(&bytes).unwrap()).unwrap();
+    let layer = layer.into_tile(&mut Decoder::default()).unwrap().unwrap();
+    let feature = layer.features().iter().find(|f| f.id() == Some(2)).unwrap();
+    insta::assert_snapshot!(
+        format!("{:?} {}", feature.geometry(), m_value(&feature.m_values()[0])),
+        @r#"LINESTRING(11 5,50 5,100 5) m-value str ["asphalt", "sand", "gravel"]"#
+    );
+}
+
+#[test]
 fn an_empty_mvt_layer_survives_verify() {
     let mvt = tile_layers_to_mvt(vec![TileLayer::new("l", 4096).unwrap()]).unwrap();
-    let mlt = run_tile(None, "tile.mvt", &mvt).unwrap();
+    let mlt = run_tile(None, &[], "tile.mvt", &mvt).unwrap();
     assert_eq!(mlt, Vec::<u8>::new());
 }
 
@@ -777,13 +811,18 @@ fn convert(config: &str, layer: &TileLayer) -> Result<TileLayer, String> {
 fn run(config: Option<&str>, layer: &TileLayer) -> Result<TileLayer, String> {
     let v2 = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02);
-    let bytes = run_tile(config, "tile.mlt", &layer.encode(v2).unwrap())?;
+    let bytes = run_tile(config, &[], "tile.mlt", &layer.encode(v2).unwrap())?;
     let [layer] = <[_; 1]>::try_from(Parser::default().parse_layers(&bytes).unwrap()).unwrap();
     Ok(layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
 }
 
-/// The bytes `mlt convert --verify` writes for the tile `file` holding `bytes`, or its stderr if it fails.
-fn run_tile(config: Option<&str>, file: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
+/// The bytes `mlt convert --verify` with `flags` writes for the tile `file` holding `bytes`, or its stderr if it fails.
+fn run_tile(
+    config: Option<&str>,
+    flags: &[&str],
+    file: &str,
+    bytes: &[u8],
+) -> Result<Vec<u8>, String> {
     let name = thread::current()
         .name()
         .expect("libtest names each test's thread")
@@ -798,7 +837,8 @@ fn run_tile(config: Option<&str>, file: &str, bytes: &[u8]) -> Result<Vec<u8>, S
     let mut command = Command::new(env!("CARGO_BIN_EXE_mlt"));
     command
         .arg("convert")
-        .args(["--mlt-version", "2", "--verify"]);
+        .args(["--mlt-version", "2", "--verify"])
+        .args(flags);
     if let Some(config) = config {
         fs::write(dir.join("fields.toml"), config).unwrap();
         command.arg("--fields").arg(dir.join("fields.toml"));

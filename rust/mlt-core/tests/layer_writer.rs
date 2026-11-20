@@ -40,9 +40,16 @@ fn writer_encodes_like_tile_layer([path]: [&Path; 1]) {
         .with_spatial_morton_sort(true)
         .with_spatial_hilbert_sort(true)
         .with_id_sort(true);
+    let vertex_sorted = sorted.with_vertex_sort(true);
     for layer in layers {
         let writer = write(&layer).expect("write layer");
-        for cfg in [base, sorted, base.with_tessellation(Tessellation::Always)] {
+        for cfg in [
+            base,
+            sorted,
+            vertex_sorted,
+            base.with_tessellation(Tessellation::Always),
+            vertex_sorted.with_tessellation(Tessellation::Always),
+        ] {
             assert_eq!(
                 writer.encode(cfg).expect("encode writer"),
                 layer.encode(cfg).expect("encode layer"),

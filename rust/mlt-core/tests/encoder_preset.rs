@@ -33,6 +33,7 @@ fn the_native_preset_keeps_the_source_order() {
     assert!(!native.attempt_spatial_morton_sort());
     assert!(!native.attempt_spatial_hilbert_sort());
     assert!(!native.attempt_id_sort());
+    assert!(!native.vertex_sort());
 }
 
 #[test]
@@ -83,6 +84,18 @@ fn the_min_size_preset_tries_hilbert_and_id_sorts() {
     assert!(!min_size.attempt_spatial_morton_sort());
     assert!(min_size.attempt_spatial_hilbert_sort());
     assert!(min_size.attempt_id_sort());
+}
+
+#[test]
+fn the_min_size_preset_keeps_the_vertex_order() {
+    let min_size = EncoderConfig::from_profile(Profile::MinSize);
+    assert!(!min_size.vertex_sort());
+}
+
+#[test]
+fn the_diffable_preset_keeps_the_vertex_order() {
+    let diffable = EncoderConfig::from_profile(Profile::Diffable);
+    assert!(!diffable.vertex_sort());
 }
 
 #[test]
@@ -166,6 +179,7 @@ fn the_fast_encoding_preset_keeps_the_source_order() {
     assert!(!fast.attempt_spatial_morton_sort());
     assert!(!fast.attempt_spatial_hilbert_sort());
     assert!(!fast.attempt_id_sort());
+    assert!(!fast.vertex_sort());
 }
 
 #[test]

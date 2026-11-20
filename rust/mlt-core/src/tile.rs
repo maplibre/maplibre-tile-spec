@@ -1540,18 +1540,16 @@ macro_rules! kind_mappings {
                 }
             }
 
-            /// Value `i` becomes the one at `order[i]`, unless the counts differ.
-            pub(crate) fn reorder(&mut self, order: &[usize]) {
-                fn run<T: Clone>(values: &mut Option<Vec<T>>, order: &[usize]) {
-                    if let Some(v) = values
-                        && v.len() == order.len()
-                    {
-                        *v = order.iter().map(|&i| v[i].clone()).collect();
+            /// Moves each value with its vertex.
+            pub(crate) fn reorder(&mut self, moves: &VertexMoves) {
+                fn run<T: Clone>(values: &mut Option<Vec<T>>, moves: &VertexMoves) {
+                    if let Some(v) = values {
+                        *v = moves.apply(v, T::clone);
                     }
                 }
                 match self {
-                    $(Self::$sv(v) => run(v, order),)*
-                    $(Self::$gv(v) => run(v, order),)*
+                    $(Self::$sv(v) => run(v, moves),)*
+                    $(Self::$gv(v) => run(v, moves),)*
                 }
             }
         }
@@ -1661,8 +1659,40 @@ impl PropValueRef<'_> {
 }
 
 /// How many of a ring's coordinates MLT stores, which is all of them but a closing one.
-pub(crate) fn stored_ring_len(ring: &LineString<i32>) -> usize {
+#[must_use]
+pub fn stored_ring_len(ring: &LineString<i32>) -> usize {
     stored_len(&ring.0)
+}
+
+/// Where each vertex a feature stores came from in its source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum VertexMoves {
+    /// Every vertex kept its place.
+    Kept,
+    /// Entry `i` is the source position of the vertex stored at `i`.
+    Moved(Vec<usize>),
+}
+
+impl VertexMoves {
+    /// Appends `run`, a value per source vertex, to `out` in stored order, each converted.
+    /// A run of another length than the moves is appended as it is.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn extend<S, T>(&self, out: &mut Vec<T>, run: &[S], convert: impl Fn(&S) -> T) {
+        match self {
+            Self::Moved(order) if order.len() == run.len() => {
+                out.extend(order.iter().map(|&i| convert(&run[i])));
+            }
+            Self::Kept | Self::Moved(_) => out.extend(run.iter().map(convert)),
+        }
+    }
+
+    /// `run`, a value per source vertex, in stored order, each converted.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn apply<S, T>(&self, run: &[S], convert: impl Fn(&S) -> T) -> Vec<T> {
+        let mut out = Vec::with_capacity(run.len());
+        self.extend(&mut out, run, convert);
+        out
+    }
 }
 
 /// [`stored_ring_len`] of a ring given as its coordinates.

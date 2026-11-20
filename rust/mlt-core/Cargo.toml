@@ -133,6 +133,10 @@ name = "snapshots"
 required-features = ["__private"]
 
 [[test]]
+name = "tag02_vertex_sort"
+required-features = ["unstable-v2"]
+
+[[test]]
 name = "tag02_fixtures"
 required-features = ["unstable-v2"]
 
