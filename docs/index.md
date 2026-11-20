@@ -14,7 +14,7 @@ MLT was redesigned from the ground up, so tiles are both more efficient and more
 - **Smaller and faster.** On whole-planet tilesets, **uncompressed** MLT v2 is 4-8% smaller than gzipped MVT and decodes 2.3 to 3.7 times faster.
   With gzip, v2 is 10-18% smaller than gzipped MVT.
   See [benchmarks](benchmarks.md) for details.
-- **Richer data.** MLT v2 adds per-vertex elevation and values, and keeps lists and maps as nested properties, none of which MVT can store.
+- **Richer data.** MLT v2 adds 3D triangle meshes, per-vertex elevation, per-vertex and per-triangle values, and keeps lists and maps as nested properties, none of which MVT can store.
   Each layer carries its own format version, so new kinds of data can be added later.
 
 Each geometry and attribute is stored as a separate column, with compression optimized for its data type.
@@ -29,10 +29,10 @@ Elevation and per-vertex values like lane count are lost, and lists or maps are 
 --8<-- "diagrams/v2-feature.svg"
 
 Each layer in a tile carries its own [format version](overview.md#frames), so new formats can be added without breaking existing readers.
-One tile can mix formats, so future formats can add 3D and other kinds of data, including non-visual data, alongside existing layers.
+One tile can mix formats, so future formats can add textured 3D scenes and other kinds of data, including non-visual data, alongside existing layers.
 
 !!! tip "MLT 0x03"
-    A [3D extension to MLT](https://github.com/maplibre/maplibre-tile-spec/discussions/1182) will expand these capabilities and is in the requirements engineering stage.
+    Untextured 3D triangle meshes are part of [MLT v2](specification/v2.md#meshes); a broader [3D extension to MLT](https://github.com/maplibre/maplibre-tile-spec/discussions/1182) covering richer 3D scenes and materials is in the requirements engineering stage.
     Join the MapLibre [Slack](https://maplibre.org/community/) to learn more and share your ideas.
 
 ## Documentation
@@ -43,7 +43,7 @@ One tile can mix formats, so future formats can add 3D and other kinds of data, 
 |---|---|
 | [Data Model](overview.md) | How tiles, frames, layers, features, columns and streams fit together. Start here. |
 | [MLT v1](specification/v1.md) | The stable wire format: 2D features with scalar properties, compatible with MVT. |
-| [MLT v2](specification/v2.md) <span class="experimental"></span> | The next wire format: v1 content in a smaller layout, plus Z and M values and nested properties. |
+| [MLT v2](specification/v2.md) <span class="experimental"></span> | The next wire format: v1 content in a smaller layout, plus Z and M values, nested properties and 3D triangle meshes. |
 | [Encoding Algorithms](encodings.md) | The compression schemes used by both versions. |
 | [Implementation Guide](implementation-guide.md) | Choosing encodings and decoding into memory. |
 | [Implementation Status](implementation-status.md) | Tools, libraries and datasets that support MLT. |

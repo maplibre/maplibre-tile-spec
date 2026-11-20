@@ -48,7 +48,17 @@ pub fn decode_geometry_types(
     let vector_types: Vec<u32> = stream.decode_ints::<u32>(dec)?;
     let vector_types: Vec<GeometryType> = vector_types
         .into_iter()
-        .map::<MltResult<GeometryType>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
+        .enumerate()
+        .map::<MltResult<GeometryType>, _>(|(index, v)| {
+            #[cfg(not(feature = "unstable-v2"))]
+            let _ = index;
+            let geometry_type: GeometryType = u8::try_from(v)?.try_into()?;
+            #[cfg(feature = "unstable-v2")]
+            if geometry_type.is_mesh() {
+                return Err(MltError::MeshInTypesStream(index));
+            }
+            Ok(geometry_type)
+        })
         .collect::<Result<_, _>>()?;
     Ok(vector_types)
 }
@@ -354,6 +364,57 @@ fn decode_triangle_offsets(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<
     Ok(offsets)
 }
 
+/// Check a `Meshes` section: one run of `(x, y, z)` vertices per feature as the geo lengths
+/// say, and triangles that name only vertices of their own feature's run.
+#[cfg(feature = "unstable-v2")]
+fn check_meshes(
+    runs: Option<&[u32]>,
+    triangle_offsets: Option<&[u32]>,
+    indices: Option<&[u32]>,
+    vertices: Option<&[i32]>,
+) -> MltResult<()> {
+    let runs = runs.unwrap_or(&[0]);
+    let vertex_count = vertices.map_or(0, |v| v.len() / 3);
+    let expected = runs.last().map_or(0, |&end| end.into_usize());
+    if expected != vertex_count {
+        return Err(MltError::MeshVertexCountMismatch {
+            expected,
+            actual: vertex_count,
+        });
+    }
+    let triangle_offsets = triangle_offsets.unwrap_or(&[0]);
+    if triangle_offsets.len() != runs.len() {
+        return Err(MltError::MalformedTriangles(
+            "a Meshes layer needs one triangle length per feature",
+        ));
+    }
+    let indices = indices.unwrap_or(&[]);
+    for (feature, (&[start, end], &[lo, hi])) in runs
+        .array_windows()
+        .zip(triangle_offsets.array_windows())
+        .enumerate()
+    {
+        let (start, end) = (start.into_usize(), end.into_usize());
+        let corners = indices
+            .get(lo.into_usize().saturating_mul(3)..hi.into_usize().saturating_mul(3))
+            .ok_or(MltError::MalformedTriangles(
+                "triangle lengths do not sum to the symbol count",
+            ))?;
+        if let Some(&vertex) = corners
+            .iter()
+            .find(|&&v| !(start..end).contains(&v.into_usize()))
+        {
+            return Err(MltError::MeshTriangleOutsideRun {
+                feature,
+                vertex,
+                start,
+                end,
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Decode the vertex stream once the topology `levels` is known, since rANS codes it over their runs.
 #[cfg_attr(
     not(feature = "unstable-v2"),
@@ -434,6 +495,16 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             index_base,
             items,
         } = self;
+        #[cfg(feature = "unstable-v2")]
+        let meshes = matches!(
+            types,
+            GeoTypes::Uniform {
+                geometry_type: GeometryType::Mesh,
+                ..
+            }
+        );
+        #[cfg(not(feature = "unstable-v2"))]
+        let meshes = false;
         let vector_types = decode_geometry_types(types, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
@@ -511,6 +582,19 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
         }
 
         #[cfg(feature = "unstable-v2")]
+        if meshes {
+            if z_axis.is_none() {
+                return Err(MltError::MeshWithoutZ);
+            }
+            let lengths = geometry_offsets.as_ref().map_or(0, Vec::len);
+            if lengths != vector_types.len() {
+                return Err(MltError::MeshGeoLengthCount {
+                    expected: vector_types.len(),
+                    actual: lengths,
+                });
+            }
+        }
+        #[cfg(feature = "unstable-v2")]
         let tree_cycles = match (tree_symbols, tree_cycles) {
             (None, None) => None,
             (Some(symbols), Some(cycles)) => {
@@ -522,7 +606,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             ))?,
         };
 
-        let triangles_only = index_buffer.is_some() && part_offsets.is_none();
+        let triangles_only = !meshes && index_buffer.is_some() && part_offsets.is_none();
         if triangles_only {
             if index_base == IndexBase::Feature {
                 return Err(MltError::NotImplemented(
@@ -573,6 +657,15 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                 return Err(MltError::TreeVertexOutOfBounds(idx, vertex_count));
             }
         }
+        #[cfg(feature = "unstable-v2")]
+        if meshes {
+            check_meshes(
+                geometry_offsets.as_deref(),
+                triangle_offsets.as_deref(),
+                index_buffer.as_deref(),
+                vertices.as_deref(),
+            )?;
+        }
 
         // Expand vertex dictionary:
         // If a vertex offset stream was present,
@@ -617,10 +710,92 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             vertices,
             #[cfg(feature = "unstable-v2")]
             z_axis,
+            #[cfg(feature = "unstable-v2")]
+            meshes,
         };
         if index_base == IndexBase::Feature {
             values.rebase_indices_to_layer()?;
         }
         Ok(values)
+    }
+}
+
+#[cfg(all(test, feature = "unstable-v2"))]
+mod tests {
+    use super::*;
+
+    /// Two meshes of 3 and 2 vertices, `(x, y, z)` each.
+    const VERTICES: [i32; 15] = [0; 15];
+    const RUNS: [u32; 3] = [0, 3, 5];
+
+    #[test]
+    fn meshes_whose_triangles_stay_in_their_runs_pass() {
+        let triangles = [0, 1, 2, 3, 4, 4];
+        check_meshes(
+            Some(&RUNS),
+            Some(&[0, 1, 2]),
+            Some(&triangles),
+            Some(&VERTICES),
+        )
+        .unwrap();
+    }
+
+    #[rstest::rstest]
+    #[case::fewer_vertices(&[0; 12], 4)]
+    #[case::more_vertices(&[0; 18], 6)]
+    fn the_geo_lengths_must_cover_the_vertex_stream(
+        #[case] vertices: &[i32],
+        #[case] actual: usize,
+    ) {
+        let err = check_meshes(Some(&RUNS), Some(&[0, 0, 0]), None, Some(vertices)).unwrap_err();
+        assert!(
+            matches!(err, MltError::MeshVertexCountMismatch { expected: 5, actual: a } if a == actual),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn every_feature_needs_a_triangle_length() {
+        let err = check_meshes(Some(&RUNS), Some(&[0, 0]), None, Some(&VERTICES)).unwrap_err();
+        assert!(matches!(err, MltError::MalformedTriangles(_)), "{err:?}");
+    }
+
+    #[rstest::rstest]
+    #[case::into_the_next_feature(&[0, 1, 3], 0, 3)]
+    #[case::into_the_previous_feature(&[0, 1, 2, 3, 4, 2], 1, 2)]
+    #[case::past_the_last_vertex(&[0, 1, 2, 3, 4, 5], 1, 5)]
+    fn a_triangle_naming_another_features_vertex_is_rejected(
+        #[case] triangles: &[u32],
+        #[case] feature: usize,
+        #[case] vertex: u32,
+    ) {
+        let offsets = [0, 1, u32::try_from(triangles.len() / 3).unwrap()];
+        let err = check_meshes(
+            Some(&RUNS),
+            Some(&offsets),
+            Some(triangles),
+            Some(&VERTICES),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, MltError::MeshTriangleOutsideRun { feature: f, vertex: v, .. } if f == feature && v == vertex),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn a_types_stream_cannot_name_a_mesh() {
+        let types: Vec<u8> = [0_u32, 6, 1].iter().flat_map(|t| t.to_le_bytes()).collect();
+        let stream = RawStream::new(
+            StreamMeta::new(
+                StreamType::Data(DictionaryType::None),
+                IntEncoding::none(ValueKind::Int),
+                3,
+            ),
+            &types,
+        );
+        let err =
+            decode_geometry_types(GeoTypes::Stream(stream), &mut Decoder::default()).unwrap_err();
+        assert!(matches!(err, MltError::MeshInTypesStream(1)), "{err:?}");
     }
 }

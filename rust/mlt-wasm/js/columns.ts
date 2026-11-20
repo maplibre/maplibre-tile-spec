@@ -8,6 +8,8 @@ export enum MltGeometryType {
   MultiPoint = 3,
   MultiLineString = 4,
   MultiPolygon = 5,
+  /** A triangle mesh, which only a v2 `Meshes` layer holds. */
+  Mesh = 6,
 }
 
 /**
@@ -71,7 +73,7 @@ interface MltGeometryColumnsBase {
    * A polygon ring's closing vertex is not stored.
    */
   readonly vertices: Int32Array;
-  /** Cumulative triangle counts per polygon feature, for a tessellated layer. */
+  /** Cumulative triangle counts per polygon feature of a tessellated layer, or per mesh. */
   readonly triangleOffsets?: Uint32Array;
   /** Three vertex indices per triangle, counted from the layer's first vertex. */
   readonly indexBuffer?: Uint32Array;

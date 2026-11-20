@@ -94,6 +94,19 @@ impl<'a> GeometryStager<'a> {
             .push_multi_point(chain.iter().map(|&i| points[i]));
     }
 
+    /// Pushes a mesh in source order, since its triangles name its vertices by position.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn mesh(
+        &mut self,
+        vertices: impl Iterator<Item = Coord<i32>>,
+        triangles: &[[u32; 3]],
+    ) {
+        let mut count = 0;
+        self.values
+            .push_mesh(vertices.inspect(|_| count += 1), triangles);
+        self.keep(count);
+    }
+
     pub(crate) fn line(&mut self, line: &[Coord<i32>]) {
         let line = self.place_line(line, self.last_vertex());
         self.values.push_linestring(&line);

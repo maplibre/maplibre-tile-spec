@@ -11,7 +11,7 @@ use crate::encoder::StagedValues;
 use crate::encoder::geometry::{GeometryStager, coord_count};
 use crate::tile::{Extent, PropKind, TileLayer};
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValue, NestedKind, NestedValue, VertexMoves, ZAxis};
+use crate::tile::{MValue, MValueScope, NestedKind, NestedValue, VertexMoves, ZAxis};
 use crate::{MltResult, PropValueRef};
 
 /// Everything the encoder reads from a layer, feature by feature.
@@ -77,6 +77,9 @@ pub(crate) trait LayerSource {
 #[cfg(feature = "unstable-v2")]
 #[derive(Default)]
 pub(crate) struct V2Layout<'a> {
+    /// Parallel to [`LayerSource::m_value_kinds`]; a source without scopes holds vertex-scoped
+    /// columns only.
+    pub(crate) m_value_scopes: &'a [MValueScope],
     pub(crate) nested_names: &'a [String],
     pub(crate) nested_kinds: &'a [NestedKind],
     pub(crate) z_axis: Option<ZAxis>,
@@ -152,7 +155,15 @@ impl LayerSource for TileLayer {
     }
 
     fn push_geometry(&self, feature: usize, geometry: &mut GeometryStager<'_>) {
-        geometry.geom(&self.features[feature].geometry);
+        let feature = &self.features[feature];
+        #[cfg(feature = "unstable-v2")]
+        if let (Some(triangles), Geometry::MultiPoint(points)) =
+            (&feature.triangles, &feature.geometry)
+        {
+            geometry.mesh(points.0.iter().map(|p| p.0), triangles);
+            return;
+        }
+        geometry.geom(&feature.geometry);
     }
 
     fn polygons(
@@ -179,12 +190,18 @@ impl LayerSource for TileLayer {
     }
 
     fn mvt_feature(&self, feature: usize, layer: MvtLayerBuilder) -> MltResult<MvtFeatureBuilder> {
-        Ok(layer.feature(&self.features[feature].geometry)?)
+        let feature = &self.features[feature];
+        #[cfg(feature = "unstable-v2")]
+        if feature.triangles.is_some() {
+            return Err(crate::MltError::MeshNotMvt(self.name.clone()));
+        }
+        Ok(layer.feature(&feature.geometry)?)
     }
 
     #[cfg(feature = "unstable-v2")]
     fn v2_layout(&self) -> V2Layout<'_> {
         V2Layout {
+            m_value_scopes: &self.m_value_scopes,
             nested_names: &self.nested_names,
             nested_kinds: &self.nested_kinds,
             z_axis: self.z_axis,
@@ -219,6 +236,12 @@ impl LayerSource for TileLayer {
         }
         let Some(m_value) = self.features[feature].m_values.get(column) else {
             return false;
+        };
+        // A triangle's value belongs to the triangle, so it stays put when the vertices move.
+        let moves = if self.m_value_scopes.get(column) == Some(&MValueScope::Triangle) {
+            &VertexMoves::Kept
+        } else {
+            moves
         };
         /// Pairs each kind of value with the staged column of that kind.
         macro_rules! push_kinds {

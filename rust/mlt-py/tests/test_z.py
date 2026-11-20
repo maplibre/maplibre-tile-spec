@@ -7,7 +7,7 @@ import pytest
 import maplibre_tiles as mlt
 
 SYNTHETIC = Path(__file__).parents[3] / "test" / "synthetic" / "0x02"
-Z_FIXTURES = sorted(SYNTHETIC.glob("z_*.mlt"))
+Z_FIXTURES = sorted([*SYNTHETIC.glob("z_*.mlt"), *SYNTHETIC.glob("mesh_*.mlt")])
 WKB_TYPES = {
     1: "Point",
     2: "LineString",

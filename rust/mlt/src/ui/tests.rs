@@ -70,6 +70,7 @@ fn feature(layer: &str, geometry: impl Into<Geometry<i32>>, props: &[(&str, Valu
     Feature {
         geometry: geometry.into(),
         z: None,
+        triangles: None,
         id: None,
         properties,
         ty: "Feature".into(),
@@ -422,6 +423,21 @@ fn tessellated_polygons_show_their_triangles() {
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Down);
     assert_snapshot!(render(&mut app));
+}
+
+#[test]
+fn meshes_show_a_triangle_per_face() {
+    let path = test_dir("synthetic/0x02/mesh_roof_wall.mlt");
+    let tile = TileCache::default().load(&path).unwrap();
+    let faces: Vec<Option<usize>> = tile
+        .triangles
+        .iter()
+        .map(|t| t.as_ref().map(Vec::len))
+        .collect();
+    assert_eq!(faces, [Some(4), Some(2)]);
+    let mut app = App::new_single_file(tile, Some(path));
+    press(&mut app, KeyCode::Down);
+    render(&mut app);
 }
 
 #[test]

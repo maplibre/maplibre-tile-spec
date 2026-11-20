@@ -215,6 +215,13 @@ impl Analyze for RawProperty<'_> {
 #[cfg(feature = "unstable-v2")]
 impl Analyze for RawMValue<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        self.data.for_each_stream(cb);
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Analyze for super::mvalue::RawMValueData<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
             Self::Bool(s)
             | Self::I8(s)

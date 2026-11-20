@@ -212,6 +212,8 @@ mod tests {
                 nested: vec![],
                 #[cfg(feature = "unstable-v2")]
                 z: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                triangles: None,
             })
             .collect();
 
@@ -368,6 +370,8 @@ mod tests {
                     nested: vec![],
                     #[cfg(feature = "unstable-v2")]
                     z: Vec::new(),
+                    #[cfg(feature = "unstable-v2")]
+                    triangles: None,
                 })
                 .collect(),
         )

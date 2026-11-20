@@ -18,6 +18,10 @@ const V2_GAPS: [RegExp, string][] = [
     /_tri$/,
     "a TessPolygons layer stores triangles, not the outlines loadGeometry reads",
   ],
+  [
+    /^mesh_/,
+    "a Meshes layer stores triangles, not the outlines loadGeometry reads",
+  ],
 ];
 
 const UNIMPLEMENTED_SYNTHETICS = new Map(

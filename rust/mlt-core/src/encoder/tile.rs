@@ -187,8 +187,10 @@ fn build_m_values(
     moves: &[VertexMoves],
 ) -> Vec<StagedMValue> {
     let kinds = source.m_value_kinds();
+    let scopes = source.v2_layout().m_value_scopes;
     let mut columns = Vec::with_capacity(kinds.len());
     for (index, &kind) in kinds.iter().enumerate() {
+        let scope = scopes.get(index).copied().unwrap_or_default();
         let mut values = StagedValues::empty(kind);
         let presence: Vec<bool> = order
             .iter()
@@ -201,11 +203,9 @@ fn build_m_values(
         } else {
             Some(presence)
         };
-        columns.push(StagedMValue::new(
-            source.m_value_name(index),
-            presence,
-            values,
-        ));
+        columns.push(
+            StagedMValue::new(source.m_value_name(index), presence, values).with_scope(scope),
+        );
     }
     columns
 }
