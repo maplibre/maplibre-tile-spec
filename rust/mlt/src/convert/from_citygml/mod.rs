@@ -1033,7 +1033,7 @@ fn layer(
     });
 
     let mut builder = TileLayer::builder(name, extent)?;
-    builder.set_z_axis(ZAxis {
+    builder.set_meshes(ZAxis {
         step: z_step,
         mode: HeightMode::RelativeToGround,
     })?;
