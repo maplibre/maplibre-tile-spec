@@ -18,6 +18,7 @@ import {
   lineStart,
   polygonLevels,
   runLength,
+  trianglesOnlyLayout,
 } from "./featureGeometry";
 
 // ---------------------------------------------------------------------------
@@ -78,20 +79,20 @@ function closedRings<T>(
 // Shared per-layer state
 // ---------------------------------------------------------------------------
 
-/** MVT type (1/2/3) of each `MltGeometryType`. */
-const MVT_TYPES = [
+/** MVT type (1/2/3) of each `MltGeometryType`, which a mesh has none of. */
+const MVT_TYPES: readonly (1 | 2 | 3)[] = [
   POINT,
   LINESTRING,
   POLYGON,
   POINT,
   LINESTRING,
   POLYGON,
-] as const;
+];
 
 /** A layer's decoded columns, and what its features read off them once per layer. */
 interface LayerData {
   readonly layer: MltColumnLayer;
-  /** A `TessPolygons` layer, which has triangles and no outlines for its geometry. */
+  /** A `TessPolygons` or `Meshes` layer, which has triangles and no outlines for its geometry. */
   readonly trianglesOnly: boolean;
 }
 
@@ -148,12 +149,13 @@ abstract class FeatureBase<V> {
 
   /**
    * The run of geometries (points, lines or polygons) this feature is. Throws for a
-   * `TessPolygons` feature, whose outlines are not stored.
+   * `TessPolygons` or `Meshes` feature, whose outlines are not stored.
    */
   protected geometries(): [start: number, end: number] {
     if (this._layer.trianglesOnly) {
+      const { layer } = this._layer;
       throw new Error(
-        `layer "${this._layer.layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
+        `layer "${layer.name}" is a ${trianglesOnlyLayout(layer.geometry)} layer, which stores triangles, not outlines`,
       );
     }
     const { geometry } = this._layer.layer;
@@ -335,8 +337,8 @@ export class MltLayer3D extends LayerBase {
   readonly heightMode: HeightMode;
 
   /**
-   * Throws when the layer has no z coordinates, or uses the `TessPolygons` or
-   * `TessPolygonsWithOutlines` geometry layout, which `decodeTile3D` does not support.
+   * Throws when the layer has no z coordinates, or uses the `TessPolygons`,
+   * `TessPolygonsWithOutlines` or `Meshes` geometry layout, which `decodeTile3D` does not support.
    */
   constructor(layer: MltColumnLayer) {
     super(layer);
@@ -348,7 +350,7 @@ export class MltLayer3D extends LayerBase {
     }
     if (indexBuffer !== undefined) {
       const layout = this._data.trianglesOnly
-        ? "TessPolygons"
+        ? trianglesOnlyLayout(layer.geometry)
         : "TessPolygonsWithOutlines";
       throw new Error(
         `layer "${layer.name}" uses the ${layout} geometry layout, which decodeTile3D does not support`,
@@ -405,7 +407,7 @@ export interface MltTile3D {
  * Decode a tile whose every layer has z coordinates, so every vertex is `[x, y, z]`.
  *
  * Throws when any layer has none, for which `decodeTile` reads the tile in 2D, or when any
- * layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry layout.
+ * layer uses the `TessPolygons`, `TessPolygonsWithOutlines` or `Meshes` geometry layout.
  */
 export function decodeTile3D(data: Uint8Array): MltTile3D {
   return { layers: decodeLayers(data, MltLayer3D) };

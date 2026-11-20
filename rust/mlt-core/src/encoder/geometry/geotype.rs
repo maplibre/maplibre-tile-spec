@@ -384,8 +384,9 @@ impl GeometryValues {
     /// by their index among them.
     ///
     /// The vertices run on from the layer's, so the triangles are stored shifted past those.
+    /// Its vertices are `(x, y)` pairs, so it must come before [`Self::add_z`].
     #[cfg(feature = "unstable-v2")]
-    pub(crate) fn push_mesh(
+    pub fn push_mesh(
         &mut self,
         vertices: impl Iterator<Item = Coord<i32>>,
         triangles: &[[u32; 3]],

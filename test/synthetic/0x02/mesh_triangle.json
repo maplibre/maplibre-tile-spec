@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": -2
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            10,
+            10,
+            0
+          ],
+          [
+            10,
+            20,
+            0
+          ],
+          [
+            20,
+            10,
+            250
+          ]
+        ]
+      },
+      "triangles": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    }
+  ]
+}

@@ -144,6 +144,7 @@ describe("the filter sheet", () => {
       "multi-point0",
       "multi-line-string0",
       "multi-polygon0",
+      "mesh0",
     ]);
   });
 

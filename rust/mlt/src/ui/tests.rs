@@ -426,6 +426,21 @@ fn tessellated_polygons_show_their_triangles() {
 }
 
 #[test]
+fn meshes_show_a_triangle_per_face() {
+    let path = test_dir("synthetic/0x02/mesh_roof_wall.mlt");
+    let tile = TileCache::default().load(&path).unwrap();
+    let faces: Vec<Option<usize>> = tile
+        .triangles
+        .iter()
+        .map(|t| t.as_ref().map(Vec::len))
+        .collect();
+    assert_eq!(faces, [Some(4), Some(2)]);
+    let mut app = App::new_single_file(tile, Some(path));
+    press(&mut app, KeyCode::Down);
+    render(&mut app);
+}
+
+#[test]
 fn scan_streams_files_into_the_browser() {
     let base = fixtures_dir();
     let rx = start_scan(base.clone(), SCAN_FLAGS);

@@ -32,7 +32,6 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use clap::Parser;
-use mlt_core::HeightMode;
 use mlt_core::compact_str::CompactString;
 use mlt_core::encoder::{
     FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedInterior,
@@ -43,9 +42,10 @@ use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
     line_string as line, wkt,
 };
+use mlt_core::{HeightMode, MValueScope};
 
 use crate::layer::{
-    Layer, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle, morton_curve,
+    Layer, Mesh, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle, morton_curve,
 };
 use crate::writer::SynthWriter;
 
@@ -121,6 +121,7 @@ fn main() {
     generate_m_values(&mut writer);
     generate_nested(&mut writer);
     generate_z(&mut writer);
+    generate_meshes(&mut writer);
 
     writer.report_ungenerated();
 
@@ -2727,4 +2728,77 @@ fn generate_z(w: &mut SynthWriter) {
             M::new("dist", None, MV::U32(vec![0, 10, 25])),
         )
         .write(w, "z_mvalues");
+}
+
+/// 3D triangle meshes, one per feature, which only v2 can hold.
+fn generate_meshes(w: &mut SynthWriter) {
+    geo_varint()
+        .meshes(
+            -2,
+            [Mesh::new(
+                &[[10, 10, 0], [10, 20, 0], [20, 10, 250]],
+                &[[0, 1, 2]],
+            )],
+        )
+        .write(w, "mesh_triangle");
+    geo_varint()
+        .meshes(0, [roof(), wall()])
+        .write(w, "mesh_roof_wall");
+    geo_varint()
+        .meshes(-1, [roof()])
+        .height_mode(HeightMode::RelativeToGround)
+        .write(w, "mesh_relative_to_ground");
+    // Null on the wall, which therefore stores no values at all.
+    geo_varint()
+        .meshes(0, [roof(), wall()])
+        .add_m_value(
+            E::varint(),
+            M::new(
+                "shade",
+                Some(vec![true, false]),
+                MV::U32(vec![10, 11, 12, 13, 14]),
+            ),
+        )
+        .write(w, "mesh_mvalues_vertex");
+    // Given in the order the meshes list their triangles, which the triangle trees reorder.
+    geo_varint()
+        .meshes(0, [roof(), wall()])
+        .add_m_value(
+            E::varint(),
+            M::new("part", None, MV::U8(vec![1, 2, 3, 4, 5, 6])).with_scope(MValueScope::Triangle),
+        )
+        .write(w, "mesh_mvalues_triangle");
+    // Both scopes in one layer, each null on a different feature.
+    geo_varint()
+        .meshes(0, [wall(), roof()])
+        .add_m_value(
+            E::varint(),
+            M::new("shade", Some(vec![true, false]), MV::U32(vec![7, 8, 9, 10])),
+        )
+        .add_m_value(
+            E::varint(),
+            M::new("part", Some(vec![false, true]), MV::U8(vec![1, 2, 3, 4]))
+                .with_scope(MValueScope::Triangle),
+        )
+        .write(w, "mesh_mvalues_both");
+}
+
+fn roof() -> Mesh {
+    Mesh::new(
+        &[
+            [10, 10, 0],
+            [30, 10, 0],
+            [30, 30, 0],
+            [10, 30, 0],
+            [20, 20, 15],
+        ],
+        &[[3, 2, 4], [2, 1, 4], [1, 0, 4], [0, 3, 4]],
+    )
+}
+
+fn wall() -> Mesh {
+    Mesh::new(
+        &[[50, 30, 0], [70, 30, 0], [70, 30, 10], [50, 30, 10]],
+        &[[0, 1, 2], [0, 2, 3]],
+    )
 }

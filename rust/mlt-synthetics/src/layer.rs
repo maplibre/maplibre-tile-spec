@@ -196,7 +196,26 @@ pub struct Layer {
     ids: Option<(StagedId, IntEncoder)>,
     /// The z of every vertex and how it reads as a height, which only v2 can hold.
     z: Option<(ZAxis, Vec<i32>)>,
+    /// One mesh per feature, their z read on the axis in `z`, which only v2 can hold.
+    meshes: Vec<Mesh>,
     versions: &'static [WireVersion],
+}
+
+/// A triangle mesh of `(x, y, z)` vertices, its triangles naming them by index.
+#[derive(Clone)]
+pub struct Mesh {
+    vertices: Vec<[i32; 3]>,
+    triangles: Vec<[u32; 3]>,
+}
+
+impl Mesh {
+    #[must_use]
+    pub fn new(vertices: &[[i32; 3]], triangles: &[[u32; 3]]) -> Self {
+        Self {
+            vertices: vertices.to_vec(),
+            triangles: triangles.to_vec(),
+        }
+    }
 }
 
 impl Layer {
@@ -218,6 +237,7 @@ impl Layer {
             versions: &[WireVersion::V01, WireVersion::V02],
             ids: None,
             z: None,
+            meshes: vec![],
         }
     }
 
@@ -691,7 +711,23 @@ impl Layer {
         self
     }
 
-    /// Measure the z set by [`Self::z`] from `mode` instead of mean sea level.
+    /// Add one feature per mesh, their z on a grid of `10^exponent` m.
+    /// v1 vertices are (x, y) pairs, so the layer is v2-only.
+    #[must_use]
+    #[track_caller]
+    pub fn meshes(mut self, exponent: i8, meshes: impl IntoIterator<Item = Mesh>) -> Self {
+        let step = ZStep::new(exponent).expect("a z step in range");
+        self.meshes.extend(meshes);
+        let z = self
+            .meshes
+            .iter()
+            .flat_map(|m| m.vertices.iter().map(|v| v[2]));
+        self.z = Some((step.into(), z.collect()));
+        self.versions = &[WireVersion::V02];
+        self
+    }
+
+    /// Measure the z set by [`Self::z`] or [`Self::meshes`] from `mode` instead of mean sea level.
     #[must_use]
     #[track_caller]
     pub fn height_mode(mut self, mode: HeightMode) -> Self {
@@ -728,6 +764,7 @@ impl Layer {
             extent,
             ids,
             z,
+            meshes,
             versions: _,
         } = self;
 
@@ -748,6 +785,10 @@ impl Layer {
         };
         for geom in &geometry_items {
             geometry.push_geom(geom);
+        }
+        for mesh in &meshes {
+            let xy = mesh.vertices.iter().map(|&[x, y, _]| Coord { x, y });
+            geometry.push_mesh(xy, &mesh.triangles);
         }
         if let Some((axis, z)) = z {
             geometry.add_z(axis, &z)?;
