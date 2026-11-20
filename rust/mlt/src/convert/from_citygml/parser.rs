@@ -57,8 +57,8 @@ pub struct Polygon {
 /// their windows and doors, of its roofs and of its grounds each.
 ///
 /// The LOD2 of a part whose highest LOD is above 2 is its highest LOD of 2 or less or, without
-/// one, its highest LOD without windows, doors and installations, and with the holes of the
-/// other polygons closed.
+/// one, its highest LOD without windows, doors and installations, and with window and door
+/// opening holes closed while courtyard holes in roofs and grounds are kept.
 #[derive(Debug, PartialEq)]
 pub struct Building {
     pub gml_id: Option<String>,
@@ -451,6 +451,16 @@ impl Parser {
                 *low = (*low).max(Some(lod));
             }
         }
+        // Bounding boxes of `Window` and `Door` openings per owner, so `LoD2` derived from `LoD3`
+        // closes skylight/door cutouts without paving over inner courtyards in roofs and grounds.
+        let mut openings: HashMap<u32, Vec<Bounds3>> = HashMap::new();
+        for &(owner, _, ref polygon) in &self.polygons {
+            if matches!(polygon.part, Some(Part::Window | Part::Door))
+                && let Some(bounds) = ring_bounds(&polygon.points)
+            {
+                openings.entry(owner).or_default().push(bounds);
+            }
+        }
         for (owner, lod, polygon) in self.polygons.drain(..) {
             let Some(&(highest, low)) = best.get(&key(owner, polygon.part)) else {
                 continue;
@@ -467,14 +477,15 @@ impl Parser {
                 || matches!(polygon.part, Some(Part::Window | Part::Door))
             {
                 Lods::Highest
-            } else if let [exterior, _, ..] = polygon.ends[..] {
-                building.polygons.push(Polygon {
-                    part: polygon.part,
-                    lods: Lods::Lod2,
-                    points: polygon.points[..exterior].to_vec(),
-                    ends: vec![exterior],
-                });
-                Lods::Highest
+            } else if polygon.ends.len() > 1 {
+                let closed =
+                    close_opening_holes(&polygon, openings.get(&owner).map_or(&[], Vec::as_slice));
+                if let Some(lod2_polygon) = closed {
+                    building.polygons.push(lod2_polygon);
+                    Lods::Highest
+                } else {
+                    Lods::Both
+                }
             } else {
                 Lods::Both
             };
@@ -484,6 +495,63 @@ impl Parser {
             self.document.buildings.push(building);
         }
     }
+}
+
+type Bounds3 = ([f64; 3], [f64; 3]);
+
+fn ring_bounds(points: &[[f64; 3]]) -> Option<Bounds3> {
+    let &first = points.first()?;
+    Some(points[1..].iter().fold((first, first), |(lo, hi), &p| {
+        (
+            [0, 1, 2].map(|i| lo[i].min(p[i])),
+            [0, 1, 2].map(|i| hi[i].max(p[i])),
+        )
+    }))
+}
+
+/// Returns an `Lods::Lod2` copy of `polygon` with opening holes removed, or `None` if every
+/// interior ring is a non-opening hole (such as an inner courtyard) so `polygon` serves `Lods::Both`.
+fn close_opening_holes(polygon: &Polygon, owner_openings: &[Bounds3]) -> Option<Polygon> {
+    let exterior = polygon.ends[0];
+    if polygon.part == Some(Part::Wall) {
+        return Some(Polygon {
+            part: polygon.part,
+            lods: Lods::Lod2,
+            points: polygon.points[..exterior].to_vec(),
+            ends: vec![exterior],
+        });
+    }
+    if owner_openings.is_empty() {
+        return None;
+    }
+    let mut points = polygon.points[..exterior].to_vec();
+    let mut ends = vec![exterior];
+    let mut dropped_any = false;
+    let mut start = exterior;
+    for &end in &polygon.ends[1..] {
+        let hole = &polygon.points[start..end];
+        let is_opening = ring_bounds(hole).is_some_and(|(r_lo, r_hi)| {
+            let tol = [0, 1, 2].map(|i| 0.5 * (r_hi[i] - r_lo[i]).max(1e-6));
+            owner_openings.iter().any(|&(o_lo, o_hi)| {
+                (0..3).all(|i| {
+                    (o_lo[i] - r_lo[i]).abs() <= tol[i] && (o_hi[i] - r_hi[i]).abs() <= tol[i]
+                })
+            })
+        });
+        if is_opening {
+            dropped_any = true;
+        } else {
+            points.extend_from_slice(hole);
+            ends.push(points.len());
+        }
+        start = end;
+    }
+    dropped_any.then_some(Polygon {
+        part: polygon.part,
+        lods: Lods::Lod2,
+        points,
+        ends,
+    })
 }
 
 /// Appends the numbers of `text`, separated by whitespace or commas, to `out`, or says that
@@ -760,5 +828,45 @@ mod tests {
     fn a_mismatched_end_tag_is_broken_xml() {
         let err = parse(b"<a><b></c></a>").unwrap_err();
         assert!(err.to_string().starts_with("invalid XML at byte"), "{err}");
+    }
+
+    #[test]
+    fn lod2_keeps_courtyard_holes_in_roofs_and_grounds_while_closing_skylights() {
+        let courtyard: [[f64; 3]; 4] = [
+            [3.0, 3.0, 10.0],
+            [7.0, 3.0, 10.0],
+            [7.0, 7.0, 10.0],
+            [3.0, 7.0, 10.0],
+        ];
+        let skylight: [[f64; 3]; 3] = [[1.0, 1.0, 10.0], [2.0, 1.0, 10.0], [1.0, 2.0, 10.0]];
+        let window = format!(
+            "<bldg:opening><bldg:Window><bldg:lod3MultiSurface><gml:MultiSurface><gml:surfaceMember>\
+             {}</gml:surfaceMember></gml:MultiSurface></bldg:lod3MultiSurface></bldg:Window></bldg:opening>",
+            polygon(&[&skylight]),
+        );
+        let xml = format!(
+            "{HEAD}<bldg:Building><bldg:boundedBy><bldg:RoofSurface><bldg:lod3MultiSurface>\
+             <gml:MultiSurface><gml:surfaceMember>{}</gml:surfaceMember></gml:MultiSurface>\
+             </bldg:lod3MultiSurface>{window}</bldg:RoofSurface></bldg:boundedBy>{}</bldg:Building></core:CityModel>",
+            polygon(&[&SQUARE, &courtyard, &skylight]),
+            surface("GroundSurface", 3, &polygon(&[&SQUARE, &courtyard])),
+        );
+        let document = parse(xml.as_bytes()).unwrap();
+        let polygons: Vec<_> = document.buildings[0]
+            .polygons
+            .iter()
+            .map(|p| (p.part, p.lods, p.ends.clone()))
+            .collect();
+        assert_eq!(
+            polygons,
+            [
+                // LoD2 roof drops the 3-vertex skylight hole while keeping the 4-vertex courtyard hole.
+                (Some(Part::Roof), Lods::Lod2, vec![4, 8]),
+                (Some(Part::Roof), Lods::Highest, vec![4, 8, 11]),
+                (Some(Part::Window), Lods::Highest, vec![3]),
+                // Ground has no openings, so its courtyard hole stays in Both LODs.
+                (Some(Part::Ground), Lods::Both, vec![4, 8]),
+            ]
+        );
     }
 }
