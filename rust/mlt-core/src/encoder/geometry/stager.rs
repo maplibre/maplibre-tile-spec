@@ -247,16 +247,22 @@ fn distance(a: Coord<i32>, b: Coord<i32>) -> u64 {
 }
 
 /// The order a walk from `start` visits `points` in, always stepping to the nearest point not yet visited, the earliest of equally near ones.
-/// Points are bucketed in a grid of about one point per cell.
+/// Distinct points are bucketed in a grid of about one per cell, and copies of a point are visited together.
 fn nearest_neighbour_chain(points: &[Coord<i32>], start: Coord<i32>) -> Vec<usize> {
-    let Some(mut grid) = Grid::new(points) else {
+    let mut by_coord: Vec<usize> = (0..points.len()).collect();
+    by_coord.sort_unstable_by_key(|&i| (points[i].x, points[i].y, i));
+    let mut copies: Vec<&[usize]> = by_coord.chunk_by(|&a, &b| points[a] == points[b]).collect();
+    // Numbered by first appearance, the nearest site tie-breaks to the earliest point.
+    copies.sort_unstable_by_key(|same| same[0]);
+    let sites: Vec<_> = copies.iter().map(|same| points[same[0]]).collect();
+    let Some(mut grid) = Grid::new(&sites) else {
         return Vec::new();
     };
     let mut at = start;
     let mut chain = Vec::with_capacity(points.len());
-    while let Some(next) = grid.take_nearest(points, at) {
-        chain.push(next);
-        at = points[next];
+    while let Some(site) = grid.take_nearest(&sites, at) {
+        chain.extend_from_slice(copies[site]);
+        at = sites[site];
     }
     chain
 }

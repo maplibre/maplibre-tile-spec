@@ -321,6 +321,23 @@ fn a_large_multi_point_follows_the_greedy_nearest_neighbour_chain() {
 }
 
 #[test]
+fn a_multi_point_of_100_000_copies_of_two_points_visits_each_point_once() {
+    let points: Vec<(i32, i32)> = (0..100_000)
+        .map(|i| if i % 2 == 0 { (9, 9) } else { (0, 0) })
+        .collect();
+    let vertex_sorted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        .with_tessellation(Tessellation::Off)
+        .with_vertex_sort(true);
+    let decoded = round_trip(
+        vec![Point::new(0, 0).into(), multi_point(&points).into()],
+        vertex_sorted,
+    );
+    let mut expected = vec![(0, 0); 50_000];
+    expected.extend(vec![(9, 9); 50_000]);
+    assert_eq!(decoded[1], multi_point(&expected).into());
+}
+
+#[test]
 fn a_two_vertex_ring_is_not_rotated() {
     let vertex_sorted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_tessellation(Tessellation::Off)

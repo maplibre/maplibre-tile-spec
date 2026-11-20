@@ -425,14 +425,7 @@ impl<'a> LeastOrder<'_, 'a> {
             .map(|(i, &c)| self.key(base + i, c))
             .collect();
         let rotated = |start: usize| (0..len).map(move |i| (start + i) % len);
-        let rotatable = if len >= 3 { len } else { 1 };
-        let start = (0..rotatable)
-            .min_by(|&a, &b| {
-                rotated(a)
-                    .map(|i| &keys[i])
-                    .cmp(rotated(b).map(|i| &keys[i]))
-            })
-            .unwrap_or(0);
+        let start = if len >= 3 { least_rotation(&keys) } else { 0 };
         self.order.extend(rotated(start).map(|i| base + i));
         let mut out: Vec<_> = rotated(start).map(|i| coords[i]).collect();
         if closed {
@@ -440,6 +433,32 @@ impl<'a> LeastOrder<'_, 'a> {
         }
         LineString(out)
     }
+}
+
+/// The earliest start of the least rotation of `keys`, in linear time.
+fn least_rotation<T: Ord>(keys: &[T]) -> usize {
+    let n = keys.len();
+    let (mut i, mut j, mut k) = (0, 1, 0);
+    while i < n && j < n && k < n {
+        match keys[(i + k) % n].cmp(&keys[(j + k) % n]) {
+            Ordering::Equal => k += 1,
+            Ordering::Greater => {
+                i += k + 1;
+                if i == j {
+                    i += 1;
+                }
+                k = 0;
+            }
+            Ordering::Less => {
+                j += k + 1;
+                if i == j {
+                    j += 1;
+                }
+                k = 0;
+            }
+        }
+    }
+    i.min(j)
 }
 
 /// The first column whose value differs, described, or [`None`] if every value matches.
@@ -629,6 +648,19 @@ mod tests {
             same_layer(&stored, &reordered, Vertices::Stored).unwrap_err(),
             @"feature without an id has another geometry"
         );
+    }
+
+    #[test]
+    fn a_rotated_ring_of_100_000_equal_vertices_is_the_same_in_any_order() {
+        let ring = |at: usize| {
+            let mut coords = vec![Coord { x: 0, y: 0 }; 100_000];
+            coords[at] = Coord { x: 9, y: 9 };
+            coords.push(coords[0]);
+            Polygon::new(LineString(coords), vec![]).into()
+        };
+        let stored = layer_of_geometries(vec![(ring(0), vec![0; 100_000])]);
+        let rotated = layer_of_geometries(vec![(ring(50_000), vec![0; 100_000])]);
+        same_layer(&stored, &rotated, Vertices::AnyOrder).unwrap();
     }
 
     #[test]
