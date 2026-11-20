@@ -64,14 +64,12 @@ impl FeatureCollection {
             };
             let layer_name = parsed.name();
             let extent = parsed.extent().get();
+            parsed.charge_string_copies(&mut dec)?;
             let mut feat_iter = parsed.iter_features();
             while let Some(feat) = feat_iter.next() {
                 let feat = feat?;
                 let mut properties = BTreeMap::new();
                 for p in feat.iter_properties() {
-                    if let PropValueRef::Str(s) = p.value() {
-                        dec.consume_items::<u8>(s.len())?;
-                    }
                     properties.insert(p.name().to_string(), p.value().into());
                 }
                 #[cfg(feature = "unstable-v2")]

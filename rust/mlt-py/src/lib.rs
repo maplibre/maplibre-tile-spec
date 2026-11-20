@@ -319,6 +319,7 @@ fn decode_mlt(
                 ));
             }
         };
+        decoded.charge_string_copies(&mut dec).map_err(mlt_err)?;
         let extent = decoded.extent().get();
         let xf = match (z, x, y) {
             (Some(z), Some(x), Some(y)) => Some(TileTransform::from_zxy(z, x, y, extent, tms)?),

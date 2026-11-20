@@ -43,6 +43,7 @@ impl ParsedLayer01<'_> {
         let extent = self.extent().get();
         let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
         let col_nulls = typed_nulls(&self.properties);
+        self.charge_string_copies(dec)?;
         let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
         let mut feat_iter = self.iter_features();
         while let Some(feat) = feat_iter.next() {
@@ -54,8 +55,6 @@ impl ParsedLayer01<'_> {
                     None => col_nulls[col_idx].clone(),
                 });
             }
-
-            charge_str_props(dec, &values)?;
 
             features.push(TileFeature {
                 id: feat.id(),
@@ -220,25 +219,4 @@ fn typed_nulls(properties: &[ParsedProperty<'_>]) -> Vec<PropValue> {
         }
     }
     nulls
-}
-
-/// Charge `dec` for the bytes of the owned strings inside `PropValue::Str`.
-fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> MltResult<()> {
-    let str_bytes = props
-        .iter()
-        .filter_map(|p| {
-            if let PropValue::Str(Some(s)) = p {
-                Some(s.len())
-            } else {
-                None
-            }
-        })
-        .try_fold(0u32, |acc, n| {
-            acc.checked_add(u32::try_from(n).or_overflow()?)
-                .or_overflow()
-        })?;
-    if str_bytes > 0 {
-        dec.consume(str_bytes)?;
-    }
-    Ok(())
 }

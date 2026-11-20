@@ -58,13 +58,13 @@ impl Decoder {
     /// Charge the budget for `size` raw bytes.
     /// Prefer [`consume_items`][Self::consume_items] when charging for a known-type collection.
     #[inline]
-    pub fn consume(&mut self, size: u32) -> MltResult<()> {
+    pub(crate) fn consume(&mut self, size: u32) -> MltResult<()> {
         self.budget.consume(size)
     }
 
     /// Charge the budget for `count` items of type `T` (`count * size_of::<T>()` bytes).
     #[inline]
-    pub fn consume_items<T>(&mut self, count: usize) -> MltResult<()> {
+    pub(crate) fn consume_items<T>(&mut self, count: usize) -> MltResult<()> {
         let bytes = count.checked_mul(size_of::<T>()).or_overflow()?;
         self.budget.consume(u32::try_from(bytes).or_overflow()?)
     }

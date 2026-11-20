@@ -84,6 +84,7 @@ fn layer_object(
     layer: &ParsedLayer01<'_>,
     version: u8,
 ) -> Result<Object, JsError> {
+    layer.charge_string_copies(dec).map_err(|e| to_js_err(&e))?;
     let object = Object::new();
     set(&object, "name", &layer.name().into());
     set(&object, "extent", &layer.extent().get().into());
@@ -102,7 +103,7 @@ fn layer_object(
     let properties = Array::new();
     let mut names = layer.iterate_prop_names();
     for property in layer.properties() {
-        for (kind, values, present) in property_columns(dec, property)? {
+        for (kind, values, present) in property_columns(property)? {
             let Some(name) = names.next() else {
                 return Err(JsError::new("a property column has no name"));
             };
@@ -228,10 +229,7 @@ type ColumnParts = (&'static str, JsValue, Option<Uint8Array>);
 
 /// The values and presence of each column `property` holds: a shared dictionary holds one
 /// per child, every other property one.
-fn property_columns(
-    dec: &mut Decoder,
-    property: &ParsedProperty<'_>,
-) -> Result<Vec<ColumnParts>, JsError> {
+fn property_columns(property: &ParsedProperty<'_>) -> Result<Vec<ColumnParts>, JsError> {
     let (values, present) = match property {
         ParsedProperty::Bool(v) => scalar(v),
         ParsedProperty::I8(v) => scalar(v),
@@ -242,17 +240,16 @@ fn property_columns(
         ParsedProperty::U64(v) => scalar(v),
         ParsedProperty::F32(v) => scalar(v),
         ParsedProperty::F64(v) => scalar(v),
-        ParsedProperty::Str(s) => strings(dec, s.feature_count(), |i| string_at(s, i))?,
+        ParsedProperty::Str(s) => strings(s.feature_count(), |i| string_at(s, i)),
         ParsedProperty::SharedDict(dict) => {
-            return dict
+            return Ok(dict
                 .items()
                 .iter()
                 .map(|item| {
-                    let (values, present) =
-                        strings(dec, item.feature_count(), |i| item.get(dict, i))?;
-                    Ok(("string", values, present))
+                    let (values, present) = strings(item.feature_count(), |i| item.get(dict, i));
+                    ("string", values, present)
                 })
-                .collect();
+                .collect());
         }
         other => {
             return Err(JsError::new(&format!(
@@ -353,20 +350,7 @@ fn type_name(kind: PropKind) -> &'static str {
 }
 
 /// A string per feature, `""` where a feature has none, and the presence if any has none.
-///
-/// Dictionary-coded columns keep only codes in [`ParsedStrings`], so every expanded feature
-/// string is charged to `dec` before allocating JavaScript strings.
-fn strings<'s>(
-    dec: &mut Decoder,
-    n: usize,
-    get: impl Fn(usize) -> Option<&'s str>,
-) -> Result<(JsValue, Option<Uint8Array>), JsError> {
-    for i in 0..n {
-        if let Some(value) = get(i) {
-            dec.consume_items::<u8>(value.len())
-                .map_err(|e| to_js_err(&e))?;
-        }
-    }
+fn strings<'s>(n: usize, get: impl Fn(usize) -> Option<&'s str>) -> (JsValue, Option<Uint8Array>) {
     let values = Array::new_with_length(js_index(n));
     // One lookup per feature: the bitmap's walk fills `values` as it goes.
     let present = bitmap(n, |i| {
@@ -374,7 +358,7 @@ fn strings<'s>(
         values.set(js_index(i), JsValue::from_str(value.unwrap_or("")));
         value.is_some()
     });
-    Ok((values.into(), present))
+    (values.into(), present)
 }
 
 fn string_at<'s>(strings: &'s ParsedStrings<'_>, index: usize) -> Option<&'s str> {
