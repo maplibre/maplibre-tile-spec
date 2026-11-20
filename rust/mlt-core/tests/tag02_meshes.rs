@@ -174,7 +174,7 @@ type Mesh = (Vec<[i32; 3]>, Vec<[u32; 3]>);
 /// A layer of `meshes`, each with a `name`, a vertex-scoped `part` and a triangle-scoped `face`.
 fn mesh_layer(meshes: &[Mesh]) -> TileLayer {
     let mut builder = TileLayer::builder("landmarks", 16384).unwrap();
-    builder.set_z_axis(height()).unwrap();
+    builder.set_meshes(height()).unwrap();
     let name = builder.add_property("name", PropKind::Str).unwrap();
     let part = builder.add_m_value("part", PropKind::Str).unwrap();
     let face = builder
@@ -321,7 +321,7 @@ fn a_corrupted_byte_anywhere_fails_to_decode_or_decodes_but_never_panics() {
 #[test]
 fn a_missing_triangle_value_stays_missing() {
     let mut builder = TileLayer::builder("landmarks", 16384).unwrap();
-    builder.set_z_axis(height()).unwrap();
+    builder.set_meshes(height()).unwrap();
     let face = builder
         .add_scoped_m_value("face", PropKind::I32, MValueScope::Triangle)
         .unwrap();
@@ -365,49 +365,49 @@ fn geojson_writes_a_mesh_as_a_multi_point_with_triangles() {
     assert_snapshot!(json, @r#"{"type":"FeatureCollection","features":[{"type":"Feature","id":0,"properties":{"_extent":16384,"_height_mode":"relative_to_ground","_layer":"landmarks","_z_step":-2,"m:face":[0],"m:part":["ground","ground","roof"],"name":"mesh 0"},"geometry":{"type":"MultiPoint","coordinates":[[0,0,0],[10,0,0],[0,-10,250]]},"triangles":[[0,1,2]]}]}"#);
 }
 
-/// A layer of a one-vertex mesh, on a z grid when `z`, and a point after it when `point`.
-fn tiny(z: bool, point: bool) -> TileLayer {
+#[test]
+fn a_one_vertex_mesh_cannot_be_written_as_v1() {
     let mut builder = TileLayer::builder("tiny", 4096).unwrap();
-    if z {
-        builder.set_z_axis(height()).unwrap();
-    }
+    builder.set_meshes(height()).unwrap();
     let mut mesh = builder.feature(Geometry::MultiPoint(MultiPoint(vec![Point::new(0, 0)])));
-    if z {
-        mesh.z(vec![0]).unwrap();
-    }
+    mesh.z(vec![0]).unwrap();
     mesh.triangles(vec![[0, 0, 0]]).unwrap();
     mesh.finish().unwrap();
-    if point {
-        let mut point = builder.feature(Geometry::Point(Point::new(1, 1)));
-        point.z(vec![0]).unwrap();
-        point.finish().unwrap();
-    }
-    builder.finish()
+    let err = builder
+        .finish()
+        .encode(cfg_v2().with_wire_version(WireVersion::V01))
+        .unwrap_err();
+    assert_snapshot!(err, @"meshes are a v2 feature, so layer tiny cannot be written as v1");
 }
 
-#[rstest]
-#[case::as_v1(
-    tiny(true, false),
-    WireVersion::V01,
-    "meshes are a v2 feature, so layer tiny cannot be written as v1"
-)]
-#[case::without_a_z_step(
-    tiny(false, false),
-    WireVersion::V02,
-    "a mesh needs (x, y, z) vertices, so its layer needs a z step"
-)]
-#[case::beside_a_point(
-    tiny(true, true),
-    WireVersion::V02,
-    "a layer cannot mix meshes with other geometries"
-)]
-fn a_mesh_layer_that_cannot_be_written_is_rejected(
-    #[case] layer: TileLayer,
-    #[case] wire: WireVersion,
-    #[case] expected: &str,
-) {
-    let err = layer.encode(cfg_v2().with_wire_version(wire)).unwrap_err();
-    assert_eq!(err.to_string(), expected);
+#[test]
+fn a_meshes_layer_holds_meshes_and_nothing_else() {
+    let one_vertex = || Geometry::MultiPoint(MultiPoint(vec![Point::new(0, 0)]));
+
+    let mut meshes = TileLayer::builder("landmarks", 4096).unwrap();
+    meshes.set_meshes(height()).unwrap();
+    let mut point = meshes.feature(Geometry::Point(Point::new(1, 1)));
+    point.z(vec![0]).unwrap();
+    assert_snapshot!(point.finish().unwrap_err(), @"a layer cannot mix meshes with other geometries");
+
+    let mut plain = TileLayer::builder("points", 4096).unwrap();
+    plain.set_z_axis(height()).unwrap();
+    let mut mesh = plain.feature(one_vertex());
+    mesh.z(vec![0]).unwrap();
+    mesh.triangles(vec![[0, 0, 0]]).unwrap();
+    assert_snapshot!(mesh.finish().unwrap_err(), @"layer points is not a Meshes layer, so it cannot hold a mesh");
+    assert_snapshot!(
+        plain.add_scoped_m_value("face", PropKind::U8, MValueScope::Triangle).unwrap_err(),
+        @"m-value column face holds a value per triangle, which only a mesh has"
+    );
+
+    let mut point = plain.feature(Geometry::Point(Point::new(1, 1)));
+    point.z(vec![0]).unwrap();
+    point.finish().unwrap();
+    assert_snapshot!(
+        plain.set_meshes(height()).unwrap_err(),
+        @"layer points already holds features, so it cannot be made a Meshes layer"
+    );
 }
 
 #[rstest]
@@ -464,15 +464,14 @@ fn a_reserved_scope_byte_is_rejected() {
 }
 
 #[test]
-fn a_triangle_scoped_value_needs_a_mesh_and_one_value_per_triangle() {
+fn a_triangle_scoped_value_needs_one_value_per_triangle() {
     let mut builder = TileLayer::builder("landmarks", 4096).unwrap();
-    builder.set_z_axis(height()).unwrap();
+    builder.set_meshes(height()).unwrap();
     let key = builder
         .add_scoped_m_value("part", PropKind::U8, MValueScope::Triangle)
         .unwrap();
-    let points = || Geometry::MultiPoint((0..3).map(|i| Point::new(i, 0)).collect());
-
-    let mut mesh = builder.feature(points());
+    let points = Geometry::MultiPoint((0..3).map(|i| Point::new(i, 0)).collect());
+    let mut mesh = builder.feature(points);
     mesh.z(vec![0, 0, 0])
         .unwrap()
         .triangles(vec![[0, 1, 2]])
@@ -482,21 +481,13 @@ fn a_triangle_scoped_value_needs_a_mesh_and_one_value_per_triangle() {
         mesh.finish().unwrap_err(),
         @"m-value 0 holds 3 values, but needs one per triangle: 1"
     );
-
-    let mut not_a_mesh = builder.feature(points());
-    not_a_mesh.z(vec![0, 0, 0]).unwrap();
-    not_a_mesh.m_value(key, MValue::U8(Some(vec![1]))).unwrap();
-    assert_snapshot!(
-        not_a_mesh.finish().unwrap_err(),
-        @"m-value column part holds a value per triangle, which only a mesh has"
-    );
 }
 
 #[cfg(feature = "__private")]
 #[test]
-fn an_empty_meshes_layer_round_trips_and_staged_triangle_m_values_validate() {
-    use mlt_core::GeometryValues;
+fn an_empty_staged_meshes_layer_round_trips_to_the_bytes_the_wasm_spec_decodes() {
     use mlt_core::encoder::{Codecs, Encoder, StagedId, StagedLayer, StagedMValue, StagedValues};
+    use mlt_core::{GeometryLayout, GeometryValues};
 
     let empty = StagedLayer::with_m_values(
         "landmarks",
@@ -523,11 +514,36 @@ fn an_empty_meshes_layer_round_trips_and_staged_triangle_m_values_validate() {
         MValueScope::Triangle
     );
     let parsed = raw.decode_all(&mut Decoder::default()).unwrap();
-    assert!(parsed.layer().geometry_values().is_meshes());
+    assert_eq!(
+        parsed.layer().geometry_values().layout(),
+        GeometryLayout::Meshes
+    );
     let back = parsed.into_tile(&mut Decoder::default()).unwrap();
+    assert!(back.is_meshes());
     assert_eq!(back.feature_count(), 0);
     assert_eq!(back.z_axis(), Some(height()));
     assert_eq!(back.m_value_scopes(), &[MValueScope::Triangle]);
+    assert_snapshot!(hex::encode(&bytes), @"1f02096c616e646d61726b73f6000e0000000025000902050104666163658000");
+}
+
+#[test]
+fn a_mesh_without_vertices_and_one_without_triangles_encode_to_the_bytes_the_wasm_spec_decodes() {
+    let mut builder = TileLayer::builder("landmarks", 4096).unwrap();
+    builder.set_meshes(height()).unwrap();
+    let mut empty = builder.feature(Geometry::MultiPoint(MultiPoint(Vec::new())));
+    empty.id(Some(0));
+    empty.triangles(Vec::new()).unwrap();
+    empty.finish().unwrap();
+    let pair = (1..3).map(|i| Point::new(i, i)).collect();
+    let mut spare = builder.feature(Geometry::MultiPoint(pair));
+    spare.id(Some(1));
+    spare.z(vec![3, 6]).unwrap();
+    spare.triangles(Vec::new()).unwrap();
+    spare.finish().unwrap();
+    let bytes = builder.finish().encode(cfg_v2()).unwrap();
+    let back = try_decode(&bytes).unwrap();
+    assert_eq!(rows(&back).len(), 2);
+    assert_snapshot!(hex::encode(&bytes), @"2902096c616e646d61726b7376020e180200043002020080008000290609020206020206010018020002");
 }
 
 #[test]

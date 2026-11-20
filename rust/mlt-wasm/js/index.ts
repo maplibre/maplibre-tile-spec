@@ -26,6 +26,7 @@ export {
   type MltGeometryColumns,
   type MltGeometryColumns2D,
   type MltGeometryColumns3D,
+  type MltGeometryLayout,
   MltGeometryType,
   type MltMValueColumn,
   type MltNamedColumn,
@@ -34,10 +35,8 @@ export {
 } from "./columns";
 export {
   featureGeometry,
-  geometryLayout,
   geometryStarts,
   type MltFeatureGeometry,
-  type MltGeometryLayout,
   type MltGeometryStarts,
   type MltLineGeometry,
   type MltMeshGeometry,

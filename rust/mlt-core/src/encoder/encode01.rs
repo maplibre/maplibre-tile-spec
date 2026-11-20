@@ -4,7 +4,7 @@
 use crate::MltError;
 use crate::MltResult;
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::GeometryType;
+use crate::decoder::GeometryLayout;
 use crate::encoder::model::StagedLayer;
 use crate::encoder::property::encode::write_prop;
 use crate::encoder::{Codecs, Encoder, StagedId};
@@ -33,7 +33,7 @@ pub(crate) fn encode_into01(
     }
     // v1 has no geometry type for a mesh, and its types stream must not name one.
     #[cfg(feature = "unstable-v2")]
-    if layer.geometry.vector_types.contains(&GeometryType::Mesh) {
+    if layer.geometry.layout == GeometryLayout::Meshes {
         return Err(MltError::MeshNeedsV2(layer.name));
     }
     // v1 vertices are (x, y) pairs, so a z coordinate has nowhere to go.

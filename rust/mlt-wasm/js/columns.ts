@@ -43,8 +43,6 @@ export type MltColumnValues = MltColumnValuesByType[MltColumnType];
 export interface MltColumn<V extends MltColumnValues = MltColumnValues> {
   readonly values: V;
   readonly present?: Uint8Array;
-  /** Only an `MltMValueColumn` has offsets, so one cannot be passed to `columnValue`. */
-  readonly offsets?: never;
 }
 
 /** A property column. Checking `type` narrows `values` to its array. */
@@ -54,6 +52,20 @@ export type MltNamedColumn = {
     readonly type: T;
   };
 }[MltColumnType];
+
+/**
+ * How a layer stores its features' geometry.
+ *
+ * - `"outlines"`: runs of vertices only.
+ * - `"tessPolygons"`: triangles, and no outlines to walk.
+ * - `"tessPolygonsWithOutlines"`: outlines, and triangles for its polygons.
+ * - `"meshes"`: every feature a `Mesh`, its geometry offsets each feature's run of vertices.
+ */
+export type MltGeometryLayout =
+  | "outlines"
+  | "tessPolygons"
+  | "tessPolygonsWithOutlines"
+  | "meshes";
 
 /**
  * A layer's geometry as decoded, 2D or 3D by `dimension`.
@@ -67,6 +79,7 @@ export type MltGeometryColumns = MltGeometryColumns2D | MltGeometryColumns3D;
 interface MltGeometryColumnsBase {
   /** The MLT geometry type of each feature, see `MltGeometryType`. */
   readonly types: Uint8Array;
+  readonly layout: MltGeometryLayout;
   readonly geometryOffsets?: Uint32Array;
   readonly partOffsets?: Uint32Array;
   readonly ringOffsets?: Uint32Array;
@@ -76,14 +89,12 @@ interface MltGeometryColumnsBase {
    */
   readonly vertices: Int32Array;
   /**
-   * Cumulative triangle counts per polygon feature, for a tessellated layer, or per feature
-   * of a `Meshes` layer.
+   * Feature `f` has triangles `triangleOffsets[f] .. triangleOffsets[f + 1]` of `indexBuffer`,
+   * which is empty unless it is a polygon of a tessellated layer or a mesh.
    */
   readonly triangleOffsets?: Uint32Array;
   /** Three vertex indices per triangle, counted from the layer's first vertex. */
   readonly indexBuffer?: Uint32Array;
-  /** Set on a `Meshes` layer, which says so even when it holds no feature. */
-  readonly meshes?: true;
 }
 
 /**
@@ -147,10 +158,10 @@ export interface MltColumnLayer {
    * v2 nested columns are not passed on.
    */
   readonly properties: readonly MltNamedColumn[];
-  /** A v2 layer's m-value columns over its vertices, in wire order; left out for a v1 layer. */
-  readonly vertexValues?: readonly MltMValueColumn[];
-  /** A `Meshes` layer's m-value columns over its triangles, in wire order; left out for any other layer. */
-  readonly triangleValues?: readonly MltMValueColumn[];
+  /** The m-value columns over the vertices, in wire order; only a v2 layer has any. */
+  readonly vertexValues: readonly MltMValueColumn[];
+  /** The m-value columns over the triangles, in wire order; only a `Meshes` layer has any. */
+  readonly triangleValues: readonly MltMValueColumn[];
 }
 
 export interface MltColumnTile {
@@ -189,9 +200,14 @@ export function columnValue<C extends MltColumn>(
   if (!Number.isInteger(index) || index < 0 || index >= values.length) {
     throw new RangeError(`the column has no feature ${index}`);
   }
-  const has =
-    present === undefined || ((present[index >> 3] >> (index & 7)) & 1) === 1;
-  return has ? values[index] : undefined;
+  return isPresent(present, index) ? values[index] : undefined;
+}
+
+/** Whether feature `index` has a value, by a column's `present` bits. */
+function isPresent(present: Uint8Array | undefined, index: number): boolean {
+  return (
+    present === undefined || ((present[index >> 3] >> (index & 7)) & 1) === 1
+  );
 }
 
 type MltMValueSlice<C extends MltMValueColumn> = C extends {
@@ -223,10 +239,7 @@ export function mValueSlice<C extends MltMValueColumn>(
       `m-value column "${column.name}" has no feature ${featureIndex}`,
     );
   }
-  const has =
-    present === undefined ||
-    ((present[featureIndex >> 3] >> (featureIndex & 7)) & 1) === 1;
-  if (!has) return undefined;
+  if (!isPresent(present, featureIndex)) return undefined;
 
   const start = offsets[featureIndex];
   const end = offsets[featureIndex + 1];

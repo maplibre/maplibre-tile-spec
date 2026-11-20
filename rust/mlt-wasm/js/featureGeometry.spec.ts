@@ -8,7 +8,6 @@ import {
 } from "./columns";
 import {
   featureGeometry,
-  geometryLayout,
   geometryStarts,
   type MltFeatureGeometry,
 } from "./featureGeometry";
@@ -175,9 +174,9 @@ describe("featureGeometry", () => {
     });
     expect(() =>
       featureGeometry(cut(triangleOffsets.subarray(0, 1)), 0),
-    ).toThrow(/do not cover polygon 0/);
+    ).toThrow(/do not cover feature 0/);
     expect(() => featureGeometry(cut(undefined), 0)).toThrow(
-      /do not cover polygon 0/,
+      /do not cover feature 0/,
     );
   });
 });
@@ -233,7 +232,7 @@ describe("geometryStarts against featureGeometry on every synthetic fixture", ()
       );
       for (const layer of layers) {
         const { geometry } = layer;
-        if (geometryLayout(geometry) === "tessPolygons") {
+        if (geometry.layout === "tessPolygons") {
           expect(() => geometryStarts(geometry)).toThrow(/TessPolygons/);
           continue;
         }

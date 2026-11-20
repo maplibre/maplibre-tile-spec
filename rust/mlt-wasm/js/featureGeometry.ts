@@ -68,63 +68,12 @@ export interface MltPolygonRings extends MltVertexRun {
   readonly holeIndices: number[];
 }
 
-/**
- * Each feature's ordinal among polygon and mesh features, which `triangleOffsets` counts, per
- * layer.
- */
-const polygonOrdinals = new WeakMap<MltGeometryColumns, Uint32Array>();
-
-function polygonOrdinal(geometry: MltGeometryColumns, index: number): number {
-  let ordinals = polygonOrdinals.get(geometry);
-  if (!ordinals) {
-    const { types } = geometry;
-    ordinals = new Uint32Array(types.length);
-    let polygons = 0;
-    for (let f = 0; f < types.length; f++) {
-      ordinals[f] = polygons;
-      if (
-        types[f] === MltGeometryType.Polygon ||
-        types[f] === MltGeometryType.MultiPolygon ||
-        types[f] === MltGeometryType.Mesh
-      ) {
-        polygons++;
-      }
-    }
-    polygonOrdinals.set(geometry, ordinals);
-  }
-  return ordinals[index];
-}
-
 // ---------------------------------------------------------------------------
 // Walking the offset levels
 //
 // Numbers only. `vectorTile.ts` builds arrays of its own from these and must not pay for a
 // view per run; `featureGeometry` is the same walk with views on top.
 // ---------------------------------------------------------------------------
-
-/**
- * How a layer stores its features' geometry.
- *
- * - `"outlines"`: runs of vertices only.
- * - `"tessPolygons"`: triangles, and no outlines to walk.
- * - `"tessPolygonsWithOutlines"`: outlines, and triangles for its polygons.
- * - `"meshes"`: every feature a `Mesh`, its geometry offsets each feature's run of vertices.
- */
-export type MltGeometryLayout =
-  | "outlines"
-  | "tessPolygons"
-  | "tessPolygonsWithOutlines"
-  | "meshes";
-
-export function geometryLayout(
-  geometry: MltGeometryColumns,
-): MltGeometryLayout {
-  if (geometry.meshes === true) return "meshes";
-  if (geometry.indexBuffer === undefined) return "outlines";
-  return geometry.partOffsets === undefined
-    ? "tessPolygons"
-    : "tessPolygonsWithOutlines";
-}
 
 /** Item `i` of an offset level, or `i` itself when the layer has no such level. */
 function at(level: Uint32Array | undefined, i: number): number {
@@ -181,23 +130,37 @@ function view(
 }
 
 /**
- * The triangle corners of polygon feature `index` of a tessellated layer, or of mesh feature
- * `index`, as layer vertex indices. Throws when the layer's `triangleOffsets` stop before the
- * feature.
+ * The triangle corners of feature `index`, as layer vertex indices. Throws when the layer's
+ * `triangleOffsets` stop before the feature.
  */
 function featureCorners(
   geometry: MltGeometryColumns,
   index: number,
 ): Uint32Array {
   const { indexBuffer, triangleOffsets } = geometry;
-  const ordinal = polygonOrdinal(geometry, index);
-  const [t0, t1] = [triangleOffsets?.[ordinal], triangleOffsets?.[ordinal + 1]];
+  const [t0, t1] = [triangleOffsets?.[index], triangleOffsets?.[index + 1]];
   if (indexBuffer === undefined || t0 === undefined || t1 === undefined) {
-    throw new Error(
-      `the layer's triangles do not cover polygon ${ordinal}, feature ${index}`,
-    );
+    throw new Error(`the layer's triangles do not cover feature ${index}`);
   }
   return indexBuffer.subarray(t0 * 3, t1 * 3);
+}
+
+/**
+ * Mesh feature `index`'s triangles, three indices per triangle into its own vertices. Throws
+ * when the layer is not a `Meshes` layer.
+ */
+export function meshTriangles(
+  geometry: MltGeometryColumns,
+  index: number,
+): Uint32Array {
+  if (geometry.layout !== "meshes") {
+    throw new Error(`feature ${index} is not a mesh`);
+  }
+  const [v0, v1] = [
+    geometryStart(geometry, index),
+    geometryStart(geometry, index + 1),
+  ];
+  return rebase(featureCorners(geometry, index), v0, v1, index);
 }
 
 /** `corners` counted from `v0`. Throws on a corner outside `v0..v1`. */
@@ -309,7 +272,7 @@ export function geometryStarts(
 }
 
 function resolveStarts(geometry: MltGeometryColumns): MltGeometryStarts {
-  if (geometryLayout(geometry) === "tessPolygons") {
+  if (geometry.layout === "tessPolygons") {
     throw new Error(
       `a TessPolygons layer stores triangles, not runs of vertices`,
     );
@@ -372,7 +335,7 @@ export function featureGeometry(
   }
   const type = geometry.types[index] as MltGeometryType;
 
-  if (geometryLayout(geometry) === "tessPolygons") {
+  if (geometry.layout === "tessPolygons") {
     throw new Error(
       `layer "${layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
     );
@@ -437,10 +400,14 @@ export function featureGeometry(
         triangles,
       };
     }
-    case MltGeometryType.Mesh: {
-      const triangles = rebase(featureCorners(geometry, index), v0, v1, index);
-      return { kind: "mesh", type, vertices, firstVertex: v0, triangles };
-    }
+    case MltGeometryType.Mesh:
+      return {
+        kind: "mesh",
+        type,
+        vertices,
+        firstVertex: v0,
+        triangles: meshTriangles(geometry, index),
+      };
     default:
       throw new Error(
         `feature ${index} of layer "${layer.name}" has unknown geometry type ${type}`,

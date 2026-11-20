@@ -5,9 +5,12 @@
 //! feature, owning its geometry and property values outright. That is the form
 //! the optimizer, the sorting pipeline, and the converters work in.
 
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{
+    GeometryLayout, Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested,
+};
 use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty};
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::{Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
 use crate::tile::{MValue, MValueScope, NestedKind, NestedValue};
@@ -120,6 +123,7 @@ impl ParsedLayer02<'_> {
         }
         parts
             .finish()?
+            .with_meshes(geometry.layout() == GeometryLayout::Meshes)?
             .with_m_value_names(m_names, m_scopes)?
             .with_nested(nested_names, nested_kinds)?
             .with_z_axis(geometry.z_axis())

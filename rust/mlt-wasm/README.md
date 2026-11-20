@@ -70,17 +70,18 @@ build their own buffers, such as a renderer. Nothing per feature crosses the WAS
 import { columnValue, decodeTileColumns } from '@maplibre/mlt-wasm';
 
 for (const layer of decodeTileColumns(data).layers) {
-    const { dimension, vertices, zStep } = layer.geometry;
+    const { layout, dimension, vertices, zStep } = layer.geometry;
+    // layout: "outlines", "tessPolygons", "tessPolygonsWithOutlines" or "meshes"
     // vertices: Int32Array of (x, y) pairs, or (x, y, z) triples when dimension is 3
     // geometryOffsets, partOffsets, ringOffsets: cumulative offsets, left out when not needed
-    // triangleOffsets, indexBuffer: present on tessellated layers
+    // triangleOffsets, indexBuffer: present on tessellated and Meshes layers
     for (const column of layer.properties) {
         // column.values has one slot per feature; a slot without a value holds 0 or ""
         for (let f = 0; f < layer.featureCount; f++) {
             const value = columnValue(column, f); // undefined when feature f has no value
         }
     }
-    // a v2 layer's m-value columns are in layer.vertexValues and, for Meshes, layer.triangleValues
+    // m-value columns are in layer.vertexValues and layer.triangleValues, empty when there are none
     // nested columns are not passed on
 }
 ```
@@ -99,15 +100,17 @@ Its `heightMode` says what a z of `0` stands for: `"absolute"` is mean sea level
 `"relativeToGround"` the terrain under each vertex.
 
 A v2 layer's `vertexValues` hold its m-value columns over the vertices, and a `Meshes` layer's
-`triangleValues` its m-value columns over the triangles.
+`triangleValues` its m-value columns over the triangles. Every other layer has both, empty.
 Each is packed over the features whose `present` bit is set (absent features store zero items rather
 than `0`/`""` padding), with strings as dictionary codes.
 A column's `offsets` give feature `f` the values `offsets[f]..offsets[f + 1]`; `mValueSlice(column, f)`
 reads one feature's slice, and a feature's `loadVertexValues(name)` and `loadTriangleValues(name)`
 do the same on `decodeTile` and `decodeTile3D`.
 
-A `Meshes` layer's features are all `MltGeometryType.Mesh`: `geometryOffsets` starts each feature's
-run of vertices, and `triangleOffsets` each feature's triangles in the layer-wide `indexBuffer`.
+`triangleOffsets` start each feature's triangles in the layer-wide `indexBuffer`, with an empty run for
+a feature that has none, such as a point of a tessellated layer.
+A `Meshes` layer's features are all `MltGeometryType.Mesh`, and `geometryOffsets` starts each feature's
+run of vertices.
 A mesh in the `"relativeToGround"` height mode meets the terrain at the centre of its vertices'
 `(x, y)` bounding box.
 

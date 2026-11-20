@@ -226,7 +226,7 @@ impl<'a> ParsedMValue<'a> {
         let mut expected = 0;
         for index in 0..geometry.feature_count() {
             if self.is_present(index) {
-                expected += scoped_count(geometry, self.scope, index)?;
+                expected += geometry.value_count(index, self.scope)?;
             }
         }
         if expected != self.values.len() {
@@ -243,14 +243,6 @@ impl<'a> ParsedMValue<'a> {
 /// Whether the feature at `index` carries values, by a column's presence mask.
 fn is_present(presence: Option<&BitSlice<u8, Lsb0>>, index: usize) -> bool {
     presence.is_none_or(|bits| bits.get(index).as_deref().copied().unwrap_or(false))
-}
-
-/// How many values feature `index` owns in a column of `scope`.
-fn scoped_count(geometry: &GeometryValues, scope: MValueScope, index: usize) -> MltResult<usize> {
-    match scope {
-        MValueScope::Vertex => geometry.vertex_count(index),
-        MValueScope::Triangle => Ok(geometry.mesh_triangles(index)?.map_or(0, <[_]>::len)),
-    }
 }
 
 /// Each feature's run of values in one m-value column, in feature order.
@@ -277,7 +269,7 @@ impl Iterator for MValueSpans<'_> {
         if !is_present(self.presence, feature) {
             return Some(Ok(None));
         }
-        let count = match scoped_count(self.geometry, self.scope, feature) {
+        let count = match self.geometry.value_count(feature, self.scope) {
             Ok(count) => count,
             Err(err) => return Some(Err(err)),
         };

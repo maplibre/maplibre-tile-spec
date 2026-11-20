@@ -3,17 +3,11 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   decodeTileColumns,
-  type MltColumnLayer,
-  type MltGeometryColumns,
   MltGeometryType,
   mValueSlice,
   toElevation,
 } from "./columns";
-import {
-  featureGeometry,
-  geometryLayout,
-  geometryStarts,
-} from "./featureGeometry";
+import { featureGeometry, geometryStarts } from "./featureGeometry";
 import { tileGeoJson } from "./geojson";
 import { decodeTile, decodeTile3D } from "./vectorTile";
 
@@ -71,7 +65,7 @@ describe("the mesh tiles", () => {
       expect([...geometry.types]).toEqual(
         expected.map(() => MltGeometryType.Mesh),
       );
-      expect(geometry.meshes).toBe(true);
+      expect(geometry.layout).toBe("meshes");
     });
 
     it("has every feature's vertices and triangles", () => {
@@ -87,8 +81,8 @@ describe("the mesh tiles", () => {
 
     it("has a part per triangle", () => {
       expect(layer.vertexValues).toEqual([]);
-      expect(layer.triangleValues?.map((c) => c.name)).toEqual(["part"]);
-      const [part] = layer.triangleValues ?? [];
+      expect(layer.triangleValues.map((c) => c.name)).toEqual(["part"]);
+      const [part] = layer.triangleValues;
       if (part?.type !== "string") throw new Error("column type");
       expect(part.present).toBeUndefined();
       expect(new Set(part.dictionary).size).toBe(part.dictionary.length);
@@ -180,8 +174,8 @@ describe("synthetic v2 m-value columns", () => {
     const data = new Uint8Array(readFileSync(new URL(file, SYNTHETIC_V2)));
     const [layer] = decodeTileColumns(data).layers;
     const geo = tileGeoJson(data);
-    expect(layer.triangleValues).toBeUndefined();
-    for (const col of layer.vertexValues ?? []) {
+    expect(layer.triangleValues).toEqual([]);
+    for (const col of layer.vertexValues) {
       for (let f = 0; f < layer.featureCount; f++) {
         const expected = geo.features[f]?.properties?.[`m:${col.name}`] as
           | number[]
@@ -208,7 +202,7 @@ describe("synthetic v2 m-value columns", () => {
       readFileSync(new URL("z_mvalues.mlt", SYNTHETIC_V2)),
     );
     const [layer] = decodeTileColumns(data).layers;
-    const [dist] = layer.vertexValues ?? [];
+    const [dist] = layer.vertexValues;
     expect(dist?.name).toBe("dist");
     if (dist === undefined) return;
     expect(() => mValueSlice(dist, -1)).toThrow(RangeError);
@@ -245,49 +239,37 @@ describe("synthetic v2 m-value columns", () => {
 });
 
 describe("Meshes edge cases", () => {
-  it("recognises an empty Meshes layer, not a TessPolygons one", () => {
-    const geometry: MltGeometryColumns = {
-      types: new Uint8Array(0),
-      dimension: 3,
-      zStep: -2,
-      heightMode: "relativeToGround",
-      meshes: true,
-      geometryOffsets: new Uint32Array([0]),
-      triangleOffsets: new Uint32Array([0]),
-      indexBuffer: new Uint32Array(0),
-      vertices: new Int32Array(0),
-    };
-    expect(geometryLayout(geometry)).toBe("meshes");
-    expect(() => geometryStarts(geometry)).not.toThrow();
+  const hex = (bytes: string) => new Uint8Array(Buffer.from(bytes, "hex"));
+
+  it("reads an empty Meshes layer as one", () => {
+    const [layer] = decodeTileColumns(
+      hex("1f02096c616e646d61726b73f6000e0000000025000902050104666163658000"),
+    ).layers;
+    expect([layer.featureCount, layer.geometry.layout]).toEqual([0, "meshes"]);
+    expect(layer.triangleValues.map((c) => c.name)).toEqual(["face"]);
+    expect(geometryStarts(layer.geometry).featureGeometries).toEqual(
+      Uint32Array.of(0),
+    );
   });
 
-  it("reads a 0-vertex and a 0-triangle mesh feature", () => {
-    const layer: MltColumnLayer = {
-      name: "landmarks",
-      extent: 4096,
-      version: 2,
-      featureCount: 2,
-      geometry: {
-        types: new Uint8Array([MltGeometryType.Mesh, MltGeometryType.Mesh]),
-        dimension: 3,
-        zStep: -2,
-        heightMode: "relativeToGround",
-        meshes: true,
-        geometryOffsets: new Uint32Array([0, 0, 2]),
-        triangleOffsets: new Uint32Array([0, 0, 0]),
-        indexBuffer: new Uint32Array(0),
-        vertices: new Int32Array([1, 2, 3, 4, 5, 6]),
-      },
-      properties: [],
-    };
-    const empty = featureGeometry(layer, 0);
+  it("reads a mesh without vertices and one without triangles", () => {
+    const data = hex(
+      "2902096c616e646d61726b7376020e180200043002020080008000290609020206020206010018020002",
+    );
+    const [layer] = decodeTileColumns(data).layers;
+    const meshes = [0, 1].map((f) => featureGeometry(layer, f));
     expect(
-      empty.kind === "mesh" && [empty.vertices.length, empty.triangles.length],
-    ).toEqual([0, 0]);
-    const spare = featureGeometry(layer, 1);
-    expect(
-      spare.kind === "mesh" && [spare.vertices.length, spare.triangles.length],
-    ).toEqual([6, 0]);
+      meshes.map(
+        (m) => m.kind === "mesh" && [m.vertices.length, m.triangles.length],
+      ),
+    ).toEqual([
+      [0, 0],
+      [6, 0],
+    ]);
+    const tile = decodeTile3D(data).layers.landmarks;
+    expect([0, 1].map((f) => tile.feature(f).loadTriangles().length)).toEqual([
+      0, 0,
+    ]);
   });
 });
 

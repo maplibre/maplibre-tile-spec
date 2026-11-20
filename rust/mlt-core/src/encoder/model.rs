@@ -288,7 +288,9 @@ fn validate_m_values(
                 actual,
             });
         }
-        if column.scope == crate::MValueScope::Triangle && !geometry.is_meshes() {
+        if column.scope == crate::MValueScope::Triangle
+            && geometry.layout() != crate::GeometryLayout::Meshes
+        {
             return Err(MltError::TriangleMValueWithoutMesh(
                 column.name().to_string(),
             ));
@@ -300,12 +302,7 @@ fn validate_m_values(
                 .as_ref()
                 .is_none_or(|mask| mask.get(index).copied().unwrap_or(false));
             if present {
-                expected += match column.scope {
-                    crate::MValueScope::Vertex => geometry.vertex_count(index)?,
-                    crate::MValueScope::Triangle => {
-                        geometry.mesh_triangles(index)?.map_or(0, <[[u32; 3]]>::len)
-                    }
-                };
+                expected += geometry.value_count(index, column.scope)?;
             }
         }
         if expected != column.values().count() {

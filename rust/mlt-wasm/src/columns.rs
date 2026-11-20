@@ -10,8 +10,8 @@ use js_sys::{
     Uint32Array,
 };
 use mlt_core::{
-    Decoder, GeometryValues, ParsedLayer, ParsedLayer01, ParsedProperty, ParsedStrings, Parser,
-    PresentValues, PropKind,
+    Decoder, GeometryLayout, GeometryValues, ParsedLayer, ParsedLayer01, ParsedProperty,
+    ParsedStrings, Parser, PresentValues, PropKind,
 };
 #[cfg(feature = "unstable-v2")]
 use mlt_core::{HeightMode, MValueScope, MValues, ParsedMValue};
@@ -49,8 +49,12 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
         }
         let parsed = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
         // `ParsedLayer` is non_exhaustive: a layer of a tag this binding does not know is skipped.
-        let object = match &parsed {
-            ParsedLayer::Tag01(layer) => layer_object(&mut dec, layer, 1)?,
+        let (object, vertex_values, triangle_values) = match &parsed {
+            ParsedLayer::Tag01(layer) => (
+                layer_object(&mut dec, layer, 1)?,
+                Array::new(),
+                Array::new(),
+            ),
             // A v2 layer's nested columns are not passed on.
             #[cfg(feature = "unstable-v2")]
             ParsedLayer::Tag02(layer) => {
@@ -62,17 +66,14 @@ pub fn decode_tile_columns(data: &[u8], names: Option<Vec<String>>) -> Result<Ar
                         MValueScope::Vertex => &vertex_values,
                         MValueScope::Triangle => &triangle_values,
                     };
-                    let object = m_value_column(column, geometry)?;
-                    target.push(&object);
+                    target.push(&m_value_column(column, geometry)?.into());
                 }
-                set(&object, "vertexValues", &vertex_values);
-                if geometry.is_meshes() {
-                    set(&object, "triangleValues", &triangle_values);
-                }
-                object
+                (object, vertex_values, triangle_values)
             }
             _ => continue,
         };
+        set(&object, "vertexValues", &vertex_values);
+        set(&object, "triangleValues", &triangle_values);
         layers.push(&object);
     }
     Ok(layers)
@@ -93,7 +94,7 @@ fn layer_object(
     set(
         &object,
         "geometry",
-        &geometry_object(layer.geometry_values()),
+        &geometry_object(layer.geometry_values())?.into(),
     );
     if let Some(ids) = layer.id() {
         let (values, present) = scalar(ids);
@@ -121,20 +122,17 @@ fn layer_object(
     Ok(object)
 }
 
-fn geometry_object(geometry: &GeometryValues) -> Object {
+fn geometry_object(geometry: &GeometryValues) -> Result<Object, JsError> {
     let object = Object::new();
     let types: Vec<u8> = geometry.vector_types().iter().map(|&t| t as u8).collect();
     set(&object, "types", &Uint8Array::from(&types[..]));
+    set(&object, "layout", &layout_name(geometry).into());
     set(&object, "dimension", &js_len(geometry.stride()));
     set(
         &object,
         "vertices",
         &Int32Array::from(geometry.vertices().unwrap_or_default()),
     );
-    #[cfg(feature = "unstable-v2")]
-    if geometry.is_meshes() {
-        set(&object, "meshes", &true.into());
-    }
     #[cfg(feature = "unstable-v2")]
     if let Some(axis) = geometry.z_axis() {
         set(&object, "zStep", &axis.step.exponent().into());
@@ -148,14 +146,54 @@ fn geometry_object(geometry: &GeometryValues) -> Object {
         ("geometryOffsets", geometry.geometry_offsets()),
         ("partOffsets", geometry.part_offsets()),
         ("ringOffsets", geometry.ring_offsets()),
-        ("triangleOffsets", geometry.triangle_offsets()),
         ("indexBuffer", geometry.index_buffer()),
     ] {
         if let Some(offsets) = offsets {
             set(&object, key, &Uint32Array::from(offsets));
         }
     }
-    object
+    if let Some(offsets) = feature_triangle_offsets(geometry)? {
+        set(&object, "triangleOffsets", &offsets);
+    }
+    Ok(object)
+}
+
+/// The `layout` a layer's geometry reports, which `js/columns.ts` lists.
+fn layout_name(geometry: &GeometryValues) -> &'static str {
+    match geometry.layout() {
+        GeometryLayout::Plain => "outlines",
+        GeometryLayout::Tessellated if geometry.part_offsets().is_none() => "tessPolygons",
+        GeometryLayout::Tessellated => "tessPolygonsWithOutlines",
+        #[cfg(feature = "unstable-v2")]
+        GeometryLayout::Meshes => "meshes",
+    }
+}
+
+/// Where each feature's triangles start in `indexBuffer`, one entry per feature and one more.
+///
+/// A tessellated layer counts its triangles per polygon feature, so the other features get an empty run.
+fn feature_triangle_offsets(geometry: &GeometryValues) -> Result<Option<Uint32Array>, JsError> {
+    let Some(offsets) = geometry.triangle_offsets() else {
+        return Ok(None);
+    };
+    if geometry.layout() != GeometryLayout::Tessellated {
+        return Ok(Some(Uint32Array::from(offsets)));
+    }
+    let types = geometry.vector_types();
+    let mut per_feature = Vec::with_capacity(types.len() + 1);
+    let mut polygons = offsets.iter().copied();
+    let mut end = polygons.next();
+    per_feature.push(end.unwrap_or_default());
+    for geometry_type in types {
+        if geometry_type.is_polygon() {
+            end = polygons.next();
+        }
+        per_feature.push(end.unwrap_or_default());
+    }
+    if end.is_none() || polygons.next().is_some() {
+        return Err(JsError::new("triangle runs do not match polygon features"));
+    }
+    Ok(Some(Uint32Array::from(&per_feature[..])))
 }
 
 /// `{ name, type, offsets, values, present? }`, or for strings

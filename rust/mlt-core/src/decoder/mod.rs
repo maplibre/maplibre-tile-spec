@@ -39,7 +39,7 @@ pub(crate) use model02::{
 pub(crate) use property::strings;
 
 pub(crate) use crate::decoder::geometry::{GeoTypes, Geometry, IndexBase, RawGeometry};
-pub use crate::decoder::geometry::{GeometryType, GeometryValues};
+pub use crate::decoder::geometry::{GeometryLayout, GeometryType, GeometryValues};
 pub use crate::decoder::id::ParsedId;
 // pub (not pub(crate)) so __private module can re-export it
 pub(crate) use crate::decoder::id::{Id, RawId, RawIdValue};

@@ -73,7 +73,9 @@ describe("decodeTileColumns", () => {
   });
 
   it("passes on the tessellation of a layer with outlines", () => {
-    const { geometry } = onlyLayer("0x02/mix_2_poly_mpoly_tes");
+    const { geometry, featureCount } = onlyLayer("0x02/mix_2_poly_mpoly_tes");
+    expect(geometry.layout).toBe("tessPolygonsWithOutlines");
+    expect(geometry.triangleOffsets).toHaveLength(featureCount + 1);
     expect(geometry.partOffsets).toBeDefined();
     expect(geometry.triangleOffsets).toBeDefined();
     expect(geometry.indexBuffer).toBeDefined();
@@ -86,6 +88,7 @@ describe("decodeTileColumns", () => {
 
   it("passes on the triangles of a layer without outlines", () => {
     const { geometry } = onlyLayer("0x02/z_poly_hole_tri");
+    expect(geometry.layout).toBe("tessPolygons");
     expect(geometry.dimension).toBe(3);
     expect(geometry.partOffsets).toBeUndefined();
     expect(geometry.indexBuffer).toBeDefined();
@@ -288,7 +291,7 @@ describe("memory budget", () => {
   it("keeps repeated dictionary string m-values coded within the budget", () => {
     const tile = repeatedDictTile("mValue", features, entryBytes);
     const [layer] = decodeTileColumns(tile).layers;
-    const [col] = layer.vertexValues ?? [];
+    const [col] = layer.vertexValues;
     expect(col?.type).toBe("string");
     if (col?.type !== "string") return;
     expect(col.dictionary).toHaveLength(1);

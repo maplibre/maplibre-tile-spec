@@ -10,17 +10,16 @@ import {
   type HeightMode,
   type MltColumnLayer,
   type MltColumnValues,
-  MltGeometryType,
+  type MltGeometryLayout,
+  type MltGeometryType,
   type MltMValueColumn,
   type MltNamedColumn,
   mValueSlice,
 } from "./columns";
 import {
-  featureGeometry,
-  geometryLayout,
   geometryStart,
   lineStart,
-  type MltGeometryLayout,
+  meshTriangles,
   polygonLevels,
   runLength,
 } from "./featureGeometry";
@@ -98,6 +97,22 @@ const MVT_TYPES = [
 interface LayerData {
   readonly layer: MltColumnLayer;
   readonly layout: MltGeometryLayout;
+  readonly vertexValues: ReadonlyMap<string, MltMValueColumn>;
+  readonly triangleValues: ReadonlyMap<string, MltMValueColumn>;
+}
+
+const NO_COLUMNS: ReadonlyMap<string, MltMValueColumn> = new Map();
+
+/** `columns` by name; the first of two that share one. */
+function byName(
+  columns: readonly MltMValueColumn[],
+): ReadonlyMap<string, MltMValueColumn> {
+  if (columns.length === 0) return NO_COLUMNS;
+  const map = new Map<string, MltMValueColumn>();
+  for (const column of columns) {
+    if (!map.has(column.name)) map.set(column.name, column);
+  }
+  return map;
 }
 
 /** Reads `column` at `index` as the value a feature's `properties` holds. */
@@ -153,13 +168,12 @@ abstract class FeatureBase<V> {
    * Throws for a feature that is not a mesh.
    */
   loadTriangles(): Uint32Array {
-    const geometry = featureGeometry(this._layer.layer, this._featureIdx);
-    if (geometry.kind !== "mesh") {
+    if (this._layer.layout !== "meshes") {
       throw new Error(
         `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`,
       );
     }
-    return geometry.triangles;
+    return meshTriangles(this._layer.layer.geometry, this._featureIdx);
   }
 
   /**
@@ -167,7 +181,7 @@ abstract class FeatureBase<V> {
    * A polygon ring's closing point is not stored, so it has no value, as in `MltFeature.loadZ`.
    */
   loadVertexValues(name: string): MltColumnValues | undefined {
-    return this.slice(this._layer.layer.vertexValues, name);
+    return this.slice(this._layer.vertexValues, name);
   }
 
   /**
@@ -175,14 +189,14 @@ abstract class FeatureBase<V> {
    * Only a `Meshes` layer has triangle m-value columns.
    */
   loadTriangleValues(name: string): MltColumnValues | undefined {
-    return this.slice(this._layer.layer.triangleValues, name);
+    return this.slice(this._layer.triangleValues, name);
   }
 
   private slice(
-    columns: readonly MltMValueColumn[] | undefined,
+    columns: ReadonlyMap<string, MltMValueColumn>,
     name: string,
   ): MltColumnValues | undefined {
-    const column = columns?.find((c) => c.name === name);
+    const column = columns.get(name);
     return column && mValueSlice(column, this._featureIdx);
   }
 
@@ -214,7 +228,7 @@ abstract class FeatureBase<V> {
     const { geometry } = this._layer.layer;
     const vertex = this.vertex();
     const [g0, g1] = this.geometries();
-    if (this.mltType === MltGeometryType.Mesh) {
+    if (this._layer.layout === "meshes") {
       return [readRun(vertex, g0, g1, false)];
     }
     switch (this.type) {
@@ -248,7 +262,7 @@ abstract class FeatureBase<V> {
 
   /** Rings grouped by polygon. */
   protected polygons(): V[][][] {
-    if (this.mltType === MltGeometryType.Mesh) {
+    if (this._layer.layout === "meshes") {
       throw new Error(
         `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is a mesh; use loadGeometry() and loadTriangles() instead of loadPolygons()`,
       );
@@ -356,14 +370,19 @@ abstract class LayerBase {
   protected readonly _data: LayerData;
 
   constructor(layer: MltColumnLayer) {
-    this._data = { layer, layout: geometryLayout(layer.geometry) };
+    this._data = {
+      layer,
+      layout: layer.geometry.layout,
+      vertexValues: byName(layer.vertexValues),
+      triangleValues: byName(layer.triangleValues),
+    };
     this.name = layer.name;
     this.extent = layer.extent;
     this.length = layer.featureCount;
     this.propertyColumns = layer.properties;
     this.propertyKeys = layer.properties.map((column) => column.name);
-    this.vertexValues = layer.vertexValues ?? [];
-    this.triangleValues = layer.triangleValues ?? [];
+    this.vertexValues = layer.vertexValues;
+    this.triangleValues = layer.triangleValues;
   }
 
   /** `i`, checked to be a feature of this layer, so that a bad index fails where it is given. */
