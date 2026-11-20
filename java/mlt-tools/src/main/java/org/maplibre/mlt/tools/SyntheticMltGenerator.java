@@ -57,6 +57,9 @@ import org.maplibre.mlt.data.unsigned.U64;
 public class SyntheticMltGenerator {
 
   public static void main(String[] args) throws IOException {
+    // Each synthetic exists to exercise specific encodings in every decoder, so don't let the
+    // encoder swap them for smaller ones. Set before any encoder class reads it.
+    System.setProperty("mlt.exact.encodings", "true");
     final var path = syntheticsDir(MltTypeMap.Tag0x01.TAG);
     if (Files.exists(path)) {
       // The rust side owns the .hexdump files, so leaving those in place is fine.

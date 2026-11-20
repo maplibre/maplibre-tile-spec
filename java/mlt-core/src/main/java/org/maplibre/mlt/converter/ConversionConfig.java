@@ -67,4 +67,8 @@ public class ConversionConfig {
   public static final boolean DEFAULT_PRE_TESSELLATE_POLYGONS = false;
   public static final boolean DEFAULT_LAYER_FILTER_INVERT = false;
   public static final IntegerEncodingOption DEFAULT_INTEGER_ENCODING = IntegerEncodingOption.AUTO;
+
+  /// Set by `-Dmlt.exact.encodings=true` to use exactly the requested encodings even where another
+  /// would be more optimal.
+  public static final boolean EXACT_ENCODINGS = Boolean.getBoolean("mlt.exact.encodings");
 }
