@@ -16,8 +16,10 @@ const BAND_METRES: f64 = 10.0;
 /// The samples along each side of a cell, of which at least half must lie in a footprint for the
 /// cell to be covered.
 const SAMPLES: usize = 2;
-/// How far, in cells, a simplified outline may stray from the edges of the cells it runs along.
-const TOLERANCE_CELLS: f64 = 1.0;
+/// How far, in cells, a simplified outline may stray from the edges of the cells it runs along:
+/// above `1 / sqrt(2)` so 45-degree staircases collapse to one diagonal, while below `1.0` so
+/// parallel chains two cells apart cannot cross.
+const TOLERANCE_CELLS: f64 = 0.75;
 /// The label of a cell in no group.
 const NONE: usize = usize::MAX;
 /// The most cells a raster holds, 2048 squared: four tiles of pixels across. Each cell costs
@@ -36,20 +38,16 @@ pub(super) struct Footprint {
 
 impl Footprint {
     /// The footprint of `surfaces` at `points` (in absolute source z units), or `None` if it
-    /// has no area or no positive height above its base.
+    /// has no area or no positive height above its base. Both `GroundSurface` and `RoofSurface`
+    /// triangles are projected so cantilevered halls and multi-part roofs without a full
+    /// `GroundSurface` keep their roof coverage.
     pub(super) fn new(surfaces: &[&Surface], points: &[Vec<[i32; 3]>]) -> Option<Self> {
         let top = points.iter().flatten().map(|p| p[2]).max()?;
-        let base = surfaces
-            .iter()
-            .zip(points)
-            .filter(|(s, _)| s.part == Part::Ground)
-            .flat_map(|(_, p)| p.iter().map(|v| v[2]))
-            .min()
-            .or_else(|| points.iter().flatten().map(|p| p[2]).min())?;
+        let base = points.iter().flatten().map(|p| p[2]).min()?;
         let mut triangles: Vec<[[i32; 2]; 3]> = surfaces
             .iter()
             .zip(points)
-            .filter(|(s, _)| s.part == Part::Ground)
+            .filter(|(s, _)| matches!(s.part, Part::Ground | Part::Roof))
             .flat_map(|(s, p)| {
                 s.triangles
                     .iter()
@@ -596,6 +594,7 @@ fn rings(chains: &[Chain], sides: &[(usize, bool)]) -> Vec<Polygon> {
             continue;
         }
         used[start] = true;
+        let (first_corner, _, first_step, _) = ends(&sides[start]);
         let (mut ring, mut area2, mut at) = (Vec::new(), 0, start);
         loop {
             let (c, reversed) = sides[at];
@@ -629,16 +628,51 @@ fn rings(chains: &[Chain], sides: &[(usize, bool)]) -> Vec<Polygon> {
         if area2 > 0 {
             outers.push((area2, ring));
         } else {
-            holes.push(ring);
+            let right = [first_step[1], -first_step[0]];
+            let cell =
+                [0, 1].map(|i| (2 * first_corner[i] + first_step[i] + right[i]).div_euclid(2));
+            holes.push((cell, ring));
         }
     }
-    // A group's cells are joined across edges, so all but slivers lie within one outer ring.
-    outers.sort_by_key(|&(area2, _)| std::cmp::Reverse(area2));
-    let mut holes = Some(holes);
+    // Sort smallest outer first so each hole attaches to its immediate enclosing outer ring,
+    // even when a group splits across corner-touching wings or surrounds an inner island.
+    outers.sort_by_key(|&(area2, _)| area2);
+    let mut assigned: Vec<Vec<Vec<[i64; 2]>>> = vec![Vec::new(); outers.len()];
+    for (cell, hole) in holes {
+        if let Some(idx) = outers
+            .iter()
+            .position(|(_, outer)| cell_in_ring(cell, outer))
+        {
+            assigned[idx].push(hole);
+        }
+    }
     outers
         .into_iter()
-        .map(|(_, outer)| (outer, holes.take().unwrap_or_default()))
+        .zip(assigned)
+        .map(|((_, outer), holes)| (outer, holes))
         .collect()
+}
+
+/// Whether the centre `(cx + 0.5, cy + 0.5)` of `cell` lies inside `ring`, evaluated in exact
+/// doubled integer coordinates so the ray never hits an integer ring vertex.
+fn cell_in_ring(cell: [i64; 2], ring: &[[i64; 2]]) -> bool {
+    let [px, py] = cell.map(|c| 2 * i128::from(c) + 1);
+    let mut inside = false;
+    for i in 0..ring.len() {
+        let [x1, y1] = ring[i].map(|v| 2 * i128::from(v));
+        let [x2, y2] = ring[(i + 1) % ring.len()].map(|v| 2 * i128::from(v));
+        if (y1 > py) != (y2 > py) {
+            let crosses_right = if y2 > y1 {
+                (px - x1) * (y2 - y1) < (x2 - x1) * (py - y1)
+            } else {
+                (px - x1) * (y1 - y2) < (x2 - x1) * (y1 - py)
+            };
+            if crosses_right {
+                inside = !inside;
+            }
+        }
+    }
+    inside
 }
 
 /// The corners of `points` that keep the others within [`TOLERANCE_CELLS`] of the lines between
@@ -996,5 +1030,59 @@ mod tests {
                 assert!(!inside(ahead), "{t:?} faces inwards");
             }
         }
+    }
+
+    #[test]
+    fn cantilevered_roofs_and_corner_touching_courtyards_keep_their_roofs_and_holes() {
+        // 1. A hall supported on a tiny ground pier keeps its full cantilevered roof footprint.
+        let pier = Surface {
+            part: Part::Ground,
+            lods: Lods::Both,
+            positions: Vec::new(),
+            triangles: vec![[0, 1, 2], [0, 2, 3]],
+        };
+        let canopy = Surface {
+            part: Part::Roof,
+            lods: Lods::Both,
+            positions: Vec::new(),
+            triangles: vec![[0, 1, 2], [0, 2, 3]],
+        };
+        let hall_fp = Footprint::new(
+            &[&pier, &canopy],
+            &[
+                vec![[0, 0, 0], [5, 0, 0], [5, 5, 0], [0, 5, 0]],
+                vec![[0, 0, 1800], [60, 0, 1800], [60, 40, 1800], [0, 40, 1800]],
+            ],
+        )
+        .unwrap();
+        let [hall_block] = &merge(&[hall_fp], 10.0, centimetres(), MIN_WALL)[..] else {
+            panic!("one hall block");
+        };
+        let hall_roof_area: i128 = parts(hall_block)[1]
+            .iter()
+            .map(|t| area2(t.map(|[x, y, _]| [x, y])).abs())
+            .sum();
+        assert_eq!(hall_roof_area, 2 * 60 * 40);
+
+        // 2. Two courtyard squares meeting at corner (60, 60): each outer ring gets only its own hole.
+        let figure_eight = [
+            // North-west courtyard ring [0..60, 0..60] minus [20..40, 20..40]
+            rectangle([0, 0], [60, 20], 900),
+            rectangle([0, 40], [60, 60], 900),
+            rectangle([0, 20], [20, 40], 900),
+            rectangle([40, 20], [60, 40], 900),
+            // South-east courtyard ring [60..120, 60..120] minus [80..100, 80..100]
+            rectangle([60, 60], [120, 80], 900),
+            rectangle([60, 100], [120, 120], 900),
+            rectangle([60, 80], [80, 100], 900),
+            rectangle([100, 80], [120, 100], 900),
+        ];
+        let blocks = merge(&figure_eight, 10.0, centimetres(), MIN_WALL);
+        let total_roof_area: i128 = blocks
+            .iter()
+            .flat_map(|b| parts(b)[1].clone())
+            .map(|t| area2(t.map(|[x, y, _]| [x, y])).abs())
+            .sum();
+        assert_eq!(total_roof_area, 2 * 2 * (60 * 60 - 20 * 20));
     }
 }
