@@ -100,8 +100,9 @@ Its `heightMode` says what a z of `0` stands for: `"absolute"` is mean sea level
 `featureGeometry(layer, i)` reads feature `i` of a column layer without knowing the offset levels.
 Its points, lines and polygon rings are views of the layer's vertices, still in tile coordinates,
 and a polygon's rings come ready for earcut. A `TessPolygonsWithOutlines` layer's triangles come per
-feature, counted from the feature's own vertices. A `TessPolygons` layer stores triangles without
-outlines, so `featureGeometry` rejects it; its `indexBuffer` and `triangleOffsets` are the triangles.
+feature, counted from the feature's own vertices. A `TessPolygons` or `Meshes` layer stores triangles
+without outlines, so `featureGeometry` rejects it; its `indexBuffer` and `triangleOffsets` are the
+triangles.
 
 ```ts
 import { featureGeometry } from '@maplibre/mlt-wasm';
@@ -163,8 +164,8 @@ for (let g = 0; g + 1 < geometryVertices.length; g++) {
 ```
 
 A geometry is a point, a line or a polygon, and every kind shares one sequence in feature order, so in
-a layer mixing kinds, `layer.geometry.types` tells which features are which. A `TessPolygons` layer has
-no runs of vertices, only triangles, so `geometryStarts` rejects it.
+a layer mixing kinds, `layer.geometry.types` tells which features are which. A `TessPolygons` or
+`Meshes` layer has only triangles, so `geometryStarts` rejects it.
 
 On a 1.3 MB tile of 1,333 line features and 524,482 vertices, `geometryStarts` takes about 0.006 ms
 and the fill above about 0.2 ms, against about 3.8 ms for `decodeTileColumns` (Node, one machine).
@@ -183,8 +184,8 @@ Shapes that need tessellation on the CPU work one polygon or line at a time:
 `decodeTile3D` reads a tile whose every layer has z coordinates. Its features have the same
 `loadGeometry()` and `loadPolygons()`, with every vertex an `[x, y, z]` array, so the rest of the
 code can assume 3D. It throws when any layer has no z coordinates, for which `decodeTile` reads the
-tile in 2D, and when any layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry
-layout. `decodeTileColumns` reads every layout, in 2D and 3D.
+tile in 2D, and when any layer uses the `TessPolygons`, `TessPolygonsWithOutlines` or `Meshes`
+geometry layout. `decodeTileColumns` reads every layout, in 2D and 3D.
 
 Like `x` and `y`, `z` is the stored integer: it lies on the layer's `zStep` grid, and
 `toElevation(z, layer.zStep)` gives its elevation in metres.
