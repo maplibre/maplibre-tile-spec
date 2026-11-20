@@ -1,0 +1,12 @@
+<svg class="mlt-diagram" viewBox="0 0 710 280" role="img" aria-label="A side view of a mesh on a slope. The terrain under the center of its (x, y) bounding box is its ground, z = 0, and its foundations reach below z = 0 to the lowest terrain under its footprint" xmlns="http://www.w3.org/2000/svg">
+<polygon class="land" points="40,280 40,140.0 670,266.0 670,280"/>
+<polygon class="f0" points="230,214.0 230,106.0 320,71.0 410,106.0 410,214.0"/>
+<path class="implicit" d="M60 196.0H560"/>
+<text class="small" x="566" y="196.0">z = 0</text>
+<circle class="dot" cx="320" cy="196.0" r="3.5"/>
+<text class="small mid halo" x="320" y="182.0">ground</text>
+<path class="bracket" d="M230 61.0V55.0H410V61.0"/>
+<text class="muted small mid" x="320" y="43.0">(x, y) bounding box</text>
+<path class="bracket" d="M418 196.0H424V214.0H418"/>
+<text class="small" x="432" y="205.0">foundations, z &lt; 0</text>
+</svg>

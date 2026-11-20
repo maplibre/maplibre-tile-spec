@@ -2,8 +2,7 @@
 
 use insta::{assert_snapshot, with_settings};
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, Tessellation, WireVersion};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };

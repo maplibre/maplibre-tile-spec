@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, WireVersion};
-use mlt_core::encoder::{Network, Profile};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::geo_types::{Coord, Geometry, LineString, Point};
 use mlt_core::wire::ColumnStorage;
 use mlt_core::{

@@ -587,14 +587,16 @@ impl<'layer> LendingIterator for Layer01FeatureIter<'layer, '_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::encoder::{EncoderConfig, Network, Profile};
     use serde_json::Value;
 
     use super::*;
     use crate::Layer;
     use crate::decoder::GeometryValues;
     use crate::encoder::model::StagedLayer;
-    use crate::encoder::{Codecs, Encoder, Presence, StagedId, StagedProperty, StagedSharedDict};
+    use crate::encoder::{
+        Codecs, Encoder, EncoderConfig, Network, Presence, Profile, StagedId, StagedProperty,
+        StagedSharedDict,
+    };
     use crate::test_helpers::{assert_size_hint_exact, dec, parser};
 
     fn layer_buf(staged: StagedLayer) -> Vec<u8> {
