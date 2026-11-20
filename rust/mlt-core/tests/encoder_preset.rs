@@ -87,9 +87,9 @@ fn the_min_size_preset_tries_hilbert_and_id_sorts() {
 }
 
 #[test]
-fn the_min_size_preset_sorts_vertices() {
+fn the_min_size_preset_keeps_the_vertex_order() {
     let min_size = EncoderConfig::from_profile(Profile::MinSize);
-    assert!(min_size.vertex_sort());
+    assert!(!min_size.vertex_sort());
 }
 
 #[test]

@@ -445,7 +445,7 @@ pub enum Profile {
     Web(Network),
     /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
     Native(Network),
-    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, vertex sort, and under v2 second-order deltas and rANS vertices.
+    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas and rANS vertices.
     MinSize,
     /// Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries, and under v2 second-order deltas.
     Diffable,
@@ -597,7 +597,7 @@ impl EncoderConfig {
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: true,
                 attempt_id_sort: true,
-                vertex_sort: true,
+                vertex_sort: false,
                 allow_fsst: true,
                 allow_fastpfor: true,
                 allow_shared_dict: true,
@@ -831,6 +831,7 @@ impl EncoderConfig {
     /// Reorder the vertices inside each feature, never the features, so each starts near where the previous one ended.
     /// Rings are rotated without changing their winding, lines may be reversed, and the points of a `MultiPoint` are chained nearest first.
     /// The z and m-values of each vertex move with it.
+    /// No profile turns it on, because line direction, ring start and point order can carry meaning the encoder cannot see.
     #[must_use]
     pub fn with_vertex_sort(mut self, enabled: bool) -> Self {
         self.vertex_sort = enabled;

@@ -198,7 +198,7 @@ enum Profile {
     Web,
     /// `MapLibre Native`: `--tessellate=auto`
     Native,
-    /// The fewest stored bytes: `--sort auto`, which reorders features, `--vertex-sort`, and under MLT version 2 `--delta2 --rans-vertices`
+    /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2 --rans-vertices`
     #[value(name = "min_size", alias = "min-size")]
     MinSize,
     /// Small binary diffs between releases: `--no-fsst --no-shared-dict`, and under MLT version 2 `--delta2`
@@ -339,14 +339,12 @@ pub struct ConvertArgs {
     /// Feature orders to try when re-encoding, each against the source order, keeping the smallest (default: none)
     #[clap(long)]
     sort: Option<SortMode>,
-    /// Start each feature's rings, lines and points near where the previous feature ended (default: on under `--profile min_size`)
+    /// Start each feature's rings, lines and points near where the previous feature ended (default: off under every profile)
     ///
-    /// Rings are rotated without changing their winding, the points of a `MultiPoint` are reordered, and lines may be reversed, which flips direction-dependent styling.
-    #[clap(long, overrides_with = "no_vertex_sort")]
+    /// Rings are rotated without changing their winding, the points of a `MultiPoint` are reordered, and lines may be reversed.
+    /// Only use it when no meaning hangs on vertex order, such as one-way streets, flow direction or per-vertex values packed into plain properties.
+    #[clap(long)]
     vertex_sort: bool,
-    /// Keep the vertex order of every feature, even under `--profile min_size`
-    #[clap(long, overrides_with = "vertex_sort")]
-    no_vertex_sort: bool,
     /// Schema type for the output `.mbtiles` file; defaults to the input file's schema
     #[clap(long)]
     mbtiles_format: Option<MbtFormat>,
@@ -479,9 +477,6 @@ impl ConvertArgs {
         }
         if self.vertex_sort {
             encoder = encoder.with_vertex_sort(true);
-        }
-        if self.no_vertex_sort {
-            encoder = encoder.with_vertex_sort(false);
         }
         if let Some(mode) = self.tessellate {
             encoder = encoder.with_tessellation(match mode {
@@ -1298,31 +1293,15 @@ mod tests {
     }
 
     #[test]
-    fn profile_min_size_vertex_sorts() {
+    fn profile_min_size_keeps_the_vertex_order() {
         let encoder = parse_args(&["--profile", "min_size", "src", "dst"])
-            .encoder()
-            .unwrap();
-        assert!(encoder.vertex_sort());
-    }
-
-    #[test]
-    fn sort_none_keeps_the_min_size_vertex_sort() {
-        let encoder = parse_args(&["--profile", "min_size", "--sort", "none", "src", "dst"])
-            .encoder()
-            .unwrap();
-        assert!(encoder.vertex_sort());
-    }
-
-    #[test]
-    fn no_vertex_sort_overrides_the_min_size_profile() {
-        let encoder = parse_args(&["--profile", "min_size", "--no-vertex-sort", "src", "dst"])
             .encoder()
             .unwrap();
         assert!(!encoder.vertex_sort());
     }
 
     #[test]
-    fn vertex_sort_overrides_the_native_profile() {
+    fn vertex_sort_turns_on_vertex_sort() {
         let encoder = parse_args(&["--vertex-sort", "src", "dst"])
             .encoder()
             .unwrap();
@@ -1330,19 +1309,11 @@ mod tests {
     }
 
     #[test]
-    fn vertex_sort_after_no_vertex_sort_wins() {
-        let encoder = parse_args(&["--no-vertex-sort", "--vertex-sort", "src", "dst"])
+    fn vertex_sort_adds_to_the_min_size_profile() {
+        let encoder = parse_args(&["--profile", "min_size", "--vertex-sort", "src", "dst"])
             .encoder()
             .unwrap();
         assert!(encoder.vertex_sort());
-    }
-
-    #[test]
-    fn no_vertex_sort_after_vertex_sort_wins() {
-        let encoder = parse_args(&["--vertex-sort", "--no-vertex-sort", "src", "dst"])
-            .encoder()
-            .unwrap();
-        assert!(!encoder.vertex_sort());
     }
 
     #[test]
