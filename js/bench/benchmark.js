@@ -35,9 +35,9 @@ function measureWorkload(name, tiles, iterations) {
   const memBefore = process.memoryUsage();
 
   // Measure single-iteration allocation delta without GC in between
-  let lastResult = null;
+  let _lastResult = null;
   for (const t of tiles) {
-    lastResult = decodeTileColumns(t);
+    _lastResult = decodeTileColumns(t);
   }
   const memAfterOne = process.memoryUsage();
   const allocDeltaKB = (memAfterOne.heapUsed - memBefore.heapUsed) / 1024;
@@ -53,10 +53,13 @@ function measureWorkload(name, tiles, iterations) {
   const elapsedMs = performance.now() - t0;
 
   // Measure retained memory after releasing decoded results + GC
-  lastResult = null;
+  _lastResult = null;
   forceGc();
   const memRetained = process.memoryUsage();
-  const retainedDeltaKB = Math.max(0, (memRetained.heapUsed - memBefore.heapUsed) / 1024);
+  const retainedDeltaKB = Math.max(
+    0,
+    (memRetained.heapUsed - memBefore.heapUsed) / 1024,
+  );
 
   const totalDecodes = iterations * tiles.length;
   const totalBytes =

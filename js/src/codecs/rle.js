@@ -28,7 +28,12 @@ export function decodeRleSplitU64Into(data, runs, numRleValues, out) {
   return out;
 }
 
-export function decodeRleInterleavedInto(data, numRleValues, out, isU64 = false) {
+export function decodeRleInterleavedInto(
+  data,
+  numRleValues,
+  out,
+  isU64 = false,
+) {
   if ((data.length & 1) !== 0) throw new Error("rle odd");
   let pos = 0;
   if (isU64) {

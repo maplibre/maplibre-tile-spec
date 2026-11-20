@@ -11,9 +11,11 @@ import {
   scatterPresent,
 } from "../codecs/presence.js";
 import {
+  decodeStreamU32,
   FM_BYTES,
   FM_INT,
   FM_STR,
+  parseStream02,
   ST_DATA_FSST,
   ST_DATA_NONE,
   ST_DATA_SINGLE,
@@ -21,8 +23,6 @@ import {
   ST_LEN_SYM,
   ST_LEN_VARBIN,
   ST_OFF_STRING,
-  decodeStreamU32,
-  parseStream02,
 } from "./stream.js";
 
 /**
@@ -41,7 +41,8 @@ export function sliceStrings(bytes, lengths) {
     let or = 0;
     for (let i = 0; i < bLen; i++) or |= bytes[i];
     if (or < 128) {
-      const fullAscii = bLen === 0 ? "" : String.fromCharCode.apply(null, bytes);
+      const fullAscii =
+        bLen === 0 ? "" : String.fromCharCode.apply(null, bytes);
       for (let i = 0; i < count; i++) {
         const next = pos + lengths[i];
         if (next > bLen) throw new RangeError("str eof");
@@ -98,11 +99,7 @@ export function decodeDictEntries(front, rawLengths, blobBytes) {
 export function parseStrings02(r, impliedCount) {
   const layout = r.b[r.p] & 3;
   const leadType =
-    layout === 0
-      ? ST_LEN_VARBIN
-      : layout === 2
-        ? ST_LEN_DICT
-        : ST_OFF_STRING;
+    layout === 0 ? ST_LEN_VARBIN : layout === 2 ? ST_LEN_DICT : ST_OFF_STRING;
   const leading = parseStream02(r, FM_STR, 4, leadType, impliedCount, layout);
   const next = leading.n;
 

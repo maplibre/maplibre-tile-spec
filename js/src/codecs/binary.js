@@ -161,7 +161,8 @@ export function readStr(r) {
       if (n === 1) return String.fromCharCode(b[p]);
       if (n === 2) return String.fromCharCode(b[p], b[p + 1]);
       if (n === 3) return String.fromCharCode(b[p], b[p + 1], b[p + 2]);
-      if (n === 4) return String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
+      if (n === 4)
+        return String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
       return String.fromCharCode.apply(null, b.subarray(p, q));
     }
   }
@@ -285,7 +286,8 @@ export function decodeVarintU32Into(bytes, count, out) {
     }
     v |= (c & 127) << 21;
     c = bytes[p++];
-    if (c >= 16 || c === 0) throw new RangeError(c === 0 ? "varint" : "overflow");
+    if (c >= 16 || c === 0)
+      throw new RangeError(c === 0 ? "varint" : "overflow");
     outI32[i++] = v | (c << 28);
   }
 

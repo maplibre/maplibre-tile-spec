@@ -31,7 +31,12 @@ function findEsbuild() {
 const esbuild = findEsbuild();
 const targets = [
   ["src/index.js", "dist/index.js", "src/index.d.ts", "dist/index.d.ts"],
-  ["src/columns.js", "dist/columns.js", "src/columns.d.ts", "dist/columns.d.ts"],
+  [
+    "src/columns.js",
+    "dist/columns.js",
+    "src/columns.d.ts",
+    "dist/columns.d.ts",
+  ],
 ];
 
 for (const [entry, outRel, dtsSrcRel, dtsOutRel] of targets) {

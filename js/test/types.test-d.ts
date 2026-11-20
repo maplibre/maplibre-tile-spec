@@ -1,10 +1,4 @@
 import {
-  MltFeature,
-  MltFeature3D,
-  MltGeometryType,
-  MltLayer,
-  MltLayer3D,
-  MltPoint,
   columnValue,
   decodeTile,
   decodeTile3D,
@@ -13,22 +7,31 @@ import {
   geometryStarts,
   isMeshes,
   isTrianglesOnly,
+  type MltColumnLayer,
+  MltFeature,
+  MltFeature3D,
+  type MltGeoJsonFeatureCollection,
+  MltGeometryType,
+  MltLayer,
+  MltLayer3D,
+  MltPoint,
   mValueSlice,
   tileGeoJson,
   toElevation,
-  type MltColumnLayer,
-  type MltGeoJsonFeatureCollection,
 } from "@maplibre/mlt-js";
 import {
   MltGeometryType as ColumnsGeomType,
-  columnValue as columnsVal,
   decodeTileColumns as columnsDecode,
-  mValueSlice as columnsMSlice,
   toElevation as columnsElev,
+  mValueSlice as columnsMSlice,
+  columnValue as columnsVal,
 } from "@maplibre/mlt-js/columns";
 
 const bytes = new Uint8Array(0);
-const colTile = decodeTileColumns(bytes, { layers: ["buildings"], maxBytes: 64 * 1024 * 1024 });
+const colTile = decodeTileColumns(bytes, {
+  layers: ["buildings"],
+  maxBytes: 64 * 1024 * 1024,
+});
 const colTile2 = columnsDecode(bytes, { maxBytes: Infinity });
 void colTile2;
 

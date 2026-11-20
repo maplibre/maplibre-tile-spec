@@ -3,11 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  MltGeometryType,
-  decodeTile,
-  tileGeoJson,
-} from "../src/index.js";
+import { decodeTile, MltGeometryType, tileGeoJson } from "../src/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SYNTHETIC_DIR = path.resolve(__dirname, "../../test/synthetic");
@@ -26,7 +22,7 @@ function collectMltFiles(dir, prefix = "") {
       out.push({
         name: rel.slice(0, -".mlt".length),
         mltPath: full,
-        jsonPath: full.slice(0, -".mlt".length) + ".json",
+        jsonPath: `${full.slice(0, -".mlt".length)}.json`,
       });
     }
   }
@@ -106,11 +102,7 @@ function valuesEqual(actual, expected, atPath = "$") {
   }
 }
 
-const V2_VT_GAPS = [
-  /^(z_)?mvalues(?!_all_null$)/,
-  /^nested_/,
-  /_tri$/,
-];
+const V2_VT_GAPS = [/^(z_)?mvalues(?!_all_null$)/, /^nested_/, /_tri$/];
 
 function vectorTileToFeatureCollection(tile) {
   const features = [];

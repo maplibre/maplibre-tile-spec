@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import { decodeTileColumns as jsDecode } from "../dist/columns.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const wasmPkgPath = path.resolve(__dirname, "../../rust/mlt-wasm/pkg/mlt_wasm.js");
+const wasmPkgPath = path.resolve(
+  __dirname,
+  "../../rust/mlt-wasm/pkg/mlt_wasm.js",
+);
 
 let wasmDecode = null;
 if (existsSync(wasmPkgPath)) {
@@ -19,34 +22,24 @@ const hamburgTile = (rel) => (hamburgTiles ? path.join(hamburgTiles, rel) : "");
 const cases = [
   [
     "CityGML fixture z16",
-    path.resolve(__dirname, "../../test/fixtures/meshes/tiles/16/34588/21180.mlt"),
+    path.resolve(
+      __dirname,
+      "../../test/fixtures/meshes/tiles/16/34588/21180.mlt",
+    ),
     3000,
   ],
   [
     "CityGML fixture z15",
-    path.resolve(__dirname, "../../test/fixtures/meshes/tiles/15/17294/10590.mlt"),
+    path.resolve(
+      __dirname,
+      "../../test/fixtures/meshes/tiles/15/17294/10590.mlt",
+    ),
     3000,
   ],
-  [
-    "Hamburg z16 (88 KB)",
-    hamburgTile("16/34584/21177.mlt"),
-    500,
-  ],
-  [
-    "Hamburg z15 (61 KB)",
-    hamburgTile("15/17292/10588.mlt"),
-    500,
-  ],
-  [
-    "Hamburg z14 (255 KB)",
-    hamburgTile("14/8646/5294.mlt"),
-    300,
-  ],
-  [
-    "Hamburg z13 (196 KB)",
-    hamburgTile("13/4323/2647.mlt"),
-    300,
-  ],
+  ["Hamburg z16 (88 KB)", hamburgTile("16/34584/21177.mlt"), 500],
+  ["Hamburg z15 (61 KB)", hamburgTile("15/17292/10588.mlt"), 500],
+  ["Hamburg z14 (255 KB)", hamburgTile("14/8646/5294.mlt"), 300],
+  ["Hamburg z13 (196 KB)", hamburgTile("13/4323/2647.mlt"), 300],
 ].filter(([, p]) => p && existsSync(p));
 
 console.log(

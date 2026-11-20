@@ -9,7 +9,7 @@ let fpfBytes = new Uint8Array(16384);
 
 /**
  * Unrolled 32-value LSB-first unpacker for common widths (`1..12, 16`) + branchless fallback.
- * Compresses to < 1 KB gzip due to repetitive bit-shift structure while running 2.5x–3x faster!
+ * Compresses to < 1 KB gzip due to repetitive bit-shift structure while running 2.5x-3x faster!
  */
 function unpack32(w, ip, out, op, b) {
   switch (b) {
@@ -24,138 +24,353 @@ function unpack32(w, ip, out, op, b) {
       return;
     }
     case 2: {
-      const a0 = w[ip], a1 = w[ip + 1];
-      out[op] = a0 & 3; out[op + 1] = (a0 >>> 2) & 3; out[op + 2] = (a0 >>> 4) & 3; out[op + 3] = (a0 >>> 6) & 3;
-      out[op + 4] = (a0 >>> 8) & 3; out[op + 5] = (a0 >>> 10) & 3; out[op + 6] = (a0 >>> 12) & 3; out[op + 7] = (a0 >>> 14) & 3;
-      out[op + 8] = (a0 >>> 16) & 3; out[op + 9] = (a0 >>> 18) & 3; out[op + 10] = (a0 >>> 20) & 3; out[op + 11] = (a0 >>> 22) & 3;
-      out[op + 12] = (a0 >>> 24) & 3; out[op + 13] = (a0 >>> 26) & 3; out[op + 14] = (a0 >>> 28) & 3; out[op + 15] = a0 >>> 30;
-      out[op + 16] = a1 & 3; out[op + 17] = (a1 >>> 2) & 3; out[op + 18] = (a1 >>> 4) & 3; out[op + 19] = (a1 >>> 6) & 3;
-      out[op + 20] = (a1 >>> 8) & 3; out[op + 21] = (a1 >>> 10) & 3; out[op + 22] = (a1 >>> 12) & 3; out[op + 23] = (a1 >>> 14) & 3;
-      out[op + 24] = (a1 >>> 16) & 3; out[op + 25] = (a1 >>> 18) & 3; out[op + 26] = (a1 >>> 20) & 3; out[op + 27] = (a1 >>> 22) & 3;
-      out[op + 28] = (a1 >>> 24) & 3; out[op + 29] = (a1 >>> 26) & 3; out[op + 30] = (a1 >>> 28) & 3; out[op + 31] = a1 >>> 30;
+      const a0 = w[ip],
+        a1 = w[ip + 1];
+      out[op] = a0 & 3;
+      out[op + 1] = (a0 >>> 2) & 3;
+      out[op + 2] = (a0 >>> 4) & 3;
+      out[op + 3] = (a0 >>> 6) & 3;
+      out[op + 4] = (a0 >>> 8) & 3;
+      out[op + 5] = (a0 >>> 10) & 3;
+      out[op + 6] = (a0 >>> 12) & 3;
+      out[op + 7] = (a0 >>> 14) & 3;
+      out[op + 8] = (a0 >>> 16) & 3;
+      out[op + 9] = (a0 >>> 18) & 3;
+      out[op + 10] = (a0 >>> 20) & 3;
+      out[op + 11] = (a0 >>> 22) & 3;
+      out[op + 12] = (a0 >>> 24) & 3;
+      out[op + 13] = (a0 >>> 26) & 3;
+      out[op + 14] = (a0 >>> 28) & 3;
+      out[op + 15] = a0 >>> 30;
+      out[op + 16] = a1 & 3;
+      out[op + 17] = (a1 >>> 2) & 3;
+      out[op + 18] = (a1 >>> 4) & 3;
+      out[op + 19] = (a1 >>> 6) & 3;
+      out[op + 20] = (a1 >>> 8) & 3;
+      out[op + 21] = (a1 >>> 10) & 3;
+      out[op + 22] = (a1 >>> 12) & 3;
+      out[op + 23] = (a1 >>> 14) & 3;
+      out[op + 24] = (a1 >>> 16) & 3;
+      out[op + 25] = (a1 >>> 18) & 3;
+      out[op + 26] = (a1 >>> 20) & 3;
+      out[op + 27] = (a1 >>> 22) & 3;
+      out[op + 28] = (a1 >>> 24) & 3;
+      out[op + 29] = (a1 >>> 26) & 3;
+      out[op + 30] = (a1 >>> 28) & 3;
+      out[op + 31] = a1 >>> 30;
       return;
     }
     case 3: {
-      const a0 = w[ip], a1 = w[ip + 1], a2 = w[ip + 2];
-      out[op] = a0 & 7; out[op + 1] = (a0 >>> 3) & 7; out[op + 2] = (a0 >>> 6) & 7; out[op + 3] = (a0 >>> 9) & 7;
-      out[op + 4] = (a0 >>> 12) & 7; out[op + 5] = (a0 >>> 15) & 7; out[op + 6] = (a0 >>> 18) & 7; out[op + 7] = (a0 >>> 21) & 7;
-      out[op + 8] = (a0 >>> 24) & 7; out[op + 9] = (a0 >>> 27) & 7; out[op + 10] = (a0 >>> 30) | ((a1 & 1) << 2);
-      out[op + 11] = (a1 >>> 1) & 7; out[op + 12] = (a1 >>> 4) & 7; out[op + 13] = (a1 >>> 7) & 7; out[op + 14] = (a1 >>> 10) & 7;
-      out[op + 15] = (a1 >>> 13) & 7; out[op + 16] = (a1 >>> 16) & 7; out[op + 17] = (a1 >>> 19) & 7; out[op + 18] = (a1 >>> 22) & 7;
-      out[op + 19] = (a1 >>> 25) & 7; out[op + 20] = (a1 >>> 28) & 7; out[op + 21] = (a1 >>> 31) | ((a2 & 3) << 1);
-      out[op + 22] = (a2 >>> 2) & 7; out[op + 23] = (a2 >>> 5) & 7; out[op + 24] = (a2 >>> 8) & 7; out[op + 25] = (a2 >>> 11) & 7;
-      out[op + 26] = (a2 >>> 14) & 7; out[op + 27] = (a2 >>> 17) & 7; out[op + 28] = (a2 >>> 20) & 7; out[op + 29] = (a2 >>> 23) & 7;
-      out[op + 30] = (a2 >>> 26) & 7; out[op + 31] = a2 >>> 29;
+      const a0 = w[ip],
+        a1 = w[ip + 1],
+        a2 = w[ip + 2];
+      out[op] = a0 & 7;
+      out[op + 1] = (a0 >>> 3) & 7;
+      out[op + 2] = (a0 >>> 6) & 7;
+      out[op + 3] = (a0 >>> 9) & 7;
+      out[op + 4] = (a0 >>> 12) & 7;
+      out[op + 5] = (a0 >>> 15) & 7;
+      out[op + 6] = (a0 >>> 18) & 7;
+      out[op + 7] = (a0 >>> 21) & 7;
+      out[op + 8] = (a0 >>> 24) & 7;
+      out[op + 9] = (a0 >>> 27) & 7;
+      out[op + 10] = (a0 >>> 30) | ((a1 & 1) << 2);
+      out[op + 11] = (a1 >>> 1) & 7;
+      out[op + 12] = (a1 >>> 4) & 7;
+      out[op + 13] = (a1 >>> 7) & 7;
+      out[op + 14] = (a1 >>> 10) & 7;
+      out[op + 15] = (a1 >>> 13) & 7;
+      out[op + 16] = (a1 >>> 16) & 7;
+      out[op + 17] = (a1 >>> 19) & 7;
+      out[op + 18] = (a1 >>> 22) & 7;
+      out[op + 19] = (a1 >>> 25) & 7;
+      out[op + 20] = (a1 >>> 28) & 7;
+      out[op + 21] = (a1 >>> 31) | ((a2 & 3) << 1);
+      out[op + 22] = (a2 >>> 2) & 7;
+      out[op + 23] = (a2 >>> 5) & 7;
+      out[op + 24] = (a2 >>> 8) & 7;
+      out[op + 25] = (a2 >>> 11) & 7;
+      out[op + 26] = (a2 >>> 14) & 7;
+      out[op + 27] = (a2 >>> 17) & 7;
+      out[op + 28] = (a2 >>> 20) & 7;
+      out[op + 29] = (a2 >>> 23) & 7;
+      out[op + 30] = (a2 >>> 26) & 7;
+      out[op + 31] = a2 >>> 29;
       return;
     }
     case 4: {
       for (let k = 0; k < 4; k++) {
-        const v = w[ip + k], o = op + (k << 3);
-        out[o] = v & 15; out[o + 1] = (v >>> 4) & 15; out[o + 2] = (v >>> 8) & 15; out[o + 3] = (v >>> 12) & 15;
-        out[o + 4] = (v >>> 16) & 15; out[o + 5] = (v >>> 20) & 15; out[o + 6] = (v >>> 24) & 15; out[o + 7] = v >>> 28;
+        const v = w[ip + k],
+          o = op + (k << 3);
+        out[o] = v & 15;
+        out[o + 1] = (v >>> 4) & 15;
+        out[o + 2] = (v >>> 8) & 15;
+        out[o + 3] = (v >>> 12) & 15;
+        out[o + 4] = (v >>> 16) & 15;
+        out[o + 5] = (v >>> 20) & 15;
+        out[o + 6] = (v >>> 24) & 15;
+        out[o + 7] = v >>> 28;
       }
       return;
     }
     case 5: {
-      const a0 = w[ip], a1 = w[ip + 1], a2 = w[ip + 2], a3 = w[ip + 3], a4 = w[ip + 4];
-      out[op] = a0 & 31; out[op + 1] = (a0 >>> 5) & 31; out[op + 2] = (a0 >>> 10) & 31; out[op + 3] = (a0 >>> 15) & 31;
-      out[op + 4] = (a0 >>> 20) & 31; out[op + 5] = (a0 >>> 25) & 31; out[op + 6] = (a0 >>> 30) | ((a1 & 7) << 2);
-      out[op + 7] = (a1 >>> 3) & 31; out[op + 8] = (a1 >>> 8) & 31; out[op + 9] = (a1 >>> 13) & 31; out[op + 10] = (a1 >>> 18) & 31;
-      out[op + 11] = (a1 >>> 23) & 31; out[op + 12] = (a1 >>> 28) | ((a2 & 1) << 4);
-      out[op + 13] = (a2 >>> 1) & 31; out[op + 14] = (a2 >>> 6) & 31; out[op + 15] = (a2 >>> 11) & 31; out[op + 16] = (a2 >>> 16) & 31;
-      out[op + 17] = (a2 >>> 21) & 31; out[op + 18] = (a2 >>> 26) & 31; out[op + 19] = (a2 >>> 31) | ((a3 & 15) << 1);
-      out[op + 20] = (a3 >>> 4) & 31; out[op + 21] = (a3 >>> 9) & 31; out[op + 22] = (a3 >>> 14) & 31; out[op + 23] = (a3 >>> 19) & 31;
-      out[op + 24] = (a3 >>> 24) & 31; out[op + 25] = (a3 >>> 29) | ((a4 & 3) << 3);
-      out[op + 26] = (a4 >>> 2) & 31; out[op + 27] = (a4 >>> 7) & 31; out[op + 28] = (a4 >>> 12) & 31; out[op + 29] = (a4 >>> 17) & 31;
-      out[op + 30] = (a4 >>> 22) & 31; out[op + 31] = a4 >>> 27;
+      const a0 = w[ip],
+        a1 = w[ip + 1],
+        a2 = w[ip + 2],
+        a3 = w[ip + 3],
+        a4 = w[ip + 4];
+      out[op] = a0 & 31;
+      out[op + 1] = (a0 >>> 5) & 31;
+      out[op + 2] = (a0 >>> 10) & 31;
+      out[op + 3] = (a0 >>> 15) & 31;
+      out[op + 4] = (a0 >>> 20) & 31;
+      out[op + 5] = (a0 >>> 25) & 31;
+      out[op + 6] = (a0 >>> 30) | ((a1 & 7) << 2);
+      out[op + 7] = (a1 >>> 3) & 31;
+      out[op + 8] = (a1 >>> 8) & 31;
+      out[op + 9] = (a1 >>> 13) & 31;
+      out[op + 10] = (a1 >>> 18) & 31;
+      out[op + 11] = (a1 >>> 23) & 31;
+      out[op + 12] = (a1 >>> 28) | ((a2 & 1) << 4);
+      out[op + 13] = (a2 >>> 1) & 31;
+      out[op + 14] = (a2 >>> 6) & 31;
+      out[op + 15] = (a2 >>> 11) & 31;
+      out[op + 16] = (a2 >>> 16) & 31;
+      out[op + 17] = (a2 >>> 21) & 31;
+      out[op + 18] = (a2 >>> 26) & 31;
+      out[op + 19] = (a2 >>> 31) | ((a3 & 15) << 1);
+      out[op + 20] = (a3 >>> 4) & 31;
+      out[op + 21] = (a3 >>> 9) & 31;
+      out[op + 22] = (a3 >>> 14) & 31;
+      out[op + 23] = (a3 >>> 19) & 31;
+      out[op + 24] = (a3 >>> 24) & 31;
+      out[op + 25] = (a3 >>> 29) | ((a4 & 3) << 3);
+      out[op + 26] = (a4 >>> 2) & 31;
+      out[op + 27] = (a4 >>> 7) & 31;
+      out[op + 28] = (a4 >>> 12) & 31;
+      out[op + 29] = (a4 >>> 17) & 31;
+      out[op + 30] = (a4 >>> 22) & 31;
+      out[op + 31] = a4 >>> 27;
       return;
     }
     case 6: {
       for (let k = 0; k < 2; k++) {
-        const a0 = w[ip + k * 3], a1 = w[ip + k * 3 + 1], a2 = w[ip + k * 3 + 2], o = op + k * 16;
-        out[o] = a0 & 63; out[o + 1] = (a0 >>> 6) & 63; out[o + 2] = (a0 >>> 12) & 63; out[o + 3] = (a0 >>> 18) & 63;
-        out[o + 4] = (a0 >>> 24) & 63; out[o + 5] = (a0 >>> 30) | ((a1 & 15) << 2);
-        out[o + 6] = (a1 >>> 4) & 63; out[o + 7] = (a1 >>> 10) & 63; out[o + 8] = (a1 >>> 16) & 63; out[o + 9] = (a1 >>> 22) & 63;
+        const a0 = w[ip + k * 3],
+          a1 = w[ip + k * 3 + 1],
+          a2 = w[ip + k * 3 + 2],
+          o = op + k * 16;
+        out[o] = a0 & 63;
+        out[o + 1] = (a0 >>> 6) & 63;
+        out[o + 2] = (a0 >>> 12) & 63;
+        out[o + 3] = (a0 >>> 18) & 63;
+        out[o + 4] = (a0 >>> 24) & 63;
+        out[o + 5] = (a0 >>> 30) | ((a1 & 15) << 2);
+        out[o + 6] = (a1 >>> 4) & 63;
+        out[o + 7] = (a1 >>> 10) & 63;
+        out[o + 8] = (a1 >>> 16) & 63;
+        out[o + 9] = (a1 >>> 22) & 63;
         out[o + 10] = (a1 >>> 28) | ((a2 & 3) << 4);
-        out[o + 11] = (a2 >>> 2) & 63; out[o + 12] = (a2 >>> 8) & 63; out[o + 13] = (a2 >>> 14) & 63; out[o + 14] = (a2 >>> 20) & 63;
+        out[o + 11] = (a2 >>> 2) & 63;
+        out[o + 12] = (a2 >>> 8) & 63;
+        out[o + 13] = (a2 >>> 14) & 63;
+        out[o + 14] = (a2 >>> 20) & 63;
         out[o + 15] = a2 >>> 26;
       }
       return;
     }
     case 7: {
-      const a0 = w[ip], a1 = w[ip + 1], a2 = w[ip + 2], a3 = w[ip + 3], a4 = w[ip + 4], a5 = w[ip + 5], a6 = w[ip + 6];
-      out[op] = a0 & 127; out[op + 1] = (a0 >>> 7) & 127; out[op + 2] = (a0 >>> 14) & 127; out[op + 3] = (a0 >>> 21) & 127;
-      out[op + 4] = (a0 >>> 28) | ((a1 & 7) << 4); out[op + 5] = (a1 >>> 3) & 127; out[op + 6] = (a1 >>> 10) & 127;
-      out[op + 7] = (a1 >>> 17) & 127; out[op + 8] = (a1 >>> 24) & 127; out[op + 9] = (a1 >>> 31) | ((a2 & 63) << 1);
-      out[op + 10] = (a2 >>> 6) & 127; out[op + 11] = (a2 >>> 13) & 127; out[op + 12] = (a2 >>> 20) & 127;
-      out[op + 13] = (a2 >>> 27) | ((a3 & 3) << 5); out[op + 14] = (a3 >>> 2) & 127; out[op + 15] = (a3 >>> 9) & 127;
-      out[op + 16] = (a3 >>> 16) & 127; out[op + 17] = (a3 >>> 23) & 127; out[op + 18] = (a3 >>> 30) | ((a4 & 31) << 2);
-      out[op + 19] = (a4 >>> 5) & 127; out[op + 20] = (a4 >>> 12) & 127; out[op + 21] = (a4 >>> 19) & 127;
-      out[op + 22] = (a4 >>> 26) | ((a5 & 1) << 6); out[op + 23] = (a5 >>> 1) & 127; out[op + 24] = (a5 >>> 8) & 127;
-      out[op + 25] = (a5 >>> 15) & 127; out[op + 26] = (a5 >>> 22) & 127; out[op + 27] = (a5 >>> 29) | ((a6 & 15) << 3);
-      out[op + 28] = (a6 >>> 4) & 127; out[op + 29] = (a6 >>> 11) & 127; out[op + 30] = (a6 >>> 18) & 127; out[op + 31] = a6 >>> 25;
+      const a0 = w[ip],
+        a1 = w[ip + 1],
+        a2 = w[ip + 2],
+        a3 = w[ip + 3],
+        a4 = w[ip + 4],
+        a5 = w[ip + 5],
+        a6 = w[ip + 6];
+      out[op] = a0 & 127;
+      out[op + 1] = (a0 >>> 7) & 127;
+      out[op + 2] = (a0 >>> 14) & 127;
+      out[op + 3] = (a0 >>> 21) & 127;
+      out[op + 4] = (a0 >>> 28) | ((a1 & 7) << 4);
+      out[op + 5] = (a1 >>> 3) & 127;
+      out[op + 6] = (a1 >>> 10) & 127;
+      out[op + 7] = (a1 >>> 17) & 127;
+      out[op + 8] = (a1 >>> 24) & 127;
+      out[op + 9] = (a1 >>> 31) | ((a2 & 63) << 1);
+      out[op + 10] = (a2 >>> 6) & 127;
+      out[op + 11] = (a2 >>> 13) & 127;
+      out[op + 12] = (a2 >>> 20) & 127;
+      out[op + 13] = (a2 >>> 27) | ((a3 & 3) << 5);
+      out[op + 14] = (a3 >>> 2) & 127;
+      out[op + 15] = (a3 >>> 9) & 127;
+      out[op + 16] = (a3 >>> 16) & 127;
+      out[op + 17] = (a3 >>> 23) & 127;
+      out[op + 18] = (a3 >>> 30) | ((a4 & 31) << 2);
+      out[op + 19] = (a4 >>> 5) & 127;
+      out[op + 20] = (a4 >>> 12) & 127;
+      out[op + 21] = (a4 >>> 19) & 127;
+      out[op + 22] = (a4 >>> 26) | ((a5 & 1) << 6);
+      out[op + 23] = (a5 >>> 1) & 127;
+      out[op + 24] = (a5 >>> 8) & 127;
+      out[op + 25] = (a5 >>> 15) & 127;
+      out[op + 26] = (a5 >>> 22) & 127;
+      out[op + 27] = (a5 >>> 29) | ((a6 & 15) << 3);
+      out[op + 28] = (a6 >>> 4) & 127;
+      out[op + 29] = (a6 >>> 11) & 127;
+      out[op + 30] = (a6 >>> 18) & 127;
+      out[op + 31] = a6 >>> 25;
       return;
     }
     case 8: {
       for (let k = 0; k < 8; k++) {
-        const v = w[ip + k], o = op + (k << 2);
-        out[o] = v & 255; out[o + 1] = (v >>> 8) & 255; out[o + 2] = (v >>> 16) & 255; out[o + 3] = v >>> 24;
+        const v = w[ip + k],
+          o = op + (k << 2);
+        out[o] = v & 255;
+        out[o + 1] = (v >>> 8) & 255;
+        out[o + 2] = (v >>> 16) & 255;
+        out[o + 3] = v >>> 24;
       }
       return;
     }
     case 9: {
-      const a0 = w[ip], a1 = w[ip + 1], a2 = w[ip + 2], a3 = w[ip + 3], a4 = w[ip + 4], a5 = w[ip + 5], a6 = w[ip + 6], a7 = w[ip + 7], a8 = w[ip + 8];
-      out[op] = a0 & 511; out[op + 1] = (a0 >>> 9) & 511; out[op + 2] = (a0 >>> 18) & 511; out[op + 3] = (a0 >>> 27) | ((a1 & 15) << 5);
-      out[op + 4] = (a1 >>> 4) & 511; out[op + 5] = (a1 >>> 13) & 511; out[op + 6] = (a1 >>> 22) & 511; out[op + 7] = (a1 >>> 31) | ((a2 & 255) << 1);
-      out[op + 8] = (a2 >>> 8) & 511; out[op + 9] = (a2 >>> 17) & 511; out[op + 10] = (a2 >>> 26) | ((a3 & 7) << 6);
-      out[op + 11] = (a3 >>> 3) & 511; out[op + 12] = (a3 >>> 12) & 511; out[op + 13] = (a3 >>> 21) & 511; out[op + 14] = (a3 >>> 30) | ((a4 & 127) << 2);
-      out[op + 15] = (a4 >>> 7) & 511; out[op + 16] = (a4 >>> 16) & 511; out[op + 17] = (a4 >>> 25) | ((a5 & 3) << 7);
-      out[op + 18] = (a5 >>> 2) & 511; out[op + 19] = (a5 >>> 11) & 511; out[op + 20] = (a5 >>> 20) & 511; out[op + 21] = (a5 >>> 29) | ((a6 & 63) << 3);
-      out[op + 22] = (a6 >>> 6) & 511; out[op + 23] = (a6 >>> 15) & 511; out[op + 24] = (a6 >>> 24) | ((a7 & 1) << 8);
-      out[op + 25] = (a7 >>> 1) & 511; out[op + 26] = (a7 >>> 10) & 511; out[op + 27] = (a7 >>> 19) & 511; out[op + 28] = (a7 >>> 28) | ((a8 & 31) << 4);
-      out[op + 29] = (a8 >>> 5) & 511; out[op + 30] = (a8 >>> 14) & 511; out[op + 31] = a8 >>> 23;
+      const a0 = w[ip],
+        a1 = w[ip + 1],
+        a2 = w[ip + 2],
+        a3 = w[ip + 3],
+        a4 = w[ip + 4],
+        a5 = w[ip + 5],
+        a6 = w[ip + 6],
+        a7 = w[ip + 7],
+        a8 = w[ip + 8];
+      out[op] = a0 & 511;
+      out[op + 1] = (a0 >>> 9) & 511;
+      out[op + 2] = (a0 >>> 18) & 511;
+      out[op + 3] = (a0 >>> 27) | ((a1 & 15) << 5);
+      out[op + 4] = (a1 >>> 4) & 511;
+      out[op + 5] = (a1 >>> 13) & 511;
+      out[op + 6] = (a1 >>> 22) & 511;
+      out[op + 7] = (a1 >>> 31) | ((a2 & 255) << 1);
+      out[op + 8] = (a2 >>> 8) & 511;
+      out[op + 9] = (a2 >>> 17) & 511;
+      out[op + 10] = (a2 >>> 26) | ((a3 & 7) << 6);
+      out[op + 11] = (a3 >>> 3) & 511;
+      out[op + 12] = (a3 >>> 12) & 511;
+      out[op + 13] = (a3 >>> 21) & 511;
+      out[op + 14] = (a3 >>> 30) | ((a4 & 127) << 2);
+      out[op + 15] = (a4 >>> 7) & 511;
+      out[op + 16] = (a4 >>> 16) & 511;
+      out[op + 17] = (a4 >>> 25) | ((a5 & 3) << 7);
+      out[op + 18] = (a5 >>> 2) & 511;
+      out[op + 19] = (a5 >>> 11) & 511;
+      out[op + 20] = (a5 >>> 20) & 511;
+      out[op + 21] = (a5 >>> 29) | ((a6 & 63) << 3);
+      out[op + 22] = (a6 >>> 6) & 511;
+      out[op + 23] = (a6 >>> 15) & 511;
+      out[op + 24] = (a6 >>> 24) | ((a7 & 1) << 8);
+      out[op + 25] = (a7 >>> 1) & 511;
+      out[op + 26] = (a7 >>> 10) & 511;
+      out[op + 27] = (a7 >>> 19) & 511;
+      out[op + 28] = (a7 >>> 28) | ((a8 & 31) << 4);
+      out[op + 29] = (a8 >>> 5) & 511;
+      out[op + 30] = (a8 >>> 14) & 511;
+      out[op + 31] = a8 >>> 23;
       return;
     }
     case 10: {
       for (let k = 0; k < 2; k++) {
-        const a0 = w[ip + k * 5], a1 = w[ip + k * 5 + 1], a2 = w[ip + k * 5 + 2], a3 = w[ip + k * 5 + 3], a4 = w[ip + k * 5 + 4], o = op + k * 16;
-        out[o] = a0 & 1023; out[o + 1] = (a0 >>> 10) & 1023; out[o + 2] = (a0 >>> 20) & 1023; out[o + 3] = (a0 >>> 30) | ((a1 & 255) << 2);
-        out[o + 4] = (a1 >>> 8) & 1023; out[o + 5] = (a1 >>> 18) & 1023; out[o + 6] = (a1 >>> 28) | ((a2 & 63) << 4);
-        out[o + 7] = (a2 >>> 6) & 1023; out[o + 8] = (a2 >>> 16) & 1023; out[o + 9] = (a2 >>> 26) | ((a3 & 15) << 6);
-        out[o + 10] = (a3 >>> 4) & 1023; out[o + 11] = (a3 >>> 14) & 1023; out[o + 12] = (a3 >>> 24) | ((a4 & 3) << 8);
-        out[o + 13] = (a4 >>> 2) & 1023; out[o + 14] = (a4 >>> 12) & 1023; out[o + 15] = a4 >>> 22;
+        const a0 = w[ip + k * 5],
+          a1 = w[ip + k * 5 + 1],
+          a2 = w[ip + k * 5 + 2],
+          a3 = w[ip + k * 5 + 3],
+          a4 = w[ip + k * 5 + 4],
+          o = op + k * 16;
+        out[o] = a0 & 1023;
+        out[o + 1] = (a0 >>> 10) & 1023;
+        out[o + 2] = (a0 >>> 20) & 1023;
+        out[o + 3] = (a0 >>> 30) | ((a1 & 255) << 2);
+        out[o + 4] = (a1 >>> 8) & 1023;
+        out[o + 5] = (a1 >>> 18) & 1023;
+        out[o + 6] = (a1 >>> 28) | ((a2 & 63) << 4);
+        out[o + 7] = (a2 >>> 6) & 1023;
+        out[o + 8] = (a2 >>> 16) & 1023;
+        out[o + 9] = (a2 >>> 26) | ((a3 & 15) << 6);
+        out[o + 10] = (a3 >>> 4) & 1023;
+        out[o + 11] = (a3 >>> 14) & 1023;
+        out[o + 12] = (a3 >>> 24) | ((a4 & 3) << 8);
+        out[o + 13] = (a4 >>> 2) & 1023;
+        out[o + 14] = (a4 >>> 12) & 1023;
+        out[o + 15] = a4 >>> 22;
       }
       return;
     }
     case 11: {
-      const a0 = w[ip], a1 = w[ip + 1], a2 = w[ip + 2], a3 = w[ip + 3], a4 = w[ip + 4], a5 = w[ip + 5];
-      const a6 = w[ip + 6], a7 = w[ip + 7], a8 = w[ip + 8], a9 = w[ip + 9], a10 = w[ip + 10];
-      out[op] = a0 & 2047; out[op + 1] = (a0 >>> 11) & 2047; out[op + 2] = (a0 >>> 22) | ((a1 & 1) << 10);
-      out[op + 3] = (a1 >>> 1) & 2047; out[op + 4] = (a1 >>> 12) & 2047; out[op + 5] = (a1 >>> 23) | ((a2 & 3) << 9);
-      out[op + 6] = (a2 >>> 2) & 2047; out[op + 7] = (a2 >>> 13) & 2047; out[op + 8] = (a2 >>> 24) | ((a3 & 7) << 8);
-      out[op + 9] = (a3 >>> 3) & 2047; out[op + 10] = (a3 >>> 14) & 2047; out[op + 11] = (a3 >>> 25) | ((a4 & 15) << 7);
-      out[op + 12] = (a4 >>> 4) & 2047; out[op + 13] = (a4 >>> 15) & 2047; out[op + 14] = (a4 >>> 26) | ((a5 & 31) << 6);
-      out[op + 15] = (a5 >>> 5) & 2047; out[op + 16] = (a5 >>> 16) & 2047; out[op + 17] = (a5 >>> 27) | ((a6 & 63) << 5);
-      out[op + 18] = (a6 >>> 6) & 2047; out[op + 19] = (a6 >>> 17) & 2047; out[op + 20] = (a6 >>> 28) | ((a7 & 127) << 4);
-      out[op + 21] = (a7 >>> 7) & 2047; out[op + 22] = (a7 >>> 18) & 2047; out[op + 23] = (a7 >>> 29) | ((a8 & 255) << 3);
-      out[op + 24] = (a8 >>> 8) & 2047; out[op + 25] = (a8 >>> 19) & 2047; out[op + 26] = (a8 >>> 30) | ((a9 & 511) << 2);
-      out[op + 27] = (a9 >>> 9) & 2047; out[op + 28] = (a9 >>> 20) & 2047; out[op + 29] = (a9 >>> 31) | ((a10 & 1023) << 1);
-      out[op + 30] = (a10 >>> 10) & 2047; out[op + 31] = a10 >>> 21;
+      const a0 = w[ip],
+        a1 = w[ip + 1],
+        a2 = w[ip + 2],
+        a3 = w[ip + 3],
+        a4 = w[ip + 4],
+        a5 = w[ip + 5];
+      const a6 = w[ip + 6],
+        a7 = w[ip + 7],
+        a8 = w[ip + 8],
+        a9 = w[ip + 9],
+        a10 = w[ip + 10];
+      out[op] = a0 & 2047;
+      out[op + 1] = (a0 >>> 11) & 2047;
+      out[op + 2] = (a0 >>> 22) | ((a1 & 1) << 10);
+      out[op + 3] = (a1 >>> 1) & 2047;
+      out[op + 4] = (a1 >>> 12) & 2047;
+      out[op + 5] = (a1 >>> 23) | ((a2 & 3) << 9);
+      out[op + 6] = (a2 >>> 2) & 2047;
+      out[op + 7] = (a2 >>> 13) & 2047;
+      out[op + 8] = (a2 >>> 24) | ((a3 & 7) << 8);
+      out[op + 9] = (a3 >>> 3) & 2047;
+      out[op + 10] = (a3 >>> 14) & 2047;
+      out[op + 11] = (a3 >>> 25) | ((a4 & 15) << 7);
+      out[op + 12] = (a4 >>> 4) & 2047;
+      out[op + 13] = (a4 >>> 15) & 2047;
+      out[op + 14] = (a4 >>> 26) | ((a5 & 31) << 6);
+      out[op + 15] = (a5 >>> 5) & 2047;
+      out[op + 16] = (a5 >>> 16) & 2047;
+      out[op + 17] = (a5 >>> 27) | ((a6 & 63) << 5);
+      out[op + 18] = (a6 >>> 6) & 2047;
+      out[op + 19] = (a6 >>> 17) & 2047;
+      out[op + 20] = (a6 >>> 28) | ((a7 & 127) << 4);
+      out[op + 21] = (a7 >>> 7) & 2047;
+      out[op + 22] = (a7 >>> 18) & 2047;
+      out[op + 23] = (a7 >>> 29) | ((a8 & 255) << 3);
+      out[op + 24] = (a8 >>> 8) & 2047;
+      out[op + 25] = (a8 >>> 19) & 2047;
+      out[op + 26] = (a8 >>> 30) | ((a9 & 511) << 2);
+      out[op + 27] = (a9 >>> 9) & 2047;
+      out[op + 28] = (a9 >>> 20) & 2047;
+      out[op + 29] = (a9 >>> 31) | ((a10 & 1023) << 1);
+      out[op + 30] = (a10 >>> 10) & 2047;
+      out[op + 31] = a10 >>> 21;
       return;
     }
     case 12: {
       for (let k = 0; k < 4; k++) {
-        const a0 = w[ip + k * 3], a1 = w[ip + k * 3 + 1], a2 = w[ip + k * 3 + 2], o = op + k * 8;
-        out[o] = a0 & 4095; out[o + 1] = (a0 >>> 12) & 4095; out[o + 2] = (a0 >>> 24) | ((a1 & 15) << 8);
-        out[o + 3] = (a1 >>> 4) & 4095; out[o + 4] = (a1 >>> 16) & 4095; out[o + 5] = (a1 >>> 28) | ((a2 & 255) << 4);
-        out[o + 6] = (a2 >>> 8) & 4095; out[o + 7] = a2 >>> 20;
+        const a0 = w[ip + k * 3],
+          a1 = w[ip + k * 3 + 1],
+          a2 = w[ip + k * 3 + 2],
+          o = op + k * 8;
+        out[o] = a0 & 4095;
+        out[o + 1] = (a0 >>> 12) & 4095;
+        out[o + 2] = (a0 >>> 24) | ((a1 & 15) << 8);
+        out[o + 3] = (a1 >>> 4) & 4095;
+        out[o + 4] = (a1 >>> 16) & 4095;
+        out[o + 5] = (a1 >>> 28) | ((a2 & 255) << 4);
+        out[o + 6] = (a2 >>> 8) & 4095;
+        out[o + 7] = a2 >>> 20;
       }
       return;
     }
     case 16: {
       for (let k = 0; k < 16; k++) {
-        const v = w[ip + k], o = op + (k << 1);
-        out[o] = v & 0xffff; out[o + 1] = v >>> 16;
+        const v = w[ip + k],
+          o = op + (k << 1);
+        out[o] = v & 0xffff;
+        out[o + 1] = v >>> 16;
       }
       return;
     }
@@ -276,7 +491,9 @@ export function decodeFastPforInto(data, numValues, is128, out) {
             if ((size & 31) !== 0) {
               const usedWords = fullGroups * k;
               TAIL32.fill(0, 0, k);
-              TAIL32.set(words.subarray(inExcept + usedWords, inExcept + wordsNeeded));
+              TAIL32.set(
+                words.subarray(inExcept + usedWords, inExcept + wordsNeeded),
+              );
               unpack32(TAIL32, 0, stream, fullGroups * 32, k);
             }
           }
@@ -299,7 +516,10 @@ export function decodeFastPforInto(data, numValues, is128, out) {
           outI32.fill(0, blockOutPos, blockOutPos + blockSize);
         } else if (bitWidth === 32) {
           if (tmpInPos + blockSize > packedEnd) throw new Error("fpf blk");
-          outI32.set(words.subarray(tmpInPos, tmpInPos + blockSize), blockOutPos);
+          outI32.set(
+            words.subarray(tmpInPos, tmpInPos + blockSize),
+            blockOutPos,
+          );
           tmpInPos += blockSize;
         } else {
           const blkWords = groupsPerBlock * bitWidth;
@@ -319,7 +539,8 @@ export function decodeFastPforInto(data, numValues, is128, out) {
         if (exCount > 0) {
           if (bytePos + 1 + exCount > byteSize) throw new Error("fpf pos");
           const maxBits = metaView[bytePos++];
-          if (maxBits <= bitWidth || maxBits > 32) throw new Error("fpf maxBits");
+          if (maxBits <= bitWidth || maxBits > 32)
+            throw new Error("fpf maxBits");
           const k = maxBits - bitWidth;
           if (k === 1) {
             const patch = 1 << bitWidth;
@@ -331,7 +552,8 @@ export function decodeFastPforInto(data, numValues, is128, out) {
           } else {
             const stream = exStreams[k];
             let ptr = exPtrs[k];
-            if (!stream || ptr + exCount > exSizes[k]) throw new Error("fpf ex");
+            if (!stream || ptr + exCount > exSizes[k])
+              throw new Error("fpf ex");
             for (let e = 0; e < exCount; e++) {
               const pos = metaView[bytePos++];
               if (pos >= blockSize) throw new Error("fpf pos");

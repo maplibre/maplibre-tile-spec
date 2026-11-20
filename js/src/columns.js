@@ -89,10 +89,7 @@ export function mValueSlice(layer, column, featureIndex) {
     let total = 0;
     for (let f = 0; f < layer.featureCount; f++) {
       offsets[f] = total;
-      if (
-        present === undefined ||
-        ((present[f >> 3] >> (f & 7)) & 1) === 1
-      ) {
+      if (present === undefined || ((present[f >> 3] >> (f & 7)) & 1) === 1) {
         total += itemCount(layer.geometry, column.scope, f);
       }
     }

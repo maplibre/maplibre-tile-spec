@@ -1,4 +1,4 @@
-import { MltGeometryType, columnValue, mValueSlice } from "./columns.js";
+import { columnValue, MltGeometryType, mValueSlice } from "./columns.js";
 import { decodeRawTileLayers } from "./decoder/layer.js";
 import { decodeNestedColumnJson, floatToJsonValue } from "./decoder/nested.js";
 import {
@@ -20,8 +20,10 @@ function propJsonValue(col, f) {
 function mValueToJson(col, slice) {
   if (col.type === "string") return slice;
   if (col.type === "bool") return Array.from(slice, (v) => v === 1);
-  if (col.type === "f32") return Array.from(slice, (v) => floatToJsonValue(v, true));
-  if (col.type === "f64") return Array.from(slice, (v) => floatToJsonValue(v, false));
+  if (col.type === "f32")
+    return Array.from(slice, (v) => floatToJsonValue(v, true));
+  if (col.type === "f64")
+    return Array.from(slice, (v) => floatToJsonValue(v, false));
   return Array.from(slice);
 }
 
@@ -64,10 +66,13 @@ function buildFeatureGeoJsonGeometry(layer, f) {
 
   switch (type) {
     case MltGeometryType.Point:
-      return { geometry: { type: "Point", coordinates: pos(lineStart(geometry, g0)) } };
+      return {
+        geometry: { type: "Point", coordinates: pos(lineStart(geometry, g0)) },
+      };
     case MltGeometryType.MultiPoint: {
       const coords = new Array(g1 - g0);
-      for (let g = g0; g < g1; g++) coords[g - g0] = pos(lineStart(geometry, g));
+      for (let g = g0; g < g1; g++)
+        coords[g - g0] = pos(lineStart(geometry, g));
       return { geometry: { type: "MultiPoint", coordinates: coords } };
     }
     case MltGeometryType.LineString: {
@@ -94,7 +99,8 @@ function buildFeatureGeoJsonGeometry(layer, f) {
       const r1 = parts[g0 + 1];
       if (r1 <= r0) return { geometry: { type: "Polygon", coordinates: [[]] } };
       const poly = new Array(r1 - r0);
-      for (let r = r0; r < r1; r++) poly[r - r0] = closedRing(rings[r], rings[r + 1]);
+      for (let r = r0; r < r1; r++)
+        poly[r - r0] = closedRing(rings[r], rings[r + 1]);
       return { geometry: { type: "Polygon", coordinates: poly } };
     }
     case MltGeometryType.MultiPolygon: {
@@ -107,7 +113,8 @@ function buildFeatureGeoJsonGeometry(layer, f) {
           polys[g - g0] = [[]];
         } else {
           const poly = new Array(r1 - r0);
-          for (let r = r0; r < r1; r++) poly[r - r0] = closedRing(rings[r], rings[r + 1]);
+          for (let r = r0; r < r1; r++)
+            poly[r - r0] = closedRing(rings[r], rings[r + 1]);
           polys[g - g0] = poly;
         }
       }
@@ -128,7 +135,10 @@ function buildFeatureGeoJsonGeometry(layer, f) {
           indices[t * 3 + 2] - g0,
         ];
       }
-      return { geometry: { type: "MultiPoint", coordinates: coords }, triangles };
+      return {
+        geometry: { type: "MultiPoint", coordinates: coords },
+        triangles,
+      };
     }
     default:
       throw new Error(`unknown geometry type ${type}`);
@@ -144,7 +154,9 @@ export function tileGeoJson(data, options = {}) {
 
   for (const layer of rawLayers) {
     const nestedCols = layer._rawNested
-      ? layer._rawNested.map((n) => decodeNestedColumnJson(n, layer.featureCount))
+      ? layer._rawNested.map((n) =>
+          decodeNestedColumnJson(n, layer.featureCount),
+        )
       : [];
     for (let f = 0; f < layer.featureCount; f++) {
       const rawProps = {};
@@ -155,20 +167,21 @@ export function tileGeoJson(data, options = {}) {
       if (layer.mValues) {
         for (const mCol of layer.mValues) {
           const slice = mValueSlice(layer, mCol, f);
-          if (slice !== undefined) rawProps[`m:${mCol.name}`] = mValueToJson(mCol, slice);
+          if (slice !== undefined)
+            rawProps[`m:${mCol.name}`] = mValueToJson(mCol, slice);
         }
       }
       for (const nCol of nestedCols) {
         rawProps[nCol.name] = nCol.values[f];
       }
       if (layer.geometry.zStep !== undefined) {
-        rawProps["_z_step"] = layer.geometry.zStep;
+        rawProps._z_step = layer.geometry.zStep;
         if (layer.geometry.heightMode === "relativeToGround") {
-          rawProps["_height_mode"] = "relative_to_ground";
+          rawProps._height_mode = "relative_to_ground";
         }
       }
-      rawProps["_layer"] = layer.name;
-      rawProps["_extent"] = layer.extent;
+      rawProps._layer = layer.name;
+      rawProps._extent = layer.extent;
 
       const properties = {};
       for (const k of Object.keys(rawProps).sort()) properties[k] = rawProps[k];

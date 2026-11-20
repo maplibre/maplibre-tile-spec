@@ -1,14 +1,10 @@
-import { EMPTY_U32, allocU32, checkScratchBytes } from "./binary.js";
+import { allocU32, checkScratchBytes, EMPTY_U32 } from "./binary.js";
 
 let triSizes = new Int32Array(4096);
 let triFrames = new Int32Array(2048);
 
 function buildSubtreeSizes(symbols, sizes, triangles) {
-  const symI32 = new Int32Array(
-    symbols.buffer,
-    symbols.byteOffset,
-    triangles,
-  );
+  const symI32 = new Int32Array(symbols.buffer, symbols.byteOffset, triangles);
   sizes[triangles] = 0;
   sizes[(triangles - 1) | 0] = 4; // (1 << 2) | 0
   let prevSz = 1;
@@ -29,7 +25,14 @@ function buildSubtreeSizes(symbols, sizes, triangles) {
   return bad;
 }
 
-function unfoldAllTrees(sizes, cyclesI32, frames, outI32, triangles, cyclesLen) {
+function unfoldAllTrees(
+  sizes,
+  cyclesI32,
+  frames,
+  outI32,
+  triangles,
+  cyclesLen,
+) {
   let outPos = 0;
   let root = 0;
   let cyclePos = 0;

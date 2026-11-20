@@ -39,7 +39,8 @@ export function decodeFsstBytes(symbolLengths, symbolTable, corpus) {
       let hi = 0;
       const nLo = len < 4 ? len : 4;
       for (let k = 0; k < nLo; k++) lo |= symbolTable[pos + k] << (k << 3);
-      for (let k = 4; k < len; k++) hi |= symbolTable[pos + k] << ((k - 4) << 3);
+      for (let k = 4; k < len; k++)
+        hi |= symbolTable[pos + k] << ((k - 4) << 3);
       symLo[i] = lo >>> 0;
       symHi[i] = hi >>> 0;
     }

@@ -21,14 +21,17 @@ import {
   takeU32,
   takeU64,
 } from "../codecs/binary.js";
-import { unpackBitpackU32Into, unpackBitpackU64Into } from "../codecs/bitpack.js";
+import {
+  unpackBitpackU32Into,
+  unpackBitpackU64Into,
+} from "../codecs/bitpack.js";
 import { decodeFastPforInto } from "../codecs/fastpfor.js";
 import { decodeMortonDelta } from "../codecs/morton.js";
 import {
+  maskBitmapTail,
   PRES_BITMAP,
   PRES_RUNS,
   PRES_SPARSE,
-  maskBitmapTail,
   readPresenceBits,
   splitPresenceBytes,
 } from "../codecs/presence.js";
@@ -675,8 +678,10 @@ function decode64Core(s, signed, owned) {
   return signed ? asI64(words) : words;
 }
 
-export const decodeStreamI64 = (s, owned = false) => decode64Core(s, true, owned);
-export const decodeStreamU64 = (s, owned = false) => decode64Core(s, false, owned);
+export const decodeStreamI64 = (s, owned = false) =>
+  decode64Core(s, true, owned);
+export const decodeStreamU64 = (s, owned = false) =>
+  decode64Core(s, false, owned);
 
 export function decodeRawFloatStream(s, isF32) {
   if (s.l !== LG_NONE || s.p !== PH_NONE) throw new Error("float enc");

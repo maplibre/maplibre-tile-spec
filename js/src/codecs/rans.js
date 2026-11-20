@@ -1,8 +1,8 @@
 import {
-  EMPTY_I32,
   allocI32,
   checkScratchBytes,
   cursor,
+  EMPTY_I32,
   readBytes,
   readVarintU32,
   takeU32,
@@ -258,7 +258,7 @@ export function decodeRansVertices(data, runOffsets, numWords) {
       }
       rawBit += rb;
     }
-    const mag = ((slabHead[slot] << rb) | low) | 0;
+    const mag = (slabHead[slot] << rb) | low | 0;
     const sign = -slabNeg[slot];
     return ((mag ^ sign) - sign) | 0;
   };
@@ -276,7 +276,8 @@ export function decodeRansVertices(data, runOffsets, numWords) {
     const ex1 = stepLane(2, f1);
     const ey0 = stepLane(1, slabDyCtx[ex0] + f0);
     const ey1 = stepLane(3, slabDyCtx[ex1] + f1);
-    bad |= slabInvalid[ex0] | slabInvalid[ey0] | slabInvalid[ex1] | slabInvalid[ey1];
+    bad |=
+      slabInvalid[ex0] | slabInvalid[ey0] | slabInvalid[ex1] | slabInvalid[ey1];
 
     x = (x + readDelta(ex0)) | 0;
     y = (y + readDelta(ey0)) | 0;
@@ -308,7 +309,7 @@ export function decodeRansVertices(data, runOffsets, numWords) {
     }
     laneBytes[l] = null;
   }
-  if (((rawBit + 7) >>> 3) !== rawLen) throw new Error("rans raw len");
+  if ((rawBit + 7) >>> 3 !== rawLen) throw new Error("rans raw len");
   if (firstScratch.length > 65536) firstScratch = null;
   return out;
 }

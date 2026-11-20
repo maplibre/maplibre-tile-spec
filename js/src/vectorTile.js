@@ -1,7 +1,7 @@
 import {
-  MltGeometryType,
   columnValue,
   decodeTileColumns,
+  MltGeometryType,
   mValueSlice,
 } from "./columns.js";
 import {

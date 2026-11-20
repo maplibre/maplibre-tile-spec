@@ -19,16 +19,25 @@ import {
 import { trimFsstBuffers } from "../codecs/fsst.js";
 import { deinterleaveU64 } from "../codecs/morton.js";
 import {
-  PRES_BITMAP,
   bitmapPopcount,
   isBitSet,
   normalizePresentBitmap,
+  PRES_BITMAP,
   readPresenceBits,
   scatterPresent,
 } from "../codecs/presence.js";
-import { GEOM_MESH, decodeGeometry, vertexIndexAt } from "./geometry.js";
+import { decodeGeometry, GEOM_MESH, vertexIndexAt } from "./geometry.js";
 import { parseColumnValues02, parseNested02 } from "./nested.js";
 import {
+  decodeBoolBitmap,
+  decodeBoolValues,
+  decodeFloatColumnValues,
+  decodeStreamI8,
+  decodeStreamI32,
+  decodeStreamI64,
+  decodeStreamU8,
+  decodeStreamU32,
+  decodeStreamU64,
   FM_BYTES,
   FM_INT,
   FM_STR,
@@ -37,6 +46,8 @@ import {
   HK_FLOAT,
   HK_INT,
   NO_Z,
+  parseStream01,
+  parseStream02,
   ST_DATA_FSST,
   ST_DATA_NONE,
   ST_DATA_SHARED,
@@ -53,17 +64,6 @@ import {
   ST_OFF_TREE_CYC,
   ST_OFF_TREE_SYM,
   ST_OFF_VERTEX,
-  decodeBoolBitmap,
-  decodeBoolValues,
-  decodeFloatColumnValues,
-  decodeStreamI32,
-  decodeStreamI64,
-  decodeStreamI8,
-  decodeStreamU32,
-  decodeStreamU64,
-  decodeStreamU8,
-  parseStream01,
-  parseStream02,
 } from "./stream.js";
 import {
   decodeSharedDictColumns,

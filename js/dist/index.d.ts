@@ -3,8 +3,8 @@ import type {
   MltColumnValues,
   MltGeometryColumns,
   MltGeometryType,
-  MltMValueColumn,
   MltHeightMode,
+  MltMValueColumn,
   MltNamedColumn,
 } from "./columns.js";
 

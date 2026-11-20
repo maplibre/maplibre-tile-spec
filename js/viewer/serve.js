@@ -24,8 +24,15 @@ const MIME_TYPES = {
 
 const server = createServer(async (req, res) => {
   try {
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-    if (url.pathname === "/" || url.pathname === "/js" || url.pathname === "/js/") {
+    const url = new URL(
+      req.url ?? "/",
+      `http://${req.headers.host ?? "localhost"}`,
+    );
+    if (
+      url.pathname === "/" ||
+      url.pathname === "/js" ||
+      url.pathname === "/js/"
+    ) {
       res.writeHead(302, { Location: `/js/viewer/meshes.html${url.search}` });
       res.end();
       return;
@@ -33,10 +40,13 @@ const server = createServer(async (req, res) => {
 
     const decodedPath = decodeURIComponent(url.pathname).replace(/^\/+/, "");
     if (
-      (decodedPath === "js/dist/columns.js" || decodedPath === "js/dist/index.js") &&
+      (decodedPath === "js/dist/columns.js" ||
+        decodedPath === "js/dist/index.js") &&
       !(await stat(path.resolve(ROOT, decodedPath)).catch(() => null))
     ) {
-      res.writeHead(302, { Location: `/${decodedPath.replace("js/dist/", "js/src/")}` });
+      res.writeHead(302, {
+        Location: `/${decodedPath.replace("js/dist/", "js/src/")}`,
+      });
       res.end();
       return;
     }
@@ -67,7 +77,9 @@ const server = createServer(async (req, res) => {
         return;
       }
       const start = Number(match[1]);
-      const end = match[2] ? Math.min(Number(match[2]), info.size - 1) : info.size - 1;
+      const end = match[2]
+        ? Math.min(Number(match[2]), info.size - 1)
+        : info.size - 1;
       if (start >= info.size || start > end) {
         res.writeHead(416, { "Content-Range": `bytes */${info.size}` });
         res.end();

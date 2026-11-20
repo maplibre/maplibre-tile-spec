@@ -5,7 +5,6 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
-  MltGeometryType,
   columnValue,
   decodeTile,
   decodeTile3D,
@@ -21,7 +20,10 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MESHES_DIR = path.resolve(__dirname, "../../test/fixtures/meshes/tiles");
-const OSM_XLARGE = path.resolve(__dirname, "../../test/fixtures/osm/xlarge.mlt");
+const OSM_XLARGE = path.resolve(
+  __dirname,
+  "../../test/fixtures/osm/xlarge.mlt",
+);
 const SYNTHETIC_DIR = path.resolve(__dirname, "../../test/synthetic");
 const VIEWER_HTML = path.resolve(__dirname, "../viewer/meshes.html");
 
@@ -46,9 +48,7 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
 
   for (const rel of meshTiles) {
     it(`decodes 3D mesh tile ${rel} across decodeTileColumns, featureGeometry, decodeTile3D, and tileGeoJson`, () => {
-      const data = new Uint8Array(
-        readFileSync(path.join(MESHES_DIR, rel)),
-      );
+      const data = new Uint8Array(readFileSync(path.join(MESHES_DIR, rel)));
       const geo = tileGeoJson(data);
       const { layers } = decodeTileColumns(data);
       assert.equal(layers.length, 1);
@@ -95,7 +95,10 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
         assert.equal(f3d.properties.gml_id, expected.properties.gml_id);
         assert.deepEqual(f3d.loadGeometry(), [expected.geometry.coordinates]);
         assert.deepEqual(triples(f3d.loadTriangles()), expected.triangles);
-        assert.deepEqual(f3d.loadMValues("part"), expected.properties["m:part"]);
+        assert.deepEqual(
+          f3d.loadMValues("part"),
+          expected.properties["m:part"],
+        );
         assert.equal(f3d.loadMValues("missing"), undefined);
         assert.deepEqual(
           mValueSlice(layer, partCol, f),
@@ -115,7 +118,9 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
     const f3 = new Uint8Array(
       readFileSync(path.join(SYNTHETIC_DIR, "0x01/fpf_align_2.mlt")),
     );
-    const combined = new Uint8Array(f1.length + f2.length + f3.length + f2.length);
+    const combined = new Uint8Array(
+      f1.length + f2.length + f3.length + f2.length,
+    );
     combined.set(f1, 0);
     combined.set(f2, f1.length);
     combined.set(f3, f1.length + f2.length);
@@ -146,7 +151,10 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
     const dist = layer.mValues.find((c) => c.name === "dist");
     assert.throws(() => columnValue(dist, 0), TypeError);
     assert.throws(() => mValueSlice(layer, dist, -1), RangeError);
-    assert.throws(() => mValueSlice(layer, dist, layer.featureCount), RangeError);
+    assert.throws(
+      () => mValueSlice(layer, dist, layer.featureCount),
+      RangeError,
+    );
 
     assert.equal(toElevation(1234, -2), 12.34);
     assert.equal(toElevation(12_345, -3), 12.345);
@@ -166,20 +174,29 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
         assert.ok(fg.vertices.length >= 0);
       }
     }
-    assert.ok(totalFeatures > 1000, `expected > 1000 features, got ${totalFeatures}`);
+    assert.ok(
+      totalFeatures > 1000,
+      `expected > 1000 features, got ${totalFeatures}`,
+    );
   });
 
   it("viewer/meshes.html has valid importmap and module script targeting @maplibre/mlt-js", async () => {
     const html = readFileSync(VIEWER_HTML, "utf-8");
-    const mapMatch = /<script type="importmap">\s*([\s\S]*?)\s*<\/script>/.exec(html);
+    const mapMatch = /<script type="importmap">\s*([\s\S]*?)\s*<\/script>/.exec(
+      html,
+    );
     assert.ok(mapMatch, "missing importmap in viewer/meshes.html");
     const importMap = JSON.parse(mapMatch[1]);
     const relTarget = importMap.imports["@maplibre/mlt-js"];
     assert.equal(relTarget, "../dist/columns.js");
     const resolvedEntry = path.resolve(path.dirname(VIEWER_HTML), relTarget);
-    assert.ok(readFileSync(resolvedEntry, "utf-8").includes("decodeTileColumns"));
+    assert.ok(
+      readFileSync(resolvedEntry, "utf-8").includes("decodeTileColumns"),
+    );
 
-    const modMatch = /<script type="module">\s*([\s\S]*?)\s*<\/script>/.exec(html);
+    const modMatch = /<script type="module">\s*([\s\S]*?)\s*<\/script>/.exec(
+      html,
+    );
     assert.ok(modMatch, "missing module script in viewer/meshes.html");
     const syntaxCheck = spawnSync(
       process.execPath,
@@ -223,7 +240,10 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
     const sample = new Uint8Array(
       readFileSync(path.join(MESHES_DIR, "16/34588/21180.mlt")),
     );
-    assert.deepEqual(distCols.decodeTileColumns(sample), decodeTileColumns(sample));
+    assert.deepEqual(
+      distCols.decodeTileColumns(sample),
+      decodeTileColumns(sample),
+    );
     assert.deepEqual(distFull.tileGeoJson(sample), tileGeoJson(sample));
 
     const pkgDir = path.resolve(path.dirname(VIEWER_HTML), "..");
@@ -236,7 +256,10 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
       "LICENSE-APACHE",
       "README.md",
     ]) {
-      assert.ok(existsSync(path.join(pkgDir, rel)), `missing required package file ${rel}`);
+      assert.ok(
+        existsSync(path.join(pkgDir, rel)),
+        `missing required package file ${rel}`,
+      );
     }
   });
 
@@ -265,7 +288,8 @@ describe("Pure JS MLT Decoder - 3D CityGML Meshes & Columnar API", () => {
     // [size=14, tag=2, name="x", hdr=0x16(uniform Point, extent=4096), featCount=100_000_000,
     //  layout=0x00, vtxEnc=0x18(delta+varint), vtxByteLen=1, 0x00]
     const bomb = new Uint8Array([
-      14, 2, 1, 0x78, 0x16, 0x80, 0xc2, 0xd7, 0x2f, 0x00, 0x18, 1, 0x00, 0x00, 0x00,
+      14, 2, 1, 0x78, 0x16, 0x80, 0xc2, 0xd7, 0x2f, 0x00, 0x18, 1, 0x00, 0x00,
+      0x00,
     ]);
     assert.throws(() => decodeTileColumns(bomb), /memory limit exceeded/);
   });

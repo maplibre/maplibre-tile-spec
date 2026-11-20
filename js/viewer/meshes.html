@@ -184,7 +184,7 @@ async function archiveTiles(source, name) {
   const h = await archive.getHeader();
   const [u0, v1] = mercator(h.minLon, h.minLat), [u1, v0] = mercator(h.maxLon, h.maxLat);
   return {
-    about: `${name}: zooms ${h.minZoom}–${h.maxZoom}, ${h.numAddressedTiles.toLocaleString()} tiles`,
+    about: `${name}: zooms ${h.minZoom}-${h.maxZoom}, ${h.numAddressedTiles.toLocaleString()} tiles`,
     minZoom: h.minZoom, maxZoom: h.maxZoom, bounds: [u0, v0, u1, v1], centre: mercator(h.centerLon, h.centerLat),
     has: () => true,
     get: async (z, x, y, signal) => (await archive.getZxy(z, x, y, signal))?.data,
@@ -210,7 +210,7 @@ async function directoryTiles(base) {
   const off = ([, x, y]) => Math.hypot((x + 0.5) / n - cu, (y + 0.5) / n - cv);
   const [, x, y] = all.filter(([z]) => z === maxZoom).reduce((a, b) => (off(b) < off(a) ? b : a));
   return {
-    about: `${base}: zooms ${minZoom}–${maxZoom}, ${keys.size.toLocaleString()} tiles`,
+    about: `${base}: zooms ${minZoom}-${maxZoom}, ${keys.size.toLocaleString()} tiles`,
     minZoom, maxZoom, bounds: [u0, v0, u1, v1], centre: [(x + 0.5) / n, (y + 0.5) / n],
     has: (z, x, y) => keys.has(`${z}/${x}/${y}`),
     async get(z, x, y, signal) {
@@ -623,7 +623,7 @@ function showLods() {
   }
   const zooms = (i) => {
     const max = tiles.maxZoom - i, min = i < LODS.length - 1 ? max : tiles.minZoom;
-    return min === max ? `z${max}` : `z${min}–${max}`;
+    return min === max ? `z${max}` : `z${min}-${max}`;
   };
   $("lodLegend").innerHTML = LODS.slice(0, tiles.maxZoom - tiles.minZoom + 1)
     .map(({ name, tint }, i) => `<span style="background:#${tint.toString(16).padStart(6, "0")}"></span>${name} ${zooms(i)}`).join("");

@@ -1,13 +1,15 @@
 import {
-  EMPTY_I32,
-  EMPTY_U32,
   allocI32,
   allocU8,
   allocU32,
+  EMPTY_I32,
+  EMPTY_U32,
 } from "../codecs/binary.js";
 import { decodeRansVertices } from "../codecs/rans.js";
 import { decodeTrees } from "../codecs/tri.js";
 import {
+  decodeStreamI32,
+  decodeStreamU32,
   LG_RANS,
   NO_Z,
   ST_DATA_MORTON,
@@ -21,8 +23,6 @@ import {
   ST_OFF_TREE_SYM,
   ST_OFF_VERTEX,
   ST_PRESENT,
-  decodeStreamI32,
-  decodeStreamU32,
 } from "./stream.js";
 
 export const GEOM_POINT = 0;
@@ -335,7 +335,11 @@ export function decodeGeometry(
     const triOff = triangleOffsets ?? new Uint32Array([0]);
     if (triOff.length !== runs.length) throw new Error("mesh tlen");
     const indices = indexBuffer ?? EMPTY_U32;
-    const idxI32 = new Int32Array(indices.buffer, indices.byteOffset, indices.length);
+    const idxI32 = new Int32Array(
+      indices.buffer,
+      indices.byteOffset,
+      indices.length,
+    );
     const featCount = types.length | 0;
     let neg = 0;
     for (let f = 0; f < featCount; f = (f + 1) | 0) {
@@ -415,7 +419,8 @@ export function decodeGeometry(
     geom.zStep = zStep;
     geom.heightMode = heightMode === 1 ? "relativeToGround" : "absolute";
   }
-  if (levels.geometryOffsets !== undefined) geom.geometryOffsets = levels.geometryOffsets;
+  if (levels.geometryOffsets !== undefined)
+    geom.geometryOffsets = levels.geometryOffsets;
   if (levels.partOffsets !== undefined) geom.partOffsets = levels.partOffsets;
   if (levels.ringOffsets !== undefined) geom.ringOffsets = levels.ringOffsets;
   if (triangleOffsets !== undefined) geom.triangleOffsets = triangleOffsets;

@@ -1,12 +1,20 @@
 import { peekU8, readStr, readU8, readVarintU32 } from "../codecs/binary.js";
 import {
+  isBitSet,
   PRES_BITMAP,
   PRES_RUNS,
   PRES_SPARSE,
-  isBitSet,
   popcountPresencePayload,
 } from "../codecs/presence.js";
 import {
+  decodeBoolValues,
+  decodeFloatColumnValues,
+  decodeStreamI8,
+  decodeStreamI32,
+  decodeStreamI64,
+  decodeStreamU8,
+  decodeStreamU32,
+  decodeStreamU64,
   FM_BOOL,
   FM_FLOAT,
   FM_INT,
@@ -14,19 +22,11 @@ import {
   LG_DICT,
   LG_NONE,
   LG_RUNS,
+  parseStream02,
   ST_DATA_NONE,
   ST_DATA_SINGLE,
   ST_LEN_NESTED,
   ST_PRESENT,
-  decodeBoolValues,
-  decodeFloatColumnValues,
-  decodeStreamI32,
-  decodeStreamI64,
-  decodeStreamI8,
-  decodeStreamU32,
-  decodeStreamU64,
-  decodeStreamU8,
-  parseStream02,
 } from "./stream.js";
 import { decodeStringsDense, parseStrings02 } from "./strings.js";
 
@@ -42,13 +42,25 @@ export function parseColumnValues02(r, dataType, impliedCount) {
     throw new Error("explicit count");
   }
   if (dataType === 2) {
-    return { dt: 2, s: parseStream02(r, FM_BOOL, 4, ST_DATA_NONE, impliedCount), d: null };
+    return {
+      dt: 2,
+      s: parseStream02(r, FM_BOOL, 4, ST_DATA_NONE, impliedCount),
+      d: null,
+    };
   }
   if (dataType <= 6) {
-    return { dt: dataType, s: parseStream02(r, FM_INT, 4, ST_DATA_NONE, impliedCount), d: null };
+    return {
+      dt: dataType,
+      s: parseStream02(r, FM_INT, 4, ST_DATA_NONE, impliedCount),
+      d: null,
+    };
   }
   if (dataType <= 8) {
-    return { dt: dataType, s: parseStream02(r, FM_INT, 8, ST_DATA_NONE, impliedCount), d: null };
+    return {
+      dt: dataType,
+      s: parseStream02(r, FM_INT, 8, ST_DATA_NONE, impliedCount),
+      d: null,
+    };
   }
   if (dataType <= 10) {
     const width = dataType === 9 ? 4 : 8;
@@ -126,7 +138,8 @@ function parseInterior(r, kind, presence, count, perRow, depth) {
     for (let i = 0; i < fieldCount; i++) {
       let childCount = count;
       if (shapes !== null) {
-        if (parseNodeByte(peekU8(r)).hasPres) throw new Error("shaped child pres");
+        if (parseNodeByte(peekU8(r)).hasPres)
+          throw new Error("shaped child pres");
         childCount = count < 0 ? -1 : shapePresentCount(shapes, i);
       }
       const field = parseNode(r, true, childCount, depth + 1);
@@ -177,11 +190,7 @@ function parseNode(r, named, parentCount, depth) {
     presence = parseStream02(r, FM_BOOL, 4, ST_PRESENT, nodeCount);
   }
   const bodyCount =
-    nodeCount < 0
-      ? -1
-      : presence !== null
-        ? presPopcount(presence)
-        : nodeCount;
+    nodeCount < 0 ? -1 : presence !== null ? presPopcount(presence) : nodeCount;
 
   if (typ.data <= 11) {
     if (typ.shapes) throw new Error("shaped leaf");
@@ -292,7 +301,8 @@ function buildOffsets(lengths) {
 }
 
 function decodeTree(raw, overridePres) {
-  const presence = overridePres ?? (raw.presence ? decodeBoolValues(raw.presence) : null);
+  const presence =
+    overridePres ?? (raw.presence ? decodeBoolValues(raw.presence) : null);
   if (raw.k === 0) {
     return { k: 0, presence, flat: decodeLeafFlat(raw.cv) };
   }
@@ -384,7 +394,8 @@ function leafJsonAt(flat, idx) {
 function evalRow(node, row) {
   let own = row;
   if (node.presence !== null) {
-    if (row >= node.presence.length || node.presence[row] === 0) return undefined;
+    if (row >= node.presence.length || node.presence[row] === 0)
+      return undefined;
     own = 0;
     for (let i = 0; i < row; i++) own += node.presence[i];
   }

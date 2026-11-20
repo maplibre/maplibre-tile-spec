@@ -1,1 +1,4091 @@
-var dn=new TextDecoder("utf-8",{fatal:!0}),Pt=new Uint8Array(new Uint16Array([1]).buffer)[0]===1,wn=16384,Fo=262144,gn=67108864,Re=new Uint32Array(wn),ze=0,De=new BigUint64Array(1024),Lt=gn,Ce=new Uint32Array(0),Nt=new Int32Array(0);function yn(e=gn){if(e!==1/0&&(!Number.isFinite(e)||e<0))throw new RangeError("maxBytes must be a non-negative number or Infinity");Lt=e}function te(e){if(!Number.isFinite(e)||e<0||e>Lt)throw new RangeError("memory limit exceeded")}function fe(e){if(!Number.isFinite(e)||e<0||e>Lt)throw new RangeError("memory limit exceeded");Lt-=e}function W(e){return fe(e),new Uint8Array(e)}function Ot(e){return fe(e),new Int8Array(e)}function K(e){return fe(e*4),new Uint32Array(e)}function Ee(e){return fe(e*4),new Int32Array(e)}function Le(e){return fe(e*4),new Float32Array(e)}function re(e){return fe(e*8),new Float64Array(e)}function xr(e){return fe(e*8),new BigUint64Array(e)}function ot(e,r=8){return fe(e*r),new Array(e)}function $e(){ze=0}function pn(){ze=0,Re.length>Fo&&(Re=new Uint32Array(wn)),De.length>16384&&(De=new BigUint64Array(1024))}function q(e){if(e===0)return Ce;te(e*4);let r=ze+e;if(r<=Re.length){let n=Re.subarray(ze,r);return ze=r,n}let t=Re.length*2;for(;t<e;)t*=2;return Re=new Uint32Array(t),ze=e,Re.subarray(0,e)}function kt(e){if(te(e*8),e>De.length){let r=De.length*2;for(;r<e;)r*=2;De=new BigUint64Array(r)}return De.subarray(0,e)}var ce=(e,r=0,t=e.length)=>({b:e,p:r,e:t});function st(e){if(e.p>=e.e)throw new RangeError("eof");return e.b[e.p]}function C(e){if(e.p>=e.e)throw new RangeError("eof");return e.b[e.p++]}function j(e,r){let t=e.p,n=t+r;if(!Number.isInteger(r)||r<0||n>e.e)throw new RangeError("eof");return e.p=n,e.b.subarray(t,n)}function mn(e,r){let t=e.p,n=t+r;if(!Number.isInteger(r)||r<0||n>e.e)throw new RangeError("eof");return e.p=n,{b:e.b,p:t,e:n}}function En(e){return e.length===0?"":dn.decode(e)}function Q(e){let r=M(e);if(r===0)return"";let t=e.p,n=t+r;if(n>e.e)throw new RangeError("eof");e.p=n;let o=e.b;if(r<=16){let s=0;for(let i=t;i<n;i++)s|=o[i];if(s<128)return r===1?String.fromCharCode(o[t]):r===2?String.fromCharCode(o[t],o[t+1]):r===3?String.fromCharCode(o[t],o[t+1],o[t+2]):r===4?String.fromCharCode(o[t],o[t+1],o[t+2],o[t+3]):String.fromCharCode.apply(null,o.subarray(t,n))}return dn.decode(o.subarray(t,n))}function M(e){let r=e.b,t=e.e,n=e.p;if(n>=t)throw new RangeError("eof");let o=r[n++];if(o<128)return e.p=n,o;let s=o&127;if(n>=t)throw new RangeError("eof");if(o=r[n++],o<128){if(o===0)throw new Error("varint");return e.p=n,s|o<<7}s|=(o&127)<<7;let i=14;for(;;){if(n>=t)throw new RangeError("eof");if(o=r[n++],i===28&&o>=16)throw new RangeError("overflow");if(s|=(o&127)<<i,o<128){if(o===0)throw new Error("varint");return e.p=n,s>>>0}i+=7}}function de(e){let r=e.b,t=e.e,n=e.p;if(n>=t)throw new RangeError("eof");let o=r[n++];if(o<128)return e.p=n,BigInt(o);let s=BigInt(o&127),i=7n;for(;;){if(n>=t)throw new RangeError("eof");if(o=r[n++],i===63n&&o>1)throw new RangeError("overflow");if(s|=BigInt(o&127)<<i,o<128){if(o===0)throw new Error("varint");return e.p=n,s}i+=7n}}function xn(e){let r=de(e);return r>>1n^-(r&1n)}function _n(e,r,t){let n=new Int32Array(t.buffer,t.byteOffset,r),o=e.length|0,s=o-20|0,i=r-3|0,l=0,c=0;for(;c<i&&l<=s;){let f=e[l],h=e[l+1|0],a=e[l+2|0],w=e[l+3|0];if((f|h|a|w)<128){n[c]=f,n[c+1|0]=h,n[c+2|0]=a,n[c+3|0]=w,l=l+4|0,c=c+4|0;continue}let d=f;if(l=l+1|0,d<128){n[c++]=d;continue}let g=d&127;if(d=e[l++],d<128){if(d===0)throw new Error("varint");n[c++]=g|d<<7;continue}if(g|=(d&127)<<7,d=e[l++],d<128){if(d===0)throw new Error("varint");n[c++]=g|d<<14;continue}if(g|=(d&127)<<14,d=e[l++],d<128){if(d===0)throw new Error("varint");n[c++]=g|d<<21;continue}if(g|=(d&127)<<21,d=e[l++],d>=16||d===0)throw new RangeError(d===0?"varint":"overflow");n[c++]=g|d<<28}let u={b:e,p:l,e:o};for(;c<r;c++)n[c]=M(u);return t}function Sn(e){let r=e.length;if(r===0)return Ce;let t=q(r),n={b:e,p:0,e:r},o=0;for(;n.p<r;)t[o++]=M(n);return t.subarray(0,o)}function An(e,r,t){let n={b:e,p:0,e:e.length};for(let o=0;o<r;o++)t[o]=de(n);return t}function Tn(e){if(e.length===0)return new BigUint64Array(0);let r=kt(e.length),t={b:e,p:0,e:e.length},n=0;for(;t.p<t.e;)r[n++]=de(t);return r.subarray(0,n)}function Ut(e,r,t,n,o){if(e.length!==r*t)throw new Error("raw size");if(r===0)return o;if(Pt&&(e.byteOffset&t-1)===0)return o.set(new n(e.buffer,e.byteOffset,r)),o;let s=new DataView(e.buffer,e.byteOffset,e.byteLength);if(n===Uint32Array)for(let i=0;i<r;i++)o[i]=s.getUint32(i*4,!0);else if(n===Float32Array)for(let i=0;i<r;i++)o[i]=s.getFloat32(i*4,!0);else if(n===Float64Array)for(let i=0;i<r;i++)o[i]=s.getFloat64(i*8,!0);else for(let i=0;i<r;i++)o[i]=s.getBigUint64(i*8,!0);return o}var bn=(e,r,t)=>Ut(e,r,4,Uint32Array,t),In=(e,r,t)=>Ut(e,r,8,BigUint64Array,t),vn=(e,r,t)=>t?Ut(e,r,4,Float32Array,Le(r)):Ut(e,r,8,Float64Array,re(r));var Rn=new Uint32Array(256),Ln=new Uint32Array(256),Un=new Uint8Array(256),we=new Uint8Array(16384),_r=new DataView(we.buffer),Ye=new Uint8Array(16384);function Pn(){we.length>1048576&&(we=new Uint8Array(16384),_r=new DataView(we.buffer)),Ye.length>1048576&&(Ye=new Uint8Array(16384))}function Bt(e,r,t){let n=e.length,o=n<255?n:255,s=r.length,i=0;for(let a=0;a<n;a++){let w=e[a];if(w>8||i+w>s)throw new Error("fsst table");if(a<o){Un[a]=w;let d=0,g=0,y=w<4?w:4;for(let m=0;m<y;m++)d|=r[i+m]<<(m<<3);for(let m=4;m<w;m++)g|=r[i+m]<<(m-4<<3);Rn[a]=d>>>0,Ln[a]=g>>>0}i+=w}let l=t.length,c=l*8+8;if(te(c),we.length<c){let a=we.length*2;for(;a<c;)a*=2;we=new Uint8Array(a),_r=new DataView(we.buffer)}let u=we,f=_r,h=0;for(let a=0;a<l;a++){let w=t[a];if(w<o)f.setUint32(h,Rn[w],!0),f.setUint32(h+4,Ln[w],!0),h+=Un[w];else if(w===255){if(++a>=l)throw new Error("fsst escape");u[h++]=t[a]}else throw new Error("fsst code")}return u.subarray(0,h)}function Nn(e,r){if((e.length&1)!==0)throw new Error("front odd");let t=e.length>>>1,n=q(t),o=0,s=0,i=0;for(let h=0;h<t;h++){let a=e[h],w=e[t+h];if(a>s)throw new Error("front prefix");if(i+=w,i>r.length)throw new Error("front suffix");s=a+w,n[h]=s,o+=s}if(i!==r.length)throw new Error("front trailing");if(te(o),Ye.length<o){let h=Ye.length*2;for(;h<o;)h*=2;Ye=new Uint8Array(h)}let l=Ye.subarray(0,o),c=0,u=0,f=0;for(let h=0;h<t;h++){let a=e[h],w=e[t+h],d=c;a>0&&(l.copyWithin(c,u,u+a),c+=a),w>0&&(l.set(r.subarray(f,f+w),c),f+=w,c+=w),u=d}return{bytes:l,entryLengths:n}}function Bn(e){return[On(e),On(e>>1n)]}function On(e){let r=e&0x5555555555555555n;return r=(r|r>>1n)&0x3333333333333333n,r=(r|r>>2n)&0x0f0f0f0f0f0f0f0fn,r=(r|r>>4n)&0x00ff00ff00ff00ffn,r=(r|r>>8n)&0x0000ffff0000ffffn,r=(r|r>>16n)&0x00000000ffffffffn,Number(r)>>>0}function kn(e){return e&=1431655765,e=(e|e>>>1)&858993459,e=(e|e>>>2)&252645135,e=(e|e>>>4)&16711935,(e|e>>>8)&65535}function Mn(e,r,t){if(r>16)throw new Error("morton bits");let n=r===0?0:(1<<r)-1,o=e.length,s=Ee(o*2),i=0;for(let l=0;l<o;l++){i=i+(e[l]|0)|0;let c=i>>>0;s[l*2]=(kn(c)&n)-t|0,s[l*2+1]=(kn(c>>>1)&n)-t|0}return s}var ge=0,Ue=1,xe=2,He=new Uint8Array(256);for(let e=1;e<256;e++)He[e]=He[e>>1]+(e&1);function Xe(e,r){let t=r+7>>>3,n=r&7;if(n===0)return e.length===t?e:e.subarray(0,t);let o=(1<<n)-1;if((e[t-1]&~o)===0&&e.length===t)return e;let s=e.slice(0,t);return s[t-1]&=o,s}function ae(e,r){let t=r>>>3,n=0;for(let s=0;s<t;s++)n+=He[e[s]];let o=r&7;return o>0&&(n+=He[e[t]&(1<<o)-1]),n}var Mt=(e,r)=>e===void 0||(e[r>>>3]>>>(r&7)&1)===1;function Ke(e,r){if(!(e===void 0||r===0))return ae(e,r)===r?void 0:Xe(e,r)}function it(e,r,t,n){let o=r>>>3,s=0;for(let l=0;l<o;l++){let c=e[l];if(c===0)continue;let u=l<<3;if(c===255){n[u]=t[s],n[u+1]=t[s+1],n[u+2]=t[s+2],n[u+3]=t[s+3],n[u+4]=t[s+4],n[u+5]=t[s+5],n[u+6]=t[s+6],n[u+7]=t[s+7],s+=8;continue}for(;c!==0;){let f=c&-c;n[u+31-Math.clz32(f)]=t[s++],c^=f}}let i=r&7;if(i>0){let l=e[o]&(1<<i)-1,c=o<<3;for(;l!==0;){let u=l&-l;n[c+31-Math.clz32(u)]=t[s++],l^=u}}}function lt(e,r,t){let n=r+7>>>3;if(t===ge)return Xe(j(e,n),r);if(t===xe){let o=n+7>>>3,s=j(e,o);for(let u=n;u<o*8;u++)if((s[u>>>3]>>>(u&7)&1)!==0)throw new Error("sparse summary");let i=j(e,ae(s,n)),l=W(n),c=0;for(let u=0;u<n;u++)if((s[u>>>3]>>>(u&7)&1)!==0){let f=i[c++];if(f===0)throw new Error("sparse zero");l[u]=f}return Xe(l,r)}if(t===Ue){let o=W(n),s=0,i=!1,l=BigInt(r);for(;s<r;){let c=de(e);if(c>l-BigInt(s))throw new Error("runs overflow");let u=s+Number(c);if(i){let f=s;for(;f<u&&(f&7)!==0;)o[f>>>3]|=1<<(f&7),f++;let h=u&-8;for(f<h&&(o.fill(255,f>>>3,h>>>3),f=h);f<u;)o[f>>>3]|=1<<(f&7),f++}s=u,i=!i}return o}throw new Error("presence coding")}function Fn(e,r,t){let n=e.p,o=r+7>>>3;if(t===ge)return j(e,o);if(t===xe){let s=o+7>>>3,i=j(e,s),l=0;for(let c=0;c<s;c++)l+=He[i[c]];return j(e,l),e.b.subarray(n,e.p)}if(t===Ue){let s=0,i=BigInt(r);for(;s<r;){let l=de(e);if(l>i-BigInt(s))throw new Error("runs overflow");s+=Number(l)}return e.b.subarray(n,e.p)}throw new Error("presence coding")}function Vn(e,r,t){if(t===ge)return ae(e,r);if(t===xe){let l=r+7>>>3,c=l+7>>>3,u=0;for(let f=0;f<l;f++)if((e[f>>>3]>>>(f&7)&1)!==0){let h=Math.min(8,r-f*8);u+=He[e[c++]&(h===8?255:(1<<h)-1)]}return u}let n=ce(e),o=0,s=!1,i=0;for(;o<r;){let l=Number(de(n));if(l>r-o)throw new Error("runs overflow");s&&(i+=l),o+=l,s=!s}return i}var Gn=65536,Pe=257,Ft=14,Vo=4096,ct=e=>e===0?0:e===32?4294967295:(1<<e)-1,Vt=null,zn=0,Tr=null,Ct=null,br=null,Ir=null,ft=null,vr=null,ye=null,We=null;function Go(){return Vt!==null||(Vt=[0,1,2].map(e=>{let r=new Uint8Array(Pe),t=new Uint8Array(Pe),n=new Uint8Array(Pe),o=new Uint8Array(Pe),s=new Uint8Array(Pe);s[0]=1,n[0]=2;for(let i=1;i<Pe;i++){let l=i+1>>>1,c=l>>>e;if(c<1||c>32)continue;let u=c-1<e?c-1:e,f=l&ct(e);if((f&ct(e-u))!==0)continue;let h=(i&1)===0;if(c===32&&(!h||f!==0))continue;s[i]=1,r[i]=c-1-u,t[i]=h?1:0;let a=i+1>>>1>>>e;n[i]=2+2*(a<6?a:5),o[i]=1<<u|f>>>e-u}return{rawBits:r,negFlag:t,dyCtxBase:n,head:o,valid:s}})),Vt}function zo(e){zn>=e||(zn=e,Tr=new Uint16Array(e),Ct=new Uint16Array(e),br=new Uint8Array(e),Ir=new Uint8Array(e),ft=new Uint8Array(e),vr=new Uint8Array(e),ye=new Uint8Array(e))}var Sr=new Uint32Array(16),Ar=new Uint8Array(16),Dn=new Uint32Array(4),Gt=new Uint32Array(4),zt=new Uint32Array(4),Dt=[null,null,null,null];function Cn(e,r,t){if((t&1)!==0)throw new Error("rans odd");let n=t>>>1;te(n),(!We||We.length<n)&&(We=new Uint8Array(Math.max(1024,n)));let o=We.subarray(0,n);if(r===void 0)o.fill(1);else{if(r.length>0&&r[0]!==0||(r.length===0?0:r[r.length-1])!==n)throw new Error("rans runs");o.fill(0);for(let p=0;p<r.length;p++){let _=r[p];if(_<n)o[_]=1;else if(_!==n)throw new Error("rans runs")}}if(e.length===0)throw new Error("rans empty");let s=e[0];if(s>2)throw new Error("rans depth");let i=Go()[s],l=e.subarray(1),c=0,u=p=>{if(p===0)return 0;let _=c>>>3,x=c&7,v=(_<l.length?l[_]:0)|(_+1<l.length?l[_+1]:0)<<8|(_+2<l.length?l[_+2]:0)<<16;return c+=p,v>>>x&ct(p)},f=()=>{let p=0;for(;p<=12;){if(u(1)===1)return 1<<p|u(p);p++}throw new Error("rans freq")},h=new Int8Array(Ft).fill(-1),a=new Array(Ft),w=1;for(let p=0;p<Ft;p++){let _=u(1);if(c>l.length*8)throw new Error("rans trunc");if(_===0)continue;let x=u(4),v=u(9);if(x>11||v>=Pe)throw new Error("rans table");let U=q(v+1);U.fill(0);let P=0,O=0;if(x===0)U[v]=1,P=1,i.valid[v]||(O=1);else for(let V=0;V<=v;V++){let X=f()-1;U[V]=X,P+=X,X>0&&!i.valid[V]&&(O=1)}if(c>l.length*8)throw new Error("rans trunc");if(P!==1<<x||U[v]===0||O)throw new Error("rans freq");h[p]=x,a[p]=U,w+=1<<x}let d=Vo;for(;d<w;)d<<=1;zo(d),Ct[0]=1,ye[0]=1,Sr.fill(0),Ar.fill(0);let g=1;for(let p=0;p<Ft;p++){let _=h[p];if(_<0)continue;Sr[p]=g,Ar[p]=_;let x=a[p];for(let v=0;v<x.length;v++){let U=x[v];if(U===0)continue;let P=i.rawBits[v],O=i.negFlag[v],V=i.dyCtxBase[v],X=i.head[v];for(let $=0;$<U;$++){let Y=g+$;Tr[Y]=$,Ct[Y]=U,br[Y]=P,Ir[Y]=O,ft[Y]=V,vr[Y]=X,ye[Y]=0}g+=U}}let y=ce(e,1+(c+7>>>3),e.length);for(let p=0;p<4;p++)Dn[p]=M(y);for(let p=0;p<4;p++){let _=Dn[p];if(_<4||(_&1)!==0||y.e-y.p<_)throw new Error("rans lane");let x=j(y,_);Dt[p]=x,Gt[p]=4,zt[p]=(x[0]|x[1]<<8|x[2]<<16|x[3]<<24)>>>0}let m=j(y,y.e-y.p),E=m.length,L=0,b=d-1,T=(p,_)=>{let x=Ar[_],v=zt[p],U=Sr[_]+(v&(1<<x)-1)&b;if(v=Math.imul(Ct[U],v>>>x)+Tr[U]>>>0,v<Gn){let P=Dt[p],O=Gt[p],V=O+2<=P.length?P[O]|P[O+1]<<8:0;v=(v<<16|V)>>>0,Gt[p]=O+2}return zt[p]=v,U},S=p=>{let _=br[p],x=0;if(_>0){let P=L>>>3,O=L&7,V=((P<E?m[P]:0)|(P+1<E?m[P+1]:0)<<8|(P+2<E?m[P+2]:0)<<16|(P+3<E?m[P+3]:0)<<24)>>>0;if(O===0)x=(V&ct(_))>>>0;else{let X=P+4<E?m[P+4]:0;x=((V>>>O|X<<32-O)&ct(_))>>>0}L+=_}let v=vr[p]<<_|x|0,U=-Ir[p];return(v^U)-U|0},B=t===0?Nt:Ee(t),A=0,I=0,N=0,R=n&-2;for(let p=0;p<R;p+=2){let _=o[p],x=o[p+1],v=T(0,_),U=T(2,x),P=T(1,ft[v]+_),O=T(3,ft[U]+x);N|=ye[v]|ye[P]|ye[U]|ye[O],A=A+S(v)|0,I=I+S(P)|0,B[p*2]=A,B[p*2+1]=I,A=A+S(U)|0,I=I+S(O)|0,B[p*2+2]=A,B[p*2+3]=I}if((n&1)!==0){let p=n-1,_=o[p],x=T(0,_),v=T(1,ft[x]+_);N|=ye[x]|ye[v],A=A+S(x)|0,I=I+S(v)|0,B[p*2]=A,B[p*2+1]=I}if(N!==0)throw new Error("rans missing table");for(let p=0;p<4;p++){if(zt[p]!==Gn||Gt[p]!==Dt[p].length)throw new Error("rans state");Dt[p]=null}if(L+7>>>3!==E)throw new Error("rans raw len");return We.length>65536&&(We=null),B}var at=new Int32Array(4096),$t=new Int32Array(2048);function Do(e,r,t){let n=new Int32Array(e.buffer,e.byteOffset,t);r[t]=0,r[t-1|0]=4;let o=1,s=0;for(let i=t-2|0;i>=0;i=i-1|0){let l=n[i];s|=l>>>2;let c=l&1,u=l>>>1&1,f=o&-c,h=i+1+f|0,a=r[h]>>>2;s|=u&a-1>>>31,o=1+f+(a&-u)|0,r[i]=o<<2|l}return s}function Co(e,r,t,n,o,s){let i=0,l=0,c=0;for(;l<o;){let u=e[l],f=u>>>2,h=c+2+f|0;if(h>s)return-1;t[0]=r[c],t[1]=r[c+1|0],t[2]=0;let a=c+2|0,w=l+f|0,d=4;for(let g=l;g<w;g=g+1|0){d=d-4|0;let y=t[d],m=t[d+1|0],E=t[d+2|0],L=e[g+1|0],b=u&3;u=L;let T=b&1,S=b>>>1,B=L>>>2&-T,A=r[a+E+B|0];n[i]=y,n[i+1|0]=m,n[i+2|0]=A,i=i+3|0,t[d]=y,t[d+1|0]=A,t[d+2|0]=E+B+1|0,d=d+(S<<2)|0,t[d]=A,t[d+1|0]=m,t[d+2|0]=E,d=d+(T<<2)|0}l=w,c=h}return c}function $n(e,r){let t=e.length|0;if(t===0){if(r.length!==0)throw new Error("cycles");return Ce}if(e[t-1|0]!==0)throw new Error("tree symbols");let n=t+2<<2;te((t+1+n)*4),at.length<=t&&(at=new Int32Array(t+1));let o=at;if(Do(e,o,t)!==0)throw new Error("tree symbols");$t.length<n&&($t=new Int32Array(n));let s=K(t*3),i=new Int32Array(s.buffer),l=new Int32Array(r.buffer,r.byteOffset,r.length),c=l.length|0,u=Co(o,l,$t,i,t,c);if(u!==c)throw new Error(u<0?"cycles eof":"cycles trailing");return at.length>131073&&(at=new Int32Array(4096),$t=new Int32Array(2048)),s}var $o=[1,10,100,1e3,1e4,1e5,1e6,1e7,1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15,1e16,1e17,1e18],Yo=[1,.1,.01,.001,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10,1e-11,1e-12,1e-13,1e-14,1e-15,1e-16,1e-17,1e-18];function Yn(e){for(let r=0;r<=18;r++){let t=e-(r*(r+1)>>1);if(t>=0&&t<=r)return r<<8|t}throw new Error("alp scale")}function Hn(e,r,t,n){let o=$o[t&255],s=Yo[t>>>8],i=n?Le(e.length):re(e.length);if(e instanceof Uint32Array&&r>=-9007199254740991n&&r<=9007199254740991n-4294967295n){let u=Number(r);for(let f=0;f<e.length;f++)i[f]=(u+e[f])*o*s;return i}let l=BigInt.asUintN(64,r),c=e instanceof Uint32Array;for(let u=0;u<e.length;u++){let f=c?BigInt(e[u]):e[u];i[u]=Number(BigInt.asIntN(64,l+f))*o*s}return i}function Rr(e,r,t){if(e.length===0)throw new Error("bitpack");let n=e[0];if(n<1||n>32)throw new Error("bitpack width");let o=Math.ceil(r*n/8);if(e.length-1!==o)throw new Error("bitpack len");if(r===0)return t;if(n===8)return t.set(e.subarray(1,1+r)),t;if(n<=16){let f=new Int32Array(t.buffer,t.byteOffset,r),h=(1<<n)-1,a=e.length-2|0,w=0,d=0,g=1,y=0;for(;y<r&&g<=a;)d<n&&(w|=(e[g]|e[g+1|0]<<8)<<d,g=g+2|0,d=d+16|0),f[y++]=w&h,w>>>=n,d=d-n|0;for(;y<r;y++){for(;d<n;)w|=e[g++]<<d,d+=8;f[y]=w&h,w>>>=n,d-=n}return t}if(n<=24){let f=(1<<n)-1,h=0,a=0,w=1;for(let d=0;d<r;d++){for(;a<n;)h|=e[w++]<<a,a+=8;t[d]=h&f,h>>>=n,a-=n}return t}let s=(1n<<BigInt(n))-1n,i=BigInt(n),l=0n,c=0,u=1;for(let f=0;f<r;f++){for(;c<n;)l|=BigInt(e[u++])<<BigInt(c),c+=8;t[f]=Number(l&s)>>>0,l>>=i,c-=n}return t}function Xn(e,r,t,n){Rr(e,r,t);for(let o=0;o<r;o++)n[o]=BigInt(t[o]);return n}var Kn=65536,Lr=new Array(33),Ur=new Int32Array(33),Pr=new Int32Array(33),Nr=new Int32Array(32),_e=new Uint8Array(16384);function Or(e,r,t,n,o){switch(o){case 1:{let f=e[r];for(let h=0;h<32;h+=4)t[n+h]=f>>>h&1,t[n+h+1]=f>>>h+1&1,t[n+h+2]=f>>>h+2&1,t[n+h+3]=f>>>h+3&1;return}case 2:{let f=e[r],h=e[r+1];t[n]=f&3,t[n+1]=f>>>2&3,t[n+2]=f>>>4&3,t[n+3]=f>>>6&3,t[n+4]=f>>>8&3,t[n+5]=f>>>10&3,t[n+6]=f>>>12&3,t[n+7]=f>>>14&3,t[n+8]=f>>>16&3,t[n+9]=f>>>18&3,t[n+10]=f>>>20&3,t[n+11]=f>>>22&3,t[n+12]=f>>>24&3,t[n+13]=f>>>26&3,t[n+14]=f>>>28&3,t[n+15]=f>>>30,t[n+16]=h&3,t[n+17]=h>>>2&3,t[n+18]=h>>>4&3,t[n+19]=h>>>6&3,t[n+20]=h>>>8&3,t[n+21]=h>>>10&3,t[n+22]=h>>>12&3,t[n+23]=h>>>14&3,t[n+24]=h>>>16&3,t[n+25]=h>>>18&3,t[n+26]=h>>>20&3,t[n+27]=h>>>22&3,t[n+28]=h>>>24&3,t[n+29]=h>>>26&3,t[n+30]=h>>>28&3,t[n+31]=h>>>30;return}case 3:{let f=e[r],h=e[r+1],a=e[r+2];t[n]=f&7,t[n+1]=f>>>3&7,t[n+2]=f>>>6&7,t[n+3]=f>>>9&7,t[n+4]=f>>>12&7,t[n+5]=f>>>15&7,t[n+6]=f>>>18&7,t[n+7]=f>>>21&7,t[n+8]=f>>>24&7,t[n+9]=f>>>27&7,t[n+10]=f>>>30|(h&1)<<2,t[n+11]=h>>>1&7,t[n+12]=h>>>4&7,t[n+13]=h>>>7&7,t[n+14]=h>>>10&7,t[n+15]=h>>>13&7,t[n+16]=h>>>16&7,t[n+17]=h>>>19&7,t[n+18]=h>>>22&7,t[n+19]=h>>>25&7,t[n+20]=h>>>28&7,t[n+21]=h>>>31|(a&3)<<1,t[n+22]=a>>>2&7,t[n+23]=a>>>5&7,t[n+24]=a>>>8&7,t[n+25]=a>>>11&7,t[n+26]=a>>>14&7,t[n+27]=a>>>17&7,t[n+28]=a>>>20&7,t[n+29]=a>>>23&7,t[n+30]=a>>>26&7,t[n+31]=a>>>29;return}case 4:{for(let f=0;f<4;f++){let h=e[r+f],a=n+(f<<3);t[a]=h&15,t[a+1]=h>>>4&15,t[a+2]=h>>>8&15,t[a+3]=h>>>12&15,t[a+4]=h>>>16&15,t[a+5]=h>>>20&15,t[a+6]=h>>>24&15,t[a+7]=h>>>28}return}case 5:{let f=e[r],h=e[r+1],a=e[r+2],w=e[r+3],d=e[r+4];t[n]=f&31,t[n+1]=f>>>5&31,t[n+2]=f>>>10&31,t[n+3]=f>>>15&31,t[n+4]=f>>>20&31,t[n+5]=f>>>25&31,t[n+6]=f>>>30|(h&7)<<2,t[n+7]=h>>>3&31,t[n+8]=h>>>8&31,t[n+9]=h>>>13&31,t[n+10]=h>>>18&31,t[n+11]=h>>>23&31,t[n+12]=h>>>28|(a&1)<<4,t[n+13]=a>>>1&31,t[n+14]=a>>>6&31,t[n+15]=a>>>11&31,t[n+16]=a>>>16&31,t[n+17]=a>>>21&31,t[n+18]=a>>>26&31,t[n+19]=a>>>31|(w&15)<<1,t[n+20]=w>>>4&31,t[n+21]=w>>>9&31,t[n+22]=w>>>14&31,t[n+23]=w>>>19&31,t[n+24]=w>>>24&31,t[n+25]=w>>>29|(d&3)<<3,t[n+26]=d>>>2&31,t[n+27]=d>>>7&31,t[n+28]=d>>>12&31,t[n+29]=d>>>17&31,t[n+30]=d>>>22&31,t[n+31]=d>>>27;return}case 6:{for(let f=0;f<2;f++){let h=e[r+f*3],a=e[r+f*3+1],w=e[r+f*3+2],d=n+f*16;t[d]=h&63,t[d+1]=h>>>6&63,t[d+2]=h>>>12&63,t[d+3]=h>>>18&63,t[d+4]=h>>>24&63,t[d+5]=h>>>30|(a&15)<<2,t[d+6]=a>>>4&63,t[d+7]=a>>>10&63,t[d+8]=a>>>16&63,t[d+9]=a>>>22&63,t[d+10]=a>>>28|(w&3)<<4,t[d+11]=w>>>2&63,t[d+12]=w>>>8&63,t[d+13]=w>>>14&63,t[d+14]=w>>>20&63,t[d+15]=w>>>26}return}case 7:{let f=e[r],h=e[r+1],a=e[r+2],w=e[r+3],d=e[r+4],g=e[r+5],y=e[r+6];t[n]=f&127,t[n+1]=f>>>7&127,t[n+2]=f>>>14&127,t[n+3]=f>>>21&127,t[n+4]=f>>>28|(h&7)<<4,t[n+5]=h>>>3&127,t[n+6]=h>>>10&127,t[n+7]=h>>>17&127,t[n+8]=h>>>24&127,t[n+9]=h>>>31|(a&63)<<1,t[n+10]=a>>>6&127,t[n+11]=a>>>13&127,t[n+12]=a>>>20&127,t[n+13]=a>>>27|(w&3)<<5,t[n+14]=w>>>2&127,t[n+15]=w>>>9&127,t[n+16]=w>>>16&127,t[n+17]=w>>>23&127,t[n+18]=w>>>30|(d&31)<<2,t[n+19]=d>>>5&127,t[n+20]=d>>>12&127,t[n+21]=d>>>19&127,t[n+22]=d>>>26|(g&1)<<6,t[n+23]=g>>>1&127,t[n+24]=g>>>8&127,t[n+25]=g>>>15&127,t[n+26]=g>>>22&127,t[n+27]=g>>>29|(y&15)<<3,t[n+28]=y>>>4&127,t[n+29]=y>>>11&127,t[n+30]=y>>>18&127,t[n+31]=y>>>25;return}case 8:{for(let f=0;f<8;f++){let h=e[r+f],a=n+(f<<2);t[a]=h&255,t[a+1]=h>>>8&255,t[a+2]=h>>>16&255,t[a+3]=h>>>24}return}case 9:{let f=e[r],h=e[r+1],a=e[r+2],w=e[r+3],d=e[r+4],g=e[r+5],y=e[r+6],m=e[r+7],E=e[r+8];t[n]=f&511,t[n+1]=f>>>9&511,t[n+2]=f>>>18&511,t[n+3]=f>>>27|(h&15)<<5,t[n+4]=h>>>4&511,t[n+5]=h>>>13&511,t[n+6]=h>>>22&511,t[n+7]=h>>>31|(a&255)<<1,t[n+8]=a>>>8&511,t[n+9]=a>>>17&511,t[n+10]=a>>>26|(w&7)<<6,t[n+11]=w>>>3&511,t[n+12]=w>>>12&511,t[n+13]=w>>>21&511,t[n+14]=w>>>30|(d&127)<<2,t[n+15]=d>>>7&511,t[n+16]=d>>>16&511,t[n+17]=d>>>25|(g&3)<<7,t[n+18]=g>>>2&511,t[n+19]=g>>>11&511,t[n+20]=g>>>20&511,t[n+21]=g>>>29|(y&63)<<3,t[n+22]=y>>>6&511,t[n+23]=y>>>15&511,t[n+24]=y>>>24|(m&1)<<8,t[n+25]=m>>>1&511,t[n+26]=m>>>10&511,t[n+27]=m>>>19&511,t[n+28]=m>>>28|(E&31)<<4,t[n+29]=E>>>5&511,t[n+30]=E>>>14&511,t[n+31]=E>>>23;return}case 10:{for(let f=0;f<2;f++){let h=e[r+f*5],a=e[r+f*5+1],w=e[r+f*5+2],d=e[r+f*5+3],g=e[r+f*5+4],y=n+f*16;t[y]=h&1023,t[y+1]=h>>>10&1023,t[y+2]=h>>>20&1023,t[y+3]=h>>>30|(a&255)<<2,t[y+4]=a>>>8&1023,t[y+5]=a>>>18&1023,t[y+6]=a>>>28|(w&63)<<4,t[y+7]=w>>>6&1023,t[y+8]=w>>>16&1023,t[y+9]=w>>>26|(d&15)<<6,t[y+10]=d>>>4&1023,t[y+11]=d>>>14&1023,t[y+12]=d>>>24|(g&3)<<8,t[y+13]=g>>>2&1023,t[y+14]=g>>>12&1023,t[y+15]=g>>>22}return}case 11:{let f=e[r],h=e[r+1],a=e[r+2],w=e[r+3],d=e[r+4],g=e[r+5],y=e[r+6],m=e[r+7],E=e[r+8],L=e[r+9],b=e[r+10];t[n]=f&2047,t[n+1]=f>>>11&2047,t[n+2]=f>>>22|(h&1)<<10,t[n+3]=h>>>1&2047,t[n+4]=h>>>12&2047,t[n+5]=h>>>23|(a&3)<<9,t[n+6]=a>>>2&2047,t[n+7]=a>>>13&2047,t[n+8]=a>>>24|(w&7)<<8,t[n+9]=w>>>3&2047,t[n+10]=w>>>14&2047,t[n+11]=w>>>25|(d&15)<<7,t[n+12]=d>>>4&2047,t[n+13]=d>>>15&2047,t[n+14]=d>>>26|(g&31)<<6,t[n+15]=g>>>5&2047,t[n+16]=g>>>16&2047,t[n+17]=g>>>27|(y&63)<<5,t[n+18]=y>>>6&2047,t[n+19]=y>>>17&2047,t[n+20]=y>>>28|(m&127)<<4,t[n+21]=m>>>7&2047,t[n+22]=m>>>18&2047,t[n+23]=m>>>29|(E&255)<<3,t[n+24]=E>>>8&2047,t[n+25]=E>>>19&2047,t[n+26]=E>>>30|(L&511)<<2,t[n+27]=L>>>9&2047,t[n+28]=L>>>20&2047,t[n+29]=L>>>31|(b&1023)<<1,t[n+30]=b>>>10&2047,t[n+31]=b>>>21;return}case 12:{for(let f=0;f<4;f++){let h=e[r+f*3],a=e[r+f*3+1],w=e[r+f*3+2],d=n+f*8;t[d]=h&4095,t[d+1]=h>>>12&4095,t[d+2]=h>>>24|(a&15)<<8,t[d+3]=a>>>4&4095,t[d+4]=a>>>16&4095,t[d+5]=a>>>28|(w&255)<<4,t[d+6]=w>>>8&4095,t[d+7]=w>>>20}return}case 16:{for(let f=0;f<16;f++){let h=e[r+f],a=n+(f<<1);t[a]=h&65535,t[a+1]=h>>>16}return}}let s=(1<<o)-1,i=o-1<<5,l=0,c=0;for(;l<i;){let f=r+(l>>>5),h=l&31;t[n+c]=(e[f]>>>h|e[f+1]<<1<<31-h)&s,l+=o,c++}let u=e[r+o-1];for(;c<32;c++,l+=o)t[n+c]=u>>>(l&31)&s}function kr(e,r,t,n){if(r===0){if(e.length!==0)throw new Error("fpf empty");return n}let o=e.length;if((o&3)!==0)throw new Error("fpf align");let s=t?128:256,i=t?4:8,l=o>>>2,c;if(Pt&&t&&(e.byteOffset&3)===0)c=new Int32Array(e.buffer,e.byteOffset,l);else if(_e.length<o&&(_e=new Uint8Array(Math.max(o,_e.length*2))),Pt){if(_e.set(e),c=new Int32Array(_e.buffer,0,l),!t)for(let a=0;a<l;a++){let w=c[a];c[a]=(w&255)<<24|(w&65280)<<8|w>>>8&65280|w>>>24}}else{c=new Int32Array(_e.buffer,0,l);let a=new DataView(e.buffer,e.byteOffset,o);for(let w=0;w<l;w++)c[w]=a.getInt32(w*4,t)}let u=new Int32Array(n.buffer,n.byteOffset,r),f=0,h=0;if(l>0){let a=c[f++]>>>0;if((a&s-1)!==0||a>r)throw new Error("fpf len");for(;h<a;){let w=Math.min(Kn,a-h);if(f>=l)throw new Error("fpf page");let d=f,g=c[d]>>>0;if(g===0||d+g>=l)throw new Error("fpf meta");let y=d+1,m=d+g,E=c[m]>>>0,L=m+1,b=L+(E+3>>>2);if(b>=l)throw new Error("fpf meta eof");let T=new Uint8Array(c.buffer,c.byteOffset+L*4,E),S=b,B=c[S++];if(Ur.fill(0),Pr.fill(0),B!==0)for(let R=2;R<=32;R++){if((B>>>R-1&1)===0)continue;if(S>=l)throw new Error("fpf ex");let p=c[S++]>>>0;if(p>Kn)throw new Error("fpf ex size");let _=p+31&-32,x=Lr[R];(!x||x.length<_)&&(x=Lr[R]=new Int32Array(Math.max(32,_)));let v=p*R+31>>>5;if(S+v>l)throw new Error("fpf ex eof");if(R===32)x.set(c.subarray(S,S+p));else{let U=p>>>5;for(let P=0;P<U;P++)Or(c,S+P*R,x,P*32,R);if((p&31)!==0){let P=U*R;Nr.fill(0,0,R),Nr.set(c.subarray(S+P,S+v)),Or(Nr,0,x,U*32,R)}}S+=v,Ur[R]=p}let A=y,I=0,N=w/s;for(let R=0;R<N;R++){if(I+2>E)throw new Error("fpf hdr");let p=T[I++],_=T[I++];if(p>32||_>s)throw new Error("fpf hdr");let x=h+R*s;if(p===0)u.fill(0,x,x+s);else if(p===32){if(A+s>m)throw new Error("fpf blk");u.set(c.subarray(A,A+s),x),A+=s}else{let v=i*p;if(A+v>m)throw new Error("fpf blk");for(let U=0;U<i;U++)Or(c,A+U*p,u,x+U*32,p);A+=v}if(_>0){if(I+1+_>E)throw new Error("fpf pos");let v=T[I++];if(v<=p||v>32)throw new Error("fpf maxBits");let U=v-p;if(U===1){let P=1<<p;for(let O=0;O<_;O++){let V=T[I++];if(V>=s)throw new Error("fpf pos");u[x+V]|=P}}else{let P=Lr[U],O=Pr[U];if(!P||O+_>Ur[U])throw new Error("fpf ex");for(let V=0;V<_;V++){let X=T[I++];if(X>=s)throw new Error("fpf pos");u[x+X]|=P[O++]<<p}Pr[U]=O}}}if(A!==m)throw new Error("fpf end");f=S,h+=w}}if(h<r){let a=f,w=0,d=0,g=0;for(;a<l&&h<r;){let y=c[a]>>>w&255;if(w+=8,w===32&&(w=0,a++),d|=(y&127)<<g,(y&128)!==0)u[h++]=d,d=0,g=0;else if(g+=7,g>28)throw new Error("fpf vbyte")}if(h!==r)throw new Error("fpf tail")}return _e.length>262144&&(_e=new Uint8Array(16384)),n}function Wn(e,r,t,n){if(e.length!==r*2)throw new Error("rle len");let o=0;for(let s=0;s<r;s++){let i=e[s];if(i>t-o)throw new Error("rle sum");n.fill(e[r+s],o,o+i),o+=i}if(o!==t)throw new Error("rle sum");return n}function qn(e,r,t,n){if(e.length!==r*2)throw new Error("rle len");let o=0,s=BigInt(t);for(let i=0;i<r;i++){let l=e[i];if(l>s-BigInt(o))throw new Error("rle sum");let c=Number(l);n.fill(e[r+i],o,o+c),o+=c}if(o!==t)throw new Error("rle sum");return n}function Br(e,r,t,n=!1){if((e.length&1)!==0)throw new Error("rle odd");let o=0;if(n){let s=BigInt(r);for(let i=0;i<e.length;i+=2){let l=e[i];if(l>s-BigInt(o))throw new Error("rle overflow");let c=Number(l);t.fill(e[i+1],o,o+c),o+=c}}else for(let s=0;s<e.length;s+=2){let i=e[s];if(i>r-o)throw new Error("rle overflow");t.fill(e[s+1],o,o+i),o+=i}if(o!==r)throw new Error("rle sum");return t}function jn(e,r){let t=W(r),n=0,o=0,s=e.length;for(;n<r&&o<s;){let i=e[o++];if(i>=128){let l=256-i;if(o+l>s||n+l>r)throw new RangeError("byte-rle");t.set(e.subarray(o,o+l),n),o+=l,n+=l}else{let l=i+3;if(o>=s||n+l>r)throw new RangeError("byte-rle");t.fill(e[o++],n,n+l),n+=l}}if(n!==r)throw new Error("byte-rle");return t}var ne=e=>new Int32Array(e.buffer,e.byteOffset,e.length);function Yt(e){let r=ne(e),t=r.length|0;for(let n=0;n<t;n=n+1|0){let o=r[n];r[n]=o>>>1^-(o&1)}return r}function qe(e){let r=ne(e),t=r.length|0,n=0;for(let o=0;o<t;o=o+1|0){let s=r[o];n=n+(s>>>1^-(s&1))|0,r[o]=n}return e}function Mr(e){let r=ne(e),t=r.length|0,n=0,o=0;for(let s=0;s<t;s=s+1|0){let i=r[s];o=o+(i>>>1^-(i&1))|0,n=n+o|0,r[s]=n}return e}function Jn(e){let r=e.length|0;if((r&1)!==0)throw new Error("vec2 len");let t=ne(e),n=0,o=0;for(let s=0;s<r;s=s+2|0){let i=t[s],l=t[s+1|0];n=n+(i>>>1^-(i&1))|0,o=o+(l>>>1^-(l&1))|0,t[s]=n,t[s+1|0]=o}return t}function Zn(e){let r=e.length|0;if((r&1)!==0)throw new Error("vec2 len");let t=ne(e),n=0,o=0,s=0,i=0;for(let l=0;l<r;l=l+2|0){let c=t[l],u=t[l+1|0];s=s+(c>>>1^-(c&1))|0,i=i+(u>>>1^-(u&1))|0,n=n+s|0,o=o+i|0,t[l]=n,t[l+1|0]=o}return t}function Qn(e){let r=e.length|0;if(r%3!==0)throw new Error("vec3 len");let t=ne(e),n=0,o=0,s=0;for(let i=0;i<r;i=i+3|0){let l=t[i],c=t[i+1|0],u=t[i+2|0];n=n+(l>>>1^-(l&1))|0,o=o+(c>>>1^-(c&1))|0,s=s+(u>>>1^-(u&1))|0,t[i]=n,t[i+1|0]=o,t[i+2|0]=s}return t}function Fr(e){let r=new BigInt64Array(e.buffer,e.byteOffset,e.length);for(let t=0;t<e.length;t++){let n=e[t];r[t]=n>>1n^-(n&1n)}return r}function Vr(e){let r=0n;for(let t=0;t<e.length;t++){let n=e[t];r=BigInt.asIntN(64,r+(n>>1n^-(n&1n))),e[t]=BigInt.asUintN(64,r)}return e}function eo(e){let r=0n,t=0n;for(let n=0;n<e.length;n++){let o=e[n];t=BigInt.asIntN(64,t+(o>>1n^-(o&1n))),r=BigInt.asIntN(64,r+t),e[n]=BigInt.asUintN(64,r)}return e}var Gr=e=>new BigInt64Array(e.buffer,e.byteOffset,e.length);var tt=0,se=1,Ae=2,Xt=3,Kt=4,ro=5,pt=6,mt=7,no=8,Wt=9;var qt=11,jt=12,Et=13,Jt=14,Zt=15,Qt=16,er=17,xt=18,Oe=19,Cr=20,pe=0,$r=1,Yr=2,Se=3,ut=4,D=0,he=1,Je=2,ue=3,oe=4,dt=5,oo=6,Ne=7,tr=8,zr=9,Ze=10,so=11,Hr=12,_t=13,G=0,Qe=1,et=2,wt=3,je=4,Z=5,J=0,io=1,gt=2,ht=3,rr=128,ee=99,Ho=[[D,he,ue,oe,ut+100,Je],[D,he,ue,oe,ut+100,Je],[D,Ze,so],[D,-1,Hr,_t],[D,he,dt,Ne,oo,tr],[D,200]];function Dr(e,r,t,n,o,s,i,l,c,u,f,h,a,w,d,g){return{t:e,l:r,p:t,n,w:o,rleRuns:s,rleVals:i,mBits:l,mShift:c,alpScale:u,alpBase:f,zStep:h,heightMode:a,xyzLog:w,front:d,d:g}}function ie(e,r,t=!1){let n=C(e),o=n&240,s=n&15,i,l;if(o===0)i=tt,l=gt;else if(o===16){if(s>5)throw new Error("v1 st");i=se+s,l=s===3||s===4?ht:r}else if(o===32){if(s>3)throw new Error("v1 st");i=mt+s,l=J}else if(o===48){if(s>6)throw new Error("v1 st");i=Et+s,l=J}else throw new Error("v1 st");let c=C(e),u=c&252,f=c&3;if(f===3)throw new Error("v1 phys");let h=f===0?pe:f===1?$r:Se,a;switch(u){case 0:a=D;break;case 32:if(l!==J&&l!==ht)throw new Error("v1 log");a=he;break;case 44:if(l!==J)throw new Error("v1 log");a=oe;break;case 64:if(l!==ht)throw new Error("v1 log");a=dt;break;case 96:if(l===J)a=ue;else if(l===gt)a=zr;else throw new Error("v1 log");break;case 132:if(l!==ht)throw new Error("v1 log");a=Ne;break;default:throw new Error("v1 log")}let w=M(e),d=M(e),g=-2,y=0,m=0,E=0;if(a===ue||a===oe||a===zr)t?(g=w+7>>>3,y=d):(g=M(e),y=M(e));else if(a===Ne&&(m=M(e),E=M(e),m>16))throw new Error("morton bits");let L=l===ht&&a!==Ne?2:1;if(w%L!==0)throw new Error("partial vertex");let b=w/L,T=j(e,d);if((a===ue||a===oe)&&h===Se&&!t){let S=ce(T),B=0;for(let A=0;A<g;A++)B+=M(S);if(B!==y)throw new Error("rle sum")}return Dr(i,a,h,b,w,g,y,m,E,0,0n,ee,0,0,0,T)}function k(e,r,t,n,o,s=-1){let i=C(e),l=(i&rr)!==0,c=(i&112)>>>4,u=i&12,f=i&3,h=Ho[r];if(c>=h.length||h[c]<0)throw new Error("v2 enc");let a=h[c];if(r===Qe){if(s>=0&&f!==s)throw new Error("v2 str ext")}else if(r===je){if(f>1)throw new Error("v2 vtx ext")}else if(f!==0)throw new Error("v2 ext");let w=r===je&&f===1,d=pe,g=!1,y=0,m=()=>{if(u===4)return pe;if(u===8)return Se;if(u===12)return Yr;throw new Error("v2 phys")},E=()=>u===0?(g=!0,pe):m();if(r===G||r===Qe)if(a===D)d=E();else if(a===he||a===Je)d=m();else if(a===ue||a===oe){if(u!==0)throw new Error("v2 rle phys");d=Se}else{if(u!==0)throw new Error("v2 bp phys");a=D,d=ut}else if(r===Z){if(l||u!==4)throw new Error("v2 bytes");a===200&&(y=1,a=D)}else if(r===et){if(u!==0)throw new Error("v2 bool");g=!0}else if(r===wt)if(a===D){if(u===0)g=!0;else if(u!==4)throw new Error("v2 float")}else d=m();else if(w)if(a===D)d=E();else if(a===he||a===dt)d=m();else throw new Error("v2 xyz");else if(a===D)d=E();else if(a===tr){if(u!==0)throw new Error("v2 rans")}else d=m();let L=w?3:r===je&&a!==Ne?2:1,b,T,S;if(r===Z)S=M(e),b=S,T=S;else{if(l)b=M(e);else if(o>=0)b=o;else throw new Error("v2 no count");if(T=b*L,!Number.isSafeInteger(T)||T>4294967295)throw new RangeError("overflow");if(r===et){let O=Fn(e,b,a===D?ge:a===Ze?Ue:xe);return Dr(n,a,pe,b,T,-2,0,0,0,0,0n,ee,0,0,0,O)}if(g){if(S=T*t,!Number.isSafeInteger(S)||S>4294967295)throw new RangeError("overflow")}else S=M(e)}let B=-2,A=0,I=0,N=0,R=0,p=0n,_=ee,x=0,v=0;if(a===ue||a===oe)B=-1,A=b;else if(r===wt&&a===Hr)R=Yn(C(e)),p=xn(e);else if(w){let P=C(e);if(P>=16)throw new Error("z_step");_=(P&7)-3,x=(P&8)>>>3,v=a}else if(r===je&&a===Ne&&(I=M(e),N=M(e),I>16))throw new Error("morton bits");let U=j(e,S);return Dr(n,a,d,b,T,B,A,I,N,R,p,_,x,v,y,U)}function Xr(e){let r=e.n+7>>>3;if(e.l===zr)return Xe(jn(e.d,r),e.n);if(e.l===D&&e.p===pe){if(e.d.length!==r)throw new Error("bool len");return Xe(e.d,e.n)}if(e.l===Ze||e.l===so){let t=ce(e.d),n=lt(t,e.n,e.l===Ze?Ue:xe);if(t.p!==t.e)throw new Error("bool trailing");return n}throw new Error("bool enc")}function ke(e){let r=Xr(e),t=W(e.n),n=e.n>>>3;for(let o=0;o<n;o++){let s=r[o];if(s===0)continue;let i=o<<3;t[i]=s&1,t[i+1]=s>>>1&1,t[i+2]=s>>>2&1,t[i+3]=s>>>3&1,t[i+4]=s>>>4&1,t[i+5]=s>>>5&1,t[i+6]=s>>>6&1,t[i+7]=s>>>7}for(let o=n<<3;o<e.n;o++)t[o]=r[n]>>>(o&7)&1;return t}function yt(e,r){switch(e.p){case pe:return bn(e.d,e.w,r);case $r:return kr(e.d,e.w,!1,r);case Yr:return kr(e.d,e.w,!0,r);case ut:return Rr(e.d,e.w,r);case Se:return _n(e.d,e.w,r);default:throw new Error("u32 phys")}}function Kr(e){if(e.rleRuns===-1&&e.p===Se)return Tn(e.d);let r=kt(e.w);switch(e.p){case pe:return In(e.d,e.w,r);case ut:return Xn(e.d,e.w,q(e.w),r);case Se:return An(e.d,e.w,r);default:throw new Error("u64 phys")}}function Ht(e,r){let t=e.rleRuns===-1&&e.p===Se?Sn(e.d):yt(e,q(e.w)),n=r?q(e.rleVals):K(e.rleVals);return e.rleRuns===-1?Br(t,e.rleVals,n,!1):Wn(t,e.rleRuns,e.rleVals,n)}function F(e,r=!1){if(e.l===ue)return Ht(e,r);if(e.l===oe)return qe(Ht(e,r));let t=r?q(e.w):K(e.w);if(yt(e,t),e.l===D||e.l===_t)return t;if(e.l===he)return qe(t);if(e.l===Je)return Mr(t);throw new Error("u32 log")}function Te(e,r=!1){if(e.l===Ne){let n=yt(e,q(e.w));return Mn(n,e.mBits,e.mShift)}if(e.l===ue)return Yt(Ht(e,r));if(e.l===oe)return ne(qe(Ht(e,r)));let t=r?q(e.w):K(e.w);if(yt(e,t),e.zStep!==ee){if(t.length%3!==0)throw new Error("xyz len");if(e.xyzLog===D)return Yt(t);if(e.xyzLog===he)return ne(qe(t));if(e.xyzLog===dt)return Qn(t);throw new Error("xyz log")}switch(e.l){case D:return Yt(t);case he:return ne(qe(t));case Je:return ne(Mr(t));case dt:return Jn(t);case oo:return Zn(t);default:throw new Error("i32 log")}}function St(e){let r=Te(e,!0),t=Ot(r.length);for(let n=0;n<r.length;n++){let o=r[n];if(o<-128||o>127)throw new RangeError("i8");t[n]=o}return t}function At(e){let r=F(e,!0),t=W(r.length);for(let n=0;n<r.length;n++){let o=r[n];if(o>255)throw new RangeError("u8");t[n]=o}return t}function Xo(e,r){let t=Kr(e),n=r?xr(e.rleVals):kt(e.rleVals);return e.rleRuns===-1?Br(t,e.rleVals,n,!0):qn(t,e.rleRuns,e.rleVals,n)}function lo(e,r,t){let n;if(e.l===ue||e.l===oe){if(n=Xo(e,t),e.l===oe)Vr(n);else if(r)return Fr(n);return r?Gr(n):n}let o=Kr(e);if(t?(n=xr(e.w),n.set(o)):n=o,e.l===D||!r&&e.l===_t)return r?Fr(n):n;if(e.l===he)Vr(n);else if(e.l===Je)eo(n);else throw new Error("64 log");return r?Gr(n):n}var Tt=(e,r=!1)=>lo(e,!0,r),rt=(e,r=!1)=>lo(e,!1,r);function to(e,r){if(e.l!==D||e.p!==pe)throw new Error("float enc");return vn(e.d,e.n,r)}function be(e,r,t){if(r!==null){let n=to(r,t),o=F(e,!0),s=o.length,i=t?Le(s):re(s),l=n.length,c=t?1:2,u=new Uint32Array(n.buffer,n.byteOffset,l*c),f=new Uint32Array(i.buffer,0,s*c);for(let h=0;h<s;h++){let a=o[h];if(a>=l)throw new RangeError("fdict");c===1?f[h]=u[a]:(f[h*2]=u[a*2],f[h*2+1]=u[a*2+1])}return i}if(e.l===Hr){let n=e.p===Yr||e.p===$r?yt(e,q(e.w)):Kr(e);return Hn(n,e.alpBase,e.alpScale,t)}return to(e,t)}var fo=0,co=1,ao=2,Ko=3,Wo=4,ho=5,Jr=6,jr=e=>e===ao||e===ho,uo=e=>e===co||e===Wo;function Wr(e,r,t){let n=e.length,o=K(n+1),s=0,i=0,l=r.length;for(let c=0;c<n;c++){let u=1;if(e[c]>t){if(i>=l)throw new RangeError("geom oob");u=r[i++]}if(s+=u,s>4294967295)throw new RangeError("overflow");o[c+1]=s}return o}function qr(e,r,t,n){let o=K(r[r.length-1]+1),s=1,i=0,l=0,c=t.length;for(let u=0;u<e.length;u++){let f=e[u],h=r[u+1]-r[u];if(jr(f)||n&&uo(f))for(let a=0;a<h;a++){if(l>=c)throw new RangeError("geom oob");if(i+=t[l++],i>4294967295)throw new RangeError("overflow");o[s++]=i}else for(let a=0;a<h;a++)o[s++]=++i}return o}function qo(e,r,t,n){let o=K(t[t.length-1]+1),s=1,i=0,l=0,c=0,u=n.length;for(let f=0;f<e.length;f++){let h=e[f],a=r[f+1]-r[f];if(h!==fo&&h!==Ko)for(let w=0;w<a;w++){let d=t[l+1]-t[l];l++;for(let g=0;g<d;g++){if(c>=u)throw new RangeError("geom oob");if(i+=n[c++],i>4294967295)throw new RangeError("overflow");o[s++]=i}}else{for(let w=0;w<a;w++)o[s++]=++i;l+=a}}return o}function jo(e,r,t,n){let o=r,s=t,i=n;if(o!==void 0)o=Wr(e,o,ao),s!==void 0&&(i!==void 0?(s=qr(e,o,s,!1),i=qo(e,o,s,i)):s=qr(e,o,s,!0));else if(s!==void 0)if(i!==void 0){let l=!1;for(let c=0;c<e.length;c++)if(uo(e[c])){l=!0;break}s=Wr(e,s,co),i=qr(e,s,i,l)}else s=Wr(e,s,fo);return{geometryOffsets:o,partOffsets:s,ringOffsets:i}}function bt(e,r){let t=e.geometryOffsets?e.geometryOffsets[r]:r;return e.partOffsets&&(t=e.partOffsets[t]),e.ringOffsets&&(t=e.ringOffsets[t]),t}function Zr(e,r,t,n,o){let s=e===Jr,i;if(e>=0)i=W(r),i.fill(e);else{let A=F(t,!0);i=W(A.length);for(let I=0;I<A.length;I++){let N=A[I];if(N>ho)throw new Error("geom type");i[I]=N}}let l,c,u,f,h,a,w,d,g=null,y=ee,m=0;for(let A=0;A<o.length;A++){let I=o[A];switch(I.t){case tt:break;case Kt:case ro:if(g!==null)throw new Error("dup vtx");I.zStep!==ee&&(y=I.zStep,m=I.heightMode),g=I;break;case mt:if(h!==void 0)throw new Error("dup voff");h=F(I,!0);break;case no:if(a!==void 0)throw new Error("dup idx");a=F(I,!1);break;case qt:if(!n||w!==void 0)throw new Error("tsym");w=F(I,!0);break;case jt:if(!n||d!==void 0)throw new Error("tcyc");d=F(I,!0);break;case Jt:if(l!==void 0)throw new Error("dup glen");l=F(I,!0);break;case Zt:if(c!==void 0)throw new Error("dup plen");c=F(I,!0);break;case Qt:if(u!==void 0)throw new Error("dup rlen");u=F(I,!0);break;case er:if(f!==void 0)throw new Error("dup tlen");f=F(I,!0);break;default:throw new Error("geom st")}}if(s){if(y===ee)throw new Error("mesh z");if((l?l.length:0)!==i.length)throw new Error("mesh glen")}if(w!==void 0||d!==void 0){if(w===void 0||d===void 0||a!==void 0)throw new Error("tree pair");a=$n(w,d)}if(!s&&a!==void 0&&c===void 0){if(!n)throw new Error("v1 tri");for(let A=0;A<i.length;A++)if(!jr(i[A]))throw new Error("tess non-poly")}let E=jo(i,l,c,u),L=y!==ee?3:2,b=h!==void 0,T;if(g===null)T=Nt;else if(g.l===tr){if(b)throw new Error("rans dict");T=Cn(g.d,E.ringOffsets??E.partOffsets??E.geometryOffsets,g.w)}else T=Te(g,b);let S;if(f!==void 0){S=K(f.length+1);let A=0;for(let I=0;I<f.length;I++){if(A+=f[I],A>4294967295)throw new RangeError("overflow");S[I+1]=A}}if(d!==void 0){let A=a.length/3;if((S?S[S.length-1]:0)!==A)throw new Error("tri count");if(!s){let N=T.length/L;for(let R=0;R<d.length;R++)if(d[R]>=N)throw new RangeError("tcyc vtx")}}if(s){let A=E.geometryOffsets??new Uint32Array([0]),I=T.length/3|0;if((A.length>0?A[A.length-1]:0)!==I)throw new Error("mesh vtx");let R=S??new Uint32Array([0]);if(R.length!==A.length)throw new Error("mesh tlen");let p=a??Ce,_=new Int32Array(p.buffer,p.byteOffset,p.length),x=i.length|0,v=0;for(let U=0;U<x;U=U+1|0){let P=A[U]|0,O=A[U+1|0]-1|0,V=R[U]*3|0,X=R[U+1|0]*3|0;if(X>_.length)throw new Error("mesh idx");for(let $=V;$<X;$=$+3|0){let Y=_[$],me=_[$+1|0],le=_[$+2|0];v|=Y|me|le|(Y-P|0)|(O-Y|0)|(me-P|0)|(O-me|0)|(le-P|0)|(O-le|0)}}if(v<0)throw new RangeError("mesh oob")}if(b){let A=T.length/L,I=h.length,N=Ee(I*L);if(L===2)for(let R=0;R<I;R++){let p=h[R];if(p>=A)throw new RangeError("vdict");let _=p<<1,x=R<<1;N[x]=T[_],N[x+1]=T[_+1]}else for(let R=0;R<I;R++){let p=h[R];if(p>=A)throw new RangeError("vdict");let _=p*3,x=R*3;N[x]=T[_],N[x+1]=T[_+1],N[x+2]=T[_+2]}T=N}if(!n&&a!==void 0){let A=S??new Uint32Array([0]),I=[];for(let N=0;N<i.length;N++)jr(i[N])&&I.push(bt(E,N));if(A.length!==I.length+1)throw new Error("v1 triOff");for(let N=0;N<I.length;N++){let R=I[N],p=A[N]*3,_=A[N+1]*3;if(_>a.length)throw new RangeError("v1 idx");for(let x=p;x<_;x++)a[x]=a[x]+R>>>0}}let B={types:i,dimension:L,vertices:T};return s&&(B.meshes=!0),y!==ee&&(B.zStep=y,B.heightMode=m===1?"relativeToGround":"absolute"),E.geometryOffsets!==void 0&&(B.geometryOffsets=E.geometryOffsets),E.partOffsets!==void 0&&(B.partOffsets=E.partOffsets),E.ringOffsets!==void 0&&(B.ringOffsets=E.ringOffsets),S!==void 0&&(B.triangleOffsets=S),a!==void 0&&(B.indexBuffer=a),B}function nr(e,r){let t=e.length,n=r.length;fe(t*2);let o=ot(n),s=0;if(t<=64){let c=0;for(let u=0;u<t;u++)c|=e[u];if(c<128){let u=t===0?"":String.fromCharCode.apply(null,e);for(let f=0;f<n;f++){let h=s+r[f];if(h>t)throw new RangeError("str eof");o[f]=u.slice(s,h),s=h}return o}}let i=En(e);if(i.length===t){for(let c=0;c<n;c++){let u=s+r[c];if(u>t)throw new RangeError("str eof");o[c]=i.slice(s,u),s=u}return o}let l=0;for(let c=0;c<n;c++){let u=r[c];if(s+u>t)throw new RangeError("str eof");s+=u;let f=l,h=u;for(;h>0;){let a=i.charCodeAt(l++);a<128?h--:a<2048?h-=2:a>=55296&&a<=56319?(l++,h-=4):h-=3}if(h!==0)throw new TypeError("utf8 split");o[c]=i.slice(f,l)}return o}function wo(e,r,t){if(e===1){let n=Nn(r,t);return nr(n.bytes,n.entryLengths)}return nr(t,r)}function or(e,r){let t=e.b[e.p]&3,o=k(e,Qe,4,t===0?Et:t===2?Oe:Wt,r,t),s=o.n;if(t===0){let f=k(e,Z,4,se,s);return{m:0,lengths:o,data:f,n:s}}if(t===1){let f=k(e,G,4,Oe,s),h=k(e,Z,4,Ae,s);return{m:1,offsets:o,lengths:f,data:h,front:h.front,n:s}}if(t===2){let f=k(e,G,4,xt,s),h=k(e,Z,4,pt,s),a=k(e,Z,4,Ae,s);return{m:2,lengths:o,symLens:f,symTbl:h,corpus:a,n:s}}let i=k(e,G,4,Oe,s),l=k(e,G,4,xt,s),c=k(e,Z,4,pt,s),u=k(e,Z,4,Ae,s);return{m:3,offsets:o,lengths:i,symLens:l,symTbl:c,corpus:u,front:u.front,n:s}}function nt(e,r=!1){if(e.m===0)return{dict:!1,values:nr(e.data.d,F(e.lengths,!0))};if(e.m===2){let i=Bt(F(e.symLens,!0),e.symTbl.d,e.corpus.d);return{dict:!1,values:nr(i,F(e.lengths,!0))}}let t=e.m===1?e.data.d:Bt(F(e.symLens,!0),e.symTbl.d,e.corpus.d),n=wo(e.front|0,F(e.lengths,!0),t),o=F(e.offsets,!r),s=n.length;for(let i=0;i<o.length;i++)if(o[i]>=s)throw new RangeError("dict code");return{dict:!0,entries:n,codes:o}}function Jo(e,r,t,n,o){let s=r>>>3,i=0;for(let c=0;c<s;c++){let u=e[c];if(u===0)continue;let f=c<<3;if(u===255){o[f]=t[n[i]],o[f+1]=t[n[i+1]],o[f+2]=t[n[i+2]],o[f+3]=t[n[i+3]],o[f+4]=t[n[i+4]],o[f+5]=t[n[i+5]],o[f+6]=t[n[i+6]],o[f+7]=t[n[i+7]],i+=8;continue}for(;u!==0;){let h=u&-u;o[f+31-Math.clz32(h)]=t[n[i++]],u^=h}}let l=r&7;if(l>0){let c=e[s]&(1<<l)-1,u=s<<3;for(;c!==0;){let f=c&-c;o[u+31-Math.clz32(f)]=t[n[i++]],c^=f}}}function Qr(e,r,t,n){let o=r.dict?r.codes.length:r.values.length;if(t===void 0){if(o!==n)throw new Error("str count");let c;if(r.dict){let{entries:u,codes:f}=r;c=ot(n);for(let h=0;h<n;h++)c[h]=u[f[h]]}else c=r.values;return{name:e,type:"string",values:c}}let s=ae(t,n);if(s!==o)throw new Error("str popcount");let i=Ke(t,n);if(i===void 0){let c;if(r.dict){let{entries:u,codes:f}=r;c=ot(n);for(let h=0;h<n;h++)c[h]=u[f[h]]}else c=r.values;return{name:e,type:"string",values:c}}let l=ot(n).fill("");return s>0&&(r.dict?Jo(t,n,r.entries,r.codes,l):it(t,n,r.values,l)),{name:e,type:"string",values:l,present:i}}function en(e,r){let t=e.fsst===0?e.data.d:Bt(F(e.symLens,!0),e.symTbl.d,e.corpus.d),n=wo(e.front,F(e.lengths,!0),t),o=n.length;return e.children.map(s=>{let i=F(s.data,!0);for(let l=0;l<i.length;l++)if(i[l]>=o)throw new RangeError("sdict code");return Qr(`${e.prefix}${s.suffix}`,{dict:!0,entries:n,codes:i},s.bits,r)})}function go(e){if(e.dict)return{codes:e.codes,dictionary:e.entries};let r=new Map,t=[],n=e.values,o=K(n.length);for(let s=0;s<n.length;s++){let i=n[s],l=r.get(i);l===void 0&&(l=t.length,t.push(i),r.set(i,l)),o[s]=l}return{codes:o,dictionary:t}}var Zo=8,rn=64;function fr(e,r,t){if(t<0&&(st(e)&rr)===0)throw new Error("explicit count");if(r===2)return{dt:2,s:k(e,et,4,se,t),d:null};if(r<=6)return{dt:r,s:k(e,G,4,se,t),d:null};if(r<=8)return{dt:r,s:k(e,G,8,se,t),d:null};if(r<=10){let n=r===9?4:8,o=k(e,wt,n,se,t),s=o.l===_t?k(e,wt,n,Ae,o.n):null;return{dt:r,s:o,d:s}}if(r===11)return{dt:11,s:or(e,t),d:null};throw new Error("col type")}function Ie(e,r){if(r<0&&(st(e)&rr)===0)throw new Error("nested explicit")}function mo(e){let r=e&240,t=e&15,n=(r&rn)!==0,o=r&~rn;if(o!==0&&o!==16||t<=1||t>14)throw new Error("node type");return{hasPres:o===16,shapes:n,data:t}}function Qo(e){let r=e.l===D?ge:e.l===Ze?Ue:xe;return Vn(e.d,e.n,r)}function yo(e,r,t){Ie(e,-1);let n=k(e,et,4,tt,-1);Ie(e,-1);let o=k(e,G,4,se,-1),s=ke(n),i=F(o,!1);if(r===0||s.length%r!==0)throw new Error("shapes tbl");let l=s.length/r;for(let c=0;c<i.length;c++)if(i[c]>=l)throw new RangeError("shape id");if(t>=0&&i.length!==t)throw new Error("shape rows");return{table:s,width:r,ids:i}}function es(e,r){let{table:t,width:n,ids:o}=e,s=0;for(let i=0;i<o.length;i++)s+=t[o[i]*n+r];return s}function Eo(e,r,t,n,o,s){if(r===12){let f=M(e);if(f===0)throw new Error("empty struct");if(e.e-e.p<f)throw new RangeError("struct eof");let h=o?yo(e,f,n):null,a=new Array(f);for(let w=0;w<f;w++){let d=n;if(h!==null){if(mo(st(e)).hasPres)throw new Error("shaped child pres");d=n<0?-1:es(h,w)}let g=tn(e,!0,d,s+1);for(let y=0;y<w;y++)if(a[y].name===g.name)throw new Error("dup field");a[w]=g}return{k:12,presence:t,shapes:h,fields:a}}if(r===13){if(o)throw new Error("shaped list");Ie(e,n);let f=k(e,G,4,Cr,n),h=tn(e,!1,-1,s+1).node;return{k:13,presence:t,lengths:f,element:h}}let i,l=null,c=null;o?(Ie(e,-1),i=or(e,-1),c=yo(e,i.n,n)):(Ie(e,n),l=k(e,G,4,Cr,n),Ie(e,-1),i=or(e,-1));let u=tn(e,!1,-1,s+1).node;return{k:14,presence:t,lengths:l,shapes:c,keysRaw:i,value:u}}function tn(e,r,t,n){if(n>Zo)throw new Error("nested depth");let o=mo(C(e)),s=r?Q(e):"",i=o.data===13||o.data===14?-1:t,l=null;o.hasPres&&(Ie(e,i),l=k(e,et,4,tt,i));let c=i<0?-1:l!==null?Qo(l):i;if(o.data<=11){if(o.shapes)throw new Error("shaped leaf");return Ie(e,c),{name:s,node:{k:0,presence:l,cv:fr(e,o.data,c)}}}return{name:s,node:Eo(e,o.data,l,c,o.shapes,n)}}function xo(e,r,t,n,o){let s=n===12?o:-1,i=!1;e.p<e.e&&st(e)===rn&&(C(e),i=!0);let l=Eo(e,n,null,s,i,1);return{name:r,presenceBits:t,valueCount:o,root:l}}function Be(e,r){if(Number.isFinite(e))return e;let t=r?"f32":"f64";return Number.isNaN(e)?`${t}::NAN`:e>0?`${t}::INFINITY`:`${t}::NEG_INFINITY`}function ts(e){switch(e.dt){case 2:return{dt:2,v:ke(e.s)};case 3:return{dt:3,v:St(e.s)};case 4:return{dt:4,v:At(e.s)};case 5:return{dt:5,v:Te(e.s,!1)};case 6:return{dt:6,v:F(e.s,!1)};case 7:return{dt:7,v:Tt(e.s,!0)};case 8:return{dt:8,v:rt(e.s,!0)};case 9:return{dt:9,v:be(e.s,e.d,!0)};case 10:return{dt:10,v:be(e.s,e.d,!1)};default:{let r=nt(e.s,!1);return{dt:11,v:r.dict?Array.from(r.codes,n=>r.entries[n]):r.values}}}}function rs(e,r){let{table:t,width:n,ids:o}=e,s=new Uint8Array(o.length);for(let i=0;i<o.length;i++)s[i]=t[o[i]*n+r];return s}function ns(e){let{table:r,width:t,ids:n}=e,o=new Uint32Array(n.length),s=0;for(let c=0;c<n.length;c++){let u=0,f=n[c]*t;for(let h=0;h<t;h++)u+=r[f+h];o[c]=u,s+=u}let i=new Uint32Array(s),l=0;for(let c=0;c<n.length;c++){let u=n[c]*t;for(let f=0;f<t;f++)r[u+f]===1&&(i[l++]=f)}return{lengths:o,codes:i}}function po(e){let r=new Uint32Array(e.length+1),t=0;for(let n=0;n<e.length;n++){if(t+=e[n],t>4294967295)throw new RangeError("overflow");r[n+1]=t}return r}function sr(e,r){let t=r??(e.presence?ke(e.presence):null);if(e.k===0)return{k:0,presence:t,flat:ts(e.cv)};if(e.k===12){let l=e.fields.map((c,u)=>({name:c.name,node:sr(c.node,e.shapes?rs(e.shapes,u):null)}));return{k:12,presence:t,fields:l}}if(e.k===13){let l=F(e.lengths,!1);return{k:13,presence:t,offsets:po(l),element:sr(e.element,null)}}let n=nt(e.keysRaw,!1),o=n.dict?Array.from(n.codes,l=>n.entries[l]):n.values,s,i=null;if(e.shapes){let l=ns(e.shapes);s=l.lengths,i=l.codes}else s=F(e.lengths,!1);return{k:14,presence:t,offsets:po(s),keys:o,codes:i,value:sr(e.value,null)}}function It(e){return e.presence!==null?e.presence.length:e.k===0?e.flat.v.length:e.k===12?_o(e):e.offsets.length-1}function _o(e){if(e.presence!==null){let r=0;for(let t=0;t<e.presence.length;t++)r+=e.presence[t];return r}return e.fields.length===0?0:It(e.fields[0].node)}function ir(e){if(e.k===0)return;if(e.k===12){let n=_o(e);for(let o of e.fields){if(It(o.node)!==n)throw new Error("struct count");ir(o.node)}return}let r=e.offsets[e.offsets.length-1];if(e.k===13){if(It(e.element)!==r)throw new Error("list count");ir(e.element);return}if((e.codes?e.codes.length:e.keys.length)!==r||It(e.value)!==r)throw new Error("map count");ir(e.value)}function os(e,r){let t=e.v[r];return e.dt===2?t===1:e.dt===7||e.dt===8?Number(t):e.dt===9?Be(t,!0):e.dt===10?Be(t,!1):t}function lr(e,r){let t=r;if(e.presence!==null){if(r>=e.presence.length||e.presence[r]===0)return;t=0;for(let l=0;l<r;l++)t+=e.presence[l]}if(e.k===0)return os(e.flat,t);if(e.k===12){let l={},c=[...e.fields].sort((u,f)=>u.name<f.name?-1:u.name>f.name?1:0);for(let u of c){let f=lr(u.node,t);f!==void 0&&(l[u.name]=f)}return l}let n=e.offsets[t],o=e.offsets[t+1];if(e.k===13){let l=new Array(o-n);for(let c=n;c<o;c++){let u=lr(e.element,c);l[c-n]=u===void 0?null:u}return l}let s=[];for(let l=n;l<o;l++){let c=e.codes?e.codes[l]:l;if(c>=e.keys.length)throw new RangeError("map key");let u=lr(e.value,l);u!==void 0&&s.push([e.keys[c],u])}s.sort((l,c)=>l[0]<c[0]?-1:l[0]>c[0]?1:0);let i={};for(let[l,c]of s)i[l]=c;return i}function So(e,r){let t=sr(e.root,null);if(ir(t),It(t)!==e.valueCount)throw new Error("nested root count");let n=new Array(r),o=0;for(let s=0;s<r;s++){if(!Mt(e.presenceBits,s)){n[s]=null;continue}let i=lr(t,o++);n[s]=i===void 0?null:i}return{name:e.name,values:n}}var on=["","","bool","i8","u8","i32","u32","i64","u64","f32","f64","string"];function To(e,r,t,n){if(r===void 0){if(e.length!==t)throw new Error("col count");return{values:e}}let o=ae(r,t);if(o!==e.length)throw new Error("popcount");let s=Ke(r,t);if(s===void 0){let l=n(t);return l.set(e),{values:l}}let i=n(t);return o>0&&it(r,t,e,i),{values:i,present:s}}function sn(e,r,t){let n=e.length;if(r===void 0){if(n!==t)throw new Error("col64 count");let l=re(t);for(let c=0;c<t;c++)l[c]=Number(e[c]);return{values:l}}let o=ae(r,t);if(o!==n)throw new Error("popcount64");let s=Ke(r,t),i=re(t);if(s===void 0){for(let l=0;l<t;l++)i[l]=Number(e[l]);return{values:i}}if(o>0){te(o*8);let l=new Float64Array(o);for(let c=0;c<o;c++)l[c]=Number(e[c]);it(r,t,l,i)}return{values:i,present:s}}function bo(e,r,t,n){if(e)return sn(rt(t,!1),r,n);let o=r!==void 0,s=F(t,!0);if(!o){if(s.length!==n)throw new Error("id count");let i=re(n);for(let l=0;l<n;l++)i[l]=s[l];return{values:i}}return To(s,r,n,re)}function Io(e,r,t,n,o,s){if(r===11)return Qr(e,nt(t,!1),o,s);if(r===7)return{name:e,type:"i64",...sn(Tt(t,!1),o,s)};if(r===8)return{name:e,type:"u64",...sn(rt(t,!1),o,s)};let i=o!==void 0,l,c;switch(r){case 2:l=ke(t),c=W;break;case 3:l=St(t),c=Ot;break;case 4:l=At(t),c=W;break;case 5:l=Te(t,i),c=Ee;break;case 6:l=F(t,i),c=K;break;case 9:l=be(t,n,!0),c=Le;break;default:l=be(t,n,!1),c=re;break}return{name:e,type:on[r],...To(l,o,s,c)}}var Ao=2147421215;function ss(e){$e();let r=Q(e);if(r.length===0)throw new Error("layer name");let t=M(e);if(t===0)throw new Error("extent");let n=M(e);if(e.e-e.p<n)throw new RangeError("v1 cols eof");let o=new Array(n),s=0,i=0;for(let y=0;y<n;y++){let m=C(e);if(m>30||(Ao>>>m&1)===0)throw new Error("v1 col");let E=m>=10?Q(e):"",L=null;if(m===30){let b=M(e);if(e.e-e.p<b)throw new RangeError("v1 sdict eof");L=new Array(b);for(let T=0;T<b;T++){let S=C(e);if(S>30||(Ao>>>S&1)===0)throw new Error("v1 child");L[T]={typ:S,name:S>=10?Q(e):""}}}m===4?s++:m<=3&&i++,o[y]={typ:m,name:E,children:L}}if(s>1||i>1)throw new Error("v1 dup id/geom");let l=null,c=null,u=null,f=[],h=y=>(y&1)===0?void 0:Xr(ie(e,gt,!0));for(let y=0;y<n;y++){let m=o[y],{typ:E,name:L}=m;if(E<=3){let b=h(E);l={is64:E>=2,bits:b,s:ie(e,J)}}else if(E===4){let b=M(e);if(b===0)throw new Error("v1 geom 0");if(e.e-e.p<b)throw new RangeError("v1 geom eof");c=ie(e,J),u=new Array(b-1);for(let T=0;T<b-1;T++)u[T]=ie(e,J)}else if(E<=11){let b=h(E);f.push({dt:2,name:L,bits:b,s:ie(e,gt,!0)})}else if(E<=23){let b=[5,5,6,6,7,7,8,8],T=h(E);f.push({dt:b[E-16],name:L,bits:T,s:ie(e,J)})}else if(E<=27){let b=h(E);f.push({dt:E<=25?9:10,name:L,bits:b,s:ie(e,io)})}else if(E<=29){let b=M(e),T=h(E);if(T!==void 0){if(b===0)throw new Error("v1 str sc");b--}if(b<2||b>5)throw new Error("v1 str sc");let S=new Array(b);for(let A=0;A<b;A++)S[A]=ie(e,J);let B=b===2?{m:0,lengths:S[0],data:S[1]}:b===3?{m:1,lengths:S[0],offsets:S[1],data:S[2],front:0}:b===4?{m:2,symLens:S[0],symTbl:S[1],lengths:S[2],corpus:S[3]}:{m:3,symLens:S[0],symTbl:S[1],lengths:S[2],corpus:S[3],offsets:S[4],front:0};f.push({dt:11,name:L,bits:T,s:B})}else{let b=M(e),T=[];for(;T.length<b;){let N=ie(e,J);if(T.push(N),N.t===Ae||N.t===Xt)break;if(T.length>=5)throw new Error("v1 sdict")}let S=new Array(m.children.length),B=0;for(let N=0;N<m.children.length;N++){let R=m.children[N],p=M(e),_=h(R.typ),x=_!==void 0?1:0;if(B+=x,p>=x&&p-x!==1)throw new Error("v1 sdict ch");S[N]={suffix:R.name,bits:_,data:ie(e,J)}}let A=T.length+S.length+B;if(b!==A&&b!==A+1)throw new Error("v1 sdict sc");if(T.length!==2&&T.length!==4)throw new Error("v1 sdict ds");let I=T.length===2?{prefix:L,front:0,fsst:0,lengths:T[0],data:T[1],children:S}:{prefix:L,front:0,fsst:1,symLens:T[0],symTbl:T[1],lengths:T[2],corpus:T[3],children:S};f.push({dt:30,shared:I})}}if(e.p!==e.e)throw new Error("v1 trailing");if(u===null)throw new Error("v1 no geom");let a=Zr(-1,0,c,!1,u),w=a.types.length,d=[];for(let y=0;y<f.length;y++){let m=f[y];m.dt===30?d.push(...en(m.shared,w)):d.push(Io(m.name,m.dt,m.s,null,m.bits,w))}let g={name:r,extent:t,version:1,featureCount:w,geometry:a,properties:d};return l!==null&&(g.ids=bo(l.is64,l.bits,l.s,w)),g}function nn(e,r,t,n){if(r===0)return;if(r<64){let s=(r>>>4)-1;if(s>2)throw new Error("v2 pres");return lt(e,n,s)}let o=r-64>>>4;if(o>=t.length)throw new Error("v2 spres");return t[o]}function is(e,r,t,n,o,s){let i=Ke(t,s),l=0;if(i===void 0)if(r==="triangle"){let f=o.triangleOffsets;l=f?f[s]:0}else l=bt(o,s);else for(let f=0;f<s;f++)if(Mt(i,f))if(r==="triangle"){let h=o.triangleOffsets;l+=h?h[f+1]-h[f]:0}else l+=bt(o,f+1)-bt(o,f);let c,u;if(n.dt===11){let{codes:f,dictionary:h}=go(nt(n.s,!0));u=f.length,c={name:e,scope:r,type:"string",codes:f,dictionary:h}}else if(n.dt===7||n.dt===8){let f=n.dt===7?Tt(n.s,!1):rt(n.s,!1);u=f.length;let h=new Float64Array(u);for(let a=0;a<u;a++)h[a]=Number(f[a]);c={name:e,scope:r,type:on[n.dt],values:h}}else{let f;switch(n.dt){case 2:f=ke(n.s);break;case 3:f=St(n.s);break;case 4:f=At(n.s);break;case 5:f=Te(n.s,!1);break;case 6:f=F(n.s,!1);break;case 9:f=be(n.s,n.d,!0);break;default:f=be(n.s,n.d,!1);break}u=f.length,c={name:e,scope:r,type:on[n.dt],values:f}}if(u!==l)throw new Error("mval len");return i!==void 0&&(c.present=i),c}var ls=27852,fs=12272,cs=12032;function as(e,r){$e();let t=Q(e);if(t.length===0)throw new Error("v2 name");let n=C(e),o=(n&128)!==0,s=(n&112)>>>4;if(s>7)throw new Error("v2 hdr");let i=s===0?-1:s-1,l=1<<(n&15)+6,c=M(e),u=C(e),f=(u&128)!==0,h=(u&112)>>>4,a=u&15;if(f&&h===0||a>14)throw new Error("v2 layout");if(o&&(a===0||a===1||a===12))throw new Error("v2 mval layout");if(i===Jr!=(a===14))throw new Error("v2 mesh layout");let w=new Array(h);for(let R=0;R<h;R++){let p=ge;if(f){let _=C(e);if((_&143)!==0)throw new Error("v2 spres byte");if(p=(_&112)>>>4,p>2)throw new Error("v2 spres code")}w[R]=lt(e,c,p)}let d=i>=0?null:k(e,G,4,Et,c),g=[];(ls>>>a&1)!==0&&g.push(k(e,G,4,Jt,c)),(fs>>>a&1)!==0&&g.push(k(e,G,4,Zt,c)),(cs>>>a&1)!==0&&g.push(k(e,G,4,Qt,c)),a>=12&&(g.push(k(e,G,4,er,c)),g.push(k(e,G,4,qt,c)),g.push(k(e,G,4,jt,c)));let y=k(e,je,4,Kt,c);if(a===14&&y.zStep===ee)throw new Error("v2 mesh z");g.push(y),a<=11&&(a&1)===1&&g.push(k(e,G,4,mt,c));let m=Zr(i,c,d,!0,g);$e();let E,L=0;if(!o)E=M(e);else if([E,L]=Bn(de(e)),L===0)throw new Error("v2 empty mvals");if(e.e-e.p<E)throw new RangeError("v2 cols eof");let b,T=[],S=r?[]:null,B=new Set,A=R=>{if(B.has(R))throw new Error("dup col");B.add(R)};for(let R=0;R<E;R++){$e();let p=C(e),_=p&240,x=p&15;if(x===15){if(_!==0&&_!==16)throw new Error("v2 sdict");let O=Q(e),V=M(e);if(e.e-e.p<V)throw new RangeError("v2 sdict eof");let X;if(_===0){let $=k(e,G,4,Oe,-1),Y=k(e,Z,4,Xt,-1);X={prefix:O,front:Y.front,fsst:0,lengths:$,data:Y,children:new Array(V)}}else{let $=k(e,G,4,Oe,-1),Y=k(e,G,4,xt,-1),me=k(e,Z,4,pt,-1),le=k(e,Z,4,Xt,-1);X={prefix:O,front:le.front,fsst:1,lengths:$,symLens:Y,symTbl:me,corpus:le,children:new Array(V)}}for(let $=0;$<V;$++){let Y=C(e);if((Y&15)!==11)throw new Error("v2 sdict ch");let me=Q(e);A(`${O}${me}`);let le=nn(e,Y&240,w,c),Bo=le===void 0?c:ae(le,c),Mo=k(e,Qe,4,Wt,Bo,1);X.children[$]={suffix:me,bits:le,data:Mo}}T.push(...en(X,c));continue}let v=x>=2?Q(e):"",U=nn(e,_,w,c),P=U===void 0?c:ae(U,c);if(x<=1){if(b!==void 0)throw new Error("dup id");let O=k(e,G,x===1?8:4,se,P);b=bo(x===1,U,O,c)}else if(x<=11){A(v);let O=fr(e,x,P);T.push(Io(v,x,O.s,O.d,U,c))}else{A(v);let O=xo(e,v,U,x,P);S!==null&&S.push(O)}}let I=new Array(L);if(o){if(e.e-e.p<L)throw new RangeError("v2 mvals eof");let R=a===14;for(let p=0;p<L;p++){$e();let _=C(e),x=_&15;if(x<2||x>11)throw new Error("v2 mval type");let v="vertex";if(R){let V=C(e);if(V===1)v="triangle";else if(V!==0)throw new Error("v2 mval scope")}let U=Q(e);A(U);let P=nn(e,_&240,w,c),O=fr(e,x,-1);I[p]=is(U,v,P,O,m,c)}}if(e.p!==e.e)throw new Error("v2 trailing");let N={name:t,extent:l,version:2,featureCount:c,geometry:m,properties:T,mValues:I};return b!==void 0&&(N.ids=b),S!==null&&S.length>0&&(N._rawNested=S),N}function cr(e,r={}){if(!(e instanceof Uint8Array))throw new TypeError("expected Uint8Array");yn(r.maxBytes);let t=r.layers!==void 0?new Set(r.layers):null,n=r.keepNested===!0,o=ce(e),s=[];try{for(;o.p<o.e;){let i=M(o),l=C(o);if(i===0)throw new Error("zero layer size");let c=mn(o,i-1);if(!(l!==1&&l!==2)){if(t!==null){let u=ce(c.b,c.p,c.e),f=Q(u);if(f.length===0)throw new Error("layer name");if(!t.has(f))continue}s.push(l===1?ss(c):as(c,n))}}}finally{pn(),Pn()}return s}var z=Object.freeze({Point:0,LineString:1,Polygon:2,MultiPoint:3,MultiLineString:4,MultiPolygon:5,Mesh:6,0:"Point",1:"LineString",2:"Polygon",3:"MultiPoint",4:"MultiLineString",5:"MultiPolygon",6:"Mesh"});function ln(e,r={}){return{layers:cr(e,{layers:r.layers,maxBytes:r.maxBytes})}}function Me(e,r){if("scope"in e&&e.scope!==void 0)throw new TypeError("m-value columns are sparse per vertex or triangle; use mValueSlice instead of columnValue");let{values:t,present:n}=e;if(!Number.isInteger(r)||r<0||r>=t.length)throw new RangeError(`the column has no feature ${r}`);return n===void 0||(n[r>>3]>>(r&7)&1)===1?t[r]:void 0}var vo=new WeakMap;function hs(e,r,t){if(r==="triangle"){let i=e.triangleOffsets;return i===void 0?0:i[t+1]-i[t]}let n=(i,l)=>i===void 0?l:i[l],o=n(e.ringOffsets,n(e.partOffsets,n(e.geometryOffsets,t)));return n(e.ringOffsets,n(e.partOffsets,n(e.geometryOffsets,t+1)))-o}function vt(e,r,t){if(!Number.isInteger(t)||t<0||t>=e.featureCount)throw new RangeError(`layer "${e.name}" has no feature ${t}`);let{present:n}=r;if(!(n===void 0||(n[t>>3]>>(t&7)&1)===1))return;let s=vo.get(e);s===void 0&&(s=new WeakMap,vo.set(e,s));let i=s.get(r);if(i===void 0){i=new Uint32Array(e.featureCount+1);let u=0;for(let f=0;f<e.featureCount;f++)i[f]=u,(n===void 0||(n[f>>3]>>(f&7)&1)===1)&&(u+=hs(e.geometry,r.scope,f));i[e.featureCount]=u,s.set(r,i)}let l=i[t],c=i[t+1];if(r.type==="string"){let u=new Array(c-l);for(let f=l;f<c;f++)u[f-l]=r.dictionary[r.codes[f]];return u}return r.values.subarray(l,c)}function us(e,r){let t=10**Math.abs(r),n=r<0?e/t:e*t;return n===0?0:n}var Ro=new WeakMap;function ds(e,r){if(Rt(e))return r;let t=Ro.get(e);if(!t){let{types:n}=e;t=new Uint32Array(n.length);let o=0;for(let s=0;s<n.length;s++)t[s]=o,(n[s]===z.Polygon||n[s]===z.MultiPolygon)&&o++;Ro.set(e,t)}return t[r]}function Ve(e){return e.indexBuffer!==void 0&&e.partOffsets===void 0&&!Rt(e)}function Rt(e){return e.meshes===!0||e.types[0]===z.Mesh}function cn(e,r){return e===void 0?r:e[r]}function ve(e,r){return cn(e.geometryOffsets,r)}function H(e,r){return cn(e.ringOffsets,cn(e.partOffsets,r))}function Ge(e){let{partOffsets:r,ringOffsets:t}=e;if(r===void 0||t===void 0)throw new Error("a layer storing polygons has part and ring offsets, and this one has not");return[r,t]}function Fe(e,r){if(r<e)throw new Error(`a run of vertices ${e}..${r} ends before it starts`);return r-e}function fn(e,r,t){return Fe(r,t),e.vertices.subarray(r*e.dimension,t*e.dimension)}function Lo(e,r){let{indexBuffer:t,triangleOffsets:n}=e,o=ds(e,r),s=n?.[o],i=n?.[o+1];if(t===void 0||s===void 0||i===void 0)throw new Error(`the layer's triangles do not cover polygon ${o}, feature ${r}`);return t.subarray(s*3,i*3)}function Uo(e,r,t,n){let o=new Uint32Array(e.length);for(let s=0;s<e.length;s++){if(e[s]<r||e[s]>=t)throw new Error(`a triangle of feature ${n} names vertex ${e[s]}, outside ${r}..${t}`);o[s]=e[s]-r}return o}function Po(e){let r=new Uint32Array(e+1);for(let t=0;t<=e;t++)r[t]=t;return r}function ar(e,r,t,n){if(r.length!==t+1)throw new Error(`${e} has ${r.length-1} items, expected ${t}`);if(r[0]!==0)throw new Error(`${e} starts at ${r[0]}, expected 0`);for(let o=0;o<t;o++)Fe(r[o],r[o+1]);if(n!==void 0&&r[t]!==n)throw new Error(`${e} ends at ${r[t]}, expected ${n}`);return r}var No=new WeakMap;function ws(e){let r=No.get(e);return r===void 0&&(r=gs(e),No.set(e,r)),r}function gs(e){if(Ve(e))throw new Error("a TessPolygons layer stores triangles, not runs of vertices");let{geometryOffsets:r,partOffsets:t,ringOffsets:n,types:o,vertices:s,dimension:i}=e,l=ar("featureGeometries",r??Po(o.length),o.length);if(s.length%i!==0)throw new Error(`the layer has ${s.length} vertex words, not a multiple of its dimension ${i}`);let c=s.length/i,u=l[o.length],f=t??Po(u);if(n===void 0){let g=ar("geometryVertices",f,u,c);return{featureGeometries:l,geometryVertices:g}}let h=ar("geometryRings",f,u),a=h[u],w=ar("ringVertices",n,a,c),d=new Uint32Array(u+1);for(let g=0;g<=u;g++)d[g]=H(e,g);return{featureGeometries:l,geometryVertices:d,geometryRings:h,ringVertices:w}}function an(e,r){let{geometry:t}=e;if(!Number.isInteger(r)||r<0||r>=e.featureCount)throw new RangeError(`layer "${e.name}" has no feature ${r}`);let n=t.types[r];if(Ve(t))throw new Error(`layer "${e.name}" is a TessPolygons layer, which stores triangles, not outlines`);let o=ve(t,r),s=ve(t,r+1),i=H(t,o),l=H(t,s),c=fn(t,i,l);switch(n){case z.Point:case z.MultiPoint:return{kind:"point",type:n,vertices:c,firstVertex:i};case z.LineString:case z.MultiLineString:{let u=[];for(let f=o;f<s;f++){let h=H(t,f),a=H(t,f+1);u.push({vertices:fn(t,h,a),firstVertex:h})}return{kind:"line",type:n,vertices:c,firstVertex:i,lines:u}}case z.Polygon:case z.MultiPolygon:{let[u,f]=Ge(t),h=[];for(let w=o;w<s;w++){let d=u[w],g=u[w+1],y=f[d],m=f[g],E=[],L=y;for(let b=d+1;b<g;b++)Fe(L,f[b]),L=f[b],E.push(L-y);Fe(L,m),h.push({vertices:fn(t,y,m),firstVertex:y,holeIndices:E})}let a=t.indexBuffer===void 0?void 0:Uo(Lo(t,r),i,l,r);return{kind:"polygon",type:n,vertices:c,firstVertex:i,polygons:h,triangles:a}}case z.Mesh:{let u=Uo(Lo(t,r),i,l,r);return{kind:"mesh",type:n,vertices:c,firstVertex:i,triangles:u}}default:throw new Error(`feature ${r} of layer "${e.name}" has unknown geometry type ${n}`)}}function ys(e,r){let t=Me(e,r);if(t!==void 0)return e.type==="bool"?t===1:e.type==="f32"?Be(t,!0):e.type==="f64"?Be(t,!1):t}function ps(e,r){return e.type==="string"?r:e.type==="bool"?Array.from(r,t=>t===1):e.type==="f32"?Array.from(r,t=>Be(t,!0)):e.type==="f64"?Array.from(r,t=>Be(t,!1)):Array.from(r)}function ms(e,r){let{geometry:t}=e,{vertices:n,dimension:o,types:s}=t,i=o===3,l=a=>i?[n[a*3],n[a*3+1],n[a*3+2]]:[n[a*2],n[a*2+1]],c=(a,w)=>{if(w<=a)return[];let d=new Array(w-a+1);for(let g=a;g<w;g++)d[g-a]=l(g);return d[w-a]=l(a),d};if(Ve(t)){let a=t.triangleOffsets,w=t.indexBuffer,d=a[r]*3,g=a[r+1]*3,y=[];for(let m=d;m<g;m+=3){let E=l(w[m]),L=l(w[m+1]),b=l(w[m+2]);y.push([[E,L,b,[...E]]])}return{geometry:{type:"MultiPolygon",coordinates:y}}}let u=ve(t,r),f=ve(t,r+1),h=s[r];switch(h){case z.Point:return{geometry:{type:"Point",coordinates:l(H(t,u))}};case z.MultiPoint:{let a=new Array(f-u);for(let w=u;w<f;w++)a[w-u]=l(H(t,w));return{geometry:{type:"MultiPoint",coordinates:a}}}case z.LineString:{let a=H(t,u),w=H(t,u+1),d=new Array(w-a);for(let g=a;g<w;g++)d[g-a]=l(g);return{geometry:{type:"LineString",coordinates:d}}}case z.MultiLineString:{let a=new Array(f-u);for(let w=u;w<f;w++){let d=H(t,w),g=H(t,w+1),y=new Array(g-d);for(let m=d;m<g;m++)y[m-d]=l(m);a[w-u]=y}return{geometry:{type:"MultiLineString",coordinates:a}}}case z.Polygon:{let[a,w]=Ge(t),d=a[u],g=a[u+1];if(g<=d)return{geometry:{type:"Polygon",coordinates:[[]]}};let y=new Array(g-d);for(let m=d;m<g;m++)y[m-d]=c(w[m],w[m+1]);return{geometry:{type:"Polygon",coordinates:y}}}case z.MultiPolygon:{let[a,w]=Ge(t),d=new Array(f-u);for(let g=u;g<f;g++){let y=a[g],m=a[g+1];if(m<=y)d[g-u]=[[]];else{let E=new Array(m-y);for(let L=y;L<m;L++)E[L-y]=c(w[L],w[L+1]);d[g-u]=E}}return{geometry:{type:"MultiPolygon",coordinates:d}}}case z.Mesh:{let a=new Array(f-u);for(let E=u;E<f;E++)a[E-u]=l(E);let w=t.triangleOffsets,d=t.indexBuffer,g=w[r],y=w[r+1],m=new Array(y-g);for(let E=g;E<y;E++)m[E-g]=[d[E*3]-u,d[E*3+1]-u,d[E*3+2]-u];return{geometry:{type:"MultiPoint",coordinates:a},triangles:m}}default:throw new Error(`unknown geometry type ${h}`)}}function Es(e,r={}){let t=cr(e,{keepNested:!0,maxBytes:r.maxBytes}),n=[];for(let o of t){let s=o._rawNested?o._rawNested.map(i=>So(i,o.featureCount)):[];for(let i=0;i<o.featureCount;i++){let l={};for(let w of o.properties){let d=ys(w,i);d!==void 0&&(l[w.name]=d)}if(o.mValues)for(let w of o.mValues){let d=vt(o,w,i);d!==void 0&&(l[`m:${w.name}`]=ps(w,d))}for(let w of s)l[w.name]=w.values[i];o.geometry.zStep!==void 0&&(l._z_step=o.geometry.zStep,o.geometry.heightMode==="relativeToGround"&&(l._height_mode="relative_to_ground")),l._layer=o.name,l._extent=o.extent;let c={};for(let w of Object.keys(l).sort())c[w]=l[w];let u=o.ids?Me(o.ids,i):void 0,{geometry:f,triangles:h}=ms(o,i),a={type:"Feature"};u!==void 0&&(a.id=u),a.properties=c,a.geometry=f,h!==void 0&&(a.triangles=h),n.push(a)}}return{type:"FeatureCollection",features:n}}var hn=1,un=2,hr=3,xs=[hn,un,hr,hn,un,hr,0],ur=class e{constructor(r,t){this.x=r,this.y=t}clone(){return new e(this.x,this.y)}equals(r){return this.x===r.x&&this.y===r.y}};function dr(e,r,t,n){let o=Fe(r,t);if(o===0)return[];let s=new Array(n?o+1:o);for(let i=0;i<o;i++)s[i]=e(r+i);return n&&(s[o]=e(r)),s}function Oo(e,r,t,n){let o=new Array(t-r);for(let s=r;s<t;s++)o[s-r]=dr(n,e[s],e[s+1],!0);return o}function _s(e,r){let t=Me(e,r);return e.type==="bool"&&t!==void 0?t===1:t}var wr=class{constructor(r,t){this._featureIdx=r,this._layer=t,this.extent=t.layer.extent}get mltType(){return this._layer.layer.geometry.types[this._featureIdx]}get type(){return xs[this.mltType]??0}get id(){let{ids:r}=this._layer.layer;return r&&Me(r,this._featureIdx)}get properties(){let r={};for(let t of this._layer.layer.properties){let n=_s(t,this._featureIdx);n!==void 0&&(r[t.name]=n)}return r}_vertex(){throw new Error("unimplemented")}_geometries(){if(this._layer.trianglesOnly)throw new Error(`layer "${this._layer.layer.name}" is a TessPolygons layer, which stores triangles, not outlines`);let{geometry:r}=this._layer.layer;return[ve(r,this._featureIdx),ve(r,this._featureIdx+1)]}_rings(){let{geometry:r}=this._layer.layer,t=this._vertex(),[n,o]=this._geometries();if(this.mltType===z.Mesh)return[dr(t,n,o,!1)];switch(this.type){case hn:{let s=H(r,n),i=H(r,o),l=new Array(Fe(s,i));for(let c=s;c<i;c++)l[c-s]=[t(c)];return l}case un:{let s=new Array(o-n);for(let i=n;i<o;i++)s[i-n]=dr(t,H(r,i),H(r,i+1),!1);return s}case hr:{let[s,i]=Ge(r);return Oo(i,s[n],s[o],t)}default:return[]}}_polygons(){if(this.mltType===z.Mesh)throw new Error(`feature ${this._featureIdx} of layer "${this._layer.layer.name}" is a mesh; use loadGeometry() and loadTriangles() instead of loadPolygons()`);if(this.type!==hr)return[this._rings()];let{geometry:r}=this._layer.layer,t=this._vertex(),[n,o]=this._geometries(),[s,i]=Ge(r),l=new Array(o-n);for(let c=n;c<o;c++)l[c-n]=Oo(i,s[c],s[c+1],t);return l}},gr=class extends wr{constructor(r,t){super(r,t),this.zStep=t.layer.geometry.zStep,this.heightMode=t.layer.geometry.heightMode}loadGeometry(){return this._rings()}loadZ(){let{geometry:r}=this._layer.layer;if(r.dimension!==3)return[];let t=s=>r.vertices[s*3+2],[n,o]=this._geometries();return dr(t,H(r,n),H(r,o),!1)}loadPolygons(){return this._polygons()}_vertex(){let{vertices:r,dimension:t}=this._layer.layer.geometry;return n=>new ur(r[n*t],r[n*t+1])}},yr=class extends wr{constructor(r,t,n,o="absolute"){super(r,t),this.zStep=n,this.heightMode=o}loadGeometry(){return this._rings()}loadPolygons(){return this._polygons()}loadTriangles(){if(this.mltType!==z.Mesh)throw new Error(`feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`);let r=an(this._layer.layer,this._featureIdx);if(r.kind!=="mesh")throw new Error(`feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`);return r.triangles}loadMValues(r){let t=this._layer.layer.mValues?.find(n=>n.name===r);if(t!==void 0)return vt(this._layer.layer,t,this._featureIdx)}_vertex(){let{vertices:r}=this._layer.layer.geometry;return t=>[r[t*3],r[t*3+1],r[t*3+2]]}},pr=class{constructor(r){this._data={layer:r,trianglesOnly:Ve(r.geometry)},this.name=r.name,this.extent=r.extent,this.length=r.featureCount,this.propertyColumns=r.properties,this.propertyKeys=r.properties.map(t=>t.name)}_featureIndex(r){if(!Number.isInteger(r)||r<0||r>=this.length)throw new RangeError(`layer "${this.name}" has no feature ${r}`);return r}},mr=class extends pr{constructor(r){super(r),this.version=1,this.zStep=this._data.layer.geometry.zStep,this.heightMode=this._data.layer.geometry.heightMode}feature(r){return new gr(this._featureIndex(r),this._data)}},Er=class extends pr{constructor(r){super(r);let{geometry:t}=r;if(t.zStep===void 0)throw new Error(`layer "${r.name}" has no z coordinates; decode the tile with decodeTile() instead`);if(t.indexBuffer!==void 0&&!Rt(t)){let n=this._data.trianglesOnly?"TessPolygons":"TessPolygonsWithOutlines";throw new Error(`layer "${r.name}" uses the ${n} geometry layout, which decodeTile3D does not support`)}this.zStep=t.zStep,this.heightMode=t.heightMode,this.mValues=r.mValues??[]}feature(r){return new yr(this._featureIndex(r),this._data,this.zStep,this.heightMode)}};function ko(e,r,t){let n={};for(let o of ln(e,t).layers){if(Object.hasOwn(n,o.name))throw new Error(`the tile has two layers named "${o.name}"; decodeTileColumns keeps both`);n[o.name]=new r(o)}return n}function Ss(e,r){return{layers:ko(e,mr,r)}}function As(e,r){return{layers:ko(e,Er,r)}}export{gr as MltFeature,yr as MltFeature3D,z as MltGeometryType,mr as MltLayer,Er as MltLayer3D,ur as MltPoint,Me as columnValue,Ss as decodeTile,As as decodeTile3D,ln as decodeTileColumns,an as featureGeometry,ws as geometryStarts,Rt as isMeshes,Ve as isTrianglesOnly,vt as mValueSlice,Es as tileGeoJson,us as toElevation};
+var dn = new TextDecoder("utf-8", { fatal: !0 }),
+  Pt = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1,
+  wn = 16384,
+  Fo = 262144,
+  gn = 67108864,
+  Re = new Uint32Array(wn),
+  ze = 0,
+  De = new BigUint64Array(1024),
+  Lt = gn,
+  Ce = new Uint32Array(0),
+  Nt = new Int32Array(0);
+function yn(e = gn) {
+  if (e !== 1 / 0 && (!Number.isFinite(e) || e < 0))
+    throw new RangeError("maxBytes must be a non-negative number or Infinity");
+  Lt = e;
+}
+function te(e) {
+  if (!Number.isFinite(e) || e < 0 || e > Lt)
+    throw new RangeError("memory limit exceeded");
+}
+function fe(e) {
+  if (!Number.isFinite(e) || e < 0 || e > Lt)
+    throw new RangeError("memory limit exceeded");
+  Lt -= e;
+}
+function W(e) {
+  return fe(e), new Uint8Array(e);
+}
+function Ot(e) {
+  return fe(e), new Int8Array(e);
+}
+function K(e) {
+  return fe(e * 4), new Uint32Array(e);
+}
+function Ee(e) {
+  return fe(e * 4), new Int32Array(e);
+}
+function Le(e) {
+  return fe(e * 4), new Float32Array(e);
+}
+function re(e) {
+  return fe(e * 8), new Float64Array(e);
+}
+function xr(e) {
+  return fe(e * 8), new BigUint64Array(e);
+}
+function ot(e, r = 8) {
+  return fe(e * r), new Array(e);
+}
+function $e() {
+  ze = 0;
+}
+function pn() {
+  (ze = 0),
+    Re.length > Fo && (Re = new Uint32Array(wn)),
+    De.length > 16384 && (De = new BigUint64Array(1024));
+}
+function q(e) {
+  if (e === 0) return Ce;
+  te(e * 4);
+  const r = ze + e;
+  if (r <= Re.length) {
+    const n = Re.subarray(ze, r);
+    return (ze = r), n;
+  }
+  let t = Re.length * 2;
+  for (; t < e; ) t *= 2;
+  return (Re = new Uint32Array(t)), (ze = e), Re.subarray(0, e);
+}
+function kt(e) {
+  if ((te(e * 8), e > De.length)) {
+    let r = De.length * 2;
+    for (; r < e; ) r *= 2;
+    De = new BigUint64Array(r);
+  }
+  return De.subarray(0, e);
+}
+var ce = (e, r = 0, t = e.length) => ({ b: e, p: r, e: t });
+function st(e) {
+  if (e.p >= e.e) throw new RangeError("eof");
+  return e.b[e.p];
+}
+function C(e) {
+  if (e.p >= e.e) throw new RangeError("eof");
+  return e.b[e.p++];
+}
+function j(e, r) {
+  const t = e.p,
+    n = t + r;
+  if (!Number.isInteger(r) || r < 0 || n > e.e) throw new RangeError("eof");
+  return (e.p = n), e.b.subarray(t, n);
+}
+function mn(e, r) {
+  const t = e.p,
+    n = t + r;
+  if (!Number.isInteger(r) || r < 0 || n > e.e) throw new RangeError("eof");
+  return (e.p = n), { b: e.b, p: t, e: n };
+}
+function En(e) {
+  return e.length === 0 ? "" : dn.decode(e);
+}
+function Q(e) {
+  const r = M(e);
+  if (r === 0) return "";
+  const t = e.p,
+    n = t + r;
+  if (n > e.e) throw new RangeError("eof");
+  e.p = n;
+  const o = e.b;
+  if (r <= 16) {
+    let s = 0;
+    for (let i = t; i < n; i++) s |= o[i];
+    if (s < 128)
+      return r === 1
+        ? String.fromCharCode(o[t])
+        : r === 2
+          ? String.fromCharCode(o[t], o[t + 1])
+          : r === 3
+            ? String.fromCharCode(o[t], o[t + 1], o[t + 2])
+            : r === 4
+              ? String.fromCharCode(o[t], o[t + 1], o[t + 2], o[t + 3])
+              : String.fromCharCode.apply(null, o.subarray(t, n));
+  }
+  return dn.decode(o.subarray(t, n));
+}
+function M(e) {
+  let r = e.b,
+    t = e.e,
+    n = e.p;
+  if (n >= t) throw new RangeError("eof");
+  let o = r[n++];
+  if (o < 128) return (e.p = n), o;
+  let s = o & 127;
+  if (n >= t) throw new RangeError("eof");
+  if (((o = r[n++]), o < 128)) {
+    if (o === 0) throw new Error("varint");
+    return (e.p = n), s | (o << 7);
+  }
+  s |= (o & 127) << 7;
+  let i = 14;
+  for (;;) {
+    if (n >= t) throw new RangeError("eof");
+    if (((o = r[n++]), i === 28 && o >= 16)) throw new RangeError("overflow");
+    if (((s |= (o & 127) << i), o < 128)) {
+      if (o === 0) throw new Error("varint");
+      return (e.p = n), s >>> 0;
+    }
+    i += 7;
+  }
+}
+function de(e) {
+  let r = e.b,
+    t = e.e,
+    n = e.p;
+  if (n >= t) throw new RangeError("eof");
+  let o = r[n++];
+  if (o < 128) return (e.p = n), BigInt(o);
+  let s = BigInt(o & 127),
+    i = 7n;
+  for (;;) {
+    if (n >= t) throw new RangeError("eof");
+    if (((o = r[n++]), i === 63n && o > 1)) throw new RangeError("overflow");
+    if (((s |= BigInt(o & 127) << i), o < 128)) {
+      if (o === 0) throw new Error("varint");
+      return (e.p = n), s;
+    }
+    i += 7n;
+  }
+}
+function xn(e) {
+  const r = de(e);
+  return (r >> 1n) ^ -(r & 1n);
+}
+function _n(e, r, t) {
+  let n = new Int32Array(t.buffer, t.byteOffset, r),
+    o = e.length | 0,
+    s = (o - 20) | 0,
+    i = (r - 3) | 0,
+    l = 0,
+    c = 0;
+  for (; c < i && l <= s; ) {
+    const f = e[l],
+      h = e[(l + 1) | 0],
+      a = e[(l + 2) | 0],
+      w = e[(l + 3) | 0];
+    if ((f | h | a | w) < 128) {
+      (n[c] = f),
+        (n[(c + 1) | 0] = h),
+        (n[(c + 2) | 0] = a),
+        (n[(c + 3) | 0] = w),
+        (l = (l + 4) | 0),
+        (c = (c + 4) | 0);
+      continue;
+    }
+    let d = f;
+    if (((l = (l + 1) | 0), d < 128)) {
+      n[c++] = d;
+      continue;
+    }
+    let g = d & 127;
+    if (((d = e[l++]), d < 128)) {
+      if (d === 0) throw new Error("varint");
+      n[c++] = g | (d << 7);
+      continue;
+    }
+    if (((g |= (d & 127) << 7), (d = e[l++]), d < 128)) {
+      if (d === 0) throw new Error("varint");
+      n[c++] = g | (d << 14);
+      continue;
+    }
+    if (((g |= (d & 127) << 14), (d = e[l++]), d < 128)) {
+      if (d === 0) throw new Error("varint");
+      n[c++] = g | (d << 21);
+      continue;
+    }
+    if (((g |= (d & 127) << 21), (d = e[l++]), d >= 16 || d === 0))
+      throw new RangeError(d === 0 ? "varint" : "overflow");
+    n[c++] = g | (d << 28);
+  }
+  const u = { b: e, p: l, e: o };
+  for (; c < r; c++) n[c] = M(u);
+  return t;
+}
+function Sn(e) {
+  const r = e.length;
+  if (r === 0) return Ce;
+  let t = q(r),
+    n = { b: e, p: 0, e: r },
+    o = 0;
+  for (; n.p < r; ) t[o++] = M(n);
+  return t.subarray(0, o);
+}
+function An(e, r, t) {
+  const n = { b: e, p: 0, e: e.length };
+  for (let o = 0; o < r; o++) t[o] = de(n);
+  return t;
+}
+function Tn(e) {
+  if (e.length === 0) return new BigUint64Array(0);
+  let r = kt(e.length),
+    t = { b: e, p: 0, e: e.length },
+    n = 0;
+  for (; t.p < t.e; ) r[n++] = de(t);
+  return r.subarray(0, n);
+}
+function Ut(e, r, t, n, o) {
+  if (e.length !== r * t) throw new Error("raw size");
+  if (r === 0) return o;
+  if (Pt && (e.byteOffset & (t - 1)) === 0)
+    return o.set(new n(e.buffer, e.byteOffset, r)), o;
+  const s = new DataView(e.buffer, e.byteOffset, e.byteLength);
+  if (n === Uint32Array)
+    for (let i = 0; i < r; i++) o[i] = s.getUint32(i * 4, !0);
+  else if (n === Float32Array)
+    for (let i = 0; i < r; i++) o[i] = s.getFloat32(i * 4, !0);
+  else if (n === Float64Array)
+    for (let i = 0; i < r; i++) o[i] = s.getFloat64(i * 8, !0);
+  else for (let i = 0; i < r; i++) o[i] = s.getBigUint64(i * 8, !0);
+  return o;
+}
+var bn = (e, r, t) => Ut(e, r, 4, Uint32Array, t),
+  In = (e, r, t) => Ut(e, r, 8, BigUint64Array, t),
+  vn = (e, r, t) =>
+    t ? Ut(e, r, 4, Float32Array, Le(r)) : Ut(e, r, 8, Float64Array, re(r));
+var Rn = new Uint32Array(256),
+  Ln = new Uint32Array(256),
+  Un = new Uint8Array(256),
+  we = new Uint8Array(16384),
+  _r = new DataView(we.buffer),
+  Ye = new Uint8Array(16384);
+function Pn() {
+  we.length > 1048576 &&
+    ((we = new Uint8Array(16384)), (_r = new DataView(we.buffer))),
+    Ye.length > 1048576 && (Ye = new Uint8Array(16384));
+}
+function Bt(e, r, t) {
+  let n = e.length,
+    o = n < 255 ? n : 255,
+    s = r.length,
+    i = 0;
+  for (let a = 0; a < n; a++) {
+    const w = e[a];
+    if (w > 8 || i + w > s) throw new Error("fsst table");
+    if (a < o) {
+      Un[a] = w;
+      let d = 0,
+        g = 0,
+        y = w < 4 ? w : 4;
+      for (let m = 0; m < y; m++) d |= r[i + m] << (m << 3);
+      for (let m = 4; m < w; m++) g |= r[i + m] << ((m - 4) << 3);
+      (Rn[a] = d >>> 0), (Ln[a] = g >>> 0);
+    }
+    i += w;
+  }
+  const l = t.length,
+    c = l * 8 + 8;
+  if ((te(c), we.length < c)) {
+    let a = we.length * 2;
+    for (; a < c; ) a *= 2;
+    (we = new Uint8Array(a)), (_r = new DataView(we.buffer));
+  }
+  let u = we,
+    f = _r,
+    h = 0;
+  for (let a = 0; a < l; a++) {
+    const w = t[a];
+    if (w < o)
+      f.setUint32(h, Rn[w], !0), f.setUint32(h + 4, Ln[w], !0), (h += Un[w]);
+    else if (w === 255) {
+      if (++a >= l) throw new Error("fsst escape");
+      u[h++] = t[a];
+    } else throw new Error("fsst code");
+  }
+  return u.subarray(0, h);
+}
+function Nn(e, r) {
+  if ((e.length & 1) !== 0) throw new Error("front odd");
+  let t = e.length >>> 1,
+    n = q(t),
+    o = 0,
+    s = 0,
+    i = 0;
+  for (let h = 0; h < t; h++) {
+    const a = e[h],
+      w = e[t + h];
+    if (a > s) throw new Error("front prefix");
+    if (((i += w), i > r.length)) throw new Error("front suffix");
+    (s = a + w), (n[h] = s), (o += s);
+  }
+  if (i !== r.length) throw new Error("front trailing");
+  if ((te(o), Ye.length < o)) {
+    let h = Ye.length * 2;
+    for (; h < o; ) h *= 2;
+    Ye = new Uint8Array(h);
+  }
+  let l = Ye.subarray(0, o),
+    c = 0,
+    u = 0,
+    f = 0;
+  for (let h = 0; h < t; h++) {
+    const a = e[h],
+      w = e[t + h],
+      d = c;
+    a > 0 && (l.copyWithin(c, u, u + a), (c += a)),
+      w > 0 && (l.set(r.subarray(f, f + w), c), (f += w), (c += w)),
+      (u = d);
+  }
+  return { bytes: l, entryLengths: n };
+}
+function Bn(e) {
+  return [On(e), On(e >> 1n)];
+}
+function On(e) {
+  let r = e & 0x5555555555555555n;
+  return (
+    (r = (r | (r >> 1n)) & 0x3333333333333333n),
+    (r = (r | (r >> 2n)) & 0x0f0f0f0f0f0f0f0fn),
+    (r = (r | (r >> 4n)) & 0x00ff00ff00ff00ffn),
+    (r = (r | (r >> 8n)) & 0x0000ffff0000ffffn),
+    (r = (r | (r >> 16n)) & 0x00000000ffffffffn),
+    Number(r) >>> 0
+  );
+}
+function kn(e) {
+  return (
+    (e &= 1431655765),
+    (e = (e | (e >>> 1)) & 858993459),
+    (e = (e | (e >>> 2)) & 252645135),
+    (e = (e | (e >>> 4)) & 16711935),
+    (e | (e >>> 8)) & 65535
+  );
+}
+function Mn(e, r, t) {
+  if (r > 16) throw new Error("morton bits");
+  let n = r === 0 ? 0 : (1 << r) - 1,
+    o = e.length,
+    s = Ee(o * 2),
+    i = 0;
+  for (let l = 0; l < o; l++) {
+    i = (i + (e[l] | 0)) | 0;
+    const c = i >>> 0;
+    (s[l * 2] = ((kn(c) & n) - t) | 0),
+      (s[l * 2 + 1] = ((kn(c >>> 1) & n) - t) | 0);
+  }
+  return s;
+}
+var ge = 0,
+  Ue = 1,
+  xe = 2,
+  He = new Uint8Array(256);
+for (let e = 1; e < 256; e++) He[e] = He[e >> 1] + (e & 1);
+function Xe(e, r) {
+  const t = (r + 7) >>> 3,
+    n = r & 7;
+  if (n === 0) return e.length === t ? e : e.subarray(0, t);
+  const o = (1 << n) - 1;
+  if ((e[t - 1] & ~o) === 0 && e.length === t) return e;
+  const s = e.slice(0, t);
+  return (s[t - 1] &= o), s;
+}
+function ae(e, r) {
+  let t = r >>> 3,
+    n = 0;
+  for (let s = 0; s < t; s++) n += He[e[s]];
+  const o = r & 7;
+  return o > 0 && (n += He[e[t] & ((1 << o) - 1)]), n;
+}
+var Mt = (e, r) => e === void 0 || ((e[r >>> 3] >>> (r & 7)) & 1) === 1;
+function Ke(e, r) {
+  if (!(e === void 0 || r === 0)) return ae(e, r) === r ? void 0 : Xe(e, r);
+}
+function it(e, r, t, n) {
+  let o = r >>> 3,
+    s = 0;
+  for (let l = 0; l < o; l++) {
+    let c = e[l];
+    if (c === 0) continue;
+    const u = l << 3;
+    if (c === 255) {
+      (n[u] = t[s]),
+        (n[u + 1] = t[s + 1]),
+        (n[u + 2] = t[s + 2]),
+        (n[u + 3] = t[s + 3]),
+        (n[u + 4] = t[s + 4]),
+        (n[u + 5] = t[s + 5]),
+        (n[u + 6] = t[s + 6]),
+        (n[u + 7] = t[s + 7]),
+        (s += 8);
+      continue;
+    }
+    for (; c !== 0; ) {
+      const f = c & -c;
+      (n[u + 31 - Math.clz32(f)] = t[s++]), (c ^= f);
+    }
+  }
+  const i = r & 7;
+  if (i > 0) {
+    let l = e[o] & ((1 << i) - 1),
+      c = o << 3;
+    for (; l !== 0; ) {
+      const u = l & -l;
+      (n[c + 31 - Math.clz32(u)] = t[s++]), (l ^= u);
+    }
+  }
+}
+function lt(e, r, t) {
+  const n = (r + 7) >>> 3;
+  if (t === ge) return Xe(j(e, n), r);
+  if (t === xe) {
+    const o = (n + 7) >>> 3,
+      s = j(e, o);
+    for (let u = n; u < o * 8; u++)
+      if (((s[u >>> 3] >>> (u & 7)) & 1) !== 0)
+        throw new Error("sparse summary");
+    let i = j(e, ae(s, n)),
+      l = W(n),
+      c = 0;
+    for (let u = 0; u < n; u++)
+      if (((s[u >>> 3] >>> (u & 7)) & 1) !== 0) {
+        const f = i[c++];
+        if (f === 0) throw new Error("sparse zero");
+        l[u] = f;
+      }
+    return Xe(l, r);
+  }
+  if (t === Ue) {
+    let o = W(n),
+      s = 0,
+      i = !1,
+      l = BigInt(r);
+    for (; s < r; ) {
+      const c = de(e);
+      if (c > l - BigInt(s)) throw new Error("runs overflow");
+      const u = s + Number(c);
+      if (i) {
+        let f = s;
+        for (; f < u && (f & 7) !== 0; ) (o[f >>> 3] |= 1 << (f & 7)), f++;
+        const h = u & -8;
+        for (f < h && (o.fill(255, f >>> 3, h >>> 3), (f = h)); f < u; )
+          (o[f >>> 3] |= 1 << (f & 7)), f++;
+      }
+      (s = u), (i = !i);
+    }
+    return o;
+  }
+  throw new Error("presence coding");
+}
+function Fn(e, r, t) {
+  const n = e.p,
+    o = (r + 7) >>> 3;
+  if (t === ge) return j(e, o);
+  if (t === xe) {
+    let s = (o + 7) >>> 3,
+      i = j(e, s),
+      l = 0;
+    for (let c = 0; c < s; c++) l += He[i[c]];
+    return j(e, l), e.b.subarray(n, e.p);
+  }
+  if (t === Ue) {
+    let s = 0,
+      i = BigInt(r);
+    for (; s < r; ) {
+      const l = de(e);
+      if (l > i - BigInt(s)) throw new Error("runs overflow");
+      s += Number(l);
+    }
+    return e.b.subarray(n, e.p);
+  }
+  throw new Error("presence coding");
+}
+function Vn(e, r, t) {
+  if (t === ge) return ae(e, r);
+  if (t === xe) {
+    let l = (r + 7) >>> 3,
+      c = (l + 7) >>> 3,
+      u = 0;
+    for (let f = 0; f < l; f++)
+      if (((e[f >>> 3] >>> (f & 7)) & 1) !== 0) {
+        const h = Math.min(8, r - f * 8);
+        u += He[e[c++] & (h === 8 ? 255 : (1 << h) - 1)];
+      }
+    return u;
+  }
+  let n = ce(e),
+    o = 0,
+    s = !1,
+    i = 0;
+  for (; o < r; ) {
+    const l = Number(de(n));
+    if (l > r - o) throw new Error("runs overflow");
+    s && (i += l), (o += l), (s = !s);
+  }
+  return i;
+}
+var Gn = 65536,
+  Pe = 257,
+  Ft = 14,
+  Vo = 4096,
+  ct = (e) => (e === 0 ? 0 : e === 32 ? 4294967295 : (1 << e) - 1),
+  Vt = null,
+  zn = 0,
+  Tr = null,
+  Ct = null,
+  br = null,
+  Ir = null,
+  ft = null,
+  vr = null,
+  ye = null,
+  We = null;
+function Go() {
+  return (
+    Vt !== null ||
+      (Vt = [0, 1, 2].map((e) => {
+        const r = new Uint8Array(Pe),
+          t = new Uint8Array(Pe),
+          n = new Uint8Array(Pe),
+          o = new Uint8Array(Pe),
+          s = new Uint8Array(Pe);
+        (s[0] = 1), (n[0] = 2);
+        for (let i = 1; i < Pe; i++) {
+          const l = (i + 1) >>> 1,
+            c = l >>> e;
+          if (c < 1 || c > 32) continue;
+          const u = c - 1 < e ? c - 1 : e,
+            f = l & ct(e);
+          if ((f & ct(e - u)) !== 0) continue;
+          const h = (i & 1) === 0;
+          if (c === 32 && (!h || f !== 0)) continue;
+          (s[i] = 1), (r[i] = c - 1 - u), (t[i] = h ? 1 : 0);
+          const a = ((i + 1) >>> 1) >>> e;
+          (n[i] = 2 + 2 * (a < 6 ? a : 5)), (o[i] = (1 << u) | (f >>> (e - u)));
+        }
+        return { rawBits: r, negFlag: t, dyCtxBase: n, head: o, valid: s };
+      })),
+    Vt
+  );
+}
+function zo(e) {
+  zn >= e ||
+    ((zn = e),
+    (Tr = new Uint16Array(e)),
+    (Ct = new Uint16Array(e)),
+    (br = new Uint8Array(e)),
+    (Ir = new Uint8Array(e)),
+    (ft = new Uint8Array(e)),
+    (vr = new Uint8Array(e)),
+    (ye = new Uint8Array(e)));
+}
+var Sr = new Uint32Array(16),
+  Ar = new Uint8Array(16),
+  Dn = new Uint32Array(4),
+  Gt = new Uint32Array(4),
+  zt = new Uint32Array(4),
+  Dt = [null, null, null, null];
+function Cn(e, r, t) {
+  if ((t & 1) !== 0) throw new Error("rans odd");
+  const n = t >>> 1;
+  te(n), (!We || We.length < n) && (We = new Uint8Array(Math.max(1024, n)));
+  const o = We.subarray(0, n);
+  if (r === void 0) o.fill(1);
+  else {
+    if (
+      (r.length > 0 && r[0] !== 0) ||
+      (r.length === 0 ? 0 : r[r.length - 1]) !== n
+    )
+      throw new Error("rans runs");
+    o.fill(0);
+    for (let p = 0; p < r.length; p++) {
+      const _ = r[p];
+      if (_ < n) o[_] = 1;
+      else if (_ !== n) throw new Error("rans runs");
+    }
+  }
+  if (e.length === 0) throw new Error("rans empty");
+  const s = e[0];
+  if (s > 2) throw new Error("rans depth");
+  let i = Go()[s],
+    l = e.subarray(1),
+    c = 0,
+    u = (p) => {
+      if (p === 0) return 0;
+      const _ = c >>> 3,
+        x = c & 7,
+        v =
+          (_ < l.length ? l[_] : 0) |
+          ((_ + 1 < l.length ? l[_ + 1] : 0) << 8) |
+          ((_ + 2 < l.length ? l[_ + 2] : 0) << 16);
+      return (c += p), (v >>> x) & ct(p);
+    },
+    f = () => {
+      let p = 0;
+      for (; p <= 12; ) {
+        if (u(1) === 1) return (1 << p) | u(p);
+        p++;
+      }
+      throw new Error("rans freq");
+    },
+    h = new Int8Array(Ft).fill(-1),
+    a = new Array(Ft),
+    w = 1;
+  for (let p = 0; p < Ft; p++) {
+    const _ = u(1);
+    if (c > l.length * 8) throw new Error("rans trunc");
+    if (_ === 0) continue;
+    const x = u(4),
+      v = u(9);
+    if (x > 11 || v >= Pe) throw new Error("rans table");
+    const U = q(v + 1);
+    U.fill(0);
+    let P = 0,
+      O = 0;
+    if (x === 0) (U[v] = 1), (P = 1), i.valid[v] || (O = 1);
+    else
+      for (let V = 0; V <= v; V++) {
+        const X = f() - 1;
+        (U[V] = X), (P += X), X > 0 && !i.valid[V] && (O = 1);
+      }
+    if (c > l.length * 8) throw new Error("rans trunc");
+    if (P !== 1 << x || U[v] === 0 || O) throw new Error("rans freq");
+    (h[p] = x), (a[p] = U), (w += 1 << x);
+  }
+  let d = Vo;
+  for (; d < w; ) d <<= 1;
+  zo(d), (Ct[0] = 1), (ye[0] = 1), Sr.fill(0), Ar.fill(0);
+  let g = 1;
+  for (let p = 0; p < Ft; p++) {
+    const _ = h[p];
+    if (_ < 0) continue;
+    (Sr[p] = g), (Ar[p] = _);
+    const x = a[p];
+    for (let v = 0; v < x.length; v++) {
+      const U = x[v];
+      if (U === 0) continue;
+      const P = i.rawBits[v],
+        O = i.negFlag[v],
+        V = i.dyCtxBase[v],
+        X = i.head[v];
+      for (let $ = 0; $ < U; $++) {
+        const Y = g + $;
+        (Tr[Y] = $),
+          (Ct[Y] = U),
+          (br[Y] = P),
+          (Ir[Y] = O),
+          (ft[Y] = V),
+          (vr[Y] = X),
+          (ye[Y] = 0);
+      }
+      g += U;
+    }
+  }
+  const y = ce(e, 1 + ((c + 7) >>> 3), e.length);
+  for (let p = 0; p < 4; p++) Dn[p] = M(y);
+  for (let p = 0; p < 4; p++) {
+    const _ = Dn[p];
+    if (_ < 4 || (_ & 1) !== 0 || y.e - y.p < _) throw new Error("rans lane");
+    const x = j(y, _);
+    (Dt[p] = x),
+      (Gt[p] = 4),
+      (zt[p] = (x[0] | (x[1] << 8) | (x[2] << 16) | (x[3] << 24)) >>> 0);
+  }
+  let m = j(y, y.e - y.p),
+    E = m.length,
+    L = 0,
+    b = d - 1,
+    T = (p, _) => {
+      let x = Ar[_],
+        v = zt[p],
+        U = (Sr[_] + (v & ((1 << x) - 1))) & b;
+      if (((v = (Math.imul(Ct[U], v >>> x) + Tr[U]) >>> 0), v < Gn)) {
+        const P = Dt[p],
+          O = Gt[p],
+          V = O + 2 <= P.length ? P[O] | (P[O + 1] << 8) : 0;
+        (v = ((v << 16) | V) >>> 0), (Gt[p] = O + 2);
+      }
+      return (zt[p] = v), U;
+    },
+    S = (p) => {
+      let _ = br[p],
+        x = 0;
+      if (_ > 0) {
+        const P = L >>> 3,
+          O = L & 7,
+          V =
+            ((P < E ? m[P] : 0) |
+              ((P + 1 < E ? m[P + 1] : 0) << 8) |
+              ((P + 2 < E ? m[P + 2] : 0) << 16) |
+              ((P + 3 < E ? m[P + 3] : 0) << 24)) >>>
+            0;
+        if (O === 0) x = (V & ct(_)) >>> 0;
+        else {
+          const X = P + 4 < E ? m[P + 4] : 0;
+          x = (((V >>> O) | (X << (32 - O))) & ct(_)) >>> 0;
+        }
+        L += _;
+      }
+      const v = (vr[p] << _) | x | 0,
+        U = -Ir[p];
+      return ((v ^ U) - U) | 0;
+    },
+    B = t === 0 ? Nt : Ee(t),
+    A = 0,
+    I = 0,
+    N = 0,
+    R = n & -2;
+  for (let p = 0; p < R; p += 2) {
+    const _ = o[p],
+      x = o[p + 1],
+      v = T(0, _),
+      U = T(2, x),
+      P = T(1, ft[v] + _),
+      O = T(3, ft[U] + x);
+    (N |= ye[v] | ye[P] | ye[U] | ye[O]),
+      (A = (A + S(v)) | 0),
+      (I = (I + S(P)) | 0),
+      (B[p * 2] = A),
+      (B[p * 2 + 1] = I),
+      (A = (A + S(U)) | 0),
+      (I = (I + S(O)) | 0),
+      (B[p * 2 + 2] = A),
+      (B[p * 2 + 3] = I);
+  }
+  if ((n & 1) !== 0) {
+    const p = n - 1,
+      _ = o[p],
+      x = T(0, _),
+      v = T(1, ft[x] + _);
+    (N |= ye[x] | ye[v]),
+      (A = (A + S(x)) | 0),
+      (I = (I + S(v)) | 0),
+      (B[p * 2] = A),
+      (B[p * 2 + 1] = I);
+  }
+  if (N !== 0) throw new Error("rans missing table");
+  for (let p = 0; p < 4; p++) {
+    if (zt[p] !== Gn || Gt[p] !== Dt[p].length) throw new Error("rans state");
+    Dt[p] = null;
+  }
+  if ((L + 7) >>> 3 !== E) throw new Error("rans raw len");
+  return We.length > 65536 && (We = null), B;
+}
+var at = new Int32Array(4096),
+  $t = new Int32Array(2048);
+function Do(e, r, t) {
+  const n = new Int32Array(e.buffer, e.byteOffset, t);
+  (r[t] = 0), (r[(t - 1) | 0] = 4);
+  let o = 1,
+    s = 0;
+  for (let i = (t - 2) | 0; i >= 0; i = (i - 1) | 0) {
+    const l = n[i];
+    s |= l >>> 2;
+    const c = l & 1,
+      u = (l >>> 1) & 1,
+      f = o & -c,
+      h = (i + 1 + f) | 0,
+      a = r[h] >>> 2;
+    (s |= u & ((a - 1) >>> 31)),
+      (o = (1 + f + (a & -u)) | 0),
+      (r[i] = (o << 2) | l);
+  }
+  return s;
+}
+function Co(e, r, t, n, o, s) {
+  let i = 0,
+    l = 0,
+    c = 0;
+  for (; l < o; ) {
+    let u = e[l],
+      f = u >>> 2,
+      h = (c + 2 + f) | 0;
+    if (h > s) return -1;
+    (t[0] = r[c]), (t[1] = r[(c + 1) | 0]), (t[2] = 0);
+    let a = (c + 2) | 0,
+      w = (l + f) | 0,
+      d = 4;
+    for (let g = l; g < w; g = (g + 1) | 0) {
+      d = (d - 4) | 0;
+      const y = t[d],
+        m = t[(d + 1) | 0],
+        E = t[(d + 2) | 0],
+        L = e[(g + 1) | 0],
+        b = u & 3;
+      u = L;
+      const T = b & 1,
+        S = b >>> 1,
+        B = (L >>> 2) & -T,
+        A = r[(a + E + B) | 0];
+      (n[i] = y),
+        (n[(i + 1) | 0] = m),
+        (n[(i + 2) | 0] = A),
+        (i = (i + 3) | 0),
+        (t[d] = y),
+        (t[(d + 1) | 0] = A),
+        (t[(d + 2) | 0] = (E + B + 1) | 0),
+        (d = (d + (S << 2)) | 0),
+        (t[d] = A),
+        (t[(d + 1) | 0] = m),
+        (t[(d + 2) | 0] = E),
+        (d = (d + (T << 2)) | 0);
+    }
+    (l = w), (c = h);
+  }
+  return c;
+}
+function $n(e, r) {
+  const t = e.length | 0;
+  if (t === 0) {
+    if (r.length !== 0) throw new Error("cycles");
+    return Ce;
+  }
+  if (e[(t - 1) | 0] !== 0) throw new Error("tree symbols");
+  const n = (t + 2) << 2;
+  te((t + 1 + n) * 4), at.length <= t && (at = new Int32Array(t + 1));
+  const o = at;
+  if (Do(e, o, t) !== 0) throw new Error("tree symbols");
+  $t.length < n && ($t = new Int32Array(n));
+  const s = K(t * 3),
+    i = new Int32Array(s.buffer),
+    l = new Int32Array(r.buffer, r.byteOffset, r.length),
+    c = l.length | 0,
+    u = Co(o, l, $t, i, t, c);
+  if (u !== c) throw new Error(u < 0 ? "cycles eof" : "cycles trailing");
+  return (
+    at.length > 131073 &&
+      ((at = new Int32Array(4096)), ($t = new Int32Array(2048))),
+    s
+  );
+}
+var $o = [
+    1, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14,
+    1e15, 1e16, 1e17, 1e18,
+  ],
+  Yo = [
+    1, 0.1, 0.01, 0.001, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10, 1e-11,
+    1e-12, 1e-13, 1e-14, 1e-15, 1e-16, 1e-17, 1e-18,
+  ];
+function Yn(e) {
+  for (let r = 0; r <= 18; r++) {
+    const t = e - ((r * (r + 1)) >> 1);
+    if (t >= 0 && t <= r) return (r << 8) | t;
+  }
+  throw new Error("alp scale");
+}
+function Hn(e, r, t, n) {
+  const o = $o[t & 255],
+    s = Yo[t >>> 8],
+    i = n ? Le(e.length) : re(e.length);
+  if (
+    e instanceof Uint32Array &&
+    r >= -9007199254740991n &&
+    r <= 9007199254740991n - 4294967295n
+  ) {
+    const u = Number(r);
+    for (let f = 0; f < e.length; f++) i[f] = (u + e[f]) * o * s;
+    return i;
+  }
+  const l = BigInt.asUintN(64, r),
+    c = e instanceof Uint32Array;
+  for (let u = 0; u < e.length; u++) {
+    const f = c ? BigInt(e[u]) : e[u];
+    i[u] = Number(BigInt.asIntN(64, l + f)) * o * s;
+  }
+  return i;
+}
+function Rr(e, r, t) {
+  if (e.length === 0) throw new Error("bitpack");
+  const n = e[0];
+  if (n < 1 || n > 32) throw new Error("bitpack width");
+  const o = Math.ceil((r * n) / 8);
+  if (e.length - 1 !== o) throw new Error("bitpack len");
+  if (r === 0) return t;
+  if (n === 8) return t.set(e.subarray(1, 1 + r)), t;
+  if (n <= 16) {
+    let f = new Int32Array(t.buffer, t.byteOffset, r),
+      h = (1 << n) - 1,
+      a = (e.length - 2) | 0,
+      w = 0,
+      d = 0,
+      g = 1,
+      y = 0;
+    for (; y < r && g <= a; )
+      d < n &&
+        ((w |= (e[g] | (e[(g + 1) | 0] << 8)) << d),
+        (g = (g + 2) | 0),
+        (d = (d + 16) | 0)),
+        (f[y++] = w & h),
+        (w >>>= n),
+        (d = (d - n) | 0);
+    for (; y < r; y++) {
+      for (; d < n; ) (w |= e[g++] << d), (d += 8);
+      (f[y] = w & h), (w >>>= n), (d -= n);
+    }
+    return t;
+  }
+  if (n <= 24) {
+    let f = (1 << n) - 1,
+      h = 0,
+      a = 0,
+      w = 1;
+    for (let d = 0; d < r; d++) {
+      for (; a < n; ) (h |= e[w++] << a), (a += 8);
+      (t[d] = h & f), (h >>>= n), (a -= n);
+    }
+    return t;
+  }
+  let s = (1n << BigInt(n)) - 1n,
+    i = BigInt(n),
+    l = 0n,
+    c = 0,
+    u = 1;
+  for (let f = 0; f < r; f++) {
+    for (; c < n; ) (l |= BigInt(e[u++]) << BigInt(c)), (c += 8);
+    (t[f] = Number(l & s) >>> 0), (l >>= i), (c -= n);
+  }
+  return t;
+}
+function Xn(e, r, t, n) {
+  Rr(e, r, t);
+  for (let o = 0; o < r; o++) n[o] = BigInt(t[o]);
+  return n;
+}
+var Kn = 65536,
+  Lr = new Array(33),
+  Ur = new Int32Array(33),
+  Pr = new Int32Array(33),
+  Nr = new Int32Array(32),
+  _e = new Uint8Array(16384);
+function Or(e, r, t, n, o) {
+  switch (o) {
+    case 1: {
+      const f = e[r];
+      for (let h = 0; h < 32; h += 4)
+        (t[n + h] = (f >>> h) & 1),
+          (t[n + h + 1] = (f >>> (h + 1)) & 1),
+          (t[n + h + 2] = (f >>> (h + 2)) & 1),
+          (t[n + h + 3] = (f >>> (h + 3)) & 1);
+      return;
+    }
+    case 2: {
+      const f = e[r],
+        h = e[r + 1];
+      (t[n] = f & 3),
+        (t[n + 1] = (f >>> 2) & 3),
+        (t[n + 2] = (f >>> 4) & 3),
+        (t[n + 3] = (f >>> 6) & 3),
+        (t[n + 4] = (f >>> 8) & 3),
+        (t[n + 5] = (f >>> 10) & 3),
+        (t[n + 6] = (f >>> 12) & 3),
+        (t[n + 7] = (f >>> 14) & 3),
+        (t[n + 8] = (f >>> 16) & 3),
+        (t[n + 9] = (f >>> 18) & 3),
+        (t[n + 10] = (f >>> 20) & 3),
+        (t[n + 11] = (f >>> 22) & 3),
+        (t[n + 12] = (f >>> 24) & 3),
+        (t[n + 13] = (f >>> 26) & 3),
+        (t[n + 14] = (f >>> 28) & 3),
+        (t[n + 15] = f >>> 30),
+        (t[n + 16] = h & 3),
+        (t[n + 17] = (h >>> 2) & 3),
+        (t[n + 18] = (h >>> 4) & 3),
+        (t[n + 19] = (h >>> 6) & 3),
+        (t[n + 20] = (h >>> 8) & 3),
+        (t[n + 21] = (h >>> 10) & 3),
+        (t[n + 22] = (h >>> 12) & 3),
+        (t[n + 23] = (h >>> 14) & 3),
+        (t[n + 24] = (h >>> 16) & 3),
+        (t[n + 25] = (h >>> 18) & 3),
+        (t[n + 26] = (h >>> 20) & 3),
+        (t[n + 27] = (h >>> 22) & 3),
+        (t[n + 28] = (h >>> 24) & 3),
+        (t[n + 29] = (h >>> 26) & 3),
+        (t[n + 30] = (h >>> 28) & 3),
+        (t[n + 31] = h >>> 30);
+      return;
+    }
+    case 3: {
+      const f = e[r],
+        h = e[r + 1],
+        a = e[r + 2];
+      (t[n] = f & 7),
+        (t[n + 1] = (f >>> 3) & 7),
+        (t[n + 2] = (f >>> 6) & 7),
+        (t[n + 3] = (f >>> 9) & 7),
+        (t[n + 4] = (f >>> 12) & 7),
+        (t[n + 5] = (f >>> 15) & 7),
+        (t[n + 6] = (f >>> 18) & 7),
+        (t[n + 7] = (f >>> 21) & 7),
+        (t[n + 8] = (f >>> 24) & 7),
+        (t[n + 9] = (f >>> 27) & 7),
+        (t[n + 10] = (f >>> 30) | ((h & 1) << 2)),
+        (t[n + 11] = (h >>> 1) & 7),
+        (t[n + 12] = (h >>> 4) & 7),
+        (t[n + 13] = (h >>> 7) & 7),
+        (t[n + 14] = (h >>> 10) & 7),
+        (t[n + 15] = (h >>> 13) & 7),
+        (t[n + 16] = (h >>> 16) & 7),
+        (t[n + 17] = (h >>> 19) & 7),
+        (t[n + 18] = (h >>> 22) & 7),
+        (t[n + 19] = (h >>> 25) & 7),
+        (t[n + 20] = (h >>> 28) & 7),
+        (t[n + 21] = (h >>> 31) | ((a & 3) << 1)),
+        (t[n + 22] = (a >>> 2) & 7),
+        (t[n + 23] = (a >>> 5) & 7),
+        (t[n + 24] = (a >>> 8) & 7),
+        (t[n + 25] = (a >>> 11) & 7),
+        (t[n + 26] = (a >>> 14) & 7),
+        (t[n + 27] = (a >>> 17) & 7),
+        (t[n + 28] = (a >>> 20) & 7),
+        (t[n + 29] = (a >>> 23) & 7),
+        (t[n + 30] = (a >>> 26) & 7),
+        (t[n + 31] = a >>> 29);
+      return;
+    }
+    case 4: {
+      for (let f = 0; f < 4; f++) {
+        const h = e[r + f],
+          a = n + (f << 3);
+        (t[a] = h & 15),
+          (t[a + 1] = (h >>> 4) & 15),
+          (t[a + 2] = (h >>> 8) & 15),
+          (t[a + 3] = (h >>> 12) & 15),
+          (t[a + 4] = (h >>> 16) & 15),
+          (t[a + 5] = (h >>> 20) & 15),
+          (t[a + 6] = (h >>> 24) & 15),
+          (t[a + 7] = h >>> 28);
+      }
+      return;
+    }
+    case 5: {
+      const f = e[r],
+        h = e[r + 1],
+        a = e[r + 2],
+        w = e[r + 3],
+        d = e[r + 4];
+      (t[n] = f & 31),
+        (t[n + 1] = (f >>> 5) & 31),
+        (t[n + 2] = (f >>> 10) & 31),
+        (t[n + 3] = (f >>> 15) & 31),
+        (t[n + 4] = (f >>> 20) & 31),
+        (t[n + 5] = (f >>> 25) & 31),
+        (t[n + 6] = (f >>> 30) | ((h & 7) << 2)),
+        (t[n + 7] = (h >>> 3) & 31),
+        (t[n + 8] = (h >>> 8) & 31),
+        (t[n + 9] = (h >>> 13) & 31),
+        (t[n + 10] = (h >>> 18) & 31),
+        (t[n + 11] = (h >>> 23) & 31),
+        (t[n + 12] = (h >>> 28) | ((a & 1) << 4)),
+        (t[n + 13] = (a >>> 1) & 31),
+        (t[n + 14] = (a >>> 6) & 31),
+        (t[n + 15] = (a >>> 11) & 31),
+        (t[n + 16] = (a >>> 16) & 31),
+        (t[n + 17] = (a >>> 21) & 31),
+        (t[n + 18] = (a >>> 26) & 31),
+        (t[n + 19] = (a >>> 31) | ((w & 15) << 1)),
+        (t[n + 20] = (w >>> 4) & 31),
+        (t[n + 21] = (w >>> 9) & 31),
+        (t[n + 22] = (w >>> 14) & 31),
+        (t[n + 23] = (w >>> 19) & 31),
+        (t[n + 24] = (w >>> 24) & 31),
+        (t[n + 25] = (w >>> 29) | ((d & 3) << 3)),
+        (t[n + 26] = (d >>> 2) & 31),
+        (t[n + 27] = (d >>> 7) & 31),
+        (t[n + 28] = (d >>> 12) & 31),
+        (t[n + 29] = (d >>> 17) & 31),
+        (t[n + 30] = (d >>> 22) & 31),
+        (t[n + 31] = d >>> 27);
+      return;
+    }
+    case 6: {
+      for (let f = 0; f < 2; f++) {
+        const h = e[r + f * 3],
+          a = e[r + f * 3 + 1],
+          w = e[r + f * 3 + 2],
+          d = n + f * 16;
+        (t[d] = h & 63),
+          (t[d + 1] = (h >>> 6) & 63),
+          (t[d + 2] = (h >>> 12) & 63),
+          (t[d + 3] = (h >>> 18) & 63),
+          (t[d + 4] = (h >>> 24) & 63),
+          (t[d + 5] = (h >>> 30) | ((a & 15) << 2)),
+          (t[d + 6] = (a >>> 4) & 63),
+          (t[d + 7] = (a >>> 10) & 63),
+          (t[d + 8] = (a >>> 16) & 63),
+          (t[d + 9] = (a >>> 22) & 63),
+          (t[d + 10] = (a >>> 28) | ((w & 3) << 4)),
+          (t[d + 11] = (w >>> 2) & 63),
+          (t[d + 12] = (w >>> 8) & 63),
+          (t[d + 13] = (w >>> 14) & 63),
+          (t[d + 14] = (w >>> 20) & 63),
+          (t[d + 15] = w >>> 26);
+      }
+      return;
+    }
+    case 7: {
+      const f = e[r],
+        h = e[r + 1],
+        a = e[r + 2],
+        w = e[r + 3],
+        d = e[r + 4],
+        g = e[r + 5],
+        y = e[r + 6];
+      (t[n] = f & 127),
+        (t[n + 1] = (f >>> 7) & 127),
+        (t[n + 2] = (f >>> 14) & 127),
+        (t[n + 3] = (f >>> 21) & 127),
+        (t[n + 4] = (f >>> 28) | ((h & 7) << 4)),
+        (t[n + 5] = (h >>> 3) & 127),
+        (t[n + 6] = (h >>> 10) & 127),
+        (t[n + 7] = (h >>> 17) & 127),
+        (t[n + 8] = (h >>> 24) & 127),
+        (t[n + 9] = (h >>> 31) | ((a & 63) << 1)),
+        (t[n + 10] = (a >>> 6) & 127),
+        (t[n + 11] = (a >>> 13) & 127),
+        (t[n + 12] = (a >>> 20) & 127),
+        (t[n + 13] = (a >>> 27) | ((w & 3) << 5)),
+        (t[n + 14] = (w >>> 2) & 127),
+        (t[n + 15] = (w >>> 9) & 127),
+        (t[n + 16] = (w >>> 16) & 127),
+        (t[n + 17] = (w >>> 23) & 127),
+        (t[n + 18] = (w >>> 30) | ((d & 31) << 2)),
+        (t[n + 19] = (d >>> 5) & 127),
+        (t[n + 20] = (d >>> 12) & 127),
+        (t[n + 21] = (d >>> 19) & 127),
+        (t[n + 22] = (d >>> 26) | ((g & 1) << 6)),
+        (t[n + 23] = (g >>> 1) & 127),
+        (t[n + 24] = (g >>> 8) & 127),
+        (t[n + 25] = (g >>> 15) & 127),
+        (t[n + 26] = (g >>> 22) & 127),
+        (t[n + 27] = (g >>> 29) | ((y & 15) << 3)),
+        (t[n + 28] = (y >>> 4) & 127),
+        (t[n + 29] = (y >>> 11) & 127),
+        (t[n + 30] = (y >>> 18) & 127),
+        (t[n + 31] = y >>> 25);
+      return;
+    }
+    case 8: {
+      for (let f = 0; f < 8; f++) {
+        const h = e[r + f],
+          a = n + (f << 2);
+        (t[a] = h & 255),
+          (t[a + 1] = (h >>> 8) & 255),
+          (t[a + 2] = (h >>> 16) & 255),
+          (t[a + 3] = h >>> 24);
+      }
+      return;
+    }
+    case 9: {
+      const f = e[r],
+        h = e[r + 1],
+        a = e[r + 2],
+        w = e[r + 3],
+        d = e[r + 4],
+        g = e[r + 5],
+        y = e[r + 6],
+        m = e[r + 7],
+        E = e[r + 8];
+      (t[n] = f & 511),
+        (t[n + 1] = (f >>> 9) & 511),
+        (t[n + 2] = (f >>> 18) & 511),
+        (t[n + 3] = (f >>> 27) | ((h & 15) << 5)),
+        (t[n + 4] = (h >>> 4) & 511),
+        (t[n + 5] = (h >>> 13) & 511),
+        (t[n + 6] = (h >>> 22) & 511),
+        (t[n + 7] = (h >>> 31) | ((a & 255) << 1)),
+        (t[n + 8] = (a >>> 8) & 511),
+        (t[n + 9] = (a >>> 17) & 511),
+        (t[n + 10] = (a >>> 26) | ((w & 7) << 6)),
+        (t[n + 11] = (w >>> 3) & 511),
+        (t[n + 12] = (w >>> 12) & 511),
+        (t[n + 13] = (w >>> 21) & 511),
+        (t[n + 14] = (w >>> 30) | ((d & 127) << 2)),
+        (t[n + 15] = (d >>> 7) & 511),
+        (t[n + 16] = (d >>> 16) & 511),
+        (t[n + 17] = (d >>> 25) | ((g & 3) << 7)),
+        (t[n + 18] = (g >>> 2) & 511),
+        (t[n + 19] = (g >>> 11) & 511),
+        (t[n + 20] = (g >>> 20) & 511),
+        (t[n + 21] = (g >>> 29) | ((y & 63) << 3)),
+        (t[n + 22] = (y >>> 6) & 511),
+        (t[n + 23] = (y >>> 15) & 511),
+        (t[n + 24] = (y >>> 24) | ((m & 1) << 8)),
+        (t[n + 25] = (m >>> 1) & 511),
+        (t[n + 26] = (m >>> 10) & 511),
+        (t[n + 27] = (m >>> 19) & 511),
+        (t[n + 28] = (m >>> 28) | ((E & 31) << 4)),
+        (t[n + 29] = (E >>> 5) & 511),
+        (t[n + 30] = (E >>> 14) & 511),
+        (t[n + 31] = E >>> 23);
+      return;
+    }
+    case 10: {
+      for (let f = 0; f < 2; f++) {
+        const h = e[r + f * 5],
+          a = e[r + f * 5 + 1],
+          w = e[r + f * 5 + 2],
+          d = e[r + f * 5 + 3],
+          g = e[r + f * 5 + 4],
+          y = n + f * 16;
+        (t[y] = h & 1023),
+          (t[y + 1] = (h >>> 10) & 1023),
+          (t[y + 2] = (h >>> 20) & 1023),
+          (t[y + 3] = (h >>> 30) | ((a & 255) << 2)),
+          (t[y + 4] = (a >>> 8) & 1023),
+          (t[y + 5] = (a >>> 18) & 1023),
+          (t[y + 6] = (a >>> 28) | ((w & 63) << 4)),
+          (t[y + 7] = (w >>> 6) & 1023),
+          (t[y + 8] = (w >>> 16) & 1023),
+          (t[y + 9] = (w >>> 26) | ((d & 15) << 6)),
+          (t[y + 10] = (d >>> 4) & 1023),
+          (t[y + 11] = (d >>> 14) & 1023),
+          (t[y + 12] = (d >>> 24) | ((g & 3) << 8)),
+          (t[y + 13] = (g >>> 2) & 1023),
+          (t[y + 14] = (g >>> 12) & 1023),
+          (t[y + 15] = g >>> 22);
+      }
+      return;
+    }
+    case 11: {
+      const f = e[r],
+        h = e[r + 1],
+        a = e[r + 2],
+        w = e[r + 3],
+        d = e[r + 4],
+        g = e[r + 5],
+        y = e[r + 6],
+        m = e[r + 7],
+        E = e[r + 8],
+        L = e[r + 9],
+        b = e[r + 10];
+      (t[n] = f & 2047),
+        (t[n + 1] = (f >>> 11) & 2047),
+        (t[n + 2] = (f >>> 22) | ((h & 1) << 10)),
+        (t[n + 3] = (h >>> 1) & 2047),
+        (t[n + 4] = (h >>> 12) & 2047),
+        (t[n + 5] = (h >>> 23) | ((a & 3) << 9)),
+        (t[n + 6] = (a >>> 2) & 2047),
+        (t[n + 7] = (a >>> 13) & 2047),
+        (t[n + 8] = (a >>> 24) | ((w & 7) << 8)),
+        (t[n + 9] = (w >>> 3) & 2047),
+        (t[n + 10] = (w >>> 14) & 2047),
+        (t[n + 11] = (w >>> 25) | ((d & 15) << 7)),
+        (t[n + 12] = (d >>> 4) & 2047),
+        (t[n + 13] = (d >>> 15) & 2047),
+        (t[n + 14] = (d >>> 26) | ((g & 31) << 6)),
+        (t[n + 15] = (g >>> 5) & 2047),
+        (t[n + 16] = (g >>> 16) & 2047),
+        (t[n + 17] = (g >>> 27) | ((y & 63) << 5)),
+        (t[n + 18] = (y >>> 6) & 2047),
+        (t[n + 19] = (y >>> 17) & 2047),
+        (t[n + 20] = (y >>> 28) | ((m & 127) << 4)),
+        (t[n + 21] = (m >>> 7) & 2047),
+        (t[n + 22] = (m >>> 18) & 2047),
+        (t[n + 23] = (m >>> 29) | ((E & 255) << 3)),
+        (t[n + 24] = (E >>> 8) & 2047),
+        (t[n + 25] = (E >>> 19) & 2047),
+        (t[n + 26] = (E >>> 30) | ((L & 511) << 2)),
+        (t[n + 27] = (L >>> 9) & 2047),
+        (t[n + 28] = (L >>> 20) & 2047),
+        (t[n + 29] = (L >>> 31) | ((b & 1023) << 1)),
+        (t[n + 30] = (b >>> 10) & 2047),
+        (t[n + 31] = b >>> 21);
+      return;
+    }
+    case 12: {
+      for (let f = 0; f < 4; f++) {
+        const h = e[r + f * 3],
+          a = e[r + f * 3 + 1],
+          w = e[r + f * 3 + 2],
+          d = n + f * 8;
+        (t[d] = h & 4095),
+          (t[d + 1] = (h >>> 12) & 4095),
+          (t[d + 2] = (h >>> 24) | ((a & 15) << 8)),
+          (t[d + 3] = (a >>> 4) & 4095),
+          (t[d + 4] = (a >>> 16) & 4095),
+          (t[d + 5] = (a >>> 28) | ((w & 255) << 4)),
+          (t[d + 6] = (w >>> 8) & 4095),
+          (t[d + 7] = w >>> 20);
+      }
+      return;
+    }
+    case 16: {
+      for (let f = 0; f < 16; f++) {
+        const h = e[r + f],
+          a = n + (f << 1);
+        (t[a] = h & 65535), (t[a + 1] = h >>> 16);
+      }
+      return;
+    }
+  }
+  let s = (1 << o) - 1,
+    i = (o - 1) << 5,
+    l = 0,
+    c = 0;
+  for (; l < i; ) {
+    const f = r + (l >>> 5),
+      h = l & 31;
+    (t[n + c] = ((e[f] >>> h) | ((e[f + 1] << 1) << (31 - h))) & s),
+      (l += o),
+      c++;
+  }
+  const u = e[r + o - 1];
+  for (; c < 32; c++, l += o) t[n + c] = (u >>> (l & 31)) & s;
+}
+function kr(e, r, t, n) {
+  if (r === 0) {
+    if (e.length !== 0) throw new Error("fpf empty");
+    return n;
+  }
+  const o = e.length;
+  if ((o & 3) !== 0) throw new Error("fpf align");
+  let s = t ? 128 : 256,
+    i = t ? 4 : 8,
+    l = o >>> 2,
+    c;
+  if (Pt && t && (e.byteOffset & 3) === 0)
+    c = new Int32Array(e.buffer, e.byteOffset, l);
+  else if (
+    (_e.length < o && (_e = new Uint8Array(Math.max(o, _e.length * 2))), Pt)
+  ) {
+    if ((_e.set(e), (c = new Int32Array(_e.buffer, 0, l)), !t))
+      for (let a = 0; a < l; a++) {
+        const w = c[a];
+        c[a] =
+          ((w & 255) << 24) |
+          ((w & 65280) << 8) |
+          ((w >>> 8) & 65280) |
+          (w >>> 24);
+      }
+  } else {
+    c = new Int32Array(_e.buffer, 0, l);
+    const a = new DataView(e.buffer, e.byteOffset, o);
+    for (let w = 0; w < l; w++) c[w] = a.getInt32(w * 4, t);
+  }
+  let u = new Int32Array(n.buffer, n.byteOffset, r),
+    f = 0,
+    h = 0;
+  if (l > 0) {
+    const a = c[f++] >>> 0;
+    if ((a & (s - 1)) !== 0 || a > r) throw new Error("fpf len");
+    for (; h < a; ) {
+      const w = Math.min(Kn, a - h);
+      if (f >= l) throw new Error("fpf page");
+      const d = f,
+        g = c[d] >>> 0;
+      if (g === 0 || d + g >= l) throw new Error("fpf meta");
+      const y = d + 1,
+        m = d + g,
+        E = c[m] >>> 0,
+        L = m + 1,
+        b = L + ((E + 3) >>> 2);
+      if (b >= l) throw new Error("fpf meta eof");
+      let T = new Uint8Array(c.buffer, c.byteOffset + L * 4, E),
+        S = b,
+        B = c[S++];
+      if ((Ur.fill(0), Pr.fill(0), B !== 0))
+        for (let R = 2; R <= 32; R++) {
+          if (((B >>> (R - 1)) & 1) === 0) continue;
+          if (S >= l) throw new Error("fpf ex");
+          const p = c[S++] >>> 0;
+          if (p > Kn) throw new Error("fpf ex size");
+          let _ = (p + 31) & -32,
+            x = Lr[R];
+          (!x || x.length < _) && (x = Lr[R] = new Int32Array(Math.max(32, _)));
+          const v = (p * R + 31) >>> 5;
+          if (S + v > l) throw new Error("fpf ex eof");
+          if (R === 32) x.set(c.subarray(S, S + p));
+          else {
+            const U = p >>> 5;
+            for (let P = 0; P < U; P++) Or(c, S + P * R, x, P * 32, R);
+            if ((p & 31) !== 0) {
+              const P = U * R;
+              Nr.fill(0, 0, R),
+                Nr.set(c.subarray(S + P, S + v)),
+                Or(Nr, 0, x, U * 32, R);
+            }
+          }
+          (S += v), (Ur[R] = p);
+        }
+      let A = y,
+        I = 0,
+        N = w / s;
+      for (let R = 0; R < N; R++) {
+        if (I + 2 > E) throw new Error("fpf hdr");
+        const p = T[I++],
+          _ = T[I++];
+        if (p > 32 || _ > s) throw new Error("fpf hdr");
+        const x = h + R * s;
+        if (p === 0) u.fill(0, x, x + s);
+        else if (p === 32) {
+          if (A + s > m) throw new Error("fpf blk");
+          u.set(c.subarray(A, A + s), x), (A += s);
+        } else {
+          const v = i * p;
+          if (A + v > m) throw new Error("fpf blk");
+          for (let U = 0; U < i; U++) Or(c, A + U * p, u, x + U * 32, p);
+          A += v;
+        }
+        if (_ > 0) {
+          if (I + 1 + _ > E) throw new Error("fpf pos");
+          const v = T[I++];
+          if (v <= p || v > 32) throw new Error("fpf maxBits");
+          const U = v - p;
+          if (U === 1) {
+            const P = 1 << p;
+            for (let O = 0; O < _; O++) {
+              const V = T[I++];
+              if (V >= s) throw new Error("fpf pos");
+              u[x + V] |= P;
+            }
+          } else {
+            let P = Lr[U],
+              O = Pr[U];
+            if (!P || O + _ > Ur[U]) throw new Error("fpf ex");
+            for (let V = 0; V < _; V++) {
+              const X = T[I++];
+              if (X >= s) throw new Error("fpf pos");
+              u[x + X] |= P[O++] << p;
+            }
+            Pr[U] = O;
+          }
+        }
+      }
+      if (A !== m) throw new Error("fpf end");
+      (f = S), (h += w);
+    }
+  }
+  if (h < r) {
+    let a = f,
+      w = 0,
+      d = 0,
+      g = 0;
+    for (; a < l && h < r; ) {
+      const y = (c[a] >>> w) & 255;
+      if (
+        ((w += 8),
+        w === 32 && ((w = 0), a++),
+        (d |= (y & 127) << g),
+        (y & 128) !== 0)
+      )
+        (u[h++] = d), (d = 0), (g = 0);
+      else if (((g += 7), g > 28)) throw new Error("fpf vbyte");
+    }
+    if (h !== r) throw new Error("fpf tail");
+  }
+  return _e.length > 262144 && (_e = new Uint8Array(16384)), n;
+}
+function Wn(e, r, t, n) {
+  if (e.length !== r * 2) throw new Error("rle len");
+  let o = 0;
+  for (let s = 0; s < r; s++) {
+    const i = e[s];
+    if (i > t - o) throw new Error("rle sum");
+    n.fill(e[r + s], o, o + i), (o += i);
+  }
+  if (o !== t) throw new Error("rle sum");
+  return n;
+}
+function qn(e, r, t, n) {
+  if (e.length !== r * 2) throw new Error("rle len");
+  let o = 0,
+    s = BigInt(t);
+  for (let i = 0; i < r; i++) {
+    const l = e[i];
+    if (l > s - BigInt(o)) throw new Error("rle sum");
+    const c = Number(l);
+    n.fill(e[r + i], o, o + c), (o += c);
+  }
+  if (o !== t) throw new Error("rle sum");
+  return n;
+}
+function Br(e, r, t, n = !1) {
+  if ((e.length & 1) !== 0) throw new Error("rle odd");
+  let o = 0;
+  if (n) {
+    const s = BigInt(r);
+    for (let i = 0; i < e.length; i += 2) {
+      const l = e[i];
+      if (l > s - BigInt(o)) throw new Error("rle overflow");
+      const c = Number(l);
+      t.fill(e[i + 1], o, o + c), (o += c);
+    }
+  } else
+    for (let s = 0; s < e.length; s += 2) {
+      const i = e[s];
+      if (i > r - o) throw new Error("rle overflow");
+      t.fill(e[s + 1], o, o + i), (o += i);
+    }
+  if (o !== r) throw new Error("rle sum");
+  return t;
+}
+function jn(e, r) {
+  let t = W(r),
+    n = 0,
+    o = 0,
+    s = e.length;
+  for (; n < r && o < s; ) {
+    const i = e[o++];
+    if (i >= 128) {
+      const l = 256 - i;
+      if (o + l > s || n + l > r) throw new RangeError("byte-rle");
+      t.set(e.subarray(o, o + l), n), (o += l), (n += l);
+    } else {
+      const l = i + 3;
+      if (o >= s || n + l > r) throw new RangeError("byte-rle");
+      t.fill(e[o++], n, n + l), (n += l);
+    }
+  }
+  if (n !== r) throw new Error("byte-rle");
+  return t;
+}
+var ne = (e) => new Int32Array(e.buffer, e.byteOffset, e.length);
+function Yt(e) {
+  const r = ne(e),
+    t = r.length | 0;
+  for (let n = 0; n < t; n = (n + 1) | 0) {
+    const o = r[n];
+    r[n] = (o >>> 1) ^ -(o & 1);
+  }
+  return r;
+}
+function qe(e) {
+  let r = ne(e),
+    t = r.length | 0,
+    n = 0;
+  for (let o = 0; o < t; o = (o + 1) | 0) {
+    const s = r[o];
+    (n = (n + ((s >>> 1) ^ -(s & 1))) | 0), (r[o] = n);
+  }
+  return e;
+}
+function Mr(e) {
+  let r = ne(e),
+    t = r.length | 0,
+    n = 0,
+    o = 0;
+  for (let s = 0; s < t; s = (s + 1) | 0) {
+    const i = r[s];
+    (o = (o + ((i >>> 1) ^ -(i & 1))) | 0), (n = (n + o) | 0), (r[s] = n);
+  }
+  return e;
+}
+function Jn(e) {
+  const r = e.length | 0;
+  if ((r & 1) !== 0) throw new Error("vec2 len");
+  let t = ne(e),
+    n = 0,
+    o = 0;
+  for (let s = 0; s < r; s = (s + 2) | 0) {
+    const i = t[s],
+      l = t[(s + 1) | 0];
+    (n = (n + ((i >>> 1) ^ -(i & 1))) | 0),
+      (o = (o + ((l >>> 1) ^ -(l & 1))) | 0),
+      (t[s] = n),
+      (t[(s + 1) | 0] = o);
+  }
+  return t;
+}
+function Zn(e) {
+  const r = e.length | 0;
+  if ((r & 1) !== 0) throw new Error("vec2 len");
+  let t = ne(e),
+    n = 0,
+    o = 0,
+    s = 0,
+    i = 0;
+  for (let l = 0; l < r; l = (l + 2) | 0) {
+    const c = t[l],
+      u = t[(l + 1) | 0];
+    (s = (s + ((c >>> 1) ^ -(c & 1))) | 0),
+      (i = (i + ((u >>> 1) ^ -(u & 1))) | 0),
+      (n = (n + s) | 0),
+      (o = (o + i) | 0),
+      (t[l] = n),
+      (t[(l + 1) | 0] = o);
+  }
+  return t;
+}
+function Qn(e) {
+  const r = e.length | 0;
+  if (r % 3 !== 0) throw new Error("vec3 len");
+  let t = ne(e),
+    n = 0,
+    o = 0,
+    s = 0;
+  for (let i = 0; i < r; i = (i + 3) | 0) {
+    const l = t[i],
+      c = t[(i + 1) | 0],
+      u = t[(i + 2) | 0];
+    (n = (n + ((l >>> 1) ^ -(l & 1))) | 0),
+      (o = (o + ((c >>> 1) ^ -(c & 1))) | 0),
+      (s = (s + ((u >>> 1) ^ -(u & 1))) | 0),
+      (t[i] = n),
+      (t[(i + 1) | 0] = o),
+      (t[(i + 2) | 0] = s);
+  }
+  return t;
+}
+function Fr(e) {
+  const r = new BigInt64Array(e.buffer, e.byteOffset, e.length);
+  for (let t = 0; t < e.length; t++) {
+    const n = e[t];
+    r[t] = (n >> 1n) ^ -(n & 1n);
+  }
+  return r;
+}
+function Vr(e) {
+  let r = 0n;
+  for (let t = 0; t < e.length; t++) {
+    const n = e[t];
+    (r = BigInt.asIntN(64, r + ((n >> 1n) ^ -(n & 1n)))),
+      (e[t] = BigInt.asUintN(64, r));
+  }
+  return e;
+}
+function eo(e) {
+  let r = 0n,
+    t = 0n;
+  for (let n = 0; n < e.length; n++) {
+    const o = e[n];
+    (t = BigInt.asIntN(64, t + ((o >> 1n) ^ -(o & 1n)))),
+      (r = BigInt.asIntN(64, r + t)),
+      (e[n] = BigInt.asUintN(64, r));
+  }
+  return e;
+}
+var Gr = (e) => new BigInt64Array(e.buffer, e.byteOffset, e.length);
+var tt = 0,
+  se = 1,
+  Ae = 2,
+  Xt = 3,
+  Kt = 4,
+  ro = 5,
+  pt = 6,
+  mt = 7,
+  no = 8,
+  Wt = 9;
+var qt = 11,
+  jt = 12,
+  Et = 13,
+  Jt = 14,
+  Zt = 15,
+  Qt = 16,
+  er = 17,
+  xt = 18,
+  Oe = 19,
+  Cr = 20,
+  pe = 0,
+  $r = 1,
+  Yr = 2,
+  Se = 3,
+  ut = 4,
+  D = 0,
+  he = 1,
+  Je = 2,
+  ue = 3,
+  oe = 4,
+  dt = 5,
+  oo = 6,
+  Ne = 7,
+  tr = 8,
+  zr = 9,
+  Ze = 10,
+  so = 11,
+  Hr = 12,
+  _t = 13,
+  G = 0,
+  Qe = 1,
+  et = 2,
+  wt = 3,
+  je = 4,
+  Z = 5,
+  J = 0,
+  io = 1,
+  gt = 2,
+  ht = 3,
+  rr = 128,
+  ee = 99,
+  Ho = [
+    [D, he, ue, oe, ut + 100, Je],
+    [D, he, ue, oe, ut + 100, Je],
+    [D, Ze, so],
+    [D, -1, Hr, _t],
+    [D, he, dt, Ne, oo, tr],
+    [D, 200],
+  ];
+function Dr(e, r, t, n, o, s, i, l, c, u, f, h, a, w, d, g) {
+  return {
+    t: e,
+    l: r,
+    p: t,
+    n,
+    w: o,
+    rleRuns: s,
+    rleVals: i,
+    mBits: l,
+    mShift: c,
+    alpScale: u,
+    alpBase: f,
+    zStep: h,
+    heightMode: a,
+    xyzLog: w,
+    front: d,
+    d: g,
+  };
+}
+function ie(e, r, t = !1) {
+  let n = C(e),
+    o = n & 240,
+    s = n & 15,
+    i,
+    l;
+  if (o === 0) (i = tt), (l = gt);
+  else if (o === 16) {
+    if (s > 5) throw new Error("v1 st");
+    (i = se + s), (l = s === 3 || s === 4 ? ht : r);
+  } else if (o === 32) {
+    if (s > 3) throw new Error("v1 st");
+    (i = mt + s), (l = J);
+  } else if (o === 48) {
+    if (s > 6) throw new Error("v1 st");
+    (i = Et + s), (l = J);
+  } else throw new Error("v1 st");
+  const c = C(e),
+    u = c & 252,
+    f = c & 3;
+  if (f === 3) throw new Error("v1 phys");
+  let h = f === 0 ? pe : f === 1 ? $r : Se,
+    a;
+  switch (u) {
+    case 0:
+      a = D;
+      break;
+    case 32:
+      if (l !== J && l !== ht) throw new Error("v1 log");
+      a = he;
+      break;
+    case 44:
+      if (l !== J) throw new Error("v1 log");
+      a = oe;
+      break;
+    case 64:
+      if (l !== ht) throw new Error("v1 log");
+      a = dt;
+      break;
+    case 96:
+      if (l === J) a = ue;
+      else if (l === gt) a = zr;
+      else throw new Error("v1 log");
+      break;
+    case 132:
+      if (l !== ht) throw new Error("v1 log");
+      a = Ne;
+      break;
+    default:
+      throw new Error("v1 log");
+  }
+  let w = M(e),
+    d = M(e),
+    g = -2,
+    y = 0,
+    m = 0,
+    E = 0;
+  if (a === ue || a === oe || a === zr)
+    t ? ((g = (w + 7) >>> 3), (y = d)) : ((g = M(e)), (y = M(e)));
+  else if (a === Ne && ((m = M(e)), (E = M(e)), m > 16))
+    throw new Error("morton bits");
+  const L = l === ht && a !== Ne ? 2 : 1;
+  if (w % L !== 0) throw new Error("partial vertex");
+  const b = w / L,
+    T = j(e, d);
+  if ((a === ue || a === oe) && h === Se && !t) {
+    let S = ce(T),
+      B = 0;
+    for (let A = 0; A < g; A++) B += M(S);
+    if (B !== y) throw new Error("rle sum");
+  }
+  return Dr(i, a, h, b, w, g, y, m, E, 0, 0n, ee, 0, 0, 0, T);
+}
+function k(e, r, t, n, o, s = -1) {
+  const i = C(e),
+    l = (i & rr) !== 0,
+    c = (i & 112) >>> 4,
+    u = i & 12,
+    f = i & 3,
+    h = Ho[r];
+  if (c >= h.length || h[c] < 0) throw new Error("v2 enc");
+  let a = h[c];
+  if (r === Qe) {
+    if (s >= 0 && f !== s) throw new Error("v2 str ext");
+  } else if (r === je) {
+    if (f > 1) throw new Error("v2 vtx ext");
+  } else if (f !== 0) throw new Error("v2 ext");
+  let w = r === je && f === 1,
+    d = pe,
+    g = !1,
+    y = 0,
+    m = () => {
+      if (u === 4) return pe;
+      if (u === 8) return Se;
+      if (u === 12) return Yr;
+      throw new Error("v2 phys");
+    },
+    E = () => (u === 0 ? ((g = !0), pe) : m());
+  if (r === G || r === Qe)
+    if (a === D) d = E();
+    else if (a === he || a === Je) d = m();
+    else if (a === ue || a === oe) {
+      if (u !== 0) throw new Error("v2 rle phys");
+      d = Se;
+    } else {
+      if (u !== 0) throw new Error("v2 bp phys");
+      (a = D), (d = ut);
+    }
+  else if (r === Z) {
+    if (l || u !== 4) throw new Error("v2 bytes");
+    a === 200 && ((y = 1), (a = D));
+  } else if (r === et) {
+    if (u !== 0) throw new Error("v2 bool");
+    g = !0;
+  } else if (r === wt)
+    if (a === D) {
+      if (u === 0) g = !0;
+      else if (u !== 4) throw new Error("v2 float");
+    } else d = m();
+  else if (w)
+    if (a === D) d = E();
+    else if (a === he || a === dt) d = m();
+    else throw new Error("v2 xyz");
+  else if (a === D) d = E();
+  else if (a === tr) {
+    if (u !== 0) throw new Error("v2 rans");
+  } else d = m();
+  let L = w ? 3 : r === je && a !== Ne ? 2 : 1,
+    b,
+    T,
+    S;
+  if (r === Z) (S = M(e)), (b = S), (T = S);
+  else {
+    if (l) b = M(e);
+    else if (o >= 0) b = o;
+    else throw new Error("v2 no count");
+    if (((T = b * L), !Number.isSafeInteger(T) || T > 4294967295))
+      throw new RangeError("overflow");
+    if (r === et) {
+      const O = Fn(e, b, a === D ? ge : a === Ze ? Ue : xe);
+      return Dr(n, a, pe, b, T, -2, 0, 0, 0, 0, 0n, ee, 0, 0, 0, O);
+    }
+    if (g) {
+      if (((S = T * t), !Number.isSafeInteger(S) || S > 4294967295))
+        throw new RangeError("overflow");
+    } else S = M(e);
+  }
+  let B = -2,
+    A = 0,
+    I = 0,
+    N = 0,
+    R = 0,
+    p = 0n,
+    _ = ee,
+    x = 0,
+    v = 0;
+  if (a === ue || a === oe) (B = -1), (A = b);
+  else if (r === wt && a === Hr) (R = Yn(C(e))), (p = xn(e));
+  else if (w) {
+    const P = C(e);
+    if (P >= 16) throw new Error("z_step");
+    (_ = (P & 7) - 3), (x = (P & 8) >>> 3), (v = a);
+  } else if (r === je && a === Ne && ((I = M(e)), (N = M(e)), I > 16))
+    throw new Error("morton bits");
+  const U = j(e, S);
+  return Dr(n, a, d, b, T, B, A, I, N, R, p, _, x, v, y, U);
+}
+function Xr(e) {
+  const r = (e.n + 7) >>> 3;
+  if (e.l === zr) return Xe(jn(e.d, r), e.n);
+  if (e.l === D && e.p === pe) {
+    if (e.d.length !== r) throw new Error("bool len");
+    return Xe(e.d, e.n);
+  }
+  if (e.l === Ze || e.l === so) {
+    const t = ce(e.d),
+      n = lt(t, e.n, e.l === Ze ? Ue : xe);
+    if (t.p !== t.e) throw new Error("bool trailing");
+    return n;
+  }
+  throw new Error("bool enc");
+}
+function ke(e) {
+  const r = Xr(e),
+    t = W(e.n),
+    n = e.n >>> 3;
+  for (let o = 0; o < n; o++) {
+    const s = r[o];
+    if (s === 0) continue;
+    const i = o << 3;
+    (t[i] = s & 1),
+      (t[i + 1] = (s >>> 1) & 1),
+      (t[i + 2] = (s >>> 2) & 1),
+      (t[i + 3] = (s >>> 3) & 1),
+      (t[i + 4] = (s >>> 4) & 1),
+      (t[i + 5] = (s >>> 5) & 1),
+      (t[i + 6] = (s >>> 6) & 1),
+      (t[i + 7] = s >>> 7);
+  }
+  for (let o = n << 3; o < e.n; o++) t[o] = (r[n] >>> (o & 7)) & 1;
+  return t;
+}
+function yt(e, r) {
+  switch (e.p) {
+    case pe:
+      return bn(e.d, e.w, r);
+    case $r:
+      return kr(e.d, e.w, !1, r);
+    case Yr:
+      return kr(e.d, e.w, !0, r);
+    case ut:
+      return Rr(e.d, e.w, r);
+    case Se:
+      return _n(e.d, e.w, r);
+    default:
+      throw new Error("u32 phys");
+  }
+}
+function Kr(e) {
+  if (e.rleRuns === -1 && e.p === Se) return Tn(e.d);
+  const r = kt(e.w);
+  switch (e.p) {
+    case pe:
+      return In(e.d, e.w, r);
+    case ut:
+      return Xn(e.d, e.w, q(e.w), r);
+    case Se:
+      return An(e.d, e.w, r);
+    default:
+      throw new Error("u64 phys");
+  }
+}
+function Ht(e, r) {
+  const t = e.rleRuns === -1 && e.p === Se ? Sn(e.d) : yt(e, q(e.w)),
+    n = r ? q(e.rleVals) : K(e.rleVals);
+  return e.rleRuns === -1
+    ? Br(t, e.rleVals, n, !1)
+    : Wn(t, e.rleRuns, e.rleVals, n);
+}
+function F(e, r = !1) {
+  if (e.l === ue) return Ht(e, r);
+  if (e.l === oe) return qe(Ht(e, r));
+  const t = r ? q(e.w) : K(e.w);
+  if ((yt(e, t), e.l === D || e.l === _t)) return t;
+  if (e.l === he) return qe(t);
+  if (e.l === Je) return Mr(t);
+  throw new Error("u32 log");
+}
+function Te(e, r = !1) {
+  if (e.l === Ne) {
+    const n = yt(e, q(e.w));
+    return Mn(n, e.mBits, e.mShift);
+  }
+  if (e.l === ue) return Yt(Ht(e, r));
+  if (e.l === oe) return ne(qe(Ht(e, r)));
+  const t = r ? q(e.w) : K(e.w);
+  if ((yt(e, t), e.zStep !== ee)) {
+    if (t.length % 3 !== 0) throw new Error("xyz len");
+    if (e.xyzLog === D) return Yt(t);
+    if (e.xyzLog === he) return ne(qe(t));
+    if (e.xyzLog === dt) return Qn(t);
+    throw new Error("xyz log");
+  }
+  switch (e.l) {
+    case D:
+      return Yt(t);
+    case he:
+      return ne(qe(t));
+    case Je:
+      return ne(Mr(t));
+    case dt:
+      return Jn(t);
+    case oo:
+      return Zn(t);
+    default:
+      throw new Error("i32 log");
+  }
+}
+function St(e) {
+  const r = Te(e, !0),
+    t = Ot(r.length);
+  for (let n = 0; n < r.length; n++) {
+    const o = r[n];
+    if (o < -128 || o > 127) throw new RangeError("i8");
+    t[n] = o;
+  }
+  return t;
+}
+function At(e) {
+  const r = F(e, !0),
+    t = W(r.length);
+  for (let n = 0; n < r.length; n++) {
+    const o = r[n];
+    if (o > 255) throw new RangeError("u8");
+    t[n] = o;
+  }
+  return t;
+}
+function Xo(e, r) {
+  const t = Kr(e),
+    n = r ? xr(e.rleVals) : kt(e.rleVals);
+  return e.rleRuns === -1
+    ? Br(t, e.rleVals, n, !0)
+    : qn(t, e.rleRuns, e.rleVals, n);
+}
+function lo(e, r, t) {
+  let n;
+  if (e.l === ue || e.l === oe) {
+    if (((n = Xo(e, t)), e.l === oe)) Vr(n);
+    else if (r) return Fr(n);
+    return r ? Gr(n) : n;
+  }
+  const o = Kr(e);
+  if (
+    (t ? ((n = xr(e.w)), n.set(o)) : (n = o), e.l === D || (!r && e.l === _t))
+  )
+    return r ? Fr(n) : n;
+  if (e.l === he) Vr(n);
+  else if (e.l === Je) eo(n);
+  else throw new Error("64 log");
+  return r ? Gr(n) : n;
+}
+var Tt = (e, r = !1) => lo(e, !0, r),
+  rt = (e, r = !1) => lo(e, !1, r);
+function to(e, r) {
+  if (e.l !== D || e.p !== pe) throw new Error("float enc");
+  return vn(e.d, e.n, r);
+}
+function be(e, r, t) {
+  if (r !== null) {
+    const n = to(r, t),
+      o = F(e, !0),
+      s = o.length,
+      i = t ? Le(s) : re(s),
+      l = n.length,
+      c = t ? 1 : 2,
+      u = new Uint32Array(n.buffer, n.byteOffset, l * c),
+      f = new Uint32Array(i.buffer, 0, s * c);
+    for (let h = 0; h < s; h++) {
+      const a = o[h];
+      if (a >= l) throw new RangeError("fdict");
+      c === 1
+        ? (f[h] = u[a])
+        : ((f[h * 2] = u[a * 2]), (f[h * 2 + 1] = u[a * 2 + 1]));
+    }
+    return i;
+  }
+  if (e.l === Hr) {
+    const n = e.p === Yr || e.p === $r ? yt(e, q(e.w)) : Kr(e);
+    return Hn(n, e.alpBase, e.alpScale, t);
+  }
+  return to(e, t);
+}
+var fo = 0,
+  co = 1,
+  ao = 2,
+  Ko = 3,
+  Wo = 4,
+  ho = 5,
+  Jr = 6,
+  jr = (e) => e === ao || e === ho,
+  uo = (e) => e === co || e === Wo;
+function Wr(e, r, t) {
+  let n = e.length,
+    o = K(n + 1),
+    s = 0,
+    i = 0,
+    l = r.length;
+  for (let c = 0; c < n; c++) {
+    let u = 1;
+    if (e[c] > t) {
+      if (i >= l) throw new RangeError("geom oob");
+      u = r[i++];
+    }
+    if (((s += u), s > 4294967295)) throw new RangeError("overflow");
+    o[c + 1] = s;
+  }
+  return o;
+}
+function qr(e, r, t, n) {
+  let o = K(r[r.length - 1] + 1),
+    s = 1,
+    i = 0,
+    l = 0,
+    c = t.length;
+  for (let u = 0; u < e.length; u++) {
+    const f = e[u],
+      h = r[u + 1] - r[u];
+    if (jr(f) || (n && uo(f)))
+      for (let a = 0; a < h; a++) {
+        if (l >= c) throw new RangeError("geom oob");
+        if (((i += t[l++]), i > 4294967295)) throw new RangeError("overflow");
+        o[s++] = i;
+      }
+    else for (let a = 0; a < h; a++) o[s++] = ++i;
+  }
+  return o;
+}
+function qo(e, r, t, n) {
+  let o = K(t[t.length - 1] + 1),
+    s = 1,
+    i = 0,
+    l = 0,
+    c = 0,
+    u = n.length;
+  for (let f = 0; f < e.length; f++) {
+    const h = e[f],
+      a = r[f + 1] - r[f];
+    if (h !== fo && h !== Ko)
+      for (let w = 0; w < a; w++) {
+        const d = t[l + 1] - t[l];
+        l++;
+        for (let g = 0; g < d; g++) {
+          if (c >= u) throw new RangeError("geom oob");
+          if (((i += n[c++]), i > 4294967295)) throw new RangeError("overflow");
+          o[s++] = i;
+        }
+      }
+    else {
+      for (let w = 0; w < a; w++) o[s++] = ++i;
+      l += a;
+    }
+  }
+  return o;
+}
+function jo(e, r, t, n) {
+  let o = r,
+    s = t,
+    i = n;
+  if (o !== void 0)
+    (o = Wr(e, o, ao)),
+      s !== void 0 &&
+        (i !== void 0
+          ? ((s = qr(e, o, s, !1)), (i = qo(e, o, s, i)))
+          : (s = qr(e, o, s, !0)));
+  else if (s !== void 0)
+    if (i !== void 0) {
+      let l = !1;
+      for (let c = 0; c < e.length; c++)
+        if (uo(e[c])) {
+          l = !0;
+          break;
+        }
+      (s = Wr(e, s, co)), (i = qr(e, s, i, l));
+    } else s = Wr(e, s, fo);
+  return { geometryOffsets: o, partOffsets: s, ringOffsets: i };
+}
+function bt(e, r) {
+  let t = e.geometryOffsets ? e.geometryOffsets[r] : r;
+  return (
+    e.partOffsets && (t = e.partOffsets[t]),
+    e.ringOffsets && (t = e.ringOffsets[t]),
+    t
+  );
+}
+function Zr(e, r, t, n, o) {
+  let s = e === Jr,
+    i;
+  if (e >= 0) (i = W(r)), i.fill(e);
+  else {
+    const A = F(t, !0);
+    i = W(A.length);
+    for (let I = 0; I < A.length; I++) {
+      const N = A[I];
+      if (N > ho) throw new Error("geom type");
+      i[I] = N;
+    }
+  }
+  let l,
+    c,
+    u,
+    f,
+    h,
+    a,
+    w,
+    d,
+    g = null,
+    y = ee,
+    m = 0;
+  for (let A = 0; A < o.length; A++) {
+    const I = o[A];
+    switch (I.t) {
+      case tt:
+        break;
+      case Kt:
+      case ro:
+        if (g !== null) throw new Error("dup vtx");
+        I.zStep !== ee && ((y = I.zStep), (m = I.heightMode)), (g = I);
+        break;
+      case mt:
+        if (h !== void 0) throw new Error("dup voff");
+        h = F(I, !0);
+        break;
+      case no:
+        if (a !== void 0) throw new Error("dup idx");
+        a = F(I, !1);
+        break;
+      case qt:
+        if (!n || w !== void 0) throw new Error("tsym");
+        w = F(I, !0);
+        break;
+      case jt:
+        if (!n || d !== void 0) throw new Error("tcyc");
+        d = F(I, !0);
+        break;
+      case Jt:
+        if (l !== void 0) throw new Error("dup glen");
+        l = F(I, !0);
+        break;
+      case Zt:
+        if (c !== void 0) throw new Error("dup plen");
+        c = F(I, !0);
+        break;
+      case Qt:
+        if (u !== void 0) throw new Error("dup rlen");
+        u = F(I, !0);
+        break;
+      case er:
+        if (f !== void 0) throw new Error("dup tlen");
+        f = F(I, !0);
+        break;
+      default:
+        throw new Error("geom st");
+    }
+  }
+  if (s) {
+    if (y === ee) throw new Error("mesh z");
+    if ((l ? l.length : 0) !== i.length) throw new Error("mesh glen");
+  }
+  if (w !== void 0 || d !== void 0) {
+    if (w === void 0 || d === void 0 || a !== void 0)
+      throw new Error("tree pair");
+    a = $n(w, d);
+  }
+  if (!s && a !== void 0 && c === void 0) {
+    if (!n) throw new Error("v1 tri");
+    for (let A = 0; A < i.length; A++)
+      if (!jr(i[A])) throw new Error("tess non-poly");
+  }
+  let E = jo(i, l, c, u),
+    L = y !== ee ? 3 : 2,
+    b = h !== void 0,
+    T;
+  if (g === null) T = Nt;
+  else if (g.l === tr) {
+    if (b) throw new Error("rans dict");
+    T = Cn(g.d, E.ringOffsets ?? E.partOffsets ?? E.geometryOffsets, g.w);
+  } else T = Te(g, b);
+  let S;
+  if (f !== void 0) {
+    S = K(f.length + 1);
+    let A = 0;
+    for (let I = 0; I < f.length; I++) {
+      if (((A += f[I]), A > 4294967295)) throw new RangeError("overflow");
+      S[I + 1] = A;
+    }
+  }
+  if (d !== void 0) {
+    const A = a.length / 3;
+    if ((S ? S[S.length - 1] : 0) !== A) throw new Error("tri count");
+    if (!s) {
+      const N = T.length / L;
+      for (let R = 0; R < d.length; R++)
+        if (d[R] >= N) throw new RangeError("tcyc vtx");
+    }
+  }
+  if (s) {
+    const A = E.geometryOffsets ?? new Uint32Array([0]),
+      I = (T.length / 3) | 0;
+    if ((A.length > 0 ? A[A.length - 1] : 0) !== I) throw new Error("mesh vtx");
+    const R = S ?? new Uint32Array([0]);
+    if (R.length !== A.length) throw new Error("mesh tlen");
+    let p = a ?? Ce,
+      _ = new Int32Array(p.buffer, p.byteOffset, p.length),
+      x = i.length | 0,
+      v = 0;
+    for (let U = 0; U < x; U = (U + 1) | 0) {
+      const P = A[U] | 0,
+        O = (A[(U + 1) | 0] - 1) | 0,
+        V = (R[U] * 3) | 0,
+        X = (R[(U + 1) | 0] * 3) | 0;
+      if (X > _.length) throw new Error("mesh idx");
+      for (let $ = V; $ < X; $ = ($ + 3) | 0) {
+        const Y = _[$],
+          me = _[($ + 1) | 0],
+          le = _[($ + 2) | 0];
+        v |=
+          Y |
+          me |
+          le |
+          ((Y - P) | 0) |
+          ((O - Y) | 0) |
+          ((me - P) | 0) |
+          ((O - me) | 0) |
+          ((le - P) | 0) |
+          ((O - le) | 0);
+      }
+    }
+    if (v < 0) throw new RangeError("mesh oob");
+  }
+  if (b) {
+    const A = T.length / L,
+      I = h.length,
+      N = Ee(I * L);
+    if (L === 2)
+      for (let R = 0; R < I; R++) {
+        const p = h[R];
+        if (p >= A) throw new RangeError("vdict");
+        const _ = p << 1,
+          x = R << 1;
+        (N[x] = T[_]), (N[x + 1] = T[_ + 1]);
+      }
+    else
+      for (let R = 0; R < I; R++) {
+        const p = h[R];
+        if (p >= A) throw new RangeError("vdict");
+        const _ = p * 3,
+          x = R * 3;
+        (N[x] = T[_]), (N[x + 1] = T[_ + 1]), (N[x + 2] = T[_ + 2]);
+      }
+    T = N;
+  }
+  if (!n && a !== void 0) {
+    const A = S ?? new Uint32Array([0]),
+      I = [];
+    for (let N = 0; N < i.length; N++) jr(i[N]) && I.push(bt(E, N));
+    if (A.length !== I.length + 1) throw new Error("v1 triOff");
+    for (let N = 0; N < I.length; N++) {
+      const R = I[N],
+        p = A[N] * 3,
+        _ = A[N + 1] * 3;
+      if (_ > a.length) throw new RangeError("v1 idx");
+      for (let x = p; x < _; x++) a[x] = (a[x] + R) >>> 0;
+    }
+  }
+  const B = { types: i, dimension: L, vertices: T };
+  return (
+    s && (B.meshes = !0),
+    y !== ee &&
+      ((B.zStep = y),
+      (B.heightMode = m === 1 ? "relativeToGround" : "absolute")),
+    E.geometryOffsets !== void 0 && (B.geometryOffsets = E.geometryOffsets),
+    E.partOffsets !== void 0 && (B.partOffsets = E.partOffsets),
+    E.ringOffsets !== void 0 && (B.ringOffsets = E.ringOffsets),
+    S !== void 0 && (B.triangleOffsets = S),
+    a !== void 0 && (B.indexBuffer = a),
+    B
+  );
+}
+function nr(e, r) {
+  const t = e.length,
+    n = r.length;
+  fe(t * 2);
+  let o = ot(n),
+    s = 0;
+  if (t <= 64) {
+    let c = 0;
+    for (let u = 0; u < t; u++) c |= e[u];
+    if (c < 128) {
+      const u = t === 0 ? "" : String.fromCharCode.apply(null, e);
+      for (let f = 0; f < n; f++) {
+        const h = s + r[f];
+        if (h > t) throw new RangeError("str eof");
+        (o[f] = u.slice(s, h)), (s = h);
+      }
+      return o;
+    }
+  }
+  const i = En(e);
+  if (i.length === t) {
+    for (let c = 0; c < n; c++) {
+      const u = s + r[c];
+      if (u > t) throw new RangeError("str eof");
+      (o[c] = i.slice(s, u)), (s = u);
+    }
+    return o;
+  }
+  let l = 0;
+  for (let c = 0; c < n; c++) {
+    const u = r[c];
+    if (s + u > t) throw new RangeError("str eof");
+    s += u;
+    let f = l,
+      h = u;
+    for (; h > 0; ) {
+      const a = i.charCodeAt(l++);
+      a < 128
+        ? h--
+        : a < 2048
+          ? (h -= 2)
+          : a >= 55296 && a <= 56319
+            ? (l++, (h -= 4))
+            : (h -= 3);
+    }
+    if (h !== 0) throw new TypeError("utf8 split");
+    o[c] = i.slice(f, l);
+  }
+  return o;
+}
+function wo(e, r, t) {
+  if (e === 1) {
+    const n = Nn(r, t);
+    return nr(n.bytes, n.entryLengths);
+  }
+  return nr(t, r);
+}
+function or(e, r) {
+  const t = e.b[e.p] & 3,
+    o = k(e, Qe, 4, t === 0 ? Et : t === 2 ? Oe : Wt, r, t),
+    s = o.n;
+  if (t === 0) {
+    const f = k(e, Z, 4, se, s);
+    return { m: 0, lengths: o, data: f, n: s };
+  }
+  if (t === 1) {
+    const f = k(e, G, 4, Oe, s),
+      h = k(e, Z, 4, Ae, s);
+    return { m: 1, offsets: o, lengths: f, data: h, front: h.front, n: s };
+  }
+  if (t === 2) {
+    const f = k(e, G, 4, xt, s),
+      h = k(e, Z, 4, pt, s),
+      a = k(e, Z, 4, Ae, s);
+    return { m: 2, lengths: o, symLens: f, symTbl: h, corpus: a, n: s };
+  }
+  const i = k(e, G, 4, Oe, s),
+    l = k(e, G, 4, xt, s),
+    c = k(e, Z, 4, pt, s),
+    u = k(e, Z, 4, Ae, s);
+  return {
+    m: 3,
+    offsets: o,
+    lengths: i,
+    symLens: l,
+    symTbl: c,
+    corpus: u,
+    front: u.front,
+    n: s,
+  };
+}
+function nt(e, r = !1) {
+  if (e.m === 0) return { dict: !1, values: nr(e.data.d, F(e.lengths, !0)) };
+  if (e.m === 2) {
+    const i = Bt(F(e.symLens, !0), e.symTbl.d, e.corpus.d);
+    return { dict: !1, values: nr(i, F(e.lengths, !0)) };
+  }
+  const t = e.m === 1 ? e.data.d : Bt(F(e.symLens, !0), e.symTbl.d, e.corpus.d),
+    n = wo(e.front | 0, F(e.lengths, !0), t),
+    o = F(e.offsets, !r),
+    s = n.length;
+  for (let i = 0; i < o.length; i++)
+    if (o[i] >= s) throw new RangeError("dict code");
+  return { dict: !0, entries: n, codes: o };
+}
+function Jo(e, r, t, n, o) {
+  let s = r >>> 3,
+    i = 0;
+  for (let c = 0; c < s; c++) {
+    let u = e[c];
+    if (u === 0) continue;
+    const f = c << 3;
+    if (u === 255) {
+      (o[f] = t[n[i]]),
+        (o[f + 1] = t[n[i + 1]]),
+        (o[f + 2] = t[n[i + 2]]),
+        (o[f + 3] = t[n[i + 3]]),
+        (o[f + 4] = t[n[i + 4]]),
+        (o[f + 5] = t[n[i + 5]]),
+        (o[f + 6] = t[n[i + 6]]),
+        (o[f + 7] = t[n[i + 7]]),
+        (i += 8);
+      continue;
+    }
+    for (; u !== 0; ) {
+      const h = u & -u;
+      (o[f + 31 - Math.clz32(h)] = t[n[i++]]), (u ^= h);
+    }
+  }
+  const l = r & 7;
+  if (l > 0) {
+    let c = e[s] & ((1 << l) - 1),
+      u = s << 3;
+    for (; c !== 0; ) {
+      const f = c & -c;
+      (o[u + 31 - Math.clz32(f)] = t[n[i++]]), (c ^= f);
+    }
+  }
+}
+function Qr(e, r, t, n) {
+  const o = r.dict ? r.codes.length : r.values.length;
+  if (t === void 0) {
+    if (o !== n) throw new Error("str count");
+    let c;
+    if (r.dict) {
+      const { entries: u, codes: f } = r;
+      c = ot(n);
+      for (let h = 0; h < n; h++) c[h] = u[f[h]];
+    } else c = r.values;
+    return { name: e, type: "string", values: c };
+  }
+  const s = ae(t, n);
+  if (s !== o) throw new Error("str popcount");
+  const i = Ke(t, n);
+  if (i === void 0) {
+    let c;
+    if (r.dict) {
+      const { entries: u, codes: f } = r;
+      c = ot(n);
+      for (let h = 0; h < n; h++) c[h] = u[f[h]];
+    } else c = r.values;
+    return { name: e, type: "string", values: c };
+  }
+  const l = ot(n).fill("");
+  return (
+    s > 0 && (r.dict ? Jo(t, n, r.entries, r.codes, l) : it(t, n, r.values, l)),
+    { name: e, type: "string", values: l, present: i }
+  );
+}
+function en(e, r) {
+  const t =
+      e.fsst === 0 ? e.data.d : Bt(F(e.symLens, !0), e.symTbl.d, e.corpus.d),
+    n = wo(e.front, F(e.lengths, !0), t),
+    o = n.length;
+  return e.children.map((s) => {
+    const i = F(s.data, !0);
+    for (let l = 0; l < i.length; l++)
+      if (i[l] >= o) throw new RangeError("sdict code");
+    return Qr(
+      `${e.prefix}${s.suffix}`,
+      { dict: !0, entries: n, codes: i },
+      s.bits,
+      r,
+    );
+  });
+}
+function go(e) {
+  if (e.dict) return { codes: e.codes, dictionary: e.entries };
+  const r = new Map(),
+    t = [],
+    n = e.values,
+    o = K(n.length);
+  for (let s = 0; s < n.length; s++) {
+    let i = n[s],
+      l = r.get(i);
+    l === void 0 && ((l = t.length), t.push(i), r.set(i, l)), (o[s] = l);
+  }
+  return { codes: o, dictionary: t };
+}
+var Zo = 8,
+  rn = 64;
+function fr(e, r, t) {
+  if (t < 0 && (st(e) & rr) === 0) throw new Error("explicit count");
+  if (r === 2) return { dt: 2, s: k(e, et, 4, se, t), d: null };
+  if (r <= 6) return { dt: r, s: k(e, G, 4, se, t), d: null };
+  if (r <= 8) return { dt: r, s: k(e, G, 8, se, t), d: null };
+  if (r <= 10) {
+    const n = r === 9 ? 4 : 8,
+      o = k(e, wt, n, se, t),
+      s = o.l === _t ? k(e, wt, n, Ae, o.n) : null;
+    return { dt: r, s: o, d: s };
+  }
+  if (r === 11) return { dt: 11, s: or(e, t), d: null };
+  throw new Error("col type");
+}
+function Ie(e, r) {
+  if (r < 0 && (st(e) & rr) === 0) throw new Error("nested explicit");
+}
+function mo(e) {
+  const r = e & 240,
+    t = e & 15,
+    n = (r & rn) !== 0,
+    o = r & ~rn;
+  if ((o !== 0 && o !== 16) || t <= 1 || t > 14) throw new Error("node type");
+  return { hasPres: o === 16, shapes: n, data: t };
+}
+function Qo(e) {
+  const r = e.l === D ? ge : e.l === Ze ? Ue : xe;
+  return Vn(e.d, e.n, r);
+}
+function yo(e, r, t) {
+  Ie(e, -1);
+  const n = k(e, et, 4, tt, -1);
+  Ie(e, -1);
+  const o = k(e, G, 4, se, -1),
+    s = ke(n),
+    i = F(o, !1);
+  if (r === 0 || s.length % r !== 0) throw new Error("shapes tbl");
+  const l = s.length / r;
+  for (let c = 0; c < i.length; c++)
+    if (i[c] >= l) throw new RangeError("shape id");
+  if (t >= 0 && i.length !== t) throw new Error("shape rows");
+  return { table: s, width: r, ids: i };
+}
+function es(e, r) {
+  let { table: t, width: n, ids: o } = e,
+    s = 0;
+  for (let i = 0; i < o.length; i++) s += t[o[i] * n + r];
+  return s;
+}
+function Eo(e, r, t, n, o, s) {
+  if (r === 12) {
+    const f = M(e);
+    if (f === 0) throw new Error("empty struct");
+    if (e.e - e.p < f) throw new RangeError("struct eof");
+    const h = o ? yo(e, f, n) : null,
+      a = new Array(f);
+    for (let w = 0; w < f; w++) {
+      let d = n;
+      if (h !== null) {
+        if (mo(st(e)).hasPres) throw new Error("shaped child pres");
+        d = n < 0 ? -1 : es(h, w);
+      }
+      const g = tn(e, !0, d, s + 1);
+      for (let y = 0; y < w; y++)
+        if (a[y].name === g.name) throw new Error("dup field");
+      a[w] = g;
+    }
+    return { k: 12, presence: t, shapes: h, fields: a };
+  }
+  if (r === 13) {
+    if (o) throw new Error("shaped list");
+    Ie(e, n);
+    const f = k(e, G, 4, Cr, n),
+      h = tn(e, !1, -1, s + 1).node;
+    return { k: 13, presence: t, lengths: f, element: h };
+  }
+  let i,
+    l = null,
+    c = null;
+  o
+    ? (Ie(e, -1), (i = or(e, -1)), (c = yo(e, i.n, n)))
+    : (Ie(e, n), (l = k(e, G, 4, Cr, n)), Ie(e, -1), (i = or(e, -1)));
+  const u = tn(e, !1, -1, s + 1).node;
+  return { k: 14, presence: t, lengths: l, shapes: c, keysRaw: i, value: u };
+}
+function tn(e, r, t, n) {
+  if (n > Zo) throw new Error("nested depth");
+  let o = mo(C(e)),
+    s = r ? Q(e) : "",
+    i = o.data === 13 || o.data === 14 ? -1 : t,
+    l = null;
+  o.hasPres && (Ie(e, i), (l = k(e, et, 4, tt, i)));
+  const c = i < 0 ? -1 : l !== null ? Qo(l) : i;
+  if (o.data <= 11) {
+    if (o.shapes) throw new Error("shaped leaf");
+    return (
+      Ie(e, c), { name: s, node: { k: 0, presence: l, cv: fr(e, o.data, c) } }
+    );
+  }
+  return { name: s, node: Eo(e, o.data, l, c, o.shapes, n) };
+}
+function xo(e, r, t, n, o) {
+  let s = n === 12 ? o : -1,
+    i = !1;
+  e.p < e.e && st(e) === rn && (C(e), (i = !0));
+  const l = Eo(e, n, null, s, i, 1);
+  return { name: r, presenceBits: t, valueCount: o, root: l };
+}
+function Be(e, r) {
+  if (Number.isFinite(e)) return e;
+  const t = r ? "f32" : "f64";
+  return Number.isNaN(e)
+    ? `${t}::NAN`
+    : e > 0
+      ? `${t}::INFINITY`
+      : `${t}::NEG_INFINITY`;
+}
+function ts(e) {
+  switch (e.dt) {
+    case 2:
+      return { dt: 2, v: ke(e.s) };
+    case 3:
+      return { dt: 3, v: St(e.s) };
+    case 4:
+      return { dt: 4, v: At(e.s) };
+    case 5:
+      return { dt: 5, v: Te(e.s, !1) };
+    case 6:
+      return { dt: 6, v: F(e.s, !1) };
+    case 7:
+      return { dt: 7, v: Tt(e.s, !0) };
+    case 8:
+      return { dt: 8, v: rt(e.s, !0) };
+    case 9:
+      return { dt: 9, v: be(e.s, e.d, !0) };
+    case 10:
+      return { dt: 10, v: be(e.s, e.d, !1) };
+    default: {
+      const r = nt(e.s, !1);
+      return {
+        dt: 11,
+        v: r.dict ? Array.from(r.codes, (n) => r.entries[n]) : r.values,
+      };
+    }
+  }
+}
+function rs(e, r) {
+  const { table: t, width: n, ids: o } = e,
+    s = new Uint8Array(o.length);
+  for (let i = 0; i < o.length; i++) s[i] = t[o[i] * n + r];
+  return s;
+}
+function ns(e) {
+  let { table: r, width: t, ids: n } = e,
+    o = new Uint32Array(n.length),
+    s = 0;
+  for (let c = 0; c < n.length; c++) {
+    let u = 0,
+      f = n[c] * t;
+    for (let h = 0; h < t; h++) u += r[f + h];
+    (o[c] = u), (s += u);
+  }
+  let i = new Uint32Array(s),
+    l = 0;
+  for (let c = 0; c < n.length; c++) {
+    const u = n[c] * t;
+    for (let f = 0; f < t; f++) r[u + f] === 1 && (i[l++] = f);
+  }
+  return { lengths: o, codes: i };
+}
+function po(e) {
+  let r = new Uint32Array(e.length + 1),
+    t = 0;
+  for (let n = 0; n < e.length; n++) {
+    if (((t += e[n]), t > 4294967295)) throw new RangeError("overflow");
+    r[n + 1] = t;
+  }
+  return r;
+}
+function sr(e, r) {
+  const t = r ?? (e.presence ? ke(e.presence) : null);
+  if (e.k === 0) return { k: 0, presence: t, flat: ts(e.cv) };
+  if (e.k === 12) {
+    const l = e.fields.map((c, u) => ({
+      name: c.name,
+      node: sr(c.node, e.shapes ? rs(e.shapes, u) : null),
+    }));
+    return { k: 12, presence: t, fields: l };
+  }
+  if (e.k === 13) {
+    const l = F(e.lengths, !1);
+    return { k: 13, presence: t, offsets: po(l), element: sr(e.element, null) };
+  }
+  let n = nt(e.keysRaw, !1),
+    o = n.dict ? Array.from(n.codes, (l) => n.entries[l]) : n.values,
+    s,
+    i = null;
+  if (e.shapes) {
+    const l = ns(e.shapes);
+    (s = l.lengths), (i = l.codes);
+  } else s = F(e.lengths, !1);
+  return {
+    k: 14,
+    presence: t,
+    offsets: po(s),
+    keys: o,
+    codes: i,
+    value: sr(e.value, null),
+  };
+}
+function It(e) {
+  return e.presence !== null
+    ? e.presence.length
+    : e.k === 0
+      ? e.flat.v.length
+      : e.k === 12
+        ? _o(e)
+        : e.offsets.length - 1;
+}
+function _o(e) {
+  if (e.presence !== null) {
+    let r = 0;
+    for (let t = 0; t < e.presence.length; t++) r += e.presence[t];
+    return r;
+  }
+  return e.fields.length === 0 ? 0 : It(e.fields[0].node);
+}
+function ir(e) {
+  if (e.k === 0) return;
+  if (e.k === 12) {
+    const n = _o(e);
+    for (const o of e.fields) {
+      if (It(o.node) !== n) throw new Error("struct count");
+      ir(o.node);
+    }
+    return;
+  }
+  const r = e.offsets[e.offsets.length - 1];
+  if (e.k === 13) {
+    if (It(e.element) !== r) throw new Error("list count");
+    ir(e.element);
+    return;
+  }
+  if ((e.codes ? e.codes.length : e.keys.length) !== r || It(e.value) !== r)
+    throw new Error("map count");
+  ir(e.value);
+}
+function os(e, r) {
+  const t = e.v[r];
+  return e.dt === 2
+    ? t === 1
+    : e.dt === 7 || e.dt === 8
+      ? Number(t)
+      : e.dt === 9
+        ? Be(t, !0)
+        : e.dt === 10
+          ? Be(t, !1)
+          : t;
+}
+function lr(e, r) {
+  let t = r;
+  if (e.presence !== null) {
+    if (r >= e.presence.length || e.presence[r] === 0) return;
+    t = 0;
+    for (let l = 0; l < r; l++) t += e.presence[l];
+  }
+  if (e.k === 0) return os(e.flat, t);
+  if (e.k === 12) {
+    const l = {},
+      c = [...e.fields].sort((u, f) =>
+        u.name < f.name ? -1 : u.name > f.name ? 1 : 0,
+      );
+    for (const u of c) {
+      const f = lr(u.node, t);
+      f !== void 0 && (l[u.name] = f);
+    }
+    return l;
+  }
+  const n = e.offsets[t],
+    o = e.offsets[t + 1];
+  if (e.k === 13) {
+    const l = new Array(o - n);
+    for (let c = n; c < o; c++) {
+      const u = lr(e.element, c);
+      l[c - n] = u === void 0 ? null : u;
+    }
+    return l;
+  }
+  const s = [];
+  for (let l = n; l < o; l++) {
+    const c = e.codes ? e.codes[l] : l;
+    if (c >= e.keys.length) throw new RangeError("map key");
+    const u = lr(e.value, l);
+    u !== void 0 && s.push([e.keys[c], u]);
+  }
+  s.sort((l, c) => (l[0] < c[0] ? -1 : l[0] > c[0] ? 1 : 0));
+  const i = {};
+  for (const [l, c] of s) i[l] = c;
+  return i;
+}
+function So(e, r) {
+  const t = sr(e.root, null);
+  if ((ir(t), It(t) !== e.valueCount)) throw new Error("nested root count");
+  let n = new Array(r),
+    o = 0;
+  for (let s = 0; s < r; s++) {
+    if (!Mt(e.presenceBits, s)) {
+      n[s] = null;
+      continue;
+    }
+    const i = lr(t, o++);
+    n[s] = i === void 0 ? null : i;
+  }
+  return { name: e.name, values: n };
+}
+var on = [
+  "",
+  "",
+  "bool",
+  "i8",
+  "u8",
+  "i32",
+  "u32",
+  "i64",
+  "u64",
+  "f32",
+  "f64",
+  "string",
+];
+function To(e, r, t, n) {
+  if (r === void 0) {
+    if (e.length !== t) throw new Error("col count");
+    return { values: e };
+  }
+  const o = ae(r, t);
+  if (o !== e.length) throw new Error("popcount");
+  const s = Ke(r, t);
+  if (s === void 0) {
+    const l = n(t);
+    return l.set(e), { values: l };
+  }
+  const i = n(t);
+  return o > 0 && it(r, t, e, i), { values: i, present: s };
+}
+function sn(e, r, t) {
+  const n = e.length;
+  if (r === void 0) {
+    if (n !== t) throw new Error("col64 count");
+    const l = re(t);
+    for (let c = 0; c < t; c++) l[c] = Number(e[c]);
+    return { values: l };
+  }
+  const o = ae(r, t);
+  if (o !== n) throw new Error("popcount64");
+  const s = Ke(r, t),
+    i = re(t);
+  if (s === void 0) {
+    for (let l = 0; l < t; l++) i[l] = Number(e[l]);
+    return { values: i };
+  }
+  if (o > 0) {
+    te(o * 8);
+    const l = new Float64Array(o);
+    for (let c = 0; c < o; c++) l[c] = Number(e[c]);
+    it(r, t, l, i);
+  }
+  return { values: i, present: s };
+}
+function bo(e, r, t, n) {
+  if (e) return sn(rt(t, !1), r, n);
+  const o = r !== void 0,
+    s = F(t, !0);
+  if (!o) {
+    if (s.length !== n) throw new Error("id count");
+    const i = re(n);
+    for (let l = 0; l < n; l++) i[l] = s[l];
+    return { values: i };
+  }
+  return To(s, r, n, re);
+}
+function Io(e, r, t, n, o, s) {
+  if (r === 11) return Qr(e, nt(t, !1), o, s);
+  if (r === 7) return { name: e, type: "i64", ...sn(Tt(t, !1), o, s) };
+  if (r === 8) return { name: e, type: "u64", ...sn(rt(t, !1), o, s) };
+  let i = o !== void 0,
+    l,
+    c;
+  switch (r) {
+    case 2:
+      (l = ke(t)), (c = W);
+      break;
+    case 3:
+      (l = St(t)), (c = Ot);
+      break;
+    case 4:
+      (l = At(t)), (c = W);
+      break;
+    case 5:
+      (l = Te(t, i)), (c = Ee);
+      break;
+    case 6:
+      (l = F(t, i)), (c = K);
+      break;
+    case 9:
+      (l = be(t, n, !0)), (c = Le);
+      break;
+    default:
+      (l = be(t, n, !1)), (c = re);
+      break;
+  }
+  return { name: e, type: on[r], ...To(l, o, s, c) };
+}
+var Ao = 2147421215;
+function ss(e) {
+  $e();
+  const r = Q(e);
+  if (r.length === 0) throw new Error("layer name");
+  const t = M(e);
+  if (t === 0) throw new Error("extent");
+  const n = M(e);
+  if (e.e - e.p < n) throw new RangeError("v1 cols eof");
+  let o = new Array(n),
+    s = 0,
+    i = 0;
+  for (let y = 0; y < n; y++) {
+    const m = C(e);
+    if (m > 30 || ((Ao >>> m) & 1) === 0) throw new Error("v1 col");
+    let E = m >= 10 ? Q(e) : "",
+      L = null;
+    if (m === 30) {
+      const b = M(e);
+      if (e.e - e.p < b) throw new RangeError("v1 sdict eof");
+      L = new Array(b);
+      for (let T = 0; T < b; T++) {
+        const S = C(e);
+        if (S > 30 || ((Ao >>> S) & 1) === 0) throw new Error("v1 child");
+        L[T] = { typ: S, name: S >= 10 ? Q(e) : "" };
+      }
+    }
+    m === 4 ? s++ : m <= 3 && i++, (o[y] = { typ: m, name: E, children: L });
+  }
+  if (s > 1 || i > 1) throw new Error("v1 dup id/geom");
+  let l = null,
+    c = null,
+    u = null,
+    f = [],
+    h = (y) => ((y & 1) === 0 ? void 0 : Xr(ie(e, gt, !0)));
+  for (let y = 0; y < n; y++) {
+    const m = o[y],
+      { typ: E, name: L } = m;
+    if (E <= 3) {
+      const b = h(E);
+      l = { is64: E >= 2, bits: b, s: ie(e, J) };
+    } else if (E === 4) {
+      const b = M(e);
+      if (b === 0) throw new Error("v1 geom 0");
+      if (e.e - e.p < b) throw new RangeError("v1 geom eof");
+      (c = ie(e, J)), (u = new Array(b - 1));
+      for (let T = 0; T < b - 1; T++) u[T] = ie(e, J);
+    } else if (E <= 11) {
+      const b = h(E);
+      f.push({ dt: 2, name: L, bits: b, s: ie(e, gt, !0) });
+    } else if (E <= 23) {
+      const b = [5, 5, 6, 6, 7, 7, 8, 8],
+        T = h(E);
+      f.push({ dt: b[E - 16], name: L, bits: T, s: ie(e, J) });
+    } else if (E <= 27) {
+      const b = h(E);
+      f.push({ dt: E <= 25 ? 9 : 10, name: L, bits: b, s: ie(e, io) });
+    } else if (E <= 29) {
+      let b = M(e),
+        T = h(E);
+      if (T !== void 0) {
+        if (b === 0) throw new Error("v1 str sc");
+        b--;
+      }
+      if (b < 2 || b > 5) throw new Error("v1 str sc");
+      const S = new Array(b);
+      for (let A = 0; A < b; A++) S[A] = ie(e, J);
+      const B =
+        b === 2
+          ? { m: 0, lengths: S[0], data: S[1] }
+          : b === 3
+            ? { m: 1, lengths: S[0], offsets: S[1], data: S[2], front: 0 }
+            : b === 4
+              ? {
+                  m: 2,
+                  symLens: S[0],
+                  symTbl: S[1],
+                  lengths: S[2],
+                  corpus: S[3],
+                }
+              : {
+                  m: 3,
+                  symLens: S[0],
+                  symTbl: S[1],
+                  lengths: S[2],
+                  corpus: S[3],
+                  offsets: S[4],
+                  front: 0,
+                };
+      f.push({ dt: 11, name: L, bits: T, s: B });
+    } else {
+      const b = M(e),
+        T = [];
+      for (; T.length < b; ) {
+        const N = ie(e, J);
+        if ((T.push(N), N.t === Ae || N.t === Xt)) break;
+        if (T.length >= 5) throw new Error("v1 sdict");
+      }
+      let S = new Array(m.children.length),
+        B = 0;
+      for (let N = 0; N < m.children.length; N++) {
+        const R = m.children[N],
+          p = M(e),
+          _ = h(R.typ),
+          x = _ !== void 0 ? 1 : 0;
+        if (((B += x), p >= x && p - x !== 1)) throw new Error("v1 sdict ch");
+        S[N] = { suffix: R.name, bits: _, data: ie(e, J) };
+      }
+      const A = T.length + S.length + B;
+      if (b !== A && b !== A + 1) throw new Error("v1 sdict sc");
+      if (T.length !== 2 && T.length !== 4) throw new Error("v1 sdict ds");
+      const I =
+        T.length === 2
+          ? {
+              prefix: L,
+              front: 0,
+              fsst: 0,
+              lengths: T[0],
+              data: T[1],
+              children: S,
+            }
+          : {
+              prefix: L,
+              front: 0,
+              fsst: 1,
+              symLens: T[0],
+              symTbl: T[1],
+              lengths: T[2],
+              corpus: T[3],
+              children: S,
+            };
+      f.push({ dt: 30, shared: I });
+    }
+  }
+  if (e.p !== e.e) throw new Error("v1 trailing");
+  if (u === null) throw new Error("v1 no geom");
+  const a = Zr(-1, 0, c, !1, u),
+    w = a.types.length,
+    d = [];
+  for (let y = 0; y < f.length; y++) {
+    const m = f[y];
+    m.dt === 30
+      ? d.push(...en(m.shared, w))
+      : d.push(Io(m.name, m.dt, m.s, null, m.bits, w));
+  }
+  const g = {
+    name: r,
+    extent: t,
+    version: 1,
+    featureCount: w,
+    geometry: a,
+    properties: d,
+  };
+  return l !== null && (g.ids = bo(l.is64, l.bits, l.s, w)), g;
+}
+function nn(e, r, t, n) {
+  if (r === 0) return;
+  if (r < 64) {
+    const s = (r >>> 4) - 1;
+    if (s > 2) throw new Error("v2 pres");
+    return lt(e, n, s);
+  }
+  const o = (r - 64) >>> 4;
+  if (o >= t.length) throw new Error("v2 spres");
+  return t[o];
+}
+function is(e, r, t, n, o, s) {
+  let i = Ke(t, s),
+    l = 0;
+  if (i === void 0)
+    if (r === "triangle") {
+      const f = o.triangleOffsets;
+      l = f ? f[s] : 0;
+    } else l = bt(o, s);
+  else
+    for (let f = 0; f < s; f++)
+      if (Mt(i, f))
+        if (r === "triangle") {
+          const h = o.triangleOffsets;
+          l += h ? h[f + 1] - h[f] : 0;
+        } else l += bt(o, f + 1) - bt(o, f);
+  let c, u;
+  if (n.dt === 11) {
+    const { codes: f, dictionary: h } = go(nt(n.s, !0));
+    (u = f.length),
+      (c = { name: e, scope: r, type: "string", codes: f, dictionary: h });
+  } else if (n.dt === 7 || n.dt === 8) {
+    const f = n.dt === 7 ? Tt(n.s, !1) : rt(n.s, !1);
+    u = f.length;
+    const h = new Float64Array(u);
+    for (let a = 0; a < u; a++) h[a] = Number(f[a]);
+    c = { name: e, scope: r, type: on[n.dt], values: h };
+  } else {
+    let f;
+    switch (n.dt) {
+      case 2:
+        f = ke(n.s);
+        break;
+      case 3:
+        f = St(n.s);
+        break;
+      case 4:
+        f = At(n.s);
+        break;
+      case 5:
+        f = Te(n.s, !1);
+        break;
+      case 6:
+        f = F(n.s, !1);
+        break;
+      case 9:
+        f = be(n.s, n.d, !0);
+        break;
+      default:
+        f = be(n.s, n.d, !1);
+        break;
+    }
+    (u = f.length), (c = { name: e, scope: r, type: on[n.dt], values: f });
+  }
+  if (u !== l) throw new Error("mval len");
+  return i !== void 0 && (c.present = i), c;
+}
+var ls = 27852,
+  fs = 12272,
+  cs = 12032;
+function as(e, r) {
+  $e();
+  const t = Q(e);
+  if (t.length === 0) throw new Error("v2 name");
+  const n = C(e),
+    o = (n & 128) !== 0,
+    s = (n & 112) >>> 4;
+  if (s > 7) throw new Error("v2 hdr");
+  const i = s === 0 ? -1 : s - 1,
+    l = 1 << ((n & 15) + 6),
+    c = M(e),
+    u = C(e),
+    f = (u & 128) !== 0,
+    h = (u & 112) >>> 4,
+    a = u & 15;
+  if ((f && h === 0) || a > 14) throw new Error("v2 layout");
+  if (o && (a === 0 || a === 1 || a === 12)) throw new Error("v2 mval layout");
+  if ((i === Jr) !== (a === 14)) throw new Error("v2 mesh layout");
+  const w = new Array(h);
+  for (let R = 0; R < h; R++) {
+    let p = ge;
+    if (f) {
+      const _ = C(e);
+      if ((_ & 143) !== 0) throw new Error("v2 spres byte");
+      if (((p = (_ & 112) >>> 4), p > 2)) throw new Error("v2 spres code");
+    }
+    w[R] = lt(e, c, p);
+  }
+  const d = i >= 0 ? null : k(e, G, 4, Et, c),
+    g = [];
+  ((ls >>> a) & 1) !== 0 && g.push(k(e, G, 4, Jt, c)),
+    ((fs >>> a) & 1) !== 0 && g.push(k(e, G, 4, Zt, c)),
+    ((cs >>> a) & 1) !== 0 && g.push(k(e, G, 4, Qt, c)),
+    a >= 12 &&
+      (g.push(k(e, G, 4, er, c)),
+      g.push(k(e, G, 4, qt, c)),
+      g.push(k(e, G, 4, jt, c)));
+  const y = k(e, je, 4, Kt, c);
+  if (a === 14 && y.zStep === ee) throw new Error("v2 mesh z");
+  g.push(y), a <= 11 && (a & 1) === 1 && g.push(k(e, G, 4, mt, c));
+  const m = Zr(i, c, d, !0, g);
+  $e();
+  let E,
+    L = 0;
+  if (!o) E = M(e);
+  else if ((([E, L] = Bn(de(e))), L === 0)) throw new Error("v2 empty mvals");
+  if (e.e - e.p < E) throw new RangeError("v2 cols eof");
+  let b,
+    T = [],
+    S = r ? [] : null,
+    B = new Set(),
+    A = (R) => {
+      if (B.has(R)) throw new Error("dup col");
+      B.add(R);
+    };
+  for (let R = 0; R < E; R++) {
+    $e();
+    const p = C(e),
+      _ = p & 240,
+      x = p & 15;
+    if (x === 15) {
+      if (_ !== 0 && _ !== 16) throw new Error("v2 sdict");
+      const O = Q(e),
+        V = M(e);
+      if (e.e - e.p < V) throw new RangeError("v2 sdict eof");
+      let X;
+      if (_ === 0) {
+        const $ = k(e, G, 4, Oe, -1),
+          Y = k(e, Z, 4, Xt, -1);
+        X = {
+          prefix: O,
+          front: Y.front,
+          fsst: 0,
+          lengths: $,
+          data: Y,
+          children: new Array(V),
+        };
+      } else {
+        const $ = k(e, G, 4, Oe, -1),
+          Y = k(e, G, 4, xt, -1),
+          me = k(e, Z, 4, pt, -1),
+          le = k(e, Z, 4, Xt, -1);
+        X = {
+          prefix: O,
+          front: le.front,
+          fsst: 1,
+          lengths: $,
+          symLens: Y,
+          symTbl: me,
+          corpus: le,
+          children: new Array(V),
+        };
+      }
+      for (let $ = 0; $ < V; $++) {
+        const Y = C(e);
+        if ((Y & 15) !== 11) throw new Error("v2 sdict ch");
+        const me = Q(e);
+        A(`${O}${me}`);
+        const le = nn(e, Y & 240, w, c),
+          Bo = le === void 0 ? c : ae(le, c),
+          Mo = k(e, Qe, 4, Wt, Bo, 1);
+        X.children[$] = { suffix: me, bits: le, data: Mo };
+      }
+      T.push(...en(X, c));
+      continue;
+    }
+    const v = x >= 2 ? Q(e) : "",
+      U = nn(e, _, w, c),
+      P = U === void 0 ? c : ae(U, c);
+    if (x <= 1) {
+      if (b !== void 0) throw new Error("dup id");
+      const O = k(e, G, x === 1 ? 8 : 4, se, P);
+      b = bo(x === 1, U, O, c);
+    } else if (x <= 11) {
+      A(v);
+      const O = fr(e, x, P);
+      T.push(Io(v, x, O.s, O.d, U, c));
+    } else {
+      A(v);
+      const O = xo(e, v, U, x, P);
+      S?.push(O);
+    }
+  }
+  const I = new Array(L);
+  if (o) {
+    if (e.e - e.p < L) throw new RangeError("v2 mvals eof");
+    const R = a === 14;
+    for (let p = 0; p < L; p++) {
+      $e();
+      const _ = C(e),
+        x = _ & 15;
+      if (x < 2 || x > 11) throw new Error("v2 mval type");
+      let v = "vertex";
+      if (R) {
+        const V = C(e);
+        if (V === 1) v = "triangle";
+        else if (V !== 0) throw new Error("v2 mval scope");
+      }
+      const U = Q(e);
+      A(U);
+      const P = nn(e, _ & 240, w, c),
+        O = fr(e, x, -1);
+      I[p] = is(U, v, P, O, m, c);
+    }
+  }
+  if (e.p !== e.e) throw new Error("v2 trailing");
+  const N = {
+    name: t,
+    extent: l,
+    version: 2,
+    featureCount: c,
+    geometry: m,
+    properties: T,
+    mValues: I,
+  };
+  return (
+    b !== void 0 && (N.ids = b),
+    S !== null && S.length > 0 && (N._rawNested = S),
+    N
+  );
+}
+function cr(e, r = {}) {
+  if (!(e instanceof Uint8Array)) throw new TypeError("expected Uint8Array");
+  yn(r.maxBytes);
+  const t = r.layers !== void 0 ? new Set(r.layers) : null,
+    n = r.keepNested === !0,
+    o = ce(e),
+    s = [];
+  try {
+    for (; o.p < o.e; ) {
+      const i = M(o),
+        l = C(o);
+      if (i === 0) throw new Error("zero layer size");
+      const c = mn(o, i - 1);
+      if (!(l !== 1 && l !== 2)) {
+        if (t !== null) {
+          const u = ce(c.b, c.p, c.e),
+            f = Q(u);
+          if (f.length === 0) throw new Error("layer name");
+          if (!t.has(f)) continue;
+        }
+        s.push(l === 1 ? ss(c) : as(c, n));
+      }
+    }
+  } finally {
+    pn(), Pn();
+  }
+  return s;
+}
+var z = Object.freeze({
+  Point: 0,
+  LineString: 1,
+  Polygon: 2,
+  MultiPoint: 3,
+  MultiLineString: 4,
+  MultiPolygon: 5,
+  Mesh: 6,
+  0: "Point",
+  1: "LineString",
+  2: "Polygon",
+  3: "MultiPoint",
+  4: "MultiLineString",
+  5: "MultiPolygon",
+  6: "Mesh",
+});
+function ln(e, r = {}) {
+  return { layers: cr(e, { layers: r.layers, maxBytes: r.maxBytes }) };
+}
+function Me(e, r) {
+  if ("scope" in e && e.scope !== void 0)
+    throw new TypeError(
+      "m-value columns are sparse per vertex or triangle; use mValueSlice instead of columnValue",
+    );
+  const { values: t, present: n } = e;
+  if (!Number.isInteger(r) || r < 0 || r >= t.length)
+    throw new RangeError(`the column has no feature ${r}`);
+  return n === void 0 || ((n[r >> 3] >> (r & 7)) & 1) === 1 ? t[r] : void 0;
+}
+var vo = new WeakMap();
+function hs(e, r, t) {
+  if (r === "triangle") {
+    const i = e.triangleOffsets;
+    return i === void 0 ? 0 : i[t + 1] - i[t];
+  }
+  const n = (i, l) => (i === void 0 ? l : i[l]),
+    o = n(e.ringOffsets, n(e.partOffsets, n(e.geometryOffsets, t)));
+  return n(e.ringOffsets, n(e.partOffsets, n(e.geometryOffsets, t + 1))) - o;
+}
+function vt(e, r, t) {
+  if (!Number.isInteger(t) || t < 0 || t >= e.featureCount)
+    throw new RangeError(`layer "${e.name}" has no feature ${t}`);
+  const { present: n } = r;
+  if (!(n === void 0 || ((n[t >> 3] >> (t & 7)) & 1) === 1)) return;
+  let s = vo.get(e);
+  s === void 0 && ((s = new WeakMap()), vo.set(e, s));
+  let i = s.get(r);
+  if (i === void 0) {
+    i = new Uint32Array(e.featureCount + 1);
+    let u = 0;
+    for (let f = 0; f < e.featureCount; f++)
+      (i[f] = u),
+        (n === void 0 || ((n[f >> 3] >> (f & 7)) & 1) === 1) &&
+          (u += hs(e.geometry, r.scope, f));
+    (i[e.featureCount] = u), s.set(r, i);
+  }
+  const l = i[t],
+    c = i[t + 1];
+  if (r.type === "string") {
+    const u = new Array(c - l);
+    for (let f = l; f < c; f++) u[f - l] = r.dictionary[r.codes[f]];
+    return u;
+  }
+  return r.values.subarray(l, c);
+}
+function us(e, r) {
+  const t = 10 ** Math.abs(r),
+    n = r < 0 ? e / t : e * t;
+  return n === 0 ? 0 : n;
+}
+var Ro = new WeakMap();
+function ds(e, r) {
+  if (Rt(e)) return r;
+  let t = Ro.get(e);
+  if (!t) {
+    const { types: n } = e;
+    t = new Uint32Array(n.length);
+    let o = 0;
+    for (let s = 0; s < n.length; s++)
+      (t[s] = o), (n[s] === z.Polygon || n[s] === z.MultiPolygon) && o++;
+    Ro.set(e, t);
+  }
+  return t[r];
+}
+function Ve(e) {
+  return e.indexBuffer !== void 0 && e.partOffsets === void 0 && !Rt(e);
+}
+function Rt(e) {
+  return e.meshes === !0 || e.types[0] === z.Mesh;
+}
+function cn(e, r) {
+  return e === void 0 ? r : e[r];
+}
+function ve(e, r) {
+  return cn(e.geometryOffsets, r);
+}
+function H(e, r) {
+  return cn(e.ringOffsets, cn(e.partOffsets, r));
+}
+function Ge(e) {
+  const { partOffsets: r, ringOffsets: t } = e;
+  if (r === void 0 || t === void 0)
+    throw new Error(
+      "a layer storing polygons has part and ring offsets, and this one has not",
+    );
+  return [r, t];
+}
+function Fe(e, r) {
+  if (r < e)
+    throw new Error(`a run of vertices ${e}..${r} ends before it starts`);
+  return r - e;
+}
+function fn(e, r, t) {
+  return Fe(r, t), e.vertices.subarray(r * e.dimension, t * e.dimension);
+}
+function Lo(e, r) {
+  const { indexBuffer: t, triangleOffsets: n } = e,
+    o = ds(e, r),
+    s = n?.[o],
+    i = n?.[o + 1];
+  if (t === void 0 || s === void 0 || i === void 0)
+    throw new Error(
+      `the layer's triangles do not cover polygon ${o}, feature ${r}`,
+    );
+  return t.subarray(s * 3, i * 3);
+}
+function Uo(e, r, t, n) {
+  const o = new Uint32Array(e.length);
+  for (let s = 0; s < e.length; s++) {
+    if (e[s] < r || e[s] >= t)
+      throw new Error(
+        `a triangle of feature ${n} names vertex ${e[s]}, outside ${r}..${t}`,
+      );
+    o[s] = e[s] - r;
+  }
+  return o;
+}
+function Po(e) {
+  const r = new Uint32Array(e + 1);
+  for (let t = 0; t <= e; t++) r[t] = t;
+  return r;
+}
+function ar(e, r, t, n) {
+  if (r.length !== t + 1)
+    throw new Error(`${e} has ${r.length - 1} items, expected ${t}`);
+  if (r[0] !== 0) throw new Error(`${e} starts at ${r[0]}, expected 0`);
+  for (let o = 0; o < t; o++) Fe(r[o], r[o + 1]);
+  if (n !== void 0 && r[t] !== n)
+    throw new Error(`${e} ends at ${r[t]}, expected ${n}`);
+  return r;
+}
+var No = new WeakMap();
+function ws(e) {
+  let r = No.get(e);
+  return r === void 0 && ((r = gs(e)), No.set(e, r)), r;
+}
+function gs(e) {
+  if (Ve(e))
+    throw new Error(
+      "a TessPolygons layer stores triangles, not runs of vertices",
+    );
+  const {
+      geometryOffsets: r,
+      partOffsets: t,
+      ringOffsets: n,
+      types: o,
+      vertices: s,
+      dimension: i,
+    } = e,
+    l = ar("featureGeometries", r ?? Po(o.length), o.length);
+  if (s.length % i !== 0)
+    throw new Error(
+      `the layer has ${s.length} vertex words, not a multiple of its dimension ${i}`,
+    );
+  const c = s.length / i,
+    u = l[o.length],
+    f = t ?? Po(u);
+  if (n === void 0) {
+    const g = ar("geometryVertices", f, u, c);
+    return { featureGeometries: l, geometryVertices: g };
+  }
+  const h = ar("geometryRings", f, u),
+    a = h[u],
+    w = ar("ringVertices", n, a, c),
+    d = new Uint32Array(u + 1);
+  for (let g = 0; g <= u; g++) d[g] = H(e, g);
+  return {
+    featureGeometries: l,
+    geometryVertices: d,
+    geometryRings: h,
+    ringVertices: w,
+  };
+}
+function an(e, r) {
+  const { geometry: t } = e;
+  if (!Number.isInteger(r) || r < 0 || r >= e.featureCount)
+    throw new RangeError(`layer "${e.name}" has no feature ${r}`);
+  const n = t.types[r];
+  if (Ve(t))
+    throw new Error(
+      `layer "${e.name}" is a TessPolygons layer, which stores triangles, not outlines`,
+    );
+  const o = ve(t, r),
+    s = ve(t, r + 1),
+    i = H(t, o),
+    l = H(t, s),
+    c = fn(t, i, l);
+  switch (n) {
+    case z.Point:
+    case z.MultiPoint:
+      return { kind: "point", type: n, vertices: c, firstVertex: i };
+    case z.LineString:
+    case z.MultiLineString: {
+      const u = [];
+      for (let f = o; f < s; f++) {
+        const h = H(t, f),
+          a = H(t, f + 1);
+        u.push({ vertices: fn(t, h, a), firstVertex: h });
+      }
+      return { kind: "line", type: n, vertices: c, firstVertex: i, lines: u };
+    }
+    case z.Polygon:
+    case z.MultiPolygon: {
+      const [u, f] = Ge(t),
+        h = [];
+      for (let w = o; w < s; w++) {
+        let d = u[w],
+          g = u[w + 1],
+          y = f[d],
+          m = f[g],
+          E = [],
+          L = y;
+        for (let b = d + 1; b < g; b++) Fe(L, f[b]), (L = f[b]), E.push(L - y);
+        Fe(L, m),
+          h.push({ vertices: fn(t, y, m), firstVertex: y, holeIndices: E });
+      }
+      const a = t.indexBuffer === void 0 ? void 0 : Uo(Lo(t, r), i, l, r);
+      return {
+        kind: "polygon",
+        type: n,
+        vertices: c,
+        firstVertex: i,
+        polygons: h,
+        triangles: a,
+      };
+    }
+    case z.Mesh: {
+      const u = Uo(Lo(t, r), i, l, r);
+      return {
+        kind: "mesh",
+        type: n,
+        vertices: c,
+        firstVertex: i,
+        triangles: u,
+      };
+    }
+    default:
+      throw new Error(
+        `feature ${r} of layer "${e.name}" has unknown geometry type ${n}`,
+      );
+  }
+}
+function ys(e, r) {
+  const t = Me(e, r);
+  if (t !== void 0)
+    return e.type === "bool"
+      ? t === 1
+      : e.type === "f32"
+        ? Be(t, !0)
+        : e.type === "f64"
+          ? Be(t, !1)
+          : t;
+}
+function ps(e, r) {
+  return e.type === "string"
+    ? r
+    : e.type === "bool"
+      ? Array.from(r, (t) => t === 1)
+      : e.type === "f32"
+        ? Array.from(r, (t) => Be(t, !0))
+        : e.type === "f64"
+          ? Array.from(r, (t) => Be(t, !1))
+          : Array.from(r);
+}
+function ms(e, r) {
+  const { geometry: t } = e,
+    { vertices: n, dimension: o, types: s } = t,
+    i = o === 3,
+    l = (a) =>
+      i ? [n[a * 3], n[a * 3 + 1], n[a * 3 + 2]] : [n[a * 2], n[a * 2 + 1]],
+    c = (a, w) => {
+      if (w <= a) return [];
+      const d = new Array(w - a + 1);
+      for (let g = a; g < w; g++) d[g - a] = l(g);
+      return (d[w - a] = l(a)), d;
+    };
+  if (Ve(t)) {
+    const a = t.triangleOffsets,
+      w = t.indexBuffer,
+      d = a[r] * 3,
+      g = a[r + 1] * 3,
+      y = [];
+    for (let m = d; m < g; m += 3) {
+      const E = l(w[m]),
+        L = l(w[m + 1]),
+        b = l(w[m + 2]);
+      y.push([[E, L, b, [...E]]]);
+    }
+    return { geometry: { type: "MultiPolygon", coordinates: y } };
+  }
+  const u = ve(t, r),
+    f = ve(t, r + 1),
+    h = s[r];
+  switch (h) {
+    case z.Point:
+      return { geometry: { type: "Point", coordinates: l(H(t, u)) } };
+    case z.MultiPoint: {
+      const a = new Array(f - u);
+      for (let w = u; w < f; w++) a[w - u] = l(H(t, w));
+      return { geometry: { type: "MultiPoint", coordinates: a } };
+    }
+    case z.LineString: {
+      const a = H(t, u),
+        w = H(t, u + 1),
+        d = new Array(w - a);
+      for (let g = a; g < w; g++) d[g - a] = l(g);
+      return { geometry: { type: "LineString", coordinates: d } };
+    }
+    case z.MultiLineString: {
+      const a = new Array(f - u);
+      for (let w = u; w < f; w++) {
+        const d = H(t, w),
+          g = H(t, w + 1),
+          y = new Array(g - d);
+        for (let m = d; m < g; m++) y[m - d] = l(m);
+        a[w - u] = y;
+      }
+      return { geometry: { type: "MultiLineString", coordinates: a } };
+    }
+    case z.Polygon: {
+      const [a, w] = Ge(t),
+        d = a[u],
+        g = a[u + 1];
+      if (g <= d) return { geometry: { type: "Polygon", coordinates: [[]] } };
+      const y = new Array(g - d);
+      for (let m = d; m < g; m++) y[m - d] = c(w[m], w[m + 1]);
+      return { geometry: { type: "Polygon", coordinates: y } };
+    }
+    case z.MultiPolygon: {
+      const [a, w] = Ge(t),
+        d = new Array(f - u);
+      for (let g = u; g < f; g++) {
+        const y = a[g],
+          m = a[g + 1];
+        if (m <= y) d[g - u] = [[]];
+        else {
+          const E = new Array(m - y);
+          for (let L = y; L < m; L++) E[L - y] = c(w[L], w[L + 1]);
+          d[g - u] = E;
+        }
+      }
+      return { geometry: { type: "MultiPolygon", coordinates: d } };
+    }
+    case z.Mesh: {
+      const a = new Array(f - u);
+      for (let E = u; E < f; E++) a[E - u] = l(E);
+      const w = t.triangleOffsets,
+        d = t.indexBuffer,
+        g = w[r],
+        y = w[r + 1],
+        m = new Array(y - g);
+      for (let E = g; E < y; E++)
+        m[E - g] = [d[E * 3] - u, d[E * 3 + 1] - u, d[E * 3 + 2] - u];
+      return { geometry: { type: "MultiPoint", coordinates: a }, triangles: m };
+    }
+    default:
+      throw new Error(`unknown geometry type ${h}`);
+  }
+}
+function Es(e, r = {}) {
+  const t = cr(e, { keepNested: !0, maxBytes: r.maxBytes }),
+    n = [];
+  for (const o of t) {
+    const s = o._rawNested
+      ? o._rawNested.map((i) => So(i, o.featureCount))
+      : [];
+    for (let i = 0; i < o.featureCount; i++) {
+      const l = {};
+      for (const w of o.properties) {
+        const d = ys(w, i);
+        d !== void 0 && (l[w.name] = d);
+      }
+      if (o.mValues)
+        for (const w of o.mValues) {
+          const d = vt(o, w, i);
+          d !== void 0 && (l[`m:${w.name}`] = ps(w, d));
+        }
+      for (const w of s) l[w.name] = w.values[i];
+      o.geometry.zStep !== void 0 &&
+        ((l._z_step = o.geometry.zStep),
+        o.geometry.heightMode === "relativeToGround" &&
+          (l._height_mode = "relative_to_ground")),
+        (l._layer = o.name),
+        (l._extent = o.extent);
+      const c = {};
+      for (const w of Object.keys(l).sort()) c[w] = l[w];
+      const u = o.ids ? Me(o.ids, i) : void 0,
+        { geometry: f, triangles: h } = ms(o, i),
+        a = { type: "Feature" };
+      u !== void 0 && (a.id = u),
+        (a.properties = c),
+        (a.geometry = f),
+        h !== void 0 && (a.triangles = h),
+        n.push(a);
+    }
+  }
+  return { type: "FeatureCollection", features: n };
+}
+var hn = 1,
+  un = 2,
+  hr = 3,
+  xs = [hn, un, hr, hn, un, hr, 0],
+  ur = class e {
+    constructor(r, t) {
+      (this.x = r), (this.y = t);
+    }
+    clone() {
+      return new e(this.x, this.y);
+    }
+    equals(r) {
+      return this.x === r.x && this.y === r.y;
+    }
+  };
+function dr(e, r, t, n) {
+  const o = Fe(r, t);
+  if (o === 0) return [];
+  const s = new Array(n ? o + 1 : o);
+  for (let i = 0; i < o; i++) s[i] = e(r + i);
+  return n && (s[o] = e(r)), s;
+}
+function Oo(e, r, t, n) {
+  const o = new Array(t - r);
+  for (let s = r; s < t; s++) o[s - r] = dr(n, e[s], e[s + 1], !0);
+  return o;
+}
+function _s(e, r) {
+  const t = Me(e, r);
+  return e.type === "bool" && t !== void 0 ? t === 1 : t;
+}
+var wr = class {
+    constructor(r, t) {
+      (this._featureIdx = r), (this._layer = t), (this.extent = t.layer.extent);
+    }
+    get mltType() {
+      return this._layer.layer.geometry.types[this._featureIdx];
+    }
+    get type() {
+      return xs[this.mltType] ?? 0;
+    }
+    get id() {
+      const { ids: r } = this._layer.layer;
+      return r && Me(r, this._featureIdx);
+    }
+    get properties() {
+      const r = {};
+      for (const t of this._layer.layer.properties) {
+        const n = _s(t, this._featureIdx);
+        n !== void 0 && (r[t.name] = n);
+      }
+      return r;
+    }
+    _vertex() {
+      throw new Error("unimplemented");
+    }
+    _geometries() {
+      if (this._layer.trianglesOnly)
+        throw new Error(
+          `layer "${this._layer.layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
+        );
+      const { geometry: r } = this._layer.layer;
+      return [ve(r, this._featureIdx), ve(r, this._featureIdx + 1)];
+    }
+    _rings() {
+      const { geometry: r } = this._layer.layer,
+        t = this._vertex(),
+        [n, o] = this._geometries();
+      if (this.mltType === z.Mesh) return [dr(t, n, o, !1)];
+      switch (this.type) {
+        case hn: {
+          const s = H(r, n),
+            i = H(r, o),
+            l = new Array(Fe(s, i));
+          for (let c = s; c < i; c++) l[c - s] = [t(c)];
+          return l;
+        }
+        case un: {
+          const s = new Array(o - n);
+          for (let i = n; i < o; i++)
+            s[i - n] = dr(t, H(r, i), H(r, i + 1), !1);
+          return s;
+        }
+        case hr: {
+          const [s, i] = Ge(r);
+          return Oo(i, s[n], s[o], t);
+        }
+        default:
+          return [];
+      }
+    }
+    _polygons() {
+      if (this.mltType === z.Mesh)
+        throw new Error(
+          `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is a mesh; use loadGeometry() and loadTriangles() instead of loadPolygons()`,
+        );
+      if (this.type !== hr) return [this._rings()];
+      const { geometry: r } = this._layer.layer,
+        t = this._vertex(),
+        [n, o] = this._geometries(),
+        [s, i] = Ge(r),
+        l = new Array(o - n);
+      for (let c = n; c < o; c++) l[c - n] = Oo(i, s[c], s[c + 1], t);
+      return l;
+    }
+  },
+  gr = class extends wr {
+    constructor(r, t) {
+      super(r, t),
+        (this.zStep = t.layer.geometry.zStep),
+        (this.heightMode = t.layer.geometry.heightMode);
+    }
+    loadGeometry() {
+      return this._rings();
+    }
+    loadZ() {
+      const { geometry: r } = this._layer.layer;
+      if (r.dimension !== 3) return [];
+      const t = (s) => r.vertices[s * 3 + 2],
+        [n, o] = this._geometries();
+      return dr(t, H(r, n), H(r, o), !1);
+    }
+    loadPolygons() {
+      return this._polygons();
+    }
+    _vertex() {
+      const { vertices: r, dimension: t } = this._layer.layer.geometry;
+      return (n) => new ur(r[n * t], r[n * t + 1]);
+    }
+  },
+  yr = class extends wr {
+    constructor(r, t, n, o = "absolute") {
+      super(r, t), (this.zStep = n), (this.heightMode = o);
+    }
+    loadGeometry() {
+      return this._rings();
+    }
+    loadPolygons() {
+      return this._polygons();
+    }
+    loadTriangles() {
+      if (this.mltType !== z.Mesh)
+        throw new Error(
+          `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`,
+        );
+      const r = an(this._layer.layer, this._featureIdx);
+      if (r.kind !== "mesh")
+        throw new Error(
+          `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`,
+        );
+      return r.triangles;
+    }
+    loadMValues(r) {
+      const t = this._layer.layer.mValues?.find((n) => n.name === r);
+      if (t !== void 0) return vt(this._layer.layer, t, this._featureIdx);
+    }
+    _vertex() {
+      const { vertices: r } = this._layer.layer.geometry;
+      return (t) => [r[t * 3], r[t * 3 + 1], r[t * 3 + 2]];
+    }
+  },
+  pr = class {
+    constructor(r) {
+      (this._data = { layer: r, trianglesOnly: Ve(r.geometry) }),
+        (this.name = r.name),
+        (this.extent = r.extent),
+        (this.length = r.featureCount),
+        (this.propertyColumns = r.properties),
+        (this.propertyKeys = r.properties.map((t) => t.name));
+    }
+    _featureIndex(r) {
+      if (!Number.isInteger(r) || r < 0 || r >= this.length)
+        throw new RangeError(`layer "${this.name}" has no feature ${r}`);
+      return r;
+    }
+  },
+  mr = class extends pr {
+    constructor(r) {
+      super(r),
+        (this.version = 1),
+        (this.zStep = this._data.layer.geometry.zStep),
+        (this.heightMode = this._data.layer.geometry.heightMode);
+    }
+    feature(r) {
+      return new gr(this._featureIndex(r), this._data);
+    }
+  },
+  Er = class extends pr {
+    constructor(r) {
+      super(r);
+      const { geometry: t } = r;
+      if (t.zStep === void 0)
+        throw new Error(
+          `layer "${r.name}" has no z coordinates; decode the tile with decodeTile() instead`,
+        );
+      if (t.indexBuffer !== void 0 && !Rt(t)) {
+        const n = this._data.trianglesOnly
+          ? "TessPolygons"
+          : "TessPolygonsWithOutlines";
+        throw new Error(
+          `layer "${r.name}" uses the ${n} geometry layout, which decodeTile3D does not support`,
+        );
+      }
+      (this.zStep = t.zStep),
+        (this.heightMode = t.heightMode),
+        (this.mValues = r.mValues ?? []);
+    }
+    feature(r) {
+      return new yr(
+        this._featureIndex(r),
+        this._data,
+        this.zStep,
+        this.heightMode,
+      );
+    }
+  };
+function ko(e, r, t) {
+  const n = {};
+  for (const o of ln(e, t).layers) {
+    if (Object.hasOwn(n, o.name))
+      throw new Error(
+        `the tile has two layers named "${o.name}"; decodeTileColumns keeps both`,
+      );
+    n[o.name] = new r(o);
+  }
+  return n;
+}
+function Ss(e, r) {
+  return { layers: ko(e, mr, r) };
+}
+function As(e, r) {
+  return { layers: ko(e, Er, r) };
+}
+
+export {
+  As as decodeTile3D,
+  an as featureGeometry,
+  Er as MltLayer3D,
+  Es as tileGeoJson,
+  gr as MltFeature,
+  ln as decodeTileColumns,
+  Me as columnValue,
+  mr as MltLayer,
+  Rt as isMeshes,
+  Ss as decodeTile,
+  ur as MltPoint,
+  us as toElevation,
+  Ve as isTrianglesOnly,
+  vt as mValueSlice,
+  ws as geometryStarts,
+  yr as MltFeature3D,
+  z as MltGeometryType,
+};
