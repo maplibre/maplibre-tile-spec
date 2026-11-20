@@ -199,7 +199,15 @@ impl GeometryValues {
     pub fn push_geom(&mut self, geom: &Geometry<i32>) {
         #[cfg(feature = "unstable-v2")]
         debug_assert!(self.z_axis.is_none(), "push_geom after add_z");
-        GeometryStager::new(self, false, false).geom(geom);
+        GeometryStager::new(self).geom(geom);
+    }
+
+    /// The vertex pushed last, while vertices are `(x, y)` pairs.
+    pub(crate) fn last_vertex(&self) -> Option<Coord<i32>> {
+        match self.vertices.as_deref() {
+            Some(&[.., x, y]) if self.stride() == 2 => Some(Coord { x, y }),
+            _ => None,
+        }
     }
 
     pub(crate) fn push_point(&mut self, coord: Coord<i32>) {
@@ -352,12 +360,16 @@ fn wound<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> Vec<Cow<'c, [Coor
             }
             let (stored, closing) = ring.split_at(stored_len(ring));
             let mut reversed = Vec::with_capacity(ring.len());
-            reversed.extend(stored.first());
-            reversed.extend(stored.iter().skip(1).rev());
+            reversed.extend((0..stored.len()).map(|i| stored[reversed_position(i, stored.len())]));
             reversed.extend(closing);
             Cow::Owned(reversed)
         })
         .collect()
+}
+
+/// The source position of the vertex stored at `i` in a reversed ring of `len` stored vertices, which keeps its first vertex.
+pub(super) fn reversed_position(i: usize, len: usize) -> usize {
+    if i == 0 { 0 } else { len - i }
 }
 
 /// The layer with its polygon rings wound as the encoder stores them, and the values held per vertex moved along.
@@ -366,12 +378,14 @@ pub fn wound_layer(layer: &TileLayer) -> TileLayer {
     let mut layer = layer.clone();
     for feature in &mut layer.features {
         #[cfg(feature = "unstable-v2")]
-        if let Some(order) = wound_vertex_order(&feature.geometry) {
-            if order.len() == feature.z.len() {
-                feature.z = order.iter().map(|&i| feature.z[i]).collect();
-            }
+        {
+            let mut scratch = GeometryValues::default();
+            let mut stager = GeometryStager::new(&mut scratch).tracked(true);
+            stager.geom(&feature.geometry);
+            let moves = stager.finish_feature();
+            feature.z = moves.apply(&feature.z, |&z| z);
             for m_value in &mut feature.m_values {
-                m_value.reorder(&order);
+                m_value.reorder(&moves);
             }
         }
         feature.geometry = wound_geometry(&feature.geometry);
@@ -422,69 +436,6 @@ pub(super) fn needs_reversal(ring: &[Coord<i32>], exterior: bool) -> bool {
         .map(|(a, b)| i128::from(a.x) * i128::from(b.y) - i128::from(b.x) * i128::from(a.y))
         .sum();
     if exterior { area < 0 } else { area > 0 }
-}
-
-/// Where each stored vertex of the geometry ends up once its polygon rings are wound.
-///
-/// Entry `i` is the input position of the vertex stored at `i`, so a value held per vertex follows by reading its run through the entries.
-/// Is [`None`] when no ring is reversed.
-#[cfg(feature = "unstable-v2")]
-fn wound_vertex_order(geom: &Geometry<i32>) -> Option<Vec<usize>> {
-    fn plain(order: &mut Vec<usize>, len: usize) {
-        order.extend(order.len()..order.len() + len);
-    }
-    fn polygon(order: &mut Vec<usize>, reversed: &mut bool, polygon: &Polygon<i32>) {
-        push_wound_rings(order, reversed, rings(polygon));
-    }
-    fn walk(order: &mut Vec<usize>, reversed: &mut bool, geom: &Geometry<i32>) {
-        match geom {
-            Geometry::<i32>::Point(_) => plain(order, 1),
-            Geometry::<i32>::Line(_) => plain(order, 2),
-            Geometry::<i32>::LineString(ls) => plain(order, ls.0.len()),
-            Geometry::<i32>::MultiPoint(mp) => plain(order, mp.0.len()),
-            Geometry::<i32>::MultiLineString(mls) => {
-                plain(order, mls.0.iter().map(|ls| ls.0.len()).sum());
-            }
-            Geometry::<i32>::Polygon(p) => polygon(order, reversed, p),
-            Geometry::<i32>::MultiPolygon(mp) => {
-                for p in &mp.0 {
-                    polygon(order, reversed, p);
-                }
-            }
-            Geometry::<i32>::Triangle(t) => polygon(order, reversed, &t.to_polygon()),
-            Geometry::<i32>::Rect(r) => polygon(order, reversed, &r.to_polygon()),
-            Geometry::<i32>::GeometryCollection(gc) => {
-                for g in gc {
-                    walk(order, reversed, g);
-                }
-            }
-        }
-    }
-    let mut order = Vec::new();
-    let mut reversed = false;
-    walk(&mut order, &mut reversed, geom);
-    reversed.then_some(order)
-}
-
-/// Appends where each stored vertex of one polygon's `rings` ends up once they are wound, and
-/// sets `reversed` when any ring is.
-#[cfg(feature = "unstable-v2")]
-fn push_wound_rings<'c>(
-    order: &mut Vec<usize>,
-    reversed: &mut bool,
-    rings: impl Iterator<Item = &'c [Coord<i32>]>,
-) {
-    for (i, ring) in rings.enumerate() {
-        let start = order.len();
-        let end = start + stored_len(ring);
-        if needs_reversal(ring, i == 0) {
-            *reversed = true;
-            // Reversing the closed ring leaves its first vertex where it was.
-            order.extend((start..end.min(start + 1)).chain((start + 1..end).rev()));
-        } else {
-            order.extend(start..end);
-        }
-    }
 }
 
 /// Ensure offset array starts with 0.

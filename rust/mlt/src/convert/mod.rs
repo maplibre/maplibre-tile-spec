@@ -198,7 +198,7 @@ enum Profile {
     Web,
     /// `MapLibre Native`: `--tessellate=auto`
     Native,
-    /// The fewest stored bytes: `--sort auto`, which reorders features, `--sort-vertices`, and under MLT version 2 `--delta2 --rans-vertices`
+    /// The fewest stored bytes: `--sort auto`, which reorders features, `--vertex-sort`, and under MLT version 2 `--delta2 --rans-vertices`
     #[value(name = "min_size", alias = "min-size")]
     MinSize,
     /// Small binary diffs between releases: `--no-fsst --no-shared-dict`, and under MLT version 2 `--delta2`
@@ -302,7 +302,8 @@ impl Reencoder {
         let layer = self.fields.apply(layer)?;
         let encoded = layer.encode(self.encoder)?;
         if let Some(source) = source {
-            verify::check_round_trip(&source, &encoded, self.encoder, |decoded| {
+            let vertices = verify::VertexOrder::allowed_by(self.encoder);
+            verify::check_round_trip(&source, &encoded, vertices, |decoded| {
                 self.fields.restore(decoded)
             })?;
         }
@@ -340,11 +341,11 @@ pub struct ConvertArgs {
     /// Start each feature's rings, lines and points near where the previous feature ended (default: on under `--profile min_size`)
     ///
     /// Rings are rotated without changing their winding, the points of a `MultiPoint` are reordered, and lines may be reversed, which flips direction-dependent styling.
-    #[clap(long, overrides_with = "no_sort_vertices")]
-    sort_vertices: bool,
+    #[clap(long, overrides_with = "no_vertex_sort")]
+    vertex_sort: bool,
     /// Keep the vertex order of every feature, even under `--profile min_size`
-    #[clap(long, overrides_with = "sort_vertices")]
-    no_sort_vertices: bool,
+    #[clap(long, overrides_with = "vertex_sort")]
+    no_vertex_sort: bool,
     /// Schema type for the output `.mbtiles` file; defaults to the input file's schema
     #[clap(long)]
     mbtiles_format: Option<MbtFormat>,
@@ -357,7 +358,7 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
-    /// Decode every encoded layer and fail unless it matches the input, parsed fields formatted back and vertices in any order `--sort-vertices` allows
+    /// Decode every encoded layer and fail unless it matches the input, parsed fields formatted back and vertices in any order `--vertex-sort` allows
     #[clap(long)]
     verify: bool,
     /// TOML file naming the string properties to parse into typed columns, per layer
@@ -475,10 +476,10 @@ impl ConvertArgs {
         if let Some(sort) = self.sort {
             encoder = sort.apply(encoder);
         }
-        if self.sort_vertices {
+        if self.vertex_sort {
             encoder = encoder.with_vertex_sort(true);
         }
-        if self.no_sort_vertices {
+        if self.no_vertex_sort {
             encoder = encoder.with_vertex_sort(false);
         }
         if let Some(mode) = self.tessellate {
@@ -1296,7 +1297,7 @@ mod tests {
     }
 
     #[test]
-    fn profile_min_size_sorts_vertices() {
+    fn profile_min_size_vertex_sorts() {
         let encoder = parse_args(&["--profile", "min_size", "src", "dst"])
             .encoder()
             .unwrap();
@@ -1312,32 +1313,32 @@ mod tests {
     }
 
     #[test]
-    fn no_sort_vertices_overrides_the_min_size_profile() {
-        let encoder = parse_args(&["--profile", "min_size", "--no-sort-vertices", "src", "dst"])
+    fn no_vertex_sort_overrides_the_min_size_profile() {
+        let encoder = parse_args(&["--profile", "min_size", "--no-vertex-sort", "src", "dst"])
             .encoder()
             .unwrap();
         assert!(!encoder.vertex_sort());
     }
 
     #[test]
-    fn sort_vertices_overrides_the_native_profile() {
-        let encoder = parse_args(&["--sort-vertices", "src", "dst"])
+    fn vertex_sort_overrides_the_native_profile() {
+        let encoder = parse_args(&["--vertex-sort", "src", "dst"])
             .encoder()
             .unwrap();
         assert!(encoder.vertex_sort());
     }
 
     #[test]
-    fn sort_vertices_after_no_sort_vertices_wins() {
-        let encoder = parse_args(&["--no-sort-vertices", "--sort-vertices", "src", "dst"])
+    fn vertex_sort_after_no_vertex_sort_wins() {
+        let encoder = parse_args(&["--no-vertex-sort", "--vertex-sort", "src", "dst"])
             .encoder()
             .unwrap();
         assert!(encoder.vertex_sort());
     }
 
     #[test]
-    fn no_sort_vertices_after_sort_vertices_wins() {
-        let encoder = parse_args(&["--sort-vertices", "--no-sort-vertices", "src", "dst"])
+    fn no_vertex_sort_after_vertex_sort_wins() {
+        let encoder = parse_args(&["--vertex-sort", "--no-vertex-sort", "src", "dst"])
             .encoder()
             .unwrap();
         assert!(!encoder.vertex_sort());

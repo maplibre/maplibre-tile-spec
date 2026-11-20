@@ -7,18 +7,20 @@ use std::fmt;
 use anyhow::{Context as _, Result as AnyResult, anyhow, bail, ensure};
 use mlt_core::encoder::{EncoderConfig, wound_layer};
 use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
-use mlt_core::{Decoder, MValue, NestedValue, Parser, PropValue, TileFeature, TileLayer};
+use mlt_core::{
+    Decoder, MValue, NestedValue, Parser, PropValue, TileFeature, TileLayer, stored_ring_len,
+};
 
 /// Decode `encoded`, hand it to `restore`, and require the result to hold what `source` does.
 ///
 /// The encoder chooses the feature order, each integer column's width and the winding of each polygon ring, so none of them counts.
-/// Under [`EncoderConfig::vertex_sort`] it also chooses where each ring starts, the direction of each line and the order of each `MultiPoint`.
+/// Under [`VertexOrder::Any`] it also chooses where each ring starts, the direction of each line and the order of each `MultiPoint`.
 /// A null value is the same as no value.
 /// A layer without features encodes to no bytes.
 pub fn check_round_trip(
     source: &TileLayer,
     encoded: &[u8],
-    config: EncoderConfig,
+    vertices: VertexOrder,
     restore: impl FnOnce(TileLayer) -> AnyResult<TileLayer>,
 ) -> AnyResult<()> {
     let mut layers = Parser::default().parse_layers(encoded)?.into_iter();
@@ -36,25 +38,32 @@ pub fn check_round_trip(
     let decoded = layer
         .into_tile(&mut Decoder::default())?
         .ok_or_else(|| anyhow!("the encoded layer has an unknown tag"))?;
-    let vertices = if config.vertex_sort() {
-        Vertices::AnyOrder
-    } else {
-        Vertices::Stored
-    };
     same_layer(&wound_layer(source), &restore(decoded)?, vertices)
         .with_context(|| format!("layer {} does not decode back to its input", source.name()))
 }
 
 /// Which orders of a feature's vertices count as the same.
-#[derive(Clone, Copy)]
-enum Vertices {
-    /// Only the stored order.
-    Stored,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VertexOrder {
+    /// Only the order the vertices were given in.
+    Exact,
     /// Any rotation of a ring, either direction of a line and any order of a `MultiPoint`.
-    AnyOrder,
+    Any,
 }
 
-fn same_layer(expected: &TileLayer, actual: &TileLayer, vertices: Vertices) -> AnyResult<()> {
+impl VertexOrder {
+    /// The orders an encoder with `config` may store vertices in.
+    #[must_use]
+    pub fn allowed_by(config: EncoderConfig) -> Self {
+        if config.vertex_sort() {
+            Self::Any
+        } else {
+            Self::Exact
+        }
+    }
+}
+
+fn same_layer(expected: &TileLayer, actual: &TileLayer, vertices: VertexOrder) -> AnyResult<()> {
     ensure!(
         expected.name() == actual.name(),
         "named {:?}, not {:?}",
@@ -219,7 +228,7 @@ impl<'a> Value<'a> {
 }
 
 /// The features of `layer` in an order the encoder cannot change, each with its vertices in one order of those `vertices` allows.
-fn rows(layer: &TileLayer, vertices: Vertices) -> Vec<Row<'_>> {
+fn rows(layer: &TileLayer, vertices: VertexOrder) -> Vec<Row<'_>> {
     let mut rows: Vec<(Shape, Row<'_>)> = layer
         .features()
         .iter()
@@ -276,7 +285,7 @@ impl Shape {
     }
 }
 
-fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature, vertices: Vertices) -> Row<'a> {
+fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature, vertices: VertexOrder) -> Row<'a> {
     let mut values = BTreeMap::new();
     for (name, value) in layer.property_names().iter().zip(feature.properties()) {
         if let Some(value) = Value::of(value) {
@@ -295,8 +304,8 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature, vertices: Vertices) -
     }
     let mut z = feature.z().to_vec();
     let geometry = match vertices {
-        Vertices::Stored => feature.geometry().clone(),
-        Vertices::AnyOrder => {
+        VertexOrder::Exact => feature.geometry().clone(),
+        VertexOrder::Any => {
             let mut per_vertex: Vec<&mut Vec<Option<Value<'a>>>> = values
                 .iter_mut()
                 .filter(|((role, _), _)| *role == Role::MValue)
@@ -316,18 +325,9 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature, vertices: Vertices) -
             };
             let geometry = least.geometry(feature.geometry());
             let order = least.order;
-            if order.len() == z.len() {
-                z = order.iter().map(|&i| z[i]).collect();
-            }
+            permute(&mut z, &order);
             for items in &mut per_vertex {
-                if order.len() == items.len() {
-                    let mut taken: Vec<_> = items.drain(..).map(Some).collect();
-                    items.extend(
-                        order
-                            .iter()
-                            .map(|&i| taken[i].take().expect("each vertex is stored once")),
-                    );
-                }
+                permute(items, &order);
             }
             geometry
         }
@@ -340,10 +340,23 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature, vertices: Vertices) -
     }
 }
 
-/// One vertex with everything held for it, compared to pick one of the orders [`Vertices::AnyOrder`] allows.
-type Key<'v, 'a> = (Xy, Option<i32>, Vec<Option<&'v Option<Value<'a>>>>);
+/// Moves each of a feature's `items`, one per vertex, to where `order` stores its vertex, unless the counts differ.
+fn permute<T>(items: &mut Vec<T>, order: &[usize]) {
+    if items.len() != order.len() {
+        return;
+    }
+    let mut taken: Vec<_> = items.drain(..).map(Some).collect();
+    items.extend(
+        order
+            .iter()
+            .map(|&i| taken[i].take().expect("each vertex is stored once")),
+    );
+}
 
-/// Puts each part of a geometry in its least order by [`Key`], recording where each stored vertex came from.
+/// One vertex with everything held for it, compared to pick one of the orders [`VertexOrder::Any`] allows.
+type VertexKey<'v, 'a> = (Xy, Option<i32>, Vec<Option<&'v Option<Value<'a>>>>);
+
+/// Puts each part of a geometry in its least order by [`VertexKey`], recording where each stored vertex came from.
 struct LeastOrder<'v, 'a> {
     z: &'v [i32],
     per_vertex: &'v [&'v mut Vec<Option<Value<'a>>>],
@@ -352,7 +365,7 @@ struct LeastOrder<'v, 'a> {
 }
 
 impl<'a> LeastOrder<'_, 'a> {
-    fn key(&self, at: usize, c: Coord<i32>) -> Key<'_, 'a> {
+    fn key(&self, at: usize, c: Coord<i32>) -> VertexKey<'_, 'a> {
         (
             (c.x, c.y),
             self.z.get(at).copied(),
@@ -414,12 +427,8 @@ impl<'a> LeastOrder<'_, 'a> {
     /// The ring of 3 or more stored vertices rotated to start where its keys are least, closed again if it was.
     fn ring(&mut self, ring: &LineString<i32>) -> LineString<i32> {
         let coords = &ring.0;
-        let closed = coords.len() > 1 && coords.first() == coords.last();
-        let len = if closed {
-            coords.len() - 1
-        } else {
-            coords.len()
-        };
+        let len = stored_ring_len(ring);
+        let closed = len < coords.len();
         let base = self.order.len();
         let keys: Vec<_> = (coords[..len].iter().enumerate())
             .map(|(i, &c)| self.key(base + i, c))
@@ -480,6 +489,7 @@ mod tests {
     use std::fmt::Write as _;
 
     use mlt_core::PropKind;
+    use mlt_core::encoder::{Network, Profile, Tessellation, WireVersion};
     use mlt_core::geo_types::{MultiPoint, Point};
 
     use super::*;
@@ -498,7 +508,7 @@ mod tests {
     fn an_integer_column_may_change_its_width() {
         let wide = layer_of(PropKind::U64, PropValue::U64(Some(7)), 1);
         let narrow = layer_of(PropKind::U32, PropValue::U32(Some(7)), 1);
-        same_layer(&wide, &narrow, Vertices::Stored).unwrap();
+        same_layer(&wide, &narrow, VertexOrder::Exact).unwrap();
     }
 
     fn layer_with_z(step: Option<i8>, z: Vec<i32>) -> TileLayer {
@@ -521,14 +531,14 @@ mod tests {
     fn a_dropped_z_step_is_reported() {
         let a = layer_with_z(Some(0), vec![100]);
         let b = layer_with_z(None, vec![]);
-        insta::assert_snapshot!(same_layer(&a, &b, Vertices::Stored).unwrap_err(), @"z axis None, not Some(ZAxis { step: ZStep(0), mode: Absolute })");
+        insta::assert_snapshot!(same_layer(&a, &b, VertexOrder::Exact).unwrap_err(), @"z axis None, not Some(ZAxis { step: ZStep(0), mode: Absolute })");
     }
 
     #[test]
     fn a_changed_z_names_the_feature() {
         let a = layer_with_z(Some(0), vec![100]);
         let b = layer_with_z(Some(0), vec![101]);
-        insta::assert_snapshot!(same_layer(&a, &b, Vertices::Stored).unwrap_err(), @"feature 1 has other z: [101], not [100]");
+        insta::assert_snapshot!(same_layer(&a, &b, VertexOrder::Exact).unwrap_err(), @"feature 1 has other z: [101], not [100]");
     }
 
     #[test]
@@ -546,12 +556,10 @@ mod tests {
             .unwrap();
         row.finish().unwrap();
         let layer = layer.finish();
-        let config = EncoderConfig::from_profile(mlt_core::encoder::Profile::Native(
-            mlt_core::encoder::Network::Cellular4G,
-        ))
-        .with_wire_version(mlt_core::encoder::WireVersion::V02);
+        let config = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+            .with_wire_version(WireVersion::V02);
         let encoded = layer.clone().encode(config).unwrap();
-        check_round_trip(&layer, &encoded, config, Ok).unwrap();
+        check_round_trip(&layer, &encoded, VertexOrder::Exact, Ok).unwrap();
     }
 
     #[test]
@@ -586,16 +594,13 @@ mod tests {
             row.finish().unwrap();
         }
         let layer = layer.finish();
-        let vertex_sorted = EncoderConfig::from_profile(mlt_core::encoder::Profile::Native(
-            mlt_core::encoder::Network::Cellular4G,
-        ))
-        .with_wire_version(mlt_core::encoder::WireVersion::V02)
-        .with_vertex_sort(true);
-        let stored_order = vertex_sorted.with_vertex_sort(false);
+        let vertex_sorted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+            .with_wire_version(WireVersion::V02)
+            .with_vertex_sort(true);
         let encoded = layer.clone().encode(vertex_sorted).unwrap();
-        check_round_trip(&layer, &encoded, vertex_sorted, Ok).unwrap();
+        check_round_trip(&layer, &encoded, VertexOrder::Any, Ok).unwrap();
         insta::assert_snapshot!(
-            format!("{:#}", check_round_trip(&layer, &encoded, stored_order, Ok).unwrap_err()),
+            format!("{:#}", check_round_trip(&layer, &encoded, VertexOrder::Exact, Ok).unwrap_err()),
             @"layer l does not decode back to its input: feature without an id has another geometry"
         );
     }
@@ -643,10 +648,14 @@ mod tests {
             ),
             (MultiPoint::from(vec![(2, 2), (1, 1)]).into(), vec![9, 8]),
         ]);
-        same_layer(&stored, &reordered, Vertices::AnyOrder).unwrap();
+        let source_order = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+            .with_wire_version(WireVersion::V02)
+            .with_tessellation(Tessellation::Off);
+        let encoded = reordered.encode(source_order).unwrap();
+        check_round_trip(&stored, &encoded, VertexOrder::Any, Ok).unwrap();
         insta::assert_snapshot!(
-            same_layer(&stored, &reordered, Vertices::Stored).unwrap_err(),
-            @"feature without an id has another geometry"
+            format!("{:#}", check_round_trip(&stored, &encoded, VertexOrder::Exact, Ok).unwrap_err()),
+            @"layer l does not decode back to its input: feature without an id has another geometry"
         );
     }
 
@@ -660,7 +669,11 @@ mod tests {
         };
         let stored = layer_of_geometries(vec![(ring(0), vec![0; 100_000])]);
         let rotated = layer_of_geometries(vec![(ring(50_000), vec![0; 100_000])]);
-        same_layer(&stored, &rotated, Vertices::AnyOrder).unwrap();
+        let source_order = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+            .with_wire_version(WireVersion::V02)
+            .with_tessellation(Tessellation::Off);
+        let encoded = rotated.encode(source_order).unwrap();
+        check_round_trip(&stored, &encoded, VertexOrder::Any, Ok).unwrap();
     }
 
     #[test]
@@ -673,9 +686,13 @@ mod tests {
             Polygon::new(LineString::from(vec![(9, 9), (0, 0), (9, 9)]), vec![]).into(),
             vec![2, 1],
         )]);
+        let source_order = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+            .with_wire_version(WireVersion::V02)
+            .with_tessellation(Tessellation::Off);
+        let encoded = swapped.encode(source_order).unwrap();
         insta::assert_snapshot!(
-            same_layer(&stored, &swapped, Vertices::AnyOrder).unwrap_err(),
-            @"feature without an id has another geometry"
+            format!("{:#}", check_round_trip(&stored, &encoded, VertexOrder::Any, Ok).unwrap_err()),
+            @"layer l does not decode back to its input: feature without an id has another geometry"
         );
     }
 
@@ -697,9 +714,13 @@ mod tests {
             .into(),
             vec![1, 2, 3, 4],
         )]);
+        let source_order = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+            .with_wire_version(WireVersion::V02)
+            .with_tessellation(Tessellation::Off);
+        let encoded = rotated_without_z.encode(source_order).unwrap();
         insta::assert_snapshot!(
-            same_layer(&stored, &rotated_without_z, Vertices::AnyOrder).unwrap_err(),
-            @"feature without an id has other z: [3, 4, 1, 2], not [1, 2, 3, 4]"
+            format!("{:#}", check_round_trip(&stored, &encoded, VertexOrder::Any, Ok).unwrap_err()),
+            @"layer l does not decode back to its input: feature without an id has other z: [3, 4, 1, 2], not [1, 2, 3, 4]"
         );
     }
 
@@ -725,7 +746,7 @@ mod tests {
             NestedValue::list([NestedValue::list([])]),
         );
         insta::assert_snapshot!(
-            same_layer(&null_item, &empty_item, Vertices::Stored).unwrap_err(),
+            same_layer(&null_item, &empty_item, VertexOrder::Exact).unwrap_err(),
             @"feature 1 has other values: Nested n is List([Some(List([]))]), not List([None])"
         );
     }
@@ -735,7 +756,7 @@ mod tests {
         let a = layer_of(PropKind::U64, PropValue::U64(Some(7)), 1);
         let b = layer_of(PropKind::U64, PropValue::U64(Some(8)), 1);
         insta::assert_snapshot!(
-            same_layer(&a, &b, Vertices::Stored).unwrap_err(),
+            same_layer(&a, &b, VertexOrder::Exact).unwrap_err(),
             @"feature 1 has other values: Property v is Int(8), not Int(7)"
         );
     }
@@ -745,7 +766,7 @@ mod tests {
         let a = layer_of(PropKind::Str, PropValue::Str(Some("7".into())), 1);
         let b = layer_of(PropKind::U64, PropValue::U64(Some(7)), 1);
         insta::assert_snapshot!(
-            same_layer(&a, &b, Vertices::Stored).unwrap_err(),
+            same_layer(&a, &b, VertexOrder::Exact).unwrap_err(),
             @r#"feature 1 has other values: Property v is Int(7), not Str("7")"#
         );
     }
@@ -754,28 +775,28 @@ mod tests {
     fn a_changed_id_is_a_missing_feature() {
         let a = layer_of(PropKind::U64, PropValue::U64(Some(7)), 1);
         let b = layer_of(PropKind::U64, PropValue::U64(Some(7)), 2);
-        insta::assert_snapshot!(same_layer(&a, &b, Vertices::Stored).unwrap_err(), @"feature 1 is missing");
+        insta::assert_snapshot!(same_layer(&a, &b, VertexOrder::Exact).unwrap_err(), @"feature 1 is missing");
     }
 
     #[test]
     fn a_renamed_layer_is_reported() {
         let a = TileLayer::builder("a", 4096).unwrap().finish();
         let b = TileLayer::builder("b", 4096).unwrap().finish();
-        insta::assert_snapshot!(same_layer(&a, &b, Vertices::Stored).unwrap_err(), @r#"named "b", not "a""#);
+        insta::assert_snapshot!(same_layer(&a, &b, VertexOrder::Exact).unwrap_err(), @r#"named "b", not "a""#);
     }
 
     #[test]
     fn a_changed_extent_is_reported() {
         let a = TileLayer::builder("l", 4096).unwrap().finish();
         let b = TileLayer::builder("l", 512).unwrap().finish();
-        insta::assert_snapshot!(same_layer(&a, &b, Vertices::Stored).unwrap_err(), @"extent 512, not 4096");
+        insta::assert_snapshot!(same_layer(&a, &b, VertexOrder::Exact).unwrap_err(), @"extent 512, not 4096");
     }
 
     #[test]
     fn a_dropped_feature_is_reported() {
         let a = layer_of(PropKind::U64, PropValue::U64(Some(7)), 1);
         let b = TileLayer::builder("l", 4096).unwrap().finish();
-        insta::assert_snapshot!(same_layer(&a, &b, Vertices::Stored).unwrap_err(), @"0 features, not 1");
+        insta::assert_snapshot!(same_layer(&a, &b, VertexOrder::Exact).unwrap_err(), @"0 features, not 1");
     }
 
     #[test]
@@ -783,7 +804,7 @@ mod tests {
         let a = layer_of(PropKind::U64, PropValue::U64(Some(7)), 1);
         let b = layer_of(PropKind::U64, PropValue::U64(None), 1);
         insta::assert_snapshot!(
-            same_layer(&a, &b, Vertices::Stored).unwrap_err(),
+            same_layer(&a, &b, VertexOrder::Exact).unwrap_err(),
             @"feature 1 has other values: Property v is nothing, not Int(7)"
         );
     }
@@ -802,28 +823,28 @@ mod tests {
     fn features_in_another_order_are_the_same_layer() {
         let a = layer_of_points(&[(Some(1), 10), (Some(2), 20)]);
         let b = layer_of_points(&[(Some(2), 20), (Some(1), 10)]);
-        same_layer(&a, &b, Vertices::Stored).unwrap();
+        same_layer(&a, &b, VertexOrder::Exact).unwrap();
     }
 
     #[test]
     fn features_without_ids_in_another_order_are_the_same_layer() {
         let a = layer_of_points(&[(None, 10), (None, 20)]);
         let b = layer_of_points(&[(None, 20), (None, 10)]);
-        same_layer(&a, &b, Vertices::Stored).unwrap();
+        same_layer(&a, &b, VertexOrder::Exact).unwrap();
     }
 
     #[test]
     fn a_nan_equals_itself() {
         let a = layer_of(PropKind::F64, PropValue::F64(Some(f64::NAN)), 1);
         let b = layer_of(PropKind::F64, PropValue::F64(Some(f64::NAN)), 1);
-        same_layer(&a, &b, Vertices::Stored).unwrap();
+        same_layer(&a, &b, VertexOrder::Exact).unwrap();
     }
 
     #[test]
     fn a_float_column_may_change_its_width() {
         let wide = layer_of(PropKind::F64, PropValue::F64(Some(1.5)), 1);
         let narrow = layer_of(PropKind::F32, PropValue::F32(Some(1.5)), 1);
-        same_layer(&wide, &narrow, Vertices::Stored).unwrap();
+        same_layer(&wide, &narrow, VertexOrder::Exact).unwrap();
     }
 
     #[test]
@@ -881,7 +902,7 @@ mod tests {
             let err = same_layer(
                 &layer_of(kind, a, 1),
                 &layer_of(kind, b, 1),
-                Vertices::Stored,
+                VertexOrder::Exact,
             )
             .unwrap_err();
             writeln!(report, "{}: {err}", <&str>::from(kind)).unwrap();
@@ -969,7 +990,7 @@ mod tests {
             let err = same_layer(
                 &layer_with_m_value(kind, a),
                 &layer_with_m_value(kind, b),
-                Vertices::Stored,
+                VertexOrder::Exact,
             )
             .unwrap_err();
             writeln!(report, "{}: {err}", <&str>::from(kind)).unwrap();
@@ -1000,7 +1021,7 @@ mod tests {
             kind,
             NestedValue::map([("k", NestedValue::Leaf(PropValue::U64(Some(2))))]),
         );
-        insta::assert_snapshot!(same_layer(&a, &b, Vertices::Stored).unwrap_err(), @r#"feature 1 has other values: Nested n is Map({"k": Int(2)}), not Map({"k": Int(1)})"#);
+        insta::assert_snapshot!(same_layer(&a, &b, VertexOrder::Exact).unwrap_err(), @r#"feature 1 has other values: Nested n is Map({"k": Int(2)}), not Map({"k": Int(1)})"#);
     }
 
     #[test]
@@ -1012,6 +1033,6 @@ mod tests {
             NestedValue::map([("k", NestedValue::Leaf(PropValue::U64(None)))]),
         );
         let no_entry = layer_with_nested(kind, NestedValue::map::<String>([]));
-        same_layer(&null_entry, &no_entry, Vertices::Stored).unwrap();
+        same_layer(&null_entry, &no_entry, VertexOrder::Exact).unwrap();
     }
 }

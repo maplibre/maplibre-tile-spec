@@ -1,6 +1,6 @@
 use arbitrary::{Arbitrary, Unstructured};
 use mlt::convert::fields::FieldConfig;
-use mlt::convert::verify::check_round_trip;
+use mlt::convert::verify::{VertexOrder, check_round_trip};
 use mlt_core::compact_str::{CompactString, format_compact};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::{
@@ -203,13 +203,14 @@ impl FieldConfigInput {
             Err(MltError::NotImplemented(_) | MltError::MValuesNeedVertexCounts(_)) => return,
             Err(e) => panic!("a parsed layer should encode: {e}"),
         };
-        check_round_trip(&self.layer, &encoded, self.encoder, |decoded| {
+        let vertices = VertexOrder::allowed_by(self.encoder);
+        check_round_trip(&self.layer, &encoded, vertices, |decoded| {
             fields.restore(decoded)
         })
         .expect("a parsed layer should verify");
 
         let mut mutated = false;
-        let result = check_round_trip(&self.layer, &encoded, self.encoder, |decoded| {
+        let result = check_round_trip(&self.layer, &encoded, vertices, |decoded| {
             let restored = fields.restore(decoded)?;
             Ok(match mutate(&restored, self.mutation) {
                 Some(changed) => {

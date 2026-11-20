@@ -11,7 +11,7 @@ use crate::encoder::StagedValues;
 use crate::encoder::geometry::{GeometryStager, coord_count};
 use crate::tile::{Extent, PropKind, TileLayer};
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValue, NestedKind, NestedValue, ZAxis};
+use crate::tile::{MValue, NestedKind, NestedValue, VertexMoves, ZAxis};
 use crate::{MltResult, PropValueRef};
 
 /// Everything the encoder reads from a layer, feature by feature.
@@ -50,15 +50,15 @@ pub(crate) trait LayerSource {
     fn m_value_kinds(&self) -> &[PropKind];
     #[cfg(feature = "unstable-v2")]
     fn m_value_name(&self, column: usize) -> &str;
-    /// Appends the feature's values in m-value `column` to `values`, which holds the column's
-    /// kind, read through `moved` (see [`GeometryStager::finish_feature`]), and returns whether
-    /// the feature is not null there.
+    /// Appends the feature's values in m-value `column` to `values`, which holds the column's kind.
+    /// Each value moves with its vertex by `moves`.
+    /// Returns whether the feature is not null there.
     #[cfg(feature = "unstable-v2")]
     fn push_m_values(
         &self,
         feature: usize,
         column: usize,
-        moved: Option<&[usize]>,
+        moves: &VertexMoves,
         values: &mut StagedValues,
     ) -> bool;
     #[cfg(feature = "unstable-v2")]
@@ -206,15 +206,15 @@ impl LayerSource for TileLayer {
         &self,
         feature: usize,
         column: usize,
-        moved: Option<&[usize]>,
+        moves: &VertexMoves,
         values: &mut StagedValues,
     ) -> bool {
         /// Appends the run of a non-null value, in the feature's vertex order.
-        fn push<T: Clone>(run: Option<&[T]>, out: &mut Vec<T>, moved: Option<&[usize]>) -> bool {
+        fn push<T: Clone>(run: Option<&[T]>, out: &mut Vec<T>, moves: &VertexMoves) -> bool {
             let Some(run) = run else {
                 return false;
             };
-            extend_run(out, run, moved, T::clone);
+            moves.extend(out, run, T::clone);
             true
         }
         let Some(m_value) = self.features[feature].m_values.get(column) else {
@@ -227,8 +227,8 @@ impl LayerSource for TileLayer {
                 string { $($gv:ident),* $(,)? }
             ) => {
                 match (m_value, values) {
-                    $((MValue::$sv(run), StagedValues::$sv(out)) => push(run.as_deref(), out, moved),)*
-                    $((MValue::$gv(run), StagedValues::$gv(out)) => push(run.as_deref(), out, moved),)*
+                    $((MValue::$sv(run), StagedValues::$sv(out)) => push(run.as_deref(), out, moves),)*
+                    $((MValue::$gv(run), StagedValues::$gv(out)) => push(run.as_deref(), out, moves),)*
                     _ => unreachable!("m-value kind matches its column"),
                 }
             };
@@ -244,23 +244,6 @@ impl LayerSource for TileLayer {
     #[cfg(feature = "unstable-v2")]
     fn z(&self, feature: usize) -> &[i32] {
         &self.features[feature].z
-    }
-}
-
-/// Appends a feature's `run` of values held per stored vertex to `out`, each converted, read
-/// through `moved` (see [`GeometryStager::finish_feature`]) when that covers the run.
-#[cfg(feature = "unstable-v2")]
-pub(crate) fn extend_run<S, T>(
-    out: &mut Vec<T>,
-    run: &[S],
-    moved: Option<&[usize]>,
-    convert: impl Fn(&S) -> T,
-) {
-    match moved {
-        Some(moved) if moved.len() == run.len() => {
-            out.extend(moved.iter().map(|&i| convert(&run[i])));
-        }
-        _ => out.extend(run.iter().map(convert)),
     }
 }
 

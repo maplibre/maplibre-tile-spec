@@ -10,15 +10,15 @@ use fast_mvt::{MvtFeatureBuilder, MvtGeomType, MvtLayerBuilder, MvtTileBuilder};
 use geo_types::Coord;
 
 use crate::decoder::GeometryType;
-use crate::encoder::{EncoderConfig, GeometryStager, LayerSource, encode_layer};
 #[cfg(feature = "unstable-v2")]
-use crate::encoder::{StagedValues, extend_run};
+use crate::encoder::StagedValues;
+use crate::encoder::{EncoderConfig, GeometryStager, LayerSource, encode_layer};
 use crate::mvt::write_mvt_layer;
 use crate::tile::{
     ColumnRole, Extent, PropKind, PropertyKey, reject_taken_name, validate_layer_name,
 };
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValueKey, stored_len};
+use crate::tile::{MValueKey, VertexMoves, stored_len};
 use crate::{MltError, MltResult, PropValueRef};
 
 /// A layer written feature by feature, straight from borrowed values, and encoded exactly as the
@@ -798,7 +798,7 @@ impl LayerSource for LayerWriter<'_> {
         &self,
         feature: usize,
         column: usize,
-        moved: Option<&[usize]>,
+        moves: &VertexMoves,
         values: &mut StagedValues,
     ) -> bool {
         let column = &self.m_values.columns[column];
@@ -808,9 +808,9 @@ impl LayerSource for LayerWriter<'_> {
         let run = item_range(&column.ends, feature);
         match (&column.values, values) {
             (ColumnValues::Strs(strs), StagedValues::Str(out)) => {
-                extend_run(out, &strs[run], moved, |&text| CompactString::from(text));
+                moves.extend(out, &strs[run], |&text| CompactString::from(text));
             }
-            (ColumnValues::Scalars(bits), out) => extend_bits_run(out, &bits[run], moved),
+            (ColumnValues::Scalars(bits), out) => extend_bits_run(out, &bits[run], moves),
             (ColumnValues::Strs(_), _) => unreachable!("m-value kind matches its column"),
         }
         true
@@ -883,24 +883,24 @@ fn value_of_bits(kind: PropKind, bits: u64) -> Option<PropValueRef<'static>> {
     })
 }
 
-/// Appends a feature's run of scalar values stored as `bits` to `out`, which holds their kind,
-/// read through `moved` as [`extend_run`] does.
+/// Appends a feature's run of scalar values stored as `bits` to `out`, which holds their kind.
+/// Each value moves with its vertex.
 #[cfg(feature = "unstable-v2")]
 #[expect(
     clippy::cast_possible_truncation,
     reason = "the bits were stored from a value of the column's kind"
 )]
-fn extend_bits_run(out: &mut StagedValues, bits: &[u64], moved: Option<&[usize]>) {
+fn extend_bits_run(out: &mut StagedValues, bits: &[u64], moves: &VertexMoves) {
     match out {
-        StagedValues::Bool(out) => extend_run(out, bits, moved, |&b| b != 0),
-        StagedValues::I8(out) => extend_run(out, bits, moved, |&b| b.cast_signed() as i8),
-        StagedValues::U8(out) => extend_run(out, bits, moved, |&b| b as u8),
-        StagedValues::I32(out) => extend_run(out, bits, moved, |&b| b.cast_signed() as i32),
-        StagedValues::U32(out) => extend_run(out, bits, moved, |&b| b as u32),
-        StagedValues::I64(out) => extend_run(out, bits, moved, |&b| b.cast_signed()),
-        StagedValues::U64(out) => extend_run(out, bits, moved, |&b| b),
-        StagedValues::F32(out) => extend_run(out, bits, moved, |&b| f32::from_bits(b as u32)),
-        StagedValues::F64(out) => extend_run(out, bits, moved, |&b| f64::from_bits(b)),
+        StagedValues::Bool(out) => moves.extend(out, bits, |&b| b != 0),
+        StagedValues::I8(out) => moves.extend(out, bits, |&b| b.cast_signed() as i8),
+        StagedValues::U8(out) => moves.extend(out, bits, |&b| b as u8),
+        StagedValues::I32(out) => moves.extend(out, bits, |&b| b.cast_signed() as i32),
+        StagedValues::U32(out) => moves.extend(out, bits, |&b| b as u32),
+        StagedValues::I64(out) => moves.extend(out, bits, |&b| b.cast_signed()),
+        StagedValues::U64(out) => moves.extend(out, bits, |&b| b),
+        StagedValues::F32(out) => moves.extend(out, bits, |&b| f32::from_bits(b as u32)),
+        StagedValues::F64(out) => moves.extend(out, bits, |&b| f64::from_bits(b)),
         StagedValues::Str(_) => unreachable!("m-value kind matches its column"),
     }
 }

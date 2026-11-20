@@ -37,8 +37,6 @@ pub(crate) use nested::{
 pub(crate) use optimizer::encode_layer;
 pub(crate) use property::*;
 pub(crate) use source::LayerSource;
-#[cfg(feature = "unstable-v2")]
-pub(crate) use source::extend_run;
 pub(crate) use stream::*;
 
 #[cfg(feature = "__private")]

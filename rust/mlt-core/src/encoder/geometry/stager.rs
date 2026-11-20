@@ -4,9 +4,9 @@ use std::borrow::Cow;
 
 use geo_types::{Coord, Geometry};
 
-use super::geotype::{needs_reversal, rings};
+use super::geotype::{needs_reversal, reversed_position, rings};
 use crate::decoder::GeometryValues;
-use crate::tile::stored_len;
+use crate::tile::{VertexMoves, stored_len};
 
 /// Pushes features one after another, winding rings as MVT does.
 /// Under vertex sort, each ring, line and `MultiPoint` starts near the vertex stored before it, see [`crate::encoder::EncoderConfig::with_vertex_sort`].
@@ -22,22 +22,36 @@ pub(crate) struct GeometryStager<'a> {
 }
 
 impl<'a> GeometryStager<'a> {
-    /// Stages into `values`, vertex-sorted when `sort`, and recording vertex moves when `track`.
-    pub(crate) fn new(values: &'a mut GeometryValues, sort: bool, track: bool) -> Self {
+    /// Stages into `values` in source order, without recording vertex moves.
+    pub(crate) fn new(values: &'a mut GeometryValues) -> Self {
         Self {
             values,
-            sort,
-            track,
+            sort: false,
+            track: false,
             moved: Vec::new(),
             permuted: false,
         }
     }
 
+    /// Vertex-sorts each feature when `sort`.
+    pub(crate) fn vertex_sorted(self, sort: bool) -> Self {
+        Self { sort, ..self }
+    }
+
+    /// Records where each stored vertex came from when `track`, see [`Self::finish_feature`].
+    pub(crate) fn tracked(self, track: bool) -> Self {
+        Self { track, ..self }
+    }
+
     /// Ends the feature pushed since the last call, returning where each of its stored vertices came from.
-    /// Is [`None`] when not tracking or when every vertex kept its place.
-    pub(crate) fn finish_feature(&mut self) -> Option<Vec<usize>> {
+    /// Is [`VertexMoves::Kept`] when not tracking.
+    pub(crate) fn finish_feature(&mut self) -> VertexMoves {
         let moved = std::mem::take(&mut self.moved);
-        std::mem::take(&mut self.permuted).then_some(moved)
+        if std::mem::take(&mut self.permuted) {
+            VertexMoves::Moved(moved)
+        } else {
+            VertexMoves::Kept
+        }
     }
 
     pub(crate) fn geom(&mut self, geom: &Geometry<i32>) {
@@ -138,11 +152,7 @@ impl<'a> GeometryStager<'a> {
 
     /// The vertex stored last, or the origin the vertex deltas start from.
     fn last_vertex(&self) -> Coord<i32> {
-        let stride = self.values.stride();
-        match self.values.vertices.as_deref() {
-            Some(&[.., x, y]) if stride == 2 => Coord { x, y },
-            _ => Coord { x: 0, y: 0 },
-        }
+        self.values.last_vertex().unwrap_or_default()
     }
 
     /// Records `len` vertices that keep their place.
@@ -212,8 +222,13 @@ impl<'a> GeometryStager<'a> {
         let len = stored_len(ring);
         let stored = &ring[..len];
         let reverse = needs_reversal(ring, exterior);
-        // Reversing the closed ring leaves its first vertex where it was.
-        let wound = |i: usize| if reverse && i > 0 { len - i } else { i };
+        let wound = |i: usize| {
+            if reverse {
+                reversed_position(i, len)
+            } else {
+                i
+            }
+        };
         let start = if self.sort && len >= 3 {
             (0..len)
                 .min_by_key(|&i| distance(last, stored[wound(i)]))
