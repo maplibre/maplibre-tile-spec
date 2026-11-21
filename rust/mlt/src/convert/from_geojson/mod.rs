@@ -10,9 +10,9 @@
 //! Altitudes become MLT z coordinates on a `--z-step` grid. Only the v2 wire
 //! format holds them, so this path always writes v2 and needs `--mlt-version 2`.
 
-mod clip;
+pub(super) mod clip;
 mod feature_id;
-mod project;
+pub(super) mod project;
 mod round;
 
 use std::fs;
@@ -35,7 +35,7 @@ use self::round::to_tile;
 use super::{ConvertArgs, Reencoder};
 
 /// The number of grid units across a tile, the value every MVT/MLT consumer expects.
-const EXTENT: u32 = 4096;
+pub(super) const EXTENT: u32 = 4096;
 
 /// Lines and polygons are kept this far past each tile edge, in extent units, so
 /// strokes and fills meet seamlessly at tile seams.
@@ -132,18 +132,8 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
 
     // TODO: simplify geometries at low zooms, as other tilers do, so the tiles there
     // stay light enough to decode, rather than failing and asking for a higher --min-zoom.
-    if let Some((zoom, col, row)) = written.too_heavy {
-        let fits = zoom + 1;
-        let raise_max = if fits > max_zoom {
-            format!(" and a --max-zoom of at least {fits}")
-        } else {
-            String::new()
-        };
-        bail!(
-            "tile {zoom}/{col}/{row} needs more memory to decode than mlt-core's default \
-             decoder budget allows, so it and any such tile at a lower zoom were not written; \
-             pass --min-zoom {fits}{raise_max}"
-        );
+    if let Some(tile) = written.too_heavy {
+        return Err(too_heavy(tile, max_zoom));
     }
 
     if sources.is_empty() {
@@ -202,7 +192,7 @@ pub(super) fn tile_index(unit: f64, n: u32) -> u32 {
 }
 
 /// The buffered rectangle of tile `(zoom, col, row)` in unit coordinates.
-fn tile_rect(zoom: u8, col: u32, row: u32) -> Rect {
+pub(super) fn tile_rect(zoom: u8, col: u32, row: u32) -> Rect {
     let n = f64::from(1_u32 << zoom);
     let size = 1.0 / n;
     let buffer = f64::from(BUFFER) / (f64::from(EXTENT) * n);
@@ -351,6 +341,21 @@ impl Tiler<'_> {
         fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
         Ok(true)
     }
+}
+
+/// The error for tile `(zoom, col, row)`, the highest-zoom one left unwritten for outgrowing the default decoder budget.
+pub(super) fn too_heavy((zoom, col, row): (u8, u32, u32), max_zoom: u8) -> anyhow::Error {
+    let fits = zoom + 1;
+    let raise_max = if fits > max_zoom {
+        format!(" and a --max-zoom of at least {fits}")
+    } else {
+        String::new()
+    };
+    anyhow::anyhow!(
+        "tile {zoom}/{col}/{row} needs more memory to decode than mlt-core's default \
+         decoder budget allows, so it and any such tile at a lower zoom were not written; \
+         pass --min-zoom {fits}{raise_max}"
+    )
 }
 
 /// Whether `err` stems from a decoder running out of its memory budget.

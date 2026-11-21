@@ -1,4 +1,4 @@
-//! Planar polygons with holes, as `CityGML` stores surfaces, cut into triangles.
+//! Planar polygons with holes, as `CityGML` and `CityJSON` store surfaces, cut into triangles.
 
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 
@@ -95,6 +95,15 @@ pub fn polygon(
     out: &mut Vec<[u32; 3]>,
 ) -> Option<[f64; 3]> {
     Triangulator::default().polygon(points, ends, lat_lon, out)
+}
+
+/// Whether `ring` encloses an area, as [`Triangulator::polygon`] requires of an exterior.
+pub fn has_area(ring: &[[f64; 3]]) -> bool {
+    let Some(&origin) = ring.first() else {
+        return false;
+    };
+    let normal = newell(ring, origin);
+    dot(normal, normal) >= MIN_NORMAL * MIN_NORMAL
 }
 
 /// The ring's normal by Newell's method, relative to `origin` for precision with large coordinates.

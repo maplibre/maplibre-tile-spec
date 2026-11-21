@@ -3,10 +3,13 @@ mod common;
 pub mod fields;
 #[cfg(feature = "citygml")]
 mod from_citygml;
+mod from_cityjson;
 mod from_files;
 mod from_geojson;
 mod from_mbtiles;
 mod from_pmtiles;
+mod orient;
+mod triangulate;
 pub mod verify;
 
 use std::borrow::Cow;
@@ -323,8 +326,8 @@ impl Reencoder {
 )]
 pub struct ConvertArgs {
     /// Input: a directory with .mlt/.mvt/.pbf tiles, a single tile file, an .mbtiles or .pmtiles archive,
-    /// a WGS84 .geojson file holding a `FeatureCollection` to tile, or a `CityGML` .gml file or a directory
-    /// of them to tile into meshes
+    /// a WGS84 .geojson file holding a `FeatureCollection` to tile, an EPSG:4326 .city.json file whose surfaces
+    /// to tile into meshes, or a `CityGML` .gml file or a directory of them to tile into meshes
     input: PathBuf,
     /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,
@@ -390,34 +393,52 @@ pub struct ConvertArgs {
     /// If omitted, the whole input is converted.
     #[clap(long, value_name = "BBOX", allow_hyphen_values = true)]
     bbox: Vec<Bounds>,
-    /// Lowest zoom level to tile a `GeoJSON` or `CityGML` input into (default: 0)
-    #[clap(long, value_name = "ZOOM", help_heading = "GeoJSON and CityGML input")]
+    /// Lowest zoom level to tile a `GeoJSON`, `CityJSON` or `CityGML` input into (default: 0)
+    #[clap(
+        long,
+        value_name = "ZOOM",
+        help_heading = "GeoJSON, CityJSON and CityGML input"
+    )]
     min_zoom: Option<u8>,
-    /// Highest zoom level to tile a `GeoJSON` or `CityGML` input into (required)
-    #[clap(long, value_name = "ZOOM", help_heading = "GeoJSON and CityGML input")]
+    /// Highest zoom level to tile a `GeoJSON`, `CityJSON` or `CityGML` input into (required)
+    #[clap(
+        long,
+        value_name = "ZOOM",
+        help_heading = "GeoJSON, CityJSON and CityGML input"
+    )]
     max_zoom: Option<u8>,
-    /// MLT layer name of a `GeoJSON` or `CityGML` input (default: the input file stem)
-    #[clap(long, value_name = "NAME", help_heading = "GeoJSON and CityGML input")]
+    /// MLT layer name of a `GeoJSON`, `CityJSON` or `CityGML` input (default: the input file stem)
+    #[clap(
+        long,
+        value_name = "NAME",
+        help_heading = "GeoJSON, CityJSON and CityGML input"
+    )]
     layer: Option<String>,
     /// Power of ten of the z grid's step in metres (-3..=4) for `GeoJSON` positions with an altitude,
-    /// or for the heights of `CityGML` meshes above their ground
+    /// for `CityJSON` heights, or for the heights of `CityGML` meshes above their ground
     ///
-    /// Required when `GeoJSON` positions carry an altitude, and rejected when they do not.
+    /// Required for `CityJSON`, and when `GeoJSON` positions carry an altitude, and rejected when they do not.
     /// `CityGML` meshes default to -2, a 1 cm grid.
     #[clap(
         long,
         value_name = "EXPONENT",
         allow_hyphen_values = true,
-        help_heading = "GeoJSON and CityGML input"
+        help_heading = "GeoJSON, CityJSON and CityGML input"
     )]
     z_step: Option<i8>,
     /// What an altitude of `0` stands for (needs `--z-step`)
-    #[clap(long, value_name = "MODE", help_heading = "GeoJSON input")]
+    #[clap(long, value_name = "MODE", help_heading = "GeoJSON and CityJSON input")]
     height_mode: Option<HeightModeArg>,
     /// Re-read a `CityGML` file whose coordinates lie >1 degree from the directory's majority CRS
     /// in its declared CRS, when they fit that majority CRS instead (e.g. mislabelled UTM zones)
-    #[clap(long, help_heading = "GeoJSON and CityGML input")]
+    #[clap(long, help_heading = "CityGML input")]
     fix_mislabelled_crs: bool,
+    /// `LoD` of the `CityJSON` surfaces to tile, such as `2.2` (default: the file's highest)
+    #[clap(long, value_name = "LOD", help_heading = "CityJSON input")]
+    lod: Option<String>,
+    /// `CityJSON` attribute holding each object's ground height, subtracted under `--height-mode relative-to-ground`
+    #[clap(long, value_name = "NAME", help_heading = "CityJSON input")]
+    ground_attribute: Option<String>,
     #[command(flatten)]
     v2: V2EncoderArgs,
 }
@@ -464,7 +485,7 @@ impl ConvertArgs {
     pub fn output_container(&self) -> ContainerFormat {
         ContainerFormat::from_path(&self.output)
     }
-    /// The zoom range a `GeoJSON` or `CityGML` input is tiled into, checked.
+    /// The zoom range a `GeoJSON`, `CityJSON` or `CityGML` input is tiled into, checked.
     fn tiled_zooms(&self) -> AnyResult<(u8, u8)> {
         let min_zoom = self.min_zoom.unwrap_or(0);
         let max_zoom = self
@@ -478,14 +499,16 @@ impl ConvertArgs {
         }
         Ok((min_zoom, max_zoom))
     }
-    /// The layer name of a `GeoJSON` or `CityGML` input: `--layer`, else the input's file stem.
+    /// The layer name of a tiled input: `--layer`, else the input's file stem, without `.city` for `CityJSON`.
     fn tiled_layer_name(&self) -> AnyResult<String> {
         match &self.layer {
             Some(name) => Ok(name.clone()),
             None => self
                 .input
-                .file_stem()
+                .file_name()
                 .and_then(|s| s.to_str())
+                .and_then(|s| s.strip_suffix(".city.json"))
+                .or_else(|| self.input.file_stem().and_then(|s| s.to_str()))
                 .map(str::to_owned)
                 .with_context(|| {
                     format!(
@@ -599,8 +622,9 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let input_container = args.input_container();
     let output_container = args.output_container();
     let geojson_input = is_geojson(&args.input);
+    let cityjson_input = from_cityjson::is_cityjson(&args.input);
     #[cfg(feature = "citygml")]
-    let citygml_input = !geojson_input && from_citygml::is_citygml(&args.input)?;
+    let citygml_input = !geojson_input && !cityjson_input && from_citygml::is_citygml(&args.input)?;
     #[cfg(not(feature = "citygml"))]
     let citygml_input = {
         if !geojson_input
@@ -616,7 +640,17 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         }
         false
     };
-    let geojson_only = [
+    let cityjson_only = [
+        ("--lod", args.lod.is_some()),
+        ("--ground-attribute", args.ground_attribute.is_some()),
+    ];
+    if !cityjson_input && let Some((flag, _)) = cityjson_only.iter().find(|(_, given)| *given) {
+        bail!(
+            "{flag} tiles a CityJSON input, but the input is not a .city.json file: {}",
+            args.input.display()
+        );
+    }
+    let tiling_only = [
         ("--min-zoom", args.min_zoom.is_some()),
         ("--max-zoom", args.max_zoom.is_some()),
         ("--layer", args.layer.is_some()),
@@ -624,11 +658,20 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         ("--height-mode", args.height_mode.is_some()),
         ("--fix-mislabelled-crs", args.fix_mislabelled_crs),
     ];
-    if geojson_input && args.fix_mislabelled_crs {
+    if (geojson_input || cityjson_input) && args.fix_mislabelled_crs {
         bail!("--fix-mislabelled-crs applies only to a CityGML input");
     }
-    if geojson_input || citygml_input {
-        let kind = if geojson_input { "GeoJSON" } else { "CityGML" };
+    let tiled = if geojson_input {
+        Some("GeoJSON")
+    } else if cityjson_input {
+        Some("CityJSON")
+    } else if citygml_input {
+        Some("CityGML")
+    } else {
+        None
+    };
+    let meshes_input = cityjson_input || citygml_input;
+    if let Some(kind) = tiled {
         if args.max_zoom.is_none() {
             bail!("tiling a {kind} input requires --max-zoom");
         }
@@ -638,11 +681,11 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         if args.mlt_version != MltVersion::V2 {
             bail!("tiling a {kind} input writes MLT version 2, so it needs --mlt-version 2");
         }
-        if citygml_input && args.tessellate.is_some() {
-            bail!("--tessellate cuts 2D polygons, so it does not apply to a CityGML mesh input");
+        if meshes_input && args.tessellate.is_some() {
+            bail!("--tessellate cuts 2D polygons, so it does not apply to a {kind} mesh input");
         }
-        if citygml_input && args.v2.triangles_only {
-            bail!("--triangles-only applies to polygon layers, not a CityGML mesh input");
+        if meshes_input && args.v2.triangles_only {
+            bail!("--triangles-only applies to polygon layers, not a {kind} mesh input");
         }
         if citygml_input && args.height_mode.is_some() {
             bail!(
@@ -662,9 +705,9 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 args.output.display()
             );
         }
-    } else if let Some((flag, _)) = geojson_only.iter().find(|(_, given)| *given) {
+    } else if let Some((flag, _)) = tiling_only.iter().find(|(_, given)| *given) {
         bail!(
-            "{flag} tiles a GeoJSON or CityGML input, but the input is neither a .geojson file nor CityGML: {}",
+            "{flag} tiles a GeoJSON, CityJSON or CityGML input, but the input is not a .geojson file, a .city.json file or CityGML: {}",
             args.input.display()
         );
     }
@@ -726,6 +769,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         }
     } else if geojson_input {
         from_geojson::convert(args, &reencoder)
+    } else if cityjson_input {
+        from_cityjson::convert(args, &reencoder)
     } else if citygml_input {
         #[cfg(feature = "citygml")]
         {
