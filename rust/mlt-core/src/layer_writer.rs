@@ -286,17 +286,19 @@ struct NestedColumns {
 
 #[cfg(feature = "unstable-v2")]
 impl NestedColumns {
-    /// Starts over with no columns, keeping their buffers.
+    /// Starts over with no columns, keeping their buffers but not the values they held.
     fn clear(&mut self) {
         self.names.clear();
         self.kinds.clear();
-        self.spare.append(&mut self.columns);
+        for mut column in self.columns.drain(..) {
+            column.clear();
+            self.spare.push(column);
+        }
     }
 
     /// Adds a column of `kind` that the `features` written so far are null in.
     fn add(&mut self, name: &str, kind: NestedKind, features: usize) -> NestedKey {
         let mut column = self.spare.pop().unwrap_or_default();
-        column.clear();
         column.resize_with(features, || kind.null_value());
         self.columns.push(column);
         self.names.push(name.to_owned());
