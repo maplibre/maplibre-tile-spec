@@ -12,7 +12,7 @@ use crate::decoder::{
     ColumnStorage, DictLayout, DictionaryType, LengthType, OffsetType, ParsedLayer01,
     ParsedProperty, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, RawFsstData,
     RawPlainData, RawPresence, RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding,
-    StreamType, StringLayout,
+    StreamType, StringLayout, sum_bytes,
 };
 use crate::errors::AsMltError as _;
 use crate::{Decoder, DictRange, MltError, MltResult, RawSharedDict, RawSharedDictItem};
@@ -102,36 +102,28 @@ impl<'a> ParsedStrings<'a> {
 
     /// The bytes a copy of every value takes, a dictionary entry counted once per feature naming it.
     fn copy_bytes(&self) -> usize {
-        self.values()
-            .flatten()
-            .map(str::len)
-            .fold(0, usize::saturating_add)
+        sum_bytes(self.values().flatten().map(str::len))
     }
 }
 
 impl ParsedLayer01<'_> {
     /// Charge `dec` for a copy of every string property value, before copying them out.
-    ///
     /// A dictionary code is a few bits naming a whole entry, so the copies can far outgrow the decoded layer.
     pub fn charge_string_copies(&self, dec: &mut Decoder) -> MltResult<()> {
-        let bytes = self
-            .properties()
-            .iter()
-            .map(|property| match property {
-                ParsedProperty::Str(strings) => strings.copy_bytes(),
-                ParsedProperty::SharedDict(dict) => dict.copy_bytes(),
-                ParsedProperty::Bool(_)
-                | ParsedProperty::I8(_)
-                | ParsedProperty::U8(_)
-                | ParsedProperty::I32(_)
-                | ParsedProperty::U32(_)
-                | ParsedProperty::I64(_)
-                | ParsedProperty::U64(_)
-                | ParsedProperty::F32(_)
-                | ParsedProperty::F64(_) => 0,
-            })
-            .fold(0, usize::saturating_add);
-        dec.consume(u32::try_from(bytes).unwrap_or(u32::MAX))
+        let bytes = sum_bytes(self.properties().iter().map(|property| match property {
+            ParsedProperty::Str(strings) => strings.copy_bytes(),
+            ParsedProperty::SharedDict(dict) => dict.copy_bytes(),
+            ParsedProperty::Bool(_)
+            | ParsedProperty::I8(_)
+            | ParsedProperty::U8(_)
+            | ParsedProperty::I32(_)
+            | ParsedProperty::U32(_)
+            | ParsedProperty::I64(_)
+            | ParsedProperty::U64(_)
+            | ParsedProperty::F32(_)
+            | ParsedProperty::F64(_) => 0,
+        }));
+        dec.consume_copies(bytes)
     }
 }
 
@@ -247,11 +239,12 @@ impl ParsedSharedDict<'_> {
 
     /// The bytes a copy of every child's values takes, a corpus span counted once per feature naming it.
     fn copy_bytes(&self) -> usize {
-        self.items
-            .iter()
-            .flat_map(|item| (0..item.feature_count()).filter_map(|i| item.get(self, i)))
-            .map(str::len)
-            .fold(0, usize::saturating_add)
+        sum_bytes(
+            self.items
+                .iter()
+                .flat_map(|item| (0..item.feature_count()).filter_map(|i| item.get(self, i)))
+                .map(str::len),
+        )
     }
 }
 

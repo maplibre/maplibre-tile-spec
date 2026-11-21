@@ -16,7 +16,7 @@ use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, StreamCtx02};
 use crate::decoder::{
     Interior02, LogicalEncoding, MValues, NodeKind02, NodePresence, NodeType02, ParsedStrings,
-    RawPresence, RawStream, RawStrings,
+    RawPresence, RawStream, RawStrings, sum_bytes,
 };
 use crate::tile::{MAX_NESTED_DEPTH, NestedKind, NestedValue, PropValue};
 use crate::utils::{parse_string, parse_u8};
@@ -759,10 +759,11 @@ impl<'a> MapKeys<'a> {
 
     /// The bytes a copy of every entry's key takes, a coded key counted once per entry naming it.
     fn copy_bytes(&self) -> usize {
-        (0..self.entry_count())
-            .filter_map(|entry| self.key(entry))
-            .map(str::len)
-            .fold(0, usize::saturating_add)
+        sum_bytes(
+            (0..self.entry_count())
+                .filter_map(|entry| self.key(entry))
+                .map(str::len),
+        )
     }
 
     /// The key entry `entry` holds, or [`None`] where it names none.
@@ -905,8 +906,7 @@ impl<'a> ParsedNested<'a> {
 
     /// Charge `dec` for a copy of every value the column's tree holds, before building rows from it.
     pub(crate) fn charge_row_copies(&self, dec: &mut Decoder) -> MltResult<()> {
-        let bytes = self.root.copy_bytes();
-        dec.consume(u32::try_from(bytes).unwrap_or(u32::MAX))
+        dec.consume_copies(self.root.copy_bytes())
     }
 
     /// The value feature `index` carries, or the column's null when it carries none.
@@ -941,11 +941,9 @@ impl ParsedInterior<'_> {
     /// The bytes a copy of every value below this node takes.
     fn copy_bytes(&self) -> usize {
         match self {
-            Self::Struct(node) => node
-                .fields
-                .iter()
-                .map(|(_, field)| field.copy_bytes())
-                .fold(0, usize::saturating_add),
+            Self::Struct(node) => {
+                sum_bytes(node.fields.iter().map(|(_, field)| field.copy_bytes()))
+            }
             Self::List(node) => node.element.copy_bytes(),
             Self::Map(node) => node
                 .keys

@@ -48,6 +48,15 @@ impl From<Extent> for NonZeroU32 {
     }
 }
 
+/// What the features of a [`TileLayer`] are, which fixes whether they carry z coordinates and meshes.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LayerKind {
+    Flat,
+    Z(ZAxis),
+    Meshes(ZAxis),
+}
+
 /// What an m-value column holds one value per, the scope byte of a `Meshes` layer's m-value column.
 #[cfg(feature = "unstable-v2")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -290,12 +299,9 @@ pub struct TileLayer {
     /// Nested column shapes, parallel to `TileFeature::nested`.
     #[cfg(feature = "unstable-v2")]
     pub(crate) nested_kinds: Vec<NestedKind>,
-    /// How every feature's `TileFeature::z` reads as a height, or [`None`] for a flat layer.
+    /// Whether the features are flat, carry z coordinates, or are meshes.
     #[cfg(feature = "unstable-v2")]
-    pub(crate) z_axis: Option<ZAxis>,
-    /// Whether every feature is a mesh, which a Meshes layer says even when it holds none.
-    #[cfg(feature = "unstable-v2")]
-    pub(crate) meshes: bool,
+    pub(crate) kind: LayerKind,
     pub(crate) features: Vec<TileFeature>,
 }
 
@@ -529,9 +535,7 @@ impl TileLayer {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
             #[cfg(feature = "unstable-v2")]
-            z_axis: None,
-            #[cfg(feature = "unstable-v2")]
-            meshes: false,
+            kind: LayerKind::Flat,
             features: Vec::with_capacity(features),
         })
     }
@@ -563,9 +567,7 @@ impl TileLayer {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
             #[cfg(feature = "unstable-v2")]
-            z_axis: None,
-            #[cfg(feature = "unstable-v2")]
-            meshes: false,
+            kind: LayerKind::Flat,
             features,
         };
         Ok(layer)
@@ -662,8 +664,7 @@ impl TileLayer {
     }
 
     /// Declare an m-value column of `scope`, whose values every feature then holds or does not.
-    ///
-    /// Only a [Meshes layer](Self::set_meshes) has triangles, so only it takes a triangle-scoped column.
+    /// Only a [Meshes layer](Self::set_meshes) takes a triangle-scoped column.
     #[cfg(feature = "unstable-v2")]
     pub fn add_scoped_m_value(
         &mut self,
@@ -673,7 +674,7 @@ impl TileLayer {
     ) -> MltResult<MValueKey> {
         let name = name.into();
         self.reject_name_in_use(&name, ColumnRole::MValue)?;
-        if scope == MValueScope::Triangle && !self.meshes {
+        if scope == MValueScope::Triangle && !self.is_meshes() {
             return Err(MltError::TriangleMValueWithoutMesh(name));
         }
         for feature in &mut self.features {
@@ -700,7 +701,7 @@ impl TileLayer {
         debug_assert_eq!(names.len(), scopes.len());
         if let Some(index) = scopes
             .iter()
-            .position(|&scope| scope == MValueScope::Triangle && !self.meshes)
+            .position(|&scope| scope == MValueScope::Triangle && !self.is_meshes())
         {
             return Err(MltError::TriangleMValueWithoutMesh(names[index].clone()));
         }
@@ -729,7 +730,10 @@ impl TileLayer {
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn z_axis(&self) -> Option<ZAxis> {
-        self.z_axis
+        match self.kind {
+            LayerKind::Flat => None,
+            LayerKind::Z(axis) | LayerKind::Meshes(axis) => Some(axis),
+        }
     }
 
     /// Give the layer z coordinates on `axis`, which every feature pushed after this must carry.
@@ -741,16 +745,26 @@ impl TileLayer {
         if !self.features.is_empty() {
             return Err(MltError::ZStepOnNonEmptyLayer(self.name.clone()));
         }
-        self.z_axis = Some(axis.into());
+        let axis = axis.into();
+        self.kind = match self.kind {
+            LayerKind::Meshes(_) => LayerKind::Meshes(axis),
+            LayerKind::Flat | LayerKind::Z(_) => LayerKind::Z(axis),
+        };
         Ok(())
     }
 
-    /// Put the features, which already carry their z coordinates, on `axis`.
+    /// Give the features, which already carry their z coordinates and meshes, the kind of the layer.
     #[cfg(feature = "unstable-v2")]
-    pub(crate) fn with_z_axis(mut self, axis: Option<ZAxis>) -> MltResult<Self> {
-        self.z_axis = axis;
+    pub(crate) fn with_kind(mut self, meshes: bool, axis: Option<ZAxis>) -> MltResult<Self> {
+        self.kind = match (meshes, axis) {
+            (true, Some(axis)) => LayerKind::Meshes(axis),
+            (true, None) => return Err(MltError::MeshWithoutZ),
+            (false, Some(axis)) => LayerKind::Z(axis),
+            (false, None) => LayerKind::Flat,
+        };
         for feature in &self.features {
             self.validate_z(feature)?;
+            self.validate_mesh(feature)?;
         }
         Ok(self)
     }
@@ -759,30 +773,18 @@ impl TileLayer {
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn is_meshes(&self) -> bool {
-        self.meshes
+        matches!(self.kind, LayerKind::Meshes(_))
     }
 
     /// Make this a Meshes layer on `axis`, which then holds meshes and nothing else.
-    ///
     /// A layer that already holds features is rejected, since they are not meshes of it.
     #[cfg(feature = "unstable-v2")]
     pub fn set_meshes(&mut self, axis: impl Into<ZAxis>) -> MltResult<()> {
         if !self.features.is_empty() {
             return Err(MltError::MeshesOnNonEmptyLayer(self.name.clone()));
         }
-        self.z_axis = Some(axis.into());
-        self.meshes = true;
+        self.kind = LayerKind::Meshes(axis.into());
         Ok(())
-    }
-
-    /// Mark the features, which are already meshes, as a Meshes layer when `meshes`.
-    #[cfg(feature = "unstable-v2")]
-    pub(crate) fn with_meshes(mut self, meshes: bool) -> MltResult<Self> {
-        self.meshes = meshes;
-        for feature in &self.features {
-            self.validate_mesh(feature)?;
-        }
-        Ok(self)
     }
 
     /// Declare a nested column of the given shape, which every feature then holds a value of.
@@ -859,9 +861,7 @@ impl TileLayer {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
             #[cfg(feature = "unstable-v2")]
-            z_axis: self.z_axis,
-            #[cfg(feature = "unstable-v2")]
-            meshes: self.meshes,
+            kind: self.kind,
             features: Vec::new(),
         };
         TileLayerBuilder { layer }
@@ -883,7 +883,7 @@ impl TileLayer {
     /// Check a feature is a mesh exactly when the layer is a Meshes layer.
     #[cfg(feature = "unstable-v2")]
     fn validate_mesh(&self, feature: &TileFeature) -> MltResult<()> {
-        match (self.meshes, feature.triangles.is_some()) {
+        match (self.is_meshes(), feature.triangles.is_some()) {
             (true, false) => Err(MltError::MixedMeshLayer),
             (false, true) => Err(MltError::MeshOutsideMeshesLayer(self.name.clone())),
             _ => Ok(()),
@@ -893,7 +893,7 @@ impl TileLayer {
     /// Check a feature's z coordinates against the layer: one per vertex on a z layer, none on a flat one.
     #[cfg(feature = "unstable-v2")]
     fn validate_z(&self, feature: &TileFeature) -> MltResult<()> {
-        let expected = if self.z_axis.is_some() {
+        let expected = if self.z_axis().is_some() {
             feature.vertex_count()
         } else {
             0

@@ -47,6 +47,7 @@ pub use crate::decoder::iterators::{
     ColNames, ColumnRef, FeatureRef, Layer01FeatureIter, LendingIterator, PropName, PropNamesIter,
     PropValueRef,
 };
+pub(crate) use crate::decoder::limits::sum_bytes;
 pub use crate::decoder::limits::{Decoder, Parser};
 pub use crate::decoder::model::{Layer, LayerBytes, ParsedLayer, Unknown};
 pub(crate) use crate::decoder::model01::{BASE_TYPE_MASK, Column, OPTIONAL_FLAG};

@@ -215,8 +215,8 @@ impl LayerSource for TileLayer {
             m_value_scopes: Some(&self.m_value_scopes),
             nested_names: &self.nested_names,
             nested_kinds: &self.nested_kinds,
-            z_axis: self.z_axis,
-            meshes: self.meshes,
+            z_axis: self.z_axis(),
+            meshes: self.is_meshes(),
         }
     }
 

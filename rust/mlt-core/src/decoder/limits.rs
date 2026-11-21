@@ -10,6 +10,11 @@ const DEFAULT_MAX_BYTES: u32 = 64 * 1024 * 1024;
 ///
 /// Pass a `Decoder` to every `raw.decode()` / `into_tile()` call and to `from_bytes`-style parsers.
 /// Each method charges the budget before performing heap allocations, so the total heap used never exceeds `max_bytes` (in bytes).
+/// The total of `sizes`, saturating.
+pub(crate) fn sum_bytes(sizes: impl Iterator<Item = usize>) -> usize {
+    sizes.fold(0, usize::saturating_add)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Decoder {
     /// Keep track of the memory used when decoding a tile: raw->parsed transition
@@ -60,6 +65,13 @@ impl Decoder {
     #[inline]
     pub(crate) fn consume(&mut self, size: u32) -> MltResult<()> {
         self.budget.consume(size)
+    }
+
+    /// Charge the budget for `bytes` of copies, saturating at the largest charge.
+    #[inline]
+    pub(crate) fn consume_copies(&mut self, bytes: usize) -> MltResult<()> {
+        self.budget
+            .consume(u32::try_from(bytes).unwrap_or(u32::MAX))
     }
 
     /// Charge the budget for `count` items of type `T` (`count * size_of::<T>()` bytes).

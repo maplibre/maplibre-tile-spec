@@ -184,10 +184,6 @@ function varint(value: number): Uint8Array {
   return Uint8Array.from(bytes);
 }
 
-/**
- * A ~68 KB v2 Point layer of `features` points at (0, 0) referencing one `entryBytes`-byte
- * dictionary entry in every feature, as a `Str` property, a `SharedDict` property, or an m-value.
- */
 function repeatedDictTile(
   kind: "property" | "sharedDict" | "mValue",
   features: number,
@@ -230,7 +226,6 @@ function repeatedDictTile(
       codes,
     );
   } else {
-    // 1 LineString of `features` vertices so the m-value column carries `features` codes.
     const partLen = varint(features);
     const geom = concat(
       Uint8Array.of(0x04, 0x08),
@@ -274,7 +269,6 @@ function repeatedDictTile(
 }
 
 describe("memory budget", () => {
-  // 1,100 * 64 KiB = 70.4 MiB expanded (> 64 MiB Decoder default), in a ~68 KB tile.
   const features = 1100;
   const entryBytes = 65_536;
 

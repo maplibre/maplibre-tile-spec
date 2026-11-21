@@ -11,7 +11,6 @@ import { featureGeometry, geometryStarts } from "./featureGeometry";
 import { tileGeoJson } from "./geojson";
 import { decodeTile, decodeTile3D } from "./vectorTile";
 
-/** Written by `mlt convert buildings.gml tiles --mlt-version 2 --min-zoom 15 --max-zoom 16`. */
 const MESHES = new URL("../../../test/fixtures/meshes/tiles/", import.meta.url);
 const SYNTHETIC_V2 = new URL("../../../test/synthetic/0x02/", import.meta.url);
 const TILES = readdirSync(fileURLToPath(MESHES), { recursive: true })
@@ -21,10 +20,8 @@ const TILES = readdirSync(fileURLToPath(MESHES), { recursive: true })
   .sort();
 
 type Xyz = [number, number, number];
-/** A triangle's three vertex indices. */
 type Tri = [number, number, number];
 
-/** A mesh feature as `tileGeoJson` writes it, through mlt-core's rows. */
 interface MeshFeature {
   id: number;
   properties: { gml_id: string; "m:part": string[] };

@@ -90,9 +90,7 @@ mod tests {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: vec![],
             #[cfg(feature = "unstable-v2")]
-            z_axis: None,
-            #[cfg(feature = "unstable-v2")]
-            meshes: false,
+            kind: crate::tile::LayerKind::Flat,
             features: vec![],
         };
 

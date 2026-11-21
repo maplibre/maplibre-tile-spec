@@ -170,8 +170,7 @@ fn layout_name(geometry: &GeometryValues) -> &'static str {
 }
 
 /// Where each feature's triangles start in `indexBuffer`, one entry per feature and one more.
-///
-/// A tessellated layer counts its triangles per polygon feature, so the other features get an empty run.
+/// A tessellated layer gives the features that are not polygons an empty run.
 fn feature_triangle_offsets(geometry: &GeometryValues) -> Result<Option<Uint32Array>, JsError> {
     let Some(offsets) = geometry.triangle_offsets() else {
         return Ok(None);
@@ -198,8 +197,6 @@ fn feature_triangle_offsets(geometry: &GeometryValues) -> Result<Option<Uint32Ar
 
 /// `{ name, type, offsets, values, present? }`, or for strings
 /// `{ name, type, offsets, codes, dictionary, present? }`.
-///
-/// The values run over the vertices, or the triangles, of the features that carry the column, in feature order.
 /// Feature `f` owns values `offsets[f]..offsets[f + 1]`, as [`ParsedMValue::spans`] cuts them.
 /// `present` is one bit per feature.
 #[cfg(feature = "unstable-v2")]
@@ -239,9 +236,8 @@ fn m_value_column(column: &ParsedMValue<'_>, geometry: &GeometryValues) -> Resul
     Ok(object)
 }
 
-/// A string m-value column as codes into its distinct values: a renderer evaluates a style once
-/// per distinct value. A dictionary-coded column passes its codes on as decoded.
-///
+/// A string m-value column as codes into its distinct values.
+/// A dictionary-coded column passes its codes on as decoded.
 /// A null is a whole feature's, held by the column's presence, so no single value is null.
 #[cfg(feature = "unstable-v2")]
 fn string_codes(strings: &ParsedStrings<'_>) -> (Uint32Array, Array) {

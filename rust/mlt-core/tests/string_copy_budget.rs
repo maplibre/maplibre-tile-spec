@@ -8,8 +8,8 @@ use mlt_core::encoder::{
 };
 use mlt_core::geo_types::{Geometry, Point};
 use mlt_core::{
-    Decoder, GeometryValues, Layer, LendingIterator as _, MltError, ParsedLayer, ParsedLayer01,
-    Parser, PropValueRef,
+    Decoder, GeometryValues, Layer, LendingIterator as _, ParsedLayer, ParsedLayer01, Parser,
+    PropValueRef,
 };
 use test_each_file::test_each_path;
 
@@ -78,7 +78,7 @@ fn a_dictionary_entry_named_past_the_budget_is_refused() {
         .unwrap()
         .into_layer_bytes()
         .unwrap();
-    assert!(bytes.len() < 2 * 1000, "{} bytes", bytes.len());
+    assert_eq!(bytes.len(), 1446);
 
     let Some(Layer::Tag01(layer)) = Parser::default().parse_layers(&bytes).unwrap().pop() else {
         panic!("expected a v1 layer")
@@ -86,14 +86,5 @@ fn a_dictionary_entry_named_past_the_budget_is_refused() {
     let mut dec = Decoder::with_max_size(64 * 1024);
     let parsed = layer.decode_all(&mut dec).unwrap();
     let err = parsed.charge_string_copies(&mut dec).unwrap_err();
-    assert!(
-        matches!(
-            err,
-            MltError::MemoryLimitExceeded {
-                requested: 100_000,
-                ..
-            }
-        ),
-        "{err:?}"
-    );
+    insta::assert_snapshot!(err.to_string(), @"memory limit exceeded: limit=65536, used=2408, requested=100000");
 }

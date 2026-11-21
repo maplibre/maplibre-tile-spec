@@ -540,8 +540,7 @@ mod tests {
                 m_value_scopes: [],
                 nested_names: [],
                 nested_kinds: [],
-                z_axis: None,
-                meshes: false,
+                kind: Flat,
                 features: [
                     TileFeature {
                         id: Some(

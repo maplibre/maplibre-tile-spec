@@ -123,10 +123,12 @@ impl ParsedLayer02<'_> {
         }
         parts
             .finish()?
-            .with_meshes(geometry.layout() == GeometryLayout::Meshes)?
+            .with_kind(
+                geometry.layout() == GeometryLayout::Meshes,
+                geometry.z_axis(),
+            )?
             .with_m_value_names(m_names, m_scopes)?
-            .with_nested(nested_names, nested_kinds)?
-            .with_z_axis(geometry.z_axis())
+            .with_nested(nested_names, nested_kinds)
     }
 }
 
@@ -180,7 +182,6 @@ fn m_values_of(
     Ok(values)
 }
 
-/// The nested values of feature `index`, one per column.
 #[cfg(feature = "unstable-v2")]
 fn nested_of(
     columns: &[ParsedNested<'_>],
