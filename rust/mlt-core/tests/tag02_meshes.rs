@@ -493,7 +493,11 @@ fn an_empty_staged_meshes_layer_round_trips_to_the_bytes_the_wasm_spec_decodes()
         "landmarks",
         4096,
         StagedId::None,
-        GeometryValues::new_meshes(height()),
+        {
+            let mut geometry = GeometryValues::new_meshes();
+            geometry.add_z(height(), &[]).unwrap();
+            geometry
+        },
         Vec::new(),
         vec![
             StagedMValue::new("face", None, StagedValues::I32(Vec::new()))

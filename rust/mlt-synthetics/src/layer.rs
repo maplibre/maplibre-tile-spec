@@ -778,7 +778,9 @@ impl Layer {
             .with_row_shapes(row_shapes)
             .with_wire_version(wire_version);
 
-        let mut geometry = if tessellate {
+        let mut geometry = if !meshes.is_empty() {
+            GeometryValues::new_meshes()
+        } else if tessellate {
             GeometryValues::new_tessellated()
         } else {
             GeometryValues::default()

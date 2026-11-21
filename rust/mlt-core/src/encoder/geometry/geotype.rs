@@ -143,14 +143,15 @@ impl GeometryValues {
         }
     }
 
-    /// Returns an empty [`GeometryValues`] for a v2 `Meshes` layer on `z_axis`.
+    /// Returns an empty [`GeometryValues`] of the [`GeometryLayout::Meshes`] layout.
+    ///
+    /// Push its meshes with [`Self::push_mesh`], then their z with [`Self::add_z`].
     #[cfg(feature = "unstable-v2")]
     #[must_use]
-    pub fn new_meshes(z_axis: crate::tile::ZAxis) -> Self {
+    pub fn new_meshes() -> Self {
         Self {
             geometry_offsets: Some(vec![0]),
             triangle_offsets: Some(vec![0]),
-            z_axis: Some(z_axis),
             layout: GeometryLayout::Meshes,
             ..Default::default()
         }
