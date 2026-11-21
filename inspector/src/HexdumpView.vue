@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { useEventListener, useResizeObserver } from "@vueuse/core";
 import type { FeatureCollection } from "geojson";
-import { computed, onMounted, ref, watch } from "vue";
-import type { DecodedBlob, DumpTree } from "./annotate.ts";
+import { computed, defineAsyncComponent, onMounted, ref, watch } from "vue";
+import type { DecodedBlob, DumpTree, MltColumnTile } from "./annotate.ts";
 import GeometryView from "./GeometryView.vue";
-import { layersOf } from "./geometry.ts";
+import {
+  hasMeshes,
+  layersOf,
+  metresPerUnit,
+  widestExtent,
+} from "./geometry.ts";
 import HexMap from "./HexMap.vue";
 import HexTip from "./HexTip.vue";
 import {
@@ -20,6 +25,9 @@ import RegionDetail from "./RegionDetail.vue";
 import RegionTree from "./RegionTree.vue";
 import StatsView from "./StatsView.vue";
 
+/** three.js is large, so only a tile with meshes loads it. */
+const MeshView = defineAsyncComponent(() => import("./MeshView.vue"));
+
 const props = defineProps<{
   tree: DumpTree;
   bytes: Uint8Array;
@@ -28,6 +36,10 @@ const props = defineProps<{
   error: string | null;
   /** The decoded tile the geometry panel draws, absent when it could not be decoded. */
   tile?: FeatureCollection | null;
+  /** The decoded columns, from which the geometry panel draws meshes, absent when they could not be decoded. */
+  columns?: MltColumnTile | null;
+  /** Where the tile came from, which may name its `z/x/y` and so its scale. */
+  address?: string | null;
 }>();
 const view = defineModel<ViewState>("view", { required: true });
 const selected = defineModel<number | null>("selected", { required: true });
@@ -164,6 +176,18 @@ const scopeLayer = computed(() => {
   const at = /^layer\[(\d+)\]/.exec(regions[top].label);
   return at === null ? null : (names[Number(at[1])] ?? null);
 });
+
+/** Whether the scope holds a `Meshes` layer, which only a 3D view can show. */
+const showsMeshes = computed(
+  () => !!props.columns && hasMeshes(props.columns, scopeLayer.value),
+);
+
+const unitScale = computed(() =>
+  metresPerUnit(
+    props.address ?? null,
+    props.columns ? widestExtent(props.columns) : 4096,
+  ),
+);
 /** Index among the tree's layers of the one the pointer is over, for the statistics to light. */
 const hoveredLayer = computed(() => {
   const index = hovered.value;
@@ -291,8 +315,14 @@ onMounted(() => {
           class="lower"
           :style="{ flexBasis: `${geoShare}%` }"
         >
+          <MeshView
+            v-if="view.geo && props.columns && showsMeshes"
+            :columns="props.columns"
+            :layer="scopeLayer"
+            :metres-per-unit="unitScale"
+          />
           <GeometryView
-            v-if="view.geo"
+            v-else-if="view.geo"
             :tile="props.tile ?? null"
             :layer="scopeLayer"
           />

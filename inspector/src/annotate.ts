@@ -7,6 +7,13 @@ export type {
   DecodedBlob,
   DecodeHint,
   DumpTree,
+  MltColumnLayer,
+  MltColumnTile,
+  MltMValueColumn,
   Region,
 } from "@maplibre/mlt-wasm";
-export { annotateTile, tileGeoJson } from "@maplibre/mlt-wasm";
+export {
+  annotateTile,
+  decodeTileColumns,
+  tileGeoJson,
+} from "@maplibre/mlt-wasm";
