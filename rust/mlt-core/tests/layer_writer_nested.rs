@@ -1,12 +1,14 @@
 //! A [`LayerWriter`] holding nested columns encodes to the same bytes as a [`TileLayer`].
 
+use std::collections::BTreeMap;
+
 use geo_types::{Coord, Geometry, Point};
 use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::fast_mvt::MvtTileBuilder;
 use mlt_core::mvt::tile_layers_to_mvt;
 use mlt_core::{
-    Decoder, GeometryType, Layer, LayerWriter, MltError, NestedKey, NestedKind, NestedValue,
-    Parser, PropKind, PropValue, TileLayer,
+    Decoder, GeometryType, Layer, LayerWriter, MltError, NestedKind, NestedValue, Parser, PropKind,
+    PropValue, TileLayer,
 };
 use rstest::rstest;
 
@@ -15,119 +17,12 @@ fn v2() -> EncoderConfig {
         .with_wire_version(WireVersion::V02)
 }
 
-fn pt(x: i32, y: i32) -> Coord<i32> {
-    Coord { x, y }
-}
-
-fn s(v: &str) -> NestedValue {
+fn text(v: &str) -> NestedValue {
     NestedValue::Leaf(PropValue::Str(Some(v.into())))
 }
 
-fn i(v: i64) -> NestedValue {
+fn int(v: i64) -> NestedValue {
     NestedValue::Leaf(PropValue::I64(Some(v)))
-}
-
-fn scalars() -> NestedKind {
-    NestedKind::list(NestedKind::Leaf(PropKind::I64))
-}
-
-fn objects() -> NestedKind {
-    NestedKind::list(NestedKind::map([
-        ("name", NestedKind::Leaf(PropKind::Str)),
-        ("n", NestedKind::Leaf(PropKind::I64)),
-    ]))
-}
-
-fn deep() -> NestedKind {
-    NestedKind::map([
-        ("tags", NestedKind::list(NestedKind::Leaf(PropKind::Str))),
-        ("id", NestedKind::Leaf(PropKind::I64)),
-    ])
-}
-
-/// One column's kind and the value each of the three features sets, `None` for none at all.
-type Case = (NestedKind, [Option<NestedValue>; 3]);
-
-fn scalar_case() -> Case {
-    (
-        scalars(),
-        [
-            Some(NestedValue::list([i(1), i(2), i(3)])),
-            Some(NestedValue::List(None)),
-            Some(NestedValue::list([])),
-        ],
-    )
-}
-
-fn object_case() -> Case {
-    (
-        objects(),
-        [
-            Some(NestedValue::list([
-                NestedValue::map([("name", s("a")), ("n", i(1))]),
-                NestedValue::map([("name", s("b"))]),
-            ])),
-            None,
-            Some(NestedValue::list([NestedValue::map([("n", i(9))])])),
-        ],
-    )
-}
-
-fn deep_case() -> Case {
-    (
-        deep(),
-        [
-            Some(NestedValue::map([
-                ("tags", NestedValue::list([s("x"), s("y")])),
-                ("id", i(7)),
-            ])),
-            Some(NestedValue::map([("id", i(8))])),
-            Some(NestedValue::Map(None)),
-        ],
-    )
-}
-
-fn owned(cases: &[Case]) -> TileLayer {
-    let mut builder = TileLayer::builder("pois", 4096).unwrap();
-    let keys: Vec<NestedKey> = cases
-        .iter()
-        .enumerate()
-        .map(|(n, (kind, _))| builder.add_nested(format!("col{n}"), kind.clone()).unwrap())
-        .collect();
-    for (f, x) in (0..3).zip(0_i32..) {
-        let mut feature = builder.feature(Geometry::Point(Point::new(x, 2 * x)));
-        for (key, (_, values)) in keys.iter().zip(cases) {
-            if let Some(value) = &values[f] {
-                feature.nested(*key, value.clone()).unwrap();
-            }
-        }
-        feature.finish().unwrap();
-    }
-    builder.finish()
-}
-
-fn written(cases: &[Case]) -> LayerWriter<'static> {
-    let mut writer = LayerWriter::new("pois", 4096).unwrap();
-    fill(&mut writer, cases);
-    writer
-}
-
-fn fill(writer: &mut LayerWriter<'static>, cases: &[Case]) {
-    let keys: Vec<NestedKey> = cases
-        .iter()
-        .enumerate()
-        .map(|(n, (kind, _))| writer.add_nested(&format!("col{n}"), kind.clone()).unwrap())
-        .collect();
-    for (f, x) in (0..3).zip(0_i32..) {
-        let mut feature = writer.feature(GeometryType::Point);
-        feature.points([pt(x, 2 * x)]).unwrap();
-        for (key, (_, values)) in keys.iter().zip(cases) {
-            if let Some(value) = &values[f] {
-                feature.nested(*key, value.clone()).unwrap();
-            }
-        }
-        feature.finish().unwrap();
-    }
 }
 
 fn decode(bytes: &[u8]) -> TileLayer {
@@ -138,63 +33,253 @@ fn decode(bytes: &[u8]) -> TileLayer {
     layer.into_tile(&mut Decoder::default()).unwrap()
 }
 
-#[rstest]
-fn writer_nested_encodes_like_tile_layer(
-    #[values(
-        vec![scalar_case()],
-        vec![object_case()],
-        vec![deep_case()],
-        vec![scalar_case(), object_case(), deep_case()]
-    )]
-    cases: Vec<Case>,
-) {
-    let layer = owned(&cases);
-    let writer = written(&cases);
-    assert_eq!(writer.encode(v2()).unwrap(), layer.encode(v2()).unwrap());
-}
+#[test]
+fn list_of_scalars_encodes_like_tile_layer() {
+    let kind = NestedKind::list(NestedKind::Leaf(PropKind::I64));
 
-#[rstest]
-fn writer_nested_decodes_to_the_values_written(
-    #[values(scalar_case(), object_case(), deep_case())] case: Case,
-) {
-    let writer = written(std::slice::from_ref(&case));
-    let decoded = decode(&writer.encode(v2()).unwrap());
-    let expected = owned(std::slice::from_ref(&case));
-    for (got, want) in decoded.features().iter().zip(expected.features()) {
-        assert_eq!(got.nested(), want.nested());
-    }
+    let mut writer = LayerWriter::new("pois", 4096).unwrap();
+    let numbers = writer.add_nested("numbers", kind.clone()).unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
+    feature
+        .nested(numbers, NestedValue::list([int(1), int(2), int(3)]))
+        .unwrap();
+    feature.finish().unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 1, y: 2 }]).unwrap();
+    feature.nested(numbers, NestedValue::List(None)).unwrap();
+    feature.finish().unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 2, y: 4 }]).unwrap();
+    feature.nested(numbers, NestedValue::list([])).unwrap();
+    feature.finish().unwrap();
+
+    let mut builder = TileLayer::builder("pois", 4096).unwrap();
+    let numbers = builder.add_nested("numbers", kind).unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(0, 0)));
+    feature
+        .nested(numbers, NestedValue::list([int(1), int(2), int(3)]))
+        .unwrap();
+    feature.finish().unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(1, 2)));
+    feature.nested(numbers, NestedValue::List(None)).unwrap();
+    feature.finish().unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(2, 4)));
+    feature.nested(numbers, NestedValue::list([])).unwrap();
+    feature.finish().unwrap();
+
+    assert_eq!(
+        writer.encode(v2()).unwrap(),
+        builder.finish().encode(v2()).unwrap()
+    );
 }
 
 #[test]
-fn feature_without_a_value_is_null() {
-    let writer = written(&[object_case()]);
+fn list_of_maps_encodes_like_tile_layer() {
+    let kind = NestedKind::list(NestedKind::map([
+        ("name", NestedKind::Leaf(PropKind::Str)),
+        ("n", NestedKind::Leaf(PropKind::I64)),
+    ]));
+
+    let mut writer = LayerWriter::new("pois", 4096).unwrap();
+    let entries = writer.add_nested("entries", kind.clone()).unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
+    feature
+        .nested(
+            entries,
+            NestedValue::list([
+                NestedValue::map([("name", text("a")), ("n", int(1))]),
+                NestedValue::map([("name", text("b"))]),
+            ]),
+        )
+        .unwrap();
+    feature.finish().unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 1, y: 2 }]).unwrap();
+    feature.finish().unwrap();
+
+    let mut builder = TileLayer::builder("pois", 4096).unwrap();
+    let entries = builder.add_nested("entries", kind).unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(0, 0)));
+    feature
+        .nested(
+            entries,
+            NestedValue::list([
+                NestedValue::map([("name", text("a")), ("n", int(1))]),
+                NestedValue::map([("name", text("b"))]),
+            ]),
+        )
+        .unwrap();
+    feature.finish().unwrap();
+    builder
+        .feature(Geometry::Point(Point::new(1, 2)))
+        .finish()
+        .unwrap();
+
+    assert_eq!(
+        writer.encode(v2()).unwrap(),
+        builder.finish().encode(v2()).unwrap()
+    );
+}
+
+#[test]
+fn map_with_a_nested_list_encodes_like_tile_layer() {
+    let kind = NestedKind::map([
+        ("tags", NestedKind::list(NestedKind::Leaf(PropKind::Str))),
+        ("id", NestedKind::Leaf(PropKind::I64)),
+    ]);
+
+    let mut writer = LayerWriter::new("pois", 4096).unwrap();
+    let record = writer.add_nested("record", kind.clone()).unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
+    feature
+        .nested(
+            record,
+            NestedValue::map([
+                ("tags", NestedValue::list([text("x"), text("y")])),
+                ("id", int(7)),
+            ]),
+        )
+        .unwrap();
+    feature.finish().unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 1, y: 2 }]).unwrap();
+    feature.nested(record, NestedValue::Map(None)).unwrap();
+    feature.finish().unwrap();
+
+    let mut builder = TileLayer::builder("pois", 4096).unwrap();
+    let record = builder.add_nested("record", kind).unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(0, 0)));
+    feature
+        .nested(
+            record,
+            NestedValue::map([
+                ("tags", NestedValue::list([text("x"), text("y")])),
+                ("id", int(7)),
+            ]),
+        )
+        .unwrap();
+    feature.finish().unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(1, 2)));
+    feature.nested(record, NestedValue::Map(None)).unwrap();
+    feature.finish().unwrap();
+
+    assert_eq!(
+        writer.encode(v2()).unwrap(),
+        builder.finish().encode(v2()).unwrap()
+    );
+}
+
+#[test]
+fn two_nested_columns_encode_like_tile_layer() {
+    let numbers_kind = NestedKind::list(NestedKind::Leaf(PropKind::I64));
+    let tags_kind = NestedKind::list(NestedKind::Leaf(PropKind::Str));
+
+    let mut writer = LayerWriter::new("pois", 4096).unwrap();
+    let numbers = writer.add_nested("numbers", numbers_kind.clone()).unwrap();
+    let tags = writer.add_nested("tags", tags_kind.clone()).unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
+    feature
+        .nested(numbers, NestedValue::list([int(1)]))
+        .unwrap();
+    feature
+        .nested(tags, NestedValue::list([text("a")]))
+        .unwrap();
+    feature.finish().unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 1, y: 2 }]).unwrap();
+    feature
+        .nested(tags, NestedValue::list([text("b")]))
+        .unwrap();
+    feature.finish().unwrap();
+
+    let mut builder = TileLayer::builder("pois", 4096).unwrap();
+    let numbers = builder.add_nested("numbers", numbers_kind).unwrap();
+    let tags = builder.add_nested("tags", tags_kind).unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(0, 0)));
+    feature
+        .nested(numbers, NestedValue::list([int(1)]))
+        .unwrap();
+    feature
+        .nested(tags, NestedValue::list([text("a")]))
+        .unwrap();
+    feature.finish().unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(1, 2)));
+    feature
+        .nested(tags, NestedValue::list([text("b")]))
+        .unwrap();
+    feature.finish().unwrap();
+
+    assert_eq!(
+        writer.encode(v2()).unwrap(),
+        builder.finish().encode(v2()).unwrap()
+    );
+}
+
+#[test]
+fn decodes_to_the_values_written_and_null_where_none_was() {
+    let mut writer = LayerWriter::new("pois", 4096).unwrap();
+    let entries = writer
+        .add_nested(
+            "entries",
+            NestedKind::list(NestedKind::map([
+                ("name", NestedKind::Leaf(PropKind::Str)),
+                ("n", NestedKind::Leaf(PropKind::I64)),
+            ])),
+        )
+        .unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
+    feature
+        .nested(
+            entries,
+            NestedValue::list([NestedValue::map([("name", text("a")), ("n", int(1))])]),
+        )
+        .unwrap();
+    feature.finish().unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 1, y: 2 }]).unwrap();
+    feature.finish().unwrap();
+
     let decoded = decode(&writer.encode(v2()).unwrap());
+
+    assert_eq!(
+        decoded.features()[0].nested(),
+        [NestedValue::list([NestedValue::map([
+            ("name", text("a")),
+            ("n", int(1))
+        ])])]
+    );
     assert!(decoded.features()[1].nested()[0].is_null());
 }
 
 #[test]
 fn nested_column_added_after_features_encodes_like_tile_layer() {
+    let kind = NestedKind::list(NestedKind::Leaf(PropKind::I64));
+
     let mut writer = LayerWriter::new("pois", 4096).unwrap();
-    let mut builder = TileLayer::builder("pois", 4096).unwrap();
-    for n in 0..2 {
-        let mut feature = writer.feature(GeometryType::Point);
-        feature.points([pt(n, n)]).unwrap();
-        feature.finish().unwrap();
-        builder
-            .feature(Geometry::Point(Point::new(n, n)))
-            .finish()
-            .unwrap();
-    }
-    let key = writer.add_nested("late", scalars()).unwrap();
-    let owned_key = builder.add_nested("late", scalars()).unwrap();
-    let value = NestedValue::list([i(4)]);
     let mut feature = writer.feature(GeometryType::Point);
-    feature.points([pt(2, 2)]).unwrap();
-    feature.nested(key, value.clone()).unwrap();
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
     feature.finish().unwrap();
-    let mut feature = builder.feature(Geometry::Point(Point::new(2, 2)));
-    feature.nested(owned_key, value).unwrap();
+    let late = writer.add_nested("late", kind.clone()).unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 1, y: 1 }]).unwrap();
+    feature.nested(late, NestedValue::list([int(4)])).unwrap();
     feature.finish().unwrap();
+
+    let mut builder = TileLayer::builder("pois", 4096).unwrap();
+    builder
+        .feature(Geometry::Point(Point::new(0, 0)))
+        .finish()
+        .unwrap();
+    let late = builder.add_nested("late", kind).unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(1, 1)));
+    feature.nested(late, NestedValue::list([int(4)])).unwrap();
+    feature.finish().unwrap();
+
     assert_eq!(
         writer.encode(v2()).unwrap(),
         builder.finish().encode(v2()).unwrap()
@@ -203,82 +288,138 @@ fn nested_column_added_after_features_encodes_like_tile_layer() {
 
 #[test]
 fn dropped_feature_leaves_the_layer_as_it_was() {
+    let kind = NestedKind::list(NestedKind::Leaf(PropKind::I64));
+
     let mut writer = LayerWriter::new("pois", 4096).unwrap();
-    let key = writer.add_nested("col0", scalars()).unwrap();
+    let numbers = writer.add_nested("numbers", kind.clone()).unwrap();
     {
-        let mut feature = writer.feature(GeometryType::Point);
-        feature.points([pt(9, 9)]).unwrap();
-        feature.nested(key, NestedValue::list([i(5)])).unwrap();
+        let mut unfinished = writer.feature(GeometryType::Point);
+        unfinished.points([Coord { x: 9, y: 9 }]).unwrap();
+        unfinished
+            .nested(numbers, NestedValue::list([int(5)]))
+            .unwrap();
     }
+
     let mut fresh = LayerWriter::new("pois", 4096).unwrap();
-    fresh.add_nested("col0", scalars()).unwrap();
+    fresh.add_nested("numbers", kind).unwrap();
+
     assert_eq!(writer.encode(v2()).unwrap(), fresh.encode(v2()).unwrap());
 }
 
 #[test]
 fn reset_writer_encodes_like_a_new_one() {
-    let first = [scalar_case()];
-    let second = [object_case(), deep_case()];
-    let mut reused = written(&first);
+    let tags_kind = NestedKind::list(NestedKind::Leaf(PropKind::Str));
+
+    let mut reused = LayerWriter::new("pois", 4096).unwrap();
+    let numbers = reused
+        .add_nested("numbers", NestedKind::list(NestedKind::Leaf(PropKind::I64)))
+        .unwrap();
+    let mut feature = reused.feature(GeometryType::Point);
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
+    feature
+        .nested(numbers, NestedValue::list([int(1), int(2)]))
+        .unwrap();
+    feature.finish().unwrap();
     reused.reset("pois", 4096).unwrap();
-    fill(&mut reused, &second);
-    assert_eq!(
-        reused.encode(v2()).unwrap(),
-        written(&second).encode(v2()).unwrap()
-    );
+    let tags = reused.add_nested("tags", tags_kind.clone()).unwrap();
+    let mut feature = reused.feature(GeometryType::Point);
+    feature.points([Coord { x: 1, y: 1 }]).unwrap();
+    feature
+        .nested(tags, NestedValue::list([text("a")]))
+        .unwrap();
+    feature.finish().unwrap();
+
+    let mut fresh = LayerWriter::new("pois", 4096).unwrap();
+    let tags = fresh.add_nested("tags", tags_kind).unwrap();
+    let mut feature = fresh.feature(GeometryType::Point);
+    feature.points([Coord { x: 1, y: 1 }]).unwrap();
+    feature
+        .nested(tags, NestedValue::list([text("a")]))
+        .unwrap();
+    feature.finish().unwrap();
+
+    assert_eq!(reused.encode(v2()).unwrap(), fresh.encode(v2()).unwrap());
 }
 
 #[test]
 fn reset_writer_drops_its_nested_columns() {
-    let mut reused = written(&[scalar_case()]);
+    let mut reused = LayerWriter::new("pois", 4096).unwrap();
+    let numbers = reused
+        .add_nested("numbers", NestedKind::list(NestedKind::Leaf(PropKind::I64)))
+        .unwrap();
+    let mut feature = reused.feature(GeometryType::Point);
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
+    feature
+        .nested(numbers, NestedValue::list([int(1)]))
+        .unwrap();
+    feature.finish().unwrap();
     reused.reset("pois", 4096).unwrap();
     let mut feature = reused.feature(GeometryType::Point);
-    feature.points([pt(1, 1)]).unwrap();
+    feature.points([Coord { x: 1, y: 1 }]).unwrap();
     feature.finish().unwrap();
+
     let mut fresh = LayerWriter::new("pois", 4096).unwrap();
     let mut feature = fresh.feature(GeometryType::Point);
-    feature.points([pt(1, 1)]).unwrap();
+    feature.points([Coord { x: 1, y: 1 }]).unwrap();
     feature.finish().unwrap();
+
     assert_eq!(reused.encode(v2()).unwrap(), fresh.encode(v2()).unwrap());
 }
 
 #[test]
 fn rejects_value_of_another_shape() {
     let mut writer = LayerWriter::new("pois", 4096).unwrap();
-    let key = writer.add_nested("col", scalars()).unwrap();
+    let numbers = writer
+        .add_nested("numbers", NestedKind::list(NestedKind::Leaf(PropKind::I64)))
+        .unwrap();
     let mut feature = writer.feature(GeometryType::Point);
-    assert!(matches!(
-        feature.nested(key, NestedValue::Map(None)).err().unwrap(),
-        MltError::NestedShapeMismatch { index: 0 }
-    ));
+
+    let err = feature
+        .nested(numbers, NestedValue::Map(None))
+        .err()
+        .unwrap();
+
+    assert!(matches!(err, MltError::NestedShapeMismatch { index: 0 }));
 }
 
 #[test]
 fn rejects_value_the_kind_does_not_accept() {
     let mut writer = LayerWriter::new("pois", 4096).unwrap();
-    let key = writer.add_nested("col", scalars()).unwrap();
+    let numbers = writer
+        .add_nested("numbers", NestedKind::list(NestedKind::Leaf(PropKind::I64)))
+        .unwrap();
     let mut feature = writer.feature(GeometryType::Point);
+
+    let err = feature
+        .nested(numbers, NestedValue::list([text("not a number")]))
+        .err()
+        .unwrap();
+
     assert!(matches!(
-        feature
-            .nested(key, NestedValue::list([s("not a number")]))
-            .err()
-            .unwrap(),
+        err,
         MltError::NestedValueMismatch { index: 0, .. }
     ));
 }
 
 #[test]
-fn rejects_unknown_key() {
+fn rejects_a_key_of_another_writer() {
     let mut other = LayerWriter::new("pois", 4096).unwrap();
-    other.add_nested("a", scalars()).unwrap();
-    let foreign = other.add_nested("b", scalars()).unwrap();
+    other
+        .add_nested("a", NestedKind::list(NestedKind::Leaf(PropKind::I64)))
+        .unwrap();
+    let foreign = other
+        .add_nested("b", NestedKind::list(NestedKind::Leaf(PropKind::I64)))
+        .unwrap();
     let mut writer = LayerWriter::new("pois", 4096).unwrap();
     let mut feature = writer.feature(GeometryType::Point);
+
+    let err = feature
+        .nested(foreign, NestedValue::List(None))
+        .err()
+        .unwrap();
+
     assert!(matches!(
-        feature
-            .nested(foreign, NestedValue::List(None))
-            .err()
-            .unwrap(),
+        err,
         MltError::UnknownNestedKey {
             index: 1,
             columns: 0
@@ -288,51 +429,99 @@ fn rejects_unknown_key() {
 
 #[rstest]
 #[case::scalar_root(NestedKind::Leaf(PropKind::I64))]
-#[case::empty_map(NestedKind::Map(std::collections::BTreeMap::default()))]
-#[case::too_deep(
-    (0..8).fold(NestedKind::Leaf(PropKind::I64), |kind, _| NestedKind::list(kind))
-)]
-fn rejects_bad_kind_like_tile_layer(#[case] kind: NestedKind) {
+#[case::empty_map(NestedKind::Map(BTreeMap::default()))]
+#[case::nine_levels(NestedKind::list(NestedKind::list(NestedKind::list(NestedKind::list(
+    NestedKind::list(NestedKind::list(NestedKind::list(NestedKind::list(NestedKind::Leaf(
+        PropKind::I64
+    )))))
+)))))]
+fn rejects_a_bad_kind_with_the_error_tile_layer_gives(#[case] kind: NestedKind) {
     let mut writer = LayerWriter::new("pois", 4096).unwrap();
     let mut builder = TileLayer::builder("pois", 4096).unwrap();
-    assert_eq!(
-        writer
-            .add_nested("col", kind.clone())
-            .unwrap_err()
-            .to_string(),
-        builder.add_nested("col", kind).unwrap_err().to_string()
-    );
+
+    let writer_err = writer.add_nested("col", kind.clone()).unwrap_err();
+    let builder_err = builder.add_nested("col", kind).unwrap_err();
+
+    assert_eq!(writer_err.to_string(), builder_err.to_string());
 }
 
 #[test]
-fn rejects_nested_named_like_a_property() {
+fn rejects_a_nested_column_named_like_a_property() {
     let mut writer = LayerWriter::new("pois", 4096).unwrap();
     writer.add_property("name", PropKind::Str).unwrap();
-    assert!(writer.add_nested("name", scalars()).is_err());
-    writer.add_nested("tags", scalars()).unwrap();
-    assert!(writer.add_property("tags", PropKind::Str).is_err());
-    assert!(writer.add_nested("tags", scalars()).is_err());
+
+    let err = writer.add_nested("name", NestedKind::list(NestedKind::Leaf(PropKind::I64)));
+
+    assert!(err.is_err());
 }
 
 #[test]
-fn v1_rejects_writer_nested_like_tile_layer() {
-    let cases = [scalar_case()];
-    let v1 = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
-        .with_wire_version(WireVersion::V01);
-    assert_eq!(
-        written(&cases).encode(v1).unwrap_err().to_string(),
-        owned(&cases).encode(v1).unwrap_err().to_string()
+fn rejects_a_property_or_second_nested_column_named_like_a_nested_column() {
+    let mut writer = LayerWriter::new("pois", 4096).unwrap();
+    writer
+        .add_nested("tags", NestedKind::list(NestedKind::Leaf(PropKind::Str)))
+        .unwrap();
+
+    assert!(writer.add_property("tags", PropKind::Str).is_err());
+    assert!(
+        writer
+            .add_nested("tags", NestedKind::list(NestedKind::Leaf(PropKind::Str)))
+            .is_err()
     );
 }
 
 #[test]
-fn writer_mvt_drops_nested_like_tile_layer() {
-    let cases = [scalar_case(), deep_case()];
+fn v1_rejects_nested_columns_with_the_error_tile_layer_gives() {
+    let kind = NestedKind::list(NestedKind::Leaf(PropKind::I64));
+    let v1 = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        .with_wire_version(WireVersion::V01);
+
+    let mut writer = LayerWriter::new("pois", 4096).unwrap();
+    let numbers = writer.add_nested("numbers", kind.clone()).unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
+    feature
+        .nested(numbers, NestedValue::list([int(1)]))
+        .unwrap();
+    feature.finish().unwrap();
+
+    let mut builder = TileLayer::builder("pois", 4096).unwrap();
+    let numbers = builder.add_nested("numbers", kind).unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(0, 0)));
+    feature
+        .nested(numbers, NestedValue::list([int(1)]))
+        .unwrap();
+    feature.finish().unwrap();
+
     assert_eq!(
-        written(&cases)
-            .write_mvt(MvtTileBuilder::new())
-            .unwrap()
-            .encode(),
-        tile_layers_to_mvt([&owned(&cases)]).unwrap()
+        writer.encode(v1).unwrap_err().to_string(),
+        builder.finish().encode(v1).unwrap_err().to_string()
+    );
+}
+
+#[test]
+fn mvt_drops_nested_columns_like_tile_layer() {
+    let kind = NestedKind::list(NestedKind::Leaf(PropKind::I64));
+
+    let mut writer = LayerWriter::new("pois", 4096).unwrap();
+    let numbers = writer.add_nested("numbers", kind.clone()).unwrap();
+    let mut feature = writer.feature(GeometryType::Point);
+    feature.points([Coord { x: 0, y: 0 }]).unwrap();
+    feature
+        .nested(numbers, NestedValue::list([int(1)]))
+        .unwrap();
+    feature.finish().unwrap();
+
+    let mut builder = TileLayer::builder("pois", 4096).unwrap();
+    let numbers = builder.add_nested("numbers", kind).unwrap();
+    let mut feature = builder.feature(Geometry::Point(Point::new(0, 0)));
+    feature
+        .nested(numbers, NestedValue::list([int(1)]))
+        .unwrap();
+    feature.finish().unwrap();
+
+    assert_eq!(
+        writer.write_mvt(MvtTileBuilder::new()).unwrap().encode(),
+        tile_layers_to_mvt([&builder.finish()]).unwrap()
     );
 }
