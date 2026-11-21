@@ -70,11 +70,12 @@ fn mlt_convert(input: &Path, output: &Path, args: &[&str]) -> Output {
         .unwrap()
 }
 
-/// The stderr of `out`, with the temp dir it ran in shown as `[TMP]`.
+/// The stderr of `out`, with the temp dir it ran in shown as `[TMP]` and Windows `\` normalized.
 fn stderr_of(dir: &TempDir, out: &Output) -> String {
     String::from_utf8(out.stderr.clone())
         .unwrap()
         .replace(dir.0.to_str().unwrap(), "[TMP]")
+        .replace('\\', "/")
 }
 
 #[track_caller]
@@ -529,7 +530,7 @@ fn a_geojson_only_option_on_another_input_is_rejected() {
     assert!(!out.status.success(), "mlt convert unexpectedly succeeded");
     assert!(!dir.0.join("out").exists());
     let stderr = stderr_of(&dir, &out);
-    insta::assert_snapshot!(stderr, @"Error: --max-zoom tiles a GeoJSON input, but the input is not a .geojson file: [TMP]/tiles");
+    insta::assert_snapshot!(stderr, @"Error: --max-zoom tiles a GeoJSON or CityGML input, but the input is neither a .geojson file nor CityGML: [TMP]/tiles");
 }
 
 #[test]

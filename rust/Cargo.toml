@@ -52,6 +52,7 @@ integer-encoding = "4.0.2"
 js-sys = "0.3"
 martin-tile-utils = "0.9"
 mbtiles = { version = "0.23", default-features = false, features = ["transcode"] }
+meshopt = "0.7.0"
 mimalloc = "0.1.52"
 minicov = "0.3.9"
 mlt-core = { version = "0.22.2", path = "mlt-core" }
@@ -60,11 +61,13 @@ num-traits = "0.2.19"
 num_enum = "0.7.6"
 pmtiles = { version = "0.28.1", default-features = false, features = ["file-async-tokio", "write", "tilejson", "iter", "brotli", "zstd"] }
 pretty_assertions = "1.4"
+proj4rs = { version = "0.3.0", features = ["crs-definitions"] }
 proptest = "1.11"
 proptest-derive = "0.9"
 pyo3 = "0.30.1"
 pyo3-stub-gen = "0.23.0"
 pythonize = "0.30"
+quick-xml = "0.42.0"
 ratatui = { version = "0.30.1", default-features = false, features = ["crossterm", "layout-cache", "underline-color"] }
 rayon = "1"
 rstar = "0.14"
