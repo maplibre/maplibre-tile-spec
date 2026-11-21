@@ -274,12 +274,10 @@ pub(crate) fn encode_into02(
         return Err(MltError::MValuesNeedVertexCounts(geo.layout.into()));
     }
     let meshes = geo.layout == GeoLayout::Meshes;
-    if let Some(m_value) = m_values
-        .iter()
-        .find(|m| m.scope == MValueScope::Triangle && !meshes)
-    {
-        return Err(MltError::TriangleMValueWithoutMesh(m_value.name.clone()));
-    }
+    debug_assert!(
+        meshes || m_values.iter().all(|m| m.scope == MValueScope::Vertex),
+        "staging and StagedLayer validation keep triangle-scoped columns in Meshes layers"
+    );
     let decoded_triangles = triangle_offsets.map(|offsets| DecodedTriangles {
         offsets,
         order: geo.triangle_order,

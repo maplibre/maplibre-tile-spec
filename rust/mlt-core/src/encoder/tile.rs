@@ -8,6 +8,8 @@ use std::collections::BTreeMap;
 use compact_str::CompactString;
 
 use crate::PropValueRef;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::GeometryLayout;
 use crate::decoder::GeometryValues;
 #[cfg(any(test, feature = "__private"))]
 use crate::encoder::SortStrategy;
@@ -91,10 +93,17 @@ pub(crate) fn stage_layer(
     stats: &LayerStats,
     options: StageOptions,
 ) -> StagedLayer {
-    let mut geometry = if options.tessellate {
-        GeometryValues::new_tessellated()
-    } else {
-        GeometryValues::default()
+    #[cfg(feature = "unstable-v2")]
+    let layout = source.v2_layout();
+    let mut geometry = match () {
+        // Its z is added below, with every other layer's.
+        #[cfg(feature = "unstable-v2")]
+        () if layout.meshes => GeometryValues {
+            layout: GeometryLayout::Meshes,
+            ..GeometryValues::default()
+        },
+        () if options.tessellate => GeometryValues::new_tessellated(),
+        () => GeometryValues::default(),
     };
     geometry.reserve(
         source.feature_count(),
@@ -119,7 +128,7 @@ pub(crate) fn stage_layer(
         })
         .collect();
     #[cfg(feature = "unstable-v2")]
-    if let Some(axis) = source.v2_layout().z_axis {
+    if let Some(axis) = layout.z_axis {
         let mut z = Vec::new();
         for (f, moves) in order.iter().zip(&moves) {
             moves.extend(&mut z, source.z(f), |&z| z);
@@ -187,10 +196,10 @@ fn build_m_values(
     moves: &[VertexMoves],
 ) -> Vec<StagedMValue> {
     let kinds = source.m_value_kinds();
-    let scopes = source.v2_layout().m_value_scopes;
+    let layout = source.v2_layout();
     let mut columns = Vec::with_capacity(kinds.len());
     for (index, &kind) in kinds.iter().enumerate() {
-        let scope = scopes.get(index).copied().unwrap_or_default();
+        let scope = layout.m_value_scope(index);
         let mut values = StagedValues::empty(kind);
         let presence: Vec<bool> = order
             .iter()

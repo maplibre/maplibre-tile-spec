@@ -46,10 +46,10 @@ pub(crate) use errors::MltRefResult;
 
 pub use crate::convert::{InferredKind, geojson, mvt};
 pub use crate::decoder::{
-    ColNames, ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
-    Layer01FeatureIter, LendingIterator, ParsedId, ParsedLayer, ParsedLayer01, ParsedProperty,
-    ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, Parser, PropName,
-    PropNamesIter, PropValueRef, Unknown,
+    ColNames, ColumnRef, Decoder, FeatureRef, GeometryLayout, GeometryType, GeometryValues, Layer,
+    Layer01, Layer01FeatureIter, LendingIterator, ParsedId, ParsedLayer, ParsedLayer01,
+    ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, Parser,
+    PropName, PropNamesIter, PropValueRef, Unknown,
 };
 // Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
 // without exposing these implementation details to external users.

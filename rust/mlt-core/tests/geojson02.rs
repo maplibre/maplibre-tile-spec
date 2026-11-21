@@ -29,7 +29,7 @@ fn as_geojson(layer: &TileLayer) -> String {
     let layers = parser.parse_layers(&bytes).expect("parse");
     let mut decoder = dec();
     let layers = decoder.decode_all(layers).expect("decode");
-    let collection = FeatureCollection::from_layers(layers).expect("to geojson");
+    let collection = FeatureCollection::from_layers(layers, &mut decoder).expect("to geojson");
     serde_json::to_string(&collection).expect("serialize")
 }
 

@@ -23,22 +23,28 @@
 //! handle over its regions, for tooling that shows the wire format rather than the
 //! decoded tile.
 
+#[cfg(feature = "annotate")]
 mod annotate;
 mod columns;
 #[cfg(feature = "coverage")]
 mod coverage;
 
+use mlt_core::MltError;
+#[cfg(feature = "geojson")]
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{Decoder, MltError, Parser};
+#[cfg(feature = "geojson")]
+use mlt_core::{Decoder, Parser};
 use wasm_bindgen::prelude::*;
 
 /// Decode a raw MLT tile blob into `GeoJSON`, as the serialized text.
 ///
-/// Every feature carries `_layer` and `_extent`, and a v2 tile's vertex-scoped columns ride
-/// along as `m:`-prefixed arrays, one value per vertex.
+/// Every feature carries `_layer` and `_extent`; a v2 tile's m-value columns ride along as
+/// `m:`-prefixed arrays (one value per vertex or per mesh triangle), and mesh features carry
+/// a top-level `triangles` member.
 ///
 /// Text rather than a `JsValue`: building the object graph across the boundary costs a
 /// crossing per value, where one string plus `JSON.parse` is a single copy.
+#[cfg(feature = "geojson")]
 #[wasm_bindgen(js_name = "tileGeoJson")]
 pub fn tile_geojson(data: &[u8]) -> Result<String, JsError> {
     let mut parser = Parser::default();
@@ -48,7 +54,7 @@ pub fn tile_geojson(data: &[u8]) -> Result<String, JsError> {
     for raw_layer in raw_layers {
         layers.push(raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?);
     }
-    let collection = FeatureCollection::from_layers(layers).map_err(|e| to_js_err(&e))?;
+    let collection = FeatureCollection::from_layers(layers, &mut dec).map_err(|e| to_js_err(&e))?;
     Ok(serde_json::to_string(&collection)?)
 }
 

@@ -757,6 +757,14 @@ impl<'a> MapKeys<'a> {
         }
     }
 
+    /// The bytes a copy of every entry's key takes, a coded key counted once per entry naming it.
+    fn copy_bytes(&self) -> usize {
+        (0..self.entry_count())
+            .filter_map(|entry| self.key(entry))
+            .map(str::len)
+            .fold(0, usize::saturating_add)
+    }
+
     /// The key entry `entry` holds, or [`None`] where it names none.
     fn key(&self, entry: usize) -> Option<&str> {
         match self {
@@ -895,6 +903,12 @@ impl<'a> ParsedNested<'a> {
         self.root.kind()
     }
 
+    /// Charge `dec` for a copy of every value the column's tree holds, before building rows from it.
+    pub(crate) fn charge_row_copies(&self, dec: &mut Decoder) -> MltResult<()> {
+        let bytes = self.root.copy_bytes();
+        dec.consume(u32::try_from(bytes).unwrap_or(u32::MAX))
+    }
+
     /// The value feature `index` carries, or the column's null when it carries none.
     pub fn row(&self, index: usize) -> MltResult<NestedValue> {
         if !self.is_present(index) {
@@ -921,6 +935,22 @@ impl ParsedInterior<'_> {
                 .map_or_else(|| node.present_count(), Vec::len),
             Self::List(node) => node.presence.as_ref().map_or(node.lengths.len(), Vec::len),
             Self::Map(node) => node.presence.as_ref().map_or(node.lengths.len(), Vec::len),
+        }
+    }
+
+    /// The bytes a copy of every value below this node takes.
+    fn copy_bytes(&self) -> usize {
+        match self {
+            Self::Struct(node) => node
+                .fields
+                .iter()
+                .map(|(_, field)| field.copy_bytes())
+                .fold(0, usize::saturating_add),
+            Self::List(node) => node.element.copy_bytes(),
+            Self::Map(node) => node
+                .keys
+                .copy_bytes()
+                .saturating_add(node.value.copy_bytes()),
         }
     }
 
@@ -1055,6 +1085,13 @@ impl ParsedNode<'_> {
         }
     }
 
+    fn copy_bytes(&self) -> usize {
+        match self {
+            Self::Interior(interior) => interior.copy_bytes(),
+            Self::Leaf(leaf) => leaf.copy_bytes(),
+        }
+    }
+
     fn kind(&self) -> NestedKind {
         match self {
             Self::Interior(interior) => interior.kind(),
@@ -1073,6 +1110,30 @@ impl ParsedNode<'_> {
                 Ok(Some(NestedValue::Leaf(value)))
             }
         }
+    }
+}
+
+impl ParsedLeaf<'_> {
+    /// The bytes a copy of every slot takes: a string its bytes, any other slot a whole [`PropValue`].
+    fn copy_bytes(&self) -> usize {
+        let slots = self
+            .presence
+            .as_ref()
+            .map_or_else(|| self.values.len(), Vec::len);
+        let (string_bytes, strings) = if let MValues::Str(values) = &self.values {
+            values
+                .values()
+                .flatten()
+                .fold((0_usize, 0_usize), |(bytes, count), value| {
+                    (bytes.saturating_add(value.len()), count + 1)
+                })
+        } else {
+            (0, 0)
+        };
+        slots
+            .saturating_sub(strings)
+            .saturating_mul(size_of::<PropValue>())
+            .saturating_add(string_bytes)
     }
 }
 

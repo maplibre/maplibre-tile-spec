@@ -482,8 +482,8 @@ fn a_nested_column_becomes_a_json_object() {
     let layers = parser.parse_layers(&bytes).expect("parse");
     let mut dec = Decoder::default();
     let parsed = dec.decode_all(layers).expect("decode_all");
-    let collection =
-        mlt_core::geojson::FeatureCollection::from_layers(parsed).expect("feature collection");
+    let collection = mlt_core::geojson::FeatureCollection::from_layers(parsed, &mut dec)
+        .expect("feature collection");
 
     assert_eq!(
         collection.features[0].properties["n"],
@@ -1282,4 +1282,58 @@ fn struct_of_interiors_layer() -> TileLayer {
 fn a_shape_coded_struct_hands_its_presence_to_interior_fields() {
     let bytes = assert_round_trips_with(&struct_of_interiors_layer(), cfg_row_shapes());
     assert_eq!(shape_labels(&bytes), ["shapes", "shape_table", "shape_ids"]);
+}
+
+#[test]
+fn into_tile_refuses_a_nested_dictionary_entry_named_past_the_budget() {
+    let entry = "x".repeat(1000);
+    let geometries: Vec<_> = (0..100).map(|i| point(i, i)).collect();
+    let values = vec![NestedValue::list([str_value(&entry)]); 100];
+    let layer = nested_layer(NestedKind::list(leaf(PropKind::Str)), &geometries, &values);
+    let bytes = layer.encode(cfg_v2()).expect("v2 encode");
+    assert!(bytes.len() < 2 * 1000, "{} bytes", bytes.len());
+
+    let Some(Layer::Tag02(layer)) = Parser::default().parse_layers(&bytes).expect("parse").pop()
+    else {
+        panic!("expected a v2 layer")
+    };
+    let mut dec = Decoder::with_max_size(64 * 1024);
+    let parsed = layer.decode_all(&mut dec).expect("decode_all");
+    let err = parsed.into_tile(&mut dec).expect_err("into_tile");
+    assert!(
+        matches!(
+            err,
+            MltError::MemoryLimitExceeded {
+                requested: 100_000,
+                ..
+            }
+        ),
+        "{err:?}"
+    );
+}
+
+#[test]
+fn geojson_refuses_a_nested_dictionary_entry_named_past_the_budget() {
+    let entry = "x".repeat(1000);
+    let geometries: Vec<_> = (0..100).map(|i| point(i, i)).collect();
+    let values = vec![NestedValue::list([str_value(&entry)]); 100];
+    let layer = nested_layer(NestedKind::list(leaf(PropKind::Str)), &geometries, &values);
+    let bytes = layer.encode(cfg_v2()).expect("v2 encode");
+    assert!(bytes.len() < 2 * 1000, "{} bytes", bytes.len());
+
+    let layers = Parser::default().parse_layers(&bytes).expect("parse");
+    let mut dec = Decoder::with_max_size(64 * 1024);
+    let parsed = dec.decode_all(layers).expect("decode_all");
+    let err = mlt_core::geojson::FeatureCollection::from_layers(parsed, &mut dec)
+        .expect_err("from_layers");
+    assert!(
+        matches!(
+            err,
+            MltError::MemoryLimitExceeded {
+                requested: 100_000,
+                ..
+            }
+        ),
+        "{err:?}"
+    );
 }

@@ -69,10 +69,23 @@ pub struct GeometryValues {
     /// The grid of each vertex's third word, or [`None`] when the vertices are `(x, y)` pairs.
     #[cfg(feature = "unstable-v2")]
     pub(crate) z_axis: Option<ZAxis>,
-    /// Whether this geometry belongs to a v2 `Meshes` layer, kept even when it holds zero features.
-    #[cfg(feature = "unstable-v2")]
+    /// What the triangle columns hold, kept even when the layer holds zero features.
     #[dbg(skip)]
-    pub(crate) meshes: bool,
+    pub(crate) layout: GeometryLayout,
+}
+
+/// What a layer's triangle columns hold, which tells apart the two uses of
+/// [`GeometryValues::index_buffer`] and [`GeometryValues::triangle_offsets`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum GeometryLayout {
+    /// No triangles: only outlines.
+    #[default]
+    Plain,
+    /// The triangles of each polygon feature, with or without its outlines.
+    Tessellated,
+    /// Every feature is a [`GeometryType::Mesh`], whose vertex run and triangles are all it has.
+    #[cfg(feature = "unstable-v2")]
+    Meshes,
 }
 
 /// Types of geometries supported in MLT

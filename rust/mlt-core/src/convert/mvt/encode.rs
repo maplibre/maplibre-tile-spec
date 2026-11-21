@@ -91,6 +91,8 @@ mod tests {
             nested_kinds: vec![],
             #[cfg(feature = "unstable-v2")]
             z_axis: None,
+            #[cfg(feature = "unstable-v2")]
+            meshes: false,
             features: vec![],
         };
 

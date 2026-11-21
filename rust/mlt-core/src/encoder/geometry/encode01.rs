@@ -9,8 +9,8 @@ use super::streams::{
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
-    ColumnType, GeometryType, GeometryValues, LengthType, Levels, LogicalEncoding, OffsetType,
-    StreamType, VertexLogical, decode_topology,
+    ColumnType, GeometryLayout, GeometryType, GeometryValues, LengthType, Levels, LogicalEncoding,
+    OffsetType, StreamType, VertexLogical, decode_topology,
 };
 use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
@@ -32,11 +32,13 @@ impl GeometryValues {
             #[cfg(feature = "unstable-v2")]
             z_axis,
             #[cfg(feature = "unstable-v2")]
-            meshes,
+            layout,
+            #[cfg(not(feature = "unstable-v2"))]
+                layout: _,
         } = self;
 
         #[cfg(feature = "unstable-v2")]
-        if meshes || vector_types.contains(&GeometryType::Mesh) {
+        if layout == GeometryLayout::Meshes {
             return Err(MltError::MeshNeedsV2(String::new()));
         }
         #[cfg(feature = "unstable-v2")]
@@ -283,8 +285,7 @@ fn feature_relative_triangles(
         vertices: None,
         #[cfg(feature = "unstable-v2")]
         z_axis: None,
-        #[cfg(feature = "unstable-v2")]
-        meshes: false,
+        layout: GeometryLayout::Tessellated,
     };
     dense.rebase_indices_to_feature()?;
     Ok((triangles, dense.index_buffer.unwrap_or_default()))

@@ -77,12 +77,23 @@ pub(crate) trait LayerSource {
 #[cfg(feature = "unstable-v2")]
 #[derive(Default)]
 pub(crate) struct V2Layout<'a> {
-    /// Parallel to [`LayerSource::m_value_kinds`]; a source without scopes holds vertex-scoped
-    /// columns only.
-    pub(crate) m_value_scopes: &'a [MValueScope],
+    /// Parallel to [`LayerSource::m_value_kinds`], or [`None`] for a source whose columns are all
+    /// vertex-scoped.
+    pub(crate) m_value_scopes: Option<&'a [MValueScope]>,
     pub(crate) nested_names: &'a [String],
     pub(crate) nested_kinds: &'a [NestedKind],
     pub(crate) z_axis: Option<ZAxis>,
+    /// Whether every feature is a mesh, which a Meshes layer says even when it holds none.
+    pub(crate) meshes: bool,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl V2Layout<'_> {
+    /// What m-value `column` holds one value per.
+    pub(crate) fn m_value_scope(&self, column: usize) -> MValueScope {
+        self.m_value_scopes
+            .map_or(MValueScope::Vertex, |scopes| scopes[column])
+    }
 }
 
 /// The order features are staged in: as stored, or a permutation of them.
@@ -201,10 +212,11 @@ impl LayerSource for TileLayer {
     #[cfg(feature = "unstable-v2")]
     fn v2_layout(&self) -> V2Layout<'_> {
         V2Layout {
-            m_value_scopes: &self.m_value_scopes,
+            m_value_scopes: Some(&self.m_value_scopes),
             nested_names: &self.nested_names,
             nested_kinds: &self.nested_kinds,
             z_axis: self.z_axis,
+            meshes: self.meshes,
         }
     }
 
@@ -238,7 +250,7 @@ impl LayerSource for TileLayer {
             return false;
         };
         // A triangle's value belongs to the triangle, so it stays put when the vertices move.
-        let moves = if self.m_value_scopes.get(column) == Some(&MValueScope::Triangle) {
+        let moves = if self.m_value_scopes[column] == MValueScope::Triangle {
             &VertexMoves::Kept
         } else {
             moves

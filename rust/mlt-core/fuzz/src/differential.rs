@@ -62,10 +62,10 @@ fn rust_decode(buffer: &[u8]) -> String {
     let layers = Parser::default()
         .parse_layers(buffer)
         .expect("layer must re-parse");
-    let parsed = Decoder::default()
-        .decode_all(layers)
-        .expect("decode should not fail");
-    let fc = FeatureCollection::from_layers(parsed).expect("FeatureCollection should build");
+    let mut dec = Decoder::default();
+    let parsed = dec.decode_all(layers).expect("decode should not fail");
+    let fc =
+        FeatureCollection::from_layers(parsed, &mut dec).expect("FeatureCollection should build");
     serde_json::to_string(&fc).expect("FeatureCollection should serialize")
 }
 

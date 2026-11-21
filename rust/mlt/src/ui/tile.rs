@@ -45,9 +45,10 @@ impl ParsedTile {
     pub(crate) fn load(path: &Path) -> anyhow::Result<Self> {
         let buf = fs::read(path)?;
         if is_mlt_extension(path) {
-            let layers = Decoder::default().decode_all(Parser::default().parse_layers(&buf)?)?;
+            let mut dec = Decoder::default();
+            let layers = dec.decode_all(Parser::default().parse_layers(&buf)?)?;
             let mut triangles = layer_triangles(&layers)?;
-            let fc = FeatureCollection::from_layers(layers)?;
+            let fc = FeatureCollection::from_layers(layers, &mut dec)?;
             triangles.resize(fc.features.len(), None);
             Ok(Self {
                 extent: extent_from_fc(&fc),

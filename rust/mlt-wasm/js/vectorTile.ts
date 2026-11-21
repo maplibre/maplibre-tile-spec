@@ -9,16 +9,19 @@ import {
   decodeTileColumns,
   type HeightMode,
   type MltColumnLayer,
+  type MltColumnValues,
+  type MltGeometryLayout,
   type MltGeometryType,
+  type MltMValueColumn,
   type MltNamedColumn,
+  mValueSlice,
 } from "./columns";
 import {
   geometryStart,
-  isTrianglesOnly,
   lineStart,
+  meshTriangles,
   polygonLevels,
   runLength,
-  trianglesOnlyLayout,
 } from "./featureGeometry";
 
 // ---------------------------------------------------------------------------
@@ -79,21 +82,37 @@ function closedRings<T>(
 // Shared per-layer state
 // ---------------------------------------------------------------------------
 
-/** MVT type (1/2/3) of each `MltGeometryType`, which a mesh has none of. */
-const MVT_TYPES: readonly (1 | 2 | 3)[] = [
+/** MVT type (1/2/3) of each `MltGeometryType`; MVT has none for a mesh. */
+const MVT_TYPES = [
   POINT,
   LINESTRING,
   POLYGON,
   POINT,
   LINESTRING,
   POLYGON,
-];
+  0,
+] as const;
 
 /** A layer's decoded columns, and what its features read off them once per layer. */
 interface LayerData {
   readonly layer: MltColumnLayer;
-  /** A `TessPolygons` or `Meshes` layer, which has triangles and no outlines for its geometry. */
-  readonly trianglesOnly: boolean;
+  readonly layout: MltGeometryLayout;
+  readonly vertexValues: ReadonlyMap<string, MltMValueColumn>;
+  readonly triangleValues: ReadonlyMap<string, MltMValueColumn>;
+}
+
+const NO_COLUMNS: ReadonlyMap<string, MltMValueColumn> = new Map();
+
+/** `columns` by name; the first of two that share one. */
+function byName(
+  columns: readonly MltMValueColumn[],
+): ReadonlyMap<string, MltMValueColumn> {
+  if (columns.length === 0) return NO_COLUMNS;
+  const map = new Map<string, MltMValueColumn>();
+  for (const column of columns) {
+    if (!map.has(column.name)) map.set(column.name, column);
+  }
+  return map;
 }
 
 /** Reads `column` at `index` as the value a feature's `properties` holds. */
@@ -144,18 +163,54 @@ abstract class FeatureBase<V> {
     return result;
   }
 
+  /**
+   * A mesh's triangles, three indices per triangle into the one ring `loadGeometry()` returns.
+   * Throws for a feature that is not a mesh.
+   */
+  loadTriangles(): Uint32Array {
+    if (this._layer.layout !== "meshes") {
+      throw new Error(
+        `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`,
+      );
+    }
+    return meshTriangles(this._layer.layer.geometry, this._featureIdx);
+  }
+
+  /**
+   * This feature's values of vertex m-value column `name`, one per stored vertex, or `undefined` when the layer has no such column or it is null here.
+   * A polygon ring's closing point is not stored, so it has no value, as in `MltFeature.loadZ`.
+   */
+  loadVertexValues(name: string): MltColumnValues | undefined {
+    return this.slice(this._layer.vertexValues, name);
+  }
+
+  /**
+   * This feature's values of triangle m-value column `name`, one per triangle of `loadTriangles()`, or `undefined` when the layer has no such column or it is null here.
+   * Only a `Meshes` layer has triangle m-value columns.
+   */
+  loadTriangleValues(name: string): MltColumnValues | undefined {
+    return this.slice(this._layer.triangleValues, name);
+  }
+
+  private slice(
+    columns: ReadonlyMap<string, MltMValueColumn>,
+    name: string,
+  ): MltColumnValues | undefined {
+    const column = columns.get(name);
+    return column && mValueSlice(column, this._featureIdx);
+  }
+
   /** Builds the value this feature's geometry holds for vertex `i`. */
   protected abstract vertex(): VertexOf<V>;
 
   /**
    * The run of geometries (points, lines or polygons) this feature is. Throws for a
-   * `TessPolygons` or `Meshes` feature, whose outlines are not stored.
+   * `TessPolygons` feature, whose outlines are not stored.
    */
   protected geometries(): [start: number, end: number] {
-    if (this._layer.trianglesOnly) {
-      const { layer } = this._layer;
+    if (this._layer.layout === "tessPolygons") {
       throw new Error(
-        `layer "${layer.name}" is a ${trianglesOnlyLayout(layer.geometry)} layer, which stores triangles, not outlines`,
+        `layer "${this._layer.layer.name}" is a TessPolygons layer, which stores triangles, not outlines`,
       );
     }
     const { geometry } = this._layer.layer;
@@ -165,11 +220,17 @@ abstract class FeatureBase<V> {
     ];
   }
 
-  /** A ring of one per point, one per line, and every polygon ring closed, as @mapbox/vector-tile. */
+  /**
+   * A ring of one per point, one per line, and every polygon ring closed, as @mapbox/vector-tile.
+   * A mesh is one ring of its vertices.
+   */
   protected rings(): V[][] {
     const { geometry } = this._layer.layer;
     const vertex = this.vertex();
     const [g0, g1] = this.geometries();
+    if (this._layer.layout === "meshes") {
+      return [readRun(vertex, g0, g1, false)];
+    }
     switch (this.type) {
       case POINT: {
         const [v0, v1] = [lineStart(geometry, g0), lineStart(geometry, g1)];
@@ -201,6 +262,11 @@ abstract class FeatureBase<V> {
 
   /** Rings grouped by polygon. */
   protected polygons(): V[][][] {
+    if (this._layer.layout === "meshes") {
+      throw new Error(
+        `feature ${this._featureIdx} of layer "${this._layer.layer.name}" is a mesh; use loadGeometry() and loadTriangles() instead of loadPolygons()`,
+      );
+    }
     if (this.type !== POLYGON) return [this.rings()];
     const { geometry } = this._layer.layer;
     const vertex = this.vertex();
@@ -225,6 +291,9 @@ export class MltFeature
 {
   /** The z grid as the power of ten of its step in metres, or `undefined` when the layer has none. */
   readonly zStep: number | undefined = this._layer.layer.geometry.zStep;
+  /** What a z of `0` stands for, or `undefined` when the layer has no z and sits on the ground. */
+  readonly heightMode: HeightMode | undefined =
+    this._layer.layer.geometry.heightMode;
 
   loadGeometry(): Point[][] {
     return this.rings();
@@ -261,6 +330,7 @@ export class MltFeature3D extends FeatureBase<Position3D> {
     featureIdx: number,
     layer: LayerData,
     readonly zStep: number,
+    readonly heightMode: HeightMode = "absolute",
   ) {
     super(featureIdx, layer);
   }
@@ -293,15 +363,26 @@ abstract class LayerBase {
   readonly propertyColumns: readonly MltNamedColumn[];
   /** The property column names, parallel to `propertyColumns`. */
   readonly propertyKeys: readonly string[];
+  /** The m-value columns over the vertices, see `decodeTileColumns`; empty for a v1 layer. */
+  readonly vertexValues: readonly MltMValueColumn[];
+  /** The m-value columns over the triangles; empty unless the layer is a `Meshes` layer. */
+  readonly triangleValues: readonly MltMValueColumn[];
   protected readonly _data: LayerData;
 
   constructor(layer: MltColumnLayer) {
-    this._data = { layer, trianglesOnly: isTrianglesOnly(layer.geometry) };
+    this._data = {
+      layer,
+      layout: layer.geometry.layout,
+      vertexValues: byName(layer.vertexValues),
+      triangleValues: byName(layer.triangleValues),
+    };
     this.name = layer.name;
     this.extent = layer.extent;
     this.length = layer.featureCount;
     this.propertyColumns = layer.properties;
     this.propertyKeys = layer.properties.map((column) => column.name);
+    this.vertexValues = layer.vertexValues;
+    this.triangleValues = layer.triangleValues;
   }
 
   /** `i`, checked to be a feature of this layer, so that a bad index fails where it is given. */
@@ -332,7 +413,6 @@ export class MltLayer extends LayerBase implements VectorTileLayerLike {
 export class MltLayer3D extends LayerBase {
   /** The z grid as the power of ten of its step in metres; `toElevation` gives a z in metres. */
   readonly zStep: number;
-
   /** What a z of `0` stands for. */
   readonly heightMode: HeightMode;
 
@@ -342,18 +422,16 @@ export class MltLayer3D extends LayerBase {
    */
   constructor(layer: MltColumnLayer) {
     super(layer);
-    const { zStep, heightMode, indexBuffer } = layer.geometry;
+    const { zStep, heightMode } = layer.geometry;
     if (zStep === undefined || heightMode === undefined) {
       throw new Error(
         `layer "${layer.name}" has no z coordinates; decode the tile with decodeTile() instead`,
       );
     }
-    if (indexBuffer !== undefined) {
-      const layout = this._data.trianglesOnly
-        ? trianglesOnlyLayout(layer.geometry)
-        : "TessPolygonsWithOutlines";
+    const { layout } = this._data;
+    if (layout === "tessPolygons" || layout === "tessPolygonsWithOutlines") {
       throw new Error(
-        `layer "${layer.name}" uses the ${layout} geometry layout, which decodeTile3D does not support`,
+        `layer "${layer.name}" uses the ${layout === "tessPolygons" ? "TessPolygons" : "TessPolygonsWithOutlines"} geometry layout, which decodeTile3D does not support`,
       );
     }
     this.zStep = zStep;
@@ -361,7 +439,12 @@ export class MltLayer3D extends LayerBase {
   }
 
   feature(i: number): MltFeature3D {
-    return new MltFeature3D(this.featureIndex(i), this._data, this.zStep);
+    return new MltFeature3D(
+      this.featureIndex(i),
+      this._data,
+      this.zStep,
+      this.heightMode,
+    );
   }
 }
 
@@ -404,7 +487,8 @@ export interface MltTile3D {
 }
 
 /**
- * Decode a tile whose every layer has z coordinates, so every vertex is `[x, y, z]`.
+ * Decode a tile whose every layer has z coordinates, so every vertex is `[x, y, z]`, including
+ * `Meshes` layers, whose features have `loadTriangles()`.
  *
  * Throws when any layer has none, for which `decodeTile` reads the tile in 2D, or when any
  * layer uses the `TessPolygons`, `TessPolygonsWithOutlines` or `Meshes` geometry layout.

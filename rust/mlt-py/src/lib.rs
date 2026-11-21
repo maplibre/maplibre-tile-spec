@@ -319,6 +319,7 @@ fn decode_mlt(
                 ));
             }
         };
+        decoded.charge_string_copies(&mut dec).map_err(mlt_err)?;
         let extent = decoded.extent().get();
         let xf = match (z, x, y) {
             (Some(z), Some(x), Some(y)) => Some(TileTransform::from_zxy(z, x, y, extent, tms)?),
@@ -352,7 +353,7 @@ fn decode_mlt_to_geojson(
     let layers = dec
         .decode_all(Parser::default().parse_layers(data).map_err(mlt_err)?)
         .map_err(mlt_err)?;
-    let fc = FeatureCollection::from_layers(layers).map_err(mlt_err)?;
+    let fc = FeatureCollection::from_layers(layers, &mut dec).map_err(mlt_err)?;
     serde_json::to_string(&fc).map_err(|e| PyValueError::new_err(format!("JSON error: {e}")))
 }
 
@@ -504,7 +505,8 @@ mod tests {
         let l = first_layer01(&decoded);
         assert!(!l.name().is_empty(), "layer name should be non-empty");
 
-        let fc = FeatureCollection::from_layers(decoded).expect("FeatureCollection should succeed");
+        let fc = FeatureCollection::from_layers(decoded, &mut dec)
+            .expect("FeatureCollection should succeed");
         assert!(
             !fc.features.is_empty(),
             "feature collection should have features"

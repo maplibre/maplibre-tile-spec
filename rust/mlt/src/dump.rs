@@ -59,7 +59,8 @@ fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> AnyResult<()> 
             if decode == AfterDump::KeepRaw {
                 bail!("GeoJSON output only works with `mlt decode`");
             }
-            let fc = FeatureCollection::from_layers(Decoder::default().decode_all(layers)?)?;
+            let mut dec = Decoder::default();
+            let fc = FeatureCollection::from_layers(dec.decode_all(layers)?, &mut dec)?;
             println!("{}", serde_json::to_string_pretty(&fc)?);
         }
     }

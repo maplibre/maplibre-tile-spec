@@ -92,7 +92,8 @@ impl Arbitrary<'_> for StagedLayer {
         #[cfg(feature = "unstable-v2")]
         {
             let mut geometry = geometry;
-            if geometry.is_meshes() || u.arbitrary()? {
+            let meshes = geometry.layout() == crate::GeometryLayout::Meshes;
+            if meshes || u.arbitrary()? {
                 let exponent =
                     u.int_in_range(crate::ZStep::MIN_EXPONENT..=crate::ZStep::MAX_EXPONENT)?;
                 let step = crate::ZStep::new(exponent).map_err(|_| IncorrectFormat)?;
@@ -138,7 +139,7 @@ fn generate_m_value(
     } else {
         Some(generate_scalars(u, features)?)
     };
-    let scope = if geometry.is_meshes() && u.arbitrary()? {
+    let scope = if geometry.layout() == crate::GeometryLayout::Meshes && u.arbitrary()? {
         crate::MValueScope::Triangle
     } else {
         crate::MValueScope::Vertex
@@ -146,15 +147,9 @@ fn generate_m_value(
     let mut count = 0;
     for index in 0..features {
         if presence.as_ref().is_none_or(|mask| mask[index]) {
-            count += match scope {
-                crate::MValueScope::Vertex => {
-                    geometry.vertex_count(index).map_err(|_| IncorrectFormat)?
-                }
-                crate::MValueScope::Triangle => geometry
-                    .mesh_triangles(index)
-                    .map_err(|_| IncorrectFormat)?
-                    .map_or(0, <[[u32; 3]]>::len),
-            };
+            count += geometry
+                .value_count(index, scope)
+                .map_err(|_| IncorrectFormat)?;
         }
     }
     Ok(StagedMValue::new(name, presence, generate_values(u, count)?).with_scope(scope))

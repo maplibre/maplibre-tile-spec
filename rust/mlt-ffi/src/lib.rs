@@ -541,6 +541,7 @@ mod tests {
                 nested_names: [],
                 nested_kinds: [],
                 z_axis: None,
+                meshes: false,
                 features: [
                     TileFeature {
                         id: Some(
