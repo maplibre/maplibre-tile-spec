@@ -10,15 +10,17 @@ use fast_mvt::{MvtFeatureBuilder, MvtGeomType, MvtLayerBuilder, MvtTileBuilder};
 use geo_types::Coord;
 
 use crate::decoder::GeometryType;
-#[cfg(feature = "unstable-v2")]
-use crate::encoder::StagedValues;
 use crate::encoder::{EncoderConfig, GeometryStager, LayerSource, encode_layer};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::{StagedValues, V2Layout};
 use crate::mvt::write_mvt_layer;
 use crate::tile::{
     ColumnRole, Extent, PropKind, PropertyKey, reject_taken_name, validate_layer_name,
 };
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValueKey, VertexMoves, stored_len};
+use crate::tile::{
+    MValueKey, NestedKey, NestedKind, NestedValue, VertexMoves, stored_len, validate_nested_kind,
+};
 use crate::{MltError, MltResult, PropValueRef};
 
 /// A layer written feature by feature, straight from borrowed values, and encoded exactly as the
@@ -26,7 +28,7 @@ use crate::{MltError, MltResult, PropValueRef};
 ///
 /// Names and string values are borrowed for `'a`.
 /// [`LayerWriter::reset`] keeps the buffers for the next layer.
-/// A [`PropertyKey`] or `MValueKey` means nothing after [`LayerWriter::reset`].
+/// A [`PropertyKey`], `MValueKey` or `NestedKey` means nothing after [`LayerWriter::reset`].
 ///
 /// ```
 /// use mlt_core::encoder::{EncoderConfig, Network, Profile};
@@ -54,6 +56,8 @@ pub struct LayerWriter<'a> {
     geometry: Geometries,
     #[cfg(feature = "unstable-v2")]
     m_values: MValueColumns<'a>,
+    #[cfg(feature = "unstable-v2")]
+    nested: NestedColumns,
 }
 
 /// One value or none per feature. Strings are kept as references, and every other kind as the
@@ -269,6 +273,47 @@ impl MValueColumn<'_> {
     }
 }
 
+/// The nested columns of a layer, and the columns of an earlier layer kept for their buffers.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Default)]
+struct NestedColumns {
+    names: Vec<String>,
+    kinds: Vec<NestedKind>,
+    /// One value per feature in each column, null where the feature set none.
+    columns: Vec<Vec<NestedValue>>,
+    spare: Vec<Vec<NestedValue>>,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl NestedColumns {
+    /// Starts over with no columns, keeping their buffers but not the values they held.
+    fn clear(&mut self) {
+        self.names.clear();
+        self.kinds.clear();
+        for mut column in self.columns.drain(..) {
+            column.clear();
+            self.spare.push(column);
+        }
+    }
+
+    /// Adds a column of `kind` that the `features` written so far are null in.
+    fn add(&mut self, name: &str, kind: NestedKind, features: usize) -> NestedKey {
+        let mut column = self.spare.pop().unwrap_or_default();
+        column.resize_with(features, || kind.null_value());
+        self.columns.push(column);
+        self.names.push(name.to_owned());
+        self.kinds.push(kind);
+        NestedKey::new(self.names.len() - 1)
+    }
+
+    /// Makes every column hold exactly `len` features, the ones it had or null ones.
+    fn resize(&mut self, len: usize) {
+        for (column, kind) in self.columns.iter_mut().zip(&self.kinds) {
+            column.resize_with(len, || kind.null_value());
+        }
+    }
+}
+
 /// Every feature's geometry as groups of parts of coordinates, each level holding the cumulative
 /// end of its children.
 #[derive(Debug, Clone, Default)]
@@ -294,6 +339,8 @@ impl<'a> LayerWriter<'a> {
             geometry: Geometries::default(),
             #[cfg(feature = "unstable-v2")]
             m_values: MValueColumns::default(),
+            #[cfg(feature = "unstable-v2")]
+            nested: NestedColumns::default(),
         })
     }
 
@@ -309,17 +356,26 @@ impl<'a> LayerWriter<'a> {
         self.geometry.clear();
         #[cfg(feature = "unstable-v2")]
         self.m_values.clear();
+        #[cfg(feature = "unstable-v2")]
+        self.nested.clear();
         Ok(())
     }
 
     /// Every column name in use, with the kind of column that holds it.
-    fn taken_names(&self) -> impl Iterator<Item = (&'a str, ColumnRole)> + '_ {
+    fn taken_names(&self) -> impl Iterator<Item = (&str, ColumnRole)> + '_ {
         let taken = self
             .property_names
             .iter()
             .map(|&n| (n, ColumnRole::Property));
         #[cfg(feature = "unstable-v2")]
         let taken = taken.chain(self.m_values.names.iter().map(|&n| (n, ColumnRole::MValue)));
+        #[cfg(feature = "unstable-v2")]
+        let taken = taken.chain(
+            self.nested
+                .names
+                .iter()
+                .map(|n| (n.as_str(), ColumnRole::Nested)),
+        );
         taken
     }
 
@@ -345,6 +401,18 @@ impl<'a> LayerWriter<'a> {
         reject_taken_name(name, ColumnRole::MValue, self.taken_names())?;
         let features = self.feature_count();
         Ok(self.m_values.add(name, kind, features))
+    }
+
+    /// Adds a nested column of lists and maps shaped like `kind`, which the features written so
+    /// far are null in.
+    ///
+    /// A scalar root is an ordinary property column, so [`NestedKind::Leaf`] is rejected here.
+    #[cfg(feature = "unstable-v2")]
+    pub fn add_nested(&mut self, name: &str, kind: NestedKind) -> MltResult<NestedKey> {
+        reject_taken_name(name, ColumnRole::Nested, self.taken_names())?;
+        validate_nested_kind(name, &kind)?;
+        let features = self.feature_count();
+        Ok(self.nested.add(name, kind, features))
     }
 
     /// Starts a feature of `geometry_type`. It joins the layer when [`FeatureWriter::finish`]
@@ -462,6 +530,37 @@ impl<'a> FeatureWriter<'_, 'a> {
         Ok(self)
     }
 
+    /// Sets the feature's value in the `key` nested column, which the column's shape must accept.
+    ///
+    /// A feature that sets none is null in the column.
+    #[cfg(feature = "unstable-v2")]
+    pub fn nested(&mut self, key: NestedKey, value: NestedValue) -> MltResult<&mut Self> {
+        let index = key.index();
+        let feature = self.layer.ids.len();
+        let nested = &mut self.layer.nested;
+        let Some(kind) = nested.kinds.get(index) else {
+            return Err(MltError::UnknownNestedKey {
+                index,
+                columns: nested.kinds.len(),
+            });
+        };
+        if !kind.null_value().same_shape(&value) {
+            return Err(MltError::NestedShapeMismatch { index });
+        }
+        if !kind.accepts(&value) {
+            return Err(MltError::NestedValueMismatch {
+                index,
+                name: nested.names[index].clone(),
+            });
+        }
+        let column = &mut nested.columns[index];
+        if column.len() <= feature {
+            column.resize_with(feature + 1, || kind.null_value());
+        }
+        column[feature] = value;
+        Ok(self)
+    }
+
     /// Adds points to a [`GeometryType::Point`] (which holds exactly one) or
     /// [`GeometryType::MultiPoint`] feature.
     pub fn points(&mut self, coords: impl IntoIterator<Item = Coord<i32>>) -> MltResult<&mut Self> {
@@ -554,6 +653,7 @@ impl<'a> FeatureWriter<'_, 'a> {
                 .m_values
                 .check_runs(feature, || geometry.stored_since(self.start, rings))?;
             layer.m_values.finish_feature(feature)?;
+            layer.nested.resize(feature + 1);
         }
         // The last step that can fail, since a discarded feature leaves its geometry types behind.
         layer.geometry.finish_feature(self.geometry_type)?;
@@ -578,7 +678,12 @@ impl Drop for FeatureWriter<'_, '_> {
             column.truncate(feature);
         }
         #[cfg(feature = "unstable-v2")]
-        layer.m_values.truncate(feature);
+        {
+            layer.m_values.truncate(feature);
+            for column in &mut layer.nested.columns {
+                column.truncate(feature);
+            }
+        }
         layer.geometry.rewind(self.start);
     }
 }
@@ -789,6 +894,20 @@ impl LayerSource for LayerWriter<'_> {
                 .parts(group..group + 1)
                 .map(move |part| geometry.part(part))
         })
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn v2_layout(&self) -> V2Layout<'_> {
+        V2Layout {
+            nested_names: &self.nested.names,
+            nested_kinds: &self.nested.kinds,
+            ..V2Layout::default()
+        }
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn nested(&self, feature: usize, column: usize) -> Option<&NestedValue> {
+        self.nested.columns[column].get(feature)
     }
 
     #[cfg(feature = "unstable-v2")]

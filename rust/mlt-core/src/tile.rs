@@ -364,6 +364,10 @@ pub struct NestedKey(usize);
 
 #[cfg(feature = "unstable-v2")]
 impl NestedKey {
+    pub(crate) const fn new(index: usize) -> Self {
+        Self(index)
+    }
+
     #[must_use]
     pub fn index(self) -> usize {
         self.0
@@ -506,7 +510,7 @@ impl NestedValue {
 
     /// Whether the two are the same kind of value, which is all a feature can check
     /// without the column's shape.
-    fn same_shape(&self, other: &Self) -> bool {
+    pub(crate) fn same_shape(&self, other: &Self) -> bool {
         matches!(
             (self, other),
             (Self::Leaf(_), Self::Leaf(_))
@@ -1731,7 +1735,7 @@ pub(crate) fn stored_vertex_count(geom: &Geometry<i32>) -> usize {
 /// Check a nested column's shape: an interior root, no empty field set, and no
 /// more levels than the wire allows.
 #[cfg(feature = "unstable-v2")]
-fn validate_nested_kind(name: &str, kind: &NestedKind) -> MltResult<()> {
+pub(crate) fn validate_nested_kind(name: &str, kind: &NestedKind) -> MltResult<()> {
     if matches!(kind, NestedKind::Leaf(_)) {
         return Err(MltError::NestedRootIsLeaf(name.to_string()));
     }
