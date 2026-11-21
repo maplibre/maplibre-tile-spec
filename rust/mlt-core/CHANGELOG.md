@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.22.2...rust-mlt-core-v0.22.3) - 2026-11-21
+
+### Added
+
+- *(rust)* opt-in vertex sort (--vertex-sort) ([#2064](https://github.com/maplibre/maplibre-tile-spec/pull/2064))
+- *(rust)* implement v2 Meshes layout, triangle-scoped m-values, and cycle-ordered mesh encoding ([#2079](https://github.com/maplibre/maplibre-tile-spec/pull/2079))
+- *(v2)* sea-level z and KML height modes ([#2053](https://github.com/maplibre/maplibre-tile-spec/pull/2053))
+- *(rust)* m-value columns in `LayerWriter` ([#2050](https://github.com/maplibre/maplibre-tile-spec/pull/2050))
+
+### Fixed
+
+- *(rust)* tessellate polygons whose holes reach past their shell's bounding box ([#2051](https://github.com/maplibre/maplibre-tile-spec/pull/2051))
+
+### Other
+
+- *(rust)* v2 mesh synthetics ([#2081](https://github.com/maplibre/maplibre-tile-spec/pull/2081))
+- *(rust)* merge split `crate::encoder` imports in tests ([#2069](https://github.com/maplibre/maplibre-tile-spec/pull/2069))
+- *(rust)* bump pmtiles, fast-mvt, pyo3, hotpath to latest ([#2062](https://github.com/maplibre/maplibre-tile-spec/pull/2062))
+- *(rust)* use as_chunks in the triangle canonicalisers ([#2055](https://github.com/maplibre/maplibre-tile-spec/pull/2055))
+- *(deps)* bump earcut from 0.4.10 to 0.4.12 in /rust in the all-cargo-version-updates group ([#2052](https://github.com/maplibre/maplibre-tile-spec/pull/2052))
+
 ## [0.22.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.22.1...rust-mlt-core-v0.22.2) - 2026-11-15
 
 ### Other
