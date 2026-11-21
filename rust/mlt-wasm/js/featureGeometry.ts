@@ -10,7 +10,10 @@ import {
  * (when `dimension` is 3) on the layer's grid.
  */
 export type MltFeatureGeometry =
-  MltPointGeometry | MltLineGeometry | MltPolygonGeometry | MltMeshGeometry;
+  | MltPointGeometry
+  | MltLineGeometry
+  | MltPolygonGeometry
+  | MltMeshGeometry;
 
 interface MltFeatureGeometryBase {
   readonly type: MltGeometryType;
