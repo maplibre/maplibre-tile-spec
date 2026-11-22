@@ -69,7 +69,7 @@ jobs:
       run-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
     secrets: inherit
-    permissions: { contents: write, id-token: write, code-quality: write, pull-requests: read }
+    permissions: { actions: write, contents: write, id-token: write, code-quality: write, pull-requests: read }
 
   java:
     needs: changes
