@@ -1,6 +1,7 @@
 use mlt_core::encoder::SortStrategy::Unsorted;
 use mlt_core::encoder::{EncoderConfig, StagedLayer, Tessellation, stage_tile};
-use mlt_core::{MValue, MValueScope, TileLayer};
+use mlt_core::geo_types::Geometry;
+use mlt_core::{MValue, MValueScope, TileFeature, TileLayer};
 
 use crate::roundtrip::encode_decode;
 
@@ -25,14 +26,14 @@ impl DecodedLayerInput {
         };
         let tile2 = restage_roundtrip(&tile1, cfg);
 
-        // Same roundtrip again - must be a fixpoint (up to triangle order/corner rotation on meshes).
+        // Same roundtrip again - must be a fixpoint (up to triangle order, corner rotation and vertex order on meshes).
         let tile3 = restage_roundtrip(&tile2, cfg);
         assert_same_decoded_layer(&tile2, &tile3);
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum TriMValue<'a> {
+enum MValueAt<'a> {
     Null,
     Bool(bool),
     I8(i8),
@@ -46,7 +47,7 @@ enum TriMValue<'a> {
     Str(&'a str),
 }
 
-fn tri_m_value_at(value: &MValue, tri_idx: usize) -> TriMValue<'_> {
+fn m_value_at(value: &MValue, idx: usize) -> MValueAt<'_> {
     let f32_bits = |v: f32| {
         if v.to_bits() == (-0.0_f32).to_bits() {
             0
@@ -64,42 +65,79 @@ fn tri_m_value_at(value: &MValue, tri_idx: usize) -> TriMValue<'_> {
     match value {
         MValue::Bool(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::Bool(xs[tri_idx])),
+            .map_or(MValueAt::Null, |xs| MValueAt::Bool(xs[idx])),
         MValue::I8(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::I8(xs[tri_idx])),
+            .map_or(MValueAt::Null, |xs| MValueAt::I8(xs[idx])),
         MValue::U8(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::U8(xs[tri_idx])),
+            .map_or(MValueAt::Null, |xs| MValueAt::U8(xs[idx])),
         MValue::I32(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::I32(xs[tri_idx])),
+            .map_or(MValueAt::Null, |xs| MValueAt::I32(xs[idx])),
         MValue::U32(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::U32(xs[tri_idx])),
+            .map_or(MValueAt::Null, |xs| MValueAt::U32(xs[idx])),
         MValue::I64(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::I64(xs[tri_idx])),
+            .map_or(MValueAt::Null, |xs| MValueAt::I64(xs[idx])),
         MValue::U64(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::U64(xs[tri_idx])),
+            .map_or(MValueAt::Null, |xs| MValueAt::U64(xs[idx])),
         MValue::F32(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::F32(f32_bits(xs[tri_idx]))),
+            .map_or(MValueAt::Null, |xs| MValueAt::F32(f32_bits(xs[idx]))),
         MValue::F64(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::F64(f64_bits(xs[tri_idx]))),
+            .map_or(MValueAt::Null, |xs| MValueAt::F64(f64_bits(xs[idx]))),
         MValue::Str(v) => v
             .as_ref()
-            .map_or(TriMValue::Null, |xs| TriMValue::Str(xs[tri_idx].as_str())),
+            .map_or(MValueAt::Null, |xs| MValueAt::Str(xs[idx].as_str())),
     }
 }
 
-fn canonical_triangles<'a>(
-    tris: &[[u32; 3]],
+/// A mesh vertex by what it holds, so a renumbering of the vertices compares equal.
+type MeshVertex<'a> = (i32, i32, Option<i32>, Vec<MValueAt<'a>>);
+
+fn mesh_vertices<'a>(feature: &'a TileFeature, scopes: &[MValueScope]) -> Vec<MeshVertex<'a>> {
+    let Geometry::MultiPoint(points) = feature.geometry() else {
+        panic!("a mesh is a multi-point, got {:?}", feature.geometry());
+    };
+    points
+        .iter()
+        .enumerate()
+        .map(|(idx, p)| {
+            let values = scoped_values_at(feature.m_values(), scopes, MValueScope::Vertex, idx);
+            (p.x(), p.y(), feature.z().get(idx).copied(), values)
+        })
+        .collect()
+}
+
+fn scoped_values_at<'a>(
     m_values: &'a [MValue],
     scopes: &[MValueScope],
-) -> Vec<([u32; 3], Vec<TriMValue<'a>>)> {
+    scope: MValueScope,
+    idx: usize,
+) -> Vec<MValueAt<'a>> {
+    m_values
+        .iter()
+        .zip(scopes)
+        .filter(|&(_, s)| *s == scope)
+        .map(|(mv, _)| m_value_at(mv, idx))
+        .collect()
+}
+
+fn sorted<T: Ord>(mut items: Vec<T>) -> Vec<T> {
+    items.sort_unstable();
+    items
+}
+
+fn canonical_triangles<'a, 'v>(
+    tris: &[[u32; 3]],
+    vertices: &'v [MeshVertex<'a>],
+    m_values: &'a [MValue],
+    scopes: &[MValueScope],
+) -> Vec<([&'v MeshVertex<'a>; 3], Vec<MValueAt<'a>>)> {
     for (mv, scope) in m_values.iter().zip(scopes) {
         if *scope == MValueScope::Triangle
             && let Some(count) = mv.count()
@@ -111,25 +149,16 @@ fn canonical_triangles<'a>(
             );
         }
     }
-    let mut out: Vec<_> = tris
-        .iter()
-        .enumerate()
-        .map(|(tri_idx, &[x, y, z])| {
-            let corners = [[x, y, z], [y, z, x], [z, x, y]]
-                .into_iter()
-                .min()
-                .expect("three rotations is non-empty");
-            let values = m_values
-                .iter()
-                .zip(scopes)
-                .filter(|&(_, scope)| *scope == MValueScope::Triangle)
-                .map(|(mv, _)| tri_m_value_at(mv, tri_idx))
-                .collect();
-            (corners, values)
-        })
-        .collect();
-    out.sort_unstable();
-    out
+    let corners = tris.iter().enumerate().map(|(tri_idx, tri)| {
+        let [x, y, z] = tri.map(|v| &vertices[v as usize]);
+        let corners = [[x, y, z], [y, z, x], [z, x, y]]
+            .into_iter()
+            .min()
+            .expect("three rotations is non-empty");
+        let values = scoped_values_at(m_values, scopes, MValueScope::Triangle, tri_idx);
+        (corners, values)
+    });
+    sorted(corners.collect())
 }
 
 fn assert_same_decoded_layer(a: &TileLayer, b: &TileLayer) {
@@ -147,32 +176,34 @@ fn assert_same_decoded_layer(a: &TileLayer, b: &TileLayer) {
     assert_eq!(a.m_value_scopes(), b.m_value_scopes());
     assert_eq!(a.nested_names(), b.nested_names());
     assert_eq!(a.features().len(), b.features().len());
+    let scopes = a.m_value_scopes();
     for (fa, fb) in a.features().iter().zip(b.features()) {
         assert_eq!(fa.id(), fb.id());
-        assert_eq!(fa.geometry(), fb.geometry());
-        assert_eq!(fa.z(), fb.z());
         assert_eq!(fa.properties(), fb.properties());
         assert_eq!(fa.nested(), fb.nested());
-        assert_eq!(fa.m_values().len(), a.m_value_scopes().len());
-        assert_eq!(fb.m_values().len(), b.m_value_scopes().len());
-        for ((va, vb), scope) in fa
-            .m_values()
-            .iter()
-            .zip(fb.m_values())
-            .zip(a.m_value_scopes())
-        {
-            if *scope == MValueScope::Vertex {
-                assert_eq!(va, vb);
-            } else {
-                assert_eq!(va.kind(), vb.kind());
-                assert_eq!(va.count(), vb.count());
-            }
+        assert_eq!(fa.m_values().len(), scopes.len());
+        assert_eq!(fb.m_values().len(), scopes.len());
+        let (Some(tris_a), Some(tris_b)) = (fa.triangles(), fb.triangles()) else {
+            assert_eq!(fa.geometry(), fb.geometry());
+            assert_eq!(fa.z(), fb.z());
+            assert_eq!(fa.m_values(), fb.m_values());
+            continue;
+        };
+        // The encoder numbers mesh vertices in triangle-tree order, which can change on every
+        // restage when a directed edge has more than one candidate twin.
+        for (va, vb) in fa.m_values().iter().zip(fb.m_values()) {
+            assert_eq!(va.kind(), vb.kind());
+            assert_eq!(va.count(), vb.count());
         }
+        let (verts_a, verts_b) = (mesh_vertices(fa, scopes), mesh_vertices(fb, scopes));
         assert_eq!(
-            fa.triangles()
-                .map(|tris| canonical_triangles(tris, fa.m_values(), a.m_value_scopes())),
-            fb.triangles()
-                .map(|tris| canonical_triangles(tris, fb.m_values(), b.m_value_scopes())),
+            sorted(verts_a.iter().collect()),
+            sorted(verts_b.iter().collect()),
+            "mesh vertices or vertex-scoped m-values changed across restage"
+        );
+        assert_eq!(
+            canonical_triangles(tris_a, &verts_a, fa.m_values(), scopes),
+            canonical_triangles(tris_b, &verts_b, fb.m_values(), scopes),
             "mesh triangles or triangle-scoped m-values changed across restage"
         );
     }
