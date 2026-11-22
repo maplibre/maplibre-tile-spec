@@ -291,4 +291,53 @@ mod tests {
         let err = decode(&[0, 1], &[0xFF]).unwrap_err();
         assert!(matches!(err, MltError::FromUtf8(_)), "{err:?}");
     }
+
+    mod properties {
+        use hegel::generators as gs;
+
+        use super::*;
+
+        #[hegel::composite]
+        fn sorted_entries(tc: &hegel::TestCase) -> Vec<String> {
+            let stems = tc.draw(gs::vecs(gs::text().max_size(6)).min_size(1).max_size(4));
+            let count = tc.draw(gs::integers::<usize>().max_value(60));
+            let mut entries: Vec<String> = (0..count)
+                .map(|_| {
+                    let at = tc.draw(gs::integers::<usize>().max_value(stems.len() - 1));
+                    let tail = tc.draw(gs::text().max_size(6));
+                    format!("{}{tail}", stems[at])
+                })
+                .collect();
+            let repeats = tc.draw(gs::integers::<usize>().max_value(4));
+            for _ in 0..repeats {
+                if let Some(first) = entries.first().cloned() {
+                    entries.push(first);
+                }
+            }
+            entries.sort();
+            entries
+        }
+
+        #[hegel::test]
+        fn sorted_entries_with_duplicates_decode_back_to_themselves(tc: hegel::TestCase) {
+            let entries = tc.draw(sorted_entries());
+            let borrowed: Vec<&str> = entries.iter().map(String::as_str).collect();
+            assert_eq!(roundtrip(&borrowed), entries);
+        }
+
+        #[hegel::test]
+        fn prefix_lengths_count_the_bytes_shared_with_the_previous_entry(tc: hegel::TestCase) {
+            let entries = tc.draw(sorted_entries());
+            let borrowed: Vec<&str> = entries.iter().map(String::as_str).collect();
+            let coded = front_code(&borrowed);
+            let mut expected_prefixes = Vec::new();
+            let mut previous: &[u8] = b"";
+            for entry in &borrowed {
+                expected_prefixes
+                    .push(u32::try_from(common_prefix_len(previous, entry.as_bytes())).unwrap());
+                previous = entry.as_bytes();
+            }
+            assert_eq!(coded.prefix_lengths, expected_prefixes);
+        }
+    }
 }

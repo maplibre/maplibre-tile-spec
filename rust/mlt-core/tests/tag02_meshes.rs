@@ -1,6 +1,7 @@
 //! Round-trip and wire-level tests for v2 meshes: the `Meshes` layout (`0xE`), the
 //! `Mesh` geometry type, triangle-scoped m-values and z as a height above the ground.
 
+use hegel::generators as gs;
 use insta::assert_snapshot;
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
@@ -10,7 +11,6 @@ use mlt_core::{
     Decoder, HeightMode, Layer, Layer02, MValue, MValueScope, Parser, PropKind, PropValue,
     TileLayer, ZAxis, ZStep,
 };
-use proptest::prelude::*;
 use rstest::rstest;
 
 fn annotate(bytes: &[u8]) -> DumpTree {
@@ -273,30 +273,32 @@ fn meshes_and_their_triangle_values_survive_every_encoder_setting() {
     );
 }
 
-fn arb_mesh() -> impl Strategy<Value = Mesh> {
-    prop::collection::vec(any::<[i32; 3]>(), 0..24).prop_flat_map(|vertices| {
-        let n = u32::try_from(vertices.len()).unwrap();
-        let triangles = if n == 0 {
-            Just(Vec::new()).boxed()
-        } else {
-            prop::collection::vec(prop::array::uniform3(0..n), 0..40).boxed()
-        };
-        (Just(vertices), triangles)
-    })
+#[hegel::composite]
+fn mesh(tc: &hegel::TestCase) -> Mesh {
+    let vertices = tc.draw(gs::vecs(gs::arrays::<_, i32, 3>(gs::integers::<i32>())).max_size(23));
+    let n = u32::try_from(vertices.len()).unwrap();
+    let triangles = if n == 0 {
+        Vec::new()
+    } else {
+        tc.draw(
+            gs::vecs(gs::arrays::<_, u32, 3>(
+                gs::integers::<u32>().max_value(n - 1),
+            ))
+            .max_size(39),
+        )
+    };
+    (vertices, triangles)
 }
 
-proptest! {
-    /// Empty meshes, meshes without triangles, spare vertices and degenerate or repeated
-    /// triangles all come back, and the layer stays `Meshes`.
-    #[test]
-    fn random_meshes_round_trip(meshes in prop::collection::vec(arb_mesh(), 1..6)) {
-        let layer = mesh_layer(&meshes);
-        let bytes = layer.encode(cfg_v2()).expect("v2 encode");
-        assert_dump_of_meshes(&bytes);
-        let back = try_decode(&bytes).unwrap();
-        prop_assert_eq!(back.z_axis(), layer.z_axis());
-        prop_assert_eq!(rows(&back), rows(&layer));
-    }
+#[hegel::test]
+fn random_meshes_round_trip(tc: hegel::TestCase) {
+    let meshes = tc.draw(gs::vecs(mesh()).min_size(1).max_size(5));
+    let layer = mesh_layer(&meshes);
+    let bytes = layer.encode(cfg_v2()).expect("v2 encode");
+    assert_dump_of_meshes(&bytes);
+    let back = try_decode(&bytes).unwrap();
+    assert_eq!(back.z_axis(), layer.z_axis());
+    assert_eq!(rows(&back), rows(&layer));
 }
 
 #[test]

@@ -190,4 +190,60 @@ mod tests {
             "{err:?}"
         );
     }
+
+    mod properties {
+        use hegel::generators as gs;
+        use integer_encoding::VarInt as _;
+
+        use super::super::parse_varint;
+
+        #[hegel::test]
+        fn u32_varint_parses_back_and_leaves_exactly_the_trailing_bytes(tc: hegel::TestCase) {
+            let value = tc.draw(gs::integers::<u32>());
+            let trailing = tc.draw(gs::vecs(gs::integers::<u8>()).max_size(8));
+            let mut bytes = value.encode_var_vec();
+            bytes.extend_from_slice(&trailing);
+            let (rest, parsed) = parse_varint::<u32>(&bytes).expect("canonical varint parses");
+            assert_eq!((parsed, rest), (value, trailing.as_slice()));
+        }
+
+        #[hegel::test]
+        fn u64_varint_parses_back_and_leaves_exactly_the_trailing_bytes(tc: hegel::TestCase) {
+            let value = tc.draw(gs::integers::<u64>());
+            let trailing = tc.draw(gs::vecs(gs::integers::<u8>()).max_size(8));
+            let mut bytes = value.encode_var_vec();
+            bytes.extend_from_slice(&trailing);
+            let (rest, parsed) = parse_varint::<u64>(&bytes).expect("canonical varint parses");
+            assert_eq!((parsed, rest), (value, trailing.as_slice()));
+        }
+
+        #[hegel::test]
+        fn u32_varint_padded_with_a_zero_terminator_group_is_rejected(tc: hegel::TestCase) {
+            let value = tc.draw(gs::integers::<u32>());
+            let padding = tc.draw(gs::integers::<usize>().min_value(1).max_value(3));
+            let mut bytes = value.encode_var_vec();
+            *bytes.last_mut().unwrap() |= 0x80;
+            bytes.extend(std::iter::repeat_n(0x80, padding - 1));
+            bytes.push(0x00);
+            assert!(parse_varint::<u32>(&bytes).is_err());
+        }
+
+        #[hegel::test]
+        fn u64_varint_padded_with_a_zero_terminator_group_is_rejected(tc: hegel::TestCase) {
+            let value = tc.draw(gs::integers::<u64>());
+            let padding = tc.draw(gs::integers::<usize>().min_value(1).max_value(3));
+            let mut bytes = value.encode_var_vec();
+            *bytes.last_mut().unwrap() |= 0x80;
+            bytes.extend(std::iter::repeat_n(0x80, padding - 1));
+            bytes.push(0x00);
+            assert!(parse_varint::<u64>(&bytes).is_err());
+        }
+
+        #[hegel::test]
+        fn parsing_arbitrary_bytes_as_a_varint_never_panics(tc: hegel::TestCase) {
+            let bytes = tc.draw(gs::vecs(gs::integers::<u8>()).max_size(16));
+            drop(parse_varint::<u64>(&bytes));
+            drop(parse_varint::<u32>(&bytes));
+        }
+    }
 }

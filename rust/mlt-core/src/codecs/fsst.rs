@@ -447,4 +447,52 @@ mod tests {
             );
         }
     }
+
+    mod properties {
+        use hegel::generators as gs;
+
+        use super::*;
+
+        #[hegel::composite]
+        fn string_pool(tc: &hegel::TestCase) -> Vec<String> {
+            let stems = tc.draw(gs::vecs(gs::text().max_size(12)).min_size(1).max_size(4));
+            let count = tc.draw(gs::integers::<usize>().max_value(80));
+            (0..count)
+                .map(|_| {
+                    let at = tc.draw(gs::integers::<usize>().max_value(stems.len() - 1));
+                    let tail = tc.draw(gs::text().max_size(8));
+                    format!("{}{tail}", stems[at])
+                })
+                .collect()
+        }
+
+        #[hegel::test]
+        fn compressed_strings_decode_back_to_the_same_strings(tc: hegel::TestCase) {
+            let pool = tc.draw(string_pool());
+            let raw = compress_fsst(&pool);
+            let buffers = wire_streams(&raw.blob, &raw.value_lengths);
+            let (corpus, lengths) =
+                decode_fsst(parse_streams(&buffers), &mut dec()).expect("decode_fsst failed");
+            let mut decoded = Vec::new();
+            let mut offset = 0;
+            for len in lengths {
+                let len = len.into_usize();
+                decoded.push(corpus[offset..offset + len].to_string());
+                offset += len;
+            }
+            assert_eq!(decoded, pool);
+        }
+
+        #[hegel::test]
+        fn symbols_are_at_most_eight_bytes_and_fewer_than_255(tc: hegel::TestCase) {
+            let pool = tc.draw(string_pool());
+            let raw = compress_fsst(&pool);
+            let longest = raw.blob.symbol_lengths.iter().copied().max().unwrap_or(0);
+            assert_eq!(longest.min(8), longest);
+            assert_eq!(
+                raw.blob.symbol_lengths.len().min(254),
+                raw.blob.symbol_lengths.len()
+            );
+        }
+    }
 }
