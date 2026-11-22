@@ -2,6 +2,9 @@
 #
 # Docs: https://hotpath.rs/cloud
 
+# Comment only when an upload finds a regression, an improvement or a broken budget
+pr_comment = "on_change"
+
 [functions]
 min_percent_total = 2
 
