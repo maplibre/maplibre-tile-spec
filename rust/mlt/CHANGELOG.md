@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.6.2...rust-mlt-v0.7.0) - 2026-11-22
+
+### Added
+
+- *(mlt-wasm)* decode v2 Meshes layers and vertex/triangle m-value columns ([#2086](https://github.com/maplibre/maplibre-tile-spec/pull/2086))
+- *(rust)* opt-in vertex sort (--vertex-sort) ([#2064](https://github.com/maplibre/maplibre-tile-spec/pull/2064))
+- *(rust)* implement v2 Meshes layout, triangle-scoped m-values, and cycle-ordered mesh encoding ([#2079](https://github.com/maplibre/maplibre-tile-spec/pull/2079))
+- *(v2)* sea-level z and KML height modes ([#2053](https://github.com/maplibre/maplibre-tile-spec/pull/2053))
+
+### Other
+
+- *(hotpath)* judge Callgrind instruction counts alongside native timing ([#2096](https://github.com/maplibre/maplibre-tile-spec/pull/2096))
+- *(rust)* v2 mesh synthetics ([#2081](https://github.com/maplibre/maplibre-tile-spec/pull/2081))
+- *(rust)* bump pmtiles, fast-mvt, pyo3, hotpath to latest ([#2062](https://github.com/maplibre/maplibre-tile-spec/pull/2062))
+- *(rust)* pass the layer by reference in the convert_fields helpers ([#2054](https://github.com/maplibre/maplibre-tile-spec/pull/2054))
+
 ## [0.6.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.6.1...rust-mlt-v0.6.2) - 2026-11-15
 
 ### Other
