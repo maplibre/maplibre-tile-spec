@@ -2,8 +2,8 @@
 
 use meshopt::{SimplifyOptions, simplify_decoder};
 
-use super::Mesh;
-use super::parser::Part;
+use super::mesh::Mesh;
+use super::model::Part;
 
 /// `mesh`, of `metres` per grid unit along x, y and z, simplified within `error` metres, keeping its fold lines and the seams between parts.
 /// With `prune`, disconnected pieces smaller than `error` are removed, and without it, open borders stay where they are.

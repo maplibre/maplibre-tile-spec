@@ -4,8 +4,8 @@ use std::collections::{BTreeSet, HashMap};
 
 use mlt_core::ZStep;
 
-use super::parser::{Lods, Part};
-use super::{Mesh, Surface};
+use super::mesh::Mesh;
+use super::model::{Lods, Part, Surface};
 
 /// The metres of a height band, only the cells of one band being joined.
 const BAND_METRES: f64 = 10.0;

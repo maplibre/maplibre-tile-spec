@@ -1,7 +1,7 @@
 mod bbox;
+mod city;
 mod common;
 pub mod fields;
-mod from_citygml;
 mod from_files;
 mod from_geojson;
 mod from_mbtiles;
@@ -598,7 +598,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let input_container = args.input_container();
     let output_container = args.output_container();
     let geojson_input = is_geojson(&args.input);
-    let citygml_input = !geojson_input && from_citygml::is_citygml(&args.input)?;
+    let citygml_input = !geojson_input && city::is_citygml(&args.input)?;
     let tiling_only = [
         ("--min-zoom", args.min_zoom.is_some()),
         ("--max-zoom", args.max_zoom.is_some()),
@@ -710,7 +710,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     } else if geojson_input {
         from_geojson::convert(args, &reencoder)
     } else if citygml_input {
-        from_citygml::convert(args, &reencoder)
+        city::convert(args, &reencoder)
     } else {
         from_files::convert(&args.input, &args.output, &reencoder, args.to)
     };
