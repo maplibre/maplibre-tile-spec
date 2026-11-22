@@ -119,9 +119,26 @@ jobs:
         name: Build mlt-cpp-json oracle
         run: just -v cpp::build-json
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
+      # Every run starts from the corpus the last main run saved, so fuzzing builds on it
+      - name: Restore the fuzz corpus
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: rust/mlt-core/fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
       - if: matrix.target == 'layer'
         run: just -v rust::fuzz-seed ${{ matrix.target }}
       - run: just -v rust::ci-fuzz-run ${{ matrix.target }}
+      # Minimized, so the corpus and the coverage replay of it stay small as runs add inputs
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        name: Minimize the fuzz corpus
+        run: just -v rust::fuzz-cmin ${{ matrix.target }}
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        name: Save the fuzz corpus
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: rust/mlt-core/fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
       - name: Generate fuzz coverage
         run: just -v rust::ci-fuzz-cov ${{ matrix.target }}
       - uses: ./.github/actions/mlt-upload-coverage
