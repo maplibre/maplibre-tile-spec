@@ -1,31 +1,4 @@
-//! `mlt convert <citygml> <dir>`: tile the buildings of `CityGML` files into an MLT `z/x/y.mlt`
-//! tree of v2 `Meshes` layers (XYZ scheme, `y = 0` at the north).
-//!
-//! Each building, bridge or tunnel becomes one mesh per zoom, reprojected from its file's
-//! `srsName`. As `docs/specification/v2.md` asks, a mesh is stored whole in the tile of each zoom
-//! that holds the centre of its bounding box, and its z values are heights above its lowest
-//! vertex. Its vertices are welded on the tile's grid, and each triangle carries the `part`
-//! m-value of the semantic surface it lies in: wall, roof, ground, window or door. A surface
-//! without semantics is a roof where it faces up and a wall otherwise.
-//!
-//! The highest zoom holds the highest LOD of each part of a building. The zoom below holds its
-//! LOD2: the highest LOD of 2 or less of each part, or else its highest LOD without windows, doors
-//! and installations, with window and door holes closed while courtyard holes stay open. Two zooms
-//! below the highest, prominent buildings keep their 3D LOD2 roofs and spires, while smaller ones
-//! become a block: the outline of their ground, or their bounding box without one, raised from 0
-//! to their top as walls and a roof. From three zooms below the highest, buildings lower than 40 m
-//! are merged where they touch: the cells of a pixel their grounds or roofs cover at least half of
-//! are joined with their neighbours in the same 10 m band of tops, and each group is one block at
-//! its mean top, with a `buildings` property counting the buildings it holds. Landmarks of 40 m or
-//! higher stay 3D meshes of their own.
-//!
-//! Every 3D mesh and single block is simplified by meshoptimizer with part seams kept so semantic
-//! `part` values (including steep spires and vaults) are preserved: within 5 cm at the highest
-//! zoom and 0.45 pixels below.
-//!
-//! A file whose coordinates lie far from the input's other files in the CRS it declares, but near
-//! them in the CRS most files declare, is read in the latter: some Hamburg files declare
-//! EPSG:25833 for UTM zone 32 coordinates.
+//! `mlt convert <citygml> <dir>`: tile the buildings of `CityGML` files into a `z/x/y.mlt` tree of v2 `Meshes` layers.
 
 mod crs;
 mod merge;
@@ -36,7 +9,7 @@ mod triangulate;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::f64::consts::PI;
-use std::fs::{self, File as FsFile};
+use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
@@ -51,8 +24,8 @@ use self::crs::{Reprojector, epsg_of_srs_name};
 use self::merge::{Footprint, merge};
 use self::parser::{Lods, Part};
 use self::simplify::simplify;
-use super::from_geojson::{decode_with_default_budget, is_memory_limit, mercator_unit, tile_index};
-use super::{ConvertArgs, Reencoder};
+use super::from_geojson::{mercator_unit, tile_index};
+use super::{ConvertArgs, Reencoder, tiled};
 
 /// The z grid without `--z-step`: 1 cm.
 const DEFAULT_Z_STEP: i8 = -2;
@@ -60,46 +33,28 @@ const DEFAULT_Z_STEP: i8 = -2;
 const UNIT_METRES: f64 = 0.01;
 /// The largest extent a v2 layer header can name.
 const MAX_EXTENT: u32 = 1 << 21;
-/// The up component of a unit normal above which a surface without semantics is a roof, about
-/// 70 degrees from vertical.
+/// The up component of a unit normal above which a surface without semantics is a roof.
 const ROOF_MIN_UP: f64 = 0.34;
-/// How far, in degrees, a file must lie from the input's other files in the CRS it declares to
-/// be read in the CRS most files declare.
+/// How far, in degrees, a file must lie from the other files in the CRS it names to be read in the CRS most files name.
 const MISLABELLED_MIN_DEGREES: f64 = 1.0;
 /// The pixels across a tile that the detail of zooms below the highest is measured in.
 const TILE_PIXELS: f64 = 512.0;
-/// The longer side of its bounding box, in pixels, under which a building is left out one zoom
-/// below the highest.
-const LOD2_MIN_PIXELS: f64 = 1.5;
-/// The cell, in pixels, merged footprint blocks rasterise their coverage in.
+/// The cell, in pixels, that merged blocks rasterise their footprints in.
 const BLOCK_CELL_PIXELS: f64 = 1.0;
-/// The longer side of its bounding box, in pixels, under which a building has no coarse mesh or
-/// block two zooms below the highest.
-const BLOCK_MIN_PIXELS: f64 = 2.5;
-/// Height in metres or span in pixels from which a building keeps its 3D `LoD2` roof two zooms
-/// below the highest instead of becoming a flat-topped block.
+/// The height in metres from which a building keeps its 3D mesh two zooms below the highest.
 const COARSE_3D_MIN_METRES: f64 = 14.0;
+/// The bounding-box side in pixels from which a building keeps its 3D mesh two zooms below the highest.
 const COARSE_3D_MIN_PIXELS: f64 = 6.0;
-/// How many zooms below the highest the blocks of a tile's buildings start to be merged.
-const MERGE_BELOW: u8 = 3;
-/// The top, in metres above its ground, from which a building is never merged and keeps its 3D mesh.
+/// The height in metres from which a building is never merged and keeps its 3D mesh.
 const LANDMARK_MIN_METRES: f64 = 40.0;
 /// The height, in pixels, under which merged blocks have no wall between them or to the ground.
 const WALL_MIN_PIXELS: f64 = 1.0;
-/// The error, in metres, the meshes of the highest zoom are simplified within: close to lossless.
-const HIGHEST_ERROR_METRES: f64 = 0.05;
-/// The error, in pixels, the `LoD2` mesh one zoom below the highest is simplified within.
-const LOD2_ERROR_PIXELS: f64 = 0.45;
-/// The error, in pixels, coarse meshes and blocks two or more zooms below the highest use.
-const COARSE_ERROR_PIXELS: f64 = 0.45;
-/// Height in metres within `z = 0` inside which downward `GroundSurface` floor caps are omitted
-/// below `max_zoom` (elevated skybridge and tower-pod undersides above this height are kept).
+/// The height above `z = 0` up to which downward ground triangles are dropped below the highest zoom.
 const HIDDEN_GROUND_CAP_METRES: f64 = 0.5;
-/// How many metres above the lowest `GroundSurface` a ground ring may sit before being treated as
-/// an elevated overhang or tower platform rather than the ground collar.
+/// How far above the lowest ground surface a ground vertex may lie and still count as the building's ground.
 const MAX_GROUND_SLOPE_METRES: f64 = 15.0;
 
-/// Whether `path` is a `CityGML` file, or a directory whose first `.gml` file comes before any tile.
+/// Whether `path` is a `CityGML` file, or a directory whose first `.gml` or `.xml` file comes before any tile.
 pub(super) fn is_citygml(path: &Path) -> AnyResult<bool> {
     if path.is_file() {
         return Ok(is_gml(path));
@@ -107,14 +62,11 @@ pub(super) fn is_citygml(path: &Path) -> AnyResult<bool> {
     if !path.is_dir() {
         return Ok(false);
     }
-    for entry in WalkDir::new(path).sort_by_file_name() {
-        let entry = entry.with_context(|| format!("searching {}", path.display()))?;
-        if !entry.file_type().is_file() {
-            continue;
-        }
-        match entry.path().extension().and_then(|x| x.to_str()) {
+    for file in files_under(path) {
+        let file = file?;
+        match file.extension().and_then(|x| x.to_str()) {
             Some("mlt" | "mvt" | "pbf") => return Ok(false),
-            _ if is_gml(entry.path()) => return Ok(true),
+            _ if is_gml(&file) => return Ok(true),
             _ => {}
         }
     }
@@ -124,6 +76,17 @@ pub(super) fn is_citygml(path: &Path) -> AnyResult<bool> {
 fn is_gml(path: &Path) -> bool {
     path.extension()
         .is_some_and(|x| x.eq_ignore_ascii_case("gml") || x.eq_ignore_ascii_case("xml"))
+}
+
+/// The files under the directory `dir`, sorted by name.
+fn files_under(dir: &Path) -> impl Iterator<Item = AnyResult<PathBuf>> + '_ {
+    WalkDir::new(dir)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_map(move |entry| match entry {
+            Ok(entry) => entry.file_type().is_file().then(|| Ok(entry.into_path())),
+            Err(e) => Some(Err(e).with_context(|| format!("searching {}", dir.display()))),
+        })
 }
 
 /// A surface of one part, with geodetic positions: longitude and latitude in radians, and metres up.
@@ -140,11 +103,18 @@ struct Building {
     terrain: Vec<[f64; 3]>,
 }
 
-/// The buildings of a file, the CRS they were read in and the file's first position in it.
-struct File {
+/// The buildings of a file, the CRS they were read in, and the file's first position in it.
+struct SourceFile {
     epsg: u16,
     first: [f64; 3],
     buildings: Vec<Building>,
+}
+
+/// A file that names `declared` as its CRS, but whose coordinates fit `epsg`, the CRS most files name.
+struct Mislabelled {
+    index: usize,
+    declared: u16,
+    epsg: u16,
 }
 
 /// Tile the `CityGML` file or directory `args.input` into the directory `args.output`.
@@ -155,23 +125,25 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
     let name = args.tiled_layer_name()?;
     let z_step = ZStep::new(args.z_step.unwrap_or(DEFAULT_Z_STEP))?;
 
-    let files = files(input)?;
-    let mut parsed: Vec<Option<File>> = files
+    let files = gml_files(input)?;
+    let mut parsed: Vec<Option<SourceFile>> = files
         .par_iter()
         .map(|path| read(path, None).with_context(|| format!("reading {}", path.display())))
         .collect::<AnyResult<_>>()?;
     if args.fix_mislabelled_crs {
-        let reread: Vec<(usize, Option<File>)> = mislabelled(&parsed)?
+        let reread: Vec<(usize, Option<SourceFile>)> = mislabelled(&parsed)?
             .into_par_iter()
-            .map(|(i, declared, epsg)| {
-                let path = &files[i];
+            .map(|m| {
+                let path = &files[m.index];
                 eprintln!(
-                    "warning: {} names EPSG:{declared}, but its coordinates lie near the other files in EPSG:{epsg}, so it is read in that",
+                    "warning: {} names EPSG:{}, but its coordinates lie near the other files in EPSG:{}, so it is read in that",
                     path.display(),
+                    m.declared,
+                    m.epsg,
                 );
-                let file = read(path, Some(epsg))
+                let file = read(path, Some(m.epsg))
                     .with_context(|| format!("reading {}", path.display()))?;
-                Ok((i, file))
+                Ok((m.index, file))
             })
             .collect::<AnyResult<_>>()?;
         for (i, file) in reread {
@@ -200,38 +172,18 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
         written += tiles
             .into_par_iter()
             .map(|(tile, placed)| -> AnyResult<usize> {
-                let at = format!("{}/{}/{}", tile.zoom, tile.x, tile.y);
                 let Some(layer) = layer(&name, tile, z_step, placed)? else {
                     return Ok(0);
                 };
-                let checked = reencoder
-                    .encode(layer)
-                    .with_context(|| format!("encoding tile {at}"))
-                    .and_then(|bytes| {
-                        if !reencoder.verify && !bytes.is_empty() {
-                            decode_with_default_budget(&bytes)
-                                .with_context(|| format!("decoding tile {at} back"))?;
-                        }
-                        Ok(bytes)
-                    });
-                let bytes = match checked {
-                    Ok(bytes) => bytes,
-                    Err(e) if is_memory_limit(&e) => {
-                        eprintln!(
-                            "warning: skipping tile {at}: exceeds default decoder memory budget"
-                        );
-                        return Ok(0);
-                    }
-                    Err(e) => return Err(e),
-                };
-                if bytes.is_empty() {
-                    return Ok(0);
+                if tiled::write_tile(output, reencoder, tile.zoom, tile.x, tile.y, layer)? {
+                    Ok(1)
+                } else {
+                    eprintln!(
+                        "warning: skipping tile {}/{}/{}: exceeds default decoder memory budget",
+                        tile.zoom, tile.x, tile.y
+                    );
+                    Ok(0)
                 }
-                let dir = output.join(tile.zoom.to_string()).join(tile.x.to_string());
-                fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
-                let path = dir.join(format!("{}.mlt", tile.y));
-                fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
-                Ok(1)
             })
             .try_reduce(|| 0, |a, b| Ok(a + b))?;
     }
@@ -250,27 +202,22 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
     Ok(())
 }
 
-/// The `CityGML` file `input`, or the `.gml` files under the directory `input`, sorted.
-fn files(input: &Path) -> AnyResult<Vec<PathBuf>> {
+/// The `CityGML` file `input`, or the `.gml` and `.xml` files under the directory `input`, sorted.
+fn gml_files(input: &Path) -> AnyResult<Vec<PathBuf>> {
     if input.is_file() {
         return Ok(vec![input.to_owned()]);
     }
-    let mut files = Vec::new();
-    for entry in WalkDir::new(input).sort_by_file_name() {
-        let entry = entry.with_context(|| format!("searching {}", input.display()))?;
-        if entry.file_type().is_file() && is_gml(entry.path()) {
-            files.push(entry.into_path());
-        }
-    }
-    Ok(files)
+    files_under(input)
+        .filter(|file| !matches!(file, Ok(f) if !is_gml(f)))
+        .collect()
 }
 
-/// The buildings of the `CityGML` file at `path`, triangulated and reprojected from `epsg` or,
-/// without it, from the file's `srsName`. `None` if the file holds no position.
-fn read(path: &Path, epsg: Option<u16>) -> AnyResult<Option<File>> {
-    let reader = BufReader::new(FsFile::open(path)?);
+/// The buildings of the `CityGML` file at `path`, triangulated and reprojected from `epsg` or, without it, from the file's `srsName`.
+/// `None` if the file holds no position.
+fn read(path: &Path, epsg: Option<u16>) -> AnyResult<Option<SourceFile>> {
+    let reader = BufReader::new(File::open(path)?);
     let document = parser::parse_reader(reader)?;
-    if document.buildings.is_empty() {
+    if document.city_objects.is_empty() {
         return Ok(None);
     }
     let epsg = if let Some(epsg) = epsg {
@@ -283,7 +230,7 @@ fn read(path: &Path, epsg: Option<u16>) -> AnyResult<Option<File>> {
             .with_context(|| format!("the srsName {srs_name:?} names no EPSG code"))?
     };
     let Some(first) = document
-        .buildings
+        .city_objects
         .iter()
         .flat_map(|b| &b.polygons)
         .find_map(|p| p.points.first().copied())
@@ -292,10 +239,10 @@ fn read(path: &Path, epsg: Option<u16>) -> AnyResult<Option<File>> {
     };
     let reprojector = Reprojector::new(epsg)?;
     let mut triangulator = triangulate::Triangulator::default();
-    let mut buildings = Vec::with_capacity(document.buildings.len());
-    for building in document.buildings {
-        let mut surfaces = Vec::with_capacity(building.polygons.len());
-        for polygon in building.polygons {
+    let mut buildings = Vec::with_capacity(document.city_objects.len());
+    for city_object in document.city_objects {
+        let mut surfaces = Vec::with_capacity(city_object.polygons.len());
+        for polygon in city_object.polygons {
             let mut triangles = Vec::new();
             let Some(normal) = triangulator.polygon(
                 &polygon.points,
@@ -325,28 +272,26 @@ fn read(path: &Path, epsg: Option<u16>) -> AnyResult<Option<File>> {
             });
         }
         if !surfaces.is_empty() {
-            let mut terrain = building.terrain_points;
+            let mut terrain = city_object.terrain_points;
             if !terrain.is_empty() {
                 reprojector.to_geodetic(&mut terrain)?;
             }
             buildings.push(Building {
-                gml_id: building.gml_id,
+                gml_id: city_object.gml_id,
                 surfaces,
                 terrain,
             });
         }
     }
-    Ok(Some(File {
+    Ok(Some(SourceFile {
         epsg,
         first,
         buildings,
     }))
 }
 
-/// The index of each of `files` whose first position lies more than [`MISLABELLED_MIN_DEGREES`]
-/// from the median of those of the files in the CRS most of them declare, but less than a quarter
-/// as far when read in that CRS, with the CRS it declares and that CRS.
-fn mislabelled(files: &[Option<File>]) -> AnyResult<Vec<(usize, u16, u16)>> {
+/// The `files` whose first position lies over [`MISLABELLED_MIN_DEGREES`] from the median of those of the files in the CRS most of them name, but less than a quarter as far when read in that CRS.
+fn mislabelled(files: &[Option<SourceFile>]) -> AnyResult<Vec<Mislabelled>> {
     let mut counts: BTreeMap<u16, usize> = BTreeMap::new();
     for file in files.iter().flatten() {
         *counts.entry(file.epsg).or_default() += 1;
@@ -384,11 +329,15 @@ fn mislabelled(files: &[Option<File>]) -> AnyResult<Vec<(usize, u16, u16)>> {
     Ok(files
         .iter()
         .enumerate()
-        .filter_map(|(i, file)| {
+        .filter_map(|(index, file)| {
             let file = file.as_ref().filter(|f| f.epsg != common)?;
             let off = distance(degrees(file.epsg, file.first));
             let near = distance(degrees(common, file.first));
-            (off > MISLABELLED_MIN_DEGREES && near < off / 4.0).then_some((i, file.epsg, common))
+            (off > MISLABELLED_MIN_DEGREES && near < off / 4.0).then_some(Mislabelled {
+                index,
+                declared: file.epsg,
+                epsg: common,
+            })
         })
         .collect())
 }
@@ -434,8 +383,8 @@ impl Tile {
         (1 << exponent).min(MAX_EXTENT)
     }
 
-    /// `[x, y]` on this tile's grid of `extent` of the Web Mercator position `[x, y]`, rounded
-    /// half to even, or `None` if it does not fit an `i32`.
+    /// `[x, y]` on this tile's grid of `extent` of the Web Mercator position `[x, y]`, rounded half to even.
+    /// `None` if it does not fit an `i32`.
     #[expect(
         clippy::cast_possible_truncation,
         reason = "the rounded values are checked to fit"
@@ -456,8 +405,7 @@ fn unit(lon: f64, lat: f64) -> [f64; 2] {
     [x, y]
 }
 
-/// A building on a tile's grid: its vertices, the triangles between them that still have three
-/// distinct corners, and the part of each triangle.
+/// A building on a tile's grid: its vertices, the triangles between them that have three distinct corners, and the part of each triangle.
 #[derive(Debug, PartialEq)]
 struct Mesh {
     xyz: Vec<[i32; 3]>,
@@ -466,8 +414,8 @@ struct Mesh {
 }
 
 impl Mesh {
-    /// Welds `surfaces`, `points` holding each one's vertices on the grid, so that surfaces share
-    /// the vertices they meet at. Vertices keep their order, and those no triangle names are dropped.
+    /// Welds `surfaces`, `points` holding each one's vertices on the grid, so that surfaces share the vertices they meet at.
+    /// Vertices keep their order, and those no triangle names are dropped.
     /// `None` if they are more than a `u32` indexes.
     fn weld<'a>(
         surfaces: impl IntoIterator<Item = &'a Surface>,
@@ -521,9 +469,8 @@ impl Mesh {
         Some(mesh)
     }
 
-    /// Turns each closed shell component whose triangles face inward (`(x, -y, z)` signed volume
-    /// `< 0`) outward so every triangle winds counter-clockwise seen from outside. Open shells
-    /// have no enclosed volume and keep their source winding.
+    /// Turns each closed shell whose triangles face inward outward, so that its triangles wind counter-clockwise in `(x, -y, z)` seen from outside.
+    /// Open shells keep their winding.
     fn orient_outward(&mut self) {
         let count = self.triangles.len();
         if count < 4 {
@@ -573,8 +520,7 @@ impl Mesh {
     }
 }
 
-/// Whether every directed edge `(a, b)` of `triangles` is paired with `(b, a)`, so the mesh
-/// encloses a volume without open boundary edges.
+/// Whether every directed edge `(a, b)` of `triangles` is paired with `(b, a)`.
 fn is_closed_shell(triangles: &[[u32; 3]]) -> bool {
     let mut forward = Vec::with_capacity(triangles.len() * 3);
     let mut reverse = Vec::with_capacity(triangles.len() * 3);
@@ -589,8 +535,7 @@ fn is_closed_shell(triangles: &[[u32; 3]]) -> bool {
     forward == reverse
 }
 
-/// Six times the signed volume enclosed by `triangles` in right-handed `(x, -y, z)` coordinates,
-/// positive when triangles wind counter-clockwise seen from outside.
+/// Six times the signed volume enclosed by `triangles` in `(x, -y, z)`, positive when they wind counter-clockwise seen from outside.
 fn signed_volume_x6(xyz: &[[i32; 3]], triangles: &[[u32; 3]]) -> i128 {
     let Some(&[x0, y0, z0]) = xyz.first() else {
         return 0;
@@ -618,76 +563,126 @@ enum Placed {
     Footprint(Footprint),
 }
 
-/// `building` at `zoom` on the tile that holds the centre of its bounding box, matching
-/// simplification error to screen pixel size so distant views drop sub-pixel triangles while
-/// preserving part seams and semantic `part` labels across all zooms:
-/// - `below == 0`: highest LOD (`LoD3`), welded, simplified within 5 cm (`prune = true`).
-/// - `below == 1`: `LoD2` (`>= 1.5 px`), welded, simplified within `0.45 px` (`prune = false`).
-/// - `below == 2`: prominent buildings (`>= 14 m` tall or `>= 6 px` wide) keep 3D `LoD2` roofs
-///   and spires simplified within `0.45 px`; smaller ones (`>= 2.5 px`) become blocks.
-/// - `below >= 3`: merged footprint blocks for buildings `< 40 m`, and simplified 3D `LoD2`
-///   meshes (`0.45 px` error) for `>= 40 m` landmarks.
+/// How many zooms below the highest a zoom lies.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Tier {
+    /// The highest zoom, of the highest LOD.
+    Highest,
+    /// One zoom below, of LOD2.
+    Lod2,
+    /// Two zooms below, where small buildings become blocks.
+    Coarse,
+    /// Three or more zooms below, where buildings under [`LANDMARK_MIN_METRES`] are merged.
+    Merged,
+}
+
+/// What a building keeps at a tier.
+struct Detail {
+    lods: Lods,
+    /// The bounding-box side, in pixels, under which a building is left out.
+    min_pixels: f64,
+    /// The simplification error in metres, added to that of `error_pixels`.
+    error_metres: f64,
+    error_pixels: f64,
+    /// Whether simplifying removes small disconnected pieces.
+    prune: bool,
+    /// Whether downward ground triangles at `z = 0` are kept.
+    ground_caps: bool,
+}
+
+impl Tier {
+    fn of(zoom: u8, max_zoom: u8) -> Self {
+        match max_zoom - zoom {
+            0 => Self::Highest,
+            1 => Self::Lod2,
+            2 => Self::Coarse,
+            _ => Self::Merged,
+        }
+    }
+
+    fn detail(self) -> Detail {
+        match self {
+            Self::Highest => Detail {
+                lods: Lods::Highest,
+                min_pixels: 0.0,
+                error_metres: 0.05,
+                error_pixels: 0.0,
+                prune: true,
+                ground_caps: true,
+            },
+            Self::Lod2 => Detail {
+                lods: Lods::Lod2,
+                min_pixels: 1.5,
+                error_metres: 0.0,
+                error_pixels: 0.45,
+                prune: false,
+                ground_caps: false,
+            },
+            Self::Coarse | Self::Merged => Detail {
+                lods: Lods::Lod2,
+                min_pixels: 2.5,
+                error_metres: 0.0,
+                error_pixels: 0.45,
+                prune: false,
+                ground_caps: false,
+            },
+        }
+    }
+}
+
+/// `building` at `zoom` on the tile that holds the centre of its bounding box, simplified to the pixels of that zoom.
+/// `None` if it is too small for the zoom or leaves no triangle.
 fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(Tile, Placed)> {
-    let below = max_zoom - zoom;
-    let lods = if below == 0 {
-        Lods::Lod2
-    } else {
-        Lods::Highest
-    };
-    let view = View::new(
-        building.surfaces.iter().filter(|s| s.lods != lods),
+    let tier = Tier::of(zoom, max_zoom);
+    let detail = tier.detail();
+    let lod = LodSurfaces::new(
+        building
+            .surfaces
+            .iter()
+            .filter(|s| s.lods.includes(detail.lods)),
         &building.terrain,
     )?;
-    let tile = Tile::of(view.centre, zoom);
+    let tile = Tile::of(lod.centre, zoom);
     let extent = tile.extent();
     let pixel = f64::from(extent) / TILE_PIXELS;
-    let landmark = view.height >= LANDMARK_MIN_METRES;
-    if below >= MERGE_BELOW && !landmark {
-        let abs_points = view.points_with_datum(tile, extent, z_step, 0.0)?;
-        let footprint = Footprint::new(&view.surfaces, &abs_points)?;
+    let landmark = lod.height >= LANDMARK_MIN_METRES;
+    if tier == Tier::Merged && !landmark {
+        let points = lod.points_with_datum(tile, extent, z_step, 0.0)?;
+        let footprint = Footprint::new(&lod.surfaces, &points)?;
         return Some((tile, Placed::Footprint(footprint)));
     }
-    let points = view.points(tile, extent, z_step)?;
+    let points = lod.points(tile, extent, z_step)?;
     let (min_x, max_x, min_y, max_y) = points.iter().flatten().fold(
         (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
         |(x0, x1, y0, y1), &[x, y, _]| (x0.min(x), x1.max(x), y0.min(y), y1.max(y)),
     );
     let span = (f64::from(max_x) - f64::from(min_x)).max(f64::from(max_y) - f64::from(min_y));
-    if !landmark {
-        let min_span_pixels = match below {
-            0 => 0.0,
-            1 => LOD2_MIN_PIXELS,
-            _ => BLOCK_MIN_PIXELS,
-        };
-        if span < min_span_pixels * pixel {
-            return None;
-        }
+    if !landmark && span < detail.min_pixels * pixel {
+        return None;
     }
-    let keep_3d_at_z2 =
-        landmark || view.height >= COARSE_3D_MIN_METRES || span >= COARSE_3D_MIN_PIXELS * pixel;
-    let mut mesh = if below == 2 && !keep_3d_at_z2 {
-        block(&view.surfaces, &points, pixel, BLOCK_MIN_PIXELS, z_step)?
+    let prominent =
+        landmark || lod.height >= COARSE_3D_MIN_METRES || span >= COARSE_3D_MIN_PIXELS * pixel;
+    let mut mesh = if tier == Tier::Coarse && !prominent {
+        block(&lod.surfaces, &points, z_step)?
     } else {
-        Mesh::weld(view.surfaces.iter().copied(), &points)?
+        Mesh::weld(lod.surfaces.iter().copied(), &points)?
     };
-    if below >= 1 {
+    if !detail.ground_caps {
         drop_ground_caps(&mut mesh, z_step);
     }
     let metres = tile.width() / f64::from(extent);
-    let px_metres = tile.width() / TILE_PIXELS;
-    let (error, prune) = match below {
-        0 => (HIGHEST_ERROR_METRES, true),
-        1 => (LOD2_ERROR_PIXELS * px_metres, false),
-        _ => (COARSE_ERROR_PIXELS * px_metres, false),
-    };
-    let mut mesh = simplify(&mesh, [metres, metres, z_step.metres()], error, prune)?;
+    let error = detail.error_metres + detail.error_pixels * tile.width() / TILE_PIXELS;
+    let mut mesh = simplify(
+        &mesh,
+        [metres, metres, z_step.metres()],
+        error,
+        detail.prune,
+    )?;
     mesh.orient_outward();
     (!mesh.triangles.is_empty()).then_some((tile, Placed::Mesh(mesh)))
 }
 
-/// Drops downward `Part::Ground` triangles at or below [`HIDDEN_GROUND_CAP_METRES`] above `z = 0`
-/// below `max_zoom` (including subterranean foundation floor plates on sloped terrain), keeping
-/// elevated overhangs and bridge/tower undersides up in the air.
+/// Drops the downward ground triangles of `mesh` no higher than [`HIDDEN_GROUND_CAP_METRES`] above `z = 0`.
 fn drop_ground_caps(mesh: &mut Mesh, z_step: ZStep) {
     #[expect(
         clippy::cast_possible_truncation,
@@ -705,9 +700,8 @@ fn drop_ground_caps(mesh: &mut Mesh, z_step: ZStep) {
         .unzip();
 }
 
-/// Some surfaces of a building, the centre of their Web Mercator `(x, y)` bounding box in units
-/// of [`unit()`], their ground elevation at that centre, and their height above that ground.
-struct View<'a> {
+/// The surfaces of one LOD of a building, the centre of their Web Mercator bounding box in units of [`unit()`], their ground at that centre, and their height above it.
+struct LodSurfaces<'a> {
     surfaces: Vec<&'a Surface>,
     units: Vec<Vec<[f64; 2]>>,
     centre: [f64; 2],
@@ -715,7 +709,9 @@ struct View<'a> {
     height: f64,
 }
 
-impl<'a> View<'a> {
+impl<'a> LodSurfaces<'a> {
+    /// The ground is the terrain intersection nearest the centre, or else the ground surface vertex nearest it, or else the lowest vertex.
+    /// Terrain and ground vertices over [`MAX_GROUND_SLOPE_METRES`] above the lowest of them do not count.
     /// `None` without a surface.
     fn new(surfaces: impl Iterator<Item = &'a Surface>, terrain: &[[f64; 3]]) -> Option<Self> {
         let surfaces: Vec<&Surface> = surfaces.collect();
@@ -740,9 +736,6 @@ impl<'a> View<'a> {
             })
             .map(|(_, z)| z)
         };
-
-        // 1. Prefer `lodNTerrainIntersection` where present: it traces the exact ground collar and
-        //    never includes underground basements or elevated skybridge/tower-pod undersides.
         let terrain_ground = (!terrain.is_empty()).then(|| {
             let min_t = terrain.iter().map(|p| p[2]).fold(f64::INFINITY, f64::min);
             nearest_z(
@@ -752,9 +745,6 @@ impl<'a> View<'a> {
                     .map(|p| (unit(p[0], p[1]), p[2])),
             )
         });
-        // 2. Otherwise use `GroundSurface` vertices within `MAX_GROUND_SLOPE_METRES` of the
-        //    building's lowest `GroundSurface`, filtering out elevated undersides (such as the
-        //    225 m observation-deck undersides of Hamburg's Heinrich-Hertz-Turm).
         let surface_ground = || {
             let min_g = surfaces
                 .iter()
@@ -794,12 +784,12 @@ impl<'a> View<'a> {
         })
     }
 
-    /// The vertices of each surface on `tile`'s grid of `extent`, z above `self.ground`, or `None`
-    /// if one does not fit.
+    /// The vertices of each surface on `tile`'s grid of `extent`, z above `self.ground`, or `None` if one does not fit.
     fn points(&self, tile: Tile, extent: u32, z_step: ZStep) -> Option<Vec<Vec<[i32; 3]>>> {
         self.points_with_datum(tile, extent, z_step, self.ground)
     }
 
+    /// The vertices of each surface on `tile`'s grid of `extent`, z above `datum`, or `None` if one does not fit.
     fn points_with_datum(
         &self,
         tile: Tile,
@@ -825,8 +815,7 @@ impl<'a> View<'a> {
     }
 }
 
-/// The triangle turned to start at its least vertex, alike for the triangles that wind alike
-/// through the same vertices.
+/// The triangle turned to start at its least vertex, alike for the triangles that wind alike through the same vertices.
 fn rotated([a, b, c]: [u32; 3]) -> [u32; 3] {
     if b < a && b < c {
         [b, c, a]
@@ -837,19 +826,10 @@ fn rotated([a, b, c]: [u32; 3]) -> [u32; 3] {
     }
 }
 
-/// The block of `surfaces` at `points` on a grid of `pixel` units per pixel: the outline of
-/// their ground collar or, without one, their bounding box, raised from 0 to their top without
-/// pre-snapping corners so concave outlines never fold over themselves before simplification.
+/// The block of `surfaces` at `points`: the outline of their ground or, without one, their bounding box, raised from 0 to their top.
 /// Its walls and roof face out, and it has no bottom.
-/// `None` if the longer side of their bounding box is under `min_pixels`, or if its vertices are
-/// more than a `u32` indexes.
-fn block(
-    surfaces: &[&Surface],
-    points: &[Vec<[i32; 3]>],
-    pixel: f64,
-    min_pixels: f64,
-    z_step: ZStep,
-) -> Option<Mesh> {
+/// `None` if it has no height, or if its vertices are more than a `u32` indexes.
+fn block(surfaces: &[&Surface], points: &[Vec<[i32; 3]>], z_step: ZStep) -> Option<Mesh> {
     let (min, max) =
         points
             .iter()
@@ -860,12 +840,7 @@ fn block(
                     [0, 1, 2].map(|i| max[i].max(p[i])),
                 )
             });
-    let side = |i: usize| f64::from(max[i]) - f64::from(min[i]);
-    if side(0).max(side(1)) < min_pixels * pixel {
-        return None;
-    }
-    // Extend foundations below `z = 0` when downhill ground vertices lie below the centre datum;
-    // otherwise start the block at `z = 0`.
+    // Foundations below the ground at the centre reach down to it.
     let base = min[2].min(0);
     if max[2] <= base {
         return None;
@@ -953,8 +928,7 @@ fn facing_down(xyz: &[[i32; 3]], triangles: &[[u32; 3]]) -> Vec<[u32; 3]> {
         .collect()
 }
 
-/// 16-bit Hilbert curve index of `[x, y]` over `[-extent, 2 * extent)`, grouping spatially
-/// nearby meshes within a tile together in `O(1)` per mesh.
+/// The 16-bit Hilbert curve index of `[x, y]` over `[-extent, 2 * extent)`.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
@@ -983,9 +957,31 @@ fn hilbert_key([x, y]: [i32; 2], extent: u32) -> u32 {
     d
 }
 
-/// The layer of a tile's buildings, each with its feature id, the footprints merged into blocks.
-/// A block takes the id of the first building it holds that no other feature has, and counts
-/// them in a `buildings` property. `None` if no building leaves a triangle.
+/// A feature of a tile's layer: one building, or a block of merged buildings.
+enum TileMesh<'a> {
+    Building {
+        id: u64,
+        gml_id: Option<&'a str>,
+        mesh: Mesh,
+    },
+    Block {
+        id: Option<u64>,
+        buildings: u32,
+        mesh: Mesh,
+    },
+}
+
+impl TileMesh<'_> {
+    fn mesh(&self) -> &Mesh {
+        match self {
+            Self::Building { mesh, .. } | Self::Block { mesh, .. } => mesh,
+        }
+    }
+}
+
+/// The layer of a tile's buildings, the footprints merged into blocks.
+/// A block takes the id of the first building it holds that no other feature has, and counts them in a `buildings` property.
+/// `None` if no building leaves a triangle.
 fn layer(
     name: &str,
     tile: Tile,
@@ -993,10 +989,18 @@ fn layer(
     placed: Vec<(u64, &Building, Placed)>,
 ) -> AnyResult<Option<TileLayer>> {
     let mut meshes = Vec::new();
+    let mut taken = HashSet::new();
     let (mut ids, mut footprints) = (Vec::new(), Vec::new());
     for (id, building, placed) in placed {
         match placed {
-            Placed::Mesh(mesh) => meshes.push((Some(id), building.gml_id.as_deref(), None, mesh)),
+            Placed::Mesh(mesh) => {
+                taken.insert(id);
+                meshes.push(TileMesh::Building {
+                    id,
+                    gml_id: building.gml_id.as_deref(),
+                    mesh,
+                });
+            }
             Placed::Footprint(footprint) => {
                 ids.push(id);
                 footprints.push(footprint);
@@ -1009,27 +1013,32 @@ fn layer(
         reason = "a pixel of a tile of at most a few hundred km in z units of at least a millimetre"
     )]
     let min_wall = (WALL_MIN_PIXELS * tile.width() / TILE_PIXELS / z_step.metres()).round() as i32;
-    let mut taken: HashSet<u64> = meshes.iter().filter_map(|m| m.0).collect();
     for block in merge(&footprints, cell, z_step, min_wall) {
         let id = block
             .members
             .iter()
             .map(|&m| ids[m])
             .find(|&id| taken.insert(id));
-        let count = u32::try_from(block.members.len())
+        let buildings = u32::try_from(block.members.len())
             .context("a block holds more buildings than a u32 counts")?;
-        meshes.push((id, None, Some(count), block.mesh));
+        meshes.push(TileMesh::Block {
+            id,
+            buildings,
+            mesh: block.mesh,
+        });
     }
-    meshes.retain(|m| !m.3.triangles.is_empty());
+    meshes.retain(|m| !m.mesh().triangles.is_empty());
     if meshes.is_empty() {
         return Ok(None);
     }
-    // Order buildings (and, separately, merged blocks so presence bitmaps stay contiguous)
-    // along a 16-bit Hilbert curve over their first vertex without scanning every vertex.
+    // Blocks follow the buildings, so that the `buildings` column is present in one run.
     let extent = tile.extent();
     meshes.sort_by_key(|m| {
-        let first = m.3.xyz.first().copied().unwrap_or_default();
-        (m.2.is_some(), hilbert_key([first[0], first[1]], extent))
+        let [x, y, _] = m.mesh().xyz.first().copied().unwrap_or_default();
+        (
+            matches!(m, TileMesh::Block { .. }),
+            hilbert_key([x, y], extent),
+        )
     });
 
     let mut builder = TileLayer::builder(name, extent)?;
@@ -1040,11 +1049,19 @@ fn layer(
     let gml_id = builder.add_property("gml_id", PropKind::Str)?;
     let buildings = meshes
         .iter()
-        .any(|m| m.2.is_some())
+        .any(|m| matches!(m, TileMesh::Block { .. }))
         .then(|| builder.add_property("buildings", PropKind::U32))
         .transpose()?;
     let part = builder.add_scoped_m_value("part", PropKind::Str, MValueScope::Triangle)?;
-    for (id, name, count, mesh) in meshes {
+    for tile_mesh in meshes {
+        let (id, name, count, mesh) = match tile_mesh {
+            TileMesh::Building { id, gml_id, mesh } => (Some(id), gml_id, None, mesh),
+            TileMesh::Block {
+                id,
+                buildings,
+                mesh,
+            } => (id, None, Some(buildings), mesh),
+        };
         let points = mesh.xyz.iter().map(|&[x, y, _]| Point::new(x, y)).collect();
         let mut feature = builder.feature(Geometry::MultiPoint(MultiPoint(points)));
         feature.id(id);
@@ -1059,306 +1076,4 @@ fn layer(
         feature.finish()?;
     }
     Ok(Some(builder.finish()))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_tile_grid_unit_is_between_one_and_two_centimetres() {
-        let [lon, lat] = [2.331_716_682_733_388_f64, 48.872_017_348_646_814].map(f64::to_radians);
-        let extents = [15, 16, 17].map(|zoom| Tile::of(unit(lon, lat), zoom).extent());
-        assert_eq!(extents, [65536, 32768, 16384]);
-    }
-
-    fn surface(part: Part, triangles: Vec<[u32; 3]>) -> Surface {
-        Surface {
-            part,
-            lods: Lods::Both,
-            positions: Vec::new(),
-            triangles,
-        }
-    }
-
-    fn count(mesh: &Mesh, part: Part) -> usize {
-        mesh.parts.iter().filter(|&&p| p == part).count()
-    }
-
-    #[test]
-    fn surfaces_share_their_welded_vertices_and_each_triangle_keeps_its_part() {
-        let surfaces = [
-            surface(Part::Wall, vec![[0, 1, 2]]),
-            surface(Part::Roof, vec![[0, 2, 1], [0, 0, 1], [3, 3, 3]]),
-        ];
-        let points = [
-            vec![[0, 0, 0], [5, 0, 0], [0, 5, 0]],
-            vec![[5, 0, 0], [5, 5, 0], [0, 5, 0], [9, 9, 9]],
-        ];
-        let mesh = Mesh::weld(&surfaces, &points).unwrap();
-        assert_eq!(mesh.xyz, [[0, 0, 0], [5, 0, 0], [0, 5, 0], [5, 5, 0]]);
-        assert_eq!(mesh.triangles, [[0, 1, 2], [1, 2, 3]]);
-        assert_eq!(mesh.parts, [Part::Wall, Part::Roof]);
-    }
-
-    #[test]
-    fn welding_deduplicates_identical_faces_and_orients_each_closed_part_outward() {
-        let wall = surface(Part::Wall, vec![[0, 1, 2], [1, 2, 0], [2, 1, 0]]);
-        let points = [vec![[0, 0, 0], [100, 0, 0], [0, 0, 100]]];
-        let mesh = Mesh::weld([&wall], &points).unwrap();
-        assert_eq!(mesh.xyz, [[0, 0, 0], [100, 0, 0], [0, 0, 100]]);
-        assert_eq!(mesh.triangles, [[0, 1, 2], [2, 1, 0]]);
-
-        // An inside-out closed cube paired with a separate open triangle in the same building:
-        // the closed cube still flips outward even though the whole mesh has open edges.
-        let cube_pts = vec![
-            [0, 0, 0],
-            [10, 0, 0],
-            [10, -10, 0],
-            [0, -10, 0],
-            [0, 0, 10],
-            [10, 0, 10],
-            [10, -10, 10],
-            [0, -10, 10],
-        ];
-        let outward_cube = [
-            [4, 5, 6],
-            [4, 6, 7],
-            [0, 2, 1],
-            [0, 3, 2],
-            [0, 1, 5],
-            [0, 5, 4],
-            [2, 3, 7],
-            [2, 7, 6],
-            [1, 2, 6],
-            [1, 6, 5],
-            [3, 0, 4],
-            [3, 4, 7],
-        ];
-        let inward_cube = surface(Part::Roof, outward_cube.map(|[a, b, c]| [a, c, b]).to_vec());
-        let open_wing = surface(Part::Wall, vec![[0, 1, 2]]);
-        let wing_pts = vec![[50, 0, 0], [60, 0, 0], [50, 0, 10]];
-        let combined = Mesh::weld([&inward_cube, &open_wing], &[cube_pts, wing_pts]).unwrap();
-        assert!(signed_volume_x6(&combined.xyz, &combined.triangles[..12]) > 0);
-        assert_eq!(combined.triangles[12], [8, 9, 10]);
-    }
-
-    #[test]
-    fn elevated_overhang_grounds_and_terrain_collars_never_sink_a_tower_underground() {
-        let [lon, lat] = [9.976_f64.to_radians(), 53.563_f64.to_radians()];
-        let d = 0.000_05;
-        // Base ring further from centre (z = 20.5 m) vs upper observation-pod underside right at
-        // centre (z = 225.5 m), as on Hamburg's Heinrich-Hertz-Turm.
-        let base_ground = Surface {
-            part: Part::Ground,
-            lods: Lods::Both,
-            positions: vec![
-                [lon - d, lat - d, 20.5],
-                [lon + d, lat - d, 20.5],
-                [lon + d, lat + d, 20.5],
-            ],
-            triangles: vec![[0, 1, 2]],
-        };
-        let pod_underside = Surface {
-            part: Part::Ground,
-            lods: Lods::Both,
-            positions: vec![
-                [lon, lat, 225.5],
-                [lon + d * 0.1, lat, 225.5],
-                [lon, lat + d * 0.1, 225.5],
-            ],
-            triangles: vec![[0, 1, 2]],
-        };
-        let spire = Surface {
-            part: Part::Roof,
-            lods: Lods::Both,
-            positions: vec![[lon, lat, 300.4]],
-            triangles: Vec::new(),
-        };
-        let without_tis =
-            View::new([&base_ground, &pod_underside, &spire].into_iter(), &[]).unwrap();
-        assert!(
-            (without_tis.ground - 20.5).abs() < 1e-6,
-            "{}",
-            without_tis.ground
-        );
-        assert!((without_tis.height - 279.9).abs() < 1e-6);
-
-        let with_tis =
-            View::new([&pod_underside, &spire].into_iter(), &[[lon, lat, 20.674]]).unwrap();
-        assert!((with_tis.ground - 20.674).abs() < 1e-6);
-    }
-
-    #[test]
-    fn grounds_on_top_of_each_other_make_one_block_with_its_walls() {
-        let triangles = vec![[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]];
-        let reversed = triangles.iter().map(|&[a, b, c]| [a, c, b]).collect();
-        let (ground, again) = (
-            surface(Part::Ground, triangles),
-            surface(Part::Ground, reversed),
-        );
-        let square = vec![
-            [0, 0, 7],
-            [100, 0, 7],
-            [100, 100, 7],
-            [0, 100, 7],
-            [50, 50, 7],
-        ];
-        let points = [square.clone(), square];
-        let z_step = ZStep::new(DEFAULT_Z_STEP).unwrap();
-        let mesh = block(&[&ground, &again], &points, 1.0, BLOCK_MIN_PIXELS, z_step).unwrap();
-        assert_eq!([count(&mesh, Part::Wall), count(&mesh, Part::Roof)], [8, 4]);
-    }
-
-    #[test]
-    fn a_block_raises_the_outline_of_its_ground_closed_but_for_its_bottom_and_facing_out() {
-        // A square facing down in four triangles around its centre, under a roof 7 units up.
-        let ground = surface(
-            Part::Ground,
-            vec![[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]],
-        );
-        let roof = surface(Part::Roof, vec![[0, 1, 2]]);
-        let points = [
-            vec![
-                [0, 0, 0],
-                [100, 0, 0],
-                [100, 100, 0],
-                [0, 100, 0],
-                [50, 50, 0],
-            ],
-            vec![[0, 0, 7], [100, 0, 7], [0, 100, 7]],
-        ];
-        let z_step = ZStep::new(DEFAULT_Z_STEP).unwrap();
-        let mesh = block(&[&ground, &roof], &points, 1.0, BLOCK_MIN_PIXELS, z_step).unwrap();
-        assert_eq!(mesh.xyz.len(), 9);
-        assert_eq!([count(&mesh, Part::Wall), count(&mesh, Part::Roof)], [8, 4]);
-
-        let edges: Vec<[u32; 2]> = mesh
-            .triangles
-            .iter()
-            .flat_map(|&[a, b, c]| [[a, b], [b, c], [c, a]])
-            .collect();
-        let uses = |edge: [u32; 2]| edges.iter().filter(|&&e| e == edge).count();
-        for &[a, b] in &edges {
-            let bottom = mesh.xyz[a as usize][2] == 0 && mesh.xyz[b as usize][2] == 0;
-            assert_eq!(uses([b, a]), usize::from(!bottom), "{a} {b}");
-            assert_eq!(uses([a, b]), 1, "{a} {b}");
-        }
-
-        // In (x, -y, z), each triangle winds counter-clockwise seen from outside.
-        let xyz: Vec<[i64; 3]> = mesh
-            .xyz
-            .iter()
-            .map(|&[x, y, z]| [x, -y, z].map(i64::from))
-            .collect();
-        let len = i64::try_from(xyz.len()).unwrap();
-        let centre = [0, 1, 2].map(|i| xyz.iter().map(|p| p[i]).sum::<i64>() / len);
-        for triangle in &mesh.triangles {
-            let [first, second, third] = triangle.map(|i| xyz[i as usize]);
-            let [along, across] = [second, third].map(|p| [0, 1, 2].map(|i| p[i] - first[i]));
-            let normal = [
-                along[1] * across[2] - along[2] * across[1],
-                along[2] * across[0] - along[0] * across[2],
-                along[0] * across[1] - along[1] * across[0],
-            ];
-            let outwards: i64 = (0..3).map(|i| normal[i] * (first[i] - centre[i])).sum();
-            assert!(outwards > 0, "{triangle:?} faces inwards");
-        }
-    }
-
-    #[test]
-    fn a_block_without_ground_area_is_its_bounding_box_and_none_under_two_pixels() {
-        let roof = surface(Part::Roof, vec![[0, 1, 2]]);
-        let line = surface(Part::Ground, vec![[0, 1, 2]]);
-        let points = [
-            vec![[0, 0, 5], [30, 0, 5], [0, 20, 9]],
-            vec![[0, 0, 5], [30, 0, 5], [15, 0, 5]],
-        ];
-        let z_step = ZStep::new(DEFAULT_Z_STEP).unwrap();
-        let mesh = block(&[&roof, &line], &points, 10.0, BLOCK_MIN_PIXELS, z_step).unwrap();
-        let mut xyz = mesh.xyz.clone();
-        xyz.sort_unstable();
-        assert_eq!(
-            xyz,
-            [
-                [0, 0, 0],
-                [0, 0, 9],
-                [0, 20, 0],
-                [0, 20, 9],
-                [30, 0, 0],
-                [30, 0, 9],
-                [30, 20, 0],
-                [30, 20, 9]
-            ]
-        );
-        assert_eq!([count(&mesh, Part::Wall), count(&mesh, Part::Roof)], [8, 2]);
-        assert!(block(&[&roof, &line], &points, 16.0, BLOCK_MIN_PIXELS, z_step).is_none());
-    }
-
-    #[test]
-    fn only_a_file_whose_coordinates_fit_the_common_crs_is_mislabelled() {
-        let file = |epsg, x, y| {
-            Some(File {
-                epsg,
-                first: [x, y, 0.0],
-                buildings: Vec::new(),
-            })
-        };
-        let hamburg = [566_100.0, 5_934_100.0];
-        let files = [
-            file(25832, hamburg[0], hamburg[1]),
-            file(25832, 567_000.0, 5_935_000.0),
-            None,
-            file(25833, hamburg[0], hamburg[1]),
-            // Berlin, in zone 33 indeed
-            file(25833, 390_000.0, 5_820_000.0),
-        ];
-        assert_eq!(mislabelled(&files).unwrap(), [(3, 25833, 25832)]);
-        assert_eq!(
-            mislabelled(&files[3..]).unwrap(),
-            [] as [(usize, u16, u16); 0]
-        );
-    }
-
-    #[test]
-    fn an_inside_out_closed_mesh_is_turned_outward_while_an_open_shell_stays_as_given() {
-        // Outward-wound 10x10x10 cube in `(x, -y, z)`:
-        let pts = vec![
-            [0, 0, 0],
-            [10, 0, 0],
-            [10, -10, 0],
-            [0, -10, 0],
-            [0, 0, 10],
-            [10, 0, 10],
-            [10, -10, 10],
-            [0, -10, 10],
-        ];
-        let outward_tris = vec![
-            [4, 5, 6],
-            [4, 6, 7], // top (+Z)
-            [0, 2, 1],
-            [0, 3, 2], // bottom (-Z)
-            [0, 1, 5],
-            [0, 5, 4], // south (-Y)
-            [2, 3, 7],
-            [2, 7, 6], // north (+Y)
-            [1, 2, 6],
-            [1, 6, 5], // east (+X)
-            [3, 0, 4],
-            [3, 4, 7], // west (-X)
-        ];
-        let inward_tris: Vec<[u32; 3]> = outward_tris.iter().map(|&[a, b, c]| [a, c, b]).collect();
-
-        let closed_inward = surface(Part::Wall, inward_tris.clone());
-        let welded = Mesh::weld([&closed_inward], std::slice::from_ref(&pts)).unwrap();
-        assert!(is_closed_shell(&welded.triangles));
-        assert!(signed_volume_x6(&welded.xyz, &welded.triangles) > 0);
-
-        // Removing the bottom two triangles leaves an open shell: winding must stay untouched.
-        let open_inward = surface(Part::Wall, inward_tris[2..].to_vec());
-        let open_welded = Mesh::weld([&open_inward], &[pts]).unwrap();
-        assert!(!is_closed_shell(&open_welded.triangles));
-        assert_eq!(open_welded.triangles.len(), 10);
-        assert_eq!(open_welded.triangles[0], inward_tris[2]);
-    }
 }

@@ -7,6 +7,7 @@ mod from_files;
 mod from_geojson;
 mod from_mbtiles;
 mod from_pmtiles;
+mod tiled;
 pub mod verify;
 
 use std::borrow::Cow;
@@ -414,9 +415,8 @@ pub struct ConvertArgs {
     /// What an altitude of `0` stands for (needs `--z-step`)
     #[clap(long, value_name = "MODE", help_heading = "GeoJSON input")]
     height_mode: Option<HeightModeArg>,
-    /// Re-read a `CityGML` file whose coordinates lie >1 degree from the directory's majority CRS
-    /// in its declared CRS, when they fit that majority CRS instead (e.g. mislabelled UTM zones)
-    #[clap(long, help_heading = "GeoJSON and CityGML input")]
+    /// Read a `CityGML` file in the CRS most input files name when its coordinates lie over 1 degree from theirs in the CRS it names, but near them in that one
+    #[clap(long, help_heading = "CityGML input")]
     fix_mislabelled_crs: bool,
     #[command(flatten)]
     v2: V2EncoderArgs,
@@ -616,7 +616,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         }
         false
     };
-    let geojson_only = [
+    let tiling_only = [
         ("--min-zoom", args.min_zoom.is_some()),
         ("--max-zoom", args.max_zoom.is_some()),
         ("--layer", args.layer.is_some()),
@@ -662,7 +662,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 args.output.display()
             );
         }
-    } else if let Some((flag, _)) = geojson_only.iter().find(|(_, given)| *given) {
+    } else if let Some((flag, _)) = tiling_only.iter().find(|(_, given)| *given) {
         bail!(
             "{flag} tiles a GeoJSON or CityGML input, but the input is neither a .geojson file nor CityGML: {}",
             args.input.display()

@@ -23,7 +23,7 @@ use anyhow::{Context as _, Result as AnyResult, bail};
 use geojson::{Feature, FeatureCollection, GeoJson};
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::PropertySchema;
-use mlt_core::{Decoder, MltError, Parser, PropValue, TileLayer, ZAxis, ZStep};
+use mlt_core::{PropValue, TileLayer, ZAxis, ZStep};
 use rayon::prelude::*;
 
 use self::clip::Rect;
@@ -32,7 +32,7 @@ use self::feature_id::feature_id;
 pub(super) use self::project::mercator_unit;
 use self::project::{Dims, Geom, Projector, Vertex};
 use self::round::to_tile;
-use super::{ConvertArgs, Reencoder};
+use super::{ConvertArgs, Reencoder, tiled};
 
 /// The number of grid units across a tile, the value every MVT/MLT consumer expects.
 const EXTENT: u32 = 4096;
@@ -330,56 +330,14 @@ impl Tiler<'_> {
     /// Encode and write tile `(zoom, col, row)`. Returns `false`, writing nothing,
     /// when the tile needs more than the default decoder budget.
     fn write_tile(&self, zoom: u8, col: u32, row: u32, entries: Vec<Entry>) -> AnyResult<bool> {
-        let checked = encode_tile(self.layer, self.reencoder, entries)
-            .with_context(|| format!("encoding tile {zoom}/{col}/{row}"))
-            .and_then(|bytes| {
-                // `--verify` has already decoded the tile with the default budget.
-                if !self.reencoder.verify {
-                    decode_with_default_budget(&bytes)
-                        .with_context(|| format!("decoding tile {zoom}/{col}/{row} back"))?;
-                }
-                Ok(bytes)
-            });
-        let bytes = match checked {
-            Ok(bytes) => bytes,
-            Err(e) if is_memory_limit(&e) => return Ok(false),
-            Err(e) => return Err(e),
-        };
-        let dir = self.output.join(zoom.to_string()).join(col.to_string());
-        fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
-        let path = dir.join(format!("{row}.mlt"));
-        fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
-        Ok(true)
+        let layer = build_layer(self.layer, entries)
+            .with_context(|| format!("building tile {zoom}/{col}/{row}"))?;
+        tiled::write_tile(self.output, self.reencoder, zoom, col, row, layer)
     }
 }
 
-/// Whether `err` stems from a decoder running out of its memory budget.
-pub(super) fn is_memory_limit(err: &anyhow::Error) -> bool {
-    err.chain().any(|cause| {
-        matches!(
-            cause.downcast_ref::<MltError>(),
-            Some(MltError::MemoryLimitExceeded { .. })
-        )
-    })
-}
-
-/// Decode `bytes` into rows within the default memory budget, as a renderer
-/// reading the tile would decode them.
-pub(super) fn decode_with_default_budget(bytes: &[u8]) -> Result<(), MltError> {
-    let layers = Parser::default().parse_layers(bytes)?;
-    let mut dec = Decoder::default();
-    layers
-        .into_iter()
-        .try_for_each(|layer| layer.into_tile(&mut dec).map(drop))
-}
-
-/// Build the tile's layer and encode it the way every other `convert` input is,
-/// with the sort, tessellation, `--fields` and `--verify` settings of `reencoder`.
-fn encode_tile(
-    layer: &LayerSpec,
-    reencoder: &Reencoder,
-    entries: Vec<Entry>,
-) -> AnyResult<Vec<u8>> {
+/// Build the tile's layer of `entries`.
+fn build_layer(layer: &LayerSpec, entries: Vec<Entry>) -> AnyResult<TileLayer> {
     let mut builder = TileLayer::builder(layer.name.clone(), EXTENT)?;
     if let Some(axis) = layer.z_axis {
         builder.set_z_axis(axis)?;
@@ -403,7 +361,7 @@ fn encode_tile(
         }
         feature.finish()?;
     }
-    reencoder.encode(builder.finish())
+    Ok(builder.finish())
 }
 
 #[cfg(test)]

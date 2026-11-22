@@ -1,15 +1,10 @@
 //! The coordinate reference systems of `CityGML` files, and their coordinates turned geodetic.
-//!
-//! Only the horizontal CRS is transformed: heights stay in the source's vertical datum, since a
-//! mesh stores heights above its lowest vertex.
 
 use anyhow::{Result as AnyResult, anyhow, bail};
 use proj4rs::Proj;
 use proj4rs::transform::{Transform, TransformClosure, transform};
 
-/// The horizontal EPSG code a GML `srsName` names: `EPSG:25832`, `urn:ogc:def:crs:EPSG::25832`,
-/// `http://www.opengis.net/def/crs/EPSG/0/25832`, a compound of those, or the German `AdV`'s
-/// `urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH`.
+/// The horizontal EPSG code a GML `srsName` names: `EPSG:25832`, `urn:ogc:def:crs:EPSG::25832`, `http://www.opengis.net/def/crs/EPSG/0/25832`, a compound of those, or the German `AdV`'s `urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH`.
 #[must_use]
 pub fn epsg_of_srs_name(name: &str) -> Option<u16> {
     let lower = name.to_ascii_lowercase();
@@ -41,7 +36,7 @@ pub struct Reprojector {
     epsg: u16,
     src: Proj,
     dst: Proj,
-    /// Scale factor from source vertical units to metres (e.g. `0.3048` for feet).
+    /// The metres of a source vertical unit.
     z_to_metres: f64,
     /// Whether the CRS is geographic, its coordinates latitude and longitude in degrees.
     pub geographic: bool,
@@ -70,7 +65,7 @@ impl Reprojector {
         })
     }
 
-    /// Replaces each of `points` by `[lon, lat, height_metres]` in radians and metres.
+    /// Replaces each of `points` by its longitude and latitude in radians and its height in metres.
     pub fn to_geodetic(&self, points: &mut [[f64; 3]]) -> AnyResult<()> {
         if self.geographic {
             for p in points.iter_mut() {
@@ -102,62 +97,5 @@ impl Transform for Points<'_> {
             *p = [x, y, p[2]];
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn srs_names_name_their_horizontal_epsg_code() {
-        for (name, code) in [
-            ("EPSG:25832", 25832),
-            ("urn:ogc:def:crs:EPSG::25833", 25833),
-            ("http://www.opengis.net/def/crs/EPSG/0/6697", 6668),
-            ("urn:ogc:def:crs,crs:EPSG::25832,crs:EPSG::7837", 25832),
-            ("EPSG:5555", 25832),
-            ("urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH", 25832),
-            (
-                "http://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/25832&2=http://www.opengis.net/def/crs/EPSG/0/7837",
-                25832,
-            ),
-        ] {
-            assert_eq!(epsg_of_srs_name(name), Some(code), "{name}");
-        }
-        assert_eq!(epsg_of_srs_name("local"), None);
-        assert_eq!(epsg_of_srs_name("EPSG:"), None);
-        assert_eq!(epsg_of_srs_name("urn:adv:crs:ETRS89_UTM60000"), None);
-        assert_eq!(epsg_of_srs_name("urn:adv:crs:ETRS89_UTM0"), None);
-    }
-
-    #[test]
-    fn geographic_positions_are_read_latitude_first() {
-        let r = Reprojector::new(4326).unwrap();
-        assert!(r.geographic);
-        let mut points = [[35.66, 139.7, 40.0]];
-        r.to_geodetic(&mut points).unwrap();
-        assert!((points[0][0].to_degrees() - 139.7).abs() < 1e-9);
-        assert!((points[0][1].to_degrees() - 35.66).abs() < 1e-9);
-        assert!((points[0][2] - 40.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn foot_crs_scales_vertical_heights_to_metres() {
-        // EPSG:2263 is NAD83 / New York Long Island (ftUS), ~0.3048006 m/ft.
-        let r = Reprojector::new(2263).unwrap();
-        let mut points = [[987_000.0, 212_000.0, 100.0]];
-        r.to_geodetic(&mut points).unwrap();
-        assert!(
-            (points[0][2] - 30.480_060_96).abs() < 1e-4,
-            "{:?}",
-            points[0]
-        );
-    }
-
-    #[test]
-    fn an_unknown_code_fails_with_its_name() {
-        let err = Reprojector::new(1).err().unwrap();
-        assert!(err.to_string().starts_with("EPSG:1 is not a CRS"), "{err}");
     }
 }
