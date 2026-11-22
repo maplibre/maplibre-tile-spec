@@ -9,6 +9,11 @@ on:
       - "hotpath/**"
       - ".github/workflows/hotpath-benchmark.yml"
 
+# A new push to a pull request supersedes its running benchmark; every main run gets its own group, so each commit gets its report
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
