@@ -12,6 +12,9 @@ on:
         default: true
   workflow_dispatch:
 
+# What every job had before the fuzz job needed `actions: write`, which only it gets
+permissions: { contents: write, id-token: write, code-quality: write, pull-requests: read }
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -93,6 +96,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
     name: Fuzz ${{ matrix.target }}
     runs-on: ubuntu-latest
+    permissions: { contents: read, actions: write }  # actions: delete superseded coverage caches
     strategy:
       fail-fast: false
       matrix:
@@ -139,8 +143,41 @@ jobs:
         with:
           path: rust/mlt-core/fuzz/corpus/${{ matrix.target }}
           key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+      # Keyed on the nightly and on the lockfile ci-fuzz-build resolved, so a change to either rebuilds from scratch
+      - name: Key the fuzz coverage build
+        id: cov-key
+        env:
+          LOCK_HASH: ${{ hashFiles('rust/mlt-core/fuzz/Cargo.lock') }}
+        run: |
+          set -euo pipefail
+          test -n "$LOCK_HASH"  # ci-fuzz-build resolves the lockfile, so it must exist by now
+          echo "key=fuzz-cov-$(rustc +nightly -vV | sed -n 's/^commit-hash: //p')-$LOCK_HASH" >> "$GITHUB_OUTPUT"
+      - name: Restore the fuzz coverage build
+        id: cov-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: rust/mlt-core/target
+          key: ${{ steps.cov-key.outputs.key }}
       - name: Generate fuzz coverage
         run: just -v rust::ci-fuzz-cov ${{ matrix.target }}
+      # Every target builds the same dependencies, so one saves for all
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.target == 'layer' && steps.cov-cache.outputs.cache-hit != 'true'
+        name: Save the fuzz coverage build
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: rust/mlt-core/target
+          key: ${{ steps.cov-key.outputs.key }}
+      # So the cache holds one coverage build at a time
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.target == 'layer' && steps.cov-cache.outputs.cache-hit != 'true'
+        name: Delete the fuzz coverage builds this one supersedes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY: ${{ steps.cov-key.outputs.key }}
+        run: |
+          set -euo pipefail
+          gh cache list --repo "$GITHUB_REPOSITORY" --key fuzz-cov- --limit 100 --json key --jq '.[].key' \
+            | { grep -vxF "$KEY" || true; } \
+            | xargs -r -n1 gh cache delete --repo "$GITHUB_REPOSITORY"
       - uses: ./.github/actions/mlt-upload-coverage
         with:
           suite: rust-fuzz-${{ matrix.target }}
