@@ -605,4 +605,64 @@ mod tests {
             Err(MltError::UnableToTake(2))
         ));
     }
+
+    mod properties {
+        use hegel::generators as gs;
+
+        use super::*;
+
+        #[hegel::composite]
+        fn presence_mask(tc: &hegel::TestCase) -> Vec<bool> {
+            let len = tc.draw(gs::integers::<usize>().max_value(600));
+            match tc.draw(gs::integers::<u8>().max_value(3)) {
+                0 => {
+                    let per_mille = tc.draw(gs::integers::<u32>().max_value(1000));
+                    (0..len)
+                        .map(|_| tc.draw(gs::integers::<u32>().max_value(999)) < per_mille)
+                        .collect()
+                }
+                1 => {
+                    let mut mask = Vec::with_capacity(len);
+                    let mut present = tc.draw(gs::booleans());
+                    while mask.len() < len {
+                        let run = tc.draw(gs::integers::<usize>().min_value(1).max_value(200));
+                        mask.extend(std::iter::repeat_n(present, run.min(len - mask.len())));
+                        present = !present;
+                    }
+                    mask
+                }
+                2 => vec![tc.draw(gs::booleans()); len],
+                _ => {
+                    let hot = tc.draw(
+                        gs::vecs(gs::integers::<usize>().max_value(len.max(1) - 1)).max_size(4),
+                    );
+                    (0..len).map(|at| hot.contains(&at)).collect()
+                }
+            }
+        }
+
+        #[hegel::test]
+        fn smallest_presence_coding_is_no_larger_than_any_coding(tc: hegel::TestCase) {
+            let bits = tc.draw(presence_mask());
+            let chosen = size(&bits, smallest(&bits));
+            for coding in PresenceCoding::ALL {
+                assert_eq!(chosen.min(size(&bits, coding)), chosen, "vs {coding:?}");
+            }
+        }
+
+        #[hegel::test]
+        fn every_presence_coding_writes_then_reads_back_the_mask(tc: hegel::TestCase) {
+            let bits = tc.draw(presence_mask());
+            for coding in PresenceCoding::ALL {
+                let mut buf = Vec::new();
+                write(&mut buf, &bits, coding);
+                assert_eq!(buf.len(), size(&bits, coding), "size disagrees with write");
+                let count = u32::try_from(bits.len()).unwrap();
+                let (rest, out) = read(&buf, count, coding, &mut Unmetered).unwrap();
+                assert!(rest.is_empty(), "{coding:?} left {} bytes", rest.len());
+                let read_back: Vec<bool> = out.iter().by_vals().collect();
+                assert_eq!(read_back, bits, "{coding:?}");
+            }
+        }
+    }
 }

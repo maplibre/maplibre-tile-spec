@@ -89,6 +89,7 @@ brotli.workspace = true
 criterion.workspace = true
 flate2.workspace = true
 geo-types = { workspace = true, features = ["arbitrary"] }
+hegeltest.workspace = true
 insta = { workspace = true, features = ["json"] }
 pretty_assertions.workspace = true
 proptest.workspace = true
@@ -115,6 +116,10 @@ required-features = ["__private"]
 [[test]]
 name = "geojson02"
 required-features = ["__private-v2"]
+
+[[test]]
+name = "hegel_property_columns"
+required-features = ["unstable-v2"]
 
 [[test]]
 name = "layer_bytes"

@@ -447,4 +447,100 @@ mod tests {
             );
         }
     }
+
+    mod properties {
+        use hegel::generators as gs;
+
+        use super::*;
+        use crate::decoder::StreamMeta;
+
+        #[hegel::composite]
+        fn string_pool(tc: &hegel::TestCase) -> Vec<String> {
+            let stems = tc.draw(gs::vecs(gs::text().max_size(12)).min_size(1).max_size(4));
+            let count = tc.draw(gs::integers::<usize>().max_value(80));
+            (0..count)
+                .map(|_| {
+                    let at = tc.draw(gs::integers::<usize>().max_value(stems.len() - 1));
+                    let tail = tc.draw(gs::text().max_size(8));
+                    format!("{}{tail}", stems[at])
+                })
+                .collect()
+        }
+
+        #[hegel::test]
+        fn compressed_strings_decode_back_to_the_same_strings(tc: hegel::TestCase) {
+            let pool = tc.draw(string_pool());
+            let raw = compress_fsst(&pool);
+            let int_stream = |values: &[u32], ty: StreamType, name: &'static str| {
+                let mut enc = Encoder::explicit(ExplicitEncoder::all(IntEncoder::varint()));
+                let mut codecs = Codecs::default();
+                let ctx = StreamCtx::prop(ty, name);
+                codecs.write_int_stream(values, &ctx, &mut enc).unwrap();
+                enc.data().to_vec()
+            };
+            let byte_stream = |data: &[u8], ty: StreamType, num_values: usize| {
+                let stream = EncodedStream {
+                    meta: StreamMeta::new_none(ty, ValueKind::Int, num_values).unwrap(),
+                    data: data.to_vec(),
+                };
+                let mut buf = Vec::new();
+                buf.write_stream(&stream).expect("write_stream failed");
+                buf
+            };
+            let buffers = [
+                int_stream(
+                    &raw.blob.symbol_lengths,
+                    StreamType::Length(LengthType::Symbol),
+                    "symbol",
+                ),
+                byte_stream(
+                    &raw.blob.symbol_bytes,
+                    StreamType::Data(DictionaryType::Fsst),
+                    raw.blob.symbol_lengths.len(),
+                ),
+                int_stream(
+                    &raw.value_lengths,
+                    StreamType::Length(LengthType::Dictionary),
+                    "dictionary",
+                ),
+                byte_stream(
+                    &raw.blob.corpus,
+                    StreamType::Data(DictionaryType::Single),
+                    raw.value_lengths.len(),
+                ),
+            ];
+            let mut raw_streams = Vec::new();
+            for buf in &buffers {
+                raw_streams.push(assert_empty(header01::parse_stream(
+                    buf,
+                    ValueKind::Int,
+                    &mut parser(),
+                )));
+            }
+            let [s0, s1, s2, s3] = raw_streams.try_into().expect("expected 4 streams");
+            let parsed = RawFsstData::new(s0, s1, s2, s3).expect("RawFsstData::new failed");
+            let (corpus, lengths) =
+                decode_fsst(parsed, &mut Decoder::default()).expect("decode_fsst failed");
+            let mut decoded = Vec::new();
+            let mut offset = 0;
+            for len in lengths {
+                let len = len.into_usize();
+                decoded.push(corpus[offset..offset + len].to_string());
+                offset += len;
+            }
+            assert_eq!(decoded, pool);
+        }
+
+        #[hegel::test]
+        fn symbols_are_at_most_eight_bytes_and_fewer_than_255(tc: hegel::TestCase) {
+            let pool = tc.draw(string_pool());
+            let raw = compress_fsst(&pool);
+            let longest = raw.blob.symbol_lengths.iter().copied().max().unwrap_or(0);
+            assert_eq!(longest.min(8), longest);
+            assert_eq!(
+                raw.blob.symbol_lengths.len().min(254),
+                raw.blob.symbol_lengths.len()
+            );
+        }
+    }
 }

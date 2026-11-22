@@ -150,4 +150,55 @@ mod tests {
     fn a_value_wider_than_the_codec_has_no_width() {
         assert_eq!(bit_width(&[u64::from(u32::MAX) + 1]), None);
     }
+
+    mod properties {
+        use hegel::generators as gs;
+
+        use super::*;
+
+        #[hegel::composite]
+        fn packable_values(tc: &hegel::TestCase) -> Vec<u32> {
+            let bits = tc.draw(gs::integers::<u32>().max_value(32));
+            let ceiling = u32::try_from((1_u64 << bits) - 1).unwrap();
+            tc.draw(gs::vecs(gs::integers::<u32>().max_value(ceiling)).max_size(200))
+        }
+
+        #[hegel::test]
+        fn values_packed_at_their_bit_width_unpack_to_themselves(tc: hegel::TestCase) {
+            let values = tc.draw(packable_values());
+            let width = bit_width(&values).expect("u32 values always have a width");
+            let mut out = Vec::new();
+            pack(&values, width, &mut out);
+            let count = u32::try_from(values.len()).unwrap();
+            assert_eq!(unpack::<u32>(&out, count).unwrap(), values);
+        }
+
+        #[hegel::test]
+        fn packed_len_equals_the_packed_byte_length(tc: hegel::TestCase) {
+            let values = tc.draw(packable_values());
+            let width = bit_width(&values).expect("u32 values always have a width");
+            let mut out = Vec::new();
+            pack(&values, width, &mut out);
+            assert_eq!(out.len(), packed_len(values.len(), width));
+        }
+
+        #[hegel::test]
+        fn bit_width_fits_every_value_and_the_top_bit_is_needed(tc: hegel::TestCase) {
+            let values = tc.draw(packable_values());
+            let width = bit_width(&values).expect("u32 values always have a width");
+            let limit = 1_u64 << width;
+            assert_eq!(values.iter().filter(|&&v| u64::from(v) >= limit).count(), 0);
+            if width > 1 {
+                let top_bit = 1_u64 << (width - 1);
+                assert!(values.iter().any(|&v| u64::from(v) >= top_bit));
+            }
+        }
+
+        #[hegel::test]
+        fn bit_width_of_u64_values_is_none_exactly_when_a_value_exceeds_u32(tc: hegel::TestCase) {
+            let values = tc.draw(gs::vecs(gs::integers::<u64>()).max_size(8));
+            let exceeds = values.iter().any(|&v| v > u64::from(u32::MAX));
+            assert_eq!(bit_width(&values).is_none(), exceeds);
+        }
+    }
 }
