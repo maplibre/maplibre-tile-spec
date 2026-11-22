@@ -211,6 +211,12 @@ pub enum MltError {
     #[error("a layer cannot mix meshes with other geometries")]
     MixedMeshLayer,
     #[cfg(feature = "unstable-v2")]
+    #[error("layer {0} is not a Meshes layer, so it cannot hold a mesh")]
+    MeshOutsideMeshesLayer(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("layer {0} already holds features, so it cannot be made a Meshes layer")]
+    MeshesOnNonEmptyLayer(String),
+    #[cfg(feature = "unstable-v2")]
     #[error("a mesh needs (x, y, z) vertices, so its layer needs a z step")]
     MeshWithoutZ,
     #[cfg(feature = "unstable-v2")]

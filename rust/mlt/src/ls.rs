@@ -849,7 +849,8 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
         }
     }
 
-    let layers = Decoder::default().decode_all(layers)?;
+    let mut dec = Decoder::default();
+    let layers = dec.decode_all(layers)?;
 
     let mut geometries = BTreeSet::new();
     let mut feature_count = 0;
@@ -892,7 +893,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
         if json_path.is_file() {
             let expected = FeatureCollection::from_str(&fs::read_to_string(&json_path)?)
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
-            let actual = FeatureCollection::from_layers(layers)?;
+            let actual = FeatureCollection::from_layers(layers, &mut dec)?;
             Some(actual.equals(&expected)?)
         } else {
             Some(false)

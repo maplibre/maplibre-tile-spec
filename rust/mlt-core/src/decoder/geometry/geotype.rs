@@ -14,10 +14,10 @@ use crate::MltError::{
 #[cfg(feature = "unstable-v2")]
 use crate::MltError::{ZAlreadySet, ZVertexCountMismatch};
 use crate::MltResult;
-use crate::decoder::{GeometryType, GeometryValues};
+use crate::decoder::{GeometryLayout, GeometryType, GeometryValues};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::ZAxis;
+use crate::tile::{MValueScope, ZAxis};
 
 impl GeometryType {
     /// Whether this is a mesh, which only a v2 layer holds.
@@ -151,11 +151,25 @@ impl GeometryValues {
         self.vector_types.len()
     }
 
-    /// Whether this geometry belongs to a v2 `Meshes` layer.
-    #[cfg(feature = "unstable-v2")]
+    /// What the triangle columns hold.
     #[must_use]
-    pub fn is_meshes(&self) -> bool {
-        self.meshes || self.vector_types.first() == Some(&GeometryType::Mesh)
+    pub fn layout(&self) -> GeometryLayout {
+        self.layout
+    }
+
+    /// Whether the layer stores its polygons' triangles and no outlines to walk.
+    pub(crate) fn triangles_only(&self) -> bool {
+        self.layout == GeometryLayout::Tessellated && self.part_offsets.is_none()
+    }
+
+    /// How many values feature `index` owns in an m-value column of `scope`: one per vertex,
+    /// or one per triangle of a mesh.
+    #[cfg(feature = "unstable-v2")]
+    pub fn value_count(&self, index: usize, scope: MValueScope) -> MltResult<usize> {
+        match scope {
+            MValueScope::Vertex => self.vertex_count(index),
+            MValueScope::Triangle => Ok(self.mesh_triangles(index)?.map_or(0, <[_]>::len)),
+        }
     }
 
     /// Geometry types for each feature, in insertion order.
@@ -186,16 +200,18 @@ impl GeometryValues {
         self.ring_offsets.as_deref()
     }
 
-    /// Triangle index buffer produced by Earcut tessellation, three indices per triangle.
+    /// Triangle index buffer, three indices per triangle: the Earcut triangles of each polygon, or
+    /// the triangles of each mesh, as [`Self::layout`] says.
     /// Each index names a vertex of the whole layer, so the buffer can go to a GPU as is.
-    /// `None` unless the `GeometryValues` was created with [`Self::new_tessellated`].
+    /// `None` for a [`GeometryLayout::Plain`] layer.
     #[must_use]
     pub fn index_buffer(&self) -> Option<&[u32]> {
         self.index_buffer.as_deref()
     }
 
-    /// Cumulative triangle counts, one run per polygon feature, starting at `0`.
-    /// `None` unless the `GeometryValues` was created with [`Self::new_tessellated`].
+    /// Cumulative triangle counts, starting at `0`: one run per polygon feature of a
+    /// [`GeometryLayout::Tessellated`] layer, or per feature of a Meshes layer.
+    /// `None` for a [`GeometryLayout::Plain`] layer.
     #[must_use]
     pub fn triangle_offsets(&self) -> Option<&[u32]> {
         self.triangle_offsets.as_deref()
@@ -351,8 +367,7 @@ impl GeometryValues {
         if self.z_axis.is_none() {
             return Ok(ZVertices::Range(0..0));
         }
-        if self.part_offsets.is_none()
-            && self.vector_types.get(index) != Some(&GeometryType::Mesh)
+        if self.triangles_only()
             && let Some(indices) = self.index_buffer.as_deref()
         {
             let tris = self.triangle_offsets.as_deref().unwrap_or(&[]);
@@ -578,8 +593,7 @@ impl GeometryValues {
             .get(index)
             .ok_or_else(|| GeometryIndexOutOfBounds(index))?;
 
-        if parts.is_none()
-            && !geom_type.is_mesh()
+        if self.triangles_only()
             && let Some(indices) = self.index_buffer.as_deref()
         {
             let tris = self.triangle_offsets.as_deref().unwrap_or(&[]);

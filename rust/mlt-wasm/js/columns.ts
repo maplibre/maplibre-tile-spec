@@ -8,7 +8,7 @@ export enum MltGeometryType {
   MultiPoint = 3,
   MultiLineString = 4,
   MultiPolygon = 5,
-  /** A triangle mesh, which only a v2 `Meshes` layer holds. */
+  /** `(x, y, z)` vertices and the triangles between them, only in a v2 `Meshes` layer. */
   Mesh = 6,
 }
 
@@ -54,6 +54,20 @@ export type MltNamedColumn = {
 }[MltColumnType];
 
 /**
+ * How a layer stores its features' geometry.
+ *
+ * - `"outlines"`: runs of vertices only.
+ * - `"tessPolygons"`: triangles, and no outlines to walk.
+ * - `"tessPolygonsWithOutlines"`: outlines, and triangles for its polygons.
+ * - `"meshes"`: every feature a `Mesh`, its geometry offsets each feature's run of vertices.
+ */
+export type MltGeometryLayout =
+  | "outlines"
+  | "tessPolygons"
+  | "tessPolygonsWithOutlines"
+  | "meshes";
+
+/**
  * A layer's geometry as decoded, 2D or 3D by `dimension`.
  *
  * Offset arrays are cumulative: entry `i` starts item `i` and entry `i + 1` ends it.
@@ -65,6 +79,7 @@ export type MltGeometryColumns = MltGeometryColumns2D | MltGeometryColumns3D;
 interface MltGeometryColumnsBase {
   /** The MLT geometry type of each feature, see `MltGeometryType`. */
   readonly types: Uint8Array;
+  readonly layout: MltGeometryLayout;
   readonly geometryOffsets?: Uint32Array;
   readonly partOffsets?: Uint32Array;
   readonly ringOffsets?: Uint32Array;
@@ -73,13 +88,19 @@ interface MltGeometryColumnsBase {
    * A polygon ring's closing vertex is not stored.
    */
   readonly vertices: Int32Array;
-  /** Cumulative triangle counts per polygon feature of a tessellated layer, or per mesh. */
+  /**
+   * Feature `f` has triangles `triangleOffsets[f] .. triangleOffsets[f + 1]` of `indexBuffer`,
+   * which is empty unless it is a polygon of a tessellated layer or a mesh.
+   */
   readonly triangleOffsets?: Uint32Array;
   /** Three vertex indices per triangle, counted from the layer's first vertex. */
   readonly indexBuffer?: Uint32Array;
 }
 
-/** What a z of `0` stands for: mean sea level, or the terrain under each vertex. */
+/**
+ * What a z of `0` stands for: mean sea level, or the terrain under each vertex. A `Meshes`
+ * layer's terrain is the one at the centre of each mesh's `(x, y)` bounding box.
+ */
 export type HeightMode = "absolute" | "relativeToGround";
 
 /** `(x, y)` vertices, which sit on the ground. */
@@ -97,6 +118,32 @@ export interface MltGeometryColumns3D extends MltGeometryColumnsBase {
   readonly heightMode: HeightMode;
 }
 
+/**
+ * An m-value column of a v2 layer, one value per vertex or per triangle of the features that carry it, in feature order.
+ * `present` has one bit per feature, LSB-first, and a feature whose bit is clear carries no values at all.
+ *
+ * A string column comes as one dictionary code per value, and `dictionary[code]` is the string.
+ */
+export type MltMValueColumn =
+  | {
+      [T in Exclude<MltColumnType, "string">]: MltMValueColumnBase & {
+        readonly type: T;
+        readonly values: MltColumnValuesByType[T];
+      };
+    }[Exclude<MltColumnType, "string">]
+  | (MltMValueColumnBase & {
+      readonly type: "string";
+      readonly codes: Uint32Array;
+      readonly dictionary: readonly string[];
+    });
+
+interface MltMValueColumnBase {
+  readonly name: string;
+  /** Feature `f` owns values `offsets[f]..offsets[f + 1]`, one entry per feature and one more. */
+  readonly offsets: Uint32Array;
+  readonly present?: Uint8Array;
+}
+
 export interface MltColumnLayer {
   readonly name: string;
   readonly extent: number;
@@ -108,9 +155,13 @@ export interface MltColumnLayer {
   readonly ids?: MltColumn<Float64Array>;
   /**
    * In wire order, a shared dictionary's children named by its prefix and their own names.
-   * v2 vertex-scoped (m-value) and nested columns are not passed on.
+   * v2 nested columns are not passed on.
    */
   readonly properties: readonly MltNamedColumn[];
+  /** The m-value columns over the vertices, in wire order; only a v2 layer has any. */
+  readonly vertexValues: readonly MltMValueColumn[];
+  /** The m-value columns over the triangles, in wire order; only a `Meshes` layer has any. */
+  readonly triangleValues: readonly MltMValueColumn[];
 }
 
 export interface MltColumnTile {
@@ -149,9 +200,57 @@ export function columnValue<C extends MltColumn>(
   if (!Number.isInteger(index) || index < 0 || index >= values.length) {
     throw new RangeError(`the column has no feature ${index}`);
   }
-  const has =
-    present === undefined || ((present[index >> 3] >> (index & 7)) & 1) === 1;
-  return has ? values[index] : undefined;
+  return isPresent(present, index) ? values[index] : undefined;
+}
+
+/** Whether feature `index` has a value, by a column's `present` bits. */
+function isPresent(present: Uint8Array | undefined, index: number): boolean {
+  return (
+    present === undefined || ((present[index >> 3] >> (index & 7)) & 1) === 1
+  );
+}
+
+type MltMValueSlice<C extends MltMValueColumn> = C extends {
+  readonly type: "string";
+}
+  ? string[]
+  : C extends { readonly values: infer V }
+    ? V
+    : never;
+
+/**
+ * The values of `column` owned by feature `featureIndex`, or `undefined` when
+ * the feature has none (`present` bit clear).
+ *
+ * Numeric m-value columns return a zero-copy `subarray` view; string m-value
+ * columns resolve their dictionary codes into a `string[]`.
+ */
+export function mValueSlice<C extends MltMValueColumn>(
+  column: C,
+  featureIndex: number,
+): MltMValueSlice<C> | undefined {
+  const { offsets, present } = column;
+  if (
+    !Number.isInteger(featureIndex) ||
+    featureIndex < 0 ||
+    featureIndex >= offsets.length - 1
+  ) {
+    throw new RangeError(
+      `m-value column "${column.name}" has no feature ${featureIndex}`,
+    );
+  }
+  if (!isPresent(present, featureIndex)) return undefined;
+
+  const start = offsets[featureIndex];
+  const end = offsets[featureIndex + 1];
+  if (column.type === "string") {
+    const out = new Array<string>(end - start);
+    for (let i = start; i < end; i++) {
+      out[i - start] = column.dictionary[column.codes[i]];
+    }
+    return out as MltMValueSlice<C>;
+  }
+  return column.values.subarray(start, end) as MltMValueSlice<C>;
 }
 
 /**
@@ -160,5 +259,6 @@ export function columnValue<C extends MltColumn>(
  */
 export function toElevation(z: number, zStep: number): number {
   const power = 10 ** Math.abs(zStep);
-  return zStep < 0 ? z / power : z * power;
+  const metres = zStep < 0 ? z / power : z * power;
+  return metres === 0 ? 0 : metres;
 }

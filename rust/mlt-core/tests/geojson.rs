@@ -16,6 +16,6 @@ fn geojson_test([mlt]: [&Path; 1]) {
     let mut d = dec();
     let decoded = d.decode_all(layers).unwrap();
     assert!(d.consumed() > 0);
-    let fc = FeatureCollection::from_layers(decoded).unwrap();
+    let fc = FeatureCollection::from_layers(decoded, &mut d).unwrap();
     assert!(!fc.features.is_empty(), "expected at least one feature");
 }

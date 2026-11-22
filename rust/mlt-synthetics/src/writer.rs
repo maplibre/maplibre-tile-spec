@@ -77,7 +77,7 @@ pub fn decode_to_json(bytes: &[u8]) -> FeatureCollection {
     let decoded = dec
         .decode_all(Parser::default().parse_layers(bytes).unwrap())
         .unwrap();
-    FeatureCollection::from_layers(decoded).unwrap()
+    FeatureCollection::from_layers(decoded, &mut dec).unwrap()
 }
 
 impl SynthWriter {

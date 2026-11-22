@@ -14,8 +14,8 @@ use crate::codecs::tri::{self, TriTrees};
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::stream::header02::{Family, WordWidth};
 use crate::decoder::{
-    GeoLayout, GeometryType, GeometryValues, LengthType, Levels, OffsetType, StreamType, Topology,
-    VertexStorage, decode_topology, run_offsets,
+    GeoLayout, GeometryLayout, GeometryType, GeometryValues, LengthType, Levels, OffsetType,
+    StreamType, Topology, VertexStorage, decode_topology, run_offsets,
 };
 use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
@@ -113,10 +113,10 @@ pub(crate) fn encode_geometry02(
         triangle_offsets,
         vertices,
         z_axis,
-        meshes,
+        layout,
     } = geometry;
 
-    if meshes || vector_types.contains(&GeometryType::Mesh) {
+    if layout == GeometryLayout::Meshes {
         return encode_meshes02(
             vector_types,
             geometry_offsets,

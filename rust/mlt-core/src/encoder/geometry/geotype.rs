@@ -4,7 +4,7 @@ use earcut::Earcut;
 use geo_types::{Coord, Geometry, LineString, Polygon};
 
 use super::stager::GeometryStager;
-use crate::decoder::{GeometryType, GeometryValues};
+use crate::decoder::{GeometryLayout, GeometryType, GeometryValues};
 use crate::tile::{TileLayer, stored_len};
 
 impl TryFrom<&Geometry<i32>> for GeometryType {
@@ -130,28 +130,29 @@ fn has_area(ring: &LineString<i32>) -> bool {
 }
 
 impl GeometryValues {
-    /// Returns a [`GeometryValues`] with its triangle offsets pre-initialized.
+    /// Returns an empty [`GeometryValues`] of the [`GeometryLayout::Tessellated`] layout.
     ///
-    /// When they are `Some`, polygon push methods automatically compute and store
-    /// Earcut tessellation data as geometries are added.
+    /// Its polygon push methods compute and store the Earcut triangles of each polygon as it is added.
     /// Use [`Self::default`] when tessellation is not required.
     #[must_use]
     pub fn new_tessellated() -> Self {
         Self {
             triangle_offsets: Some(vec![0]),
+            layout: GeometryLayout::Tessellated,
             ..Default::default()
         }
     }
 
-    /// Returns an empty [`GeometryValues`] for a v2 `Meshes` layer on `z_axis`.
+    /// Returns an empty [`GeometryValues`] of the [`GeometryLayout::Meshes`] layout.
+    ///
+    /// Push its meshes with [`Self::push_mesh`], then their z with [`Self::add_z`].
     #[cfg(feature = "unstable-v2")]
     #[must_use]
-    pub fn new_meshes(z_axis: crate::tile::ZAxis) -> Self {
+    pub fn new_meshes() -> Self {
         Self {
             geometry_offsets: Some(vec![0]),
             triangle_offsets: Some(vec![0]),
-            z_axis: Some(z_axis),
-            meshes: true,
+            layout: GeometryLayout::Meshes,
             ..Default::default()
         }
     }
@@ -184,6 +185,9 @@ impl GeometryValues {
     ) where
         R: Iterator<Item = &'c [Coord<i32>]>,
     {
+        if self.layout != GeometryLayout::Tessellated {
+            return;
+        }
         if let Some(offsets) = self.triangle_offsets.as_mut() {
             let mut total = *offsets.last().expect("offsets start at 0");
             let mut vertex_offset = first_vertex;
@@ -357,13 +361,18 @@ impl GeometryValues {
     ///
     /// The vertices run on from the layer's, so the triangles are stored shifted past those.
     /// Its vertices are `(x, y)` pairs, so it must come before [`Self::add_z`].
+    /// Only a [`GeometryLayout::Meshes`] geometry holds meshes.
     #[cfg(feature = "unstable-v2")]
     pub fn push_mesh(
         &mut self,
         vertices: impl Iterator<Item = Coord<i32>>,
         triangles: &[[u32; 3]],
     ) {
-        self.meshes = true;
+        debug_assert_eq!(
+            self.layout,
+            GeometryLayout::Meshes,
+            "push_mesh outside Meshes"
+        );
         self.vector_types.push(GeometryType::Mesh);
         let first_vertex = self.stored_vertex_count();
         let verts = self.vertices.get_or_insert_with(Vec::new);
@@ -436,8 +445,7 @@ pub fn wound_layer(layer: &TileLayer) -> TileLayer {
             stager.geom(&feature.geometry);
             let moves = stager.finish_feature();
             feature.z = moves.apply(&feature.z, |&z| z);
-            for (i, m_value) in feature.m_values.iter_mut().enumerate() {
-                let scope = layer.m_value_scopes.get(i).copied().unwrap_or_default();
+            for (m_value, &scope) in feature.m_values.iter_mut().zip(&layer.m_value_scopes) {
                 if scope == crate::MValueScope::Vertex {
                     m_value.reorder(&moves);
                 }

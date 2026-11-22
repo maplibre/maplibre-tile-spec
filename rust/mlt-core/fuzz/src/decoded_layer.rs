@@ -210,7 +210,7 @@ mod tests {
     fn mesh_layer(tris: Vec<[u32; 3]>, materials: Vec<u32>, labels: Vec<&str>) -> TileLayer {
         let mut builder = TileLayer::builder("mesh", 4096).expect("valid layer");
         builder
-            .set_z_axis(mlt_core::ZAxis {
+            .set_meshes(mlt_core::ZAxis {
                 step: mlt_core::ZStep::new(-2).expect("centimeter step"),
                 mode: mlt_core::HeightMode::Absolute,
             })

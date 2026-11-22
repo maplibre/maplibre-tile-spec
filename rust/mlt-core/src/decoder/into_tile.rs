@@ -5,9 +5,12 @@
 //! feature, owning its geometry and property values outright. That is the form
 //! the optimizer, the sorting pipeline, and the converters work in.
 
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{
+    GeometryLayout, Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested,
+};
 use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty};
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::{Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
 use crate::tile::{MValue, MValueScope, NestedKind, NestedValue};
@@ -43,6 +46,7 @@ impl ParsedLayer01<'_> {
         let extent = self.extent().get();
         let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
         let col_nulls = typed_nulls(&self.properties);
+        self.charge_string_copies(dec)?;
         let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
         let mut feat_iter = self.iter_features();
         while let Some(feat) = feat_iter.next() {
@@ -54,8 +58,6 @@ impl ParsedLayer01<'_> {
                     None => col_nulls[col_idx].clone(),
                 });
             }
-
-            charge_str_props(dec, &values)?;
 
             features.push(TileFeature {
                 id: feat.id(),
@@ -97,6 +99,9 @@ impl ParsedLayer02<'_> {
         let m_scopes: Vec<MValueScope> = self.m_values.iter().map(ParsedMValue::scope).collect();
         let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();
         let nested_kinds: Vec<NestedKind> = self.nested.iter().map(ParsedNested::kind).collect();
+        for column in &self.nested {
+            column.charge_row_copies(dec)?;
+        }
         // One walk per m-value column, stepped alongside the features. Cutting the
         // columns up front instead would cost a span per feature per column, which is
         // memory the tile declares rather than memory it carries.
@@ -118,9 +123,12 @@ impl ParsedLayer02<'_> {
         }
         parts
             .finish()?
+            .with_kind(
+                geometry.layout() == GeometryLayout::Meshes,
+                geometry.z_axis(),
+            )?
             .with_m_value_names(m_names, m_scopes)?
-            .with_nested(nested_names, nested_kinds)?
-            .with_z_axis(geometry.z_axis())
+            .with_nested(nested_names, nested_kinds)
     }
 }
 
@@ -174,7 +182,6 @@ fn m_values_of(
     Ok(values)
 }
 
-/// The nested values of feature `index`, one per column, charged against `dec`.
 #[cfg(feature = "unstable-v2")]
 fn nested_of(
     columns: &[ParsedNested<'_>],
@@ -183,9 +190,7 @@ fn nested_of(
 ) -> MltResult<Vec<NestedValue>> {
     let mut values = dec.alloc::<NestedValue>(columns.len())?;
     for column in columns {
-        let value = column.row(index)?;
-        dec.consume(u32::try_from(value.heap_bytes()).or_overflow()?)?;
-        values.push(value);
+        values.push(column.row(index)?);
     }
     Ok(values)
 }
@@ -220,25 +225,4 @@ fn typed_nulls(properties: &[ParsedProperty<'_>]) -> Vec<PropValue> {
         }
     }
     nulls
-}
-
-/// Charge `dec` for the bytes of the owned strings inside `PropValue::Str`.
-fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> MltResult<()> {
-    let str_bytes = props
-        .iter()
-        .filter_map(|p| {
-            if let PropValue::Str(Some(s)) = p {
-                Some(s.len())
-            } else {
-                None
-            }
-        })
-        .try_fold(0u32, |acc, n| {
-            acc.checked_add(u32::try_from(n).or_overflow()?)
-                .or_overflow()
-        })?;
-    if str_bytes > 0 {
-        dec.consume(str_bytes)?;
-    }
-    Ok(())
 }

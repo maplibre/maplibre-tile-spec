@@ -38,7 +38,9 @@ npm run build:ts
 ```
 
 The `unstable-v2` feature is on by default, so v2 layers decode. Building with
-`--no-default-features` skips them.
+`--no-default-features` skips them. The `annotate` and `geojson` features, also on by default,
+export `annotateTile` and `tileGeoJson`. A renderer that only calls `decodeTileColumns` can leave
+them out, `--no-default-features --features unstable-v2`, for a WASM file a third smaller.
 
 ## Usage
 
@@ -51,7 +53,7 @@ const tile = decodeTile(data);
 for (const [name, layer] of Object.entries(tile.layers)) {
     for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
-        console.log(feature.type);           // 1 | 2 | 3
+        console.log(feature.type);           // 0 (Mesh) | 1 | 2 | 3
         console.log(feature.id);             // number | undefined
         console.log(feature.properties);     // read from the decoded columns
         console.log(feature.loadGeometry()); // Point[][]
@@ -68,17 +70,19 @@ build their own buffers, such as a renderer. Nothing per feature crosses the WAS
 import { columnValue, decodeTileColumns } from '@maplibre/mlt-wasm';
 
 for (const layer of decodeTileColumns(data).layers) {
-    const { dimension, vertices, zStep } = layer.geometry;
+    const { layout, dimension, vertices, zStep } = layer.geometry;
+    // layout: "outlines", "tessPolygons", "tessPolygonsWithOutlines" or "meshes"
     // vertices: Int32Array of (x, y) pairs, or (x, y, z) triples when dimension is 3
     // geometryOffsets, partOffsets, ringOffsets: cumulative offsets, left out when not needed
-    // triangleOffsets, indexBuffer: present on tessellated layers
+    // triangleOffsets, indexBuffer: present on tessellated and Meshes layers
     for (const column of layer.properties) {
         // column.values has one slot per feature; a slot without a value holds 0 or ""
         for (let f = 0; f < layer.featureCount; f++) {
             const value = columnValue(column, f); // undefined when feature f has no value
         }
     }
-    // v2 vertex-scoped (m-value) and nested columns are not passed on
+    // m-value columns are in layer.vertexValues and layer.triangleValues, empty when there are none
+    // nested columns are not passed on
 }
 ```
 
@@ -95,14 +99,29 @@ converts one z to metres, exactly as `mlt-core` does.
 Its `heightMode` says what a z of `0` stands for: `"absolute"` is mean sea level and
 `"relativeToGround"` the terrain under each vertex.
 
+A v2 layer's `vertexValues` hold its m-value columns over the vertices, and a `Meshes` layer's
+`triangleValues` its m-value columns over the triangles. Every other layer has both, empty.
+Each is packed over the features whose `present` bit is set (absent features store zero items rather
+than `0`/`""` padding), with strings as dictionary codes.
+A column's `offsets` give feature `f` the values `offsets[f]..offsets[f + 1]`; `mValueSlice(column, f)`
+reads one feature's slice, and a feature's `loadVertexValues(name)` and `loadTriangleValues(name)`
+do the same on `decodeTile` and `decodeTile3D`.
+
+`triangleOffsets` start each feature's triangles in the layer-wide `indexBuffer`, with an empty run for
+a feature that has none, such as a point of a tessellated layer.
+A `Meshes` layer's features are all `MltGeometryType.Mesh`, and `geometryOffsets` starts each feature's
+run of vertices.
+A mesh in the `"relativeToGround"` height mode meets the terrain at the centre of its vertices'
+`(x, y)` bounding box.
+
 ### Features
 
 `featureGeometry(layer, i)` reads feature `i` of a column layer without knowing the offset levels.
 Its points, lines and polygon rings are views of the layer's vertices, still in tile coordinates,
 and a polygon's rings come ready for earcut. A `TessPolygonsWithOutlines` layer's triangles come per
-feature, counted from the feature's own vertices. A `TessPolygons` or `Meshes` layer stores triangles
-without outlines, so `featureGeometry` rejects it; its `indexBuffer` and `triangleOffsets` are the
-triangles.
+feature, counted from the feature's own vertices, and so do a mesh's (`kind: "mesh"`). A `TessPolygons`
+layer stores triangles without outlines, so `featureGeometry` rejects it; its `indexBuffer` and
+`triangleOffsets` are the triangles.
 
 ```ts
 import { featureGeometry } from '@maplibre/mlt-wasm';
@@ -183,22 +202,28 @@ Shapes that need tessellation on the CPU work one polygon or line at a time:
 
 `decodeTile3D` reads a tile whose every layer has z coordinates. Its features have the same
 `loadGeometry()` and `loadPolygons()`, with every vertex an `[x, y, z]` array, so the rest of the
-code can assume 3D. It throws when any layer has no z coordinates, for which `decodeTile` reads the
-tile in 2D, and when any layer uses the `TessPolygons`, `TessPolygonsWithOutlines` or `Meshes`
-geometry layout. `decodeTileColumns` reads every layout, in 2D and 3D.
+code can assume 3D. In both readers, a mesh's `loadGeometry()` is one ring of its vertices, and
+`loadTriangles()` indexes into it. `decodeTile3D` throws when any layer has no z coordinates, for which `decodeTile` reads the
+tile in 2D, and when any layer uses the `TessPolygons` or `TessPolygonsWithOutlines` geometry
+layout. `decodeTileColumns` reads every layout, in 2D and 3D.
 
 Like `x` and `y`, `z` is the stored integer: it lies on the layer's `zStep` grid, and
-`toElevation(z, layer.zStep)` gives its elevation in metres.
+`toElevation(z, layer.zStep)` gives it in metres above the layer's `heightMode` base.
 
 ```ts
-import { decodeTile3D } from '@maplibre/mlt-wasm';
+import { decodeTile3D, MltGeometryType } from '@maplibre/mlt-wasm';
 
 const tile = decodeTile3D(data);
 for (const [name, layer] of Object.entries(tile.layers)) {
     for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
-        // exterior ring, then holes; each ring is closed (its first vertex is repeated at the end)
-        const polygons = feature.loadPolygons(); // [x, y, z][][][]
+        if (feature.mltType === MltGeometryType.Mesh) {
+            const vertices = feature.loadGeometry()[0]; // [x, y, z][]
+            const triangles = feature.loadTriangles();  // Uint32Array
+        } else {
+            // exterior ring, then holes; each ring is closed (its first vertex is repeated at the end)
+            const polygons = feature.loadPolygons();    // [x, y, z][][][]
+        }
     }
 }
 ```

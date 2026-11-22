@@ -39,7 +39,7 @@ pub(crate) use model02::{
 pub(crate) use property::strings;
 
 pub(crate) use crate::decoder::geometry::{GeoTypes, Geometry, IndexBase, RawGeometry};
-pub use crate::decoder::geometry::{GeometryType, GeometryValues};
+pub use crate::decoder::geometry::{GeometryLayout, GeometryType, GeometryValues};
 pub use crate::decoder::id::ParsedId;
 // pub (not pub(crate)) so __private module can re-export it
 pub(crate) use crate::decoder::id::{Id, RawId, RawIdValue};
@@ -47,6 +47,7 @@ pub use crate::decoder::iterators::{
     ColNames, ColumnRef, FeatureRef, Layer01FeatureIter, LendingIterator, PropName, PropNamesIter,
     PropValueRef,
 };
+pub(crate) use crate::decoder::limits::sum_bytes;
 pub use crate::decoder::limits::{Decoder, Parser};
 pub use crate::decoder::model::{Layer, LayerBytes, ParsedLayer, Unknown};
 pub(crate) use crate::decoder::model01::{BASE_TYPE_MASK, Column, OPTIONAL_FLAG};

@@ -3,8 +3,8 @@ use usize_cast::IntoUsize as _;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
-    DictionaryType, GeoTypes, GeometryType, GeometryValues, IndexBase, IntEncoding, LengthType,
-    OffsetType, RawGeometry, RawStream, StreamMeta, StreamType, ValueKind,
+    DictionaryType, GeoTypes, GeometryLayout, GeometryType, GeometryValues, IndexBase, IntEncoding,
+    LengthType, OffsetType, RawGeometry, RawStream, StreamMeta, StreamType, ValueKind,
 };
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::{LogicalEncoding, VertexLogical};
@@ -503,8 +503,6 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                 ..
             }
         );
-        #[cfg(not(feature = "unstable-v2"))]
-        let meshes = false;
         let vector_types = decode_geometry_types(types, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
@@ -606,8 +604,18 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             ))?,
         };
 
-        let triangles_only = !meshes && index_buffer.is_some() && part_offsets.is_none();
-        if triangles_only {
+        let layout = if index_buffer.is_some() {
+            GeometryLayout::Tessellated
+        } else {
+            GeometryLayout::Plain
+        };
+        #[cfg(feature = "unstable-v2")]
+        let layout = if meshes {
+            GeometryLayout::Meshes
+        } else {
+            layout
+        };
+        if layout == GeometryLayout::Tessellated && part_offsets.is_none() {
             if index_base == IndexBase::Feature {
                 return Err(MltError::NotImplemented(
                     "v1 triangles without outline topology",
@@ -710,8 +718,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             vertices,
             #[cfg(feature = "unstable-v2")]
             z_axis,
-            #[cfg(feature = "unstable-v2")]
-            meshes,
+            layout,
         };
         if index_base == IndexBase::Feature {
             values.rebase_indices_to_layer()?;

@@ -48,6 +48,15 @@ impl From<Extent> for NonZeroU32 {
     }
 }
 
+/// What the features of a [`TileLayer`] are, which fixes whether they carry z coordinates and meshes.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LayerKind {
+    Flat,
+    Z(ZAxis),
+    Meshes(ZAxis),
+}
+
 /// What an m-value column holds one value per, the scope byte of a `Meshes` layer's m-value column.
 #[cfg(feature = "unstable-v2")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -290,9 +299,9 @@ pub struct TileLayer {
     /// Nested column shapes, parallel to `TileFeature::nested`.
     #[cfg(feature = "unstable-v2")]
     pub(crate) nested_kinds: Vec<NestedKind>,
-    /// How every feature's `TileFeature::z` reads as a height, or [`None`] for a flat layer.
+    /// Whether the features are flat, carry z coordinates, or are meshes.
     #[cfg(feature = "unstable-v2")]
-    pub(crate) z_axis: Option<ZAxis>,
+    pub(crate) kind: LayerKind,
     pub(crate) features: Vec<TileFeature>,
 }
 
@@ -493,21 +502,6 @@ impl NestedValue {
         }
     }
 
-    /// The heap bytes this value holds, which the decoder charges its budget for.
-    #[must_use]
-    pub(crate) fn heap_bytes(&self) -> usize {
-        match self {
-            Self::Leaf(PropValue::Str(Some(value))) => value.len(),
-            Self::Leaf(_) => size_of::<PropValue>(),
-            Self::List(items) => items.iter().flatten().map(Self::heap_bytes).sum::<usize>(),
-            Self::Map(entries) => entries
-                .iter()
-                .flatten()
-                .map(|(key, value)| key.len() + value.heap_bytes())
-                .sum(),
-        }
-    }
-
     /// Whether the two are the same kind of value, which is all a feature can check
     /// without the column's shape.
     pub(crate) fn same_shape(&self, other: &Self) -> bool {
@@ -545,7 +539,7 @@ impl TileLayer {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
             #[cfg(feature = "unstable-v2")]
-            z_axis: None,
+            kind: LayerKind::Flat,
             features: Vec::with_capacity(features),
         })
     }
@@ -577,7 +571,7 @@ impl TileLayer {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
             #[cfg(feature = "unstable-v2")]
-            z_axis: None,
+            kind: LayerKind::Flat,
             features,
         };
         Ok(layer)
@@ -674,6 +668,7 @@ impl TileLayer {
     }
 
     /// Declare an m-value column of `scope`, whose values every feature then holds or does not.
+    /// Only a [Meshes layer](Self::set_meshes) takes a triangle-scoped column.
     #[cfg(feature = "unstable-v2")]
     pub fn add_scoped_m_value(
         &mut self,
@@ -683,6 +678,9 @@ impl TileLayer {
     ) -> MltResult<MValueKey> {
         let name = name.into();
         self.reject_name_in_use(&name, ColumnRole::MValue)?;
+        if scope == MValueScope::Triangle && !self.is_meshes() {
+            return Err(MltError::TriangleMValueWithoutMesh(name));
+        }
         for feature in &mut self.features {
             feature.m_values.push(MValue::null(kind));
         }
@@ -705,6 +703,12 @@ impl TileLayer {
             self.reject_name_in_use(name, ColumnRole::MValue)?;
         }
         debug_assert_eq!(names.len(), scopes.len());
+        if let Some(index) = scopes
+            .iter()
+            .position(|&scope| scope == MValueScope::Triangle && !self.is_meshes())
+        {
+            return Err(MltError::TriangleMValueWithoutMesh(names[index].clone()));
+        }
         self.m_value_kinds = infer_kinds::<MValue>(&names, &self.features)?;
         self.m_value_names = names;
         self.m_value_scopes = scopes;
@@ -730,7 +734,10 @@ impl TileLayer {
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn z_axis(&self) -> Option<ZAxis> {
-        self.z_axis
+        match self.kind {
+            LayerKind::Flat => None,
+            LayerKind::Z(axis) | LayerKind::Meshes(axis) => Some(axis),
+        }
     }
 
     /// Give the layer z coordinates on `axis`, which every feature pushed after this must carry.
@@ -742,18 +749,46 @@ impl TileLayer {
         if !self.features.is_empty() {
             return Err(MltError::ZStepOnNonEmptyLayer(self.name.clone()));
         }
-        self.z_axis = Some(axis.into());
+        let axis = axis.into();
+        self.kind = match self.kind {
+            LayerKind::Meshes(_) => LayerKind::Meshes(axis),
+            LayerKind::Flat | LayerKind::Z(_) => LayerKind::Z(axis),
+        };
         Ok(())
     }
 
-    /// Put the features, which already carry their z coordinates, on `axis`.
+    /// Give the features, which already carry their z coordinates and meshes, the kind of the layer.
     #[cfg(feature = "unstable-v2")]
-    pub(crate) fn with_z_axis(mut self, axis: Option<ZAxis>) -> MltResult<Self> {
-        self.z_axis = axis;
+    pub(crate) fn with_kind(mut self, meshes: bool, axis: Option<ZAxis>) -> MltResult<Self> {
+        self.kind = match (meshes, axis) {
+            (true, Some(axis)) => LayerKind::Meshes(axis),
+            (true, None) => return Err(MltError::MeshWithoutZ),
+            (false, Some(axis)) => LayerKind::Z(axis),
+            (false, None) => LayerKind::Flat,
+        };
         for feature in &self.features {
             self.validate_z(feature)?;
+            self.validate_mesh(feature)?;
         }
         Ok(self)
+    }
+
+    /// Whether this is a Meshes layer, whose every feature is a mesh.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn is_meshes(&self) -> bool {
+        matches!(self.kind, LayerKind::Meshes(_))
+    }
+
+    /// Make this a Meshes layer on `axis`, which then holds meshes and nothing else.
+    /// A layer that already holds features is rejected, since they are not meshes of it.
+    #[cfg(feature = "unstable-v2")]
+    pub fn set_meshes(&mut self, axis: impl Into<ZAxis>) -> MltResult<()> {
+        if !self.features.is_empty() {
+            return Err(MltError::MeshesOnNonEmptyLayer(self.name.clone()));
+        }
+        self.kind = LayerKind::Meshes(axis.into());
+        Ok(())
     }
 
     /// Declare a nested column of the given shape, which every feature then holds a value of.
@@ -811,7 +846,7 @@ impl TileLayer {
         })
     }
 
-    /// A builder for a layer with the name, extent and z step of this one, and no columns or features.
+    /// A builder for a layer with the name, extent, z step and kind of this one, and no columns or features.
     #[must_use]
     pub fn builder_like(&self) -> TileLayerBuilder {
         let layer = Self {
@@ -830,7 +865,7 @@ impl TileLayer {
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
             #[cfg(feature = "unstable-v2")]
-            z_axis: self.z_axis,
+            kind: self.kind,
             features: Vec::new(),
         };
         TileLayerBuilder { layer }
@@ -838,6 +873,8 @@ impl TileLayer {
 
     fn validate_feature(&self, feature: &TileFeature) -> MltResult<()> {
         validate_kinds::<PropValue>(&self.property_kinds, feature)?;
+        #[cfg(feature = "unstable-v2")]
+        self.validate_mesh(feature)?;
         #[cfg(feature = "unstable-v2")]
         self.validate_m_values(feature)?;
         #[cfg(feature = "unstable-v2")]
@@ -847,10 +884,20 @@ impl TileLayer {
         Ok(())
     }
 
+    /// Check a feature is a mesh exactly when the layer is a Meshes layer.
+    #[cfg(feature = "unstable-v2")]
+    fn validate_mesh(&self, feature: &TileFeature) -> MltResult<()> {
+        match (self.is_meshes(), feature.triangles.is_some()) {
+            (true, false) => Err(MltError::MixedMeshLayer),
+            (false, true) => Err(MltError::MeshOutsideMeshesLayer(self.name.clone())),
+            _ => Ok(()),
+        }
+    }
+
     /// Check a feature's z coordinates against the layer: one per vertex on a z layer, none on a flat one.
     #[cfg(feature = "unstable-v2")]
     fn validate_z(&self, feature: &TileFeature) -> MltResult<()> {
-        let expected = if self.z_axis.is_some() {
+        let expected = if self.z_axis().is_some() {
             feature.vertex_count()
         } else {
             0
@@ -892,34 +939,29 @@ impl TileLayer {
     #[cfg(feature = "unstable-v2")]
     fn validate_m_values(&self, feature: &TileFeature) -> MltResult<()> {
         validate_kinds::<MValue>(&self.m_value_kinds, feature)?;
-        let vertices = feature.vertex_count();
-        for (index, m_value) in feature.m_values.iter().enumerate() {
-            let Some(len) = m_value.count() else {
+        for ((index, m_value), &scope) in feature
+            .m_values
+            .iter()
+            .enumerate()
+            .zip(&self.m_value_scopes)
+        {
+            let Some(actual) = m_value.count() else {
                 continue;
             };
-            match self.m_value_scopes.get(index).copied().unwrap_or_default() {
-                MValueScope::Vertex if len != vertices => {
-                    return Err(MltError::MValueVertexCountMismatch {
+            let expected = feature.value_count(scope);
+            if actual != expected {
+                return Err(match scope {
+                    MValueScope::Vertex => MltError::MValueVertexCountMismatch {
                         index,
-                        expected: vertices,
-                        actual: len,
-                    });
-                }
-                MValueScope::Triangle => {
-                    let Some(triangles) = feature.triangles.as_deref() else {
-                        return Err(MltError::TriangleMValueWithoutMesh(
-                            self.m_value_names[index].clone(),
-                        ));
-                    };
-                    if len != triangles.len() {
-                        return Err(MltError::MValueTriangleCountMismatch {
-                            index,
-                            expected: triangles.len(),
-                            actual: len,
-                        });
-                    }
-                }
-                MValueScope::Vertex => {}
+                        expected,
+                        actual,
+                    },
+                    MValueScope::Triangle => MltError::MValueTriangleCountMismatch {
+                        index,
+                        expected,
+                        actual,
+                    },
+                });
             }
         }
         Ok(())
@@ -986,6 +1028,17 @@ impl TileFeature {
         stored_vertex_count(&self.geometry)
     }
 
+    /// How many values this feature owns in an m-value column of `scope`: one per vertex,
+    /// or one per triangle of a mesh.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn value_count(&self, scope: MValueScope) -> usize {
+        match scope {
+            MValueScope::Vertex => self.vertex_count(),
+            MValueScope::Triangle => self.triangles.as_ref().map_or(0, Vec::len),
+        }
+    }
+
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn m_values(&self) -> &[MValue] {
@@ -1010,7 +1063,7 @@ impl TileFeature {
     ///
     /// The geometry must be the [`MultiPoint`](geo_types::MultiPoint) of the vertices, which
     /// each triangle names by index, counter-clockwise seen from its front in (east, north, up).
-    /// A mesh needs z coordinates, so it can only be encoded in a layer with a [`ZAxis`].
+    /// Only a [Meshes layer](TileLayer::set_meshes) takes a mesh.
     #[cfg(feature = "unstable-v2")]
     pub fn set_triangles(&mut self, triangles: Vec<[u32; 3]>) -> MltResult<()> {
         let Geometry::MultiPoint(points) = &self.geometry else {
@@ -1180,6 +1233,11 @@ impl TileLayerBuilder {
         self.layer.set_z_axis(axis)
     }
 
+    #[cfg(feature = "unstable-v2")]
+    pub fn set_meshes(&mut self, axis: impl Into<ZAxis>) -> MltResult<()> {
+        self.layer.set_meshes(axis)
+    }
+
     pub fn feature(&mut self, geometry: Geometry<i32>) -> TileFeatureBuilder<'_> {
         let properties = self
             .layer
@@ -1284,13 +1342,12 @@ impl TileFeatureBuilder<'_> {
 
     #[cfg(feature = "unstable-v2")]
     pub fn m_value(&mut self, key: MValueKey, value: MValue) -> MltResult<&mut Self> {
-        let scope = self
-            .layer
-            .layer
-            .m_value_scopes
-            .get(key.index())
-            .copied()
-            .unwrap_or_default();
+        let Some(&scope) = self.layer.layer.m_value_scopes.get(key.index()) else {
+            return Err(MltError::UnknownMValueKey {
+                index: key.index(),
+                columns: self.layer.layer.m_value_scopes.len(),
+            });
+        };
         self.feature.set_scoped_m_value(key, value, scope)?;
         Ok(self)
     }

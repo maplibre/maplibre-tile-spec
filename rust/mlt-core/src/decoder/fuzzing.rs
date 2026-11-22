@@ -55,7 +55,7 @@ impl Arbitrary<'_> for GeometryValues {
         let count = u.int_in_range(1..=32u16)?.into_usize();
         #[cfg(feature = "unstable-v2")]
         if u.ratio(1, 4)? {
-            let mut decoded = Self::default();
+            let mut decoded = Self::new_meshes();
             for _ in 0..count.min(8) {
                 let n_verts = u.int_in_range(0..=8u8)?;
                 let coords: Vec<Coord<i32>> = (0..n_verts)

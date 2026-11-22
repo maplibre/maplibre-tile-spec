@@ -841,7 +841,7 @@ mod tests {
     fn square_mesh(faces: [i32; 2]) -> TileLayer {
         let mut layer = TileLayer::builder("l", 4096).unwrap();
         layer
-            .set_z_axis(mlt_core::ZAxis {
+            .set_meshes(mlt_core::ZAxis {
                 step: mlt_core::ZStep::new(0).unwrap(),
                 mode: mlt_core::HeightMode::RelativeToGround,
             })
