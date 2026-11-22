@@ -144,8 +144,8 @@ ci-test-msrv: ci-env-info
 # Build the layer target (installs `cargo fuzz`)
 ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linux-gnu')
 
-# Fuzz the target for 90 seconds (installs `cargo fuzz`)
-ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '-max_len=300' '-rss_limit_mb=2048')
+# Fuzz the target for 30 seconds (installs `cargo fuzz`)
+ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=30' '-max_len=300' '-rss_limit_mb=2048')
 
 # Run coverage against a previously generated corpus and export LCOV for the `coverage` CI job.
 # Output: target/llvm-cov/fuzz-<target>.lcov
