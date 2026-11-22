@@ -322,7 +322,21 @@ mod tests {
         fn sorted_entries_with_duplicates_decode_back_to_themselves(tc: hegel::TestCase) {
             let entries = tc.draw(sorted_entries());
             let borrowed: Vec<&str> = entries.iter().map(String::as_str).collect();
-            assert_eq!(roundtrip(&borrowed), entries);
+            let coded = front_code(&borrowed);
+            let (corpus, lengths) = front_decode(
+                FrontLengths::split(&coded.to_lengths()).unwrap(),
+                &coded.suffixes,
+                &mut Decoder::default(),
+            )
+            .unwrap();
+            let mut decoded = Vec::new();
+            let mut at = 0_usize;
+            for len in lengths {
+                let len = len as usize;
+                decoded.push(corpus[at..at + len].to_string());
+                at += len;
+            }
+            assert_eq!(decoded, entries);
         }
 
         #[hegel::test]

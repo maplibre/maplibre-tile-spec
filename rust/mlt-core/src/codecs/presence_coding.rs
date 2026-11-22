@@ -654,7 +654,14 @@ mod tests {
         fn every_presence_coding_writes_then_reads_back_the_mask(tc: hegel::TestCase) {
             let bits = tc.draw(presence_mask());
             for coding in PresenceCoding::ALL {
-                assert_eq!(round_trip(&bits, coding), bits, "{coding:?}");
+                let mut buf = Vec::new();
+                write(&mut buf, &bits, coding);
+                assert_eq!(buf.len(), size(&bits, coding), "size disagrees with write");
+                let count = u32::try_from(bits.len()).unwrap();
+                let (rest, out) = read(&buf, count, coding, &mut Unmetered).unwrap();
+                assert!(rest.is_empty(), "{coding:?} left {} bytes", rest.len());
+                let read_back: Vec<bool> = out.iter().by_vals().collect();
+                assert_eq!(read_back, bits, "{coding:?}");
             }
         }
     }

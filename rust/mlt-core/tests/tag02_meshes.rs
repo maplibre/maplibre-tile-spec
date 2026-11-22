@@ -294,9 +294,16 @@ fn mesh(tc: &hegel::TestCase) -> Mesh {
 fn random_meshes_round_trip(tc: hegel::TestCase) {
     let meshes = tc.draw(gs::vecs(mesh()).min_size(1).max_size(5));
     let layer = mesh_layer(&meshes);
-    let bytes = layer.encode(cfg_v2()).expect("v2 encode");
+    let v2_4g = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        .with_wire_version(WireVersion::V02);
+    let bytes = layer.encode(v2_4g).expect("v2 encode");
     assert_dump_of_meshes(&bytes);
-    let back = try_decode(&bytes).unwrap();
+    let mut layers = Parser::default().parse_layers(&bytes).unwrap();
+    assert_eq!(layers.len(), 1);
+    let Some(Layer::Tag02(parsed)) = layers.pop() else {
+        panic!("expected a v2 layer")
+    };
+    let back = parsed.into_tile(&mut Decoder::default()).unwrap();
     assert_eq!(back.z_axis(), layer.z_axis());
     assert_eq!(rows(&back), rows(&layer));
 }
