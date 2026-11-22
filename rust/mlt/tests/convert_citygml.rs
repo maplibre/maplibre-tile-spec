@@ -1,6 +1,6 @@
 //! End-to-end tests of `mlt convert` tiling `CityGML` files into directories of v2 `Meshes` tiles.
 
-#![cfg(all(feature = "citygml", not(feature = "hotpath")))]
+#![cfg(not(feature = "hotpath"))]
 
 use std::fmt::Write as _;
 use std::fs;

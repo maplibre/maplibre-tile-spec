@@ -1,7 +1,6 @@
 mod bbox;
 mod common;
 pub mod fields;
-#[cfg(feature = "citygml")]
 mod from_citygml;
 mod from_files;
 mod from_geojson;
@@ -599,23 +598,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let input_container = args.input_container();
     let output_container = args.output_container();
     let geojson_input = is_geojson(&args.input);
-    #[cfg(feature = "citygml")]
     let citygml_input = !geojson_input && from_citygml::is_citygml(&args.input)?;
-    #[cfg(not(feature = "citygml"))]
-    let citygml_input = {
-        if !geojson_input
-            && args
-                .input
-                .extension()
-                .is_some_and(|x| x.eq_ignore_ascii_case("gml"))
-        {
-            bail!(
-                "CityGML support requires the `citygml` Cargo feature on `mlt`: {}",
-                args.input.display()
-            );
-        }
-        false
-    };
     let tiling_only = [
         ("--min-zoom", args.min_zoom.is_some()),
         ("--max-zoom", args.max_zoom.is_some()),
@@ -727,12 +710,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     } else if geojson_input {
         from_geojson::convert(args, &reencoder)
     } else if citygml_input {
-        #[cfg(feature = "citygml")]
-        {
-            from_citygml::convert(args, &reencoder)
-        }
-        #[cfg(not(feature = "citygml"))]
-        unreachable!("citygml_input is false without the citygml feature")
+        from_citygml::convert(args, &reencoder)
     } else {
         from_files::convert(&args.input, &args.output, &reencoder, args.to)
     };

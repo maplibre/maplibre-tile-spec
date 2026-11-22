@@ -28,7 +28,6 @@ use rayon::prelude::*;
 
 use self::clip::Rect;
 use self::feature_id::feature_id;
-#[cfg(feature = "citygml")]
 pub(super) use self::project::mercator_unit;
 use self::project::{Dims, Geom, Projector, Vertex};
 use self::round::to_tile;
