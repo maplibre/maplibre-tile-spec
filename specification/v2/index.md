@@ -385,7 +385,7 @@ A renderer SHOULD NOT cull back faces unless it knows the mesh to be closed.
 
 ### Z Coordinates
 
-A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of the extension field of its [encoding byte](<#encoding-byte>) is `1` for triples and `0` for pairs. A byte holding `z_step + 3`, plus `8` when `z` is a [height above the ground](<#heights-above-the-ground>), is the stream's [parameter](<#parameters>). `byte_length` does not count it.
+A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of the extension field of its [encoding byte](<#encoding-byte>) is `1` for triples and `0` for pairs. The z axis byte is the stream's [parameter](<#parameters>). `byte_length` does not count it.
 
 Bits 2-0 hold `z_step + 3`, and bit 3 holds the height mode. Bits 7-4 are reserved, and a byte with any of them set MUST be rejected.
 
@@ -398,7 +398,18 @@ Bits 2-0 hold `z_step + 3`, and bit 3 holds the height mode. Bits 7-4 are reserv
 | Bits 2-0 | `0` | `1` | `2` | `3` | `4` | `5` | `6` | `7` |
 | Step | 1 mm | 1 cm | 1 dm | 1 m | 10 m | 100 m | 1 km | 10 km |
 
-Bytes `8`-`15` mark a mesh's [heights above the ground](<#heights-above-the-ground>) on the same steps. Bytes `16`-`255` are reserved and MUST be rejected.
+The height mode says what `z = 0` stands for, with the names of KML's `altitudeMode`.
+
+| Bit 3 | Mode | `z = 0` is |
+| --- | --- | --- |
+| `0` | `absolute` | mean sea level |
+| `1` | `relativeToGround` | the terrain under the vertex, or [under the mesh's center](<#heights-above-the-ground>) on [`Meshes`](<#meshes>) |
+
+A layer without `z` is `clampToGround`, and its vertices lie on the terrain. A renderer with no terrain reads the terrain as sea level, so `relativeToGround` reads as `absolute`.
+
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_absolute.mlt&amp;at=vertices>) - a line 412 m to 418 m above sea level, bit 3 clear.
+
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_relative_to_ground.mlt&amp;at=vertices>) - a line 12 m to 18 m above the terrain, bit 3 set.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices>) - a polygon with a hole at a `z_step` of `-1`, one unit per decimeter.
 
@@ -436,13 +447,13 @@ A decoder that renders in 2D MAY read `x` and `y` and step over `z`.
 
 #### Heights Above the Ground
 
-Bit 3 of the z step byte (`8`-`15`, where \\(\\mathit{z\\\_step} = \\mathit{byte} - 11\\)) marks `z` as a height above the ground instead of an elevation:
+Bit 3 of the z axis byte (`8`-`15`, where \\(\\mathit{z\\\_step} = \\mathit{byte} - 11\\)) marks `z` as a `relativeToGround` height above the ground instead of a sea-level elevation:
 
 \\\[ \\text{height} = z \\cdot 10^{\\,\\mathit{z\\\_step}}\\,\\text{m} \\\]
 
-Byte `9` is therefore a height on a 1 cm grid, and `z = 0` is the ground. A decoder MUST reject bytes `8`-`15` on a vertex stream of any layout but [`Meshes`](<#meshes>).
+Byte `9` is therefore a height on a 1 cm grid, and `z = 0` is the ground. On any layout other than [`Meshes`](<#meshes>), each vertex takes the terrain elevation directly under its `(x, y)`.
 
-For a feature with a non-empty vertex run (`GeoLengths[f] > 0`), the ground of the mesh is the terrain elevation at the [center of the `(x, y)` bounding box](<#tile-boundaries>) of its vertex run. In source data, `z = 0` represents the ground elevation at that center, so subterranean structures and hillside vertices below that center ground have negative `z` (`z < 0`). The renderer adds its terrain elevation at that center (or `0 m` where the renderer has no terrain) to every vertex of the feature, so the mesh moves as a rigid body and is not draped over the terrain. A producer SHOULD extend a surface mesh's foundations below `z = 0`, down to at least the lowest terrain under its footprint, so that downhill walls do not float on a slope.
+On [`Meshes`](<#meshes>), for a feature with a non-empty vertex run (`GeoLengths[f] > 0`), the ground of the mesh is the terrain elevation at the [center of the `(x, y)` bounding box](<#tile-boundaries>) of its vertex run. In source data, `z = 0` represents the ground elevation at that center, so subterranean structures and hillside vertices below that center ground have negative `z` (`z < 0`). The renderer adds its terrain elevation at that center (or `0 m` where the renderer has no terrain) to every vertex of the feature, so the mesh moves as a rigid body and is not draped over the terrain. A producer SHOULD extend a surface mesh's foundations below `z = 0`, down to at least the lowest terrain under its footprint, so that downhill walls do not float on a slope.
 
 ## Attribute Columns
 
@@ -937,7 +948,7 @@ Parameters sit between `byte_length`, where written, and the payload:
 | --- | --- |
 | Framed, Exception-Free ALP | `scale` (byte), `base` (ZigZag varint). See [framed, exception-free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>). |
 | Morton | `bits` (varint), `shift` (varint). The grid the codes are laid on. |
-| Any, on a vertex stream with extension bit 0 set | `z_step + 3`, plus `8` for a height above the ground (byte). See [Z coordinates](<#z-coordinates>). |
+| Any, on a vertex stream with extension bit 0 set | The z axis byte. See [Z coordinates](<#z-coordinates>). |
 
 ## Examples
 

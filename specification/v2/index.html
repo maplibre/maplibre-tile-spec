@@ -2917,7 +2917,7 @@ A triangle that encloses no area MAY wind either way, and decoders MAY rely on w
 <h3 id="z-coordinates">Z Coordinates<a class="headerlink" href="#z-coordinates" title="Link to this section">&para;</a></h3>
 <p>A vertex stream MAY hold <code>(x, y, z)</code> triples instead of <code>(x, y)</code> pairs.
 Bit 0 of the extension field of its <a href="#encoding-byte">encoding byte</a> is <code>1</code> for triples and <code>0</code> for pairs.
-A byte holding <code>z_step + 3</code>, plus <code>8</code> when <code>z</code> is a <a href="#heights-above-the-ground">height above the ground</a>, is the stream's <a href="#parameters">parameter</a>.
+The z axis byte is the stream's <a href="#parameters">parameter</a>.
 <code>byte_length</code> does not count it.</p>
 <p><svg class="mlt-diagram" viewBox="0 0 710 330" role="img" aria-label="The z axis byte 0x0A: bits 7 to 4 are reserved and 0, bit 3 is 1 for relative to ground, bits 2 to 0 hold 2 for a 1 dm step. Below, z = 400 at 1 dm is 40 m: byte 0x02 puts the vertex 40 m above sea level, byte 0x0A puts it 40 m above the terrain, and a layer without z sits on the terrain" xmlns="http://www.w3.org/2000/svg">
 <text class="row" x="0" y="54">z_axis</text>
@@ -3027,8 +3027,32 @@ Bits 7-4 are reserved, and a byte with any of them set MUST be rejected.</p>
 </tr>
 </tbody>
 </table>
-<p>Bytes <code>8</code>-<code>15</code> mark a mesh's <a href="#heights-above-the-ground">heights above the ground</a> on the same steps.
-Bytes <code>16</code>-<code>255</code> are reserved and MUST be rejected.</p>
+<p>The height mode says what <code>z = 0</code> stands for, with the names of KML's <code>altitudeMode</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Bit 3</th>
+<th>Mode</th>
+<th><code>z = 0</code> is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td><code>absolute</code></td>
+<td>mean sea level</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td><code>relativeToGround</code></td>
+<td>the terrain under the vertex, or <a href="#heights-above-the-ground">under the mesh's center</a> on <a href="#meshes"><code>Meshes</code></a></td>
+</tr>
+</tbody>
+</table>
+<p>A layer without <code>z</code> is <code>clampToGround</code>, and its vertices lie on the terrain.
+A renderer with no terrain reads the terrain as sea level, so <code>relativeToGround</code> reads as <code>absolute</code>.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_height_absolute.mlt&amp;at=vertices" target="_blank">View example</a> - a line 412 m to 418 m above sea level, bit 3 clear.</p>
+<p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_height_relative_to_ground.mlt&amp;at=vertices" target="_blank">View example</a> - a line 12 m to 18 m above the terrain, bit 3 set.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices" target="_blank">View example</a> - a polygon with a hole at a <code>z_step</code> of <code>-1</code>, one unit per decimeter.</p>
 <p><code>z</code> is a signed 32-bit word like <code>x</code> and <code>y</code>, so a point below its base has a negative <code>z</code>.
 At the finest step the grid spans about 2147 km either side of the base.</p>
@@ -3102,13 +3126,13 @@ A power-of-ten step represents such values exactly.
 A layer without <code>z</code> is unaffected, since the extension bit marks which vertex streams carry it.</p>
 </details>
 <h4 id="heights-above-the-ground">Heights Above the Ground<a class="headerlink" href="#heights-above-the-ground" title="Link to this section">&para;</a></h4>
-<p>Bit 3 of the z step byte (<code>8</code>-<code>15</code>, where <span class="arithmatex">\(\mathit{z\_step} = \mathit{byte} - 11\)</span>) marks <code>z</code> as a height above the ground instead of an elevation:</p>
+<p>Bit 3 of the z axis byte (<code>8</code>-<code>15</code>, where <span class="arithmatex">\(\mathit{z\_step} = \mathit{byte} - 11\)</span>) marks <code>z</code> as a <code>relativeToGround</code> height above the ground instead of a sea-level elevation:</p>
 <div class="arithmatex">\[
 \text{height} = z \cdot 10^{\,\mathit{z\_step}}\,\text{m}
 \]</div>
 <p>Byte <code>9</code> is therefore a height on a 1 cm grid, and <code>z = 0</code> is the ground.
-A decoder MUST reject bytes <code>8</code>-<code>15</code> on a vertex stream of any layout but <a href="#meshes"><code>Meshes</code></a>.</p>
-<p>For a feature with a non-empty vertex run (<code>GeoLengths[f] &gt; 0</code>), the ground of the mesh is the terrain elevation at the <a href="#tile-boundaries">center of the <code>(x, y)</code> bounding box</a> of its vertex run.
+On any layout other than <a href="#meshes"><code>Meshes</code></a>, each vertex takes the terrain elevation directly under its <code>(x, y)</code>.</p>
+<p>On <a href="#meshes"><code>Meshes</code></a>, for a feature with a non-empty vertex run (<code>GeoLengths[f] &gt; 0</code>), the ground of the mesh is the terrain elevation at the <a href="#tile-boundaries">center of the <code>(x, y)</code> bounding box</a> of its vertex run.
 In source data, <code>z = 0</code> represents the ground elevation at that center, so subterranean structures and hillside vertices below that center ground have negative <code>z</code> (<code>z &lt; 0</code>).
 The renderer adds its terrain elevation at that center (or <code>0 m</code> where the renderer has no terrain) to every vertex of the feature, so the mesh moves as a rigid body and is not draped over the terrain.
 A producer SHOULD extend a surface mesh's foundations below <code>z = 0</code>, down to at least the lowest terrain under its footprint, so that downhill walls do not float on a slope.</p>
@@ -5218,7 +5242,7 @@ A decoder MUST select the variant by the layer tag.</p>
 </tr>
 <tr>
 <td>Any, on a vertex stream with extension bit 0 set</td>
-<td><code>z_step + 3</code>, plus <code>8</code> for a height above the ground (byte). See <a href="#z-coordinates">Z coordinates</a>.</td>
+<td>The z axis byte. See <a href="#z-coordinates">Z coordinates</a>.</td>
 </tr>
 </tbody>
 </table>
