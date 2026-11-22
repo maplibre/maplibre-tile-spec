@@ -171,6 +171,11 @@ fn assert_same_decoded_layer(a: &TileLayer, b: &TileLayer) {
     assert_eq!(a.name(), b.name());
     assert_eq!(a.extent(), b.extent());
     assert_eq!(a.z_axis(), b.z_axis());
+    assert_eq!(
+        a.is_meshes(),
+        b.is_meshes(),
+        "a layer lost or gained its meshes"
+    );
     assert_eq!(a.property_names(), b.property_names());
     assert_eq!(a.m_value_names(), b.m_value_names());
     assert_eq!(a.m_value_scopes(), b.m_value_scopes());
@@ -183,6 +188,11 @@ fn assert_same_decoded_layer(a: &TileLayer, b: &TileLayer) {
         assert_eq!(fa.nested(), fb.nested());
         assert_eq!(fa.m_values().len(), scopes.len());
         assert_eq!(fb.m_values().len(), scopes.len());
+        assert_eq!(
+            fa.triangles().is_some(),
+            fb.triangles().is_some(),
+            "a feature lost or gained its triangles"
+        );
         let (Some(tris_a), Some(tris_b)) = (fa.triangles(), fb.triangles()) else {
             assert_eq!(fa.geometry(), fb.geometry());
             assert_eq!(fa.z(), fb.z());
@@ -238,7 +248,12 @@ mod tests {
 
     use super::*;
 
-    fn mesh_layer(tris: Vec<[u32; 3]>, materials: Vec<u32>, labels: Vec<&str>) -> TileLayer {
+    fn mesh_layer(
+        vertices: &[([i32; 3], i32)],
+        tris: Vec<[u32; 3]>,
+        materials: Vec<u32>,
+        labels: Vec<&str>,
+    ) -> TileLayer {
         let mut builder = TileLayer::builder("mesh", 4096).expect("valid layer");
         builder
             .set_meshes(mlt_core::ZAxis {
@@ -255,17 +270,16 @@ mod tests {
         let tag_col = builder
             .add_scoped_m_value("surface", PropKind::Str, MValueScope::Triangle)
             .expect("triangle str m-value");
-        let pts = MultiPoint(vec![
-            Point(Coord { x: 0, y: 0 }),
-            Point(Coord { x: 10, y: 0 }),
-            Point(Coord { x: 10, y: 10 }),
-            Point(Coord { x: 0, y: 10 }),
-        ]);
-        let mut row = builder.feature(Geometry::MultiPoint(pts));
-        row.z(vec![0, 0, 5, 5]).expect("four z values");
+        let pts = vertices.iter().map(|&([x, y, _], _)| Point(Coord { x, y }));
+        let mut row = builder.feature(Geometry::MultiPoint(MultiPoint(pts.collect())));
+        row.z(vertices.iter().map(|&([.., z], _)| z).collect())
+            .expect("one z per vertex");
         row.triangles(tris).expect("valid triangles");
-        row.m_value(v_col, MValue::I32(Some(vec![1, 2, 3, 4])))
-            .expect("four vertex m-values");
+        row.m_value(
+            v_col,
+            MValue::I32(Some(vertices.iter().map(|&(_, uv)| uv).collect())),
+        )
+        .expect("one vertex m-value per vertex");
         row.m_value(mat_col, MValue::U32(Some(materials)))
             .expect("triangle u32 m-values");
         row.m_value(
@@ -280,11 +294,23 @@ mod tests {
     #[test]
     fn accepts_reordered_and_rotated_triangles_with_matching_values() {
         let a = mesh_layer(
+            &[
+                ([0, 0, 0], 1),
+                ([10, 0, 0], 2),
+                ([10, 10, 5], 3),
+                ([0, 10, 5], 4),
+            ],
             vec![[0, 1, 2], [0, 2, 3]],
             vec![10, 20],
             vec!["wall", "roof"],
         );
         let b = mesh_layer(
+            &[
+                ([0, 0, 0], 1),
+                ([10, 0, 0], 2),
+                ([10, 10, 5], 3),
+                ([0, 10, 5], 4),
+            ],
             vec![[2, 3, 0], [1, 2, 0]],
             vec![20, 10],
             vec!["roof", "wall"],
@@ -302,11 +328,23 @@ mod tests {
     #[should_panic(expected = "mesh triangles or triangle-scoped m-values changed across restage")]
     fn rejects_values_attached_to_wrong_reordered_triangles() {
         let a = mesh_layer(
+            &[
+                ([0, 0, 0], 1),
+                ([10, 0, 0], 2),
+                ([10, 10, 5], 3),
+                ([0, 10, 5], 4),
+            ],
             vec![[0, 1, 2], [0, 2, 3]],
             vec![10, 20],
             vec!["wall", "roof"],
         );
         let b = mesh_layer(
+            &[
+                ([0, 0, 0], 1),
+                ([10, 0, 0], 2),
+                ([10, 10, 5], 3),
+                ([0, 10, 5], 4),
+            ],
             vec![[2, 3, 0], [1, 2, 0]],
             vec![10, 20],
             vec!["wall", "roof"],
@@ -318,15 +356,138 @@ mod tests {
     #[should_panic(expected = "mesh triangles or triangle-scoped m-values changed across restage")]
     fn rejects_replaced_triangle_values_with_same_count() {
         let a = mesh_layer(
+            &[
+                ([0, 0, 0], 1),
+                ([10, 0, 0], 2),
+                ([10, 10, 5], 3),
+                ([0, 10, 5], 4),
+            ],
             vec![[0, 1, 2], [0, 2, 3]],
             vec![10, 20],
             vec!["wall", "roof"],
         );
         let b = mesh_layer(
+            &[
+                ([0, 0, 0], 1),
+                ([10, 0, 0], 2),
+                ([10, 10, 5], 3),
+                ([0, 10, 5], 4),
+            ],
             vec![[0, 1, 2], [0, 2, 3]],
             vec![99, 88],
             vec!["wall", "roof"],
         );
         assert_same_decoded_layer(&a, &b);
+    }
+
+    #[test]
+    fn accepts_renumbered_vertices_that_keep_their_z_and_vertex_values() {
+        let a = mesh_layer(
+            &[
+                ([0, 0, 0], 1),
+                ([10, 0, 0], 2),
+                ([10, 10, 5], 3),
+                ([0, 10, 5], 4),
+            ],
+            vec![[0, 1, 2], [0, 2, 3]],
+            vec![10, 20],
+            vec!["wall", "roof"],
+        );
+        let b = mesh_layer(
+            &[
+                ([10, 10, 5], 3),
+                ([0, 0, 0], 1),
+                ([0, 10, 5], 4),
+                ([10, 0, 0], 2),
+            ],
+            vec![[1, 3, 0], [1, 0, 2]],
+            vec![10, 20],
+            vec!["wall", "roof"],
+        );
+        assert_same_decoded_layer(&a, &b);
+    }
+
+    #[test]
+    #[should_panic(expected = "mesh vertices or vertex-scoped m-values changed across restage")]
+    fn rejects_z_left_on_the_old_vertex_numbers() {
+        let a = mesh_layer(
+            &[
+                ([0, 0, 0], 1),
+                ([10, 0, 0], 2),
+                ([10, 10, 5], 3),
+                ([0, 10, 5], 4),
+            ],
+            vec![[0, 1, 2], [0, 2, 3]],
+            vec![10, 20],
+            vec!["wall", "roof"],
+        );
+        let b = mesh_layer(
+            &[
+                ([10, 10, 0], 3),
+                ([0, 0, 0], 1),
+                ([0, 10, 5], 4),
+                ([10, 0, 5], 2),
+            ],
+            vec![[1, 3, 0], [1, 0, 2]],
+            vec![10, 20],
+            vec!["wall", "roof"],
+        );
+        assert_same_decoded_layer(&a, &b);
+    }
+
+    #[test]
+    #[should_panic(expected = "mesh vertices or vertex-scoped m-values changed across restage")]
+    fn rejects_vertex_values_left_on_the_old_vertex_numbers() {
+        let a = mesh_layer(
+            &[
+                ([0, 0, 0], 1),
+                ([10, 0, 0], 2),
+                ([10, 10, 5], 3),
+                ([0, 10, 5], 4),
+            ],
+            vec![[0, 1, 2], [0, 2, 3]],
+            vec![10, 20],
+            vec!["wall", "roof"],
+        );
+        let b = mesh_layer(
+            &[
+                ([10, 10, 5], 1),
+                ([0, 0, 0], 2),
+                ([0, 10, 5], 3),
+                ([10, 0, 0], 4),
+            ],
+            vec![[1, 3, 0], [1, 0, 2]],
+            vec![10, 20],
+            vec!["wall", "roof"],
+        );
+        assert_same_decoded_layer(&a, &b);
+    }
+
+    #[test]
+    #[should_panic(expected = "a layer lost or gained its meshes")]
+    fn rejects_a_mesh_that_lost_its_triangles() {
+        let axis = mlt_core::ZAxis {
+            step: mlt_core::ZStep::new(-2).expect("centimeter step"),
+            mode: mlt_core::HeightMode::Absolute,
+        };
+        let pts = || {
+            Geometry::MultiPoint(MultiPoint(vec![
+                Point(Coord { x: 0, y: 0 }),
+                Point(Coord { x: 10, y: 0 }),
+                Point(Coord { x: 0, y: 10 }),
+            ]))
+        };
+        let mut meshes = TileLayer::builder("mesh", 4096).expect("valid layer");
+        meshes.set_meshes(axis).expect("valid z axis");
+        let mut mesh = meshes.feature(pts());
+        mesh.z(vec![0, 0, 5]).expect("three z values");
+        mesh.triangles(vec![[0, 1, 2]]).expect("valid triangles");
+        mesh.finish().expect("valid mesh feature");
+        let mut points = TileLayer::builder("mesh", 4096).expect("valid layer");
+        points.set_z_axis(axis).expect("valid z axis");
+        let mut point = points.feature(pts());
+        point.z(vec![0, 0, 5]).expect("three z values");
+        point.finish().expect("valid multi-point feature");
+        assert_same_decoded_layer(&meshes.finish(), &points.finish());
     }
 }
