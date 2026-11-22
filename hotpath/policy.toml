@@ -7,6 +7,14 @@ pr_comment = "on_change"
 [functions]
 min_percent_total = 2
 
+# Instruction counts from the Callgrind run are deterministic, so they are what decides
+# Two runs of one commit differ by at most 0.05% per function
+[functions.icount]
+judged = true
+min_percent_change = 2
+metrics = ["avg", "total"]
+min_calls = 1
+
 [functions.alloc]
 judged = true
 min_percent_change = 20

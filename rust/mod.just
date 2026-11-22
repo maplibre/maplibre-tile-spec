@@ -10,7 +10,7 @@ export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'
 export NEXTEST_PROFILE := env('NEXTEST_PROFILE', if ci_mode == '1' {'ci'} else {'default'})
 
 # Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
-hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp,coverage'
+hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp,hotpath-callgrind,coverage'
 
 _default: (just '--list' 'rust')
 
@@ -254,6 +254,47 @@ compress-db-statistics tile_dir db:
 # Diff two compressed sizes DBs (produced by `compress-db-statistics`).
 size-diff prev curr:
     sqlite3 {{prev}} -cmd "ATTACH DATABASE '{{curr}}' AS current_head;" < scripts/diff.sql
+
+# Run the hotpath Cloud benchmarks natively and under Callgrind, writing one merged report per benchmark to `report_dir`
+# Set HOTPATH_UPLOAD to upload the merged reports
+ci-hotpath-bench tiles report_dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build -q --release -p mlt --features hotpath-alloc,hotpath-cloud,hotpath-callgrind
+    # One thread, so both runs of a benchmark meet the tiles and the dedup cache in the same order
+    export RAYON_NUM_THREADS=1 HOTPATH_OUTPUT_FORMAT=json
+    native_dir=$(mktemp -d)
+    mkdir -p {{quote(report_dir)}}
+    benches=(
+        "mlt-convert {{tiles}} /tmp/mlt-out/"
+        "mlt-convert-v2 --mlt-version 2 {{tiles}} /tmp/mlt-v2-out/"
+        "mlt-decode-v1 --to mvt /tmp/mlt-out/ /tmp/mvt-from-v1/"
+        "mlt-decode-v2 --to mvt /tmp/mlt-v2-out/ /tmp/mvt-from-v2/"
+    )
+    native() {
+        local name=$1; shift
+        env -u HOTPATH_UPLOAD HOTPATH_BENCHMARK="$name" HOTPATH_OUTPUT_PATH="$native_dir/$name.json" \
+            target/release/mlt convert "$@"
+    }
+    callgrind() {
+        local name=$1; shift
+        local report={{quote(report_dir)}}/$name.json
+        HOTPATH_BENCHMARK="$name" HOTPATH_OUTPUT_PATH="$report" HOTPATH_MERGE_REPORT="$native_dir/$name.json" \
+            HOTPATH_UPLOAD_RESPONSE_PATH="$native_dir/$name.upload.json" \
+            HOTPATH_CALLGRIND_OUT_FILE="$native_dir/callgrind.out.%p" \
+            valgrind -q --tool=callgrind --instr-atstart=no --callgrind-out-file="$native_dir/callgrind.out.%p" \
+            target/release/mlt convert "$@"
+        jq -e '.meta.run == "merged" and (.functions_icount.data | length > 0) and (.functions_timing.data | length > 0)' \
+            "$report" > /dev/null
+        if [ -n "${HOTPATH_UPLOAD:-}" ]; then test -s "$native_dir/$name.upload.json"; fi
+    }
+    for bench in "${benches[@]}"; do native $bench; done
+    # The decodes read what the converts write, so each pair runs once the one before is done
+    for pair in "0 1" "2 3"; do
+        pids=()
+        for i in $pair; do callgrind ${benches[$i]} & pids+=($!); done
+        for pid in "${pids[@]}"; do wait "$pid"; done
+    done
 
 # Download ~5k benchmark tiles (z0-z6) from Protomaps into outdir.
 # Skips if a previous complete download is detected (.complete sentinel).
