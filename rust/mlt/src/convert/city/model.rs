@@ -1,8 +1,11 @@
-//! The city model that the `CityGML` reader produces and the tiler consumes.
+//! The city model that the `CityGML` and `CityJSON` readers produce and the tiler consumes.
 
 use std::collections::HashSet;
+use std::fmt;
+use std::str::FromStr;
 
-use anyhow::Result as AnyResult;
+use anyhow::{Result as AnyResult, bail};
+use serde_json::{Map, Value};
 
 use super::crs::Reprojector;
 use super::lods;
@@ -43,7 +46,7 @@ pub enum Semantic {
 }
 
 impl Semantic {
-    /// The semantic of a `CityGML` element, `None` if it names no part.
+    /// The semantic of a `CityGML` element or `CityJSON` surface type, `None` if it names no part.
     #[must_use]
     pub fn of(name: &str) -> Option<Self> {
         Some(match name {
@@ -72,7 +75,7 @@ pub enum ObjectKind {
 }
 
 impl ObjectKind {
-    /// The kind of a `CityGML` element, `None` if it is no part of a building, bridge or tunnel.
+    /// The kind of a `CityGML` element or `CityJSON` object type, `None` if it is no part of a building, bridge or tunnel.
     #[must_use]
     pub fn of(name: &str) -> Option<Self> {
         Some(match name {
@@ -89,6 +92,47 @@ impl ObjectKind {
             }
             _ => return None,
         })
+    }
+}
+
+/// A level of detail: `2` in `CityGML`, or `2.2` in `CityJSON`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Lod {
+    major: u8,
+    minor: u8,
+}
+
+impl Lod {
+    #[must_use]
+    pub const fn new(major: u8, minor: u8) -> Self {
+        Self { major, minor }
+    }
+
+    #[must_use]
+    pub const fn major(self) -> u8 {
+        self.major
+    }
+}
+
+impl FromStr for Lod {
+    type Err = anyhow::Error;
+
+    fn from_str(text: &str) -> AnyResult<Self> {
+        let (major, minor) = text.split_once('.').unwrap_or((text, "0"));
+        match (major.parse(), minor.parse()) {
+            (Ok(major), Ok(minor)) => Ok(Self { major, minor }),
+            _ => bail!("{text:?} is not a LoD such as 2 or 2.2"),
+        }
+    }
+}
+
+impl fmt::Display for Lod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.minor == 0 {
+            write!(f, "{}", self.major)
+        } else {
+            write!(f, "{}.{}", self.major, self.minor)
+        }
     }
 }
 
@@ -179,7 +223,7 @@ impl Rings {
 pub struct OwnedPolygon {
     /// The object itself is owner 0, and each of its building parts, installations and the like has an owner of its own.
     pub owner: u32,
-    pub lod: u8,
+    pub lod: Lod,
     pub polygon: SourcePolygon,
 }
 
@@ -192,13 +236,16 @@ pub struct SourceObject {
     pub installations: HashSet<u32>,
     /// The points of its `lodNTerrainIntersection` curves, where it meets the ground.
     pub terrain_points: Vec<[f64; 3]>,
+    pub attributes: Map<String, Value>,
 }
 
 /// What a file holds.
 #[derive(Debug, Default, PartialEq)]
 pub struct SourceDocument {
-    /// The CRS the file names, such as `EPSG:25832` or `urn:ogc:def:crs:EPSG::25832`.
+    /// The CRS the file names, such as `EPSG:25832` or `https://www.opengis.net/def/crs/EPSG/0/7415`.
     pub crs: Option<String>,
+    /// Whether positions in a geographic CRS are longitude first, as in `CityJSON`, rather than latitude first, as in GML.
+    pub lon_first: bool,
     pub city_objects: Vec<SourceObject>,
 }
 
@@ -210,6 +257,20 @@ impl SourceDocument {
             .iter()
             .flat_map(|o| &o.polygons)
             .find_map(|p| p.polygon.points.first().copied())
+    }
+
+    /// Swaps the first two coordinates of every position, so a geographic CRS reads latitude first.
+    pub fn swap_axes(&mut self) {
+        for object in &mut self.city_objects {
+            let polygons = object
+                .polygons
+                .iter_mut()
+                .flat_map(|p| &mut p.polygon.points);
+            for p in polygons.chain(&mut object.terrain_points) {
+                p.swap(0, 1);
+            }
+        }
+        self.lon_first = !self.lon_first;
     }
 }
 
@@ -226,18 +287,22 @@ pub struct Building {
     pub id: Option<String>,
     pub surfaces: Vec<Surface>,
     pub terrain: Vec<[f64; 3]>,
+    /// The ground height that `--ground-attribute` names, in metres.
+    pub ground: Option<f64>,
+    pub attributes: Map<String, Value>,
 }
 
 impl Building {
-    /// Picks the polygons of `object` that the meshes hold, then triangulates and reprojects them with `reprojector`.
+    /// Picks the polygons of `object` that the meshes hold, only those of `lod` if given, then triangulates and reprojects them with `reprojector`.
     /// A polygon without semantics is a roof, wall or ground by the way it faces.
     /// `None` if no polygon has an area.
     pub fn new(
         object: SourceObject,
+        lod: Option<Lod>,
         reprojector: &Reprojector,
         triangulator: &mut Triangulator,
     ) -> AnyResult<Option<Self>> {
-        let polygons = lods::resolve(object.polygons, &object.installations);
+        let polygons = lods::resolve(object.polygons, &object.installations, lod);
         let mut surfaces = Vec::with_capacity(polygons.len());
         for polygon in polygons {
             let mut triangles = Vec::new();
@@ -279,6 +344,8 @@ impl Building {
             id: object.id,
             surfaces,
             terrain,
+            ground: None,
+            attributes: object.attributes,
         }))
     }
 }
@@ -286,6 +353,21 @@ impl Building {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lods_parse_from_citygml_and_cityjson_spellings_and_order_by_major_then_minor() {
+        let lods: Vec<Lod> = ["1", "1.2", "1.3", "2", "2.2", "3"]
+            .iter()
+            .map(|t| t.parse().unwrap())
+            .collect();
+        assert!(lods.is_sorted());
+        assert_eq!(lods[4], Lod::new(2, 2));
+        assert_eq!(lods[3].to_string(), "2");
+        assert_eq!(lods[4].to_string(), "2.2");
+        assert!("two".parse::<Lod>().is_err());
+        assert!("2.".parse::<Lod>().is_err());
+        assert!("-1".parse::<Lod>().is_err());
+    }
 
     #[test]
     fn rings_drop_repeated_points_and_the_closing_point() {

@@ -8,6 +8,7 @@ use std::path::Path;
 use anyhow::{Context as _, Result as AnyResult};
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use mlt_core::geo_types::{Geometry, MultiPoint, Point};
+use mlt_core::geojson::PropertySchema;
 use mlt_core::{HeightMode, MValue, MValueScope, PropKind, PropValue, TileLayer, ZAxis, ZStep};
 use rayon::prelude::*;
 
@@ -19,9 +20,9 @@ use crate::convert::from_geojson::{mercator_unit, tile_index};
 use crate::convert::{Reencoder, tiled};
 
 /// The property holding a building's id, which a block of merged buildings lacks.
-const GML_ID: &str = "gml_id";
+pub const GML_ID: &str = "gml_id";
 /// The property counting the buildings a block holds.
-const BUILDINGS: &str = "buildings";
+pub const BUILDINGS: &str = "buildings";
 /// The finest grid unit the extent of a tile aims for, in metres.
 const UNIT_METRES: f64 = 0.01;
 /// The largest extent a v2 layer header can name.
@@ -43,6 +44,8 @@ const WALL_MIN_PIXELS: f64 = 1.0;
 pub struct LayerSpec {
     pub name: String,
     pub z_step: ZStep,
+    /// The columns of the buildings' attributes.
+    pub schema: PropertySchema,
 }
 
 /// Writes the `buildings` as the layer of `spec` into the tiles of `zooms` under `output`, returning how many tiles it wrote.
@@ -231,6 +234,7 @@ fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(
             .iter()
             .filter(|s| s.lods.includes(detail.lods)),
         &building.terrain,
+        building.ground,
     )?;
     let tile = Tile::of(lod.centre, zoom);
     let extent = tile.extent();
@@ -282,10 +286,14 @@ struct LodSurfaces<'a> {
 }
 
 impl<'a> LodSurfaces<'a> {
-    /// The ground is the terrain intersection nearest the centre, or else the ground surface vertex nearest it, or else the lowest vertex.
+    /// The ground is `ground` if given, or else the terrain intersection nearest the centre, or else the ground surface vertex nearest it, or else the lowest vertex.
     /// Terrain and ground vertices over [`MAX_GROUND_SLOPE_METRES`] above the lowest of them do not count.
     /// `None` without a surface.
-    fn new(surfaces: impl Iterator<Item = &'a Surface>, terrain: &[[f64; 3]]) -> Option<Self> {
+    fn new(
+        surfaces: impl Iterator<Item = &'a Surface>,
+        terrain: &[[f64; 3]],
+        ground: Option<f64>,
+    ) -> Option<Self> {
         let surfaces: Vec<&Surface> = surfaces.collect();
         if surfaces.is_empty() {
             return None;
@@ -343,8 +351,8 @@ impl<'a> LodSurfaces<'a> {
             .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), z| {
                 (lo.min(z), hi.max(z))
             });
-        let ground = terrain_ground
-            .flatten()
+        let ground = ground
+            .or_else(|| terrain_ground.flatten())
             .or_else(|| surface_ground().flatten())
             .unwrap_or(min_z);
         Some(Self {
@@ -486,6 +494,13 @@ fn layer(
         mode: HeightMode::RelativeToGround,
     })?;
     let gml_id = builder.add_property(GML_ID, PropKind::Str)?;
+    let attributes = spec
+        .schema
+        .names()
+        .iter()
+        .zip(spec.schema.kinds())
+        .map(|(name, kind)| builder.add_property(name.clone(), *kind))
+        .collect::<Result<Vec<_>, _>>()?;
     let buildings = meshes
         .iter()
         .any(|m| matches!(m, TileMesh::Block { .. }))
@@ -508,6 +523,11 @@ fn layer(
         feature.triangles(mesh.triangles)?;
         let name = building.and_then(|b| b.id.as_deref());
         feature.property(gml_id, PropValue::Str(name.map(Into::into)))?;
+        if let Some(building) = building {
+            for (column, value) in spec.schema.values(&building.attributes)? {
+                feature.property(attributes[column], value)?;
+            }
+        }
         if let Some(buildings) = buildings {
             feature.property(buildings, PropValue::U32(count))?;
         }

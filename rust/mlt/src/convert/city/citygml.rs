@@ -6,9 +6,12 @@ use std::io::BufRead;
 use anyhow::{Result as AnyResult, bail};
 use quick_xml::Reader;
 use quick_xml::events::{BytesStart, Event};
+use serde_json::Map;
 
 use super::crs::epsg_of_srs_name;
-use super::model::{ObjectKind, OwnedPolygon, Part, Rings, Semantic, SourceDocument, SourceObject};
+use super::model::{
+    Lod, ObjectKind, OwnedPolygon, Part, Rings, Semantic, SourceDocument, SourceObject,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Tag {
@@ -211,6 +214,7 @@ impl DocumentParser {
                     polygons: Vec::new(),
                     installations: HashSet::new(),
                     terrain_points: Vec::new(),
+                    attributes: Map::new(),
                 });
             }
             Tag::Skip => self.skip = true,
@@ -312,7 +316,7 @@ impl DocumentParser {
         };
         city_object.polygons.push(OwnedPolygon {
             owner: self.owners.last().copied().unwrap_or(0),
-            lod,
+            lod: Lod::new(lod, 0),
             polygon,
         });
     }

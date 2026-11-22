@@ -4,16 +4,20 @@ use std::collections::HashSet;
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use super::model::{Lods, OwnedPolygon, Part, SourcePolygon};
+use super::model::{Lod, Lods, OwnedPolygon, Part, SourcePolygon};
 
-/// The polygons of the highest LOD of each owner and of its LOD2, each marked with the meshes it is in.
+/// The polygons of the highest LOD of each owner and of its LOD2, each marked with the meshes it is in, or those of `pinned` alone.
 /// An owner whose polygons all lie in semantic surfaces picks these LODs for its walls, roofs and grounds each.
 /// The LOD2 of an owner above LOD2 is its highest LOD of 2 or less, or else its highest LOD without windows, doors, `installations` and the holes they leave.
 pub fn resolve(
     mut polygons: Vec<OwnedPolygon>,
     installations: &HashSet<u32>,
+    pinned: Option<Lod>,
 ) -> Vec<SourcePolygon> {
-    let mut owner_highest: FxHashMap<u32, u8> = FxHashMap::default();
+    if let Some(pinned) = pinned {
+        polygons.retain(|p| p.lod == pinned);
+    }
+    let mut owner_highest: FxHashMap<u32, Lod> = FxHashMap::default();
     for p in &polygons {
         let h = owner_highest.entry(p.owner).or_insert(p.lod);
         *h = (*h).max(p.lod);
@@ -34,13 +38,13 @@ pub fn resolve(
     };
     polygons.retain(|p| p.polygon.part.is_some() || unsplit.contains(&p.owner));
     // The highest LOD of each key, and its highest LOD of 2 or less.
-    let mut best: FxHashMap<(u32, Option<Part>), (u8, Option<u8>)> = FxHashMap::default();
+    let mut best: FxHashMap<(u32, Option<Part>), (Lod, Option<Lod>)> = FxHashMap::default();
     for p in &polygons {
         let (highest, low) = best
             .entry(key(p.owner, p.polygon.part))
             .or_insert((p.lod, None));
         *highest = (*highest).max(p.lod);
-        if p.lod <= 2 {
+        if p.lod.major() <= 2 {
             *low = (*low).max(Some(p.lod));
         }
     }
@@ -67,7 +71,7 @@ pub fn resolve(
                 continue;
             }
             Lods::Lod2
-        } else if highest <= 2 {
+        } else if highest.major() <= 2 {
             Lods::Both
         } else if low.is_some()
             || installations.contains(&owner)

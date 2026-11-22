@@ -7,7 +7,7 @@ The `mlt` binary provides several commands for working with MLT files:
 * **`dump`** - Parse an MLT file and dump raw layer data without decoding
 * **`decode`** - Parse an MLT file, decode all layers, and dump the result (supports text and `GeoJSON` output)
 * **`hexdump`** - Annotated byte/bit-level hexdump of an MLT file's metadata and stream payloads
-* **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT, or tile a `GeoJSON` file, including 3D positions, or `CityGML` buildings into MLT files
+* **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT, or tile a `GeoJSON` file, including 3D positions, or the buildings of `CityGML` and `CityJSON` files into MLT files
 * **`ui`** - Interactive terminal visualizer for MLT files
 
 ### Format conversion
@@ -64,24 +64,30 @@ An altitude is metres above mean sea level unless `--height-mode relative-to-gro
 
 ### Tiling buildings
 
-`convert` also tiles the buildings of a `CityGML` 2.0 or 3.0 `.gml` file, or of a directory of
-them, into a directory of `z/x/y.mlt` tiles with one layer of the `Meshes` layout of
+`convert` also tiles the buildings of a `CityGML` 2.0 or 3.0 `.gml` file or a `CityJSON`
+`.city.json` file, or of a directory of them in either format, into a directory of `z/x/y.mlt`
+tiles with one layer of the `Meshes` layout of
 [`docs/specification/v2.md`](../../docs/specification/v2.md#meshes). Like a `GeoJSON` input, it
 needs `--mlt-version 2` and `--max-zoom`, and takes `--min-zoom` (0), `--layer` (the input's file
 name) and `--z-step`:
 
 ```bash
 mlt convert citygml/hamburg tiles --mlt-version 2 --min-zoom 14 --max-zoom 16
+mlt convert delft.city.json tiles --mlt-version 2 --min-zoom 14 --max-zoom 16
 ```
 
-Each building, bridge or tunnel becomes one feature per zoom, reprojected from the file's
-`srsName` (with vertical units scaled to metres). A building is stored whole, in the tile of each
-zoom that holds the centre of its Web Mercator `(x, y)` bounding box. Its z values are heights
+Each building, bridge or tunnel becomes one feature per zoom, reprojected from the EPSG code of the
+file's `srsName` or `metadata.referenceSystem` (with vertical units scaled to metres). Its building
+parts and installations, in `CityJSON` its child objects, are part of its mesh. A building is
+stored whole, in the tile of each zoom that holds the centre of its Web Mercator `(x, y)` bounding
+box. Its z values are heights
 above its ground at that centre: its `lodNTerrainIntersection` there, or else its `GroundSurface`
 there, or else its lowest vertex. They use the `relativeToGround` height mode and a 1 cm grid
 unless `--z-step` says otherwise. Each triangle carries the `part` m-value (wall, roof, ground,
-window or door), and surfaces of different parts share their vertices. Each feature has the
-building's `gml_id` property, and `--verify` round-trip checks every encoded tile.
+window or door), and surfaces of different parts share their vertices. Each feature has a
+`gml_id` property, the `gml:id` of a `CityGML` building or the key of a `CityJSON` one, and the
+attributes of a `CityJSON` building, nested ones as JSON text. `--verify` round-trip checks every
+encoded tile.
 
 Lower zooms match the simplification error to the pixel, a 512th of a tile:
 
@@ -98,6 +104,11 @@ Lower zooms match the simplification error to the pixel, a 512th of a tile:
   outline is simplified to within a pixel, and it has no wall where it stands less than a pixel
   above its neighbour or the ground. Such a block has no `gml_id`, but a `buildings` property
   counting the buildings it holds. Buildings of 40 m or more keep their 3D LOD2 mesh.
+
+`CityJSON` LoDs such as `2.2` count as LOD2. `--lod` reads only the one LoD it names, such as `2`
+or `2.2`, while lower zooms still derive LOD2 from it. `--ground-attribute` names the attribute
+holding each building's ground height in metres, such as the 3D BAG's `b3_h_maaiveld`, which then
+takes the place of the ground found from its surfaces.
 
 With `--fix-mislabelled-crs`, a file whose coordinates lie more than 1 degree from the input's
 other files in the CRS it names, but near them in the CRS most files name, is read in the latter
