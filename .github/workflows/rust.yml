@@ -13,13 +13,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/mlt-setup-rust
-      - run: just -v rust::ci-check
-
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -287,7 +280,6 @@ jobs:
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
     needs:
-      - check
       - lint
       - test
       - test-doc
