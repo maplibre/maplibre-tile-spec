@@ -296,7 +296,7 @@ fn nearest_neighbour_chain(points: &[Coord<i32>], start: Coord<i32>) -> Vec<usiz
 }
 
 /// The points not yet visited, by grid cell.
-struct Grid {
+pub(crate) struct Grid {
     min: Coord<i64>,
     max: Coord<i64>,
     /// How many cells each axis has.
@@ -314,7 +314,7 @@ struct Grid {
 }
 
 impl Grid {
-    fn new(points: &[Coord<i32>]) -> Option<Self> {
+    pub(crate) fn new(points: &[Coord<i32>]) -> Option<Self> {
         let first = points.first()?;
         let mut min = Coord {
             x: i64::from(first.x),
@@ -387,7 +387,7 @@ impl Grid {
     }
 
     /// Removes and returns the point nearest `at`, the earliest of equally near ones.
-    fn take_nearest(&mut self, points: &[Coord<i32>], at: Coord<i32>) -> Option<usize> {
+    pub(crate) fn take_nearest(&mut self, points: &[Coord<i32>], at: Coord<i32>) -> Option<usize> {
         if self.left == 0 {
             return None;
         }

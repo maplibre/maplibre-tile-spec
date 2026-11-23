@@ -6,6 +6,7 @@ use fast_mvt::{MvtFeatureBuilder, MvtLayerBuilder};
 use geo::CoordsIter as _;
 use geo_types::{Coord, Geometry, Polygon};
 
+use crate::decoder::GeometryValues;
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::StagedValues;
 use crate::encoder::geometry::{GeometryStager, coord_count};
@@ -29,6 +30,12 @@ pub(crate) trait LayerSource {
     /// Every coordinate of every feature, in no particular order.
     fn coords(&self) -> impl Iterator<Item = Coord<i32>> + '_;
     fn first_coord(&self, feature: usize) -> Option<Coord<i32>>;
+    /// The vertex the feature stores last, with its rings wound as the encoder stores them.
+    fn last_coord(&self, feature: usize) -> Option<Coord<i32>> {
+        let mut values = GeometryValues::default();
+        self.push_geometry(feature, &mut GeometryStager::new(&mut values));
+        values.last_vertex()
+    }
     /// How many coordinates the feature holds, to size the geometry buffers up front.
     fn coord_count(&self, feature: usize) -> usize;
     fn push_geometry(&self, feature: usize, geometry: &mut GeometryStager<'_>);
