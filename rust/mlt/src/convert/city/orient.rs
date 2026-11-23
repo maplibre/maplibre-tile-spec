@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
+
 /// Turns each closed shell component of `triangles` whose triangles face inward (`(x, -y, z)`
 /// signed volume `< 0`) outward, so every triangle winds counter-clockwise seen from outside.
 /// Open shells have no enclosed volume and keep their winding.
@@ -11,14 +13,7 @@ pub fn orient_outward(xyz: &[[i32; 3]], triangles: &mut [[u32; 3]]) -> usize {
     if count < 4 {
         return 0;
     }
-    let mut parent: Vec<usize> = (0..count).collect();
-    let find = |parent: &mut [usize], mut x: usize| {
-        while parent[x] != x {
-            parent[x] = parent[parent[x]];
-            x = parent[x];
-        }
-        x
-    };
+    let mut components = QuickUnionUf::<UnionBySize>::new(count);
     let mut by_edge: Vec<(u64, usize)> = Vec::with_capacity(count * 3);
     for (i, &[a, b, c]) in triangles.iter().enumerate() {
         for (u, v) in [(a, b), (b, c), (c, a)] {
@@ -29,19 +24,16 @@ pub fn orient_outward(xyz: &[[i32; 3]], triangles: &mut [[u32; 3]]) -> usize {
     by_edge.sort_unstable_by_key(|&(edge, _)| edge);
     for pair in by_edge.windows(2) {
         if pair[0].0 == pair[1].0 {
-            let (ra, rb) = (find(&mut parent, pair[0].1), find(&mut parent, pair[1].1));
-            if ra != rb {
-                parent[rb] = ra;
-            }
+            components.union(pair[0].1, pair[1].1);
         }
     }
-    let mut components: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut shells: HashMap<usize, Vec<usize>> = HashMap::new();
     for i in 0..count {
-        components.entry(find(&mut parent, i)).or_default().push(i);
+        shells.entry(components.find(i)).or_default().push(i);
     }
     let mut turned = 0;
     let mut shell = Vec::new();
-    for indices in components.into_values() {
+    for indices in shells.into_values() {
         if indices.len() < 4 {
             continue;
         }

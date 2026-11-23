@@ -1,6 +1,6 @@
 //! Meshes simplified by meshoptimizer, each triangle keeping its `part`.
 
-use meshopt::{SimplifyOptions, simplify_decoder};
+use meshopt::{SimplifyOptions, optimize_vertex_fetch, simplify_decoder};
 
 use super::mesh::Mesh;
 use super::model::Part;
@@ -10,7 +10,7 @@ use super::model::Part;
 /// `None` if its vertices, one copy per part they are in, are more than a `u32` indexes.
 pub(super) fn simplify(mesh: &Mesh, metres: [f64; 3], error: f64, prune: bool) -> Option<Mesh> {
     let Some(&origin) = mesh.xyz.first() else {
-        return compact(&[], Vec::new(), Vec::new());
+        return Some(compact(&[], Vec::new(), Vec::new()));
     };
     #[expect(
         clippy::cast_possible_truncation,
@@ -61,29 +61,15 @@ pub(super) fn simplify(mesh: &Mesh, metres: [f64; 3], error: f64, prune: bool) -
         triangles.push(t.map(|copy| source[copy as usize]));
         kept.push(part_of[t[0] as usize]);
     }
-    compact(&mesh.xyz, triangles, kept)
+    Some(compact(&mesh.xyz, triangles, kept))
 }
 
 /// The mesh of the `triangles` and their `parts` between `xyz`, without the vertices none names.
-fn compact(xyz: &[[i32; 3]], mut triangles: Vec<[u32; 3]>, parts: Vec<Part>) -> Option<Mesh> {
-    let mut renumbered: Vec<Option<u32>> = vec![None; xyz.len()];
-    let mut kept = Vec::new();
-    for t in &mut triangles {
-        for v in t {
-            let new = if let Some(new) = renumbered[*v as usize] {
-                new
-            } else {
-                let new = u32::try_from(kept.len()).ok()?;
-                kept.push(xyz[*v as usize]);
-                renumbered[*v as usize] = Some(new);
-                new
-            };
-            *v = new;
-        }
-    }
-    Some(Mesh {
-        xyz: kept,
+fn compact(xyz: &[[i32; 3]], mut triangles: Vec<[u32; 3]>, parts: Vec<Part>) -> Mesh {
+    let xyz = optimize_vertex_fetch(triangles.as_flattened_mut(), xyz);
+    Mesh {
+        xyz,
         triangles,
         parts,
-    })
+    }
 }

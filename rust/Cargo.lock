@@ -2883,6 +2883,7 @@ dependencies = [
  "tilejson",
  "tokio",
  "toml",
+ "union-find",
  "usize_cast",
  "walkdir",
  "xxhash-rust",
