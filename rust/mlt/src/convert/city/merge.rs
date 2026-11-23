@@ -3,6 +3,9 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
 
+use geo::{
+    Contains, Coord, Distance, Euclidean, Intersects, LineString, Point, SimplifyIdx, Triangle,
+};
 use mlt_core::ZStep;
 
 use super::mesh::Mesh;
@@ -260,6 +263,7 @@ impl Raster {
         let mut inside = vec![false; width * SAMPLES * height * SAMPLES];
         for (f, footprint) in footprints.iter().enumerate() {
             for &triangle in &footprint.triangles {
+                let shape = Triangle::from(triangle.map(|p| p.map(f64::from)));
                 let span = |i: usize, cells: usize, origin: i64| {
                     let at = |v: i32| (f64::from(v) / cell - origin as f64) * n - 0.5;
                     let lo = triangle
@@ -277,7 +281,7 @@ impl Raster {
                     for sx in span(0, width, x0) {
                         let at =
                             |s: usize, origin: i64| (origin as f64 + (s as f64 + 0.5) / n) * cell;
-                        if !contains(triangle, [at(sx, x0), at(sy, y0)]) {
+                        if !shape.intersects(&Coord::from([at(sx, x0), at(sy, y0)])) {
                             continue;
                         }
                         inside[sy * width * SAMPLES + sx] = true;
@@ -651,104 +655,51 @@ fn rings(chains: &[Chain], sides: &[(usize, bool)]) -> Vec<Polygon> {
 
 /// Whether the centre of `cell` lies inside `ring`.
 fn cell_in_ring(cell: [i64; 2], ring: &[[i64; 2]]) -> bool {
-    let [px, py] = cell.map(|c| 2 * i128::from(c) + 1);
-    let mut inside = false;
-    for i in 0..ring.len() {
-        let [x1, y1] = ring[i].map(|v| 2 * i128::from(v));
-        let [x2, y2] = ring[(i + 1) % ring.len()].map(|v| 2 * i128::from(v));
-        if (y1 > py) != (y2 > py) {
-            let crosses_right = if y2 > y1 {
-                (px - x1) * (y2 - y1) < (x2 - x1) * (py - y1)
-            } else {
-                (px - x1) * (y1 - y2) < (x2 - x1) * (y1 - py)
-            };
-            if crosses_right {
-                inside = !inside;
-            }
-        }
-    }
-    inside
+    let doubled = |p: [i64; 2]| Coord::from(p.map(|c| 2 * c));
+    let ring = LineString::from_iter(ring.iter().map(|&p| doubled(p)));
+    geo::Polygon::new(ring, Vec::new()).contains(&Coord::from(cell.map(|c| 2 * c + 1)))
 }
 
 /// The corners of `points` that keep the others within [`TOLERANCE_CELLS`] of the lines between them, the first and the last kept.
 /// A loop also keeps the corner farthest from its start and, if need be, the one farthest from both, so that it keeps an area.
 fn simplify_outline(points: &[[i64; 2]]) -> Vec<[i64; 2]> {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "the corners of a raster's cells, at most a few thousand across"
+    )]
+    let at = |i: usize| Point::new(points[i][0] as f64, points[i][1] as f64);
     let last = points.len() - 1;
     let mut keep = vec![false; points.len()];
-    keep[0] = true;
-    keep[last] = true;
-    if points[0] == points[last] && last > 1 {
-        let far = (1..last)
+    let is_loop = points[0] == points[last] && last > 1;
+    let far = if is_loop {
+        (1..last)
             .max_by(|&a, &b| {
-                let off = |i: usize| squared_distance_to_segment(points[i], points[0], points[0]);
-                off(a).total_cmp(&off(b))
+                Euclidean
+                    .distance(at(a), at(0))
+                    .total_cmp(&Euclidean.distance(at(b), at(0)))
             })
-            .unwrap_or(1);
-        keep[far] = true;
-        douglas_peucker(points, 0, far, &mut keep);
-        douglas_peucker(points, far, last, &mut keep);
-        if keep.iter().filter(|&&k| k).count() < 4 {
-            let off = |i: usize| squared_distance_to_segment(points[i], points[0], points[far]);
-            if let Some(widest) = (1..last).max_by(|&a, &b| off(a).total_cmp(&off(b))) {
-                keep[widest] = true;
-            }
-        }
+            .unwrap_or(1)
     } else {
-        douglas_peucker(points, 0, last, &mut keep);
+        last
+    };
+    for (from, to) in [(0, far), (far, last)] {
+        let line: LineString = (from..=to).map(|i| at(i).0).collect();
+        for kept in line.simplify_idx(TOLERANCE_CELLS) {
+            keep[from + kept] = true;
+        }
+    }
+    if is_loop && keep.iter().filter(|&&k| k).count() < 4 {
+        let chord = geo::Line::new(at(0), at(far));
+        let off = |i: usize| Euclidean.distance(&at(i), &chord);
+        if let Some(widest) = (1..last).max_by(|&a, &b| off(a).total_cmp(&off(b))) {
+            keep[widest] = true;
+        }
     }
     points
         .iter()
         .zip(keep)
         .filter_map(|(&p, k)| k.then_some(p))
         .collect()
-}
-
-/// Marks in `keep` the corners between `from` and `to` that the Douglas-Peucker algorithm keeps within [`TOLERANCE_CELLS`].
-fn douglas_peucker(points: &[[i64; 2]], from: usize, to: usize, keep: &mut [bool]) {
-    let mut spans = vec![(from, to)];
-    while let Some((a, b)) = spans.pop() {
-        let farthest = (a + 1..b)
-            .map(|i| {
-                (
-                    i,
-                    squared_distance_to_segment(points[i], points[a], points[b]),
-                )
-            })
-            .max_by(|x, y| x.1.total_cmp(&y.1));
-        if let Some((i, off)) = farthest
-            && off > TOLERANCE_CELLS * TOLERANCE_CELLS
-        {
-            keep[i] = true;
-            spans.extend([(a, i), (i, b)]);
-        }
-    }
-}
-
-/// The squared distance of `p` from the segment from `a` to `b`.
-#[expect(
-    clippy::cast_precision_loss,
-    reason = "the corners of a raster's cells, at most a few thousand across"
-)]
-fn squared_distance_to_segment(p: [i64; 2], a: [i64; 2], b: [i64; 2]) -> f64 {
-    let [p, a, b] = [p, a, b].map(|v| v.map(|c| c as f64));
-    let (along, to) = ([b[0] - a[0], b[1] - a[1]], [p[0] - a[0], p[1] - a[1]]);
-    let length2 = along[0] * along[0] + along[1] * along[1];
-    let t = if length2 > 0.0 {
-        ((to[0] * along[0] + to[1] * along[1]) / length2).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    let off = [to[0] - t * along[0], to[1] - t * along[1]];
-    off[0] * off[0] + off[1] * off[1]
-}
-
-/// Whether `p` lies in `triangle` or on its edges.
-fn contains(triangle: [[i32; 2]; 3], p: [f64; 2]) -> bool {
-    let [a, b, c] = triangle.map(|v| v.map(f64::from));
-    let side =
-        |u: [f64; 2], v: [f64; 2]| (v[0] - u[0]) * (p[1] - u[1]) - (v[1] - u[1]) * (p[0] - u[0]);
-    let [d0, d1, d2] = [side(a, b), side(b, c), side(c, a)];
-    (d0 >= 0.0 && d1 >= 0.0 && d2 >= 0.0) || (d0 <= 0.0 && d1 <= 0.0 && d2 <= 0.0)
 }
 
 /// `triangle`, or the reverse of it, so that it winds counter-clockwise in `(x, -y, z)` seen from `out`, a direction on the grid.

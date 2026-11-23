@@ -397,23 +397,7 @@ fn hilbert_key([x, y]: [i32; 2], extent: u32) -> u32 {
     let span = (i64::from(extent) * 3).max(1);
     let norm =
         |c: i32| (((i64::from(c) + i64::from(extent)).clamp(0, span - 1) * 65535) / span) as u32;
-    let (mut x, mut y) = (norm(x), norm(y));
-    let mut d = 0_u32;
-    let mut s = 1_u32 << 15;
-    while s > 0 {
-        let rx = u32::from((x & s) > 0);
-        let ry = u32::from((y & s) > 0);
-        d += s * s * ((3 * rx) ^ ry);
-        if ry == 0 {
-            if rx == 1 {
-                x = 65535 - x;
-                y = 65535 - y;
-            }
-            std::mem::swap(&mut x, &mut y);
-        }
-        s >>= 1;
-    }
-    d
+    hilbert_2d::u32::xy2h_discrete(norm(x), norm(y), 16, hilbert_2d::Variant::Hilbert)
 }
 
 /// A feature of a tile's layer: one building, or a block of merged buildings.
