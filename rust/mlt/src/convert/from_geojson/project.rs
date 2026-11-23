@@ -254,7 +254,7 @@ fn grid_z(step: ZStep, metres: f64) -> f64 {
 /// Project lon/lat into the unit square: `x` grows east from the antimeridian,
 /// `y` grows south from the northern Mercator bound, both in `0..=1`. A latitude
 /// past the Mercator bound sits on the edge, as the projection has no room for it.
-pub(super) fn mercator_unit(lon: f64, lat: f64) -> (f64, f64) {
+pub(in crate::convert) fn mercator_unit(lon: f64, lat: f64) -> (f64, f64) {
     let lat = lat.clamp(-MAX_LAT, MAX_LAT);
     let (x, y) = wgs84_to_webmercator(lon, lat);
     let half = EARTH_CIRCUMFERENCE / 2.0;
