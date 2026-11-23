@@ -7,6 +7,8 @@ use super::streams::{
     encode_vec2_vertex_stream, normalize_geometry_offsets, normalize_part_offsets_for_rings,
     seed_curve_caches, write_geo_u32_stream,
 };
+#[cfg(feature = "unstable-v2")]
+use crate::MltError;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
     ColumnType, GeometryLayout, GeometryType, GeometryValues, LengthType, Levels, OffsetType,
@@ -15,7 +17,7 @@ use crate::decoder::{
 use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
-use crate::{Decoder, MltError, MltResult};
+use crate::{Decoder, MltResult};
 
 impl GeometryValues {
     /// Write the geometry column to `enc`.
