@@ -1,7 +1,7 @@
 import type { MltStringPropertyColumn } from "../../columns";
-import { type ByteReader, allocArray, allocU32, chargeBytes, decodeUtf8 } from "./codecs/binary";
-import { decodeFrontCoded, decodeFsstBytes } from "./codecs/fsst";
-import { bitmapPopcount, normalizePresentBitmap, scatterPresent } from "./codecs/presence";
+import { decodeFsst } from "../fsstDecoder";
+import { type ByteReader, allocArray, allocU32, chargeBytes, decodeUtf8 } from "./binary";
+import { bitmapPopcount, normalizePresentBitmap, scatterPresent } from "./presence";
 import {
     FM_BYTES,
     FM_INT,
@@ -20,22 +20,8 @@ import {
 
 export type RawStringsStreamSet =
     | { m: 0; lengths: ParsedStream; data: ParsedStream; n: number }
-    | {
-          m: 1;
-          offsets: ParsedStream;
-          lengths: ParsedStream;
-          data: ParsedStream;
-          front: number;
-          n: number;
-      }
-    | {
-          m: 2;
-          lengths: ParsedStream;
-          symLens: ParsedStream;
-          symTbl: ParsedStream;
-          corpus: ParsedStream;
-          n: number;
-      }
+    | { m: 1; offsets: ParsedStream; lengths: ParsedStream; data: ParsedStream; front: number; n: number }
+    | { m: 2; lengths: ParsedStream; symLens: ParsedStream; symTbl: ParsedStream; corpus: ParsedStream; n: number }
     | {
           m: 3;
           offsets: ParsedStream;
@@ -54,18 +40,10 @@ export interface SharedDictChild {
 }
 
 export type RawSharedDict =
+    | { prefix: string; front: number; lengths: ParsedStream; data: ParsedStream; children: SharedDictChild[] }
     | {
           prefix: string;
           front: number;
-          fsst: 0;
-          lengths: ParsedStream;
-          data: ParsedStream;
-          children: SharedDictChild[];
-      }
-    | {
-          prefix: string;
-          front: number;
-          fsst: 1;
           lengths: ParsedStream;
           symLens: ParsedStream;
           symTbl: ParsedStream;
@@ -81,30 +59,36 @@ export function isDictDenseStrings(d: DecodedDenseStrings): d is { dict: true; e
     return d.dict;
 }
 
+function decodeFsstBytes(symLens: Uint32Array, symTbl: Uint8Array, corpus: Uint8Array): Uint8Array {
+    if (symLens.length > 255) throw new Error("fsst count");
+    let symTotal = 0;
+    for (let i = 0; i < symLens.length; i++) {
+        if (symLens[i] < 1 || symLens[i] > 8) throw new Error("fsst len");
+        symTotal += symLens[i];
+    }
+    if (symTotal > symTbl.length) throw new RangeError("fsst tbl");
+    let outLen = 0;
+    for (let p = 0; p < corpus.length; p++) {
+        const code = corpus[p];
+        if (code === 255) {
+            if (++p >= corpus.length) throw new Error("fsst esc");
+            outLen++;
+        } else {
+            if (code >= symLens.length) throw new RangeError("fsst code");
+            outLen += symLens[code];
+        }
+    }
+    chargeBytes(outLen);
+    return decodeFsst(symTbl, symLens, corpus);
+}
+
 export function sliceStrings(bytes: Uint8Array, lengths: Uint32Array): string[] {
     const bLen = bytes.length;
     const count = lengths.length;
     chargeBytes(bLen * 2);
     const entries = allocArray<string>(count);
-    let pos = 0;
-
-    if (bLen <= 64) {
-        let or = 0;
-        for (let i = 0; i < bLen; i++) or |= bytes[i];
-        if (or < 128) {
-            let fullAscii = "";
-            for (let i = 0; i < bLen; i++) fullAscii += String.fromCharCode(bytes[i]);
-            for (let i = 0; i < count; i++) {
-                const next = pos + lengths[i];
-                if (next > bLen) throw new RangeError("str eof");
-                entries[i] = fullAscii.slice(pos, next);
-                pos = next;
-            }
-            return entries;
-        }
-    }
-
     const fullStr = decodeUtf8(bytes);
+    let pos = 0;
     if (fullStr.length === bLen) {
         for (let i = 0; i < count; i++) {
             const next = pos + lengths[i];
@@ -114,7 +98,6 @@ export function sliceStrings(bytes: Uint8Array, lengths: Uint32Array): string[] 
         }
         return entries;
     }
-
     let u = 0;
     for (let i = 0; i < count; i++) {
         const len = lengths[i];
@@ -129,9 +112,7 @@ export function sliceStrings(bytes: Uint8Array, lengths: Uint32Array): string[] 
             else if (c >= 0xd800 && c <= 0xdbff) {
                 u++;
                 rem -= 4;
-            } else {
-                rem -= 3;
-            }
+            } else rem -= 3;
         }
         if (rem !== 0) throw new TypeError("utf8 split");
         entries[i] = fullStr.slice(u0, u);
@@ -139,12 +120,46 @@ export function sliceStrings(bytes: Uint8Array, lengths: Uint32Array): string[] 
     return entries;
 }
 
-export function decodeDictEntries(front: number, rawLengths: Uint32Array, blobBytes: Uint8Array): string[] {
-    if (front === 1) {
-        const rebuilt = decodeFrontCoded(rawLengths, blobBytes);
-        return sliceStrings(rebuilt.bytes, rebuilt.entryLengths);
+function decodeDictEntries(front: number, lengths: Uint32Array, blobBytes: Uint8Array): string[] {
+    if (front === 0) return sliceStrings(blobBytes, lengths);
+    if ((lengths.length & 1) !== 0) throw new Error("front odd");
+    const count = lengths.length >>> 1;
+    if (count === 0) {
+        if (blobBytes.length !== 0) throw new Error("front trailing");
+        return [];
     }
-    return sliceStrings(blobBytes, rawLengths);
+    if (lengths[0] !== 0) throw new Error("front first");
+    const entryLengths = allocU32(count);
+    let totalBytes = 0;
+    let sufSum = 0;
+    let prevLen = 0;
+    for (let i = 0; i < count; i++) {
+        const sh = lengths[i];
+        const sf = lengths[count + i];
+        if (sh > prevLen) throw new Error("front shared");
+        prevLen = sh + sf;
+        entryLengths[i] = prevLen;
+        totalBytes += prevLen;
+        sufSum += sf;
+    }
+    if (sufSum !== blobBytes.length) throw new Error("front suffixes");
+    chargeBytes(totalBytes);
+    const rebuilt = new Uint8Array(totalBytes);
+    let prevStart = 0;
+    let outPos = 0;
+    let sufPos = 0;
+    for (let i = 0; i < count; i++) {
+        const sh = lengths[i];
+        const sf = lengths[count + i];
+        const curStart = outPos;
+        if (sh > 0) rebuilt.set(rebuilt.subarray(prevStart, prevStart + sh), outPos);
+        outPos += sh;
+        if (sf > 0) rebuilt.set(blobBytes.subarray(sufPos, sufPos + sf), outPos);
+        outPos += sf;
+        sufPos += sf;
+        prevStart = curStart;
+    }
+    return sliceStrings(rebuilt, entryLengths);
 }
 
 export function parseStrings02(r: ByteReader, impliedCount: number): RawStringsStreamSet {
@@ -153,22 +168,12 @@ export function parseStrings02(r: ByteReader, impliedCount: number): RawStringsS
     const leadType = layout === 0 ? ST_LEN_VARBIN : layout === 2 ? ST_LEN_DICT : ST_OFF_STRING;
     const leading = parseStream02(r, FM_STR, 4, leadType, impliedCount, layout);
     const next = leading.n;
-
-    if (layout === 0) {
-        const data = parseStream02(r, FM_BYTES, 4, ST_DATA_NONE, next);
-        return { m: 0, lengths: leading, data, n: next };
-    }
+    if (layout === 0)
+        return { m: 0, lengths: leading, data: parseStream02(r, FM_BYTES, 4, ST_DATA_NONE, next), n: next };
     if (layout === 1) {
         const lengths = parseStream02(r, FM_INT, 4, ST_LEN_DICT, next);
         const data = parseStream02(r, FM_BYTES, 4, ST_DATA_SINGLE, next);
-        return {
-            m: 1,
-            offsets: leading,
-            lengths,
-            data,
-            front: data.front,
-            n: next,
-        };
+        return { m: 1, offsets: leading, lengths, data, front: data.front, n: next };
     }
     if (layout === 2) {
         const symLens = parseStream02(r, FM_INT, 4, ST_LEN_SYM, next);
@@ -180,53 +185,35 @@ export function parseStrings02(r: ByteReader, impliedCount: number): RawStringsS
     const symLens = parseStream02(r, FM_INT, 4, ST_LEN_SYM, next);
     const symTbl = parseStream02(r, FM_BYTES, 4, ST_DATA_FSST, next);
     const corpus = parseStream02(r, FM_BYTES, 4, ST_DATA_SINGLE, next);
-    return {
-        m: 3,
-        offsets: leading,
-        lengths,
-        symLens,
-        symTbl,
-        corpus,
-        front: corpus.front,
-        n: next,
-    };
+    return { m: 3, offsets: leading, lengths, symLens, symTbl, corpus, front: corpus.front, n: next };
 }
 
 export function decodeStringsDense(raw: RawStringsStreamSet, ownedCodes = false): DecodedDenseStrings {
-    if (raw.m === 0) {
-        return {
-            dict: false,
-            values: sliceStrings(raw.data.d, decodeStreamU32(raw.lengths, true)),
-        };
-    }
+    if (raw.m === 0) return { dict: false, values: sliceStrings(raw.data.d, decodeStreamU32(raw.lengths, true)) };
     if (raw.m === 2) {
         const expanded = decodeFsstBytes(decodeStreamU32(raw.symLens, true), raw.symTbl.d, raw.corpus.d);
-        return {
-            dict: false,
-            values: sliceStrings(expanded, decodeStreamU32(raw.lengths, true)),
-        };
+        return { dict: false, values: sliceStrings(expanded, decodeStreamU32(raw.lengths, true)) };
     }
     const blob =
         raw.m === 1 ? raw.data.d : decodeFsstBytes(decodeStreamU32(raw.symLens, true), raw.symTbl.d, raw.corpus.d);
-    const entries = decodeDictEntries(raw.front | 0, decodeStreamU32(raw.lengths, true), blob);
+    const entries = decodeDictEntries(raw.front, decodeStreamU32(raw.lengths, true), blob);
     const codes = decodeStreamU32(raw.offsets, !ownedCodes);
-    const entryLen = entries.length;
-    for (let i = 0; i < codes.length; i++) {
-        if (codes[i] >= entryLen) throw new RangeError("dict code");
-    }
+    for (let i = 0; i < codes.length; i++) if (codes[i] >= entries.length) throw new RangeError("dict code");
     return { dict: true, entries, codes };
 }
 
-/**
- * Charge expanded UTF-16 byte footprint when expanding dictionary codes across rows,
- * preventing repeated references to a large dictionary entry from bypassing `maxBytes`.
- */
 export function chargeExpandedDictStrings(entries: readonly string[], codes: Uint32Array): void {
     let totalChars = 0;
-    for (let i = 0; i < codes.length; i++) {
-        totalChars += entries[codes[i]].length;
-    }
+    for (let i = 0; i < codes.length; i++) totalChars += entries[codes[i]].length;
     chargeBytes(totalChars * 2);
+}
+
+export function expandDenseStrings(sd: DecodedDenseStrings): string[] {
+    if (!isDictDenseStrings(sd)) return sd.values;
+    chargeExpandedDictStrings(sd.entries, sd.codes);
+    const out = allocArray<string>(sd.codes.length);
+    for (let i = 0; i < sd.codes.length; i++) out[i] = sd.entries[sd.codes[i]];
+    return out;
 }
 
 export function materializeStringProperty(
@@ -236,44 +223,25 @@ export function materializeStringProperty(
     featureCount: number,
 ): MltStringPropertyColumn {
     const denseLen = isDictDenseStrings(dense) ? dense.codes.length : dense.values.length;
-
-    if (presenceBits === undefined) {
-        if (denseLen !== featureCount) throw new Error("str count");
-        if (isDictDenseStrings(dense)) {
-            chargeExpandedDictStrings(dense.entries, dense.codes);
-            const codes = allocU32(featureCount);
-            codes.set(dense.codes);
-            return { name, kind: "strDict", codes, dictionary: dense.entries };
-        }
-        return { name, kind: "str", values: dense.values };
-    }
-
-    const pop = bitmapPopcount(presenceBits, featureCount);
-    if (pop !== denseLen) throw new Error("str popcount");
+    const pop = presenceBits === undefined ? featureCount : bitmapPopcount(presenceBits, featureCount);
+    if (pop !== denseLen) throw new Error("str count");
     const present = normalizePresentBitmap(presenceBits, featureCount);
-    if (present === undefined) {
-        if (isDictDenseStrings(dense)) {
-            chargeExpandedDictStrings(dense.entries, dense.codes);
-            const codes = allocU32(featureCount);
-            codes.set(dense.codes);
-            return { name, kind: "strDict", codes, dictionary: dense.entries };
-        }
-        return { name, kind: "str", values: dense.values };
-    }
 
     if (isDictDenseStrings(dense)) {
         chargeExpandedDictStrings(dense.entries, dense.codes);
         const codes = allocU32(featureCount);
-        if (pop > 0) {
-            scatterPresent(presenceBits, featureCount, dense.codes, codes);
+        if (present === undefined || presenceBits === undefined) {
+            codes.set(dense.codes);
+            return { name, kind: "strDict", codes, dictionary: dense.entries };
         }
+        if (pop > 0) scatterPresent(presenceBits, featureCount, dense.codes, codes);
         return { name, kind: "strDict", present, codes, dictionary: dense.entries };
     }
-
-    const values = allocArray<string>(featureCount).fill("");
-    if (pop > 0) {
-        scatterPresent(presenceBits, featureCount, dense.values, values);
+    if (present === undefined || presenceBits === undefined) {
+        return { name, kind: "str", values: dense.values };
     }
+    const values = allocArray<string>(featureCount).fill("");
+    if (pop > 0) scatterPresent(presenceBits, featureCount, dense.values, values);
     return { name, kind: "str", present, values };
 }
 
@@ -283,13 +251,9 @@ export function decodeSharedDictColumns(shared: RawSharedDict, featureCount: num
             ? shared.data.d
             : decodeFsstBytes(decodeStreamU32(shared.symLens, true), shared.symTbl.d, shared.corpus.d);
     const entries = decodeDictEntries(shared.front, decodeStreamU32(shared.lengths, true), blob);
-    const entryLen = entries.length;
-
     return shared.children.map((ch) => {
         const codes = decodeStreamU32(ch.data, true);
-        for (let i = 0; i < codes.length; i++) {
-            if (codes[i] >= entryLen) throw new RangeError("sdict code");
-        }
+        for (let i = 0; i < codes.length; i++) if (codes[i] >= entries.length) throw new RangeError("sdict code");
         return materializeStringProperty(
             `${shared.prefix}${ch.suffix}`,
             { dict: true, entries, codes },
@@ -299,20 +263,16 @@ export function decodeSharedDictColumns(shared: RawSharedDict, featureCount: num
     });
 }
 
-export function stringCodesForMValue(dense: DecodedDenseStrings): {
-    codes: Uint32Array;
-    dictionary: string[];
-} {
+export function stringCodesForMValue(dense: DecodedDenseStrings): { codes: Uint32Array; dictionary: string[] } {
     if (isDictDenseStrings(dense)) {
         chargeExpandedDictStrings(dense.entries, dense.codes);
         return { codes: dense.codes, dictionary: dense.entries };
     }
     const map = new Map<string, number>();
     const dictionary: string[] = [];
-    const vals = dense.values;
-    const codes = allocU32(vals.length);
-    for (let i = 0; i < vals.length; i++) {
-        const s = vals[i];
+    const codes = allocU32(dense.values.length);
+    for (let i = 0; i < dense.values.length; i++) {
+        const s = dense.values[i];
         let c = map.get(s);
         if (c === undefined) {
             c = dictionary.length;

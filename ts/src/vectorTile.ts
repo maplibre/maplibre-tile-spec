@@ -19,9 +19,10 @@ export { Point as MltPoint };
 const POINT = 1;
 const LINESTRING = 2;
 const POLYGON = 3;
+const MVT_TYPES = [POINT, LINESTRING, POLYGON, POINT, LINESTRING, POLYGON, 0] as const;
 
 export type Position3D = [x: number, y: number, z: number];
-
+export type DecodeTileOptions = DecodeTileColumnsOptions;
 type VertexOf<T> = (i: number) => T;
 
 function readRun<T>(vertex: VertexOf<T>, start: number, end: number, close: boolean): T[] {
@@ -35,13 +36,9 @@ function readRun<T>(vertex: VertexOf<T>, start: number, end: number, close: bool
 
 function closedRings<T>(rings: Uint32Array, r0: number, r1: number, vertex: VertexOf<T>): T[][] {
     const out = new Array<T[]>(r1 - r0);
-    for (let r = r0; r < r1; r++) {
-        out[r - r0] = readRun(vertex, rings[r], rings[r + 1], true);
-    }
+    for (let r = r0; r < r1; r++) out[r - r0] = readRun(vertex, rings[r], rings[r + 1], true);
     return out;
 }
-
-const MVT_TYPES = [POINT, LINESTRING, POLYGON, POINT, LINESTRING, POLYGON, 0] as const;
 
 interface LayerData {
     readonly layer: MltColumnLayer;
@@ -55,9 +52,7 @@ const NO_COLUMNS: ReadonlyMap<string, MltMValueColumn> = new Map();
 function byName(columns: readonly MltMValueColumn[]): ReadonlyMap<string, MltMValueColumn> {
     if (columns.length === 0) return NO_COLUMNS;
     const map = new Map<string, MltMValueColumn>();
-    for (const column of columns) {
-        if (!map.has(column.name)) map.set(column.name, column);
-    }
+    for (const col of columns) if (!map.has(col.name)) map.set(col.name, col);
     return map;
 }
 
@@ -81,24 +76,19 @@ abstract class FeatureBase<V> {
 
     get id(): number | bigint | undefined {
         const { ids } = this._layer.layer;
-        if (!ids) return undefined;
-        const val = columnValue(ids, this._featureIdx);
+        const val = ids ? columnValue(ids, this._featureIdx) : null;
         return val === null ? undefined : (val as number | bigint);
     }
 
     get properties(): Record<string, number | bigint | string | boolean> {
         const result: Record<string, number | bigint | string | boolean> = {};
-        for (const column of this._layer.layer.properties) {
-            const value = columnValue(column, this._featureIdx);
-            if (value !== null) result[column.name] = value;
+        for (const col of this._layer.layer.properties) {
+            const val = columnValue(col, this._featureIdx);
+            if (val !== null) result[col.name] = val;
         }
         return result;
     }
 
-    /**
-     * A mesh's triangles, three feature-local indices per triangle into `loadGeometry()[0]`.
-     * Throws for a feature that is not a mesh.
-     */
     loadTriangles(): Uint32Array {
         if (this._layer.layout !== "meshes") {
             throw new Error(`feature ${this._featureIdx} of layer "${this._layer.layer.name}" is not a mesh`);
@@ -106,35 +96,19 @@ abstract class FeatureBase<V> {
         return meshTriangles(this._layer.layer.geometry, this._featureIdx);
     }
 
-    /**
-     * This feature's values of vertex m-value column `name`, one per stored vertex,
-     * or `undefined` when the layer has no such column or it is null here.
-     */
     loadVertexValues(name: string): MltMValueSlice | undefined {
-        return this.slice(this._layer.vertexValues, name);
+        const col = this._layer.vertexValues.get(name);
+        return col ? (mValueSlice(col, this._featureIdx) ?? undefined) : undefined;
     }
 
-    /**
-     * This feature's values of triangle m-value column `name`, one per triangle of `loadTriangles()`,
-     * or `undefined` when the layer has no such column or it is null here.
-     */
     loadTriangleValues(name: string): MltMValueSlice | undefined {
-        return this.slice(this._layer.triangleValues, name);
+        const col = this._layer.triangleValues.get(name);
+        return col ? (mValueSlice(col, this._featureIdx) ?? undefined) : undefined;
     }
 
-    /**
-     * Searches `vertexValues` then `triangleValues` for `name`.
-     */
     loadMValues(name: string): MltMValueSlice | undefined {
         const col = this._layer.vertexValues.get(name) ?? this._layer.triangleValues.get(name);
-        if (!col) return undefined;
-        return mValueSlice(col, this._featureIdx) ?? undefined;
-    }
-
-    private slice(columns: ReadonlyMap<string, MltMValueColumn>, name: string): MltMValueSlice | undefined {
-        const column = columns.get(name);
-        if (!column) return undefined;
-        return mValueSlice(column, this._featureIdx) ?? undefined;
+        return col ? (mValueSlice(col, this._featureIdx) ?? undefined) : undefined;
     }
 
     protected abstract vertex(): VertexOf<V>;
@@ -153,31 +127,26 @@ abstract class FeatureBase<V> {
         const { geometry } = this._layer.layer;
         const vertex = this.vertex();
         const [g0, g1] = this.geometries();
-        if (this._layer.layout === "meshes") {
-            return [readRun(vertex, g0, g1, false)];
+        if (this._layer.layout === "meshes") return [readRun(vertex, g0, g1, false)];
+        if (this.type === POINT) {
+            const v0 = lineStart(geometry, g0);
+            const v1 = lineStart(geometry, g1);
+            const pts = new Array<V[]>(runLength(v0, v1));
+            for (let v = v0; v < v1; v++) pts[v - v0] = [vertex(v)];
+            return pts;
         }
-        switch (this.type) {
-            case POINT: {
-                const v0 = lineStart(geometry, g0);
-                const v1 = lineStart(geometry, g1);
-                const points = new Array<V[]>(runLength(v0, v1));
-                for (let v = v0; v < v1; v++) points[v - v0] = [vertex(v)];
-                return points;
+        if (this.type === LINESTRING) {
+            const lines = new Array<V[]>(g1 - g0);
+            for (let line = g0; line < g1; line++) {
+                lines[line - g0] = readRun(vertex, lineStart(geometry, line), lineStart(geometry, line + 1), false);
             }
-            case LINESTRING: {
-                const lines = new Array<V[]>(g1 - g0);
-                for (let line = g0; line < g1; line++) {
-                    lines[line - g0] = readRun(vertex, lineStart(geometry, line), lineStart(geometry, line + 1), false);
-                }
-                return lines;
-            }
-            case POLYGON: {
-                const [parts, rings] = polygonLevels(geometry);
-                return closedRings(rings, parts[g0], parts[g1], vertex);
-            }
-            default:
-                return [];
+            return lines;
         }
+        if (this.type === POLYGON) {
+            const [parts, rings] = polygonLevels(geometry);
+            return closedRings(rings, parts[g0], parts[g1], vertex);
+        }
+        return [];
     }
 
     protected polygons(): V[][][] {
@@ -191,11 +160,9 @@ abstract class FeatureBase<V> {
         const vertex = this.vertex();
         const [g0, g1] = this.geometries();
         const [parts, rings] = polygonLevels(geometry);
-        const polygons = new Array<V[][]>(g1 - g0);
-        for (let polygon = g0; polygon < g1; polygon++) {
-            polygons[polygon - g0] = closedRings(rings, parts[polygon], parts[polygon + 1], vertex);
-        }
-        return polygons;
+        const out = new Array<V[][]>(g1 - g0);
+        for (let p = g0; p < g1; p++) out[p - g0] = closedRings(rings, parts[p], parts[p + 1], vertex);
+        return out;
     }
 }
 
@@ -210,9 +177,8 @@ export class MltFeature extends FeatureBase<Point> {
     loadZ(): number[] {
         const { geometry } = this._layer.layer;
         if (geometry.dimension !== 3) return [];
-        const z = (v: number) => geometry.vertices[v * 3 + 2];
         const [g0, g1] = this.geometries();
-        return readRun(z, lineStart(geometry, g0), lineStart(geometry, g1), false);
+        return readRun((v) => geometry.vertices[v * 3 + 2], lineStart(geometry, g0), lineStart(geometry, g1), false);
     }
 
     loadPolygons(): Point[][][] {
@@ -271,7 +237,7 @@ abstract class LayerBase {
         this.extent = layer.extent;
         this.length = layer.featureCount;
         this.propertyColumns = layer.properties;
-        this.propertyKeys = layer.properties.map((column) => column.name);
+        this.propertyKeys = layer.properties.map((c) => c.name);
         this.vertexValues = layer.vertexValues;
         this.triangleValues = layer.triangleValues;
         this.mValues = layer.mValues;
@@ -328,10 +294,12 @@ function decodeLayers<L>(
     options?: DecodeTileColumnsOptions,
 ): Record<string, L> {
     const layers: Record<string, L> = {};
+    const seen = new Set<string>();
     for (const layer of decodeTileColumns(data, options).layers) {
-        if (Object.hasOwn(layers, layer.name)) {
+        if (seen.has(layer.name)) {
             throw new Error(`the tile has two layers named "${layer.name}"; decodeTileColumns keeps both`);
         }
+        seen.add(layer.name);
         layers[layer.name] = new Layer(layer);
     }
     return layers;
@@ -345,18 +313,10 @@ export interface MltTile3D {
     readonly layers: Record<string, MltLayer3D>;
 }
 
-export type DecodeTileOptions = DecodeTileColumnsOptions;
-
-/**
- * Decode `data` into a MapLibre / `@mapbox/vector-tile`-compatible `{ layers }` object.
- */
 export function decodeVectorTile(data: Uint8Array, options?: DecodeTileColumnsOptions): MltTile {
     return { layers: decodeLayers(data, MltLayer, options) };
 }
 
-/**
- * Decode a 3D tile whose every layer carries z coordinates (including `Meshes` layers).
- */
 export function decodeTile3D(data: Uint8Array, options?: DecodeTileColumnsOptions): MltTile3D {
     return { layers: decodeLayers(data, MltLayer3D, options) };
 }

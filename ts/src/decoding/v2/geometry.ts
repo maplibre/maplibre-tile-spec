@@ -1,22 +1,18 @@
 import type { HeightMode, MltGeometryColumns, MltGeometryLayout } from "../../columns";
-import { EMPTY_I32, EMPTY_U32, allocI32, allocU8, allocU32 } from "./codecs/binary";
-import { decodeRansVertices } from "./codecs/rans";
-import { decodeTrees } from "./codecs/tri";
+import { EMPTY_I32, EMPTY_U32, allocI32, allocU8, allocU32, checkScratchBytes } from "./binary";
+import { decodeRansVertices } from "./rans";
 import {
     LG_RANS,
     NO_Z,
     type ParsedStream,
-    ST_DATA_MORTON,
     ST_DATA_VERTEX,
     ST_LEN_GEOM,
     ST_LEN_PARTS,
     ST_LEN_RINGS,
     ST_LEN_TRIS,
-    ST_OFF_INDEX,
     ST_OFF_TREE_CYC,
     ST_OFF_TREE_SYM,
     ST_OFF_VERTEX,
-    ST_PRESENT,
     decodeStreamI32,
     decodeStreamU32,
 } from "./stream";
@@ -38,17 +34,95 @@ export interface TopologyLevels {
     ringOffsets?: Uint32Array;
 }
 
-function decodeRootLengths(types: Uint8Array, rootLengths: Uint32Array, bufferId: number): Uint32Array {
-    const n = types.length;
-    const out = allocU32(n + 1);
+function decodeTrees(symbols: Uint32Array, cycles: Uint32Array): Uint32Array {
+    const triangles = symbols.length;
+    if (triangles === 0) {
+        if (cycles.length !== 0) throw new Error("cycles");
+        return EMPTY_U32;
+    }
+    if (symbols[triangles - 1] !== 0) throw new Error("tree symbols");
+
+    const frameWords = (triangles + 2) << 2;
+    checkScratchBytes((triangles + 1 + frameWords) * 4);
+    const sizes = new Int32Array(triangles + 1);
+    const frames = new Int32Array(frameWords);
+    sizes[triangles - 1] = 4;
+
+    let prevSz = 1;
+    let bad = 0;
+    for (let node = triangles - 2; node >= 0; node--) {
+        const sym = symbols[node];
+        bad |= sym >>> 2;
+        const hasLeft = sym & 1;
+        const hasRight = (sym >>> 1) & 1;
+        const leftSize = prevSz & -hasLeft;
+        const rightEntry = sizes[node + 1 + leftSize] >>> 2;
+        bad |= hasRight & ((rightEntry - 1) >>> 31);
+        prevSz = 1 + leftSize + (rightEntry & -hasRight);
+        sizes[node] = (prevSz << 2) | sym;
+    }
+    if (bad !== 0) throw new Error("tree symbols");
+
+    const out = allocU32(triangles * 3);
+    let outPos = 0;
+    let root = 0;
+    let cyclePos = 0;
+    while (root < triangles) {
+        let cur = sizes[root];
+        const treeSize = cur >>> 2;
+        const nextCyclePos = cyclePos + 2 + treeSize;
+        if (nextCyclePos > cycles.length) throw new Error("cycles eof");
+
+        frames[0] = cycles[cyclePos];
+        frames[1] = cycles[cyclePos + 1];
+        frames[2] = 0;
+        const apexBase = cyclePos + 2;
+        const treeEnd = root + treeSize;
+        let sp = 4;
+
+        for (let node = root; node < treeEnd; node++) {
+            sp -= 4;
+            const from = frames[sp];
+            const to = frames[sp + 1];
+            const firstApex = frames[sp + 2];
+            const next = sizes[node + 1];
+            const sym = cur & 3;
+            cur = next;
+            const hasLeft = sym & 1;
+            const hasRight = sym >>> 1;
+            const leftSize = (next >>> 2) & -hasLeft;
+            const apex = cycles[apexBase + firstApex + leftSize];
+
+            out[outPos++] = from;
+            out[outPos++] = to;
+            out[outPos++] = apex;
+
+            frames[sp] = from;
+            frames[sp + 1] = apex;
+            frames[sp + 2] = firstApex + leftSize + 1;
+            sp += hasRight << 2;
+
+            frames[sp] = apex;
+            frames[sp + 1] = to;
+            frames[sp + 2] = firstApex;
+            sp += hasLeft << 2;
+        }
+        root = treeEnd;
+        cyclePos = nextCyclePos;
+    }
+    if (cyclePos !== cycles.length) throw new Error("cycles trailing");
+    return out;
+}
+
+function decodeRootLengths(types: Uint8Array, lengths: Uint32Array, bufferId: number): Uint32Array {
+    const out = allocU32(types.length + 1);
     let off = 0;
     let k = 0;
-    const rLen = rootLengths.length;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < types.length; i++) {
         let inc = 1;
         if (types[i] > bufferId) {
-            if (k >= rLen) throw new RangeError("geom oob");
-            inc = rootLengths[k++];
+            if (k >= lengths.length) throw new RangeError("geom oob");
+            inc = lengths[k++];
         }
         off += inc;
         if (off > 0xffffffff) throw new RangeError("overflow");
@@ -60,22 +134,20 @@ function decodeRootLengths(types: Uint8Array, rootLengths: Uint32Array, bufferId
 function decodeLevel1Lengths(
     types: Uint8Array,
     rootOffsets: Uint32Array,
-    l1Lengths: Uint32Array,
+    lengths: Uint32Array,
     hasLine: boolean,
 ): Uint32Array {
     const out = allocU32(rootOffsets[rootOffsets.length - 1] + 1);
     let outPos = 1;
     let off = 0;
     let k = 0;
-    const l1Len = l1Lengths.length;
-
     for (let i = 0; i < types.length; i++) {
         const t = types[i];
         const ng = rootOffsets[i + 1] - rootOffsets[i];
         if (isPolygon(t) || (hasLine && isLine(t))) {
             for (let j = 0; j < ng; j++) {
-                if (k >= l1Len) throw new RangeError("geom oob");
-                off += l1Lengths[k++];
+                if (k >= lengths.length) throw new RangeError("geom oob");
+                off += lengths[k++];
                 if (off > 0xffffffff) throw new RangeError("overflow");
                 out[outPos++] = off;
             }
@@ -90,15 +162,13 @@ function decodeLevel2Lengths(
     types: Uint8Array,
     rootOffsets: Uint32Array,
     l1Offsets: Uint32Array,
-    l2Lengths: Uint32Array,
+    lengths: Uint32Array,
 ): Uint32Array {
     const out = allocU32(l1Offsets[l1Offsets.length - 1] + 1);
     let outPos = 1;
     let off = 0;
     let l1Pos = 0;
-    let l2Pos = 0;
-    const l2Len = l2Lengths.length;
-
+    let k = 0;
     for (let i = 0; i < types.length; i++) {
         const t = types[i];
         const ng = rootOffsets[i + 1] - rootOffsets[i];
@@ -107,8 +177,8 @@ function decodeLevel2Lengths(
                 const np = l1Offsets[l1Pos + 1] - l1Offsets[l1Pos];
                 l1Pos++;
                 for (let p = 0; p < np; p++) {
-                    if (l2Pos >= l2Len) throw new RangeError("geom oob");
-                    off += l2Lengths[l2Pos++];
+                    if (k >= lengths.length) throw new RangeError("geom oob");
+                    off += lengths[k++];
                     if (off > 0xffffffff) throw new RangeError("overflow");
                     out[outPos++] = off;
                 }
@@ -144,19 +214,13 @@ export function decodeTopology(
     } else if (partOffsets !== undefined) {
         if (ringOffsets !== undefined) {
             let hasLine = false;
-            for (let i = 0; i < types.length; i++) {
-                if (isLine(types[i])) {
-                    hasLine = true;
-                    break;
-                }
-            }
+            for (let i = 0; i < types.length; i++) if (isLine(types[i])) hasLine = true;
             partOffsets = decodeRootLengths(types, partOffsets, GEOM_LINESTRING);
             ringOffsets = decodeLevel1Lengths(types, partOffsets, ringOffsets, hasLine);
         } else {
             partOffsets = decodeRootLengths(types, partOffsets, GEOM_POINT);
         }
     }
-
     return { geometryOffsets, partOffsets, ringOffsets };
 }
 
@@ -167,26 +231,23 @@ export function vertexIndexAt(levels: TopologyLevels, f: number): number {
     return idx;
 }
 
-export function decodeGeometry(
+export function decodeGeometry02(
     uniformType: number,
     featureCount: number,
     typesStream: ParsedStream | null,
-    isV2: boolean,
     items: readonly ParsedStream[],
 ): MltGeometryColumns {
     const isMeshes = uniformType === GEOM_MESH;
     let types: Uint8Array;
     if (uniformType >= 0) {
-        types = allocU8(featureCount);
-        types.fill(uniformType);
+        types = allocU8(featureCount).fill(uniformType);
     } else {
-        if (typesStream === null) throw new Error("missing types stream");
+        if (!typesStream) throw new Error("missing types");
         const rawTypes = decodeStreamU32(typesStream, true);
         types = allocU8(rawTypes.length);
         for (let i = 0; i < rawTypes.length; i++) {
-            const t = rawTypes[i];
-            if (t > GEOM_MULTIPOLYGON) throw new Error("geom type");
-            types[i] = t;
+            if (rawTypes[i] > GEOM_MULTIPOLYGON) throw new Error("geom type");
+            types[i] = rawTypes[i];
         }
     }
 
@@ -195,83 +256,31 @@ export function decodeGeometry(
     let ringLengths: Uint32Array | undefined;
     let triLengths: Uint32Array | undefined;
     let vertexOffsets: Uint32Array | undefined;
-    let indexBuffer: Uint32Array | undefined;
     let treeSymbols: Uint32Array | undefined;
     let treeCycles: Uint32Array | undefined;
     let vertexStream: ParsedStream | null = null;
-    let zStep = NO_Z;
-    let heightMode = 0;
 
-    for (let i = 0; i < items.length; i++) {
-        const s = items[i];
-        switch (s.t) {
-            case ST_PRESENT:
-                break;
-            case ST_DATA_VERTEX:
-            case ST_DATA_MORTON:
-                if (vertexStream !== null) throw new Error("dup vtx");
-                if (s.zStep !== NO_Z) {
-                    zStep = s.zStep;
-                    heightMode = s.heightMode;
-                }
-                vertexStream = s;
-                break;
-            case ST_OFF_VERTEX:
-                if (vertexOffsets !== undefined) throw new Error("dup voff");
-                vertexOffsets = decodeStreamU32(s, true);
-                break;
-            case ST_OFF_INDEX:
-                if (indexBuffer !== undefined) throw new Error("dup idx");
-                indexBuffer = decodeStreamU32(s, false);
-                break;
-            case ST_OFF_TREE_SYM:
-                if (!isV2 || treeSymbols !== undefined) throw new Error("tsym");
-                treeSymbols = decodeStreamU32(s, true);
-                break;
-            case ST_OFF_TREE_CYC:
-                if (!isV2 || treeCycles !== undefined) throw new Error("tcyc");
-                treeCycles = decodeStreamU32(s, true);
-                break;
-            case ST_LEN_GEOM:
-                if (geoLengths !== undefined) throw new Error("dup glen");
-                geoLengths = decodeStreamU32(s, true);
-                break;
-            case ST_LEN_PARTS:
-                if (partLengths !== undefined) throw new Error("dup plen");
-                partLengths = decodeStreamU32(s, true);
-                break;
-            case ST_LEN_RINGS:
-                if (ringLengths !== undefined) throw new Error("dup rlen");
-                ringLengths = decodeStreamU32(s, true);
-                break;
-            case ST_LEN_TRIS:
-                if (triLengths !== undefined) throw new Error("dup tlen");
-                triLengths = decodeStreamU32(s, true);
-                break;
-            default:
-                throw new Error("geom st");
-        }
+    for (const s of items) {
+        if (s.t === ST_DATA_VERTEX) vertexStream = s;
+        else if (s.t === ST_OFF_VERTEX) vertexOffsets = decodeStreamU32(s, true);
+        else if (s.t === ST_OFF_TREE_SYM) treeSymbols = decodeStreamU32(s, true);
+        else if (s.t === ST_OFF_TREE_CYC) treeCycles = decodeStreamU32(s, true);
+        else if (s.t === ST_LEN_GEOM) geoLengths = decodeStreamU32(s, true);
+        else if (s.t === ST_LEN_PARTS) partLengths = decodeStreamU32(s, true);
+        else if (s.t === ST_LEN_RINGS) ringLengths = decodeStreamU32(s, true);
+        else if (s.t === ST_LEN_TRIS) triLengths = decodeStreamU32(s, true);
+        else throw new Error("geom st");
     }
 
-    if (isMeshes) {
-        if (zStep === NO_Z) throw new Error("mesh z");
-        if ((geoLengths ? geoLengths.length : 0) !== types.length) {
-            throw new Error("mesh glen");
-        }
+    const zStep = vertexStream?.zStep ?? NO_Z;
+    const heightMode = vertexStream?.heightMode ?? 0;
+    if (isMeshes && (zStep === NO_Z || (geoLengths?.length ?? 0) !== types.length)) {
+        throw new Error("mesh geom");
     }
 
-    if (treeSymbols !== undefined || treeCycles !== undefined) {
-        if (treeSymbols === undefined || treeCycles === undefined || indexBuffer !== undefined) {
-            throw new Error("tree pair");
-        }
-        indexBuffer = decodeTrees(treeSymbols, treeCycles);
-    }
-
+    const indexBuffer = treeSymbols && treeCycles ? decodeTrees(treeSymbols, treeCycles) : undefined;
     if (!isMeshes && indexBuffer !== undefined && partLengths === undefined) {
-        if (!isV2) throw new Error("v1 tri");
-        for (let i = 0; i < types.length; i++) {
-            if (!isPolygon(types[i])) throw new Error("tess non-poly");
-        }
+        for (let i = 0; i < types.length; i++) if (!isPolygon(types[i])) throw new Error("tess non-poly");
     }
 
     const levels = decodeTopology(types, geoLengths, partLengths, ringLengths);
@@ -279,7 +288,7 @@ export function decodeGeometry(
     const hasDict = vertexOffsets !== undefined;
 
     let vertices: Int32Array;
-    if (vertexStream === null) {
+    if (!vertexStream) {
         vertices = EMPTY_I32;
     } else if (vertexStream.l === LG_RANS) {
         if (hasDict) throw new Error("rans dict");
@@ -303,97 +312,45 @@ export function decodeGeometry(
         }
     }
 
-    if (treeCycles !== undefined && indexBuffer !== undefined) {
-        const triCount = indexBuffer.length / 3;
-        const totalTris = triangleOffsets ? triangleOffsets[triangleOffsets.length - 1] : 0;
-        if (totalTris !== triCount) throw new Error("tri count");
+    if (treeCycles && indexBuffer) {
+        if ((triangleOffsets?.[triangleOffsets.length - 1] ?? 0) !== indexBuffer.length / 3) {
+            throw new Error("tri count");
+        }
         if (!isMeshes) {
             const vertCount = vertices.length / dimension;
-            for (let i = 0; i < treeCycles.length; i++) {
+            for (let i = 0; i < treeCycles.length; i++)
                 if (treeCycles[i] >= vertCount) throw new RangeError("tcyc vtx");
-            }
         }
     }
 
     if (isMeshes) {
         const runs = levels.geometryOffsets ?? new Uint32Array([0]);
-        const vertCount = (vertices.length / 3) | 0;
-        const expectedVerts = runs.length > 0 ? runs[runs.length - 1] : 0;
-        if (expectedVerts !== vertCount) throw new Error("mesh vtx");
         const triOff = triangleOffsets ?? new Uint32Array([0]);
-        if (triOff.length !== runs.length) throw new Error("mesh tlen");
         const indices = indexBuffer ?? EMPTY_U32;
-        const idxI32 = new Int32Array(indices.buffer, indices.byteOffset, indices.length);
-        const featCount = types.length | 0;
-        let neg = 0;
-        for (let f = 0; f < featCount; f = (f + 1) | 0) {
-            const start = runs[f] | 0;
-            const end1 = (runs[(f + 1) | 0] - 1) | 0;
-            const lo = (triOff[f] * 3) | 0;
-            const hi = (triOff[(f + 1) | 0] * 3) | 0;
-            if (hi > idxI32.length) throw new Error("mesh idx");
-            for (let k = lo; k < hi; k = (k + 3) | 0) {
-                const a = idxI32[k];
-                const b = idxI32[(k + 1) | 0];
-                const c = idxI32[(k + 2) | 0];
-                neg |=
-                    a |
-                    b |
-                    c |
-                    ((a - start) | 0) |
-                    ((end1 - a) | 0) |
-                    ((b - start) | 0) |
-                    ((end1 - b) | 0) |
-                    ((c - start) | 0) |
-                    ((end1 - c) | 0);
+        if ((runs[runs.length - 1] ?? 0) !== vertices.length / 3 || triOff.length !== runs.length) {
+            throw new Error("mesh len");
+        }
+        for (let f = 0; f < types.length; f++) {
+            const v0 = runs[f];
+            const v1 = runs[f + 1];
+            const lo = triOff[f] * 3;
+            const hi = triOff[f + 1] * 3;
+            if (hi > indices.length) throw new Error("mesh idx");
+            for (let k = lo; k < hi; k++) {
+                if (indices[k] < v0 || indices[k] >= v1) throw new RangeError("mesh oob");
             }
         }
-        if (neg < 0) throw new RangeError("mesh oob");
     }
 
-    if (hasDict && vertexOffsets !== undefined) {
+    if (vertexOffsets !== undefined) {
         const dictCount = vertices.length / dimension;
-        const nOff = vertexOffsets.length;
-        const expanded = allocI32(nOff * dimension);
-        if (dimension === 2) {
-            for (let i = 0; i < nOff; i++) {
-                const idx = vertexOffsets[i];
-                if (idx >= dictCount) throw new RangeError("vdict");
-                const s = idx << 1;
-                const d = i << 1;
-                expanded[d] = vertices[s];
-                expanded[d + 1] = vertices[s + 1];
-            }
-        } else {
-            for (let i = 0; i < nOff; i++) {
-                const idx = vertexOffsets[i];
-                if (idx >= dictCount) throw new RangeError("vdict");
-                const s = idx * 3;
-                const d = i * 3;
-                expanded[d] = vertices[s];
-                expanded[d + 1] = vertices[s + 1];
-                expanded[d + 2] = vertices[s + 2];
-            }
+        const expanded = allocI32(vertexOffsets.length * dimension);
+        for (let i = 0; i < vertexOffsets.length; i++) {
+            const idx = vertexOffsets[i];
+            if (idx >= dictCount) throw new RangeError("vdict");
+            for (let c = 0; c < dimension; c++) expanded[i * dimension + c] = vertices[idx * dimension + c];
         }
         vertices = expanded;
-    }
-
-    if (!isV2 && indexBuffer !== undefined) {
-        const triOff = triangleOffsets ?? new Uint32Array([0]);
-        const starts: number[] = [];
-        for (let f = 0; f < types.length; f++) {
-            if (isPolygon(types[f])) starts.push(vertexIndexAt(levels, f));
-        }
-        if (triOff.length !== starts.length + 1) throw new Error("v1 triOff");
-        for (let p = 0; p < starts.length; p++) {
-            const start = starts[p];
-            const from = triOff[p] * 3;
-            const to = triOff[p + 1] * 3;
-            if (to > indexBuffer.length) throw new RangeError("v1 idx");
-            for (let k = from; k < to; k++) {
-                indexBuffer[k] = (indexBuffer[k] + start) >>> 0;
-            }
-        }
     }
 
     const layout: MltGeometryLayout = isMeshes
@@ -404,30 +361,18 @@ export function decodeGeometry(
               : "tessPolygonsWithOutlines"
           : "outlines";
 
-    const geom: {
-        types: Uint8Array;
-        layout: MltGeometryLayout;
-        meshes?: true;
-        dimension: 2 | 3;
-        vertices: Int32Array;
-        geometryOffsets?: Uint32Array;
-        partOffsets?: Uint32Array;
-        ringOffsets?: Uint32Array;
-        triangleOffsets?: Uint32Array;
-        indexBuffer?: Uint32Array;
-        zStep?: number;
-        heightMode?: HeightMode;
-    } = { types, layout, dimension, vertices };
-
-    if (isMeshes) geom.meshes = true;
-    if (zStep !== NO_Z) {
-        geom.zStep = zStep;
-        geom.heightMode = heightMode === 1 ? "relativeToGround" : "absolute";
-    }
-    if (levels.geometryOffsets !== undefined) geom.geometryOffsets = levels.geometryOffsets;
-    if (levels.partOffsets !== undefined) geom.partOffsets = levels.partOffsets;
-    if (levels.ringOffsets !== undefined) geom.ringOffsets = levels.ringOffsets;
-    if (triangleOffsets !== undefined) geom.triangleOffsets = triangleOffsets;
-    if (indexBuffer !== undefined) geom.indexBuffer = indexBuffer;
-    return geom;
+    const hm: HeightMode = heightMode === 1 ? "relativeToGround" : "absolute";
+    return {
+        types,
+        layout,
+        ...(isMeshes ? { meshes: true as const } : {}),
+        dimension,
+        vertices,
+        ...(levels.geometryOffsets ? { geometryOffsets: levels.geometryOffsets } : {}),
+        ...(levels.partOffsets ? { partOffsets: levels.partOffsets } : {}),
+        ...(levels.ringOffsets ? { ringOffsets: levels.ringOffsets } : {}),
+        ...(triangleOffsets ? { triangleOffsets } : {}),
+        ...(indexBuffer ? { indexBuffer } : {}),
+        ...(zStep !== NO_Z ? { zStep, heightMode: hm } : {}),
+    };
 }

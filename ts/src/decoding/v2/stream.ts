@@ -1,4 +1,3 @@
-import { decodeAlpFloats, parseAlpScale } from "./codecs/alp";
 import {
     type ByteReader,
     allocF32,
@@ -8,64 +7,42 @@ import {
     allocU8,
     allocU32,
     allocU64,
-    cursor,
-    decodeRawFloatsF32,
-    decodeRawFloatsF64,
-    decodeRawU32Into,
-    decodeRawU64Into,
+    asI32,
+    asI64,
+    copyLittleEndian,
+    cwDeltaVecInPlace,
+    decodeAlpFloats,
+    decodeMortonDelta,
+    decodeRleInterleavedU32,
+    decodeRleInterleavedU64,
     decodeVarintU32Into,
-    decodeVarintU32sAllScratch,
+    decodeVarintU32sAll,
     decodeVarintU64Into,
-    decodeVarintU64sAllScratch,
+    decodeVarintU64sAll,
+    parseAlpScale,
     readBytes,
     readU8,
     readVarintI64,
     readVarintU32,
-    takeU32,
-    takeU64,
-} from "./codecs/binary";
-import { unpackBitpackU32Into, unpackBitpackU64Into } from "./codecs/bitpack";
-import { decodeFastPforInto } from "./codecs/fastpfor";
-import { decodeMortonDelta } from "./codecs/morton";
-import {
-    PRES_BITMAP,
-    PRES_RUNS,
-    PRES_SPARSE,
-    maskBitmapTail,
-    readPresenceBits,
-    splitPresenceBytes,
-} from "./codecs/presence";
-import {
-    decodeByteRle,
-    decodeRleInterleavedU32Into,
-    decodeRleInterleavedU64Into,
-    decodeRleSplitU32Into,
-    decodeRleSplitU64Into,
-} from "./codecs/rle";
-import {
-    asI32,
-    asI64,
-    cwDelta2Vec2InPlace,
-    cwDeltaVec2InPlace,
-    cwDeltaVec3InPlace,
-    zigzagDelta2_32InPlace,
-    zigzagDelta2_64InPlace,
+    scratchU32,
+    scratchU64,
+    unpackBitpackU32Into,
+    unpackBitpackU64Into,
     zigzagDelta32InPlace,
     zigzagDelta64InPlace,
     zigzagI32InPlace,
     zigzagI64InPlace,
-} from "./codecs/zigzag";
+} from "./binary";
+import { decodeFastPfor128Into } from "./fastpfor";
+import { PRES_BITMAP, PRES_RUNS, PRES_SPARSE, readPresenceBits } from "./presence";
 
-// Stream types
 export const ST_PRESENT = 0;
 export const ST_DATA_NONE = 1;
 export const ST_DATA_SINGLE = 2;
 export const ST_DATA_SHARED = 3;
 export const ST_DATA_VERTEX = 4;
-export const ST_DATA_MORTON = 5;
 export const ST_DATA_FSST = 6;
 export const ST_OFF_VERTEX = 7;
-export const ST_OFF_INDEX = 8;
 export const ST_OFF_STRING = 9;
 export const ST_OFF_KEY = 10;
 export const ST_OFF_TREE_SYM = 11;
@@ -79,14 +56,11 @@ export const ST_LEN_SYM = 18;
 export const ST_LEN_DICT = 19;
 export const ST_LEN_NESTED = 20;
 
-// Physical encodings
 export const PH_NONE = 0;
-export const PH_FPF256 = 1;
 export const PH_FPF128 = 2;
 export const PH_VARINT = 3;
 export const PH_BITPACK = 4;
 
-// Logical encodings
 export const LG_NONE = 0;
 export const LG_DELTA = 1;
 export const LG_DELTA2 = 2;
@@ -96,13 +70,11 @@ export const LG_CW_DELTA = 5;
 export const LG_CW_DELTA2 = 6;
 export const LG_MORTON = 7;
 export const LG_RANS = 8;
-export const LG_BYTE_RLE = 9;
 export const LG_RUNS = 10;
 export const LG_SPARSE = 11;
 export const LG_ALP = 12;
 export const LG_DICT = 13;
 
-// v2 stream families
 export const FM_INT = 0;
 export const FM_STR = 1;
 export const FM_BOOL = 2;
@@ -110,22 +82,16 @@ export const FM_FLOAT = 3;
 export const FM_VERTEX = 4;
 export const FM_BYTES = 5;
 
-// Hint kinds for v1
-export const HK_INT = 0;
-export const HK_FLOAT = 1;
-export const HK_BOOL = 2;
-const HK_VERTEX = 3;
-
 export const HAS_EXPLICIT_COUNT = 0x80;
 export const NO_Z = 99;
 
 const FAMILY_TABLE: readonly (readonly number[])[] = [
-    [LG_NONE, LG_DELTA, LG_RLE, LG_DELTA_RLE, PH_BITPACK + 100, LG_DELTA2], // FM_INT
-    [LG_NONE, LG_DELTA, LG_RLE, LG_DELTA_RLE, PH_BITPACK + 100, LG_DELTA2], // FM_STR
-    [LG_NONE, LG_RUNS, LG_SPARSE], // FM_BOOL
-    [LG_NONE, -1, LG_ALP, LG_DICT], // FM_FLOAT
-    [LG_NONE, LG_DELTA, LG_CW_DELTA, LG_MORTON, LG_CW_DELTA2, LG_RANS], // FM_VERTEX
-    [LG_NONE, 200], // FM_BYTES (200 = front-coded)
+    [LG_NONE, LG_DELTA, LG_RLE, LG_DELTA_RLE, 104, LG_DELTA2],
+    [LG_NONE, LG_DELTA, LG_RLE, LG_DELTA_RLE, 104, LG_DELTA2],
+    [LG_NONE, LG_RUNS, LG_SPARSE],
+    [LG_NONE, -1, LG_ALP, LG_DICT],
+    [LG_NONE, LG_DELTA, LG_CW_DELTA, LG_MORTON, LG_CW_DELTA2, LG_RANS],
+    [LG_NONE, 200],
 ];
 
 export interface ParsedStream {
@@ -134,153 +100,14 @@ export interface ParsedStream {
     p: number;
     n: number;
     w: number;
-    rleRuns: number;
-    rleVals: number;
     mBits: number;
     mShift: number;
     alpScale: number;
     alpBase: bigint;
     zStep: number;
     heightMode: number;
-    xyzLog: number;
     front: number;
     d: Uint8Array;
-}
-
-function makeStream(
-    t: number,
-    l: number,
-    p: number,
-    n: number,
-    w: number,
-    rleRuns: number,
-    rleVals: number,
-    mBits: number,
-    mShift: number,
-    alpScale: number,
-    alpBase: bigint,
-    zStep: number,
-    heightMode: number,
-    xyzLog: number,
-    front: number,
-    d: Uint8Array,
-): ParsedStream {
-    return {
-        t,
-        l,
-        p,
-        n,
-        w,
-        rleRuns,
-        rleVals,
-        mBits,
-        mShift,
-        alpScale,
-        alpBase,
-        zStep,
-        heightMode,
-        xyzLog,
-        front,
-        d,
-    };
-}
-
-export function parseStream01(r: ByteReader, hint: number, isBool = false): ParsedStream {
-    const stByte = readU8(r);
-    const cat = stByte & 0xf0;
-    const sub = stByte & 0x0f;
-    let t: number;
-    let kind: number;
-    if (cat === 0x00) {
-        t = ST_PRESENT;
-        kind = HK_BOOL;
-    } else if (cat === 0x10) {
-        if (sub > 5) throw new Error("v1 st");
-        t = ST_DATA_NONE + sub;
-        kind = sub === 3 || sub === 4 ? HK_VERTEX : hint;
-    } else if (cat === 0x20) {
-        if (sub > 3) throw new Error("v1 st");
-        t = ST_OFF_VERTEX + sub;
-        kind = HK_INT;
-    } else if (cat === 0x30) {
-        if (sub > 6) throw new Error("v1 st");
-        t = ST_LEN_VARBIN + sub;
-        kind = HK_INT;
-    } else {
-        throw new Error("v1 st");
-    }
-
-    const encByte = readU8(r);
-    const logBits = encByte & 0xfc;
-    const physBits = encByte & 0x03;
-    if (physBits === 3) throw new Error("v1 phys");
-    const p = physBits === 0 ? PH_NONE : physBits === 1 ? PH_FPF256 : PH_VARINT;
-
-    let l: number;
-    switch (logBits) {
-        case 0x00:
-            l = LG_NONE;
-            break;
-        case 0x20:
-            if (kind !== HK_INT && kind !== HK_VERTEX) throw new Error("v1 log");
-            l = LG_DELTA;
-            break;
-        case 0x2c:
-            if (kind !== HK_INT) throw new Error("v1 log");
-            l = LG_DELTA_RLE;
-            break;
-        case 0x40:
-            if (kind !== HK_VERTEX) throw new Error("v1 log");
-            l = LG_CW_DELTA;
-            break;
-        case 0x60:
-            if (kind === HK_INT) l = LG_RLE;
-            else if (kind === HK_BOOL) l = LG_BYTE_RLE;
-            else throw new Error("v1 log");
-            break;
-        case 0x84:
-            if (kind !== HK_VERTEX) throw new Error("v1 log");
-            l = LG_MORTON;
-            break;
-        default:
-            throw new Error("v1 log");
-    }
-
-    const w = readVarintU32(r);
-    const byteLen = readVarintU32(r);
-
-    let rleRuns = -2;
-    let rleVals = 0;
-    let mBits = 0;
-    let mShift = 0;
-
-    if (l === LG_RLE || l === LG_DELTA_RLE || l === LG_BYTE_RLE) {
-        if (isBool) {
-            rleRuns = (w + 7) >>> 3;
-            rleVals = byteLen;
-        } else {
-            rleRuns = readVarintU32(r);
-            rleVals = readVarintU32(r);
-        }
-    } else if (l === LG_MORTON) {
-        mBits = readVarintU32(r);
-        mShift = readVarintU32(r);
-        if (mBits > 16) throw new Error("morton bits");
-    }
-
-    const wpv = kind === HK_VERTEX && l !== LG_MORTON ? 2 : 1;
-    if (w % wpv !== 0) throw new Error("partial vertex");
-    const n = w / wpv;
-    const d = readBytes(r, byteLen);
-
-    if ((l === LG_RLE || l === LG_DELTA_RLE) && p === PH_VARINT && !isBool) {
-        const vr = cursor(d);
-        let sum = 0;
-        for (let i = 0; i < rleRuns; i++) sum += readVarintU32(vr);
-        if (sum !== rleVals) throw new Error("rle sum");
-    }
-
-    return makeStream(t, l, p, n, w, rleRuns, rleVals, mBits, mShift, 0, 0n, NO_Z, 0, 0, 0, d);
 }
 
 export function parseStream02(
@@ -298,15 +125,11 @@ export function parseStream02(
     const extField = encByte & 0x03;
 
     const members = FAMILY_TABLE[family];
-    if (code >= members.length || members[code] < 0) {
-        throw new Error("v2 enc");
-    }
+    if (code >= members.length || members[code] < 0) throw new Error("v2 enc");
     let l = members[code];
 
     if (family === FM_STR) {
-        if (expectedStrLayout >= 0 && extField !== expectedStrLayout) {
-            throw new Error("v2 str ext");
-        }
+        if (expectedStrLayout >= 0 && extField !== expectedStrLayout) throw new Error("v2 str ext");
     } else if (family === FM_VERTEX) {
         if (extField > 1) throw new Error("v2 vtx ext");
     } else if (extField !== 0) {
@@ -352,14 +175,11 @@ export function parseStream02(
         }
     } else if (family === FM_BOOL) {
         if (physField !== 0) throw new Error("v2 bool");
-        omitsLen = true;
     } else if (family === FM_FLOAT) {
         if (l === LG_NONE) {
             if (physField === 0x00) omitsLen = true;
             else if (physField !== 0x04) throw new Error("v2 float");
-        } else {
-            p = physInt();
-        }
+        } else p = physInt();
     } else if (isXyz) {
         if (l === LG_NONE) p = rawInt();
         else if (l === LG_DELTA || l === LG_CW_DELTA) p = physInt();
@@ -368,238 +188,142 @@ export function parseStream02(
         if (l === LG_NONE) p = rawInt();
         else if (l === LG_RANS) {
             if (physField !== 0) throw new Error("v2 rans");
-        } else {
-            p = physInt();
-        }
+        } else p = physInt();
     }
-
-    const wpv = isXyz ? 3 : family === FM_VERTEX && l !== LG_MORTON ? 2 : 1;
-    let n: number;
-    let w: number;
-    let byteLen: number;
 
     if (family === FM_BYTES) {
-        byteLen = readVarintU32(r);
-        n = byteLen;
-        w = byteLen;
-    } else {
-        if (explicit) n = readVarintU32(r);
-        else if (impliedCount >= 0) n = impliedCount;
-        else throw new Error("v2 no count");
-
-        w = n * wpv;
-        if (!Number.isSafeInteger(w) || w > 0xffffffff) {
-            throw new RangeError("overflow");
-        }
-
-        if (family === FM_BOOL) {
-            const coding = l === LG_NONE ? PRES_BITMAP : l === LG_RUNS ? PRES_RUNS : PRES_SPARSE;
-            const d = splitPresenceBytes(r, n, coding);
-            return makeStream(t, l, PH_NONE, n, w, -2, 0, 0, 0, 0, 0n, NO_Z, 0, 0, 0, d);
-        }
-
-        if (omitsLen) {
-            byteLen = w * wordWidth;
-            if (!Number.isSafeInteger(byteLen) || byteLen > 0xffffffff) {
-                throw new RangeError("overflow");
-            }
-        } else {
-            byteLen = readVarintU32(r);
-        }
+        const byteLen = readVarintU32(r);
+        return {
+            t,
+            l,
+            p,
+            n: byteLen,
+            w: byteLen,
+            mBits: 0,
+            mShift: 0,
+            alpScale: 0,
+            alpBase: 0n,
+            zStep: NO_Z,
+            heightMode: 0,
+            front,
+            d: readBytes(r, byteLen),
+        };
     }
 
-    let rleRuns = -2;
-    let rleVals = 0;
+    const n = explicit ? readVarintU32(r) : impliedCount;
+    if (n < 0) throw new Error("v2 no count");
+    const wpv = isXyz ? 3 : family === FM_VERTEX && l !== LG_MORTON ? 2 : 1;
+    const w = n * wpv;
+    if (!Number.isSafeInteger(w) || w > 0xffffffff) throw new RangeError("overflow");
+
+    if (family === FM_BOOL) {
+        const coding = l === LG_NONE ? PRES_BITMAP : l === LG_RUNS ? PRES_RUNS : PRES_SPARSE;
+        const d = readPresenceBits(r, n, coding);
+        return {
+            t,
+            l: LG_NONE,
+            p: PH_NONE,
+            n,
+            w,
+            mBits: 0,
+            mShift: 0,
+            alpScale: 0,
+            alpBase: 0n,
+            zStep: NO_Z,
+            heightMode: 0,
+            front: 0,
+            d,
+        };
+    }
+
+    const byteLen = omitsLen ? w * wordWidth : readVarintU32(r);
+    if (!Number.isSafeInteger(byteLen) || byteLen > 0xffffffff) throw new RangeError("overflow");
+
     let mBits = 0;
     let mShift = 0;
     let alpScale = 0;
     let alpBase = 0n;
     let zStep = NO_Z;
     let heightMode = 0;
-    let xyzLog = 0;
 
-    if (l === LG_RLE || l === LG_DELTA_RLE) {
-        rleRuns = -1;
-        rleVals = n;
-    } else if (family === FM_FLOAT && l === LG_ALP) {
+    if (family === FM_FLOAT && l === LG_ALP) {
         alpScale = parseAlpScale(readU8(r));
         alpBase = readVarintI64(r);
     } else if (isXyz) {
-        const codeByte = readU8(r);
-        if (codeByte >= 16) throw new Error("z_step");
-        zStep = (codeByte & 7) - 3;
-        heightMode = (codeByte & 8) >>> 3;
-        xyzLog = l;
+        const cb = readU8(r);
+        if (cb >= 16) throw new Error("z_step");
+        zStep = (cb & 7) - 3;
+        heightMode = (cb & 8) >>> 3;
     } else if (family === FM_VERTEX && l === LG_MORTON) {
         mBits = readVarintU32(r);
         mShift = readVarintU32(r);
         if (mBits > 16) throw new Error("morton bits");
     }
 
-    const d = readBytes(r, byteLen);
-    return makeStream(
-        t,
-        l,
-        p,
-        n,
-        w,
-        rleRuns,
-        rleVals,
-        mBits,
-        mShift,
-        alpScale,
-        alpBase,
-        zStep,
-        heightMode,
-        xyzLog,
-        front,
-        d,
-    );
-}
-
-export function decodeBoolBitmap(s: ParsedStream): Uint8Array {
-    const nb = (s.n + 7) >>> 3;
-    if (s.l === LG_BYTE_RLE) return maskBitmapTail(decodeByteRle(s.d, nb), s.n);
-    if (s.l === LG_NONE && s.p === PH_NONE) {
-        if (s.d.length !== nb) throw new Error("bool len");
-        return maskBitmapTail(s.d, s.n);
-    }
-    if (s.l === LG_RUNS || s.l === LG_SPARSE) {
-        const r = cursor(s.d);
-        const bits = readPresenceBits(r, s.n, s.l === LG_RUNS ? PRES_RUNS : PRES_SPARSE);
-        if (r.p !== r.e) throw new Error("bool trailing");
-        return bits;
-    }
-    throw new Error("bool enc");
+    return { t, l, p, n, w, mBits, mShift, alpScale, alpBase, zStep, heightMode, front, d: readBytes(r, byteLen) };
 }
 
 export function decodeBoolValues(s: ParsedStream): Uint8Array {
-    const bits = decodeBoolBitmap(s);
     const out = allocU8(s.n);
-    const full = s.n >>> 3;
-    for (let b = 0; b < full; b++) {
-        const v = bits[b];
-        if (v === 0) continue;
-        const base = b << 3;
-        out[base] = v & 1;
-        out[base + 1] = (v >>> 1) & 1;
-        out[base + 2] = (v >>> 2) & 1;
-        out[base + 3] = (v >>> 3) & 1;
-        out[base + 4] = (v >>> 4) & 1;
-        out[base + 5] = (v >>> 5) & 1;
-        out[base + 6] = (v >>> 6) & 1;
-        out[base + 7] = v >>> 7;
-    }
-    for (let i = full << 3; i < s.n; i++) {
-        out[i] = (bits[full] >>> (i & 7)) & 1;
-    }
+    for (let i = 0; i < s.n; i++) out[i] = (s.d[i >>> 3] >>> (i & 7)) & 1;
     return out;
 }
 
-export function decodePhysicalU32Into(s: ParsedStream, out: Uint32Array): Uint32Array {
-    switch (s.p) {
-        case PH_NONE:
-            return decodeRawU32Into(s.d, s.w, out);
-        case PH_FPF256:
-            return decodeFastPforInto(s.d, s.w, false, out);
-        case PH_FPF128:
-            return decodeFastPforInto(s.d, s.w, true, out);
-        case PH_BITPACK:
-            return unpackBitpackU32Into(s.d, s.w, out);
-        case PH_VARINT:
-            return decodeVarintU32Into(s.d, s.w, out);
-        default:
-            throw new Error("u32 phys");
-    }
+function decodePhysicalU32(s: ParsedStream, out: Uint32Array): Uint32Array {
+    if (s.p === PH_NONE) return copyLittleEndian(Uint32Array, s.d, s.w, out);
+    if (s.p === PH_FPF128) return decodeFastPfor128Into(s.d, s.w, out);
+    if (s.p === PH_BITPACK) return unpackBitpackU32Into(s.d, s.w, out);
+    if (s.p === PH_VARINT) return decodeVarintU32Into(s.d, s.w, out);
+    throw new Error("u32 phys");
 }
 
-function decodePhysicalU64Scratch(s: ParsedStream): BigUint64Array {
-    if (s.rleRuns === -1 && s.p === PH_VARINT) {
-        return decodeVarintU64sAllScratch(s.d);
-    }
-    const out = takeU64(s.w);
-    switch (s.p) {
-        case PH_NONE:
-            return decodeRawU64Into(s.d, s.w, out);
-        case PH_BITPACK:
-            return unpackBitpackU64Into(s.d, s.w, takeU32(s.w), out);
-        case PH_VARINT:
-            return decodeVarintU64Into(s.d, s.w, out);
-        default:
-            throw new Error("u64 phys");
-    }
+function decodePhysicalU64(s: ParsedStream): BigUint64Array {
+    if ((s.l === LG_RLE || s.l === LG_DELTA_RLE) && s.p === PH_VARINT) return decodeVarintU64sAll(s.d);
+    const out = scratchU64(s.w);
+    if (s.p === PH_NONE) return copyLittleEndian(BigUint64Array, s.d, s.w, out);
+    if (s.p === PH_BITPACK) return unpackBitpackU64Into(s.d, s.w, out);
+    if (s.p === PH_VARINT) return decodeVarintU64Into(s.d, s.w, out);
+    throw new Error("u64 phys");
 }
 
-function decodeRleWordsU32(s: ParsedStream, scratch: boolean): Uint32Array {
-    const words =
-        s.rleRuns === -1 && s.p === PH_VARINT
-            ? decodeVarintU32sAllScratch(s.d)
-            : decodePhysicalU32Into(s, takeU32(s.w));
-    const out = scratch ? takeU32(s.rleVals) : allocU32(s.rleVals);
-    return s.rleRuns === -1
-        ? decodeRleInterleavedU32Into(words, s.rleVals, out)
-        : decodeRleSplitU32Into(words, s.rleRuns, s.rleVals, out);
+function decodeRleU32(s: ParsedStream, scratch: boolean): Uint32Array {
+    const words = s.p === PH_VARINT ? decodeVarintU32sAll(s.d) : decodePhysicalU32(s, scratchU32(s.w));
+    return decodeRleInterleavedU32(words, s.n, scratch ? scratchU32(s.n) : allocU32(s.n));
 }
 
 export function decodeStreamU32(s: ParsedStream, scratch = false): Uint32Array {
-    if (s.l === LG_RLE) return decodeRleWordsU32(s, scratch);
-    if (s.l === LG_DELTA_RLE) {
-        return zigzagDelta32InPlace(decodeRleWordsU32(s, scratch));
-    }
-    const out = scratch ? takeU32(s.w) : allocU32(s.w);
-    decodePhysicalU32Into(s, out);
+    if (s.l === LG_RLE) return decodeRleU32(s, scratch);
+    if (s.l === LG_DELTA_RLE) return zigzagDelta32InPlace(decodeRleU32(s, scratch));
+    const out = decodePhysicalU32(s, scratch ? scratchU32(s.w) : allocU32(s.w));
     if (s.l === LG_NONE || s.l === LG_DICT) return out;
-    if (s.l === LG_DELTA) return zigzagDelta32InPlace(out);
-    if (s.l === LG_DELTA2) return zigzagDelta2_32InPlace(out);
+    if (s.l === LG_DELTA || s.l === LG_DELTA2) return zigzagDelta32InPlace(out, s.l === LG_DELTA2 ? 2 : 1);
     throw new Error("u32 log");
 }
 
 export function decodeStreamI32(s: ParsedStream, scratch = false): Int32Array {
-    if (s.l === LG_MORTON) {
-        const words = decodePhysicalU32Into(s, takeU32(s.w));
-        return decodeMortonDelta(words, s.mBits, s.mShift);
-    }
-    if (s.l === LG_RLE) {
-        return zigzagI32InPlace(decodeRleWordsU32(s, scratch));
-    }
-    if (s.l === LG_DELTA_RLE) {
-        return asI32(zigzagDelta32InPlace(decodeRleWordsU32(s, scratch)));
-    }
+    if (s.l === LG_MORTON) return decodeMortonDelta(decodePhysicalU32(s, scratchU32(s.w)), s.mBits, s.mShift);
+    if (s.l === LG_RLE) return zigzagI32InPlace(decodeRleU32(s, scratch));
+    if (s.l === LG_DELTA_RLE) return asI32(zigzagDelta32InPlace(decodeRleU32(s, scratch)));
 
-    const out = scratch ? takeU32(s.w) : allocU32(s.w);
-    decodePhysicalU32Into(s, out);
-
+    const out = decodePhysicalU32(s, scratch ? scratchU32(s.w) : allocU32(s.w));
     if (s.zStep !== NO_Z) {
-        if (out.length % 3 !== 0) throw new Error("xyz len");
-        if (s.xyzLog === LG_NONE) return zigzagI32InPlace(out);
-        if (s.xyzLog === LG_DELTA) return asI32(zigzagDelta32InPlace(out));
-        if (s.xyzLog === LG_CW_DELTA) return cwDeltaVec3InPlace(out);
+        if (s.l === LG_NONE) return zigzagI32InPlace(out);
+        if (s.l === LG_DELTA) return asI32(zigzagDelta32InPlace(out));
+        if (s.l === LG_CW_DELTA) return cwDeltaVecInPlace(out, 3);
         throw new Error("xyz log");
     }
-
-    switch (s.l) {
-        case LG_NONE:
-            return zigzagI32InPlace(out);
-        case LG_DELTA:
-            return asI32(zigzagDelta32InPlace(out));
-        case LG_DELTA2:
-            return asI32(zigzagDelta2_32InPlace(out));
-        case LG_CW_DELTA:
-            return cwDeltaVec2InPlace(out);
-        case LG_CW_DELTA2:
-            return cwDelta2Vec2InPlace(out);
-        default:
-            throw new Error("i32 log");
-    }
+    if (s.l === LG_NONE) return zigzagI32InPlace(out);
+    if (s.l === LG_DELTA || s.l === LG_DELTA2) return asI32(zigzagDelta32InPlace(out, s.l === LG_DELTA2 ? 2 : 1));
+    if (s.l === LG_CW_DELTA || s.l === LG_CW_DELTA2) return cwDeltaVecInPlace(out, 2, s.l === LG_CW_DELTA2 ? 2 : 1);
+    throw new Error("i32 log");
 }
 
 export function decodeStreamI8(s: ParsedStream): Int8Array {
     const i32s = decodeStreamI32(s, true);
     const out = allocI8(i32s.length);
     for (let i = 0; i < i32s.length; i++) {
-        const v = i32s[i];
-        if (v < -128 || v > 127) throw new RangeError("i8");
-        out[i] = v;
+        if (i32s[i] < -128 || i32s[i] > 127) throw new RangeError("i8");
+        out[i] = i32s[i];
     }
     return out;
 }
@@ -608,103 +332,67 @@ export function decodeStreamU8(s: ParsedStream): Uint8Array {
     const u32s = decodeStreamU32(s, true);
     const out = allocU8(u32s.length);
     for (let i = 0; i < u32s.length; i++) {
-        const v = u32s[i];
-        if (v > 255) throw new RangeError("u8");
-        out[i] = v;
+        if (u32s[i] > 255) throw new RangeError("u8");
+        out[i] = u32s[i];
     }
     return out;
 }
 
-function decodeRleWordsU64(s: ParsedStream, owned: boolean): BigUint64Array {
-    const words = decodePhysicalU64Scratch(s);
-    const out = owned ? allocU64(s.rleVals) : takeU64(s.rleVals);
-    return s.rleRuns === -1
-        ? decodeRleInterleavedU64Into(words, s.rleVals, out)
-        : decodeRleSplitU64Into(words, s.rleRuns, s.rleVals, out);
+function decodeWords64(s: ParsedStream, owned: boolean, signed: boolean): BigUint64Array {
+    if (s.l === LG_RLE || s.l === LG_DELTA_RLE) {
+        const buf = owned ? (signed ? new BigUint64Array(allocI64(s.n).buffer) : allocU64(s.n)) : scratchU64(s.n);
+        const words = decodeRleInterleavedU64(decodePhysicalU64(s), s.n, buf);
+        return s.l === LG_DELTA_RLE ? zigzagDelta64InPlace(words) : words;
+    }
+    const phys = decodePhysicalU64(s);
+    if (!owned) return phys;
+    const words = signed ? new BigUint64Array(allocI64(s.w).buffer) : allocU64(s.w);
+    words.set(phys);
+    return words;
 }
 
 export function decodeStreamI64(s: ParsedStream, owned = false): BigInt64Array {
-    let words: BigUint64Array;
-    if (s.l === LG_RLE || s.l === LG_DELTA_RLE) {
-        words = decodeRleWordsU64(s, owned);
-        if (s.l === LG_DELTA_RLE) return asI64(zigzagDelta64InPlace(words));
-        return zigzagI64InPlace(words);
-    }
-    const phys = decodePhysicalU64Scratch(s);
-    if (owned) {
-        const out = allocI64(s.w);
-        words = new BigUint64Array(out.buffer, out.byteOffset, out.length);
-        words.set(phys);
-    } else {
-        words = phys;
-    }
-    if (s.l === LG_NONE) return zigzagI64InPlace(words);
-    if (s.l === LG_DELTA) return asI64(zigzagDelta64InPlace(words));
-    if (s.l === LG_DELTA2) return asI64(zigzagDelta2_64InPlace(words));
+    const words = decodeWords64(s, owned, true);
+    if (s.l === LG_RLE || s.l === LG_NONE) return zigzagI64InPlace(words);
+    if (s.l === LG_DELTA_RLE) return asI64(words);
+    if (s.l === LG_DELTA || s.l === LG_DELTA2) return asI64(zigzagDelta64InPlace(words, s.l === LG_DELTA2 ? 2 : 1));
     throw new Error("64 log");
 }
 
 export function decodeStreamU64(s: ParsedStream, owned = false): BigUint64Array {
-    let words: BigUint64Array;
-    if (s.l === LG_RLE || s.l === LG_DELTA_RLE) {
-        words = decodeRleWordsU64(s, owned);
-        if (s.l === LG_DELTA_RLE) zigzagDelta64InPlace(words);
-        return words;
-    }
-    const phys = decodePhysicalU64Scratch(s);
-    if (owned) {
-        words = allocU64(s.w);
-        words.set(phys);
-    } else {
-        words = phys;
-    }
-    if (s.l === LG_NONE || s.l === LG_DICT) return words;
-    if (s.l === LG_DELTA) return zigzagDelta64InPlace(words);
-    if (s.l === LG_DELTA2) return zigzagDelta2_64InPlace(words);
+    const words = decodeWords64(s, owned, false);
+    if (s.l === LG_RLE || s.l === LG_DELTA_RLE || s.l === LG_NONE || s.l === LG_DICT) return words;
+    if (s.l === LG_DELTA || s.l === LG_DELTA2) return zigzagDelta64InPlace(words, s.l === LG_DELTA2 ? 2 : 1);
     throw new Error("64 log");
 }
 
-export function decodeFloatColumnValuesF32(dataStream: ParsedStream, dictStream: ParsedStream | null): Float32Array {
+export function decodeFloatValues(
+    dataStream: ParsedStream,
+    dictStream: ParsedStream | null,
+    isF32: boolean,
+): Float32Array | Float64Array {
     if (dictStream !== null) {
         if (dictStream.l !== LG_NONE || dictStream.p !== PH_NONE) throw new Error("float enc");
-        const dict = decodeRawFloatsF32(dictStream.d, dictStream.n);
         const codes = decodeStreamU32(dataStream, true);
         const n = codes.length;
-        const out = allocF32(n);
-        const dLen = dict.length;
-        const dBits = new Uint32Array(dict.buffer, dict.byteOffset, dLen);
-        const oBits = new Uint32Array(out.buffer, 0, n);
-        for (let i = 0; i < n; i++) {
-            const c = codes[i];
-            if (c >= dLen) throw new RangeError("fdict");
-            oBits[i] = dBits[c];
+        if (isF32) {
+            const dict = copyLittleEndian(Float32Array, dictStream.d, dictStream.n, allocF32(dictStream.n));
+            const out = allocF32(n);
+            const dBits = new Uint32Array(dict.buffer, dict.byteOffset, dict.length);
+            const oBits = new Uint32Array(out.buffer, 0, n);
+            for (let i = 0; i < n; i++) {
+                if (codes[i] >= dict.length) throw new RangeError("fdict");
+                oBits[i] = dBits[codes[i]];
+            }
+            return out;
         }
-        return out;
-    }
-    if (dataStream.l === LG_ALP) {
-        const offsets =
-            dataStream.p === PH_FPF128 || dataStream.p === PH_FPF256
-                ? decodePhysicalU32Into(dataStream, takeU32(dataStream.w))
-                : decodePhysicalU64Scratch(dataStream);
-        return decodeAlpFloats(offsets, dataStream.alpBase, dataStream.alpScale, true);
-    }
-    if (dataStream.l !== LG_NONE || dataStream.p !== PH_NONE) throw new Error("float enc");
-    return decodeRawFloatsF32(dataStream.d, dataStream.n);
-}
-
-export function decodeFloatColumnValuesF64(dataStream: ParsedStream, dictStream: ParsedStream | null): Float64Array {
-    if (dictStream !== null) {
-        if (dictStream.l !== LG_NONE || dictStream.p !== PH_NONE) throw new Error("float enc");
-        const dict = decodeRawFloatsF64(dictStream.d, dictStream.n);
-        const codes = decodeStreamU32(dataStream, true);
-        const n = codes.length;
+        const dict = copyLittleEndian(Float64Array, dictStream.d, dictStream.n, allocF64(dictStream.n));
         const out = allocF64(n);
-        const dLen = dict.length;
-        const dBits = new Uint32Array(dict.buffer, dict.byteOffset, dLen * 2);
+        const dBits = new Uint32Array(dict.buffer, dict.byteOffset, dict.length * 2);
         const oBits = new Uint32Array(out.buffer, 0, n * 2);
         for (let i = 0; i < n; i++) {
             const c = codes[i];
-            if (c >= dLen) throw new RangeError("fdict");
+            if (c >= dict.length) throw new RangeError("fdict");
             oBits[i * 2] = dBits[c * 2];
             oBits[i * 2 + 1] = dBits[c * 2 + 1];
         }
@@ -712,11 +400,13 @@ export function decodeFloatColumnValuesF64(dataStream: ParsedStream, dictStream:
     }
     if (dataStream.l === LG_ALP) {
         const offsets =
-            dataStream.p === PH_FPF128 || dataStream.p === PH_FPF256
-                ? decodePhysicalU32Into(dataStream, takeU32(dataStream.w))
-                : decodePhysicalU64Scratch(dataStream);
-        return decodeAlpFloats(offsets, dataStream.alpBase, dataStream.alpScale, false);
+            dataStream.p === PH_FPF128
+                ? decodePhysicalU32(dataStream, scratchU32(dataStream.w))
+                : decodePhysicalU64(dataStream);
+        return decodeAlpFloats(offsets, dataStream.alpBase, dataStream.alpScale, isF32);
     }
     if (dataStream.l !== LG_NONE || dataStream.p !== PH_NONE) throw new Error("float enc");
-    return decodeRawFloatsF64(dataStream.d, dataStream.n);
+    return isF32
+        ? copyLittleEndian(Float32Array, dataStream.d, dataStream.n, allocF32(dataStream.n))
+        : copyLittleEndian(Float64Array, dataStream.d, dataStream.n, allocF64(dataStream.n));
 }
