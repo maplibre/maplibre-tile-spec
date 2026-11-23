@@ -329,7 +329,7 @@ function decodeLayers<L>(
 ): Record<string, L> {
     const layers: Record<string, L> = {};
     for (const layer of decodeTileColumns(data, options).layers) {
-        if (Object.prototype.hasOwnProperty.call(layers, layer.name)) {
+        if (Object.hasOwn(layers, layer.name)) {
             throw new Error(`the tile has two layers named "${layer.name}"; decodeTileColumns keeps both`);
         }
         layers[layer.name] = new Layer(layer);
