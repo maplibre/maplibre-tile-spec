@@ -1,6 +1,8 @@
 //! Which of a city object's polygons each zoom's mesh holds.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use super::model::{Lods, OwnedPolygon, Part, SourcePolygon};
 
@@ -11,13 +13,13 @@ pub fn resolve(
     mut polygons: Vec<OwnedPolygon>,
     installations: &HashSet<u32>,
 ) -> Vec<SourcePolygon> {
-    let mut owner_highest: HashMap<u32, u8> = HashMap::new();
+    let mut owner_highest: FxHashMap<u32, u8> = FxHashMap::default();
     for p in &polygons {
         let h = owner_highest.entry(p.owner).or_insert(p.lod);
         *h = (*h).max(p.lod);
     }
     // The owners whose highest LOD has a polygon without semantics.
-    let mut unsplit = HashSet::new();
+    let mut unsplit = FxHashSet::default();
     for p in &polygons {
         if p.polygon.part.is_none() && owner_highest.get(&p.owner) == Some(&p.lod) {
             unsplit.insert(p.owner);
@@ -32,7 +34,7 @@ pub fn resolve(
     };
     polygons.retain(|p| p.polygon.part.is_some() || unsplit.contains(&p.owner));
     // The highest LOD of each key, and its highest LOD of 2 or less.
-    let mut best: HashMap<(u32, Option<Part>), (u8, Option<u8>)> = HashMap::new();
+    let mut best: FxHashMap<(u32, Option<Part>), (u8, Option<u8>)> = FxHashMap::default();
     for p in &polygons {
         let (highest, low) = best
             .entry(key(p.owner, p.polygon.part))
@@ -42,7 +44,7 @@ pub fn resolve(
             *low = (*low).max(Some(p.lod));
         }
     }
-    let mut openings: HashMap<u32, Vec<Bounds3>> = HashMap::new();
+    let mut openings: FxHashMap<u32, Vec<Bounds3>> = FxHashMap::default();
     for p in &polygons {
         if matches!(p.polygon.part, Some(Part::Window | Part::Door))
             && let Some(bounds) = ring_bounds(&p.polygon.points)

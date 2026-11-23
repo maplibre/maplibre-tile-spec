@@ -1,8 +1,7 @@
 //! A building's mesh on a tile's grid, welded from its surfaces or raised as a block.
 
-use std::collections::{HashMap, HashSet};
-
 use mlt_core::ZStep;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use super::model::{Lods, Part, Surface};
 use super::orient::orient_outward;
@@ -28,11 +27,11 @@ impl Mesh {
         surfaces: impl IntoIterator<Item = &'a Surface>,
         points: &[Vec<[i32; 3]>],
     ) -> Option<Self> {
-        let mut ids: HashMap<[i32; 3], u32> = HashMap::new();
+        let mut ids: FxHashMap<[i32; 3], u32> = FxHashMap::default();
         let mut welded = Vec::new();
         let mut triangles = Vec::new();
         let mut parts = Vec::new();
-        let mut seen = HashSet::new();
+        let mut seen = FxHashSet::default();
         for (surface, points) in surfaces.into_iter().zip(points) {
             let local: Vec<u32> = points
                 .iter()
@@ -162,10 +161,10 @@ pub fn block(surfaces: &[&Surface], points: &[Vec<[i32; 3]>], z_step: ZStep) -> 
         triangles = facing_down(&xyz, &[[0, 1, 2], [0, 2, 3]]);
     }
     // Grounds stacked onto each other would count their edges twice, leaving out their walls.
-    let mut seen = HashSet::new();
+    let mut seen = FxHashSet::default();
     triangles.retain(|&t| seen.insert(rotated(t)));
     let edges = |&[a, b, c]: &[u32; 3]| [[a, b], [b, c], [c, a]];
-    let mut uses: HashMap<[u32; 2], u32> = HashMap::new();
+    let mut uses: FxHashMap<[u32; 2], u32> = FxHashMap::default();
     for [a, b] in triangles.iter().flat_map(edges) {
         *uses.entry([a.min(b), a.max(b)]).or_default() += 1;
     }

@@ -1,7 +1,6 @@
 //! Closed shells of a mesh turned to face outward.
 
-use std::collections::HashMap;
-
+use rustc_hash::FxHashMap;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 
 /// Turns each closed shell component of `triangles` whose triangles face inward (`(x, -y, z)`
@@ -27,7 +26,7 @@ pub fn orient_outward(xyz: &[[i32; 3]], triangles: &mut [[u32; 3]]) -> usize {
             components.union(pair[0].1, pair[1].1);
         }
     }
-    let mut shells: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut shells: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
     for i in 0..count {
         shells.entry(components.find(i)).or_default().push(i);
     }

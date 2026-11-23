@@ -2873,6 +2873,7 @@ dependencies = [
  "ratatui",
  "rayon",
  "rstar 0.14.0",
+ "rustc-hash 2.1.3",
  "serde",
  "serde_json",
  "size_format",

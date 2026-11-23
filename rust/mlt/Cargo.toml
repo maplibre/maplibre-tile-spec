@@ -53,6 +53,7 @@ quick-xml.workspace = true
 ratatui.workspace = true
 rayon.workspace = true
 rstar.workspace = true
+rustc-hash.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 size_format.workspace = true
