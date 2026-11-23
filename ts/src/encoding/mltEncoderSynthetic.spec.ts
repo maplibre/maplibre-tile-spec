@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { compareWithTolerance, getTestCases } from "../../../test/synthetic/synthetic-test-utils";
 import decodeTile from "../mltDecoder";
@@ -10,7 +11,72 @@ import { encodeTile, type Feature, type FeatureGeometry, type Layer, type Proper
  * Fixtures that cannot survive this round trip. Each is checked below to still *fail*, so an entry
  * that starts working fails the suite until it is removed from this list.
  */
-const UNSUPPORTED: string[] = ["0x02"];
+/**
+ * Fixtures that cannot survive this round trip because `encodeTile` emits Tag 0x01 layers,
+ * which have no wire representation for v2 `Meshes`, per-vertex/per-triangle `m-values`, or 3D `Z`.
+ * Each is checked below to still *fail*, so an entry that starts working fails the suite until
+ * it is removed from this list.
+ */
+const UNSUPPORTED: string[] = [
+    // v2 3D Meshes
+    "0x02/mesh_mvalues_both",
+    "0x02/mesh_mvalues_triangle",
+    "0x02/mesh_mvalues_vertex",
+    "0x02/mesh_relative_to_ground",
+    "0x02/mesh_roof_wall",
+    "0x02/mesh_triangle",
+    // v2 M-value columns
+    "0x02/mvalues",
+    "0x02/mvalues_15props_7cols",
+    "0x02/mvalues_16props",
+    "0x02/mvalues_8cols",
+    "0x02/mvalues_bool",
+    "0x02/mvalues_delta_rle",
+    "0x02/mvalues_f32",
+    "0x02/mvalues_f32_dict",
+    "0x02/mvalues_f64",
+    "0x02/mvalues_f64_alp",
+    "0x02/mvalues_fpf",
+    "0x02/mvalues_i32",
+    "0x02/mvalues_i64",
+    "0x02/mvalues_i8",
+    "0x02/mvalues_line_dict",
+    "0x02/mvalues_mline",
+    "0x02/mvalues_mline_dict",
+    "0x02/mvalues_mpoint",
+    "0x02/mvalues_mpoint_dict",
+    "0x02/mvalues_mpoly",
+    "0x02/mvalues_mpoly_dict",
+    "0x02/mvalues_plain",
+    "0x02/mvalues_poly",
+    "0x02/mvalues_poly_dict",
+    "0x02/mvalues_poly_hole",
+    "0x02/mvalues_rle",
+    "0x02/mvalues_sp",
+    "0x02/mvalues_sp_prop",
+    "0x02/mvalues_str_dict",
+    "0x02/mvalues_str_fsst",
+    "0x02/mvalues_str_plain",
+    "0x02/mvalues_tes",
+    "0x02/mvalues_u32",
+    "0x02/mvalues_u64",
+    "0x02/mvalues_u8",
+    // v2 3D Z coordinates
+    "0x02/z_height_absolute",
+    "0x02/z_height_relative_to_ground",
+    "0x02/z_line",
+    "0x02/z_line_fpf",
+    "0x02/z_mix",
+    "0x02/z_mvalues",
+    "0x02/z_point",
+    "0x02/z_points",
+    "0x02/z_points_hilbert",
+    "0x02/z_poly_hole",
+    "0x02/z_poly_hole_tes",
+    "0x02/z_poly_hole_tri",
+    "0x02/z_step_coarsest",
+    "0x02/z_step_finest",
+];
 
 /**
  * Decodes each synthetic `.mlt`, re-encodes what came out, and checks the result still decodes to
@@ -24,7 +90,7 @@ const UNSUPPORTED: string[] = ["0x02"];
  */
 describe("encodeTile - synthetic fixtures round trip", () => {
     expect.addEqualityTesters([compareWithTolerance]);
-    const { active, skipped } = getTestCases(UNSUPPORTED);
+    const { active, skipped } = getTestCases(UNSUPPORTED.map((entry) => entry.replaceAll("/", path.sep)));
 
     for (const { name, content, fileName } of active) {
         it(name, async () => {

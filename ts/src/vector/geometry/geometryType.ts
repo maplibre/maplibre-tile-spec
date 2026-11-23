@@ -5,6 +5,7 @@ export enum GEOMETRY_TYPE {
     MULTIPOINT = 3,
     MULTILINESTRING = 4,
     MULTIPOLYGON = 5,
+    MESH = 6,
 }
 
 export enum SINGLE_PART_GEOMETRY_TYPE {

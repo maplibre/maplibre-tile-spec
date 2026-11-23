@@ -2,7 +2,7 @@ import { convertGeometryVector } from "./geometryVectorConverter";
 import { decodeZOrderCurve } from "./zOrderCurve";
 import type Point from "@mapbox/point-geometry";
 import type { GEOMETRY_TYPE } from "./geometryType";
-import type { VertexBufferType } from "./vertexBufferType";
+import { VertexBufferType } from "./vertexBufferType";
 import type { TopologyVector } from "../../vector/geometry/topologyVector";
 
 export type CoordinatesArray = Array<Array<Point>>;
@@ -10,6 +10,8 @@ export type CoordinatesArray = Array<Array<Point>>;
 export type Geometry = {
     coordinates: CoordinatesArray;
     type: GEOMETRY_TYPE;
+    trianglesOnly?: boolean;
+    ringsPerPolygon?: number[];
 };
 
 export interface MortonSettings {
@@ -45,7 +47,8 @@ export abstract class GeometryVector {
     /* Allows faster access to the vertices since morton encoding is currently not used in the POC. Morton encoding
        will be used after adapting the shader to decode the morton codes on the GPU. */
     getSimpleEncodedVertex(index: number): [number, number] {
-        const offset = this.vertexOffsets ? this.vertexOffsets[index] * 2 : index * 2;
+        const stride = this._vertexBufferType === VertexBufferType.VEC_3 ? 3 : 2;
+        const offset = this.vertexOffsets ? this.vertexOffsets[index] * stride : index * stride;
         const x = this.vertexBuffer[offset];
         const y = this.vertexBuffer[offset + 1];
         return [x, y];
@@ -66,10 +69,19 @@ export abstract class GeometryVector {
             return [vertex.x, vertex.y];
         }
 
-        const offset = this.vertexOffsets ? this.vertexOffsets[index] * 2 : index * 2;
+        const stride = this._vertexBufferType === VertexBufferType.VEC_3 ? 3 : 2;
+        const offset = this.vertexOffsets ? this.vertexOffsets[index] * stride : index * stride;
         const x = this.vertexBuffer[offset];
         const y = this.vertexBuffer[offset + 1];
         return [x, y];
+    }
+
+    getVertex3D(index: number): [number, number] | [number, number, number] {
+        if (this._vertexBufferType === VertexBufferType.VEC_3) {
+            const offset = this.vertexOffsets ? this.vertexOffsets[index] * 3 : index * 3;
+            return [this.vertexBuffer[offset], this.vertexBuffer[offset + 1], this.vertexBuffer[offset + 2]];
+        }
+        return this.getVertex(index);
     }
 
     getGeometries(): CoordinatesArray[] {
