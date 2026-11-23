@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useElementSize } from "@vueuse/core";
+import { useElementSize, useMutationObserver } from "@vueuse/core";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -53,24 +53,33 @@ function render() {
   renderer?.render(world, camera);
 }
 
-/** Rebuild the geometry and aim the camera at it from the south-west. */
-function rebuild() {
+/** Paint each triangle the CSS hue of its part, so the mesh matches the legend. */
+function paint() {
   if (!box.value) return;
   const colours = palette(box.value);
-  const { positions, hues } = scene.value;
-  const rgb = new Float32Array(positions.length);
+  const { hues } = scene.value;
+  const rgb = new Float32Array(hues.length * 9);
   hues.forEach((hue, t) => {
     const c = colours[hue] ?? colours[colours.length - 1];
     for (let corner = 0; corner < 3; corner++)
       c.toArray(rgb, (t * 3 + corner) * 3);
   });
+  mesh.geometry.setAttribute("color", new THREE.BufferAttribute(rgb, 3));
+}
+
+/** Rebuild the geometry and aim the camera at it from the south-west. */
+function rebuild() {
+  if (!box.value) return;
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new THREE.BufferAttribute(rgb, 3));
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(scene.value.positions, 3),
+  );
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   mesh.geometry.dispose();
   mesh.geometry = geometry;
+  paint();
   frame(new THREE.Vector3(-0.45, 0.55, 0.7));
 }
 
@@ -115,16 +124,20 @@ function clip() {
   const bounds = mesh.geometry.boundingBox;
   if (!bounds || bounds.isEmpty()) return;
   const eye = camera.position;
+  camera.updateMatrixWorld();
+  const forward = camera.getWorldDirection(new THREE.Vector3());
+  // The camera clips by depth along its view, which is least at a corner of the box.
+  let nearest = Infinity;
   let farthest = 0;
   for (const x of [bounds.min.x, bounds.max.x])
     for (const y of [bounds.min.y, bounds.max.y])
-      for (const z of [bounds.min.z, bounds.max.z])
-        farthest = Math.max(
-          farthest,
-          eye.distanceTo(new THREE.Vector3(x, y, z)),
-        );
-  // Inside the box the nearest surface can be arbitrarily close, so the near plane only keeps depth precision.
-  camera.near = Math.max(bounds.distanceToPoint(eye) * 0.9, farthest / 10_000);
+      for (const z of [bounds.min.z, bounds.max.z]) {
+        const corner = new THREE.Vector3(x, y, z);
+        nearest = Math.min(nearest, corner.clone().sub(eye).dot(forward));
+        farthest = Math.max(farthest, eye.distanceTo(corner));
+      }
+  // With a corner beside or behind the eye, the nearest surface can be arbitrarily close, so the near plane only keeps depth precision.
+  camera.near = Math.max(nearest * 0.9, farthest / 10_000);
   camera.far = farthest * 1.1;
   camera.updateProjectionMatrix();
 }
@@ -150,6 +163,16 @@ onBeforeUnmount(() => {
 });
 
 watch(scene, rebuild);
+
+// The docs toggle and the OS scheme both end in `data-theme`, which swaps the CSS hues.
+useMutationObserver(
+  document.documentElement,
+  () => {
+    paint();
+    render();
+  },
+  { attributeFilter: ["data-theme"] },
+);
 
 watch([width, height], ([w, h]) => {
   if (!renderer || w === 0 || h === 0) return;

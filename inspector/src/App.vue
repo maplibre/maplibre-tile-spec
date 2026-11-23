@@ -146,6 +146,7 @@ function goHome() {
   tile.value?.free();
   tile.value = null;
   decoded.value = null;
+  columns.value = null;
   bytes.value = new Uint8Array();
   fixture.value = null;
   href.value = null;
