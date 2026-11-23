@@ -1,7 +1,10 @@
 //! Feature reordering for the optimizer
 
+use geo_types::Coord;
+
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
+use crate::encoder::geometry::Grid;
 use crate::encoder::model::CurveParams;
 use crate::encoder::source::{LayerSource, Order};
 use crate::tile::TileLayer;
@@ -34,6 +37,12 @@ pub enum SortStrategy {
 
     /// Sort features by their feature ID in ascending order.
     Id,
+
+    /// Start at the origin, then repeatedly take the feature whose first vertex is nearest the last vertex of the previous one.
+    ///
+    /// Features enter at their stored first vertex and leave at the vertex they store last, rings wound as stored.
+    /// Features without a vertex come last.
+    Chain,
 }
 
 impl TileLayer {
@@ -94,7 +103,39 @@ pub(crate) fn sort_order(
             }))
         }
         SortStrategy::Id => Order::Permuted(permutation(len, |f| source.id(f))),
+        SortStrategy::Chain => Order::Permuted(chain(source)),
     }
+}
+
+/// The features of `source` in the order a walk from the origin visits them, always stepping to the feature whose first vertex is nearest the last vertex of the previous one.
+fn chain(source: &impl LayerSource) -> Vec<u32> {
+    let len = source.feature_count();
+    let mut with_vertex = Vec::new();
+    let mut starts = Vec::new();
+    let mut without = Vec::new();
+    for feature in 0..len {
+        match source.first_coord(feature) {
+            Some(start) => {
+                with_vertex.push(feature);
+                starts.push(start);
+            }
+            None => without.push(feature),
+        }
+    }
+    let mut order = Vec::with_capacity(len);
+    if let Some(mut grid) = Grid::new(&starts) {
+        let mut at = Coord { x: 0, y: 0 };
+        while let Some(site) = grid.take_nearest(&starts, at) {
+            let feature = with_vertex[site];
+            order.push(feature);
+            at = source.last_coord(feature).unwrap_or(starts[site]);
+        }
+    }
+    order.extend(without);
+    order
+        .into_iter()
+        .map(|f| u32::try_from(f).expect("feature count fits in u32"))
+        .collect()
 }
 
 /// Feature indexes ordered by `key`, with ties in stored order, as a stable sort leaves them.
@@ -320,6 +361,67 @@ mod tests {
         );
     }
 
+    #[test]
+    fn chain_sort_starts_nearest_the_origin_and_follows_the_previous_end() {
+        let layer = layer_after_sort(
+            &[
+                pt(100, 100),
+                ls(&[(10, 0), (10, 50)]),
+                pt(12, 52),
+                pt(1, 1),
+                pt(90, 95),
+            ],
+            &[1, 2, 3, 4, 5],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(4), Some(2), Some(3), Some(5), Some(1)]);
+    }
+
+    #[test]
+    fn chain_sort_leaves_a_wound_polygon_at_its_stored_last_vertex() {
+        let layer = layer_after_sort(
+            &[
+                GeoGeom::Polygon(Polygon::new(
+                    LineString::from(vec![(0, 0), (0, 10), (10, 10), (10, 0), (0, 0)]),
+                    vec![],
+                )),
+                pt(3, 0),
+                pt(1, 10),
+            ],
+            &[1, 2, 3],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(1), Some(3), Some(2)]);
+    }
+
+    #[test]
+    fn chain_sort_leaves_a_closed_polygon_at_its_last_stored_vertex() {
+        let layer = layer_after_sort(
+            &[poly_square(0, 0, 10), pt(3, 0), pt(0, 12)],
+            &[1, 2, 3],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(1), Some(3), Some(2)]);
+    }
+
+    #[test]
+    fn chain_sort_breaks_ties_by_stored_index() {
+        let layer = layer_after_sort(
+            &[pt(5, 0), pt(0, 5), pt(0, 5)],
+            &[1, 2, 3],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(1), Some(2), Some(3)]);
+    }
+
     // ── already-sorted is identity ────────────────────────────────────────────
 
     #[test]
@@ -422,6 +524,25 @@ mod tests {
                 pt(x, y)
             })
             .collect()
+    }
+
+    #[test]
+    fn chain_sort_encodes_scattered_points_in_the_chain_order() {
+        let geoms = scattered_points(600);
+        let ids = vec![None; geoms.len()];
+        let mut expected = build_tile_layer(&geoms, &ids);
+        let params = expected.curve_params();
+        expected.sort(SortStrategy::Chain, params);
+
+        let decoded = encode_decode(
+            &build_tile_layer(&geoms, &ids),
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_chain_sort(true),
+        );
+
+        assert_eq!(
+            vertices_from_source(&decoded),
+            vertices_from_source(&expected)
+        );
     }
 
     #[test]

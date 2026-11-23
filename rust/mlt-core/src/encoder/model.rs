@@ -509,6 +509,8 @@ pub struct EncoderConfig {
     attempt_spatial_hilbert_sort: bool,
     /// Try sorting features by their feature ID in ascending order.
     attempt_id_sort: bool,
+    /// Try chaining features, each starting nearest where the previous one ended.
+    attempt_chain_sort: bool,
     /// Start each feature's rings, lines and points near where the previous feature ended.
     vertex_sort: bool,
     /// Allow `FSST` string compression
@@ -552,6 +554,7 @@ impl EncoderConfig {
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,
+                attempt_chain_sort: false,
                 vertex_sort: false,
                 allow_fsst: true,
                 allow_fastpfor: true,
@@ -578,6 +581,7 @@ impl EncoderConfig {
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,
+                attempt_chain_sort: false,
                 vertex_sort: false,
                 allow_fsst: network == Network::Offline,
                 allow_fastpfor: network == Network::Offline,
@@ -604,6 +608,7 @@ impl EncoderConfig {
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: true,
                 attempt_id_sort: true,
+                attempt_chain_sort: false,
                 vertex_sort: false,
                 allow_fsst: true,
                 allow_fastpfor: true,
@@ -630,6 +635,7 @@ impl EncoderConfig {
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,
+                attempt_chain_sort: false,
                 vertex_sort: false,
                 allow_fsst: false,
                 allow_fastpfor: false,
@@ -656,6 +662,7 @@ impl EncoderConfig {
                 attempt_spatial_morton_sort: false,
                 attempt_spatial_hilbert_sort: false,
                 attempt_id_sort: false,
+                attempt_chain_sort: false,
                 vertex_sort: false,
                 allow_fsst: false,
                 allow_fastpfor: false,
@@ -702,6 +709,11 @@ impl EncoderConfig {
     #[must_use]
     pub fn attempt_id_sort(self) -> bool {
         self.attempt_id_sort
+    }
+
+    #[must_use]
+    pub fn attempt_chain_sort(self) -> bool {
+        self.attempt_chain_sort
     }
 
     #[must_use]
@@ -840,6 +852,13 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_id_sort(mut self, enabled: bool) -> Self {
         self.attempt_id_sort = enabled;
+        self
+    }
+
+    /// Order features greedily, each the one whose first vertex is nearest where the previous one ended.
+    #[must_use]
+    pub fn with_chain_sort(mut self, enabled: bool) -> Self {
+        self.attempt_chain_sort = enabled;
         self
     }
 

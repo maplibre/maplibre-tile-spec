@@ -21,6 +21,7 @@ impl Arbitrary<'_> for EncoderConfig {
             .with_spatial_morton_sort(u.arbitrary()?)
             .with_spatial_hilbert_sort(u.arbitrary()?)
             .with_id_sort(u.arbitrary()?)
+            .with_chain_sort(u.arbitrary()?)
             .with_fsst(u.arbitrary()?)
             .with_fastpfor(u.arbitrary()?)
             .with_shared_dict(u.arbitrary()?)
