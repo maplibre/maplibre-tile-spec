@@ -17,6 +17,8 @@ pub fn epsg_of_srs_name(name: &str) -> Option<u16> {
             // ETRS89 / UTM zone 32N or 33N + DHHN2016 height
             5555 => 25832,
             5556 => 25833,
+            // Amersfoort / RD New + NAP height, as the 3D BAG names it
+            7415 => 28992,
             other => other,
         });
     }

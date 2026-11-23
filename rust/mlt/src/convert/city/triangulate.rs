@@ -1,4 +1,4 @@
-//! Planar polygons with holes, as `CityGML` stores surfaces, cut into triangles.
+//! Planar polygons with holes, as `CityGML` and `CityJSON` store surfaces, cut into triangles.
 
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 

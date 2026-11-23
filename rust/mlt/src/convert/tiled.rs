@@ -1,4 +1,4 @@
-//! The `z/x/y.mlt` directory that a `GeoJSON` or `CityGML` input is tiled into.
+//! The `z/x/y.mlt` directory that a `GeoJSON`, `CityGML` or `CityJSON` input is tiled into.
 
 use std::fs;
 use std::path::Path;

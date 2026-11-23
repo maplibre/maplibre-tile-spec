@@ -1,4 +1,9 @@
-//! The harness of the `CityGML` tests: temp dirs, the binary, a `CityGML` writer, and a summary of each tile.
+//! The harness of the `CityGML` and `CityJSON` tests: temp dirs, the binary, writers of both formats, and a summary of each tile.
+
+#![allow(
+    dead_code,
+    reason = "each test crate uses its own share of the helpers"
+)]
 
 use std::fmt::Write as _;
 use std::fs;
@@ -8,6 +13,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use mlt_core::geo_types::Geometry;
 use mlt_core::{Decoder, MValue, Parser, PropValue, TileFeature};
+use serde_json::{Value, json};
 
 pub const E: f64 = 566_100.0;
 pub const N: f64 = 5_934_100.0;
@@ -296,4 +302,236 @@ pub fn describe(names: &[String], feature: &TileFeature) -> String {
         _ => " flat",
     });
     out
+}
+
+/// A polygon of a building: its semantic surface, or `""` for none, its LOD, its exterior and its holes.
+pub struct Face {
+    pub semantic: &'static str,
+    pub lod: u8,
+    pub exterior: Vec<[f64; 3]>,
+    pub holes: Vec<Vec<[f64; 3]>>,
+}
+
+pub fn face(semantic: &'static str, lod: u8, exterior: &[[f64; 3]]) -> Face {
+    Face {
+        semantic,
+        lod,
+        exterior: exterior.to_vec(),
+        holes: Vec::new(),
+    }
+}
+
+impl Face {
+    pub fn with_holes(mut self, holes: &[&[[f64; 3]]]) -> Self {
+        self.holes = holes.iter().map(|h| h.to_vec()).collect();
+        self
+    }
+}
+
+/// The faces of [`cuboid_faces`] at `lod`.
+pub fn box_faces(lod: u8, min: [f64; 3], max: [f64; 3]) -> Vec<Face> {
+    cuboid_faces(min, max)
+        .into_iter()
+        .map(|(semantic, ring)| face(semantic, lod, &ring))
+        .collect()
+}
+
+/// A building, bridge or tunnel, written alike in `CityGML` and `CityJSON`.
+pub struct Model {
+    pub kind: &'static str,
+    pub id: &'static str,
+    pub faces: Vec<Face>,
+    pub parts: Vec<Vec<Face>>,
+    pub installations: Vec<Vec<Face>>,
+}
+
+pub fn model(id: &'static str, faces: Vec<Face>) -> Model {
+    Model {
+        kind: "Building",
+        id,
+        faces,
+        parts: Vec::new(),
+        installations: Vec::new(),
+    }
+}
+
+impl Model {
+    pub fn kind(mut self, kind: &'static str) -> Self {
+        self.kind = kind;
+        self
+    }
+
+    pub fn part(mut self, faces: Vec<Face>) -> Self {
+        self.parts.push(faces);
+        self
+    }
+
+    pub fn installation(mut self, faces: Vec<Face>) -> Self {
+        self.installations.push(faces);
+        self
+    }
+}
+
+fn gml_faces(faces: &[Face]) -> String {
+    faces
+        .iter()
+        .map(|f| {
+            let holes: Vec<&[[f64; 3]]> = f.holes.iter().map(Vec::as_slice).collect();
+            let polygon = polygon(&f.exterior, &holes);
+            if f.semantic.is_empty() {
+                format!(
+                    "<bldg:lod{lod}MultiSurface><gml:MultiSurface><gml:surfaceMember>{polygon}\
+                     </gml:surfaceMember></gml:MultiSurface></bldg:lod{lod}MultiSurface>\n",
+                    lod = f.lod
+                )
+            } else {
+                surface(f.semantic, f.lod, &[polygon])
+            }
+        })
+        .collect()
+}
+
+/// `models` as a `CityGML` file in `srs_name`, each part and installation nested in its building.
+pub fn to_citygml(srs_name: &str, models: &[Model]) -> String {
+    let members: Vec<String> = models
+        .iter()
+        .map(|m| {
+            let mut content = gml_faces(&m.faces);
+            for part in &m.parts {
+                write!(
+                    content,
+                    "<bldg:consistsOf{kind}Part><bldg:{kind}Part>{}</bldg:{kind}Part></bldg:consistsOf{kind}Part>",
+                    gml_faces(part),
+                    kind = m.kind
+                )
+                .unwrap();
+            }
+            for installation in &m.installations {
+                write!(
+                    content,
+                    "<bldg:outer{kind}Installation><bldg:{kind}Installation>{}</bldg:{kind}Installation></bldg:outer{kind}Installation>",
+                    gml_faces(installation),
+                    kind = m.kind
+                )
+                .unwrap();
+            }
+            format!(
+                "<core:cityObjectMember><bldg:{kind} gml:id=\"{id}\">{content}</bldg:{kind}></core:cityObjectMember>\n",
+                kind = m.kind,
+                id = m.id
+            )
+        })
+        .collect();
+    city_model(srs_name, &members)
+}
+
+const STEP: f64 = 1e-9;
+
+/// The vertices of a `CityJSON` file, stored in steps of [`STEP`] from `origin`, fine enough for degrees as well as metres.
+struct Vertices {
+    origin: [f64; 3],
+    list: Vec<[i64; 3]>,
+}
+
+impl Vertices {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "test coordinates in steps fit an i64"
+    )]
+    fn index(&mut self, p: [f64; 3]) -> usize {
+        let v = [0, 1, 2].map(|i| ((p[i] - self.origin[i]) / STEP).round() as i64);
+        self.list.iter().position(|&w| w == v).unwrap_or_else(|| {
+            self.list.push(v);
+            self.list.len() - 1
+        })
+    }
+
+    /// One `MultiSurface` per run of faces of one LOD, so the faces keep their order.
+    fn geometries(&mut self, faces: &[Face]) -> Value {
+        let mut geometries = Vec::new();
+        for run in faces.chunk_by(|a, b| a.lod == b.lod) {
+            let mut types: Vec<&str> = Vec::new();
+            let mut boundaries = Vec::new();
+            let mut values = Vec::new();
+            for f in run {
+                let rings: Vec<Vec<usize>> = std::iter::once(&f.exterior)
+                    .chain(&f.holes)
+                    .map(|ring| ring.iter().map(|&p| self.index(p)).collect())
+                    .collect();
+                boundaries.push(rings);
+                values.push(if f.semantic.is_empty() {
+                    Value::Null
+                } else {
+                    let i = types
+                        .iter()
+                        .position(|t| *t == f.semantic)
+                        .unwrap_or_else(|| {
+                            types.push(f.semantic);
+                            types.len() - 1
+                        });
+                    json!(i)
+                });
+            }
+            let surfaces: Vec<Value> = types.iter().map(|t| json!({ "type": t })).collect();
+            geometries.push(json!({
+                "type": "MultiSurface",
+                "lod": run[0].lod.to_string(),
+                "boundaries": boundaries,
+                "semantics": { "surfaces": surfaces, "values": values },
+            }));
+        }
+        Value::Array(geometries)
+    }
+}
+
+/// `models` as a `CityJSON` 2.0 file in `crs`, each part and installation a child object of its building.
+pub fn to_cityjson(crs: &str, models: &[Model]) -> String {
+    let origin = models
+        .iter()
+        .flat_map(|m| &m.faces)
+        .flat_map(|f| &f.exterior)
+        .fold([f64::INFINITY; 3], |o, p| {
+            [0, 1, 2].map(|i| o[i].min(p[i].floor()))
+        });
+    let mut vertices = Vertices {
+        origin,
+        list: Vec::new(),
+    };
+    let mut objects = serde_json::Map::new();
+    for m in models {
+        let mut children = Vec::new();
+        let mut child_objects = Vec::new();
+        let kinds = m
+            .parts
+            .iter()
+            .map(|p| ("Part", p))
+            .chain(m.installations.iter().map(|i| ("Installation", i)));
+        for (n, (suffix, faces)) in kinds.enumerate() {
+            let id = format!("{}-{n}", m.id);
+            children.push(id.clone());
+            child_objects.push((
+                id,
+                json!({
+                    "type": format!("{}{suffix}", m.kind),
+                    "parents": [m.id],
+                    "geometry": vertices.geometries(faces),
+                }),
+            ));
+        }
+        let mut root = json!({ "type": m.kind, "geometry": vertices.geometries(&m.faces) });
+        if !children.is_empty() {
+            root["children"] = json!(children);
+        }
+        objects.insert(m.id.to_owned(), root);
+        objects.extend(child_objects);
+    }
+    json!({
+        "type": "CityJSON",
+        "version": "2.0",
+        "transform": { "scale": [STEP, STEP, STEP], "translate": origin },
+        "metadata": { "referenceSystem": crs },
+        "CityObjects": objects,
+        "vertices": vertices.list,
+    })
+    .to_string()
 }

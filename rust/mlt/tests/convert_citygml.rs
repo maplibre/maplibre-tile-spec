@@ -1608,6 +1608,17 @@ fn a_citygml_input_rejects_flags_it_cannot_honour() {
                 "absolute",
             ][..],
         ),
+        (
+            &output,
+            &[
+                "--mlt-version",
+                "2",
+                "--max-zoom",
+                "16",
+                "--ground-attribute",
+                "height",
+            ][..],
+        ),
         (&archive, &["--mlt-version", "2", "--max-zoom", "16"][..]),
     ]
     .iter()
@@ -1626,6 +1637,8 @@ fn a_citygml_input_rejects_flags_it_cannot_honour() {
     Error: --tessellate cuts 2D polygons, so it does not apply to a CityGML mesh input
     ---
     Error: a CityGML input stores heights above each building's ground, so it takes no --height-mode
+    ---
+    Error: --ground-attribute names a CityJSON attribute, but convert reads no attributes from a CityGML file such as [TMP]/hamburg.gml
     ---
     Error: a CityGML input is tiled into a directory of z/x/y.mlt tiles; archive output is not supported yet, got: [TMP]/out.pmtiles
     ");
