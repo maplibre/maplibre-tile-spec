@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.2.4...rust-mlt-ffi-v0.2.5) - 2026-11-22
+
+### Added
+
+- *(mlt-wasm)* decode v2 Meshes layers and vertex/triangle m-value columns ([#2086](https://github.com/maplibre/maplibre-tile-spec/pull/2086))
+- *(rust)* implement v2 Meshes layout, triangle-scoped m-values, and cycle-ordered mesh encoding ([#2079](https://github.com/maplibre/maplibre-tile-spec/pull/2079))
+- *(v2)* sea-level z and KML height modes ([#2053](https://github.com/maplibre/maplibre-tile-spec/pull/2053))
+
+### Other
+
+- *(rust)* v2 mesh synthetics ([#2081](https://github.com/maplibre/maplibre-tile-spec/pull/2081))
+
 ## [0.2.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.2.3...rust-mlt-ffi-v0.2.4) - 2026-11-15
 
 ### Fixed

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.4.2...python-mlt-v0.4.3) - 2026-11-22
+
+### Added
+
+- *(mlt-wasm)* decode v2 Meshes layers and vertex/triangle m-value columns ([#2086](https://github.com/maplibre/maplibre-tile-spec/pull/2086))
+- *(rust)* implement v2 Meshes layout, triangle-scoped m-values, and cycle-ordered mesh encoding ([#2079](https://github.com/maplibre/maplibre-tile-spec/pull/2079))
+- *(v2)* sea-level z and KML height modes ([#2053](https://github.com/maplibre/maplibre-tile-spec/pull/2053))
+
+### Other
+
+- *(rust)* v2 mesh synthetics ([#2081](https://github.com/maplibre/maplibre-tile-spec/pull/2081))
+- commit the generated files Autofix missed while it hung ([#2071](https://github.com/maplibre/maplibre-tile-spec/pull/2071))
+- *(rust)* merge split `crate::encoder` imports in tests ([#2069](https://github.com/maplibre/maplibre-tile-spec/pull/2069))
+
 ## [0.4.2](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.4.1...python-mlt-v0.4.2) - 2026-11-15
 
 ### Other
