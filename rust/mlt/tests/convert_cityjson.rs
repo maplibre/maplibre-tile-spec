@@ -430,7 +430,7 @@ fn a_3d_bag_building_is_one_feature_of_its_parts_lod_2_2_with_the_buildings_attr
 }
 
 #[test]
-fn a_ground_attribute_sets_the_height_the_mesh_stands_on() {
+fn a_ground_attribute_sets_the_height_the_mesh_and_its_merged_block_stand_on() {
     let dir = TempDir::new();
     let input = write_json(
         &dir,
@@ -453,13 +453,17 @@ fn a_ground_attribute_sets_the_height_the_mesh_stands_on() {
         &[
             "--mlt-version",
             "2",
+            "--min-zoom",
+            "13",
             "--max-zoom",
             "16",
             "--ground-attribute",
             "b3_h_maaiveld",
         ],
     );
-    insta::assert_snapshot!(tiles(&output, 16), @"
+    insta::assert_snapshot!(tiles(&output, 13) + &tiles(&output, 16), @"
+    13/4195/2705 extent=262144
+      id=0 buildings=1 x=67072..68096 y=178688..180224 z=-200..800 vertices=8 wall=8 roof=2 open roof_area=1048576 outward
     16/33562/21645 extent=32768
       id=0 gml_id=pand b3_h_maaiveld=F64(1.5) x=1696..2576 y=15173..16057 z=-200..800 vertices=8 wall=8 roof=2 ground=2 closed roof_area=756184 outward
     ");
@@ -753,6 +757,9 @@ fn a_broken_cityjson_file_fails_naming_what_is_wrong() {
     let mut reserved = house();
     reserved["CityObjects"]["house"]["attributes"] = json!({ "gml_id": "x" });
     cases.push(("with an attribute named gml_id", reserved, &[]));
+    let mut part = house();
+    part["CityObjects"]["house"]["attributes"] = json!({ "part": "annex" });
+    cases.push(("with an attribute named part", part, &[]));
     cases.push((
         "without the ground attribute",
         house(),
@@ -813,6 +820,9 @@ fn a_broken_cityjson_file_fails_naming_what_is_wrong() {
     ---
     with an attribute named gml_id:
     Error: object house has an attribute named gml_id, which convert writes a column of its own under
+    ---
+    with an attribute named part:
+    Error: object house has an attribute named part, which convert writes a column of its own under
     ---
     without the ground attribute:
     Error: reading [TMP]/house.city.json

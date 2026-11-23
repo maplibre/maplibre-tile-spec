@@ -23,6 +23,8 @@ use crate::convert::{Reencoder, tiled};
 pub const GML_ID: &str = "gml_id";
 /// The property counting the buildings a block holds.
 pub const BUILDINGS: &str = "buildings";
+/// The triangle m-value naming the part of a building each triangle belongs to.
+pub const PART: &str = "part";
 /// The finest grid unit the extent of a tile aims for, in metres.
 const UNIT_METRES: f64 = 0.01;
 /// The largest extent a v2 layer header can name.
@@ -506,7 +508,7 @@ fn layer(
         .any(|m| matches!(m, TileMesh::Block { .. }))
         .then(|| builder.add_property(BUILDINGS, PropKind::U32))
         .transpose()?;
-    let part = builder.add_scoped_m_value("part", PropKind::Str, MValueScope::Triangle)?;
+    let part = builder.add_scoped_m_value(PART, PropKind::Str, MValueScope::Triangle)?;
     for tile_mesh in meshes {
         let (id, building, count, mesh) = match tile_mesh {
             TileMesh::Building { id, building, mesh } => (Some(id), Some(building), None, mesh),

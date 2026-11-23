@@ -27,7 +27,7 @@ use walkdir::WalkDir;
 
 use self::crs::{Reprojector, epsg_of_srs_name};
 use self::model::{Building, Lod, SourceDocument};
-use self::tiler::{BUILDINGS, GML_ID, LayerSpec};
+use self::tiler::{BUILDINGS, GML_ID, LayerSpec, PART};
 use self::triangulate::Triangulator;
 use super::{ConvertArgs, Reencoder};
 
@@ -232,6 +232,14 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
     };
 
     let files = city_files(input)?;
+    if args.ground_attribute.is_some()
+        && let Some((path, _)) = files.iter().find(|(_, f)| *f == Format::CityGml)
+    {
+        bail!(
+            "--ground-attribute names a CityJSON attribute, but convert reads no attributes from a CityGML file such as {}",
+            path.display()
+        );
+    }
     let mut parsed: Vec<Option<SourceFile>> = files
         .par_iter()
         .map(|(path, format)| {
@@ -292,7 +300,7 @@ pub(super) fn convert(args: &ConvertArgs, reencoder: &Reencoder) -> AnyResult<()
 /// The property columns of the attributes of `buildings`, none of which may take the name of a column of the tiler's own.
 fn schema(buildings: &[Building]) -> AnyResult<PropertySchema> {
     for building in buildings {
-        if let Some(reserved) = [GML_ID, BUILDINGS]
+        if let Some(reserved) = [GML_ID, BUILDINGS, PART]
             .into_iter()
             .find(|&name| building.attributes.contains_key(name))
         {

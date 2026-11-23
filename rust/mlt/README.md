@@ -106,8 +106,8 @@ Lower zooms match the simplification error to the pixel, a 512th of a tile:
   counting the buildings it holds. Buildings of 40 m or more keep their 3D LOD2 mesh.
 
 `CityJSON` LoDs such as `2.2` count as LOD2. `--lod` reads only the one LoD it names, such as `2`
-or `2.2`, while lower zooms still derive LOD2 from it. `--ground-attribute` names the attribute
-holding each building's ground height in metres, such as the 3D BAG's `b3_h_maaiveld`, which then
+or `2.2`, while lower zooms still derive LOD2 from it. `--ground-attribute` names the `CityJSON`
+attribute holding each building's ground height in metres, such as the 3D BAG's `b3_h_maaiveld`, which then
 takes the place of the ground found from its surfaces.
 
 With `--fix-mislabelled-crs`, a file whose coordinates lie more than 1 degree from the input's

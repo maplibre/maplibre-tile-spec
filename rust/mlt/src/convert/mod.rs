@@ -432,7 +432,7 @@ pub struct ConvertArgs {
     /// The only `LoD` of the buildings to read, such as `2` or `2.2` (default: each part's highest, and its `LoD` 2 below the highest zoom)
     #[clap(long, value_name = "LOD", help_heading = "CityGML and CityJSON input")]
     lod: Option<String>,
-    /// Attribute holding each building's ground height in metres, which its heights are measured from
+    /// `CityJSON` attribute holding each building's ground height in metres, which its heights are measured from
     #[clap(long, value_name = "NAME", help_heading = "CityGML and CityJSON input")]
     ground_attribute: Option<String>,
     #[command(flatten)]
