@@ -6,6 +6,8 @@ import {
   type AnnotatedTile,
   annotateTile,
   type DecodedBlob,
+  decodeTileColumns,
+  type MltColumnTile,
   tileGeoJson,
 } from "./annotate.ts";
 import {
@@ -42,6 +44,7 @@ const view = ref<ViewState>({
 });
 const tile = shallowRef<AnnotatedTile | null>(null);
 const decoded = shallowRef<FeatureCollection | null>(null);
+const columns = shallowRef<MltColumnTile | null>(null);
 const bytes = shallowRef<Uint8Array>(new Uint8Array());
 /** Index key of the loaded tile, or null when it came from anywhere but the index. */
 const fixture = ref<string | null>(null);
@@ -99,6 +102,11 @@ function load(raw: Uint8Array, from: { fixture?: string; href?: string }) {
   } catch {
     decoded.value = null;
   }
+  try {
+    columns.value = decodeTileColumns(raw);
+  } catch {
+    columns.value = null;
+  }
   bytes.value = raw;
   fixture.value = from.fixture ?? null;
   href.value = from.href ?? null;
@@ -138,6 +146,7 @@ function goHome() {
   tile.value?.free();
   tile.value = null;
   decoded.value = null;
+  columns.value = null;
   bytes.value = new Uint8Array();
   fixture.value = null;
   href.value = null;
@@ -414,6 +423,8 @@ watch(
       :decode="decode"
       :error="tile?.error ?? null"
       :tile="decoded"
+      :columns="columns"
+      :address="href ?? fixture"
     />
     <section v-else class="empty">
       <a
