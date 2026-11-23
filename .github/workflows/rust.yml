@@ -393,7 +393,12 @@ jobs:
   upload-release-binaries:
     name: Upload release binaries to GitHub releases
     needs: [ release-plz ]
-    if: ${{ needs.release-plz.outputs.releases_created == 'true' }}
+    # `!cancelled()` replaces the implicit `success()`, which also counts failures of
+    # jobs before `release-plz` (such as fuzz) and would skip this job after a release.
+    if: |
+      !cancelled()
+      && needs.release-plz.result == 'success'
+      && needs.release-plz.outputs.releases_created == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -422,8 +427,11 @@ jobs:
   publish-wasm-npm:
     name: Publish @maplibre/mlt-wasm to npm
     needs: [ release-plz ]
+    # See upload-release-binaries for why `!cancelled()` is needed.
     if: |
-      needs.release-plz.outputs.releases_created == 'true'
+      !cancelled()
+      && needs.release-plz.result == 'success'
+      && needs.release-plz.outputs.releases_created == 'true'
       && contains(fromJSON(needs.release-plz.outputs.releases || '[]').*.package_name, 'mlt-wasm')
     runs-on: ubuntu-latest
     permissions: { contents: write, id-token: write }
