@@ -1630,3 +1630,169 @@ fn a_citygml_input_rejects_flags_it_cannot_honour() {
     Error: a CityGML input is tiled into a directory of z/x/y.mlt tiles; archive output is not supported yet, got: [TMP]/out.pmtiles
     ");
 }
+
+#[test]
+fn coordinates_may_be_written_as_cdata() {
+    let dir = TempDir::new();
+    let ring = [
+        [E, N, 10.0],
+        [E + 20.0, N, 10.0],
+        [E + 20.0, N + 20.0, 10.0],
+        [E, N + 20.0, 10.0],
+    ];
+    let roof = format!(
+        "<gml:Polygon><gml:exterior><gml:LinearRing><gml:posList><![CDATA[{}]]></gml:posList>\
+         </gml:LinearRing></gml:exterior></gml:Polygon>",
+        pos_list(&ring)
+    );
+    let input = dir.write(
+        "cdata.gml",
+        &city_model(
+            "EPSG:25832",
+            &[building("roof", &[surface("RoofSurface", 2, &[roof])])],
+        ),
+    );
+    let output = dir.0.join("out");
+    convert(&input, &output, &["--mlt-version", "2", "--max-zoom", "16"]);
+    insta::assert_snapshot!(tiles(&output, 16), @"
+    16/34588/21180 extent=32768
+      id=0 gml_id=roof x=974..2800 y=15652..17482 z=0..0 vertices=4 roof=2 open roof_area=3249652 up
+    ");
+}
+
+#[test]
+fn a_file_ending_inside_an_element_fails() {
+    let dir = TempDir::new();
+    let whole = city_model(
+        "EPSG:25832",
+        &[
+            building(
+                "first",
+                &[cuboid(2, [E, N, 0.0], [E + 20.0, N + 20.0, 10.0])],
+            ),
+            building(
+                "second",
+                &[cuboid(2, [E + 40.0, N, 0.0], [E + 60.0, N + 20.0, 10.0])],
+            ),
+        ],
+    );
+    let input = dir.write(
+        "truncated.gml",
+        &whole[..whole.find("gml:id=\"second\">").unwrap() + "gml:id=\"second\">".len()],
+    );
+    let out = mlt_convert(
+        &input,
+        &dir.0.join("out"),
+        &["--mlt-version", "2", "--max-zoom", "16"],
+    );
+    assert!(!out.status.success());
+    insta::assert_snapshot!(stderr_of(&dir, &out), @"
+    Error: reading [TMP]/truncated.gml
+
+    Caused by:
+        the file ends inside an element at byte 2814
+    ");
+}
+
+#[test]
+fn geometries_may_spell_the_epsg_code_of_the_file_differently_but_not_name_another() {
+    let dir = TempDir::new();
+    let ring = [
+        [E, N, 10.0],
+        [E + 20.0, N, 10.0],
+        [E + 20.0, N + 20.0, 10.0],
+        [E, N + 20.0, 10.0],
+    ];
+    let errors: Vec<String> = ["urn:ogc:def:crs:EPSG::25832", "EPSG:25833"]
+        .iter()
+        .map(|srs_name| {
+            let roof = polygon(&ring, &[]).replace(
+                "<gml:Polygon>",
+                &format!("<gml:Polygon srsName=\"{srs_name}\">"),
+            );
+            let input = dir.write(
+                "zones.gml",
+                &city_model(
+                    "EPSG:25832",
+                    &[building("roof", &[surface("RoofSurface", 2, &[roof])])],
+                ),
+            );
+            let output = dir.0.join("out");
+            let _ = fs::remove_dir_all(&output);
+            let out = mlt_convert(&input, &output, &["--mlt-version", "2", "--max-zoom", "16"]);
+            format!("success={} {}", out.status.success(), stderr_of(&dir, &out))
+        })
+        .collect();
+    insta::assert_snapshot!(errors.join("---\n"), @r#"
+    success=true [TMP]/zones.gml -> [TMP]/out: wrote 3 tile(s) holding 1 building(s) of 1 file(s) at zooms 0..=16
+    ---
+    success=false Error: reading [TMP]/zones.gml
+
+    Caused by:
+        the file names the CRS "EPSG:25832", but a geometry names "EPSG:25833"
+    "#);
+}
+
+#[test]
+fn a_merged_block_stands_on_the_ground_of_its_building_rather_than_its_basement() {
+    let dir = TempDir::new();
+    let terrain = format!(
+        "<bldg:lod2TerrainIntersection><gml:MultiCurve><gml:curveMember><gml:LineString>\
+         <gml:posList srsDimension=\"3\">{} 5 {} 5</gml:posList></gml:LineString>\
+         </gml:curveMember></gml:MultiCurve></bldg:lod2TerrainIntersection>",
+        format_args!("{E} {N}"),
+        format_args!("{} {N}", E + 40.0),
+    );
+    let input = dir.write(
+        "basement.gml",
+        &city_model(
+            "EPSG:25832",
+            &[building(
+                "house",
+                &[cuboid(2, [E, N, 0.0], [E + 40.0, N + 20.0, 15.0]), terrain],
+            )],
+        ),
+    );
+    let output = dir.0.join("out");
+    convert(
+        &input,
+        &output,
+        &["--mlt-version", "2", "--min-zoom", "13", "--max-zoom", "16"],
+    );
+    insta::assert_snapshot!(tiles(&output, 13), @"
+    13/4323/2647 extent=262144
+      id=0 buildings=1 x=132096..135680 y=146432..148480 z=-500..1000 vertices=8 wall=8 roof=2 open roof_area=7340032 outward
+    ");
+}
+
+#[test]
+fn a_shed_inside_a_taller_building_counts_towards_its_block() {
+    let dir = TempDir::new();
+    let input = dir.write(
+        "shed.gml",
+        &city_model(
+            "EPSG:25832",
+            &[
+                building("hall", &[cuboid(2, [E, N, 0.0], [E + 40.0, N + 20.0, 8.0])]),
+                building(
+                    "shed",
+                    &[cuboid(
+                        2,
+                        [E + 10.0, N + 5.0, 0.0],
+                        [E + 15.0, N + 10.0, 3.0],
+                    )],
+                ),
+            ],
+        ),
+    );
+    let output = dir.0.join("out");
+    convert(
+        &input,
+        &output,
+        &["--mlt-version", "2", "--min-zoom", "13", "--max-zoom", "16"],
+    );
+    insta::assert_snapshot!(tiles(&output, 13), @"
+    13/4323/2647 extent=262144
+      id=0 buildings=2 x=132096..135680 y=146432..148480 z=0..800 vertices=8 wall=8 roof=2 open roof_area=7340032 outward
+    ");
+}

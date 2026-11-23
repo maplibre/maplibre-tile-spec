@@ -1,6 +1,7 @@
 //! The blocks of a tile's buildings, merged where they touch.
 
-use std::collections::{BTreeSet, HashMap};
+use std::cmp::Reverse;
+use std::collections::HashMap;
 
 use mlt_core::ZStep;
 
@@ -18,16 +19,21 @@ const MAX_CELLS: usize = 1 << 22;
 /// The steps from a corner of the cells to the next, east, south, west and north.
 const STEPS: [[i64; 2]; 4] = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
-/// A building on a tile's grid: the triangles of its grounds and roofs, or else of its bounding box, with its top and base in z units.
+/// A building on a tile's grid: the triangles of its grounds and roofs, or else of its bounding box, with its top, base and ground in z units.
 pub(super) struct Footprint {
     triangles: Vec<[[i32; 2]; 3]>,
     top: i32,
     base: i32,
+    ground: i32,
 }
 
 impl Footprint {
-    /// The footprint of `surfaces` at `points`, or `None` if it has no area or no height.
-    pub(super) fn new(surfaces: &[&Surface], points: &[Vec<[i32; 3]>]) -> Option<Self> {
+    /// The footprint of `surfaces` at `points`, standing on `ground`, or `None` if it has no area or no height.
+    pub(super) fn new(
+        surfaces: &[&Surface],
+        points: &[Vec<[i32; 3]>],
+        ground: i32,
+    ) -> Option<Self> {
         let top = points.iter().flatten().map(|p| p[2]).max()?;
         let base = points.iter().flatten().map(|p| p[2]).min()?;
         let mut triangles: Vec<[[i32; 2]; 3]> = surfaces
@@ -57,6 +63,7 @@ impl Footprint {
             triangles,
             top,
             base,
+            ground,
         })
     }
 }
@@ -176,9 +183,9 @@ fn merge_within(
                 );
             }
             let mut mesh = weld(&walls, &roof)?;
-            // Downhill foundations stay below the group's ground at `z = 0`.
+            // Basements and downhill foundations stay below the group's ground at `z = 0`.
             for p in &mut mesh.xyz {
-                p[2] = p[2].checked_sub(group.datum_base)?;
+                p[2] = p[2].checked_sub(group.ground)?;
             }
             Some(Merged {
                 members: group.members,
@@ -193,7 +200,7 @@ struct Group {
     members: Vec<usize>,
     top: i32,
     min_base: i32,
-    datum_base: i32,
+    ground: i32,
 }
 
 /// The cells of a tile's footprints, by row from the north-west one at `origin`.
@@ -207,8 +214,10 @@ struct Raster {
     top: Vec<i32>,
     /// The lowest base of the footprints a covered cell meets.
     base: Vec<i32>,
-    /// The footprint of that top.
-    owner: Vec<Option<usize>>,
+    /// The lowest ground of the footprints a covered cell meets.
+    ground: Vec<i32>,
+    /// Each cell and a footprint that meets it.
+    touched: Vec<(usize, usize)>,
     /// The group of each covered cell.
     group: Vec<Option<usize>>,
 }
@@ -242,7 +251,8 @@ impl Raster {
             covered: vec![false; width * height],
             top: vec![i32::MIN; width * height],
             base: vec![i32::MAX; width * height],
-            owner: vec![None; width * height],
+            ground: vec![i32::MAX; width * height],
+            touched: Vec::new(),
             group: vec![None; width * height],
         };
         // The samples of each cell inside a footprint, at the centres of a SAMPLES-square grid.
@@ -272,11 +282,12 @@ impl Raster {
                         }
                         inside[sy * width * SAMPLES + sx] = true;
                         let c = (sy / SAMPLES) * width + sx / SAMPLES;
-                        if footprint.top > raster.top[c] {
-                            raster.top[c] = footprint.top;
-                            raster.owner[c] = Some(f);
-                        }
+                        raster.top[c] = raster.top[c].max(footprint.top);
                         raster.base[c] = raster.base[c].min(footprint.base);
+                        raster.ground[c] = raster.ground[c].min(footprint.ground);
+                        if raster.touched.last() != Some(&(c, f)) {
+                            raster.touched.push((c, f));
+                        }
                     }
                 }
             }
@@ -286,7 +297,7 @@ impl Raster {
             let hits = (0..SAMPLES * SAMPLES)
                 .filter(|s| inside[(cy + s / SAMPLES) * width * SAMPLES + cx + s % SAMPLES])
                 .count();
-            raster.covered[c] = 2 * hits >= SAMPLES * SAMPLES && raster.owner[c].is_some();
+            raster.covered[c] = 2 * hits >= SAMPLES * SAMPLES && raster.top[c] > i32::MIN;
         }
         Some(raster)
     }
@@ -303,7 +314,7 @@ impl Raster {
     }
 
     /// Joins the covered cells with their neighbours whose top and base lie in the same `band` of z units, and sets each cell's top to its group's mean.
-    /// Returns each group with its top, its lowest base, and the base of its middle cell.
+    /// Returns each group with the footprints of which it holds the most cells, its top, its lowest base, and the ground of its middle cell.
     #[expect(
         clippy::cast_possible_truncation,
         reason = "a mean of i32 tops fits an i32"
@@ -347,23 +358,38 @@ impl Raster {
                 y1 = y1.max(cy);
             }
             let (mx, my) = (usize::midpoint(x0, x1), usize::midpoint(y0, y1));
-            let datum_base = cells
+            let ground = cells
                 .iter()
                 .min_by_key(|&&c| {
                     let (cx, cy) = (c % self.width, c / self.width);
                     cx.abs_diff(mx).pow(2) + cy.abs_diff(my).pow(2)
                 })
-                .map_or(min_base, |&c| self.base[c]);
-            let members: BTreeSet<usize> = cells.iter().filter_map(|&c| self.owner[c]).collect();
+                .map_or(min_base, |&c| self.ground[c]);
             for c in cells {
                 self.top[c] = mean;
             }
             groups.push(Group {
-                members: members.into_iter().collect(),
+                members: Vec::new(),
                 top: mean,
                 min_base,
-                datum_base,
+                ground,
             });
+        }
+        let mut touched: Vec<(usize, usize)> = self.touched.iter().map(|&(c, f)| (f, c)).collect();
+        touched.sort_unstable();
+        touched.dedup();
+        let mut touched: Vec<(usize, usize)> = touched
+            .into_iter()
+            .filter_map(|(f, c)| Some((f, self.group[c]?)))
+            .collect();
+        touched.sort_unstable();
+        for cells in touched.chunk_by(|a, b| a.0 == b.0) {
+            let most = cells
+                .chunk_by(|a, b| a.1 == b.1)
+                .max_by_key(|run| (run.len(), Reverse(run[0].1)));
+            if let Some(&[(f, g), ..]) = most {
+                groups[g].members.push(f);
+            }
         }
         groups
     }

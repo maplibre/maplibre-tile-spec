@@ -7,6 +7,7 @@ use anyhow::{Result as AnyResult, bail};
 use quick_xml::Reader;
 use quick_xml::events::{BytesStart, Event};
 
+use super::crs::epsg_of_srs_name;
 use super::model::{ObjectKind, OwnedPolygon, Part, Rings, Semantic, SourceDocument, SourceObject};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -112,7 +113,24 @@ pub fn parse<R: BufRead>(reader: R) -> AnyResult<SourceDocument> {
                     parser.unreadable = true;
                 }
             }
-            Ok(Event::Eof) => return Ok(parser.document),
+            Ok(Event::CData(t)) if parser.in_coordinates => {
+                if !parse_numbers(t.as_bytes(), &mut parser.numbers) {
+                    parser.unreadable = true;
+                }
+            }
+            Ok(Event::Eof) if !parser.stack.is_empty() => {
+                bail!(
+                    "the file ends inside an element at byte {}",
+                    xml.buffer_position()
+                );
+            }
+            Ok(Event::Eof) => {
+                if let Some(other) = parser.other_crs {
+                    let crs = parser.document.crs.unwrap_or_default();
+                    bail!("the file names the CRS {crs:?}, but a geometry names {other:?}");
+                }
+                return Ok(parser.document);
+            }
             Ok(_) => {}
             Err(e) => bail!("invalid XML at byte {}: {e}", xml.buffer_position()),
         }
@@ -144,6 +162,8 @@ struct DocumentParser {
     unreadable: bool,
     numbers: Vec<f64>,
     rings: Rings,
+    /// The first `srsName` that names another EPSG code than the file's.
+    other_crs: Option<String>,
     document: SourceDocument,
 }
 
@@ -156,8 +176,18 @@ fn attribute(e: &BytesStart<'_>, local: &[u8]) -> Option<String> {
 
 impl DocumentParser {
     fn start(&mut self, e: &BytesStart<'_>) {
-        if !self.skip && self.document.crs.is_none() {
-            self.document.crs = attribute(e, b"srsName");
+        if !self.skip
+            && let Some(name) = attribute(e, b"srsName")
+        {
+            match &self.document.crs {
+                None => self.document.crs = Some(name),
+                Some(crs) => {
+                    let epsg = epsg_of_srs_name(&name);
+                    if self.other_crs.is_none() && epsg.is_some() && epsg != epsg_of_srs_name(crs) {
+                        self.other_crs = Some(name);
+                    }
+                }
+            }
         }
         let tag = match (self.skip, tag(e.local_name().as_ref().as_bytes())) {
             (true, _) => Tag::Other,

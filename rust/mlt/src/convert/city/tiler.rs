@@ -238,7 +238,7 @@ fn place(building: &Building, zoom: u8, max_zoom: u8, z_step: ZStep) -> Option<(
     let landmark = lod.height >= LANDMARK_MIN_METRES;
     if tier == Tier::Merged && !landmark {
         let points = lod.points_with_datum(tile, extent, z_step, 0.0)?;
-        let footprint = Footprint::new(&lod.surfaces, &points)?;
+        let footprint = Footprint::new(&lod.surfaces, &points, z_step.z(lod.ground)?)?;
         return Some((tile, Placed::Footprint(footprint)));
     }
     let points = lod.points(tile, extent, z_step)?;
