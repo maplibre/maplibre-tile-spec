@@ -27,6 +27,9 @@ jobs:
       - name: Build MLT documentation
         run: just -v docs-build
 
+      - name: Disable Jekyll on GitHub Pages
+        run: sudo touch site/.nojekyll
+
       - name: Deploy 🚀
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository_owner == 'maplibre'
         uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
