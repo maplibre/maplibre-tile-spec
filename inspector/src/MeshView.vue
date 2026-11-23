@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { MltColumnTile } from "./annotate.ts";
-import { meshScene } from "./geometry.ts";
+import { type MeshColumn, meshColumns, meshScene } from "./geometry.ts";
 
 const props = defineProps<{
   /** The decoded columns, whose `Meshes` layers the view draws. */
@@ -18,10 +18,31 @@ const props = defineProps<{
 const box = ref<HTMLElement | null>(null);
 const { width, height } = useElementSize(box);
 
-const scene = computed(() =>
-  meshScene(props.columns, props.layer, props.metresPerUnit),
+/** The m-value columns the meshes can be coloured by. */
+const columns = computed(() => meshColumns(props.columns, props.layer));
+const picked = ref<MeshColumn | null>(null);
+/** The picked column while the meshes have it, else the first, a triangle column when there is one. */
+const column = computed(
+  () =>
+    columns.value.find(
+      (c) => c.name === picked.value?.name && c.scope === picked.value?.scope,
+    ) ??
+    columns.value[0] ??
+    null,
 );
-const triangles = computed(() => scene.value.hues.length);
+const pickedIndex = computed({
+  get: () => (column.value ? columns.value.indexOf(column.value) : -1),
+  set: (at: number) => {
+    picked.value = columns.value[at] ?? null;
+  },
+});
+
+const labelOf = (c: MeshColumn) => `${c.name} (per ${c.scope})`;
+
+const scene = computed(() =>
+  meshScene(props.columns, props.layer, props.metresPerUnit, column.value),
+);
+const triangles = computed(() => scene.value.positions.length / 9);
 
 /** The palette lives in CSS, so the view reads it back rather than repeating it. */
 function palette(el: HTMLElement): THREE.Color[] {
@@ -53,16 +74,14 @@ function render() {
   renderer?.render(world, camera);
 }
 
-/** Paint each triangle the CSS hue of its part, so the mesh matches the legend. */
+/** Paint each corner the CSS hue of its value in the picked column, so the mesh matches the legend. */
 function paint() {
   if (!box.value) return;
   const colours = palette(box.value);
   const { hues } = scene.value;
-  const rgb = new Float32Array(hues.length * 9);
-  hues.forEach((hue, t) => {
-    const c = colours[hue] ?? colours[colours.length - 1];
-    for (let corner = 0; corner < 3; corner++)
-      c.toArray(rgb, (t * 3 + corner) * 3);
+  const rgb = new Float32Array(hues.length * 3);
+  hues.forEach((hue, corner) => {
+    (colours[hue] ?? colours[colours.length - 1]).toArray(rgb, corner * 3);
   });
   mesh.geometry.setAttribute("color", new THREE.BufferAttribute(rgb, 3));
 }
@@ -162,7 +181,12 @@ onBeforeUnmount(() => {
   renderer?.domElement.remove();
 });
 
-watch(scene, rebuild);
+watch(() => [props.columns, props.layer, props.metresPerUnit], rebuild);
+// Another column only repaints, so the camera stays where it was turned to.
+watch(column, () => {
+  paint();
+  render();
+});
 
 // The docs toggle and the OS scheme both end in `data-theme`, which swaps the CSS hues.
 useMutationObserver(
@@ -186,15 +210,29 @@ watch([width, height], ([w, h]) => {
 <template>
   <section ref="box" class="mesh">
     <p v-if="triangles === 0" class="none">this tile draws no meshes</p>
-    <ul v-if="scene.legend.length > 0" class="legend">
-      <li v-for="entry in scene.legend" :key="entry.value">
-        <span
-          class="swatch"
-          :style="{ background: `var(--hue-${entry.hue})` }"
-        />
-        {{ entry.value }}
-      </li>
-    </ul>
+    <div v-if="column" class="legend">
+      <label v-if="columns.length > 1" class="pick">
+        <select v-model="pickedIndex" aria-label="colour the meshes by">
+          <option
+            v-for="(each, at) in columns"
+            :key="labelOf(each)"
+            :value="at"
+          >
+            {{ labelOf(each) }}
+          </option>
+        </select>
+      </label>
+      <p v-else class="title">{{ labelOf(column) }}</p>
+      <ul>
+        <li v-for="entry in scene.legend" :key="entry.value">
+          <span
+            class="swatch"
+            :style="{ background: `var(--hue-${entry.hue})` }"
+          />
+          {{ entry.value }}
+        </li>
+      </ul>
+    </div>
   </section>
 </template>
 
@@ -231,6 +269,44 @@ watch([width, height], ([w, h]) => {
   background: var(--control);
   font-size: 0.72rem;
   pointer-events: none;
+}
+.title {
+  margin: 0 0 var(--pad-tight);
+  color: var(--muted);
+}
+.pick {
+  position: relative;
+  display: block;
+  margin-bottom: var(--pad-tight);
+  pointer-events: auto;
+}
+select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+  cursor: pointer;
+  /* The native caret sits against the border whatever the padding is, so the label draws its own. */
+  appearance: none;
+  padding: 0.2rem 1.6rem 0.2rem 0.5rem;
+}
+.pick::after {
+  content: "";
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+.legend ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .legend li {
   display: flex;

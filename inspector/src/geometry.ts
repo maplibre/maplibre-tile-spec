@@ -118,47 +118,96 @@ function valueAt(column: MltMValueColumn, at: number): unknown {
     : column.values[at];
 }
 
-/**
- * One hue per triangle of each `Meshes` layer with a triangle column, from its first such column.
- * Values are numbered tile-wide in first-seen order, so a value keeps its hue across meshes.
- * A triangle of a mesh without values in the column gets `PALETTE_SIZE`, the hue past the palette.
- */
-export function triangleHues(
-  tile: MltColumnTile,
-): Map<MltColumnLayer, number[]> {
-  return categorise(tile).hues;
+/** Whether an m-value column holds one value per vertex or one per triangle of a mesh. */
+export type MValueScope = "vertex" | "triangle";
+
+/** An m-value column a 3D view can colour its meshes by. */
+export interface MeshColumn {
+  name: string;
+  scope: MValueScope;
 }
 
-/** `triangleHues`, plus every triangle value in the order it was numbered. */
-function categorise(tile: MltColumnTile): {
+/** The `Meshes` layers of the tile, or only those named `layer` when one is scoped. */
+function meshLayers(tile: MltColumnTile, layer: string | null) {
+  return tile.layers.filter(
+    (each) =>
+      each.geometry.layout === "meshes" &&
+      (layer === null || each.name === layer),
+  );
+}
+
+/** The m-value columns of the meshes in scope, triangle columns first, each name and scope once. */
+export function meshColumns(
+  tile: MltColumnTile,
+  layer: string | null,
+): MeshColumn[] {
+  const columns: MeshColumn[] = [];
+  const layers = meshLayers(tile, layer);
+  for (const scope of ["triangle", "vertex"] as const)
+    for (const each of layers)
+      for (const { name } of columnsOf(each, scope))
+        if (!columns.some((c) => c.name === name && c.scope === scope))
+          columns.push({ name, scope });
+  return columns;
+}
+
+function columnsOf(layer: MltColumnLayer, scope: MValueScope) {
+  return scope === "triangle" ? layer.triangleValues : layer.vertexValues;
+}
+
+/**
+ * One hue per triangle corner of each `Meshes` layer holding `column`.
+ * Values are numbered tile-wide in first-seen order, so a value keeps its hue across meshes.
+ * A corner of a mesh without values in the column gets `PALETTE_SIZE`, the hue past the palette.
+ */
+function categorise(
+  tile: MltColumnTile,
+  column: MeshColumn | null,
+): {
   hues: Map<MltColumnLayer, number[]>;
   values: unknown[];
 } {
   const categories = new Map<unknown, number>();
   const hues = new Map<MltColumnLayer, number[]>();
+  if (column === null) return { hues, values: [] };
+  const hueOf = (value: unknown) => {
+    let category = categories.get(value);
+    if (category === undefined) {
+      category = categories.size;
+      categories.set(value, category);
+    }
+    return category % PALETTE_SIZE;
+  };
   for (const layer of tile.layers) {
-    const { layout, triangleOffsets } = layer.geometry;
-    const column = layer.triangleValues[0];
-    if (layout !== "meshes" || triangleOffsets === undefined || !column)
+    const { layout, triangleOffsets, geometryOffsets, indexBuffer } =
+      layer.geometry;
+    const values = columnsOf(layer, column.scope).find(
+      (c) => c.name === column.name,
+    );
+    if (layout !== "meshes" || !triangleOffsets || !indexBuffer || !values)
       continue;
     const own: number[] = [];
     for (let f = 0; f < layer.featureCount; f++) {
-      const count = triangleOffsets[f + 1] - triangleOffsets[f];
-      const start = column.offsets[f];
-      const covered = column.offsets[f + 1] - start === count;
-      for (let t = 0; t < count; t++) {
-        if (!covered) {
-          own.push(PALETTE_SIZE);
-          continue;
+      const first = triangleOffsets[f];
+      const count = triangleOffsets[f + 1] - first;
+      const start = values.offsets[f];
+      const held = values.offsets[f + 1] - start;
+      if (column.scope === "triangle") {
+        for (let t = 0; t < count; t++) {
+          const hue =
+            held === count ? hueOf(valueAt(values, start + t)) : PALETTE_SIZE;
+          own.push(hue, hue, hue);
         }
-        const value = valueAt(column, start + t);
-        let category = categories.get(value);
-        if (category === undefined) {
-          category = categories.size;
-          categories.set(value, category);
-        }
-        own.push(category % PALETTE_SIZE);
+        continue;
       }
+      const base = geometryOffsets?.[f] ?? 0;
+      const vertices = (geometryOffsets?.[f + 1] ?? 0) - base;
+      for (let at = first * 3; at < (first + count) * 3; at++)
+        own.push(
+          held === vertices
+            ? hueOf(valueAt(values, start + indexBuffer[at] - base))
+            : PALETTE_SIZE,
+        );
     }
     hues.set(layer, own);
   }
@@ -167,20 +216,16 @@ function categorise(tile: MltColumnTile): {
 
 /** Whether the tile has a `Meshes` layer, named `layer` when one is given. */
 export function hasMeshes(tile: MltColumnTile, layer: string | null): boolean {
-  return tile.layers.some(
-    (each) =>
-      each.geometry.layout === "meshes" &&
-      (layer === null || each.name === layer),
-  );
+  return meshLayers(tile, layer).length > 0;
 }
 
-/** Positions and per-triangle hues of the meshes a 3D view draws. */
+/** Positions and per-corner hues of the meshes a 3D view draws. */
 export interface MeshScene {
   /** Three corners per triangle, each `x, height, y` in tile units, so `y` grows south as in the tile. */
   positions: Float32Array;
-  /** One per triangle, from `triangleHues`, or `PALETTE_SIZE` for a triangle without a triangle column. */
+  /** One per corner, by its value in the picked column, or `PALETTE_SIZE` for a corner without one. */
   hues: Uint8Array;
-  /** Each triangle value of the tile and the hue it is drawn in. */
+  /** Each value of the picked column and the hue it is drawn in. */
   legend: { value: string; hue: number }[];
 }
 
@@ -192,41 +237,39 @@ export function widestExtent(tile: MltColumnTile): number {
 }
 
 /**
- * The triangles of every `Meshes` layer, or only of `layer` when one is scoped.
+ * The triangles of every `Meshes` layer, or only of `layer` when one is scoped, coloured by `column`.
  * Every layer is brought onto `widestExtent`, whose unit `metresPerUnit` measures.
  */
 export function meshScene(
   tile: MltColumnTile,
   layer: string | null,
   metresPerUnit: number,
+  column: MeshColumn | null,
 ): MeshScene {
-  const { hues, values } = categorise(tile);
+  const { hues, values } = categorise(tile, column);
   const extent = widestExtent(tile);
   const positions: number[] = [];
-  const triangleHue: number[] = [];
-  for (const each of tile.layers) {
-    if (layer !== null && each.name !== layer) continue;
+  const cornerHue: number[] = [];
+  for (const each of meshLayers(tile, layer)) {
     const geometry = each.geometry;
-    if (geometry.layout !== "meshes" || geometry.dimension !== 3) continue;
+    if (geometry.dimension !== 3) continue;
     const { vertices, indexBuffer = new Uint32Array(), zStep } = geometry;
     const step = 10 ** zStep;
     const scale = extent / each.extent;
     const own = hues.get(each);
-    for (let t = 0; t < indexBuffer.length / 3; t++) {
-      for (let corner = 0; corner < 3; corner++) {
-        const at = indexBuffer[t * 3 + corner] * 3;
-        positions.push(
-          vertices[at] * scale,
-          (vertices[at + 2] * step) / metresPerUnit,
-          vertices[at + 1] * scale,
-        );
-      }
-      triangleHue.push(own?.[t] ?? PALETTE_SIZE);
-    }
+    indexBuffer.forEach((vertex, corner) => {
+      const at = vertex * 3;
+      positions.push(
+        vertices[at] * scale,
+        (vertices[at + 2] * step) / metresPerUnit,
+        vertices[at + 1] * scale,
+      );
+      cornerHue.push(own?.[corner] ?? PALETTE_SIZE);
+    });
   }
   return {
     positions: Float32Array.from(positions),
-    hues: Uint8Array.from(triangleHue),
+    hues: Uint8Array.from(cornerHue),
     legend: values.map((value, at) => ({
       value: String(value),
       hue: at % PALETTE_SIZE,

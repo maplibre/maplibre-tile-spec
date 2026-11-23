@@ -12,10 +12,10 @@ import {
   hueOf,
   layerOf,
   layersOf,
+  meshColumns,
   meshScene,
   metresPerUnit,
   runsOf,
-  triangleHues,
   vertexCount,
   widestExtent,
 } from "./geometry.ts";
@@ -249,7 +249,7 @@ function meshLayer(
   name: string,
   meshes: Mesh[],
   triangleValues: MltMValueColumn[] = [],
-  { extent = 4096, zStep = 0 } = {},
+  { extent = 4096, zStep = 0, vertexValues = [] as MltMValueColumn[] } = {},
 ): MltColumnLayer {
   const geometryOffsets = [0];
   const triangleOffsets = [0];
@@ -279,71 +279,41 @@ function meshLayer(
       indexBuffer: Uint32Array.from(indices),
     },
     properties: [],
-    vertexValues: [],
+    vertexValues,
     triangleValues,
   };
 }
 
 const tileOf = (...layers: MltColumnLayer[]): MltColumnTile => ({ layers });
 
-describe("triangleHues", () => {
-  it("numbers triangle values tile-wide in first-seen order, so a value keeps its hue across meshes", () => {
-    const houses = meshLayer(
-      "houses",
-      [mesh(3)],
-      [strings("surface", [["roof", "wall", "roof"]])],
+describe("meshColumns", () => {
+  it("lists the triangle columns before the vertex columns of the meshes in scope, each once", () => {
+    const house = meshLayer(
+      "buildings",
+      [mesh(1)],
+      [strings("part", [["roof"]])],
+      { vertexValues: [strings("shade", [["a", "b", "c"]])] },
     );
-    const sheds = meshLayer(
-      "sheds",
-      [mesh(2)],
-      [strings("surface", [["ground", "wall"]])],
+    const shed = meshLayer(
+      "buildings",
+      [mesh(1)],
+      [strings("part", [["wall"]]), strings("material", [["wood"]])],
     );
-    const hues = triangleHues(tileOf(houses, sheds));
-    expect(hues.get(houses)).toEqual([0, 1, 0]);
-    expect(hues.get(sheds)).toEqual([2, 1]);
-  });
-
-  it("cycles past the six palette hues", () => {
-    const values = ["a", "b", "c", "d", "e", "f", "g"];
-    const tower = meshLayer("tower", [mesh(7)], [strings("part", [values])]);
-    expect(triangleHues(tileOf(tower)).get(tower)).toEqual([
-      0, 1, 2, 3, 4, 5, 0,
+    const tree = meshLayer("trees", [mesh(1)], [strings("species", [["oak"]])]);
+    expect(meshColumns(tileOf(house, shed, tree), "buildings")).toEqual([
+      { name: "part", scope: "triangle" },
+      { name: "material", scope: "triangle" },
+      { name: "shade", scope: "vertex" },
     ]);
   });
 
-  it("colours by a layer's first triangle column", () => {
-    const house = meshLayer(
-      "house",
-      [mesh(2)],
-      [
-        strings("material", [["brick", "brick"]]),
-        strings("surface", [["roof", "wall"]]),
-      ],
-    );
-    expect(triangleHues(tileOf(house)).get(house)).toEqual([0, 0]);
-  });
-
-  it("gives the hue past the palette to the triangles of a mesh without values in the column", () => {
-    const street = meshLayer(
-      "street",
-      [mesh(1), mesh(2)],
-      [strings("surface", [undefined, ["roof", "wall"]])],
-    );
-    expect(triangleHues(tileOf(street)).get(street)).toEqual([6, 0, 1]);
-  });
-
-  it("leaves out a layer without a triangle column, and one that is not meshes", () => {
-    const plain = meshLayer("plain", [mesh(2)]);
-    const meshes = meshLayer(
-      "outlines",
-      [mesh(1)],
-      [strings("surface", [["roof"]])],
-    );
+  it("leaves out the columns of a layer that is not meshes", () => {
+    const meshes = meshLayer("roads", [mesh(1)], [strings("lane", [["a"]])]);
     const outlines = {
       ...meshes,
       geometry: { ...meshes.geometry, layout: "outlines" as const },
     };
-    expect(triangleHues(tileOf(plain, outlines)).size).toBe(0);
+    expect(meshColumns(tileOf(outlines), null)).toEqual([]);
   });
 });
 
@@ -376,6 +346,8 @@ describe("hasMeshes", () => {
   });
 });
 
+const SURFACE = { name: "surface", scope: "triangle" } as const;
+
 describe("meshScene", () => {
   it("lays mesh triangles out as x, height in tile units, y, with each triangle's hue", () => {
     const house = meshLayer(
@@ -384,20 +356,103 @@ describe("meshScene", () => {
       [strings("surface", [["roof", "wall"]])],
       { zStep: -1 },
     );
-    const scene = meshScene(tileOf(house), null, 2);
+    const scene = meshScene(tileOf(house), null, 2, SURFACE);
     expect(Array.from(scene.positions)).toEqual([
       0, 0, 0, 0, 0, 1, 1, 0.25, 0, 1, 0, 0, 1, 0, 1, 2, 0.25, 0,
     ]);
-    expect(Array.from(scene.hues)).toEqual([0, 1]);
+    expect(Array.from(scene.hues)).toEqual([0, 0, 0, 1, 1, 1]);
     expect(scene.legend).toEqual([
       { value: "roof", hue: 0 },
       { value: "wall", hue: 1 },
     ]);
   });
 
+  it("numbers values tile-wide in first-seen order, so a value keeps its hue across meshes", () => {
+    const houses = meshLayer(
+      "houses",
+      [mesh(3)],
+      [strings("surface", [["roof", "wall", "roof"]])],
+    );
+    const sheds = meshLayer(
+      "sheds",
+      [mesh(2)],
+      [strings("surface", [["ground", "wall"]])],
+    );
+    const scene = meshScene(tileOf(houses, sheds), null, 1, SURFACE);
+    expect(Array.from(scene.hues)).toEqual([
+      0, 0, 0, 1, 1, 1, 0, 0, 0, 2, 2, 2, 1, 1, 1,
+    ]);
+  });
+
+  it("cycles past the six palette hues", () => {
+    const values = ["a", "b", "c", "d", "e", "f", "g"];
+    const tower = meshLayer("tower", [mesh(7)], [strings("part", [values])]);
+    const scene = meshScene(tileOf(tower), null, 1, {
+      name: "part",
+      scope: "triangle",
+    });
+    expect(Array.from(scene.hues).filter((_, at) => at % 3 === 0)).toEqual([
+      0, 1, 2, 3, 4, 5, 0,
+    ]);
+  });
+
+  it("colours by the picked triangle column", () => {
+    const house = meshLayer(
+      "house",
+      [mesh(2)],
+      [
+        strings("material", [["brick", "brick"]]),
+        strings("surface", [["roof", "wall"]]),
+      ],
+    );
+    expect(Array.from(meshScene(tileOf(house), null, 1, SURFACE).hues)).toEqual(
+      [0, 0, 0, 1, 1, 1],
+    );
+    expect(
+      Array.from(
+        meshScene(tileOf(house), null, 1, {
+          name: "material",
+          scope: "triangle",
+        }).hues,
+      ),
+    ).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+
+  it("colours each corner by its vertex in a vertex column", () => {
+    const street = meshLayer("buildings", [mesh(1), mesh(1)], [], {
+      vertexValues: [
+        strings("shade", [
+          ["dark", "light", "dark"],
+          ["light", "light", "mid"],
+        ]),
+      ],
+    });
+    const scene = meshScene(tileOf(street), null, 1, {
+      name: "shade",
+      scope: "vertex",
+    });
+    expect(Array.from(scene.hues)).toEqual([0, 1, 0, 1, 1, 2]);
+    expect(scene.legend.map((entry) => entry.value)).toEqual([
+      "dark",
+      "light",
+      "mid",
+    ]);
+  });
+
+  it("gives the hue past the palette to the triangles of a mesh without values in the column", () => {
+    const street = meshLayer(
+      "street",
+      [mesh(1), mesh(2)],
+      [strings("surface", [undefined, ["roof", "wall"]])],
+    );
+    expect(
+      Array.from(meshScene(tileOf(street), null, 1, SURFACE).hues),
+    ).toEqual([6, 6, 6, 0, 0, 0, 1, 1, 1]);
+  });
+
   it("reads each mesh's triangles from the layer-wide index buffer", () => {
     const street = meshLayer("buildings", [mesh(1), mesh(1)]);
-    const scene = meshScene(tileOf(street), null, 1);
+    const scene = meshScene(tileOf(street), null, 1, null);
     expect(Array.from(scene.positions)).toEqual([
       0, 0, 0, 0, 0, 1, 1, 5, 0, 0, 0, 0, 0, 0, 1, 1, 5, 0,
     ]);
@@ -411,24 +466,29 @@ describe("meshScene", () => {
       geometry: { ...house.geometry, layout: "outlines" as const },
     };
     expect(
-      meshScene(tileOf(house, shed, outline), "sheds", 1).positions,
+      meshScene(tileOf(house, shed, outline), "sheds", 1, null).positions,
     ).toEqual(new Float32Array([0, 0, 0, 0, 0, 1, 1, 5, 0]));
-    expect(meshScene(tileOf(outline), null, 1).positions.length).toBe(0);
+    expect(meshScene(tileOf(outline), null, 1, null).positions.length).toBe(0);
   });
 
   it("brings every layer onto the widest extent, heights included", () => {
     const fine = meshLayer("fine", [mesh(1)], [], { extent: 8192 });
     const coarse = meshLayer("coarse", [mesh(1)], [], { extent: 4096 });
-    const scene = meshScene(tileOf(fine, coarse), null, 0.5);
+    const scene = meshScene(tileOf(fine, coarse), null, 0.5, null);
     expect(Array.from(scene.positions)).toEqual([
       0, 0, 0, 0, 0, 1, 1, 10, 0, 0, 0, 0, 0, 0, 2, 2, 10, 0,
     ]);
   });
 
-  it("gives a triangle without a triangle column the hue past the palette", () => {
-    const plain = meshLayer("buildings", [mesh(1)]);
-    const scene = meshScene(tileOf(plain), null, 1);
-    expect(Array.from(scene.hues)).toEqual([6]);
+  it("gives every triangle the hue past the palette when no column is picked", () => {
+    const house = meshLayer(
+      "buildings",
+      [mesh(1)],
+      [strings("surface", [["roof"]])],
+    );
+    const scene = meshScene(tileOf(house), null, 1, null);
+    expect(Array.from(scene.hues)).toEqual([6, 6, 6]);
+    expect(scene.legend).toEqual([]);
   });
 });
 
