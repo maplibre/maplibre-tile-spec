@@ -503,7 +503,7 @@ impl ConvertArgs {
                 .input
                 .file_name()
                 .and_then(|s| s.to_str())
-                .and_then(|s| s.strip_suffix(".city.json"))
+                .and_then(|s| city::strip_suffix_ignore_case(s, city::CITYJSON_SUFFIX))
                 .or_else(|| self.input.file_stem().and_then(|s| s.to_str()))
                 .map(str::to_owned)
                 .with_context(|| {

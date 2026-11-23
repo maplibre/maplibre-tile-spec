@@ -36,6 +36,17 @@ const DEFAULT_Z_STEP: i8 = -2;
 /// How far, in degrees, a file must lie from the other files in the CRS it names to be read in the CRS most files name.
 const MISLABELLED_MIN_DEGREES: f64 = 1.0;
 
+/// The suffix of a `CityJSON` file name, in any case.
+pub(super) const CITYJSON_SUFFIX: &str = ".city.json";
+
+/// `name` without `suffix`, compared ignoring ASCII case, or `None` if it does not end in it.
+pub(super) fn strip_suffix_ignore_case<'a>(name: &'a str, suffix: &str) -> Option<&'a str> {
+    let at = name.len().checked_sub(suffix.len())?;
+    name.get(at..)?
+        .eq_ignore_ascii_case(suffix)
+        .then(|| &name[..at])
+}
+
 /// The format of a city model file.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Format {
@@ -47,13 +58,8 @@ impl Format {
     /// The format of the file `path` by its name: `.gml` or `.xml` for `CityGML`, `.city.json` for `CityJSON`.
     fn of_file(path: &Path) -> Option<Self> {
         let name = path.file_name()?.to_str()?;
-        let ends_with = |suffix: &str| {
-            name.len()
-                .checked_sub(suffix.len())
-                .and_then(|at| name.get(at..))
-                .is_some_and(|end| end.eq_ignore_ascii_case(suffix))
-        };
-        if ends_with(".city.json") {
+        let ends_with = |suffix: &str| strip_suffix_ignore_case(name, suffix).is_some();
+        if ends_with(CITYJSON_SUFFIX) {
             Some(Self::CityJson)
         } else if ends_with(".gml") || ends_with(".xml") {
             Some(Self::CityGml)
@@ -133,10 +139,12 @@ fn city_files(input: &Path) -> AnyResult<Vec<(PathBuf, Format)>> {
         .collect()
 }
 
-/// The buildings of a file, the CRS they were read in, and the file's first position in it.
+/// The buildings of a file, the CRS they were read in, and the file's first position in its own axis order.
 struct SourceFile {
     epsg: u16,
     first: [f64; 3],
+    /// Whether `first` is longitude first if read in a geographic CRS.
+    lon_first: bool,
     buildings: Vec<Building>,
 }
 
@@ -179,13 +187,14 @@ impl Reader<'_> {
             epsg_of_srs_name(crs)
                 .with_context(|| format!("the {member} {crs:?} names no EPSG code"))?
         };
+        let Some(first) = document.first() else {
+            return Ok(None);
+        };
+        let lon_first = document.lon_first;
         let reprojector = Reprojector::new(epsg)?;
         if reprojector.geographic && document.lon_first {
             document.swap_axes();
         }
-        let Some(first) = document.first() else {
-            return Ok(None);
-        };
         let mut triangulator = Triangulator::default();
         let mut buildings = Vec::with_capacity(document.city_objects.len());
         for object in document.city_objects {
@@ -208,6 +217,7 @@ impl Reader<'_> {
         Ok(Some(SourceFile {
             epsg,
             first,
+            lon_first,
             buildings,
         }))
     }
@@ -331,16 +341,20 @@ fn mislabelled(files: &[Option<SourceFile>]) -> AnyResult<Vec<Mislabelled>> {
         .keys()
         .map(|&epsg| Ok((epsg, Reprojector::new(epsg)?)))
         .collect::<AnyResult<_>>()?;
-    let degrees = |epsg: u16, p: [f64; 3]| {
-        let mut points = [p];
-        reprojectors[&epsg].to_geodetic(&mut points).ok()?;
+    let degrees = |epsg: u16, file: &SourceFile| {
+        let reprojector = &reprojectors[&epsg];
+        let mut points = [file.first];
+        if reprojector.geographic && file.lon_first {
+            points[0].swap(0, 1);
+        }
+        reprojector.to_geodetic(&mut points).ok()?;
         Some([points[0][0].to_degrees(), points[0][1].to_degrees()])
     };
     let (mut lons, mut lats): (Vec<f64>, Vec<f64>) = files
         .iter()
         .flatten()
         .filter(|f| f.epsg == common)
-        .filter_map(|f| degrees(common, f.first))
+        .filter_map(|f| degrees(common, f))
         .map(|[lon, lat]| (lon, lat))
         .unzip();
     let (Some(lon), Some(lat)) = (median(&mut lons), median(&mut lats)) else {
@@ -356,8 +370,8 @@ fn mislabelled(files: &[Option<SourceFile>]) -> AnyResult<Vec<Mislabelled>> {
         .enumerate()
         .filter_map(|(index, file)| {
             let file = file.as_ref().filter(|f| f.epsg != common)?;
-            let off = distance(degrees(file.epsg, file.first));
-            let near = distance(degrees(common, file.first));
+            let off = distance(degrees(file.epsg, file));
+            let near = distance(degrees(common, file));
             (off > MISLABELLED_MIN_DEGREES && near < off / 4.0).then_some(Mislabelled {
                 index,
                 declared: file.epsg,

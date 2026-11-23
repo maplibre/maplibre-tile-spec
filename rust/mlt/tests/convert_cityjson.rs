@@ -726,6 +726,68 @@ fn a_cityjson_file_naming_the_wrong_utm_zone_is_read_in_that_of_the_others() {
 }
 
 #[test]
+fn a_cityjson_file_naming_a_projected_crs_for_longitude_first_degrees_is_read_in_the_geographic_crs_of_the_others()
+ {
+    let dir = TempDir::new();
+    let house = |id| {
+        let faces = box_faces(2, [35.68, 139.76, 3.0], [35.6802, 139.7603, 23.0])
+            .into_iter()
+            .map(|f| {
+                let ring: Vec<[f64; 3]> = f.exterior.iter().map(|&[a, b, c]| [b, a, c]).collect();
+                face(f.semantic, f.lod, &ring)
+            })
+            .collect();
+        [model(id, faces)]
+    };
+    dir.write("in/a.city.json", &to_cityjson("EPSG:4326", &house("a")));
+    dir.write("in/b.city.json", &to_cityjson("EPSG:4326", &house("b")));
+    dir.write("in/c.city.json", &to_cityjson("EPSG:3857", &house("c")));
+    let output = dir.0.join("out");
+    let out = mlt_convert(
+        &dir.0.join("in"),
+        &output,
+        &[
+            "--mlt-version",
+            "2",
+            "--max-zoom",
+            "16",
+            "--fix-mislabelled-crs",
+        ],
+    );
+    assert!(out.status.success(), "{}", stderr_of(&dir, &out));
+    insta::assert_snapshot!(stderr_of(&dir, &out), @"
+    warning: [TMP]/in/c.city.json names EPSG:3857, but its coordinates lie near the other files in EPSG:4326, so it is read in that
+    [TMP]/in -> [TMP]/out: wrote 5 tile(s) holding 3 building(s) of 3 file(s) at zooms 0..=16
+    ");
+    insta::assert_snapshot!(tiles(&output, 16), @"
+    16/58210/25806 extent=32768
+      id=0 gml_id=a x=17418..19208 y=28432..29901 z=0..2000 vertices=8 wall=8 roof=2 ground=2 closed roof_area=2629510 outward
+      id=1 gml_id=b x=17418..19208 y=28432..29901 z=0..2000 vertices=8 wall=8 roof=2 ground=2 closed roof_area=2629510 outward
+      id=2 gml_id=c x=17418..19208 y=28432..29901 z=0..2000 vertices=8 wall=8 roof=2 ground=2 closed roof_area=2629510 outward
+    ");
+}
+
+#[test]
+fn an_upper_case_city_json_suffix_is_left_out_of_the_layer_name() {
+    let dir = TempDir::new();
+    let tower = model(
+        "tower",
+        box_faces(2, [E, N, 6.5], [E + 20.0, N + 20.0, 66.5]),
+    );
+    let input = dir.write("Hamburg.CITY.JSON", &to_cityjson("EPSG:25832", &[tower]));
+    let output = dir.0.join("out");
+    convert(&input, &output, &["--mlt-version", "2", "--max-zoom", "16"]);
+    let bytes = fs::read(output.join("16/34588/21180.mlt")).unwrap();
+    let layer = Parser::default()
+        .parse_layers(&bytes)
+        .unwrap()
+        .pop()
+        .unwrap();
+    let layer = layer.into_tile(&mut Decoder::default()).unwrap().unwrap();
+    assert_eq!(layer.name(), "Hamburg");
+}
+
+#[test]
 fn a_broken_cityjson_file_fails_naming_what_is_wrong() {
     let dir = TempDir::new();
     let house = || {
