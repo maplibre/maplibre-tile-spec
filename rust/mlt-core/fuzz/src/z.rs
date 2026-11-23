@@ -12,8 +12,9 @@ use crate::roundtrip::{decode, encode_decode};
 
 /// A layer of every geometry type whose vertices carry z, encoded as v2.
 ///
-/// Stripping z must decode to what the layer decodes to without it, z must survive wherever the geometry does,
-/// and re-staging the decoded layer must be a fixpoint.
+/// Stripping z must decode to what the layer decodes to without it, up to Auto's choice to tessellate when
+/// triangles-only drops the outlines. z must survive wherever the geometry does, and re-staging the decoded layer
+/// must be a fixpoint.
 pub struct ZInput {
     pub geometries: Vec<Geometry<i32>>,
     pub axis: ZAxis,
@@ -123,12 +124,27 @@ impl ZInput {
             with_z.push_feature(feature).expect("a z feature");
         }
 
-        let Some(flat) = encode(&flat, cfg) else {
+        let Some(flat_decoded) = encode(&flat, cfg) else {
             return;
         };
         let decoded = encode(&with_z, cfg).expect("z encodes wherever the flat layer does");
         assert_eq!(decoded.z_axis(), Some(self.axis));
-        assert_eq!(strip_z(&decoded), flat, "z changed the decoded geometry");
+        let stripped = strip_z(&decoded);
+        // Auto prices triangles per layer, and z adds to every vertex's bytes, so the z layer may store
+        // triangles where the flat one does not, or the reverse. Triangles-only shows that choice in the geometry.
+        if stripped != flat_decoded
+            && matches!(cfg.tessellation(), Tessellation::Auto(..))
+            && cfg.allow_triangles_only()
+        {
+            assert!(
+                [Tessellation::Off, Tessellation::Always]
+                    .into_iter()
+                    .any(|t| encode(&flat, cfg.with_tessellation(t)).as_ref() == Some(&stripped)),
+                "z changed the decoded geometry beyond the choice to tessellate"
+            );
+        } else {
+            assert_eq!(stripped, flat_decoded, "z changed the decoded geometry");
+        }
 
         for (feature, (geometry, z)) in decoded
             .features()
