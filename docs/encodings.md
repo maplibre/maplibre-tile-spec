@@ -451,34 +451,10 @@ Bits past `count` in the final byte are padding and MUST be ignored.
     byte:   0b0010_1101 = 0x2D
     ```
 
-### Runs <span class="experimental"></span> {#bool-runs}
-
-Alternating run lengths as varints.
-The first counts the leading `0` bits and can be `0`.
-The lengths MUST sum to `count`.
-Runs is best for a bitfield that is set over contiguous blocks of values.
-
-```
-values:  [0, 0, 1, 1, 1, 0]
-payload: 02 03 01              2 zeros, 3 ones, 1 zero
-```
-
-### Sparse <span class="experimental"></span> {#bool-sparse}
-
-A summary bitmap with one bit per byte of the [bitmap](#bitmap), set where that byte is not zero, followed by the non-zero bytes in order.
-The summary is `ceil(ceil(count / 8) / 8)` bytes, and its bits past the last bitmap byte MUST be `0`.
-A stored byte MUST NOT be `0`.
-Sparse is best for a bitfield whose set bits are rare and do not clump.
-
-```
-bitmap:  00 2D 00              24 values
-summary: 02                    only byte 1 is non-zero
-payload: 02 2D
-```
-
 ### Boolean RLE {#boolean-rle}
 
-v1 compresses the [bitmap](#bitmap) with the byte-level run-length encoding of [ORC](https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding).
+The [bitmap](#bitmap) compressed with the byte-level run-length encoding of [ORC](https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding).
+v1 uses it for Present and boolean streams, and v2 for the `Bool` family's code `1`.
 The payload is a sequence of runs, each a control byte followed by the bytes it describes.
 
 [View example](inspector/app/?fixture=0x01%2Fids_opt.mlt&at=present){target=_blank .inspector-example} - five ids, one of them missing, as byte runs.
@@ -507,6 +483,8 @@ A payload that expands to more, or ends before that, MUST be rejected.
 
 The v1 stream header carries no `runs` or `num_rle_values` for a boolean stream.
 Both follow from `num_values`.
+
+v2 stores no length or run count either.
 
 ## Float Streams
 

@@ -53,7 +53,7 @@ pub enum DecodeHint {
     /// A raw LSB0 bitfield, not a stream: `ceil(num_values/8)` packed bytes.
     #[cfg(feature = "unstable-v2")]
     PackedBits,
-    /// Presence bits that are not laid out as bits: runs, or a list of indices.
+    /// Presence bits stored as Boolean RLE rather than laid out as bits.
     #[cfg(feature = "unstable-v2")]
     PresenceCoded(PresenceCoding),
     /// A rANS vertex payload, which only decodes with the layer's topology, so its parts are shown instead.

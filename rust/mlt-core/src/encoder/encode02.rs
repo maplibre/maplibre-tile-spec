@@ -61,6 +61,8 @@ pub(crate) struct SharedPresence {
     codings: Vec<PresenceCoding>,
     /// Wire index of each mask, for resolving a column's nibble.
     index: HashMap<Vec<bool>, u8>,
+    /// Whether a bitfield may be stored as Boolean RLE.
+    allow_rle: bool,
 }
 
 impl SharedPresence {
@@ -70,6 +72,7 @@ impl SharedPresence {
         properties: &[StagedProperty],
         nested: &[StagedNested],
         m_values: &[StagedMValue],
+        allow_rle: bool,
     ) -> Self {
         // (column count, index of the first column with this mask) per mask.
         let mut groups: HashMap<Vec<bool>, (usize, usize)> = HashMap::new();
@@ -102,11 +105,15 @@ impl SharedPresence {
                 )
             })
             .collect();
-        let codings = masks.iter().map(|m| presence_coding::smallest(m)).collect();
+        let codings = masks
+            .iter()
+            .map(|m| presence_coding::smallest(m, allow_rle))
+            .collect();
         Self {
             masks,
             codings,
             index,
+            allow_rle,
         }
     }
 
@@ -115,7 +122,7 @@ impl SharedPresence {
         u8::try_from(self.masks.len()).expect("at most MAX_SHARED_PRESENCE masks")
     }
 
-    /// Whether any mask codes smaller than a bitmap, which is what earns every
+    /// Whether any mask is stored as Boolean RLE, which is what earns every
     /// shared bitfield a byte naming its coding.
     fn coded(&self) -> bool {
         self.codings.iter().any(|&c| c != PresenceCoding::Bitmap)
@@ -125,7 +132,7 @@ impl SharedPresence {
     /// another column has the same mask, the column's own bitfield otherwise.
     pub(crate) fn nibble_for(&self, mask: &[bool]) -> Presence02 {
         self.index.get(mask).map_or_else(
-            || Presence02::Inline(presence_coding::smallest(mask)),
+            || Presence02::Inline(presence_coding::smallest(mask, self.allow_rle)),
             |&i| Presence02::Shared(i),
         )
     }
@@ -244,7 +251,13 @@ pub(crate) fn encode_into02(
     enc.count_context = Count02::Implied(feature_count);
 
     // ── Layer layout byte + shared presence bitfields ─────────────────────
-    let shared = SharedPresence::plan(&id, &properties, &nested, &m_values);
+    let shared = SharedPresence::plan(
+        &id,
+        &properties,
+        &nested,
+        &m_values,
+        enc.config().allow_presence_rle(),
+    );
     // An m-value column reads its vertex counts from the outlines.
     let outlines = if enc.config().allow_triangles_only() && m_values.is_empty() {
         Outlines::DropForPolygons
@@ -388,7 +401,7 @@ fn write_bool_stream02(
     values: &[bool],
     stream_type: StreamType,
 ) -> MltResult<()> {
-    let coding = presence_coding::smallest(values);
+    let coding = presence_coding::smallest(values, enc.config().allow_presence_rle());
     let mut packed = Vec::with_capacity(presence_coding::size(values, coding));
     presence_coding::write(&mut packed, values, coding);
     let meta = StreamMeta::new2(

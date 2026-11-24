@@ -8935,6 +8935,64 @@ public class mlt_ffi_h {
         }
     }
 
+    private static class MltEncoderOptions_set_allow_presence_rle {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            mlt_ffi_h.C_POINTER,
+            mlt_ffi_h.C_BOOL
+        );
+
+        public static final MemorySegment ADDR = mlt_ffi_h.findOrThrow("MltEncoderOptions_set_allow_presence_rle");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void MltEncoderOptions_set_allow_presence_rle(MltEncoderOptions *self, bool enabled)
+     * }
+     */
+    public static FunctionDescriptor MltEncoderOptions_set_allow_presence_rle$descriptor() {
+        return MltEncoderOptions_set_allow_presence_rle.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void MltEncoderOptions_set_allow_presence_rle(MltEncoderOptions *self, bool enabled)
+     * }
+     */
+    public static MethodHandle MltEncoderOptions_set_allow_presence_rle$handle() {
+        return MltEncoderOptions_set_allow_presence_rle.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void MltEncoderOptions_set_allow_presence_rle(MltEncoderOptions *self, bool enabled)
+     * }
+     */
+    public static MemorySegment MltEncoderOptions_set_allow_presence_rle$address() {
+        return MltEncoderOptions_set_allow_presence_rle.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void MltEncoderOptions_set_allow_presence_rle(MltEncoderOptions *self, bool enabled)
+     * }
+     */
+    public static void MltEncoderOptions_set_allow_presence_rle(MemorySegment self, boolean enabled) {
+        var mh$ = MltEncoderOptions_set_allow_presence_rle.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("MltEncoderOptions_set_allow_presence_rle", self, enabled);
+            }
+            mh$.invokeExact(self, enabled);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class MltEncoderOptions_set_allow_float_alp {
         public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
             mlt_ffi_h.C_POINTER,

@@ -213,3 +213,25 @@ fn the_fast_encoding_preset_allows_no_rans_vertices_under_v2() {
         EncoderConfig::from_profile(Profile::FastEncoding).with_wire_version(WireVersion::V02);
     assert!(!fast_v2.allow_rans_vertices());
 }
+
+#[rstest::rstest]
+#[case::native(Profile::Native(Network::Cellular4G), true)]
+#[case::web(Profile::Web(Network::Cellular4G), false)]
+#[case::min_size(Profile::MinSize, true)]
+#[case::diffable(Profile::Diffable, false)]
+#[case::fast_encoding(Profile::FastEncoding, false)]
+fn a_preset_allows_presence_rle_under_v2_as_documented(
+    #[case] profile: Profile,
+    #[case] allowed: bool,
+) {
+    let v2 = EncoderConfig::from_profile(profile).with_wire_version(WireVersion::V02);
+    assert_eq!(v2.allow_presence_rle(), allowed);
+}
+
+#[rstest::rstest]
+#[case::native(Profile::Native(Network::Cellular4G))]
+#[case::min_size(Profile::MinSize)]
+fn a_preset_allows_no_presence_rle_under_v1(#[case] profile: Profile) {
+    let v1 = EncoderConfig::from_profile(profile).with_wire_version(WireVersion::V01);
+    assert!(!v1.allow_presence_rle());
+}

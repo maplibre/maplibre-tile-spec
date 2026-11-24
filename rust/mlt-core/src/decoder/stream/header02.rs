@@ -88,8 +88,6 @@ pub(crate) enum Logical {
     Delta2,
     CwDelta2,
     Rans,
-    Runs,
-    Sparse,
 }
 
 /// How a string column lays its streams out, named by the extension bits of its leading stream.
@@ -180,7 +178,7 @@ impl Family {
                 L::BitPacked,
                 L::Delta2,
             ],
-            Self::Bool => &[L::None, L::Runs, L::Sparse],
+            Self::Bool => &[L::None, L::Rle],
             Self::Float(_) => &[L::None, L::Rle, L::Alp],
             Self::Vertex => &[
                 L::None,
@@ -549,9 +547,7 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
         | Logical::Alp
         | Logical::FrontCoded
         | Logical::CwDelta2
-        | Logical::Rans
-        | Logical::Runs
-        | Logical::Sparse => unreachable_member(family, logical),
+        | Logical::Rans => unreachable_member(family, logical),
     })
 }
 
@@ -594,17 +590,13 @@ impl Encoding02 {
                     | Logical::BitPacked
                     | Logical::Delta2
                     | Logical::CwDelta2
-                    | Logical::Rans
-                    | Logical::Runs
-                    | Logical::Sparse => unreachable_member(family, logical),
+                    | Logical::Rans => unreachable_member(family, logical),
                 })
             }
             Family::Bool => Self::Bool(match logical {
                 Logical::None => logical_bool(enc_byte, PresenceCoding::Bitmap)?,
-                Logical::Runs => logical_bool(enc_byte, PresenceCoding::Runs)?,
-                Logical::Sparse => logical_bool(enc_byte, PresenceCoding::Sparse)?,
-                Logical::Rle
-                | Logical::Delta
+                Logical::Rle => logical_bool(enc_byte, PresenceCoding::ByteRle)?,
+                Logical::Delta
                 | Logical::CwDelta
                 | Logical::DeltaRle
                 | Logical::Morton
@@ -627,9 +619,7 @@ impl Encoding02 {
                 | Logical::BitPacked
                 | Logical::Delta2
                 | Logical::CwDelta2
-                | Logical::Rans
-                | Logical::Runs
-                | Logical::Sparse => unreachable_member(family, logical),
+                | Logical::Rans => unreachable_member(family, logical),
             }),
             Family::Vertex if enc_byte & EXTENSION_MASK == XYZ => Self::Xyz(match logical {
                 Logical::None => LogicalXyz::None(raw_int(enc_byte)?),
@@ -644,9 +634,7 @@ impl Encoding02 {
                 | Logical::Alp
                 | Logical::FrontCoded
                 | Logical::BitPacked
-                | Logical::Delta2
-                | Logical::Runs
-                | Logical::Sparse => unreachable_member(family, logical),
+                | Logical::Delta2 => unreachable_member(family, logical),
             }),
             Family::Vertex => Self::Vertex(match logical {
                 _ if enc_byte & EXTENSION_MASK != 0 => {
@@ -666,9 +654,7 @@ impl Encoding02 {
                 | Logical::Alp
                 | Logical::FrontCoded
                 | Logical::BitPacked
-                | Logical::Delta2
-                | Logical::Runs
-                | Logical::Sparse => unreachable_member(family, logical),
+                | Logical::Delta2 => unreachable_member(family, logical),
             }),
         })
     }
@@ -691,9 +677,9 @@ impl Encoding02 {
             }
             Self::Int(LogicalInt::Delta2(_)) => Logical::Delta2,
             Self::Vertex(LogicalVertex::CwDelta2(_)) => Logical::CwDelta2,
-            Self::Bool(LogicalBool(PresenceCoding::Runs)) => Logical::Runs,
-            Self::Bool(LogicalBool(PresenceCoding::Sparse)) => Logical::Sparse,
-            Self::Int(LogicalInt::Rle) => Logical::Rle,
+            Self::Bool(LogicalBool(PresenceCoding::ByteRle)) | Self::Int(LogicalInt::Rle) => {
+                Logical::Rle
+            }
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
             Self::Int(LogicalInt::BitPacked) => Logical::BitPacked,
             Self::Vertex(LogicalVertex::Morton(_)) => Logical::Morton,
@@ -1023,7 +1009,7 @@ fn wire_fields(
         }
         // Scaled integers are an integer stream, whatever the column's type is.
         LE::Float(FL::Alp(_)) => with_length(Logical::Alp, physical_int_field(encoding.physical)?),
-        LE::Bool(coding @ (BL::None | BL::Runs | BL::Sparse)) => {
+        LE::Bool(coding @ (BL::None | BL::SelfDelimitedByteRle)) => {
             if encoding.physical != PhysicalEncoding::None {
                 return Err(MltError::UnsupportedPhysicalEncoding(
                     "v2 bool streams, which every coding delimits itself",
@@ -1031,8 +1017,7 @@ fn wire_fields(
             }
             WireFields {
                 logical: match coding {
-                    BL::Runs => Logical::Runs,
-                    BL::Sparse => Logical::Sparse,
+                    BL::SelfDelimitedByteRle => Logical::Rle,
                     BL::None | BL::ByteRle(_) => Logical::None,
                 },
                 physical_bits: NO_LEN,
@@ -1042,7 +1027,7 @@ fn wire_fields(
         LE::Bool(BL::ByteRle(_)) => {
             return Err(MltError::UnsupportedLogicalEncoding(
                 encoding.logical,
-                "v2, whose bool columns have no byte-RLE",
+                "v2, whose byte-RLE bool columns delimit themselves",
             ));
         }
         // v2 stores Morton codes only as a sorted dictionary, whose deltas are always the shorter form.
@@ -1309,8 +1294,7 @@ mod tests {
     #[case::int_rle(INT_FAMILY, Logical::Rle, 0b010)]
     #[case::int_delta_rle(INT_FAMILY, Logical::DeltaRle, 0b011)]
     #[case::bool_none(Family::Bool, Logical::None, 0b000)]
-    #[case::bool_runs(Family::Bool, Logical::Runs, 0b001)]
-    #[case::bool_sparse(Family::Bool, Logical::Sparse, 0b010)]
+    #[case::bool_byte_rle(Family::Bool, Logical::Rle, 0b001)]
     #[case::float_none(FLOAT_FAMILY, Logical::None, 0b000)]
     #[case::float_rle(FLOAT_FAMILY, Logical::Rle, 0b001)]
     #[case::float_alp(FLOAT_FAMILY, Logical::Alp, 0b010)]
@@ -1675,8 +1659,7 @@ mod tests {
     )]
     #[case::bitmap(boolean(BoolLogical::None, PE::None, 9), BOOL, &[0b1010_1010, 1], &[0b1000_0000, 9])]
     #[case::bitmap_of_no_bits(boolean(BoolLogical::None, PE::None, 0), BOOL, &[], &[0b1000_0000, 0])]
-    #[case::runs(boolean(BoolLogical::Runs, PE::None, 9), BOOL, &[0, 9], &[0b1001_0000, 9])]
-    #[case::sparse(boolean(BoolLogical::Sparse, PE::None, 9), BOOL, &[0b10, 1], &[0b1010_0000, 9])]
+    #[case::byte_rle(boolean(BoolLogical::SelfDelimitedByteRle, PE::None, 9), BOOL, &[0xFE, 0xAA, 0x01], &[0b1001_0000, 9])]
     #[case::vertex_pairs(
         vertex(VertexLogical::None, PE::None, 2),
         VERTEX,
@@ -1717,7 +1700,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case::unassigned_code(0b0011_0000)]
+    #[case::code_two(0b0010_0000)]
+    #[case::code_three(0b0011_0000)]
     #[case::physical_field(0b0000_0100)]
     #[case::extension_bits(0b0000_0001)]
     fn parse_rejects_a_bool_encoding_byte_that_names_no_coding(#[case] enc_byte: u8) {
@@ -1957,8 +1941,10 @@ mod tests {
     }
 
     #[rstest]
-    #[case::explicit_count(HAS_EXPLICIT_COUNT | shared_coding_byte(PresenceCoding::Runs))]
-    #[case::physical_field(shared_coding_byte(PresenceCoding::Runs) | PhysicalInt::VarInt as u8)]
+    #[case::explicit_count(HAS_EXPLICIT_COUNT | shared_coding_byte(PresenceCoding::ByteRle))]
+    #[case::physical_field(shared_coding_byte(PresenceCoding::ByteRle) | PhysicalInt::VarInt as u8)]
+    #[case::code_two(0x20)]
+    #[case::code_three(0x30)]
     fn a_shared_bitfield_byte_that_names_no_coding_is_rejected(#[case] byte: u8) {
         assert_eq!(shared_coding(byte), None);
     }
@@ -1969,7 +1955,10 @@ mod tests {
         INT_FAMILY
     )]
     #[case::varint_floats(float(FloatLogical::None, PE::VarInt, 5), FLOAT_FAMILY)]
-    #[case::varint_bools(boolean(BoolLogical::Runs, PE::VarInt, 5), Family::Bool)]
+    #[case::varint_bools(
+        boolean(BoolLogical::SelfDelimitedByteRle, PE::VarInt, 5),
+        Family::Bool
+    )]
     #[case::varint_rans(vertex(VertexLogical::Rans, PE::VarInt, 5), Family::Vertex)]
     #[case::rle_without_varint(int(IntLogical::Rle(rle(5)), PE::None, 5), INT_FAMILY)]
     fn write_rejects_a_physical_codec_the_encoding_cannot_carry(

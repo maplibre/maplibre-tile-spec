@@ -356,10 +356,6 @@ pub enum MltError {
     RleRunLenInvalid(i128),
     #[error("presence runs overflow the {0} features they cover")]
     PresenceRunOverflow(u32),
-    #[error("sparse presence summary names bytes past the bitmap of {0} features")]
-    PresenceSparseSummary(u32),
-    #[error("sparse presence stores a zero byte within {0} features")]
-    PresenceSparseByte(u32),
     #[error("unknown presence coding byte: 0x{0:02X}")]
     PresenceCodingByte(u8),
 

@@ -1761,39 +1761,32 @@ fn mask_of(len: usize, present: impl Fn(usize) -> bool) -> String {
 
 /// One fixture per presence coding, each over a mask that coding stores smallest.
 ///
-/// The three compete by size on every column, so a mask is what picks the coding:
-/// scattered bits over few features favor the bitmap, one block of present features
-/// favors runs, and scattered bytes of alternating bits among empty ones favor the
-/// sparse bitmap.
+/// The two compete by size on every column, so a mask is what picks the coding:
+/// scattered bits over few features favor the bitmap, and long blocks of absent or present features favor Boolean RLE.
 ///
 /// v2 only: v1 has one way of storing presence and nothing here would vary it.
 fn generate_presence_codings(w: &mut SynthWriter) {
     let e = E::varint();
 
-    // Eight features, every other one present. Runs would take a varint each,
-    // where the whole bitmap is one byte.
+    // Eight features, every other one present. Boolean RLE would take a literal run
+    // and its byte, where the whole bitmap is one byte.
     let scattered = mask_of(8, |i| i % 2 == 0);
     masked_points(&scattered)
         .no_v1()
         .add_prop(e, P::opt_u32("val", masked(&scattered)))
         .write(w, "presence_bitmap");
 
-    // One block of present features: three runs against a 25-byte bitmap.
+    // Long blocks of absent and present features, whose 0xFF bytes outlast one 130-byte run.
+    let long_block = mask_of(2000, |i| (100..1900).contains(&i));
+    masked_points(&long_block)
+        .no_v1()
+        .add_prop(e, P::opt_u32("val", masked(&long_block)))
+        .write(w, "presence_rle");
+
+    // One block of present features: a handful of runs against a 25-byte bitmap.
     let block = mask_of(200, |i| (50..150).contains(&i));
-    masked_points(&block)
-        .no_v1()
-        .add_prop(e, P::opt_u32("val", masked(&block)))
-        .write(w, "presence_runs");
 
-    // Twenty alternating bytes among two hundred and forty empty ones: a 30-byte summary
-    // and twenty bytes against a 240-byte bitmap, with runs far larger still.
-    let clustered = mask_of(1920, |i| (i / 8) % 12 == 5 && i % 2 == 0);
-    masked_points(&clustered)
-        .no_v1()
-        .add_prop(e, P::opt_u32("val", masked(&clustered)))
-        .write(w, "presence_sparse");
-
-    // All three in one layer, which is what a column-by-column choice is for:
+    // Both in one layer, which is what a column-by-column choice is for:
     // a layer's columns do not agree on how their nulls are shaped.
     masked_points(&block)
         .no_v1()
@@ -1801,14 +1794,7 @@ fn generate_presence_codings(w: &mut SynthWriter) {
             e,
             P::opt_u32("bitmap", masked(&mask_of(200, |i| i % 2 == 0))),
         )
-        .add_prop(e, P::opt_u32("runs", masked(&block)))
-        .add_prop(
-            e,
-            P::opt_u32(
-                "sparse",
-                masked(&mask_of(200, |i| (i / 8) % 12 == 5 && i % 2 == 0)),
-            ),
-        )
+        .add_prop(e, P::opt_u32("rle", masked(&block)))
         .add_prop(e, P::u32("always", vec![7; block.len()]))
         .write(w, "presence_mixed");
 
@@ -1817,18 +1803,13 @@ fn generate_presence_codings(w: &mut SynthWriter) {
     masked_points(&block)
         .no_v1()
         .add_prop(e, P::bool("flag", bools(&block)))
-        .write(w, "bool_runs");
-    masked_points(&clustered)
-        .no_v1()
-        .add_prop(e, P::bool("flag", bools(&clustered)))
-        .write(w, "bool_sparse");
+        .write(w, "bool_rle");
 
-    // The same three codings again, this time on shared fields, which name their
+    // The same two codings again, this time on shared fields, which name their
     // coding in a byte of their own rather than in a column's nibble.
     for (name, mask) in [
         ("presence_shared_bitmap", &scattered),
-        ("presence_shared_runs", &block),
-        ("presence_shared_sparse", &clustered),
+        ("presence_shared_rle", &block),
     ] {
         masked_points(mask)
             .no_v1()

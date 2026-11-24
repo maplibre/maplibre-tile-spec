@@ -41,6 +41,8 @@ void MltEncoderOptions_set_allow_triangles_only(diplomat::capi::MltEncoderOption
 
 void MltEncoderOptions_set_allow_delta2(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
+void MltEncoderOptions_set_allow_presence_rle(diplomat::capi::MltEncoderOptions* self, bool enabled);
+
 void MltEncoderOptions_set_allow_float_alp(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_set_allow_packed_dict_codes(diplomat::capi::MltEncoderOptions* self, bool enabled);
@@ -98,6 +100,10 @@ inline void MltEncoderOptions::set_allow_triangles_only(bool enabled) {
 
 inline void MltEncoderOptions::set_allow_delta2(bool enabled) {
     diplomat::capi::MltEncoderOptions_set_allow_delta2(this->AsFFI(), enabled);
+}
+
+inline void MltEncoderOptions::set_allow_presence_rle(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_allow_presence_rle(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_allow_float_alp(bool enabled) {

@@ -29,7 +29,7 @@ impl<'a> RawStream<'a> {
     /// - tag `0x01` (`logical = Rle`): byte-RLE compressed bitmap, decompressed
     ///   into an owned `BitVec`.
     /// - `logical = None`: raw bitmap, borrowed straight from the tile bytes.
-    /// - tag `0x02` (`logical = Runs` or `Sparse`): the presence codings, built into an owned `BitVec`.
+    /// - tag `0x02` (`logical = SelfDelimitedByteRle`): Boolean RLE, built into an owned `BitVec`.
     ///
     /// The result is always exactly `num_values` bits.
     pub(crate) fn decode_bitvec(self, dec: &mut Decoder) -> MltResult<Cow<'a, BitSlice<u8, Lsb0>>> {
@@ -50,11 +50,13 @@ impl<'a> RawStream<'a> {
                 Ok(Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values]))
             }
             #[cfg(feature = "unstable-v2")]
-            LogicalEncoding::Bool(logical @ (BoolLogical::Runs | BoolLogical::Sparse)) => {
-                let coding = PresenceCoding::of_logical(logical)
-                    .expect("runs and sparse are presence codings");
-                let (rest, bits) =
-                    presence_coding::read(self.data, self.meta.num_values, coding, dec)?;
+            LogicalEncoding::Bool(BoolLogical::SelfDelimitedByteRle) => {
+                let (rest, bits) = presence_coding::read(
+                    self.data,
+                    self.meta.num_values,
+                    PresenceCoding::ByteRle,
+                    dec,
+                )?;
                 fail_if_invalid_stream_size(self.data.len() - rest.len(), self.data.len())?;
                 Ok(bits)
             }

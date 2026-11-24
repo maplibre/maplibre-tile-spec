@@ -326,10 +326,10 @@ pub(crate) fn write_stream_meta<W: io::Write>(
                 "v1, which has no rANS vertex coding",
             ));
         }
-        LE::Bool(BL::Runs | BL::Sparse) => {
+        LE::Bool(BL::SelfDelimitedByteRle) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
-                "v1, whose bool streams are bitmaps or byte-RLE",
+                "v1, whose byte-RLE bool streams carry header counts",
             ));
         }
     };
@@ -381,7 +381,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         #[cfg(feature = "unstable-v2")]
         LE::Vertex(VL::Xyz(..)) => {}
         LE::Int(IL::Delta2) | LE::Vertex(VL::ComponentwiseDelta2 | VL::Rans) => {}
-        LE::Bool(BL::Runs | BL::Sparse) => {}
+        LE::Bool(BL::SelfDelimitedByteRle) => {}
     }
     Ok(())
 }
@@ -698,13 +698,9 @@ mod tests {
         LogicalEncoding::Vertex(VertexLogical::Rans),
         "unsupported logical encoding Vertex(Rans) for v1, which has no rANS vertex coding"
     )]
-    #[case::runs(
-        LogicalEncoding::Bool(BoolLogical::Runs),
-        "unsupported logical encoding Bool(Runs) for v1, whose bool streams are bitmaps or byte-RLE"
-    )]
-    #[case::sparse(
-        LogicalEncoding::Bool(BoolLogical::Sparse),
-        "unsupported logical encoding Bool(Sparse) for v1, whose bool streams are bitmaps or byte-RLE"
+    #[case::self_delimited_byte_rle(
+        LogicalEncoding::Bool(BoolLogical::SelfDelimitedByteRle),
+        "unsupported logical encoding Bool(SelfDelimitedByteRle) for v1, whose byte-RLE bool streams carry header counts"
     )]
     fn write_rejects_a_v2_logical_encoding(
         #[case] logical: LogicalEncoding,
