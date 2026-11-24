@@ -99,28 +99,6 @@ pub fn encode_zigzag_delta2<'a, T: Copy + ZigZag + WrappingSub<Output = T>>(
     target
 }
 
-/// [`encode_zigzag_delta2`] over each component of interleaved `(x, y)` pairs.
-#[cfg(feature = "unstable-v2")]
-pub fn encode_componentwise_delta2_vec2s<'a, T>(
-    data: &[T],
-    target: &'a mut Vec<T::UInt>,
-) -> &'a [T::UInt]
-where
-    T: ZigZag + WrappingSub,
-{
-    target.clear();
-    target.reserve(data.len());
-    let (mut prev, mut prev_delta) = ([T::zero(); 2], [T::zero(); 2]);
-    for pair in data.as_chunks::<2>().0 {
-        for c in 0..2 {
-            let delta = pair[c].wrapping_sub(&prev[c]);
-            target.push(T::encode(delta.wrapping_sub(&prev_delta[c])));
-            (prev[c], prev_delta[c]) = (pair[c], delta);
-        }
-    }
-    target
-}
-
 /// ZigZag-decode a slice, charging `dec` for the output allocation.
 pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt], dec: &mut Decoder) -> MltResult<Vec<T>> {
     dec.consume_items::<T>(data.len())?;
@@ -157,26 +135,6 @@ pub fn decode_zigzag_delta2<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: 
             value.as_()
         })
         .collect())
-}
-
-/// Invert the componentwise zigzag deltas of the deltas.
-pub fn decode_componentwise_delta2_vec2s<T: ZigZag + WrappingAdd>(
-    data: &[T::UInt],
-    dec: &mut Decoder,
-) -> MltResult<Vec<T>> {
-    if !data.len().is_multiple_of(2) {
-        return Err(InvalidPairStreamSize(data.len()));
-    }
-    let mut result = dec.alloc(data.len())?;
-    let (mut value, mut delta) = ([T::zero(); 2], [T::zero(); 2]);
-    for pair in data.as_chunks::<2>().0 {
-        for c in 0..2 {
-            delta[c] = delta[c].wrapping_add(&T::decode(pair[c]));
-            value[c] = value[c].wrapping_add(&delta[c]);
-            result.push(value[c]);
-        }
-    }
-    Ok(result)
 }
 
 /// Decode ([`ZigZag`] + delta) for Vec2s, charging `dec` for the output allocation.
@@ -277,15 +235,6 @@ mod tests {
             let mut encoded = Vec::new();
             encode_zigzag_delta2(&data, &mut encoded);
             prop_assert_eq!(decode_zigzag_delta2::<i64, i64>(&encoded, &mut dec()).unwrap(), data);
-        }
-
-        #[cfg(feature = "unstable-v2")]
-        #[test]
-        fn componentwise_delta2_round_trips(data: Vec<(i32, i32)>) {
-            let flat: Vec<i32> = data.iter().flat_map(|&(x, y)| [x, y]).collect();
-            let mut encoded = Vec::new();
-            encode_componentwise_delta2_vec2s(&flat, &mut encoded);
-            prop_assert_eq!(decode_componentwise_delta2_vec2s::<i32>(&encoded, &mut dec()).unwrap(), flat);
         }
 
         #[test]

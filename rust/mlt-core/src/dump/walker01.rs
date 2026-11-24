@@ -415,10 +415,7 @@ impl<'a> Walker<'a> {
             | LogicalEncoding::Bool(_)
             | LogicalEncoding::Float(_)
             | LogicalEncoding::Vertex(
-                VertexLogical::None
-                | VertexLogical::Delta
-                | VertexLogical::ComponentwiseDelta
-                | VertexLogical::ComponentwiseDelta2,
+                VertexLogical::None | VertexLogical::Delta | VertexLogical::ComponentwiseDelta,
             ) => {}
             // A v1 header never parses into one.
             #[cfg(feature = "unstable-v2")]

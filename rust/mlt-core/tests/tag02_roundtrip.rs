@@ -1834,17 +1834,13 @@ fn a_bool_column_over_long_runs_is_byte_rle_only_when_the_config_allows(
 
 mod delta2 {
     use mlt_core::test_helpers::stream_logicals;
-    use mlt_core::wire::{DictionaryType, IntLogical, LogicalEncoding, StreamType, VertexLogical};
+    use mlt_core::wire::{DictionaryType, IntLogical, LogicalEncoding, StreamType};
     use mlt_core::{MValue, PropKind};
 
     use super::*;
 
     fn cfg_delta2() -> EncoderConfig {
         cfg_v2().with_delta2(true)
-    }
-
-    fn vertex_logicals(bytes: &[u8]) -> Vec<LogicalEncoding> {
-        stream_logicals(bytes, StreamType::Data(DictionaryType::Vertex))
     }
 
     fn data_logicals(bytes: &[u8]) -> Vec<LogicalEncoding> {
@@ -1873,29 +1869,6 @@ mod delta2 {
             feature.finish().unwrap();
         }
         builder.finish()
-    }
-
-    #[test]
-    fn smooth_vertices_take_second_order_deltas_and_decode_unchanged() {
-        let l = layer(smooth_lines(), None, &[]);
-        let plain = l.encode(cfg_v2()).unwrap();
-        let delta2 = l.encode(cfg_delta2()).unwrap();
-        assert_eq!(
-            vertex_logicals(&plain),
-            [LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta)]
-        );
-        assert_eq!(
-            vertex_logicals(&delta2),
-            [LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2)]
-        );
-        assert!(
-            delta2.len() < plain.len(),
-            "{} vs {}",
-            delta2.len(),
-            plain.len()
-        );
-        assert_eq!(decode(&delta2).1, decode(&plain).1);
-        assert_dump_covers(&delta2);
     }
 
     #[test]
