@@ -246,6 +246,7 @@ fn meshes_and_their_triangle_values_survive_every_encoder_setting() {
     for cfg in [
         cfg_v2(),
         no_sort,
+        no_sort.with_chain_sort(true),
         cfg_v2().with_tessellation(Tessellation::Always),
         cfg_v2().with_tessellation(Tessellation::Off),
         cfg_v2().with_triangles_only(true),

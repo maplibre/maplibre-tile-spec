@@ -5,10 +5,10 @@ use rustc_hash::FxHashMap;
 
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
-use crate::decoder::GeometryValues;
 use crate::encoder::geometry::{GeometryStager, Grid};
 use crate::encoder::model::CurveParams;
 use crate::encoder::source::{LayerSource, Order};
+use crate::encoder::tile::empty_geometry;
 use crate::tile::TileLayer;
 
 /// Controls how features inside a layer are reordered before encoding.
@@ -133,7 +133,7 @@ fn chain(source: &impl LayerSource, vertex_sort: bool) -> Vec<u32> {
     let mut order = Vec::with_capacity(len);
     if let Some(mut grid) = Grid::new(&sites) {
         let mut next = vec![0_usize; sites.len()];
-        let mut values = GeometryValues::default();
+        let mut values = empty_geometry(source, false);
         let mut stager = GeometryStager::new(&mut values).vertex_sorted(vertex_sort);
         let mut at = Coord { x: 0, y: 0 };
         while let Some(site) = grid.nearest(&sites, at, |site| queues[site][next[site]]) {
