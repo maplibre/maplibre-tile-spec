@@ -684,7 +684,7 @@ Unlike a dictionary, it compresses strings that merely share substrings, such as
 It decodes quickly, since every code is one byte.
 FSST exists only in [MLT v1](specification/v1.md#string-columns).
 
-[View example](inspector/app/?fixture=0x01%2Fprops_offset_str_fsst_np.mlt){target=_blank .inspector-example} - a symbol table and the codes into it.
+[View example](inspector/app/?fixture=0x01%2Fprops_offset_str_fsst.mlt){target=_blank .inspector-example} - a symbol table and the codes into it.
 
 An FSST-compressed blob comes with two streams that carry its symbol table:
 
