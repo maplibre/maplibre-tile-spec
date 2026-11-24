@@ -100,6 +100,16 @@ IntegerEncodingResult encodeSignedIntegral(std::span<const TInt> values,
                                            bool preferConstRleWhenSingleRun) {
     auto plainEncoded = encode(values, isSigned);
 
+    // PLAIN never uses the other candidates, so skip them. Their deltas can also overflow TInt when the
+    // values span more than half of its range, such as Morton code deltas.
+    if (option == IntegerEncodingOption::PLAIN) {
+        return {.logicalLevelTechnique1 = LogicalLevelTechnique::NONE,
+                .logicalLevelTechnique2 = LogicalLevelTechnique::NONE,
+                .encodedValues = std::move(plainEncoded),
+                .numRuns = 0,
+                .physicalLevelEncodedValuesLength = static_cast<std::uint32_t>(values.size())};
+    }
+
     std::vector<TInt> deltaValues(values.size());
     TInt previousValue = 0;
     TInt previousDelta = 0;
