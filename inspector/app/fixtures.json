@@ -32699,45 +32699,6 @@
     }
   },
   {
-    "name": "mvalues_f32_dict.mlt",
-    "directory": "0x02",
-    "bytes": 67,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "line-string"
-      ],
-      "geomLayout": [
-        "lines"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [],
-      "mValue": [
-        "f32"
-      ],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]",
-        "length[parts]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
     "name": "mvalues_f64.mlt",
     "directory": "0x02",
     "bytes": 108,
@@ -36096,196 +36057,6 @@
     }
   },
   {
-    "name": "prop_f32_dict.mlt",
-    "directory": "0x02",
-    "bytes": 49,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f32?"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
-    "name": "prop_f32_dict_distinct_np.mlt",
-    "directory": "0x02",
-    "bytes": 65,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f32!"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
-    "name": "prop_f32_dict_nan_np.mlt",
-    "directory": "0x02",
-    "bytes": 44,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f32!"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
-    "name": "prop_f32_dict_np.mlt",
-    "directory": "0x02",
-    "bytes": 54,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f32!"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
-    "name": "prop_f32_dict_zeros_np.mlt",
-    "directory": "0x02",
-    "bytes": 44,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f32!"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
     "name": "prop_f32_max.mlt",
     "directory": "0x02",
     "bytes": 28,
@@ -37151,196 +36922,6 @@
       "logical": [
         "alp",
         "componentwise-delta"
-      ]
-    }
-  },
-  {
-    "name": "prop_f64_dict.mlt",
-    "directory": "0x02",
-    "bytes": 57,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f64?"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
-    "name": "prop_f64_dict_distinct_np.mlt",
-    "directory": "0x02",
-    "bytes": 89,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f64!"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
-    "name": "prop_f64_dict_nan_np.mlt",
-    "directory": "0x02",
-    "bytes": 52,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f64!"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
-    "name": "prop_f64_dict_np.mlt",
-    "directory": "0x02",
-    "bytes": 66,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f64!"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
-      ]
-    }
-  },
-  {
-    "name": "prop_f64_dict_zeros_np.mlt",
-    "directory": "0x02",
-    "bytes": 52,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points"
-      ],
-      "zStep": [],
-      "heightMode": [
-        "clamp-to-ground"
-      ],
-      "dataType": [
-        "f64!"
-      ],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data",
-        "data[single]",
-        "data[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta",
-        "dict"
       ]
     }
   },
@@ -56722,7 +56303,7 @@
   {
     "name": "4-12-6.mlt",
     "directory": "0x02-bing",
-    "bytes": 139495,
+    "bytes": 139566,
     "facets": {
       "extent": [
         "4096"
@@ -56786,7 +56367,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "dict",
         "rans",
         "rle"
       ]
@@ -56795,7 +56375,7 @@
   {
     "name": "4-13-6.mlt",
     "directory": "0x02-bing",
-    "bytes": 134164,
+    "bytes": 134211,
     "facets": {
       "extent": [
         "4096"
@@ -56864,7 +56444,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "dict",
         "rans",
         "rle",
         "runs"
@@ -56874,7 +56453,7 @@
   {
     "name": "4-8-5.mlt",
     "directory": "0x02-bing",
-    "bytes": 131586,
+    "bytes": 131716,
     "facets": {
       "extent": [
         "4096"
@@ -56945,7 +56524,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "dict",
         "morton-delta",
         "rans",
         "rle",
@@ -56956,7 +56534,7 @@
   {
     "name": "4-9-5.mlt",
     "directory": "0x02-bing",
-    "bytes": 46525,
+    "bytes": 46559,
     "facets": {
       "extent": [
         "4096"
@@ -57026,7 +56604,6 @@
         "componentwise-delta2",
         "delta",
         "delta-rle",
-        "dict",
         "rans",
         "rle",
         "runs"
@@ -57116,7 +56693,7 @@
   {
     "name": "5-16-11.mlt",
     "directory": "0x02-bing",
-    "bytes": 108695,
+    "bytes": 108699,
     "facets": {
       "extent": [
         "4096"
@@ -57184,7 +56761,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "dict",
         "rans",
         "rle",
         "runs"
@@ -57268,7 +56844,7 @@
   {
     "name": "5-17-10.mlt",
     "directory": "0x02-bing",
-    "bytes": 71667,
+    "bytes": 71766,
     "facets": {
       "extent": [
         "4096"
@@ -57337,7 +56913,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "dict",
         "rans",
         "rle",
         "runs"
@@ -57347,7 +56922,7 @@
   {
     "name": "5-17-11.mlt",
     "directory": "0x02-bing",
-    "bytes": 81026,
+    "bytes": 81192,
     "facets": {
       "extent": [
         "4096"
@@ -57412,11 +56987,11 @@
         "varint"
       ],
       "logical": [
+        "alp",
         "componentwise-delta",
         "componentwise-delta2",
         "delta",
         "delta-rle",
-        "dict",
         "rans",
         "rle",
         "runs"
@@ -57505,7 +57080,7 @@
   {
     "name": "6-32-22.mlt",
     "directory": "0x02-bing",
-    "bytes": 41975,
+    "bytes": 41993,
     "facets": {
       "extent": [
         "4096"
@@ -57573,7 +57148,6 @@
         "componentwise-delta2",
         "delta",
         "delta-rle",
-        "dict",
         "rans",
         "rle"
       ]
@@ -57582,7 +57156,7 @@
   {
     "name": "6-32-23.mlt",
     "directory": "0x02-bing",
-    "bytes": 37550,
+    "bytes": 37598,
     "facets": {
       "extent": [
         "4096"
@@ -57649,7 +57223,6 @@
         "delta",
         "delta-rle",
         "delta2",
-        "dict",
         "rans",
         "rle"
       ]
@@ -57813,7 +57386,7 @@
   {
     "name": "7-66-42.mlt",
     "directory": "0x02-bing",
-    "bytes": 85318,
+    "bytes": 85323,
     "facets": {
       "extent": [
         "4096"
@@ -57882,7 +57455,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "dict",
         "rans",
         "rle",
         "runs"
@@ -57892,7 +57464,7 @@
   {
     "name": "7-66-43.mlt",
     "directory": "0x02-bing",
-    "bytes": 81240,
+    "bytes": 81296,
     "facets": {
       "extent": [
         "4096"
@@ -57963,7 +57535,6 @@
         "delta",
         "delta-rle",
         "delta2",
-        "dict",
         "rans",
         "rle",
         "runs"
@@ -57973,7 +57544,7 @@
   {
     "name": "7-66-44.mlt",
     "directory": "0x02-bing",
-    "bytes": 80115,
+    "bytes": 80121,
     "facets": {
       "extent": [
         "4096"
@@ -58043,7 +57614,6 @@
         "componentwise-delta",
         "delta",
         "delta-rle",
-        "dict",
         "rans",
         "rle",
         "runs"

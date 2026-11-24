@@ -840,13 +840,6 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 <td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><code>--no-float-dict</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+0.0%</td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
 <td><code>--no-bitpacking</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+0.7%</td>
@@ -1099,13 +1092,6 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 <td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><code>--no-float-dict</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+0.0%</td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
 <td><code>--no-bitpacking</code></td>
 <td style="text-align: right;">-</td>
 <td style="text-align: right;">+0.3%</td>
@@ -1196,12 +1182,7 @@ This means that encodings that keep edits local beat ones that make the tile sma
 <tr>
 <td><code>--no-alp</code></td>
 <td>Depends</td>
-<td>ALP stores a column as offsets from its minimum at one decimal scale, so a new minimum or a finer value changes every offset. Without it, floats are stored raw or dictionary-coded, and raw floats change only where a value changes.</td>
-</tr>
-<tr>
-<td><code>--no-float-dict</code></td>
-<td>Depends</td>
-<td>The float dictionary numbers values in order of first appearance, so a new or removed value renumbers every value after it. <em>Good/bad for bsdiff may be different based on data.</em></td>
+<td>ALP stores a column as offsets from its minimum at one decimal scale, so a new minimum or a finer value changes every offset. Without it, floats are stored raw and change only where a value changes.</td>
 </tr>
 <tr>
 <td><code>--no-fastpfor</code></td>

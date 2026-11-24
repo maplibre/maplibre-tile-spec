@@ -3337,10 +3337,8 @@ There is no geometry code, since the geometry column is not a counted column.</p
 <p>A shared reference at or past the count in the layout byte MUST be rejected.</p>
 <p>The presence nibble determines the column's value count: <code>feature_count</code> for nibble <code>0</code>, otherwise the number of present values the field names.</p>
 <h3 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h3>
-<p>Boolean, integer and id columns have a single data stream.</p>
+<p>Boolean, integer, id, float and double columns have a single data stream.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprop_i32_delta_np.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - a non-optional <code>i32</code> column.</p>
-<p>A float or double column has a single data stream, unless its logical encoding is <code>Dict</code>.
-A <code>Dict</code> float column has a second stream holding the distinct values that the first stream's codes index into.</p>
 <h3 id="string-columns">String Columns<a class="headerlink" href="#string-columns" title="Link to this section">&para;</a></h3>
 <p>The extension bits of the leading stream's encoding byte give the column's layout:</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_str_plain_np.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - the plain layout: the lengths, then the strings back to back.</p>
@@ -4645,7 +4643,7 @@ A value whose keys hold different types is only a <code>Struct</code>.</p>
 <text class="muted small" x="598" y="374">3 String values</text>
 </svg></p>
 <h4 id="leaf-nodes">Leaf Nodes<a class="headerlink" href="#leaf-nodes" title="Link to this section">&para;</a></h4>
-<p><code>0x2</code>-<code>0xB</code>. A leaf holds exactly the data streams a <a href="#columns">column</a> of the same data type holds: one stream for a boolean or integer, one or two for a float, and the set its leading stream's extension bits name for a string.
+<p><code>0x2</code>-<code>0xB</code>. A leaf holds exactly the data streams a <a href="#columns">column</a> of the same data type holds: one stream for a boolean, integer or float, and the set its leading stream's extension bits name for a string.
 It reads them against its own count, and is otherwise identical to such a column.</p>
 <h4 id="where-nested-columns-may-appear">Where Nested Columns May Appear<a class="headerlink" href="#where-nested-columns-may-appear" title="Link to this section">&para;</a></h4>
 <table>
@@ -4901,7 +4899,7 @@ A whole feature's m-values can be null.</p>
 <p>An m-value column's value count is the sum of <code>vertex_count(f)</code>, or of <code>triangle_count(f)</code> for a triangle-scoped column, over the features whose presence bit is set, which is every feature under presence nibble <code>0</code>.</p>
 <p>That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count.
 An m-value column's leading data stream MUST set bit 7 of its <a href="#encoding-byte">encoding byte</a> and write the count explicitly.
-The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one.
+The remaining streams of a string column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one.
 An encoder SHOULD write an explicit count on every stream that can carry one, since none of those counts are implied here.
 A byte blob is the exception.
 Bit 7 MUST be <code>0</code>, and its count stays <code>byte_length</code>, as on any other column.
@@ -5020,7 +5018,7 @@ A tessellated layer that needs m-values uses <code>0xD</code>.</p>
 The implied count is:</p>
 <ul>
 <li><code>byte_length</code>, for a byte blob</li>
-<li>the leading stream's count, for every stream after the leading one of a <a href="#string-columns">string</a> stream set or a float <code>Dict</code> column</li>
+<li>the leading stream's count, for every stream after the leading one of a <a href="#string-columns">string</a> stream set</li>
 <li><code>feature_count</code>, for every stream of the <a href="#geometry-section">geometry section</a></li>
 <li><code>feature_count</code>, for the data stream of a column with presence nibble <code>0</code></li>
 <li>the number of present values the presence field names, for the data stream of any other column</li>
@@ -5129,7 +5127,7 @@ Each family numbers its own members from <code>0</code>.</p>
 <td>None</td>
 <td></td>
 <td><a href="../../encodings/#alp">Framed, Exception-Free ALP</a></td>
-<td>Dict</td>
+<td></td>
 <td></td>
 <td></td>
 </tr>
@@ -5164,7 +5162,7 @@ Its value count is its <a href="#value-count">implied count</a>, or the explicit
 Its physical field and extension bits MUST be <code>0</code>.
 It has no <code>byte_length</code>.</p>
 <h3 id="physical-field">Physical Field<a class="headerlink" href="#physical-field" title="Link to this section">&para;</a></h3>
-<p>For a stream of integer words, meaning the <code>Int</code>, <code>Str</code> and <code>Vertex</code> families and the code or scaled-integer stream of a <code>Float</code> <code>Dict</code> or <code>Alp</code> encoding:</p>
+<p>For a stream of integer words, meaning the <code>Int</code>, <code>Str</code> and <code>Vertex</code> families and the scaled-integer stream of a <code>Float</code> <code>Alp</code> encoding:</p>
 <table>
 <thead>
 <tr>

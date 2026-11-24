@@ -536,11 +536,9 @@ The presence nibble determines the column's value count: `feature_count` for nib
 
 ### Scalar Columns
 
-Boolean, integer and id columns have a single data stream.
+Boolean, integer, id, float and double columns have a single data stream.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32_delta_np.mlt&amp;at=column%5B0%5D>) - a non-optional `i32` column.
-
-A float or double column has a single data stream, unless its logical encoding is `Dict`. A `Dict` float column has a second stream holding the distinct values that the first stream's codes index into.
 
 ### String Columns
 
@@ -733,7 +731,7 @@ The first three `tags` of [`nested_map_shapes`](<#examples>), both ways:
 
 #### Leaf Nodes
 
-`0x2`-`0xB`. A leaf holds exactly the data streams a [column](<#columns>) of the same data type holds: one stream for a boolean or integer, one or two for a float, and the set its leading stream's extension bits name for a string. It reads them against its own count, and is otherwise identical to such a column.
+`0x2`-`0xB`. A leaf holds exactly the data streams a [column](<#columns>) of the same data type holds: one stream for a boolean, integer or float, and the set its leading stream's extension bits name for a string. It reads them against its own count, and is otherwise identical to such a column.
 
 #### Where Nested Columns May Appear
 
@@ -825,7 +823,7 @@ M-value columns are nullable at the feature level, not the vertex or triangle le
 
 An m-value column's value count is the sum of `vertex_count(f)`, or of `triangle_count(f)` for a triangle-scoped column, over the features whose presence bit is set, which is every feature under presence nibble `0`.
 
-That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count. An m-value column's leading data stream MUST set bit 7 of its [encoding byte](<#encoding-byte>) and write the count explicitly. The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one. An encoder SHOULD write an explicit count on every stream that can carry one, since none of those counts are implied here. A byte blob is the exception. Bit 7 MUST be `0`, and its count stays `byte_length`, as on any other column. A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.
+That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count. An m-value column's leading data stream MUST set bit 7 of its [encoding byte](<#encoding-byte>) and write the count explicitly. The remaining streams of a string column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one. An encoder SHOULD write an explicit count on every stream that can carry one, since none of those counts are implied here. A byte blob is the exception. Bit 7 MUST be `0`, and its count stays `byte_length`, as on any other column. A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.
 
 Values are one flat sequence across feature boundaries. Delta encoding and RLE run through them without a break at each feature.
 
@@ -869,7 +867,7 @@ The vertex stream of `z_mvalues`:
 Bit 7 is set only when the stream's value count differs from the implied count. The implied count is:
 
 - `byte_length`, for a byte blob
-- the leading stream's count, for every stream after the leading one of a [string](<#string-columns>) stream set or a float `Dict` column
+- the leading stream's count, for every stream after the leading one of a [string](<#string-columns>) stream set
 - `feature_count`, for every stream of the [geometry section](<#geometry-section>)
 - `feature_count`, for the data stream of a column with presence nibble `0`
 - the number of present values the presence field names, for the data stream of any other column
@@ -905,7 +903,7 @@ The logical encodings available to a stream depend on what it holds. Each family
 | **Int** | Lengths, offsets, ids, integer columns, geometry topology, nested list and map lengths | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Str** | A string column's leading stream | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Bool** | A boolean column's data stream, a nested node's presence stream | Bitmap | Runs | Sparse |  |  |  |
-| **Float** | A float or double column's data stream | None |  | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) | Dict |  |  |
+| **Float** | A float or double column's data stream | None |  | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) |  |  |  |
 | **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#componentwise-delta2>) | [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#rans>) |
 | **Bytes** | Byte blobs: string values, dictionaries, FSST symbol tables | None | [FrontCoded](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) |  |  |  |  |
 
@@ -917,7 +915,7 @@ A `Bool` stream holds one bit per value, in the [encoding](<#presence-encodings>
 
 ### Physical Field
 
-For a stream of integer words, meaning the `Int`, `Str` and `Vertex` families and the code or scaled-integer stream of a `Float` `Dict` or `Alp` encoding:
+For a stream of integer words, meaning the `Int`, `Str` and `Vertex` families and the scaled-integer stream of a `Float` `Alp` encoding:
 
 | Bits | Physical |
 | --- | --- |

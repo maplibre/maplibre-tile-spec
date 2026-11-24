@@ -42,7 +42,6 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 | `--sort none` | \+0.2% | \+0.2% | \+1% | 0% |
 | `--sort all` | \-0.4% | \-0.4% | \+1% | \+1% |
 | `--no-alp` | \- | \+0.0% | \- | 0% |
-| `--no-float-dict` | \- | \+0.0% | \- | 0% |
 | `--no-bitpacking` | \- | \+0.7% | \- | \+1% |
 | `--delta2` | \- | \-0.5% | \- | 0% |
 | `--rans-vertices` | \- | \-5.4% | \- | \+16% |
@@ -89,7 +88,6 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 | `--sort none` | \+0.1% | \+0.1% | \+1% | \+1% |
 | `--sort all` | \-0.1% | \-0.1% | \+1% | \+1% |
 | `--no-alp` | \- | \+0.1% | \- | 0% |
-| `--no-float-dict` | \- | \+0.0% | \- | 0% |
 | `--no-bitpacking` | \- | \+0.3% | \- | 0% |
 | `--delta2` | \- | \-0.6% | \- | \+1% |
 | `--rans-vertices` | \- | \-5.3% | \- | \+88% |
@@ -117,8 +115,7 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 > | `--no-shared-dict` | Use | One new string would renumber the dictionary shared by several columns. |
 > | `--no-fsst` | Use | FSST trains its symbol table on the column, so one changed string can change every compressed string. |
 > | `--fields` | Use | Numbers parsed out of strings are smaller as typed columns, and an edit changes only the values it touches. |
-> | `--no-alp` | Depends | ALP stores a column as offsets from its minimum at one decimal scale, so a new minimum or a finer value changes every offset. Without it, floats are stored raw or dictionary-coded, and raw floats change only where a value changes. |
-> | `--no-float-dict` | Depends | The float dictionary numbers values in order of first appearance, so a new or removed value renumbers every value after it. *Good/bad for bsdiff may be different based on data.* |
+> | `--no-alp` | Depends | ALP stores a column as offsets from its minimum at one decimal scale, so a new minimum or a finer value changes every offset. Without it, floats are stored raw and change only where a value changes. |
 > | `--no-fastpfor` | Likely Avoid | The patch stays the same, and the tiles grow. *Good/bad for bsdiff may be different based on data.* |
 > | `--rans-vertices` | Avoid | Every byte of the rANS stream after the first changed symbol differs, which roughly doubles the patch. |
 > | `--tile-compression gzip` | Avoid | Deflate output differs after the first change. If wanted, compress the patch instead. |

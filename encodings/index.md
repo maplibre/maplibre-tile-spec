@@ -424,22 +424,6 @@ base = -225:   offsets = [150, 250, 375, 0]
 
 The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload stores the four offsets as varints. See the [framed, exception-free ALP example](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#examples>) on the v2 page for the whole layer.
 
-### Float Dictionary
-
-The distinct values are stored once, and a stream of codes holds one index into them per element.
-
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_f32_dict_nan_np.mlt&amp;at=column%5B0%5D>) - repeated floats, `NaN` among them.
-
-The column has two streams. The first is the codes: an integer stream of 32-bit words, logical `Dict` in the `Float` family, with its own physical encoding. The second is the dictionary: [plain floats](<#plain-floats>), one per distinct value, with an explicit count in its header.
-
-```text
-values: [1.5, 0.25, 1.5, 1.5, 0.25]
-codes:  [0, 1, 0, 0, 1]
-dict:   [1.5, 0.25]
-```
-
-Entries are distinct by bit pattern. `-0.0` and `0.0` are two entries, and a `NaN` is never equal to any entry. A code at or past the dictionary's count MUST be rejected.
-
 ## Strings
 
 String values, dictionary values and FSST symbol tables are byte blobs. A blob's count is its `byte_length`, and a lengths stream beside it says where each value ends.
