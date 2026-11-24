@@ -164,7 +164,7 @@ impl<'a> GeometryStager<'a> {
     }
 
     /// The vertex stored last, or the origin the vertex deltas start from.
-    fn last_vertex(&self) -> Coord<i32> {
+    pub(crate) fn last_vertex(&self) -> Coord<i32> {
         self.values.last_vertex().unwrap_or_default()
     }
 
@@ -388,6 +388,18 @@ impl Grid {
 
     /// Removes and returns the point nearest `at`, the earliest of equally near ones.
     pub(crate) fn take_nearest(&mut self, points: &[Coord<i32>], at: Coord<i32>) -> Option<usize> {
+        let point = self.nearest(points, at, |point| point)?;
+        self.remove(points, point);
+        Some(point)
+    }
+
+    /// The point nearest `at` that is not removed, the one with the lowest `tie` of equally near ones.
+    pub(crate) fn nearest<T: Ord + Copy>(
+        &self,
+        points: &[Coord<i32>],
+        at: Coord<i32>,
+        tie: impl Fn(usize) -> T,
+    ) -> Option<usize> {
         if self.left == 0 {
             return None;
         }
@@ -402,10 +414,10 @@ impl Grid {
             y: i32::try_from(at.y).expect("clamped into i32 points"),
         };
         let step = u64::try_from(self.cell.x.min(self.cell.y)).expect("cells are not empty");
-        let mut best: Option<(u64, u32)> = None;
+        let mut best: Option<(u64, T, u32)> = None;
         for r in 0..self.side {
             // A point in a cell `r` cells away along an axis is more than `r - 1` cells away along it.
-            if let Some((d, _)) = best
+            if let Some((d, _, _)) = best
                 && r >= 1
                 && d <= u64::try_from(r - 1).expect("r is at least 1") * step
             {
@@ -416,18 +428,18 @@ impl Grid {
                 let start = self.starts[c] as usize;
                 for &point in &self.items[start..start + self.live[c] as usize] {
                     let d = distance(at, points[point as usize]);
-                    if best.is_none_or(|best| (d, point) < best) {
-                        best = Some((d, point));
+                    let key = (d, tie(point as usize));
+                    if best.is_none_or(|(bd, bt, _)| key < (bd, bt)) {
+                        best = Some((key.0, key.1, point));
                     }
                 }
             }
         }
-        let (_, point) = best.expect("a point is left");
-        self.remove(points, point as usize);
-        Some(point as usize)
+        best.map(|(_, _, point)| point as usize)
     }
 
-    fn remove(&mut self, points: &[Coord<i32>], point: usize) {
+    /// Removes `point`, which must not be removed yet.
+    pub(crate) fn remove(&mut self, points: &[Coord<i32>], point: usize) {
         let p = points[point];
         let c = self.index(self.cell_of(Coord {
             x: i64::from(p.x),

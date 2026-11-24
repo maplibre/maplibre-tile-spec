@@ -135,8 +135,9 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     // Bounds are order-invariant, so this scan is shared across every
     // sort trial and the encoder's Hilbert/Morton dictionary builders.
     let curve_params = curve_params(source);
+    let vertex_sort = cfg.vertex_sort();
     let stage = |sort, tessellate| {
-        let order = sort_order(source, sort, curve_params);
+        let order = sort_order(source, sort, curve_params, vertex_sort);
         stage_layer(source, &order, &stats, StageOptions::new(cfg, tessellate))
     };
 

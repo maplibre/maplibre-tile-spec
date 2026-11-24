@@ -53,7 +53,7 @@ impl StagedLayer {
         curve_params: CurveParams,
     ) -> Self {
         assert!(source.feature_count() != 0, "empty tile");
-        let order = sort_order(source, sort, curve_params);
+        let order = sort_order(source, sort, curve_params, false);
         let options = StageOptions {
             tessellate,
             widen_8bit: false,
