@@ -75,6 +75,15 @@ impl Composition {
         Predictor::LineContinuation,
     ];
 
+    /// The segmentations a payload may use with `predictor`, since delta has one class.
+    fn segmentations(predictor: Predictor) -> &'static [Segmentation] {
+        if predictor == Predictor::Delta {
+            &[Segmentation::Flat]
+        } else {
+            &[Segmentation::Flat, Segmentation::Class]
+        }
+    }
+
     fn header(self) -> u8 {
         let predictor = match self.predictor {
             Predictor::Delta => 0,
@@ -112,6 +121,9 @@ impl Composition {
         if byte & 0x80 != 0 {
             return Err(Malformed("reserved header bit set"));
         }
+        if !Self::segmentations(predictor).contains(&segmentation) {
+            return Err(Malformed("the delta predictor has one stream"));
+        }
         Ok(Self {
             predictor,
             segmentation,
@@ -147,12 +159,7 @@ pub fn encode(vertices: &[i32], runs: &[Run], cost: &dyn Fn(&[u8]) -> usize) -> 
         }
         let classes = classify(runs, vertex_count, predictor)?;
         let residuals = residuals(vertices, &classes, predictor);
-        let segmentations: &[Segmentation] = if predictor == Predictor::Delta {
-            &[Segmentation::Flat]
-        } else {
-            &[Segmentation::Flat, Segmentation::Class]
-        };
-        for &segmentation in segmentations {
+        for &segmentation in Composition::segmentations(predictor) {
             for layout in [Layout::SplitVarint, Layout::Escaped] {
                 let composition = Composition {
                     predictor,
@@ -475,24 +482,25 @@ fn read_escaped<'a>(data: &'a [u8], n: usize, out: &mut Vec<u32>) -> MltResult<&
         reason = "one count per stream needs no bytecount dependency"
     )]
     let escapes = main.iter().filter(|&&b| b == ESCAPE).count();
-    let mut exceptions = Vec::with_capacity(escapes);
-    let used = read_planes(
-        &body[n..],
-        escapes,
-        width_of(exception_code),
-        &mut exceptions,
-    )?;
-    let mut wide = exceptions.into_iter();
+    let width = width_of(exception_code);
+    let planes = escapes
+        .checked_mul(width)
+        .and_then(|len| body[n..].get(..len))
+        .ok_or(Malformed("byte planes are cut short"))?;
+    let mut exception = 0;
     for &b in main {
         out.push(if b == ESCAPE {
-            wide.next()
-                .and_then(|e| e.checked_add(u32::from(ESCAPE)))
+            let wide = (0..width).fold(0_u32, |v, byte| {
+                v | u32::from(planes[byte * escapes + exception]) << (8 * byte)
+            });
+            exception += 1;
+            wide.checked_add(u32::from(ESCAPE))
                 .ok_or(Malformed("escaped exception exceeds 32 bits"))?
         } else {
             u32::from(b)
         });
     }
-    Ok(&body[n + used..])
+    Ok(&body[n + planes.len()..])
 }
 
 #[cfg(test)]
@@ -524,7 +532,7 @@ mod tests {
     fn compositions() -> Vec<Composition> {
         let mut all = Vec::new();
         for predictor in Composition::ALL_PREDICTORS {
-            for segmentation in [Segmentation::Flat, Segmentation::Class] {
+            for &segmentation in Composition::segmentations(predictor) {
                 for layout in [Layout::SplitVarint, Layout::Escaped] {
                     all.push(Composition {
                         predictor,
@@ -590,7 +598,7 @@ mod tests {
 
     #[rstest]
     fn every_composition_round_trips_mixed_runs(
-        #[values(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)] index: usize,
+        #[values(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)] index: usize,
     ) {
         let composition = compositions()[index];
         let mut vertices = vec![5, 5];
@@ -600,6 +608,15 @@ mod tests {
         vertices.extend([300, -70_000, 1 << 30, -(1 << 30)]);
         let runs = [ring(1, 4), line(5, 7), ring(12, 4), line(16, 2)];
         assert_eq!(round_trip(&vertices, &runs, composition), vertices);
+    }
+
+    #[test]
+    fn a_quad_corner_ring_decodes_from_its_class_streams() {
+        let payload = [
+            0x11, 0x00, 0x00, 0xD0, 0x00, 0x00, 0xD0, 0x0F, 0x0F, 0x00, 0x00,
+        ];
+        let vertices = decode(&payload, &[ring(0, 4)], 4, &mut dec()).unwrap();
+        assert_eq!(vertices, [0, 0, 1000, 0, 1000, 1000, 0, 1000]);
     }
 
     #[test]
@@ -622,6 +639,7 @@ mod tests {
     #[case::unknown_predictor(&[0x03, 0x00, 0x00], "unknown predictor")]
     #[case::unknown_layout(&[0x40, 0x00, 0x00], "unknown byte layout")]
     #[case::reserved_bit(&[0x80, 0x00, 0x00], "reserved header bit set")]
+    #[case::delta_per_class(&[0x10, 0x00, 0x00], "the delta predictor has one stream")]
     #[case::trailing_bytes(&[0x00, 0x00, 0x00, 0x00], "bytes after the last stream")]
     #[case::cut_heads(&[0x00, 0x00], "split varint heads are cut short")]
     #[case::cut_tail(&[0x00, 0x80, 0x00], "split varint tail is cut short")]
