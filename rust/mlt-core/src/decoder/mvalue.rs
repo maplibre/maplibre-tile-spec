@@ -34,6 +34,10 @@ impl RawMValue<'_> {
 ///
 /// It reads the same streams a property column of the same data type reads, so it
 /// holds the same containers. Neither an id nor a shared dictionary is one of them.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "boxing the string streams would add an allocation per string column"
+)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum RawMValueData<'a> {
     Bool(RawScalar<'a>),

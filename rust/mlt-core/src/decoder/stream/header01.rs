@@ -301,7 +301,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         LE::Int(IL::DeltaRle(_)) => LC::DeltaRle,
         LE::Vertex(VL::ComponentwiseDelta) => LC::ComponentwiseDelta,
         LE::Vertex(VL::MortonDelta(_)) => LC::MortonDelta,
-        LE::Float(FL::Dict | FL::Alp(_)) => {
+        LE::Float(FL::Alp(_)) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
                 "v1, whose float columns are stored raw",
@@ -683,18 +683,6 @@ mod tests {
         #[case] secondary: LogicalTechnique,
     ) {
         assert_eq!(combination as u8, logical_bits(primary, secondary));
-    }
-
-    #[test]
-    fn write_rejects_a_float_dictionary() {
-        let meta = meta(
-            DATA,
-            LogicalEncoding::Float(FloatLogical::Dict),
-            PhysicalEncoding::VarInt,
-            5,
-        );
-        let err = write_stream_meta(&meta, &mut Vec::new(), false, 0).unwrap_err();
-        insta::assert_snapshot!(err, @"unsupported logical encoding Float(Dict) for v1, whose float columns are stored raw");
     }
 
     #[rstest]

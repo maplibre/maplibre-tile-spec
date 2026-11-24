@@ -387,11 +387,6 @@ public final class MltEncoder implements AutoCloseable {
       return set(MltEncoderOptions.Flag.DELTA2, enabled);
     }
 
-    /** v2 only: allows float columns to store one code per value into a dictionary. */
-    public Builder allowFloatDict(boolean enabled) {
-      return set(MltEncoderOptions.Flag.FLOAT_DICT, enabled);
-    }
-
     /** v2 only: allows float columns to store each value as a decimal-scaled integer (ALP). */
     public Builder allowFloatAlp(boolean enabled) {
       return set(MltEncoderOptions.Flag.FLOAT_ALP, enabled);

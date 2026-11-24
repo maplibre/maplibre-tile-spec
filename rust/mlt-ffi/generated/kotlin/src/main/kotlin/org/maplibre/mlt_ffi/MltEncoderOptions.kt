@@ -60,11 +60,6 @@ internal interface MltEncoderOptionsLib : Library {
         enabled: Boolean,
     ): Unit
 
-    fun MltEncoderOptions_set_allow_float_dict(
-        handle: Pointer,
-        enabled: Boolean,
-    ): Unit
-
     fun MltEncoderOptions_set_allow_float_alp(
         handle: Pointer,
         enabled: Boolean,
@@ -208,13 +203,6 @@ class MltEncoderOptions internal constructor(
      */
     fun setAllowDelta2(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_delta2(handle, enabled)
-    }
-
-    /**
-     * v2 only: allow float columns to store one code per value into a dictionary.
-     */
-    fun setAllowFloatDict(enabled: Boolean) {
-        val returnVal = lib.MltEncoderOptions_set_allow_float_dict(handle, enabled)
     }
 
     /**

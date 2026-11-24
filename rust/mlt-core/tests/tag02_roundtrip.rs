@@ -1421,16 +1421,8 @@ mod float_codecs {
 
     use super::*;
 
-    pub fn cfg_dict() -> EncoderConfig {
-        cfg_v2().with_float_dict(true)
-    }
-
     pub fn cfg_alp() -> EncoderConfig {
         cfg_v2().with_float_alp(true)
-    }
-
-    pub fn cfg_both() -> EncoderConfig {
-        cfg_dict().with_float_alp(true)
     }
 
     pub fn f64_col(values: &[f64]) -> Vec<PropValue> {
@@ -1447,18 +1439,6 @@ mod float_codecs {
             None,
             &[("v", f32_col(values))],
         )
-    }
-
-    /// A few decimals repeated, which is what a float dictionary is for.
-    pub fn repeated_decimals(n: usize) -> Vec<f64> {
-        const PATTERN: [f64; 6] = [1.5, 2.5, 1.5, 1.5, 2.5, 3.5];
-        (0..n).map(|i| PATTERN[i % PATTERN.len()]).collect()
-    }
-
-    /// Values no power of ten scales to an integer, so Framed, Exception-Free ALP cannot take them.
-    pub fn irrational(n: usize) -> Vec<f64> {
-        use std::f64::consts::{E, PI, SQRT_2};
-        (0..n).map(|i| [PI, E, SQRT_2][i % 3]).collect()
     }
 
     /// The column's values as bit patterns, so NaN and `-0.0` compare usefully.
@@ -1521,92 +1501,10 @@ mod float_codecs {
     }
 
     #[test]
-    fn a_repetitive_column_round_trips_through_a_dictionary() {
-        let l = column(&repeated_decimals(12));
-        assert_eq!(round_trip(&l, cfg_dict()), round_trip(&l, cfg_v2()));
-    }
-
-    #[test]
-    fn a_dictionary_column_is_smaller_than_the_raw_one() {
-        let l = column(&repeated_decimals(12));
-        let plain = l.encode(cfg_v2()).unwrap();
-        let dict = l.encode(cfg_dict()).unwrap();
-        assert!(
-            dict.len() < plain.len(),
-            "{} vs {}",
-            dict.len(),
-            plain.len()
-        );
-        assert_eq!(
-            value_bits(&round_trip(&l, cfg_dict())),
-            value_bits(&round_trip(&l, cfg_v2()))
-        );
-    }
-
-    #[test]
-    fn a_decimal_column_takes_the_dictionary_when_alp_is_off() {
-        let bytes = column(&repeated_decimals(12)).encode(cfg_dict()).unwrap();
-        assert_eq!(
-            float_encodings(&bytes),
-            [FloatLogical::Dict, FloatLogical::None]
-        );
-    }
-
-    #[test]
-    fn a_column_alp_cannot_carry_still_takes_the_dictionary() {
-        let bytes = column(&irrational(12)).encode(cfg_both()).unwrap();
-        assert_eq!(
-            float_encodings(&bytes),
-            [FloatLogical::Dict, FloatLogical::None]
-        );
-    }
-
-    #[test]
-    fn both_flags_off_keeps_a_repetitive_column_raw() {
-        let bytes = column(&repeated_decimals(12)).encode(cfg_v2()).unwrap();
+    fn alp_off_keeps_a_decimal_column_raw() {
+        let values: Vec<f64> = (0..12).map(|i| f64::from(i) * 0.25).collect();
+        let bytes = column(&values).encode(cfg_v2()).unwrap();
         assert_eq!(float_encodings(&bytes), [FloatLogical::None]);
-    }
-
-    #[test]
-    #[expect(
-        clippy::wildcard_enum_match_arm,
-        reason = "only f64 values are expected"
-    )]
-    fn zero_and_negative_zero_stay_distinct_entries() {
-        const VALUES: &[f64] = &[0.0, -0.0, 0.0, -0.0, 0.0, -0.0];
-        let l = column(VALUES);
-        let tile = round_trip(&l, cfg_dict());
-        let signs: Vec<bool> = tile
-            .features()
-            .iter()
-            .map(|f| match f.properties()[0] {
-                PropValue::F64(Some(v)) => v.is_sign_negative(),
-                ref other => panic!("unexpected {other:?}"),
-            })
-            .collect();
-        assert_eq!(signs, [false, true, false, true, false, true]);
-    }
-
-    #[test]
-    #[expect(
-        clippy::wildcard_enum_match_arm,
-        reason = "only f64 values are expected"
-    )]
-    fn every_nan_with_the_same_bits_shares_one_entry() {
-        let values: Vec<f64> = (0..8)
-            .map(|i| if i % 2 == 0 { f64::NAN } else { 7.5 })
-            .collect();
-        let l = column(&values);
-        let tile = round_trip(&l, cfg_dict());
-        let nans: Vec<bool> = tile
-            .features()
-            .iter()
-            .map(|f| match f.properties()[0] {
-                PropValue::F64(Some(v)) => v.is_nan(),
-                ref other => panic!("unexpected {other:?}"),
-            })
-            .collect();
-        assert_eq!(nans, [true, false, true, false, true, false, true, false]);
     }
 
     #[test]
@@ -1615,33 +1513,15 @@ mod float_codecs {
             .map(|i| std::f64::consts::PI * f64::from(i + 1))
             .collect();
         let l = column(&values);
-        assert_eq!(l.encode(cfg_both()).unwrap(), l.encode(cfg_v2()).unwrap());
+        assert_eq!(l.encode(cfg_alp()).unwrap(), l.encode(cfg_v2()).unwrap());
     }
 
     #[test]
-    fn f32_columns_round_trip_through_a_dictionary() {
-        let values: Vec<f32> = (0..12).map(|i| [1.5_f32, 2.5, 3.5][i % 3]).collect();
-        let l = f32_column(&values);
-        assert_eq!(round_trip(&l, cfg_dict()), round_trip(&l, cfg_v2()));
-    }
-
-    #[test]
-    fn an_optional_dictionary_column_round_trips() {
-        let values: Vec<PropValue> = (0..12)
-            .map(|i| PropValue::F64((i % 3 != 0).then(|| f64::from(i % 2) + 0.5)))
-            .collect();
-        let l = layer(points(&"1".repeat(12)), None, &[("v", values)]);
-        assert_eq!(round_trip(&l, cfg_dict()), round_trip(&l, cfg_v2()));
-    }
-
-    #[rstest]
-    #[case::dict(cfg_v1().with_float_dict(true))]
-    #[case::alp(cfg_v1().with_float_alp(true))]
-    #[case::both(cfg_v1().with_float_dict(true).with_float_alp(true))]
-    fn v1_ignores_the_flags(#[case] config: EncoderConfig) {
+    fn v1_ignores_the_alp_flag() {
         const VALUES: &[f64] = &[1.5, 1.5, 1.5, 1.5];
         let l = column(VALUES);
-        assert_eq!(l.encode(config).unwrap(), l.encode(cfg_v1()).unwrap());
+        let alp = cfg_v1().with_float_alp(true);
+        assert_eq!(l.encode(alp).unwrap(), l.encode(cfg_v1()).unwrap());
     }
 }
 
@@ -1749,18 +1629,9 @@ mod alp {
     }
 
     #[test]
-    fn a_decimal_column_takes_alp_when_the_dictionary_is_off() {
+    fn a_decimal_column_takes_alp() {
         let values: Vec<f64> = (0..12).map(|i| f64::from(i) * 0.25).collect();
         let bytes = column(&values).encode(cfg_alp()).unwrap();
-        assert!(matches!(
-            float_encodings(&bytes)[..],
-            [FloatLogical::Alp(_)]
-        ));
-    }
-
-    #[test]
-    fn alp_beats_the_dictionary_on_a_repetitive_decimal_column() {
-        let bytes = column(&repeated_decimals(12)).encode(cfg_both()).unwrap();
         assert!(matches!(
             float_encodings(&bytes)[..],
             [FloatLogical::Alp(_)]

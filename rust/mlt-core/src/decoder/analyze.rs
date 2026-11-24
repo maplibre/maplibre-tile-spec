@@ -155,11 +155,6 @@ impl Analyze for RawFloatsEncoding<'_> {
         match self {
             Self::Single(data) => data.for_each_stream(cb),
             #[cfg(feature = "unstable-v2")]
-            Self::Dictionary { codes, dictionary } => {
-                codes.for_each_stream(cb);
-                dictionary.for_each_stream(cb);
-            }
-            #[cfg(feature = "unstable-v2")]
             Self::Alp { data, .. } => data.for_each_stream(cb),
         }
     }

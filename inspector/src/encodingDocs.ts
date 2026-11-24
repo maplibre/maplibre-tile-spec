@@ -49,7 +49,6 @@ const BY_ID: Record<string, string> = {
   "vertex/morton-delta": "encodings#morton",
   "vertex/morton-rle": "encodings#morton",
   "float/alp": "encodings#alp",
-  "float/dict": "encodings#float-dictionary",
   "bytes/front-coded": "encodings#front-coding",
   // Physical, which carries no family.
   none: "encodings#physical-none",

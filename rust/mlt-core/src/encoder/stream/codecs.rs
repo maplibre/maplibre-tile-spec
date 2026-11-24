@@ -23,8 +23,6 @@ use crate::encoder::model::FloatEncoding;
 use crate::encoder::model::StreamCtx;
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::stream::float_alp::AlpStream;
-#[cfg(feature = "unstable-v2")]
-use crate::encoder::stream::float_dict::FloatDict;
 use crate::encoder::stream::logical::LogicalEncoder;
 use crate::encoder::stream::optimizer::DataProfile;
 use crate::encoder::write::{LogicalIntCodec, LogicalIntStreamKind, PhysicalIntStreamKind};
@@ -135,7 +133,7 @@ impl Codecs {
         #[cfg(not(target_endian = "little"))]
         compile_error!("not implemented for non-little-endian targets");
 
-        // v1 has no way to write either encoding, and one `Layer` is encoded as both versions.
+        // v1 has no way to write ALP, and one `Layer` is encoded as both versions.
         #[cfg(feature = "unstable-v2")]
         if enc.config().wire_version() != WireVersion::V01 {
             match enc.override_float_enc(&ctx.qualified()) {
@@ -151,32 +149,13 @@ impl Codecs {
                     alp.race_fastpfor(&mut self.physical, enc.config())?;
                     return self.write_alp_stream(&alp, ctx.stream_type, enc);
                 }
-                Some(FloatEncoding::Dict) => {
-                    let dict = FloatDict::build(values)?;
-                    return self.write_float_dict_streams(values, &dict, ctx.stream_type, enc);
-                }
                 Some(FloatEncoding::None) => {}
                 None => {
-                    // Both candidates already beat storing the floats raw, so the smaller of the two does too.
-                    let dict = if enc.config().allow_float_dict() {
-                        FloatDict::worth_building(values)
-                    } else {
-                        None
-                    };
-                    let alp = if enc.config().allow_float_alp() {
-                        AlpStream::worth_building(values, &mut self.physical, enc.config())?
-                    } else {
-                        None
-                    };
-                    let dict_bytes = dict.as_ref().map_or(usize::MAX, FloatDict::stored_bytes);
-                    let alp_bytes = alp.as_ref().map_or(usize::MAX, AlpStream::stored_bytes);
-                    if alp_bytes <= dict_bytes
-                        && let Some(alp) = alp
+                    if enc.config().allow_float_alp()
+                        && let Some(alp) =
+                            AlpStream::worth_building(values, &mut self.physical, enc.config())?
                     {
                         return self.write_alp_stream(&alp, ctx.stream_type, enc);
-                    }
-                    if let Some(dict) = dict {
-                        return self.write_float_dict_streams(values, &dict, ctx.stream_type, enc);
                     }
                 }
             }
@@ -203,35 +182,6 @@ impl Codecs {
             count,
         )?;
         encoder::write_stream_payload(enc, meta, false, payload)
-    }
-
-    /// Write a float column as a codes stream followed by its dictionary.
-    /// Codes first, so only the dictionary needs a count in its header.
-    #[cfg(feature = "unstable-v2")]
-    fn write_float_dict_streams<T: NoUninit + FloatValue>(
-        &mut self,
-        values: &[T],
-        dict: &FloatDict<T>,
-        stream_type: StreamType,
-        enc: &mut Encoder,
-    ) -> MltResult<()> {
-        use crate::decoder::DictionaryType;
-
-        let codes_meta = StreamMeta::new2(
-            stream_type,
-            LogicalEncoding::Float(FloatLogical::Dict),
-            PhysicalEncoding::VarInt,
-            values.len(),
-        )?;
-        let codes = self.physical.varint(&dict.codes);
-        encoder::write_stream_payload(enc, codes_meta, false, codes)?;
-
-        let values_meta = StreamMeta::new_none(
-            StreamType::Data(DictionaryType::Single),
-            ValueKind::Float,
-            dict.values.len(),
-        )?;
-        encoder::write_stream_payload(enc, values_meta, false, cast_slice(&dict.values))
     }
 
     pub(crate) fn write_int_stream<T>(

@@ -517,9 +517,6 @@ pub struct EncoderConfig {
     allow_fastpfor: bool,
     /// Allow string grouping into shared dictionaries
     allow_shared_dict: bool,
-    /// Allow the v2-only float dictionary encoding
-    #[cfg(feature = "unstable-v2")]
-    allow_float_dict: bool,
     /// Allow the v2-only Framed, Exception-Free ALP float encoding
     #[cfg(feature = "unstable-v2")]
     allow_float_alp: bool,
@@ -543,7 +540,7 @@ impl EncoderConfig {
     /// The settings `profile` picks, which the `with_*` methods override.
     #[must_use]
     pub fn from_profile(profile: Profile) -> Self {
-        // Float dictionaries and ALP stay off in every preset while they are still being measured.
+        // ALP stays off in every preset while it is still being measured.
         match profile {
             Profile::Native(network) => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -556,8 +553,6 @@ impl EncoderConfig {
                 allow_fsst: true,
                 allow_fastpfor: true,
                 allow_shared_dict: true,
-                #[cfg(feature = "unstable-v2")]
-                allow_float_dict: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -583,8 +578,6 @@ impl EncoderConfig {
                 allow_fastpfor: network == Network::Offline,
                 allow_shared_dict: true,
                 #[cfg(feature = "unstable-v2")]
-                allow_float_dict: false,
-                #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_row_shapes: false,
@@ -608,8 +601,6 @@ impl EncoderConfig {
                 allow_fsst: true,
                 allow_fastpfor: true,
                 allow_shared_dict: true,
-                #[cfg(feature = "unstable-v2")]
-                allow_float_dict: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -635,8 +626,6 @@ impl EncoderConfig {
                 allow_fastpfor: true,
                 allow_shared_dict: false,
                 #[cfg(feature = "unstable-v2")]
-                allow_float_dict: false,
-                #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_row_shapes: false,
@@ -660,8 +649,6 @@ impl EncoderConfig {
                 allow_fsst: false,
                 allow_fastpfor: false,
                 allow_shared_dict: false,
-                #[cfg(feature = "unstable-v2")]
-                allow_float_dict: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -757,13 +744,6 @@ impl EncoderConfig {
         return self.wire_version != WireVersion::V01;
         #[cfg(not(feature = "unstable-v2"))]
         return false;
-    }
-
-    /// Whether float columns may use a dictionary, which only v2 can express.
-    #[cfg(feature = "unstable-v2")]
-    #[must_use]
-    pub fn allow_float_dict(self) -> bool {
-        self.allow_float_dict && self.wire_version != WireVersion::V01
     }
 
     /// Whether float columns may use Framed, Exception-Free ALP, which only v2 can express.
@@ -863,16 +843,6 @@ impl EncoderConfig {
         self
     }
 
-    /// Allow float columns to store one code per value into a dictionary of the distinct ones.
-    /// Off by default, and only v2 can express it.
-    /// A column takes it only when it comes out strictly smaller in stored bytes.
-    #[cfg(feature = "unstable-v2")]
-    #[must_use]
-    pub fn with_float_dict(mut self, enabled: bool) -> Self {
-        self.allow_float_dict = enabled;
-        self
-    }
-
     /// Allow float columns to store each value as a decimal-scaled integer.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
@@ -928,8 +898,6 @@ pub enum StrEncoding {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FloatEncoding {
     None,
-    #[cfg(feature = "unstable-v2")]
-    Dict,
     #[cfg(feature = "unstable-v2")]
     Alp,
 }

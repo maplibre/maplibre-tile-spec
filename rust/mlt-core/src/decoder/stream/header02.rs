@@ -83,7 +83,6 @@ pub(crate) enum Logical {
     DeltaRle,
     Morton,
     Alp,
-    Dict,
     FrontCoded,
     BitPacked,
     Delta2,
@@ -182,7 +181,7 @@ impl Family {
                 L::Delta2,
             ],
             Self::Bool => &[L::None, L::Runs, L::Sparse],
-            Self::Float(_) => &[L::None, L::Rle, L::Alp, L::Dict],
+            Self::Float(_) => &[L::None, L::Rle, L::Alp],
             Self::Vertex => &[
                 L::None,
                 L::Delta,
@@ -244,8 +243,6 @@ pub(crate) enum StreamCtx02 {
     /// A scalar column's data stream, typed by the column's data type.
     /// A string column's streams have their own contexts, since their roles follow its [`StrLayout`].
     Property(DataType02),
-    /// The dictionary a column's codes index into, following its codes stream, of the column's own type.
-    PropertyDictionary(DataType02),
     /// A string column's leading stream, of one entry per present value.
     StrData(StrLayout),
     /// The lengths of the distinct values a string column stores once.
@@ -279,7 +276,7 @@ impl StreamCtx02 {
     pub(crate) fn family(self) -> Family {
         use DataType02 as D;
         match self {
-            Self::Property(typ) | Self::PropertyDictionary(typ) => match typ {
+            Self::Property(typ) => match typ {
                 D::Bool => Family::Bool,
                 D::F32 => Family::Float(WordWidth::W32),
                 D::F64 => Family::Float(WordWidth::W64),
@@ -309,7 +306,6 @@ impl StreamCtx02 {
     pub(crate) fn stream_type(self) -> StreamType {
         match self {
             Self::Property(_) | Self::NestedShapeIds => StreamType::Data(DictionaryType::None),
-            Self::PropertyDictionary(_) => StreamType::Data(DictionaryType::Single),
             Self::StrData(StrLayout::Plain) | Self::GeomTypes => {
                 StreamType::Length(LengthType::VarBinary)
             }
@@ -431,9 +427,6 @@ pub(crate) enum LogicalFloat {
     /// The physical field codes the scaled integers, not the column's element layout.
     // TODO(v2): extension bit 1 = an exception count varint and exception stream follow.
     Alp(PhysicalInt),
-    /// One code per element, then the dictionary of distinct values as a second stream.
-    /// The physical field codes the codes, not the values.
-    Dict(PhysicalInt),
 }
 
 /// Logical encoding of an opaque byte blob.
@@ -554,7 +547,6 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
         Logical::CwDelta
         | Logical::Morton
         | Logical::Alp
-        | Logical::Dict
         | Logical::FrontCoded
         | Logical::CwDelta2
         | Logical::Rans
@@ -599,7 +591,6 @@ impl Encoding02 {
                     | Logical::DeltaRle
                     | Logical::Morton
                     | Logical::Alp
-                    | Logical::Dict
                     | Logical::BitPacked
                     | Logical::Delta2
                     | Logical::CwDelta2
@@ -618,7 +609,6 @@ impl Encoding02 {
                 | Logical::DeltaRle
                 | Logical::Morton
                 | Logical::Alp
-                | Logical::Dict
                 | Logical::FrontCoded
                 | Logical::BitPacked
                 | Logical::Delta2
@@ -629,7 +619,6 @@ impl Encoding02 {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
                 Logical::Rle => return Err(MltError::ParsingEncodingByte(enc_byte)),
                 Logical::Alp => LogicalFloat::Alp(physical_int(enc_byte)?),
-                Logical::Dict => LogicalFloat::Dict(physical_int(enc_byte)?),
                 Logical::Delta
                 | Logical::CwDelta
                 | Logical::DeltaRle
@@ -653,7 +642,6 @@ impl Encoding02 {
                 Logical::Rle
                 | Logical::DeltaRle
                 | Logical::Alp
-                | Logical::Dict
                 | Logical::FrontCoded
                 | Logical::BitPacked
                 | Logical::Delta2
@@ -676,7 +664,6 @@ impl Encoding02 {
                 Logical::Rle
                 | Logical::DeltaRle
                 | Logical::Alp
-                | Logical::Dict
                 | Logical::FrontCoded
                 | Logical::BitPacked
                 | Logical::Delta2
@@ -712,7 +699,6 @@ impl Encoding02 {
             Self::Vertex(LogicalVertex::Morton(_)) => Logical::Morton,
             Self::Vertex(LogicalVertex::Rans) => Logical::Rans,
             Self::Float(LogicalFloat::Alp(_)) => Logical::Alp,
-            Self::Float(LogicalFloat::Dict(_)) => Logical::Dict,
             Self::Bytes(LogicalBytes::FrontCoded) => Logical::FrontCoded,
         }
     }
@@ -725,7 +711,7 @@ impl Encoding02 {
             | Self::Vertex(LogicalVertex::None(raw))
             | Self::Xyz(LogicalXyz::None(raw)) => raw.label(),
             Self::Int(LogicalInt::Delta(p) | LogicalInt::Delta2(p))
-            | Self::Float(LogicalFloat::Dict(p) | LogicalFloat::Alp(p))
+            | Self::Float(LogicalFloat::Alp(p))
             | Self::Vertex(
                 LogicalVertex::Delta(p)
                 | LogicalVertex::CwDelta(p)
@@ -856,9 +842,6 @@ impl Encoding02 {
                     LogicalEncoding::Float(FloatLogical::Alp(Alp { scale, base })),
                     flat_int(p),
                 )
-            }
-            Self::Float(LogicalFloat::Dict(p)) => {
-                IntEncoding::new(LogicalEncoding::Float(FloatLogical::Dict), flat_int(p))
             }
             Self::Xyz(xyz) => {
                 let (after, step) = parse_u8(input)?;
@@ -1038,8 +1021,7 @@ fn wire_fields(
             // The physical encoding is implied, so the field stays zero.
             with_length(logical, 0)
         }
-        // Codes and scaled integers are integer streams, whatever the column's type is.
-        LE::Float(FL::Dict) => with_length(Logical::Dict, physical_int_field(encoding.physical)?),
+        // Scaled integers are an integer stream, whatever the column's type is.
         LE::Float(FL::Alp(_)) => with_length(Logical::Alp, physical_int_field(encoding.physical)?),
         LE::Bool(coding @ (BL::None | BL::Runs | BL::Sparse)) => {
             if encoding.physical != PhysicalEncoding::None {
@@ -1332,7 +1314,6 @@ mod tests {
     #[case::float_none(FLOAT_FAMILY, Logical::None, 0b000)]
     #[case::float_rle(FLOAT_FAMILY, Logical::Rle, 0b001)]
     #[case::float_alp(FLOAT_FAMILY, Logical::Alp, 0b010)]
-    #[case::float_dict(FLOAT_FAMILY, Logical::Dict, 0b011)]
     #[case::vertex_none(Family::Vertex, Logical::None, 0b000)]
     #[case::vertex_delta(Family::Vertex, Logical::Delta, 0b001)]
     #[case::vertex_cw_delta(Family::Vertex, Logical::CwDelta, 0b010)]
@@ -1397,7 +1378,6 @@ mod tests {
     #[case::f64(DataType02::F64, FLOAT_FAMILY)]
     fn column_data_type_picks_its_family(#[case] data: DataType02, #[case] family: Family) {
         assert_eq!(StreamCtx02::Property(data).family(), family);
-        assert_eq!(StreamCtx02::PropertyDictionary(data).family(), family);
     }
 
     #[rstest]
@@ -1496,23 +1476,17 @@ mod tests {
         Family::Vertex,
         0b0010_1001
     )]
-    #[case::float_dict_codes_varint(
-        float(FloatLogical::Dict, PE::VarInt, 5),
-        5,
-        FLOAT_FAMILY,
-        0b0011_1000
-    )]
-    #[case::float_dict_codes_raw(
-        float(FloatLogical::Dict, PE::None, 5),
-        5,
-        FLOAT_FAMILY,
-        0b0011_0100
-    )]
     #[case::float_alp_integers(
         float(FloatLogical::Alp(Alp::new(3, 1, 0).unwrap()), PE::VarInt, 5),
         5,
         FLOAT_FAMILY,
         0b0010_1000
+    )]
+    #[case::float_alp_integers_raw(
+        float(FloatLogical::Alp(Alp::new(3, 1, 0).unwrap()), PE::None, 5),
+        5,
+        FLOAT_FAMILY,
+        0b0010_0100
     )]
     #[case::cw_delta_vertices_explicit(
         vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 8),
@@ -1584,12 +1558,19 @@ mod tests {
     #[case::raw_delta(int(IntLogical::Delta, PE::None, 5), 5, INT)]
     #[case::fastpfor128(int(IntLogical::None, FPF128, 5), 5, INT)]
     #[case::delta_fastpfor128(int(IntLogical::Delta, FPF128, 5), 5, INT)]
-    #[case::float_dict_codes_fastpfor128(float(FloatLogical::Dict, FPF128, 5), 5, FLOAT)]
+    #[case::float_alp_fastpfor128(
+        float(FloatLogical::Alp(Alp::new(6, 2, -7).unwrap()), FPF128, 5),
+        5,
+        FLOAT
+    )]
+    #[case::float_alp_raw(
+        float(FloatLogical::Alp(Alp::new(6, 2, -7).unwrap()), PE::None, 5),
+        5,
+        FLOAT
+    )]
     #[case::delta(int(IntLogical::Delta, PE::VarInt, 5), 5, INT)]
     #[case::rle(int(IntLogical::Rle(rle(5)), PE::VarInt, 5), 5, INT)]
     #[case::delta_rle(int(IntLogical::DeltaRle(rle(9)), PE::VarInt, 9), 5, INT)]
-    #[case::float_dict_codes_varint(float(FloatLogical::Dict, PE::VarInt, 5), 5, FLOAT)]
-    #[case::float_dict_codes_raw(float(FloatLogical::Dict, PE::None, 5), 5, FLOAT)]
     #[case::float_alp(
         float(FloatLogical::Alp(Alp::new(6, 2, -7).unwrap()), PE::VarInt, 5),
         5,
@@ -1688,7 +1669,7 @@ mod tests {
     )]
     #[case::f32_words(
         float(FloatLogical::None, PE::None, 2),
-        StreamCtx02::PropertyDictionary(DataType02::F32),
+        StreamCtx02::Property(DataType02::F32),
         &[0, 0, 0x80, 0x3F, 0, 0, 0, 0x40],
         &[0b0000_0000]
     )]
@@ -1840,7 +1821,7 @@ mod tests {
     #[case::delta_rle_with_physical(INT, 0b0011_1000)]
     #[case::int_logical_past_table(INT, 0b0110_1000)]
     #[case::bool_logical_past_table(BOOL, 0b0010_0100)]
-    #[case::float_dict_with_extension(FLOAT, 0b0011_0101)]
+    #[case::float_logical_past_table(FLOAT, 0b0011_0100)]
     #[case::float_alp_with_extension(FLOAT, 0b0010_1001)]
     #[case::vertex_logical_past_table(VERTEX, 0b0101_1000)]
     #[case::float_physical_varint(FLOAT, 0b0000_1000)]
@@ -1857,7 +1838,6 @@ mod tests {
     #[case::delta_no_len(INT, 0b0001_0000)]
     #[case::str_delta_no_len(STR_PLAIN, 0b0001_0000)]
     #[case::float_alp_no_len(FLOAT, 0b0010_0000)]
-    #[case::float_dict_no_len(FLOAT, 0b0011_0000)]
     #[case::vertex_delta_no_len(VERTEX, 0b0001_0000)]
     #[case::cw_delta_no_len(VERTEX, 0b0010_0000)]
     #[case::morton_no_len(VERTEX, 0b0011_0000)]
@@ -2089,8 +2069,6 @@ mod tests {
         })),
         Family::Bool
     )]
-    #[case::dict_on_an_int_column(LogicalEncoding::Float(FloatLogical::Dict), INT_FAMILY)]
-    #[case::dict_on_a_vertex_stream(LogicalEncoding::Float(FloatLogical::Dict), Family::Vertex)]
     #[case::alp_on_an_int_column(
         LogicalEncoding::Float(FloatLogical::Alp(Alp::new(1, 0, 0).unwrap())),
         INT_FAMILY

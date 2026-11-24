@@ -88,11 +88,6 @@ public:
     inline void set_allow_delta2(bool enabled);
 
     /**
-     * v2 only: allow float columns to store one code per value into a dictionary.
-     */
-    inline void set_allow_float_dict(bool enabled);
-
-    /**
      * v2 only: allow float columns to store each value as a decimal-scaled integer (ALP).
      */
     inline void set_allow_float_alp(bool enabled);

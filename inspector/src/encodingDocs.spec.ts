@@ -29,7 +29,6 @@ describe("the docs the app points at", () => {
     "bool/byte-rle",
     "bool/none",
     "float/alp",
-    "float/dict",
     "float/none",
     "int/delta",
     "int/delta-rle",

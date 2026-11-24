@@ -246,10 +246,6 @@ pub enum BoolLogical {
 pub enum FloatLogical {
     /// Fixed-width little-endian values, one per element.
     None,
-    /// A decimal split across two integer streams, which v1 can name but no decoder here implements.
-    /// One code per element, with the distinct values following as a second stream.
-    /// Only the tag `0x02` codec reads or writes it.
-    Dict,
     /// Integers scaled by these parameters.
     /// Only the tag `0x02` codec reads or writes it.
     Alp(Alp),
@@ -343,7 +339,6 @@ impl LogicalEncoding {
     }
 
     /// Whether the stream's own logical pass is a no-op, so the physical words are already the output.
-    /// True for a float dictionary's codes, which the column turns back into floats.
     /// Not true for Framed, Exception-Free ALP, whose offsets still need the frame of reference added back.
     #[must_use]
     pub(crate) fn is_identity(self) -> bool {
@@ -351,7 +346,7 @@ impl LogicalEncoding {
             self,
             Self::Int(IntLogical::None)
                 | Self::Bool(BoolLogical::None)
-                | Self::Float(FloatLogical::None | FloatLogical::Dict)
+                | Self::Float(FloatLogical::None)
                 | Self::Vertex(VertexLogical::None)
         )
     }
@@ -619,7 +614,6 @@ impl Display for LogicalEncoding {
                 "float",
                 match float {
                     FloatLogical::None => "none",
-                    FloatLogical::Dict => "dict",
                     FloatLogical::Alp(_) => "alp",
                 },
             ),
@@ -746,7 +740,6 @@ mod tests {
     #[case::bool_sparse(LogicalEncoding::Bool(BoolLogical::Sparse), "bool/sparse")]
     #[case::bool_byte_rle(LogicalEncoding::Bool(BoolLogical::ByteRle(rle())), "bool/byte-rle")]
     #[case::float_none(LogicalEncoding::Float(FloatLogical::None), "float/none")]
-    #[case::float_dict(LogicalEncoding::Float(FloatLogical::Dict), "float/dict")]
     #[case::float_alp(LogicalEncoding::Float(FloatLogical::Alp(alp())), "float/alp")]
     #[case::vertex_none(LogicalEncoding::Vertex(VertexLogical::None), "vertex/none")]
     #[case::vertex_delta(LogicalEncoding::Vertex(VertexLogical::Delta), "vertex/delta")]
