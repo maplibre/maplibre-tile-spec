@@ -43,7 +43,7 @@ impl<'a> RawScalar<'a> {
 }
 
 /// Raw float column as read directly from the tile.
-/// Its encodings differ in how many streams they use, so it carries an encoding enum like [`RawStrings`] rather than one stream.
+/// Its encoding says how to read its one data stream.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawFloats<'a> {
     pub name: &'a str,
@@ -67,14 +67,6 @@ impl<'a> RawFloats<'a> {
 pub enum RawFloatsEncoding<'a> {
     /// One data stream, its own logical encoding saying how to read it.
     Single(RawStream<'a>),
-    /// Codes first, then the distinct values they index.
-    ///
-    /// Requires the `unstable-v2` feature.
-    #[cfg(feature = "unstable-v2")]
-    Dictionary {
-        codes: RawStream<'a>,
-        dictionary: RawStream<'a>,
-    },
     /// Integers scaled by a power of ten, in one stream, with the parameters in its header.
     ///
     /// Requires the `unstable-v2` feature.

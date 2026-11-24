@@ -3,8 +3,6 @@ mod codecs;
 mod float_alp;
 #[cfg(feature = "unstable-v2")]
 mod float_cost;
-#[cfg(feature = "unstable-v2")]
-mod float_dict;
 #[cfg(not(feature = "__private"))]
 pub(crate) use codecs::{Codecs, PhysicalCodecs};
 

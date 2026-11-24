@@ -116,8 +116,8 @@ impl AlpStream {
             .collect()
     }
 
-    /// Bytes this stream occupies, for the competition against a dictionary.
-    pub(crate) fn stored_bytes(&self) -> usize {
+    /// Bytes this stream occupies.
+    fn stored_bytes(&self) -> usize {
         header_bytes(self.params) + self.payload_bytes
     }
 }

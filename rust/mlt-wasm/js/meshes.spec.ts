@@ -159,7 +159,6 @@ describe("synthetic v2 m-value columns", () => {
     "mvalues_u32.mlt",
     "mvalues_i64.mlt",
     "mvalues_u64.mlt",
-    "mvalues_f32_dict.mlt",
     "mvalues_f64_alp.mlt",
     "mvalues_str_plain.mlt",
     "mvalues_str_fsst.mlt",

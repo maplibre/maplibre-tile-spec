@@ -14,8 +14,7 @@ use crate::codecs::zigzag::{
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::XyzLogical;
 use crate::decoder::{
-    FloatLogical, IntLogical, LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta,
-    VertexLogical,
+    IntLogical, LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta, VertexLogical,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::{Decoder, MltResult};
@@ -176,7 +175,7 @@ impl LogicalValue {
     pub fn decode_u32(self, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<u32>> {
         let num = self.meta.num_values.into_usize();
         match self.meta.encoding.logical {
-            LogicalEncoding::Int(IntLogical::None) | LogicalEncoding::Float(FloatLogical::Dict) => {
+            LogicalEncoding::Int(IntLogical::None) => {
                 // Caller should have used the direct-output path; this is a fallback.
                 dec.consume_items::<u32>(num)?;
                 Ok(data.to_vec())
@@ -230,7 +229,7 @@ impl LogicalValue {
     pub fn decode_u64(self, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<u64>> {
         let num = self.meta.num_values.into_usize();
         match self.meta.encoding.logical {
-            LogicalEncoding::Int(IntLogical::None) | LogicalEncoding::Float(FloatLogical::Dict) => {
+            LogicalEncoding::Int(IntLogical::None) => {
                 // Caller should have used the direct-output path; this is a fallback.
                 dec.consume_items::<u64>(num)?;
                 Ok(data.to_vec())
@@ -256,6 +255,7 @@ impl LogicalValue {
 mod tests {
     use super::*;
     use crate::MltError::InvalidDecodingStreamSize;
+    use crate::decoder::FloatLogical;
     use crate::test_helpers::dec;
 
     #[test]

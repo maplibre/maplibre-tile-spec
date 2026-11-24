@@ -598,20 +598,7 @@ impl<'a> Walker<'a> {
         }
 
         let ctx = StreamCtx02::Property(typ.data);
-        let (mut input, meta) =
-            self.walk_stream02(input, ctx, count, "data", hint_for(typ.data))?;
-
-        // A dictionary column's data stream holds codes, and the values follow.
-        if meta.encoding.logical == LogicalEncoding::Float(FloatLogical::Dict) {
-            let ctx = StreamCtx02::PropertyDictionary(typ.data);
-            (input, _) = self.walk_stream02(
-                input,
-                ctx,
-                Count02::Implied(meta.num_values),
-                "dictionary",
-                hint_for(typ.data),
-            )?;
-        }
+        let (input, _) = self.walk_stream02(input, ctx, count, "data", hint_for(typ.data))?;
         Ok(input)
     }
 
@@ -932,10 +919,9 @@ impl<'a> Walker<'a> {
         if self.off(after_payload) != self.off(rest) {
             return Err(MltError::NotImplemented("v2 stream header re-walk desync"));
         }
-        // A dictionary's codes and Framed, Exception-Free ALP's integers are integer streams, whatever the column's type is.
+        // Framed, Exception-Free ALP's integers are an integer stream, whatever the column's type is.
         // A rANS payload needs the topology to decode, so the dump shows its parts.
         let hint = match stream.meta.encoding.logical {
-            LogicalEncoding::Float(FloatLogical::Dict) => DecodeHint::U32,
             LogicalEncoding::Float(FloatLogical::Alp(params)) => DecodeHint::Alp(params),
             LogicalEncoding::Vertex(VertexLogical::Rans) => DecodeHint::Rans,
             LogicalEncoding::Float(FloatLogical::None)

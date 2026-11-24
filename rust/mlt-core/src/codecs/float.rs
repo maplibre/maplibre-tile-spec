@@ -1,17 +1,12 @@
 //! What the encoder needs to know about a float type.
 
-/// A float the encoders understand, identified by its bit pattern rather than its value.
-/// `-0.0` must stay a distinct dictionary entry from `0.0`, and a NaN is equal to no float at all, itself included.
+/// A float the encoders understand, compared by its bit pattern rather than its value.
+/// `-0.0` must stay distinct from `0.0`, and a NaN is equal to no float at all, itself included.
 #[cfg_attr(
     not(feature = "unstable-v2"),
-    allow(dead_code, reason = "only the tag 0x02 float encodings use these")
+    allow(dead_code, reason = "only the tag 0x02 ALP encoding uses these")
 )]
 pub trait FloatValue: Copy {
-    /// Dictionary key type: this float's bits.
-    type Bits: Copy + Eq + std::hash::Hash;
-
-    fn key(self) -> Self::Bits;
-
     /// Widen to `f64`, so scaling arithmetic happens at full precision.
     fn widen(self) -> f64;
 
@@ -21,12 +16,6 @@ pub trait FloatValue: Copy {
 }
 
 impl FloatValue for f32 {
-    type Bits = u32;
-
-    fn key(self) -> u32 {
-        self.to_bits()
-    }
-
     fn widen(self) -> f64 {
         f64::from(self)
     }
@@ -45,12 +34,6 @@ impl FloatValue for f32 {
 }
 
 impl FloatValue for f64 {
-    type Bits = u64;
-
-    fn key(self) -> u64 {
-        self.to_bits()
-    }
-
     fn widen(self) -> Self {
         self
     }

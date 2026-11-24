@@ -272,6 +272,10 @@ fn reject_column_name(
 /// Every column of values is one of these, and a column of any of the ten value
 /// types is one of them, so both the properties and the m-values of a layer are
 /// built from it without either having to name a type the other holds.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "boxing the string streams would add an allocation per string column"
+)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ColumnValues<'a> {
     Bool(RawScalar<'a>),
@@ -379,14 +383,12 @@ pub(super) fn parse_column_values<'a>(
             (input, ColumnValues::$type(scalar))
         }};
     }
-    /// Read the streams a float column of `$type` holds, of which its encoding names the count.
+    /// Read the one data stream a float column of `$type` holds.
     macro_rules! floats {
         ($type:ident) => {{
-            let typ = DataType02::$type;
-            let ctx = StreamCtx02::Property(typ);
+            let ctx = StreamCtx02::Property(DataType02::$type);
             let (input, data) = header02::parse_stream(input, ctx, count, parser)?;
-            let (input, floats) = parse_floats(input, typ, name, presence, data, parser)?;
-            (input, ColumnValues::$type(floats))
+            (input, ColumnValues::$type(raw_floats(name, presence, data)))
         }};
     }
     Ok(match values {
@@ -466,43 +468,22 @@ fn parse_m_values<'a>(
     Ok((input, m_values))
 }
 
-/// Finish a float column, reading the dictionary stream when its data stream turned out to be one of codes.
-fn parse_floats<'a>(
-    input: &'a [u8],
-    typ: DataType02,
-    name: &'a str,
-    presence: RawPresence<'a>,
-    data: RawStream<'a>,
-    parser: &mut Parser,
-) -> MltRefResult<'a, RawFloats<'a>> {
-    let (input, encoding) = match data.meta.encoding.logical {
+/// Finish a float column, taking the ALP parameters out of its data stream's header.
+fn raw_floats<'a>(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> RawFloats<'a> {
+    let encoding = match data.meta.encoding.logical {
         LogicalEncoding::Float(FloatLogical::Alp(params)) => {
-            (input, RawFloatsEncoding::Alp { params, data })
-        }
-        LogicalEncoding::Float(FloatLogical::Dict) => {
-            // The dictionary's count is explicit in its header, so this fallback is never used.
-            let ctx = StreamCtx02::PropertyDictionary(typ);
-            let count = Count02::Implied(data.meta.num_values);
-            let (input, dictionary) = header02::parse_stream(input, ctx, count, parser)?;
-            let encoding = RawFloatsEncoding::Dictionary {
-                codes: data,
-                dictionary,
-            };
-            (input, encoding)
+            RawFloatsEncoding::Alp { params, data }
         }
         LogicalEncoding::Float(FloatLogical::None)
         | LogicalEncoding::Int(_)
         | LogicalEncoding::Bool(_)
-        | LogicalEncoding::Vertex(_) => (input, RawFloatsEncoding::Single(data)),
+        | LogicalEncoding::Vertex(_) => RawFloatsEncoding::Single(data),
     };
-    Ok((
-        input,
-        RawFloats {
-            name,
-            presence,
-            encoding,
-        },
-    ))
+    RawFloats {
+        name,
+        presence,
+        encoding,
+    }
 }
 
 /// Parse a shared-dictionary column: its corpus, then the children that index into it.

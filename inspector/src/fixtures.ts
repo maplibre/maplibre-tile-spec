@@ -275,7 +275,6 @@ export const AXES: Axis[] = [
       "morton",
       "morton-delta",
       "morton-rle",
-      "dict",
       "alp",
       "rans",
     ],

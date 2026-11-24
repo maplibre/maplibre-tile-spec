@@ -450,9 +450,6 @@ struct V2EncoderArgs {
     /// Disable Framed, Exception-Free ALP float encoding, storing floats as decimal-scaled integers
     #[clap(long)]
     no_alp: bool,
-    /// Disable float dictionary encoding
-    #[clap(long)]
-    no_float_dict: bool,
     /// Disable bit-packed dictionary codes, leaving a varint each
     #[clap(long)]
     no_bitpacking: bool,
@@ -576,7 +573,6 @@ impl ConvertArgs {
         }
         Ok(encoder
             .with_float_alp(!v2.no_alp)
-            .with_float_dict(!v2.no_float_dict)
             .with_packed_dict_codes(!v2.no_bitpacking)
             .with_triangles_only(v2.triangles_only))
     }
@@ -1537,7 +1533,6 @@ mod tests {
     fn a_v2_only_encoder_option_without_v2_is_rejected() {
         for flags in [
             &["--no-alp"][..],
-            &["--no-float-dict"],
             &["--no-bitpacking"],
             &["--tessellate", "--triangles-only"],
             &["--delta2"],

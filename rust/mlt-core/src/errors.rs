@@ -390,9 +390,6 @@ pub enum MltError {
     #[error("triangle tree names vertex {0} of a layer with {1} vertices")]
     TreeVertexOutOfBounds(u32, usize),
     #[cfg(feature = "unstable-v2")]
-    #[error("dictionary code {0} is out of range for a dictionary of {1} values")]
-    DictionaryCodeOutOfRange(u32, usize),
-    #[cfg(feature = "unstable-v2")]
     #[error(
         "front-coded lengths stream holds a prefix and a suffix length per entry, so its {0} values cannot be split in two"
     )]

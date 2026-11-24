@@ -1654,7 +1654,7 @@ fn generate_m_value_encodings(w: &mut SynthWriter) {
         )
         .write(w, "mvalues_fpf");
 
-    // The v2-only float encodings, which an m-value column reaches exactly as a property does.
+    // The v2-only float encoding, which an m-value column reaches exactly as a property does.
     m_lines()
         .no_v1()
         .add_m_value_float(
@@ -1667,18 +1667,6 @@ fn generate_m_value_encodings(w: &mut SynthWriter) {
             ),
         )
         .write(w, "mvalues_f64_alp");
-    m_lines()
-        .no_v1()
-        .add_m_value_float(
-            E::varint(),
-            FloatEncoding::Dict,
-            M::new(
-                "val",
-                None,
-                MV::F32(vec![1.5, 2.5, 1.5, 1.5, 2.5, 3.5, 1.5, 2.5]),
-            ),
-        )
-        .write(w, "mvalues_f32_dict");
 
     // The string layouts, which the leading stream's extension bits name.
     m_lines()
@@ -2099,9 +2087,9 @@ fn generate_props_u64(w: &mut SynthWriter) {
         .write(w, "props_u64_delta_rle");
 }
 
-/// Float columns under the two v2-only float encodings, one fixture per pinned encoding.
+/// Raw v1 float columns, and the same kind of data under the v2-only ALP encoding, pinned.
 ///
-/// v1 can express neither, so its sibling holds the same values raw under a name describing the data.
+/// v1 cannot express ALP, so its sibling holds the same values raw under a name describing the data.
 /// The macro runs the same set for both float widths so neither can drift ahead of the other.
 fn generate_float_codecs(w: &mut SynthWriter) {
     let e = E::varint();
@@ -2109,63 +2097,48 @@ fn generate_float_codecs(w: &mut SynthWriter) {
     macro_rules! float_codec_fixtures {
         ($name:literal, $ty:ty, $val:path, $opt:path) => {
             points(6)
+                .no_v2()
                 .add_prop_float(
                     e,
-                    FloatEncoding::Dict,
+                    FloatEncoding::None,
                     $val("val", vec![1.5, 2.5, 1.5, 1.5, 2.5, 3.5]),
                 )
-                .write_per_version(
-                    w,
-                    concat!("prop_", $name, "_repeated_np-rust"),
-                    concat!("prop_", $name, "_dict_np"),
-                );
+                .write(w, concat!("prop_", $name, "_repeated_np-rust"));
             points(6)
+                .no_v2()
                 .add_prop_float(
                     e,
-                    FloatEncoding::Dict,
+                    FloatEncoding::None,
                     $opt(
                         "val",
                         vec![Some(1.5), None, Some(2.5), Some(1.5), None, Some(2.5)],
                     ),
                 )
-                .write_per_version(
-                    w,
-                    concat!("prop_", $name, "_repeated-rust"),
-                    concat!("prop_", $name, "_dict"),
-                );
+                .write(w, concat!("prop_", $name, "_repeated-rust"));
             points(4)
+                .no_v2()
                 .add_prop_float(
                     e,
-                    FloatEncoding::Dict,
+                    FloatEncoding::None,
                     $val("val", vec![0.0, -0.0, 0.0, -0.0]),
                 )
-                .write_per_version(
-                    w,
-                    concat!("prop_", $name, "_zeros_np-rust"),
-                    concat!("prop_", $name, "_dict_zeros_np"),
-                );
+                .write(w, concat!("prop_", $name, "_zeros_np-rust"));
             points(4)
+                .no_v2()
                 .add_prop_float(
                     e,
-                    FloatEncoding::Dict,
+                    FloatEncoding::None,
                     $val("val", vec![<$ty>::NAN, 7.5, <$ty>::NAN, 7.5]),
                 )
-                .write_per_version(
-                    w,
-                    concat!("prop_", $name, "_nan_repeated_np-rust"),
-                    concat!("prop_", $name, "_dict_nan_np"),
-                );
+                .write(w, concat!("prop_", $name, "_nan_repeated_np-rust"));
             points(6)
+                .no_v2()
                 .add_prop_float(
                     e,
-                    FloatEncoding::Dict,
+                    FloatEncoding::None,
                     $val("val", vec![1.5, 2.5, 3.5, 4.5, 5.5, 6.5]),
                 )
-                .write_per_version(
-                    w,
-                    concat!("prop_", $name, "_distinct_np-rust"),
-                    concat!("prop_", $name, "_dict_distinct_np"),
-                );
+                .write(w, concat!("prop_", $name, "_distinct_np-rust"));
 
             points(6)
                 .add_prop_float(
