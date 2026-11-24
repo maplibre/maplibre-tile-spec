@@ -3630,9 +3630,9 @@ dependencies = [
 
 [[package]]
 name = "proj4rs"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c237a4e4da4e0f2eae7a5d078df926894ccf1b315043dbccebc413888487d562"
+checksum = "b1ee6afb8b75ae1ca17036298626d981dff6ba14278ccf0c6cf3bbb473228177"
 dependencies = [
  "console_log",
  "crs-definitions",
