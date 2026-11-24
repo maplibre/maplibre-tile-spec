@@ -918,6 +918,7 @@ The residual is `p[i] - guess`, per component, with wrapping 32-bit arithmetic, 
 | 7 | reserved | `0` |
 
 With one stream per class the order is `start`, `delta`, `predicted`, and an empty stream is left out.
+The delta predictor must use one stream in vertex order.
 Each stream holds `x` and `y` interleaved, two values per vertex.
 
 #### Split varint
