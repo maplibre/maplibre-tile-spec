@@ -1,11 +1,13 @@
-//! v2 decode against the gunzip + MVT decode it has to beat.
+//! v2 decode without gunzip against the gunzip + MVT decode it has to beat.
 
 use std::hint::black_box;
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
+use mlt_core::TileLayer;
 use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
 use mlt_core::mvt::mvt_to_tile_layers;
+use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
@@ -20,11 +22,53 @@ fn cfg_v2() -> EncoderConfig {
         .with_float_alp(true)
 }
 
+/// Every decode config, in the order its ids appear in the report.
+fn configs() -> Vec<(&'static str, EncoderConfig)> {
+    vec![
+        ("mlt-v2", cfg_v2()),
+        ("mlt-v2-predicted", cfg_v2().with_predicted_vertices(true)),
+        (
+            "mlt-v2-predicted-vertex-sort",
+            cfg_v2()
+                .with_predicted_vertices(true)
+                .with_vertex_sort(true),
+        ),
+        (
+            "mlt-v2-predicted-vertex-sort-chain",
+            cfg_v2()
+                .with_predicted_vertices(true)
+                .with_vertex_sort(true)
+                .with_chain_sort(true),
+        ),
+        (
+            "mlt-v2-predicted-chain",
+            cfg_v2().with_predicted_vertices(true).with_chain_sort(true),
+        ),
+    ]
+}
+
+fn parse_mvt(path: &str, data: &[u8]) -> Vec<TileLayer> {
+    mvt_to_tile_layers(data).unwrap_or_else(|e| panic!("{path}: {e}"))
+}
+
+fn vertex_count(mvt: &[(String, Vec<u8>)]) -> u64 {
+    let mut vertices = 0;
+    for (path, data) in mvt {
+        for layer in &parse_mvt(path, data) {
+            vertices += layer
+                .features()
+                .iter()
+                .map(|f| u64::from_usize(f.vertex_count()))
+                .sum::<u64>();
+        }
+    }
+    vertices
+}
+
 fn encode(mvt: &[(String, Vec<u8>)], cfg: EncoderConfig) -> Vec<(String, Vec<u8>)> {
     mvt.iter()
         .map(|(path, data)| {
-            let layers = mvt_to_tile_layers(data.clone()).unwrap_or_else(|e| panic!("{path}: {e}"));
-            let tile = layers
+            let tile = parse_mvt(path, data)
                 .into_iter()
                 .flat_map(|layer| layer.encode(cfg).expect("encode failed"))
                 .collect();
@@ -47,16 +91,16 @@ fn bench_decode(c: &mut Criterion) {
     let mut group = c.benchmark_group("decode_v2_vertices");
     for corpus in CORPORA {
         let mvt = load_all_tiles(&format!("fixtures/{corpus}"), ".mvt");
+        let vertices = vertex_count(&mvt);
         let gz: Vec<(String, Vec<u8>)> = mvt
             .iter()
             .map(|(path, data)| (path.clone(), compress_gzip(data)))
             .collect();
-        let plain = encode(&mvt, cfg_v2());
         eprintln!(
-            "{corpus}: mvt+gzip {} B, v2 {} B",
-            total_bytes(&gz),
-            total_bytes(&plain)
+            "{corpus}: {vertices} vertices, mvt+gzip {} B",
+            total_bytes(&gz)
         );
+        group.throughput(Throughput::Elements(vertices));
         group.bench_with_input(BenchmarkId::new("mvt+gzip", corpus), &gz, |b, t| {
             b.iter(|| {
                 for (_, tile) in t {
@@ -64,9 +108,13 @@ fn bench_decode(c: &mut Criterion) {
                 }
             });
         });
-        group.bench_with_input(BenchmarkId::new("mlt-v2", corpus), &plain, |b, t| {
-            b.iter(|| mlt_decode(t));
-        });
+        for (id, cfg) in configs() {
+            let tiles = encode(&mvt, cfg);
+            eprintln!("{corpus}: {id} {} B", total_bytes(&tiles));
+            group.bench_with_input(BenchmarkId::new(id, corpus), &tiles, |b, t| {
+                b.iter(|| mlt_decode(t));
+            });
+        }
     }
     group.finish();
 }
