@@ -5,7 +5,7 @@ import { OffsetType } from "../metadata/tile/offsetType";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import IntWrapper from "../decoding/intWrapper";
-import { encodeBooleanRle, encodeStrings, createStringLengths, concatenateBuffers } from "./encodingUtils";
+import { encodeBooleanRle, encodeUtf8Strings, concatenateBuffers } from "./encodingUtils";
 import { encodeVarintInt32Value, encodeVarintInt32 } from "./integerEncodingUtils";
 import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import type { LogicalStreamType } from "../metadata/tile/logicalStreamType";
@@ -18,7 +18,7 @@ import type { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 export function encodePlainStrings(strings: (string | null)[]): Uint8Array {
     const hasNull = strings.some((s) => s === null);
     const nonNullStrings = strings.filter((s): s is string => s !== null);
-    const stringBytes = encodeStrings(nonNullStrings);
+    const { bytes: stringBytes, lengths } = encodeUtf8Strings(nonNullStrings);
 
     const streams: Uint8Array[] = [];
 
@@ -34,7 +34,6 @@ export function encodePlainStrings(strings: (string | null)[]): Uint8Array {
     }
 
     // Add LENGTH stream
-    const lengths = createStringLengths(nonNullStrings);
     streams.push(
         createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(lengths), {
             logical: { lengthType: LengthType.VAR_BINARY },
@@ -73,8 +72,7 @@ export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array 
         return offset;
     });
 
-    const stringBytes = encodeStrings(uniqueStrings);
-    const lengths = createStringLengths(uniqueStrings);
+    const { bytes: stringBytes, lengths } = encodeUtf8Strings(uniqueStrings);
 
     const streams: Uint8Array[] = [];
 

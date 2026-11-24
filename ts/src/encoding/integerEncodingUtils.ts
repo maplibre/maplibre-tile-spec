@@ -33,7 +33,14 @@ export function encodeVarintInt64(values: BigUint64Array): Uint8Array {
     return buffer.slice(0, offset.get());
 }
 
+/** The largest 64-bit value that a double holds exactly, up to which a varint is written without bigint arithmetic. */
+const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
+
 function encodeVarintInt64Value(value: bigint, dst: Uint8Array, offset: IntWrapper): void {
+    if (value <= MAX_SAFE_BIGINT) {
+        encodeVarintFloat64Value(Number(value), dst, offset);
+        return;
+    }
     let v = value;
     while (v > 0x7fn) {
         dst[offset.get()] = Number(v & 0x7fn) | 0x80;
@@ -126,6 +133,16 @@ export function encodeZigZagInt32(data: Int32Array): Uint32Array {
         result[i] = encodeZigZagInt32Value(data[i]);
     }
     return result;
+}
+
+/** The zigzag varints of 32-bit integers, as `encodeVarintInt32(encodeZigZagInt32(values))` writes them. */
+export function encodeZigZagVarintInt32(values: ArrayLike<number>): Uint8Array {
+    const buffer = new Uint8Array(values.length * 5);
+    const offset = new IntWrapper(0);
+    for (let i = 0; i < values.length; i++) {
+        encodeVarintInt32Value(encodeZigZagInt32Value(values[i]) >>> 0, buffer, offset);
+    }
+    return buffer.slice(0, offset.get());
 }
 
 export function encodeZigZagInt64(data: BigInt64Array): BigUint64Array {

@@ -314,10 +314,11 @@ describe("encodeTile - nested properties", () => {
     it("takes a scalar as a whole feature value, so root shapes can differ per feature", () => {
         const decoded = roundTrip([
             { geometry: point, properties: { nested: "a" } },
+            { geometry: point, properties: { nested: 1 } },
             { geometry: point, properties: { nested: { b: "c" } } },
             { geometry: point, properties: { nested: ["d"] } },
         ]);
-        expect(decoded.map((feature) => feature.properties.nested)).toEqual(["a", { b: "c" }, ["d"]]);
+        expect(decoded.map((feature) => feature.properties.nested)).toEqual(["a", 1, { b: "c" }, ["d"]]);
     });
 
     it("omits a nested property that is absent for a feature", () => {

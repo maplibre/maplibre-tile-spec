@@ -76,6 +76,13 @@ describe("IntegerDecodingUtils", () => {
             expect(decoded[0]).toEqual(value);
         });
 
+        it("should decode Int64 on both sides of the largest integer a double holds exactly", () => {
+            const values = new BigUint64Array([2n ** 53n - 1n, 2n ** 53n, 2n ** 64n - 1n]);
+            const encoded = encodeVarintInt64(values);
+            const decoded = decodeVarintInt64(encoded, new IntWrapper(0), values.length);
+            expect(decoded).toEqual(values);
+        });
+
         it("should return valid decoded values for varint long to float64", () => {
             const value = 2 ** 40;
             const varintEncoded = encodeVarintFloat64(new Float64Array([value]));
