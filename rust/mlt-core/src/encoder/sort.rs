@@ -1,10 +1,12 @@
 //! Feature reordering for the optimizer
 
 use geo_types::Coord;
+use rustc_hash::FxHashMap;
 
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
-use crate::encoder::geometry::Grid;
+use crate::decoder::GeometryValues;
+use crate::encoder::geometry::{GeometryStager, Grid};
 use crate::encoder::model::CurveParams;
 use crate::encoder::source::{LayerSource, Order};
 use crate::tile::TileLayer;
@@ -60,7 +62,7 @@ impl TileLayer {
         if strategy == SortStrategy::Unsorted {
             return;
         }
-        let order = sort_order(self, strategy, params);
+        let order = sort_order(self, strategy, params, false);
         let mut features: Vec<_> = std::mem::take(&mut self.features)
             .into_iter()
             .map(Some)
@@ -80,12 +82,13 @@ impl TileLayer {
     }
 }
 
-/// The order `strategy` puts the features of `source` in.
+/// The order `strategy` puts the features of `source` in, for features staged with vertex sort when `vertex_sort`.
 #[hotpath::measure]
 pub(crate) fn sort_order(
     source: &impl LayerSource,
     strategy: SortStrategy,
     params: CurveParams,
+    vertex_sort: bool,
 ) -> Order {
     let len = source.feature_count();
     match strategy {
@@ -103,32 +106,46 @@ pub(crate) fn sort_order(
             }))
         }
         SortStrategy::Id => Order::Permuted(permutation(len, |f| source.id(f))),
-        SortStrategy::Chain => Order::Permuted(chain(source)),
+        SortStrategy::Chain => Order::Permuted(chain(source, vertex_sort)),
     }
 }
 
-/// The features of `source` in the order a walk from the origin visits them, always stepping to the feature whose first vertex is nearest the last vertex of the previous one.
-fn chain(source: &impl LayerSource) -> Vec<u32> {
+/// The features of `source` in the order a walk from the origin visits them, always stepping to the feature whose first vertex is nearest the vertex stored last.
+/// Features that start at one position wait in index order behind a single grid site.
+fn chain(source: &impl LayerSource, vertex_sort: bool) -> Vec<u32> {
     let len = source.feature_count();
-    let mut with_vertex = Vec::new();
-    let mut starts = Vec::new();
+    let mut site_of = FxHashMap::<(i32, i32), usize>::default();
+    let mut sites = Vec::new();
+    let mut queues: Vec<Vec<usize>> = Vec::new();
     let mut without = Vec::new();
     for feature in 0..len {
-        match source.first_coord(feature) {
-            Some(start) => {
-                with_vertex.push(feature);
-                starts.push(start);
-            }
-            None => without.push(feature),
-        }
+        let Some(start) = source.first_coord(feature) else {
+            without.push(feature);
+            continue;
+        };
+        let site = *site_of.entry((start.x, start.y)).or_insert_with(|| {
+            sites.push(start);
+            queues.push(Vec::new());
+            sites.len() - 1
+        });
+        queues[site].push(feature);
     }
     let mut order = Vec::with_capacity(len);
-    if let Some(mut grid) = Grid::new(&starts) {
+    if let Some(mut grid) = Grid::new(&sites) {
+        let mut next = vec![0_usize; sites.len()];
+        let mut values = GeometryValues::default();
+        let mut stager = GeometryStager::new(&mut values).vertex_sorted(vertex_sort);
         let mut at = Coord { x: 0, y: 0 };
-        while let Some(site) = grid.take_nearest(&starts, at) {
-            let feature = with_vertex[site];
+        while let Some(site) = grid.nearest(&sites, at, |site| queues[site][next[site]]) {
+            let feature = queues[site][next[site]];
+            next[site] += 1;
+            if next[site] == queues[site].len() {
+                grid.remove(&sites, site);
+            }
             order.push(feature);
-            at = source.last_coord(feature).unwrap_or(starts[site]);
+            source.push_geometry(feature, &mut stager);
+            stager.finish_feature();
+            at = stager.last_vertex();
         }
     }
     order.extend(without);
@@ -164,8 +181,10 @@ mod tests {
     };
     use rstest::rstest;
 
+    use super::sort_order;
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry};
     use crate::encoder::model::CurveParams;
+    use crate::encoder::source::Order;
     use crate::encoder::{
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Network, Profile,
         SortStrategy, stage_tile,
@@ -377,6 +396,41 @@ mod tests {
 
         let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
         assert_eq!(ids, vec![Some(4), Some(2), Some(3), Some(5), Some(1)]);
+    }
+
+    #[test]
+    fn chain_sort_takes_features_sharing_a_start_in_index_order() {
+        let layer = layer_after_sort(
+            &[pt(5, 5), ls(&[(5, 5), (9, 9)]), pt(5, 5), pt(9, 9)],
+            &[1, 2, 3, 4],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(1), Some(2), Some(4), Some(3)]);
+    }
+
+    #[test]
+    fn chain_sort_under_vertex_sort_follows_the_multi_point_end_it_stores() {
+        let layer = layer_after_sort(
+            &[
+                GeoGeom::MultiPoint(MultiPoint(vec![
+                    Point::new(0, 0),
+                    Point::new(100, 0),
+                    Point::new(1, 0),
+                ])),
+                pt(2, 0),
+                pt(101, 0),
+            ],
+            &[1, 2, 3],
+            SortStrategy::Unsorted,
+        );
+        let params = layer.curve_params();
+
+        let Order::Permuted(order) = sort_order(&layer, SortStrategy::Chain, params, true) else {
+            panic!("chain sort permutes the features");
+        };
+        assert_eq!(order, vec![0, 2, 1]);
     }
 
     #[test]
