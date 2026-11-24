@@ -21,15 +21,6 @@ const ESCAPE_MARKER: u8 = 0xFF;
 ///
 /// Returns `(decompressed_utf8_string, value_lengths)`.
 pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String, Vec<u32>)> {
-    let (corpus, lengths) = decode_fsst_bytes(raw, dec)?;
-    Ok((String::from_utf8(corpus)?, lengths))
-}
-
-/// As [`decode_fsst`], for a corpus that is only valid UTF-8 once its caller reassembles it.
-pub fn decode_fsst_bytes(
-    raw: RawFsstData<'_>,
-    dec: &mut Decoder,
-) -> MltResult<(Vec<u8>, Vec<u32>)> {
     let RawFsstData {
         symbol_lengths,
         symbol_table,
@@ -42,7 +33,7 @@ pub fn decode_fsst_bytes(
     let output = table.expand(corpus.data)?;
 
     dec.consume_items::<u8>(output.len())?;
-    Ok((output, lengths.decode_ints::<u32>(dec)?))
+    Ok((String::from_utf8(output)?, lengths.decode_ints::<u32>(dec)?))
 }
 
 /// Symbols are at most this long, so each one expands with a single fixed-width copy.
@@ -157,21 +148,6 @@ fn symbol_table_parts(compressor: &fsst::Compressor) -> (Vec<u32>, Vec<u8>) {
         .map(|&l| u32::from(l))
         .collect();
     (symbol_lengths, symbol_bytes)
-}
-
-/// FSST over a corpus whose pieces are not individually valid UTF-8, such as front-coded suffixes.
-///
-/// `parts` are trained on separately, then compressed as one buffer.
-#[cfg(feature = "unstable-v2")]
-#[must_use]
-pub(crate) fn compress_fsst_bytes(parts: &Vec<&[u8]>, corpus: &[u8]) -> FsstBlob {
-    let compressor = fsst::Compressor::train(parts);
-    let (symbol_lengths, symbol_bytes) = symbol_table_parts(&compressor);
-    FsstBlob {
-        symbol_lengths,
-        symbol_bytes,
-        corpus: compressor.compress(corpus),
-    }
 }
 
 /// Shared FSST compression kernel: train a compressor on `values` and compress the corpus.

@@ -5,9 +5,8 @@ use std::borrow::Cow;
 use serde::Serialize;
 use usize_cast::IntoUsize as _;
 
-use crate::codecs::fsst::decode_fsst_bytes;
-use crate::decoder::strings::rebuild_dictionary;
-use crate::decoder::{DictLayout, DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
+use crate::codecs::fsst::decode_fsst;
+use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
 use crate::dump::model::{BlobInfo, DecodeHint, DumpTree, Region};
 use crate::{Decoder, GeometryType, MltError, MltResult};
 
@@ -175,8 +174,7 @@ pub fn decode_region(
     };
     if let Some(streams) = fsst_streams(&tree.regions, index) {
         dec.reset_budget();
-        let layout = corpus_layout(&tree.regions, buf, index);
-        return fsst_strings(streams, layout, buf, max_values, dec).unwrap_or_else(|e| error(&e));
+        return fsst_strings(streams, buf, max_values, dec).unwrap_or_else(|e| error(&e));
     }
     match buf.get(region.offset..region.offset + region.len) {
         Some(bytes) => decode_blob(info, bytes, max_values, dec),
@@ -228,36 +226,8 @@ fn parent(regions: &[Region], at: usize) -> Option<usize> {
         .rposition(|r| r.depth < regions[at].depth)
 }
 
-/// How the corpus at `at` lays its entries out, as its stream's encoding byte says.
-///
-/// Only a v2 layer has that byte, so a v1 corpus is always plain.
-#[cfg(feature = "unstable-v2")]
-fn corpus_layout(regions: &[Region], buf: &[u8], at: usize) -> DictLayout {
-    let is_v2 = regions[..at]
-        .iter()
-        .rposition(|r| r.depth == 0)
-        .and_then(|layer| {
-            regions[layer + 1..at]
-                .iter()
-                .find(|r| r.depth == 1 && r.label == "tag")
-        })
-        .and_then(|tag| buf.get(tag.offset))
-        == Some(&2);
-    let enc_byte = parent(regions, at).and_then(|stream| buf.get(regions[stream].offset));
-    match enc_byte {
-        Some(&b) if is_v2 => DictLayout::from_bits(b).unwrap_or(DictLayout::Plain),
-        _ => DictLayout::Plain,
-    }
-}
-
-#[cfg(not(feature = "unstable-v2"))]
-fn corpus_layout(_: &[Region], _: &[u8], _: usize) -> DictLayout {
-    DictLayout::Plain
-}
-
 fn fsst_strings(
     [symbol_lengths, symbol_table, lengths, corpus]: [&Region; 4],
-    layout: DictLayout,
     buf: &[u8],
     max_values: usize,
     dec: &mut Decoder,
@@ -286,9 +256,8 @@ fn fsst_strings(
         stream(lengths)?,
         stream(corpus)?,
     )?;
-    let (bytes, lengths) = decode_fsst_bytes(raw, dec)?;
-    let (text, lengths) = rebuild_dictionary(layout, &lengths, &bytes, dec)?;
-    let (kept, truncated_from) = cap(lengths.into_owned(), max_values);
+    let (text, lengths) = decode_fsst(raw, dec)?;
+    let (kept, truncated_from) = cap(lengths, max_values);
 
     let mut rest = &*text;
     let mut values = dec.alloc(kept.len())?;

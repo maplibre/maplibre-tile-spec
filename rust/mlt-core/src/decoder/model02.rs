@@ -348,31 +348,6 @@ impl From<IdWidth02> for DataType02 {
     }
 }
 
-/// How a shared dictionary stores its corpus, read from the high nibble of its column type byte.
-///
-/// A shared-dictionary column has no values of its own, so the nibble that names
-/// [`Presence02`] elsewhere names the corpus encoding here.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub(crate) enum SharedDictKind {
-    /// Two streams: the entry lengths, then the entries.
-    Plain = 0b0000_0000,
-    /// Four streams: the entry lengths, the symbol lengths, the symbol table, then the corpus.
-    Fsst = 0b0001_0000,
-}
-
-impl SharedDictKind {
-    /// Read a masked nibble, or [`None`] for one this version has no meaning for.
-    #[must_use]
-    pub(crate) fn parse(nibble: u8) -> Option<Self> {
-        match nibble {
-            0b0000_0000 => Some(Self::Plain),
-            0b0001_0000 => Some(Self::Fsst),
-            _ => None,
-        }
-    }
-}
-
 /// Where a v2 column's presence bits live and how they are coded, the high nibble
 /// of the column type byte.
 ///
@@ -578,8 +553,9 @@ impl From<ValuesColumn02> for ColumnType02 {
 pub(crate) enum Column02 {
     /// A column of values: [`Presence02`] in the high nibble, [`DataType02`] in the low.
     Values(ColumnType02),
-    /// A shared dictionary and the columns indexing it: [`SharedDictKind`] in the high nibble.
-    SharedDict(SharedDictKind),
+    /// A shared dictionary and the columns indexing it.
+    /// Its high nibble is reserved and must be zero.
+    SharedDict,
 }
 
 impl Column02 {
@@ -593,9 +569,11 @@ impl Column02 {
         let err = || MltError::ParsingColumnType(byte);
         let (high, data) = ColumnType02::fields(byte);
         if data == Self::SHARED_DICT {
-            return SharedDictKind::parse(high)
-                .map(Self::SharedDict)
-                .ok_or_else(err);
+            return if high == 0 {
+                Ok(Self::SharedDict)
+            } else {
+                Err(err())
+            };
         }
         ColumnType02::parse(byte, shared_count).map(Self::Values)
     }
@@ -1126,10 +1104,20 @@ mod tests {
             DataType02::I32
         ))
     )]
-    #[case::plain_shared_dict(0b0000_1111, Column02::SharedDict(SharedDictKind::Plain))]
-    #[case::fsst_shared_dict(0b0001_1111, Column02::SharedDict(SharedDictKind::Fsst))]
+    #[case::shared_dict(0b0000_1111, Column02::SharedDict)]
     fn column_byte_names_the_shape_it_holds(#[case] byte: u8, #[case] column: Column02) {
         assert_eq!(Column02::parse(byte, ALL_SHARED).unwrap(), column);
+    }
+
+    #[rstest]
+    #[case::low_bit(0b0001_1111)]
+    #[case::high_bit(0b1000_1111)]
+    fn a_shared_dict_byte_with_a_high_nibble_is_rejected(#[case] byte: u8) {
+        let err = Column02::parse(byte, ALL_SHARED).unwrap_err();
+        assert!(
+            matches!(err, MltError::ParsingColumnType(b) if b == byte),
+            "{err:?}"
+        );
     }
 
     #[rstest]

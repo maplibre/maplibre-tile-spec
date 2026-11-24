@@ -89,7 +89,7 @@ fn a_v1_layer_walks_every_stream_of_its_widened_ints_and_fsst_strings() {
 }
 
 #[test]
-fn a_plain_fsst_string_column_walks_and_decodes() {
+fn a_v1_fsst_string_column_walks_and_decodes() {
     let mut geometry = GeometryValues::default();
     geometry.push_geom(&point(0, 0));
     geometry.push_geom(&point(1, 1));
@@ -108,8 +108,7 @@ fn a_plain_fsst_string_column_walks_and_decodes() {
         get_str_encoding: Box::new(|_| StrEncoding::Fsst),
         get_float_encoding: Box::new(|_| FloatEncoding::None),
     };
-    let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
-        .with_wire_version(WireVersion::V02);
+    let cfg = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G));
     let bytes = staged
         .encode_into(
             Encoder::with_explicit(cfg, explicit),
@@ -129,12 +128,13 @@ fn a_plain_fsst_string_column_walks_and_decodes() {
         .expect("a known layer");
 
     assert_eq!(
-        labels[labels.len() - 4..],
+        labels[labels.len() - 5..],
         [
             "length[symbol] int/none",
             "data[fsst] int/none",
             "length[dictionary] int/none",
             "data[single] int/none",
+            "offset[string] int/none",
         ]
     );
     assert_eq!(

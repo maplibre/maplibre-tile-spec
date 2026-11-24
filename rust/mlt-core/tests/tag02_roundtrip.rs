@@ -976,19 +976,7 @@ mod geometry_layouts {
 mod strings {
     use super::*;
 
-    /// A value long and repetitive enough for FSST to pay off its symbol table.
-    /// The seed leads, so two of them share no prefix worth coding.
-    fn long(seed: usize) -> String {
-        let lead = char::from(b'a' + u8::try_from(seed).unwrap());
-        format!("{lead}_residential_zone_north_sector_").repeat(16)
-    }
-
-    /// As [`long`], with the seed last, so two of them share all but their final bytes.
-    fn long_shared(seed: usize) -> String {
-        format!("residential_zone_north_sector_{seed:03}_").repeat(16)
-    }
-
-    /// Distinct short values sharing no prefix, which no dictionary or symbol table improves on.
+    /// Distinct short values sharing no prefix, which no dictionary improves on.
     fn plain_values(n: usize) -> Vec<String> {
         (0..n)
             .map(|i| {
@@ -1016,19 +1004,11 @@ mod strings {
             .collect()
     }
 
-    /// Distinct values FSST compresses, so a dictionary of them would only add codes.
-    fn fsst_values(n: usize) -> Vec<String> {
-        (0..n).map(long).collect()
-    }
-
-    /// Four of those repeated, so the dictionary and the symbol table both pay off.
-    fn fsst_dict_values(n: usize) -> Vec<String> {
-        (0..n).map(|i| long(i % 4)).collect()
-    }
-
-    /// As [`fsst_dict_values`], with the four sharing prefixes for front coding to factor out.
-    fn fsst_front_dict_values(n: usize) -> Vec<String> {
-        (0..n).map(|i| long_shared(i % 4)).collect()
+    /// Long repetitive values, which v1 would FSST-compress.
+    fn compressible_values(n: usize) -> Vec<String> {
+        (0..n)
+            .map(|i| format!("residential_zone_north_sector_{:03}_", i % 4).repeat(16))
+            .collect()
     }
 
     type Values = fn(usize) -> Vec<String>;
@@ -1052,31 +1032,21 @@ mod strings {
     }
 
     #[rstest]
-    #[case::plain(plain_values as Values, "Plain", false)]
-    #[case::dict(dict_values as Values, "Dict", false)]
-    #[case::front_dict(front_dict_values as Values, "Dict", false)]
-    #[case::fsst(fsst_values as Values, "Fsst", true)]
-    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict", true)]
-    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict", true)]
-    fn each_layout_round_trips(#[case] values: Values, #[case] layout: &str, #[case] fsst: bool) {
+    #[case::plain(plain_values as Values, "Plain")]
+    #[case::dict(dict_values as Values, "Dict")]
+    #[case::front_dict(front_dict_values as Values, "Dict")]
+    fn each_layout_round_trips(#[case] values: Values, #[case] layout: &str) {
         let l = column(values(9).into_iter().map(Some));
         assert_differential(&l);
-        let bytes = l.encode(cfg_v2().with_fsst(fsst)).unwrap();
+        let bytes = l.encode(cfg_v2()).unwrap();
         assert_eq!(layouts(&bytes), [layout]);
     }
 
     #[rstest]
-    #[case::plain(plain_values as Values, "Plain", false)]
-    #[case::dict(dict_values as Values, "Dict", false)]
-    #[case::front_dict(front_dict_values as Values, "Dict", false)]
-    #[case::fsst(fsst_values as Values, "Fsst", true)]
-    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict", true)]
-    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict", true)]
-    fn each_layout_round_trips_with_nulls(
-        #[case] values: Values,
-        #[case] layout: &str,
-        #[case] fsst: bool,
-    ) {
+    #[case::plain(plain_values as Values, "Plain")]
+    #[case::dict(dict_values as Values, "Dict")]
+    #[case::front_dict(front_dict_values as Values, "Dict")]
+    fn each_layout_round_trips_with_nulls(#[case] values: Values, #[case] layout: &str) {
         let l = column(
             values(12)
                 .into_iter()
@@ -1084,27 +1054,17 @@ mod strings {
                 .map(|(i, v)| (i % 3 != 0).then_some(v)),
         );
         assert_differential(&l);
-        let bytes = l.encode(cfg_v2().with_fsst(fsst)).unwrap();
+        let bytes = l.encode(cfg_v2()).unwrap();
         assert_eq!(layouts(&bytes), [layout]);
     }
 
-    #[rstest]
-    #[case::plain(plain_values as Values)]
-    #[case::dict(dict_values as Values)]
-    #[case::front_dict(front_dict_values as Values)]
-    fn fsst_over_front_coded_suffixes_beats_the_layout_that_wins_without_it(
-        #[case] values: Values,
-    ) {
-        let l = column(values(9).into_iter().map(Some));
-        let with = l.encode(cfg_v2()).unwrap();
+    #[test]
+    fn allowing_fsst_leaves_v2_strings_unchanged() {
+        let l = column(compressible_values(9).into_iter().map(Some));
+        let with = l.encode(cfg_v2().with_fsst(true)).unwrap();
         let without = l.encode(cfg_v2().with_fsst(false)).unwrap();
-        assert_eq!(layouts(&with), ["FsstDict"]);
-        assert!(
-            with.len() < without.len(),
-            "{} < {}",
-            with.len(),
-            without.len()
-        );
+        assert_eq!(layouts(&with), ["Dict"]);
+        assert_eq!(with, without);
     }
 
     #[rstest]
@@ -1113,7 +1073,7 @@ mod strings {
     fn front_coding_wins_on_shared_prefixes(#[case] values: Values, #[case] front_coded: usize) {
         let l = column(values(9).into_iter().map(Some));
         assert_differential(&l);
-        let bytes = l.encode(cfg_v2().with_fsst(false)).unwrap();
+        let bytes = l.encode(cfg_v2()).unwrap();
         assert_eq!(front_coded_blobs(&bytes), front_coded);
     }
 

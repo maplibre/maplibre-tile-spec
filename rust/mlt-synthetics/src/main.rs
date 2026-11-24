@@ -1689,32 +1689,6 @@ fn generate_m_value_encodings(w: &mut SynthWriter) {
             M::new("val", None, MV::Str(m_strings())),
         )
         .write(w, "mvalues_str_dict");
-    m_lines()
-        .no_v1()
-        .add_m_value_str_fsst(
-            E::varint(),
-            E::varint(),
-            M::new(
-                "val",
-                None,
-                MV::Str(
-                    [
-                        "residential_zone_north",
-                        "residential_zone_south",
-                        "commercial_zone_north",
-                        "commercial_zone_south",
-                        "industrial_zone_north",
-                        "industrial_zone_south",
-                        "park_zone_north",
-                        "park_zone_south",
-                    ]
-                    .into_iter()
-                    .map(CompactString::from)
-                    .collect(),
-                ),
-            ),
-        )
-        .write(w, "mvalues_str_fsst");
 }
 
 /// The varint boundaries of the Morton-coded `column_counts` field.
@@ -2241,18 +2215,20 @@ fn generate_props_str(w: &mut SynthWriter) {
     six_points()
         .add_prop(E::varint(), P::opt_str("val", str_vals.map(Some)))
         .write_per_version(w, "props_str", "props_str_plain");
-    // FSST variants - same split
+    // FSST variants, which only v1 has
     six_points()
         .add_prop_str_fsst(E::varint(), E::varint(), P::str("val", str_vals))
-        .write_per_version(w, "props_str_fsst_np", "props_str_fsst_np");
+        .no_v2()
+        .write(w, "props_str_fsst_np");
     six_points()
         .add_prop_str_fsst(
             E::varint(),
             E::varint(),
             P::opt_str("val", str_vals.map(Some)),
         )
+        .no_v2()
         // FSST compression output is not byte-for-byte consistent with Java's
-        .write_per_version(w, "props_str_fsst", "props_str_fsst");
+        .write(w, "props_str_fsst");
 
     // Two features with the same 30-char value -> deduplicated dictionary encoding.
     // 30 chars because otherwise FSST is skipped.
@@ -2280,7 +2256,8 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::str("val", [long_string(), long_string()]),
         )
-        .write_per_version(w, "props_offset_str_fsst_np", "props_str_fsst_dict_np");
+        .no_v2()
+        .write(w, "props_offset_str_fsst_np");
     two_pts()
         .add_prop_str_fsst_dict(
             E::varint(),
@@ -2288,7 +2265,8 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::opt_str("val", [Some(long_string()), Some(long_string())]),
         )
-        .write_per_version(w, "props_offset_str_fsst", "props_str_fsst_dict");
+        .no_v2()
+        .write(w, "props_offset_str_fsst");
 
     // Null-first columns, whose nulls v1 stores in a presence stream and v2 in the column's bitfield.
     let sparse = |values: [&str; 4]| {
@@ -2312,7 +2290,8 @@ fn generate_props_str(w: &mut SynthWriter) {
         .write_per_version(w, "props_offset_str_nulls-rust", "props_str_dict_nulls");
     six_points()
         .add_prop_str_fsst(E::varint(), E::varint(), P::opt_str("val", distinct()))
-        .write_per_version(w, "props_str_fsst_nulls", "props_str_fsst_nulls");
+        .no_v2()
+        .write(w, "props_str_fsst_nulls");
     six_points()
         .add_prop_str_fsst_dict(
             E::varint(),
@@ -2320,11 +2299,8 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::opt_str("val", repeated()),
         )
-        .write_per_version(
-            w,
-            "props_offset_str_fsst_nulls",
-            "props_str_fsst_dict_nulls",
-        );
+        .no_v2()
+        .write(w, "props_offset_str_fsst_nulls");
 
     // Dictionary entries sharing all but their last byte, which v2 front coding factors out.
     // v1 has no front coding, so its sibling holds the same values in a full dictionary.
@@ -2345,22 +2321,17 @@ fn generate_props_str(w: &mut SynthWriter) {
         .write_per_version(w, "props_str_prefixes_nulls", "props_str_front_dict_nulls");
 
     six_points()
-        .add_prop_str_fsst_front_dict(e, e, e, P::str("val", repeats()))
-        .write_per_version(
-            w,
-            "props_str_prefixes_fsst_np",
-            "props_str_fsst_front_dict_np",
-        );
+        .add_prop_str_fsst_dict(e, e, e, P::str("val", repeats()))
+        .no_v2()
+        .write(w, "props_str_prefixes_fsst_np");
     six_points()
-        .add_prop_str_fsst_front_dict(e, e, e, P::opt_str("val", some_prefixed()))
-        .write_per_version(w, "props_str_prefixes_fsst", "props_str_fsst_front_dict");
+        .add_prop_str_fsst_dict(e, e, e, P::opt_str("val", some_prefixed()))
+        .no_v2()
+        .write(w, "props_str_prefixes_fsst");
     six_points()
-        .add_prop_str_fsst_front_dict(e, e, e, P::opt_str("val", sparse_prefixed()))
-        .write_per_version(
-            w,
-            "props_str_prefixes_fsst_nulls",
-            "props_str_fsst_front_dict_nulls",
-        );
+        .add_prop_str_fsst_dict(e, e, e, P::opt_str("val", sparse_prefixed()))
+        .no_v2()
+        .write(w, "props_str_prefixes_fsst_nulls");
 
     // Three dictionary entries, so a code fits in two bits and the six of them
     // cross a byte boundary and leave a partial one.

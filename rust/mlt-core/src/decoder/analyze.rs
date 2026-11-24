@@ -124,11 +124,7 @@ impl Analyze for RawStringsEncoding<'_> {
                 offsets.for_each_stream(cb);
             }
             Self::FsstPlain(fsst_data) => fsst_data.for_each_stream(cb),
-            Self::FsstDictionary {
-                fsst_data,
-                offsets,
-                dict: _,
-            } => {
+            Self::FsstDictionary { fsst_data, offsets } => {
                 fsst_data.for_each_stream(cb);
                 offsets.for_each_stream(cb);
             }
@@ -182,7 +178,7 @@ impl Analyze for RawSharedDictItem<'_> {
 impl Analyze for RawSharedDictEncoding<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
-            Self::Plain(plain_data) => plain_data.for_each_stream(cb),
+            Self::Plain { plain_data, .. } => plain_data.for_each_stream(cb),
             Self::FsstPlain(fsst_data) => fsst_data.for_each_stream(cb),
         }
     }

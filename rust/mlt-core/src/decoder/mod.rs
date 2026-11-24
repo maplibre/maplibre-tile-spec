@@ -32,8 +32,8 @@ pub(crate) use geometry::decode::{Levels, decode_topology};
 #[cfg(feature = "unstable-v2")]
 pub(crate) use model02::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Extent02, IdWidth02,
-    Interior02, LayerHeader02, NodeKind02, NodePresence, NodeType02, Presence02, SharedDictKind,
-    Topology, ValueType02, ValuesColumn02, VertexStorage,
+    Interior02, LayerHeader02, NodeKind02, NodePresence, NodeType02, Presence02, Topology,
+    ValueType02, ValuesColumn02, VertexStorage,
 };
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;

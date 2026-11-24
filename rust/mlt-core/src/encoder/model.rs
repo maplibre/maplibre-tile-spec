@@ -511,7 +511,7 @@ pub struct EncoderConfig {
     attempt_id_sort: bool,
     /// Start each feature's rings, lines and points near where the previous feature ended.
     vertex_sort: bool,
-    /// Allow `FSST` string compression
+    /// Allow `FSST` string compression, which only v1 has
     allow_fsst: bool,
     /// Allow `FastPFOR` integer compression
     allow_fastpfor: bool,
@@ -845,6 +845,8 @@ impl EncoderConfig {
         self
     }
 
+    /// Allow `FSST` string compression.
+    /// v2 has no `FSST`, so this only changes v1 tiles.
     #[must_use]
     pub fn with_fsst(mut self, enabled: bool) -> Self {
         self.allow_fsst = enabled;
@@ -921,7 +923,6 @@ pub enum StrEncoding {
     Fsst,
     FsstDict,
     FrontDict,
-    FsstFrontDict,
 }
 
 /// How to encode a float column, pinned rather than costed against the alternatives.

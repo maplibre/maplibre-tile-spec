@@ -628,8 +628,8 @@ A string column is stored with one of four encodings, which combine a blob with 
 |---|---|
 | Plain | Every value's bytes as [plain bytes](#plain-bytes) |
 | Dictionary | The distinct values once, and a code per value |
-| FSST | Every value's bytes, compressed with [FSST](#fsst) |
-| FSST dictionary | The distinct values once, compressed with [FSST](#fsst), and a code per value |
+| FSST | Every value's bytes, compressed with [FSST](#fsst), v1 only |
+| FSST dictionary | The distinct values once, compressed with [FSST](#fsst), and a code per value, v1 only |
 
 The streams of each encoding and how a column announces it are the business of [v1](specification/v1.md#string-columns) and [v2](specification/v2.md#string-columns).
 
@@ -677,17 +677,14 @@ Only the reconstructed entry has to be valid UTF-8.
     blob:     "Main Street" " North" "ple Avenue"
     ```
 
-Front coding can be combined with [FSST](#fsst).
-The corpus is front-coded first and then FSST-compressed.
-An encoder SHOULD compare the stored size of each combination.
-
 ### FSST {#fsst}
 
 Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes.
 Unlike a dictionary, it compresses strings that merely share substrings, such as localized country names.
 It decodes quickly, since every code is one byte.
+FSST exists only in [MLT v1](specification/v1.md#string-columns).
 
-[View example](inspector/app/?fixture=0x02%2Fprops_str_fsst_dict_np.mlt&at=column%5B0%5D){target=_blank .inspector-example} - a symbol table and the codes into it.
+[View example](inspector/app/?fixture=0x01%2Fprops_offset_str_fsst_np.mlt){target=_blank .inspector-example} - a symbol table and the codes into it.
 
 An FSST-compressed blob comes with two streams that carry its symbol table:
 
@@ -735,7 +732,7 @@ Repeated values such as a city or a country cost one code instead of their bytes
 [View example](inspector/app/?fixture=0x02%2Fprops_str_dict_bp_np.mlt&at=codes){target=_blank .inspector-example} - three distinct strings and one code per feature.
 
 The codes are an unsigned integer stream, so any [logical](#logical-encodings) and [physical](#physical-encodings) encoding can compress them.
-The dictionary is a byte blob, [plain](#plain-bytes), [front-coded](#front-coding) or [FSST](#fsst)-compressed.
+The dictionary is a byte blob, [plain](#plain-bytes), [front-coded](#front-coding) or, in v1, [FSST](#fsst)-compressed.
 Its lengths are those of the distinct values.
 
 ```
@@ -754,7 +751,7 @@ The dictionary is written once, and each member column then stores only its pres
 
 [View example](inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&at=column%5B0%5D){target=_blank .inspector-example} - several columns reading one corpus.
 
-The dictionary can be plain, front-coded or FSST-compressed, as for a single column.
+The dictionary can be plain, front-coded or, in v1, FSST-compressed, as for a single column.
 See [v1](specification/v1.md#shared-dictionary-columns) and [v2](specification/v2.md#shared-dictionary-columns) for the group header each version writes.
 
 ## Vertex Streams

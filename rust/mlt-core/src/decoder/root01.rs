@@ -260,11 +260,9 @@ fn parse_str_column<'a>(
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
             RawStringsEncoding::fsst_plain(RawFsstData::new(s1, s2, s3, s4)?)
         }
-        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => RawStringsEncoding::fsst_dictionary(
-            RawFsstData::new(s1, s2, s3, s4)?,
-            s5,
-            DictLayout::Plain,
-        )?,
+        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
+            RawStringsEncoding::fsst_dictionary(RawFsstData::new(s1, s2, s3, s4)?, s5)?
+        }
         _ => Err(UnsupportedStringStreamCount(stream_count))?,
     };
     Ok((
@@ -324,7 +322,7 @@ fn parse_shared_dict_column<'a>(
     let name = column.name.unwrap_or("");
     let encoding = match dict_streams {
         [Some(s1), Some(s2), None, None, None] => {
-            RawSharedDictEncoding::plain(RawPlainData::new(s1, s2)?)
+            RawSharedDictEncoding::plain(RawPlainData::new(s1, s2)?, DictLayout::Plain)
         }
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
             RawSharedDictEncoding::fsst_plain(RawFsstData::new(s1, s2, s3, s4)?)
@@ -334,7 +332,6 @@ fn parse_shared_dict_column<'a>(
     Ok((
         input,
         RawProperty::SharedDict(RawSharedDict {
-            dict: DictLayout::Plain,
             name,
             encoding,
             children,

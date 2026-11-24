@@ -63,10 +63,9 @@ use crate::decoder::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
     DictionaryType, FloatLogical, GeoLayout, GeoTypes, GeometryType, Id, IdWidth02, IndexBase,
     Layer01, Layer02, LayerBytes, LayerHeader02, LayerLayout, LengthType, LogicalEncoding, MValues,
-    Nested, Presence02, RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue,
-    RawMValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
-    SharedDictKind, ValueType02, ValuesColumn02,
+    Nested, Presence02, RawFloats, RawFloatsEncoding, RawGeometry, RawId, RawIdValue, RawMValue,
+    RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding,
+    RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, ValueType02, ValuesColumn02,
 };
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8};
@@ -149,9 +148,9 @@ pub(crate) fn parse_layer02<'a>(
         let typ_byte;
         (input, typ_byte) = parse_u8(input)?;
         let typ = match cols.column(typ_byte)? {
-            Column02::SharedDict(kind) => {
+            Column02::SharedDict => {
                 let shared_dict;
-                (input, shared_dict) = parse_shared_dict02(input, kind, &cols, parser)?;
+                (input, shared_dict) = parse_shared_dict02(input, &cols, parser)?;
                 for child in &shared_dict.children {
                     let name = format!("{}{}", shared_dict.name, child.name);
                     reject_column_name(&column_names, &name, ColumnRole::Property)?;
@@ -510,7 +509,6 @@ fn parse_floats<'a>(
 /// Each child carries its own presence nibble and offsets stream.
 fn parse_shared_dict02<'a>(
     input: &'a [u8],
-    kind: SharedDictKind,
     cols: &LayerCols<'a>,
     parser: &mut Parser,
 ) -> MltRefResult<'a, RawSharedDict<'a>> {
@@ -529,27 +527,10 @@ fn parse_shared_dict02<'a>(
     };
     // The corpus streams mirror a lone string column's dictionary tail, so the blob that ends
     // them is what names front coding here too.
-    let (input, encoding, dict) = match kind {
-        SharedDictKind::Plain => {
-            let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
-            let dict = blob_layout(input)?;
-            let (input, data) =
-                stream(input, StreamCtx02::StrBlob(DictionaryType::Shared), parser)?;
-            let plain = RawPlainData::new(lengths, data)?;
-            (input, RawSharedDictEncoding::plain(plain), dict)
-        }
-        SharedDictKind::Fsst => {
-            let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
-            let (input, symbol_lengths) = stream(input, StreamCtx02::StrSymbolLengths, parser)?;
-            let (input, symbols) =
-                stream(input, StreamCtx02::StrBlob(DictionaryType::Fsst), parser)?;
-            let dict = blob_layout(input)?;
-            let (input, corpus) =
-                stream(input, StreamCtx02::StrBlob(DictionaryType::Shared), parser)?;
-            let fsst = RawFsstData::new(symbol_lengths, symbols, lengths, corpus)?;
-            (input, RawSharedDictEncoding::fsst_plain(fsst), dict)
-        }
-    };
+    let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
+    let dict = blob_layout(input)?;
+    let (input, data) = stream(input, StreamCtx02::StrBlob(DictionaryType::Shared), parser)?;
+    let encoding = RawSharedDictEncoding::plain(RawPlainData::new(lengths, data)?, dict);
 
     let mut input = input;
     let mut children = Vec::with_capacity(child_count.into_usize());
@@ -579,7 +560,7 @@ fn parse_shared_dict02<'a>(
         });
     }
 
-    Ok((input, RawSharedDict::new(name, encoding, dict, children)))
+    Ok((input, RawSharedDict::new(name, encoding, children)))
 }
 
 /// Read how a dictionary blob lays its entries out, from the encoding byte its stream begins with.
@@ -604,7 +585,7 @@ pub(super) fn parse_strings<'a>(
 ) -> MltRefResult<'a, RawStrings<'a>> {
     // The layout is in the leading stream's encoding byte, which its own context is needed to read.
     let (_, enc_byte) = parse_u8(input)?;
-    let layout = StrLayout::from_bits(enc_byte);
+    let layout = StrLayout::from_bits(enc_byte)?;
     let (input, leading) =
         header02::parse_stream(input, StreamCtx02::StrData(layout), count, parser)?;
     // Every stream after the leading one runs over the values it counted.
@@ -626,29 +607,6 @@ pub(super) fn parse_strings<'a>(
                 stream(input, StreamCtx02::StrBlob(DictionaryType::Single), parser)?;
             let plain = RawPlainData::new(lengths, data)?;
             (input, RawStringsEncoding::dictionary(plain, leading, dict)?)
-        }
-        StrLayout::Fsst => {
-            let (input, symbol_lengths) = stream(input, StreamCtx02::StrSymbolLengths, parser)?;
-            let (input, symbols) =
-                stream(input, StreamCtx02::StrBlob(DictionaryType::Fsst), parser)?;
-            let (input, corpus) =
-                stream(input, StreamCtx02::StrBlob(DictionaryType::Single), parser)?;
-            let fsst = RawFsstData::new(symbol_lengths, symbols, leading, corpus)?;
-            (input, RawStringsEncoding::fsst_plain(fsst))
-        }
-        StrLayout::FsstDict => {
-            let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
-            let (input, symbol_lengths) = stream(input, StreamCtx02::StrSymbolLengths, parser)?;
-            let (input, symbols) =
-                stream(input, StreamCtx02::StrBlob(DictionaryType::Fsst), parser)?;
-            let dict = blob_layout(input)?;
-            let (input, corpus) =
-                stream(input, StreamCtx02::StrBlob(DictionaryType::Single), parser)?;
-            let fsst = RawFsstData::new(symbol_lengths, symbols, lengths, corpus)?;
-            (
-                input,
-                RawStringsEncoding::fsst_dictionary(fsst, leading, dict)?,
-            )
         }
     };
     Ok((input, RawStrings::new(name, presence, encoding)))

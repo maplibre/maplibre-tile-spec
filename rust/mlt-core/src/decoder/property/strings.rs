@@ -7,7 +7,7 @@ use usize_cast::IntoUsize as _;
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::front_coding::{FrontLengths, front_decode};
-use crate::codecs::fsst::{decode_fsst, decode_fsst_bytes};
+use crate::codecs::fsst::decode_fsst;
 use crate::decoder::{
     ColumnStorage, DictLayout, DictionaryType, LengthType, OffsetType, ParsedLayer01,
     ParsedProperty, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings, RawFsstData,
@@ -316,11 +316,6 @@ impl<'a> RawFsstData<'a> {
     pub fn decode(self, dec: &mut Decoder) -> MltResult<(String, Vec<u32>)> {
         decode_fsst(self, dec)
     }
-
-    /// As [`Self::decode`], for a corpus that is only valid UTF-8 once its caller reassembles it.
-    pub fn decode_bytes(self, dec: &mut Decoder) -> MltResult<(Vec<u8>, Vec<u32>)> {
-        decode_fsst_bytes(self, dec)
-    }
 }
 
 impl<'a> RawStringsEncoding<'a> {
@@ -347,25 +342,17 @@ impl<'a> RawStringsEncoding<'a> {
         Self::FsstPlain(fsst_data)
     }
 
-    pub fn fsst_dictionary(
-        fsst_data: RawFsstData<'a>,
-        offsets: RawStream<'a>,
-        dict: DictLayout,
-    ) -> MltResult<Self> {
+    pub fn fsst_dictionary(fsst_data: RawFsstData<'a>, offsets: RawStream<'a>) -> MltResult<Self> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
-        Ok(Self::FsstDictionary {
-            fsst_data,
-            offsets,
-            dict,
-        })
+        Ok(Self::FsstDictionary { fsst_data, offsets })
     }
 }
 
 impl<'a> RawSharedDictEncoding<'a> {
     /// Plain shared dict (2 streams): lengths + data.
     #[must_use]
-    pub fn plain(plain_data: RawPlainData<'a>) -> Self {
-        Self::Plain(plain_data)
+    pub fn plain(plain_data: RawPlainData<'a>, dict: DictLayout) -> Self {
+        Self::Plain { plain_data, dict }
     }
 
     /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
@@ -392,8 +379,8 @@ impl<'a> RawStrings<'a> {
             RawStringsEncoding::Plain(_) => (StringLayout::Plain, None),
             RawStringsEncoding::Dictionary { dict, .. } => (StringLayout::Dict, Some(*dict)),
             RawStringsEncoding::FsstPlain(_) => (StringLayout::Fsst, None),
-            RawStringsEncoding::FsstDictionary { dict, .. } => {
-                (StringLayout::FsstDict, Some(*dict))
+            RawStringsEncoding::FsstDictionary { .. } => {
+                (StringLayout::FsstDict, Some(DictLayout::Plain))
             }
         };
         ColumnStorage {
@@ -458,20 +445,9 @@ impl<'a> RawStrings<'a> {
                     codes: None,
                 }
             }
-            RawStringsEncoding::FsstDictionary {
-                fsst_data,
-                offsets,
-                dict,
-            } => {
-                let (data, lengths) = fsst_data.decode_bytes(dec)?;
+            RawStringsEncoding::FsstDictionary { fsst_data, offsets } => {
+                let (dictionary, lengths) = fsst_data.decode(dec)?;
                 let offsets: Vec<u32> = offsets.decode_ints(dec)?;
-                // A plain dictionary is the decompressed corpus itself, so it is kept, not copied.
-                let (dictionary, lengths) = if dict == DictLayout::Plain {
-                    (String::from_utf8(data)?, Cow::Borrowed(&*lengths))
-                } else {
-                    let (dictionary, lengths) = rebuild_dictionary(dict, &lengths, &data, dec)?;
-                    (dictionary.into_owned(), lengths)
-                };
                 decode_dictionary_strings(
                     name,
                     &lengths,
@@ -628,13 +604,11 @@ impl<'a> RawSharedDict<'a> {
     pub fn new(
         name: &'a str,
         encoding: RawSharedDictEncoding<'a>,
-        dict: DictLayout,
         children: Vec<RawSharedDictItem<'a>>,
     ) -> Self {
         Self {
             name,
             encoding,
-            dict,
             children,
         }
     }
@@ -643,17 +617,14 @@ impl<'a> RawSharedDict<'a> {
     pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedSharedDict<'a>> {
         let prefix = self.name;
         let (data, dict_spans) = match self.encoding {
-            RawSharedDictEncoding::Plain(plain_data) => {
+            RawSharedDictEncoding::Plain { plain_data, dict } => {
                 let (blob, lengths) = plain_data.decode_bytes(dec)?;
-                let (entries, lengths) = rebuild_dictionary(self.dict, &lengths, blob, dec)?;
+                let (entries, lengths) = rebuild_dictionary(dict, &lengths, blob, dec)?;
                 let dict_spans = shared_dict_spans(&lengths, dec)?;
                 (entries, dict_spans)
             }
             RawSharedDictEncoding::FsstPlain(fsst_data) => {
-                let (blob, lengths) = fsst_data.decode_bytes(dec)?;
-                // `entries` borrows the decompressed corpus, which is local, so it is taken owned.
-                let (entries, lengths) = rebuild_dictionary(self.dict, &lengths, &blob, dec)?;
-                let (entries, lengths) = (entries.into_owned(), lengths.into_owned());
+                let (entries, lengths) = fsst_data.decode(dec)?;
                 let dict_spans = shared_dict_spans(&lengths, dec)?;
                 (Cow::Owned(entries), dict_spans)
             }

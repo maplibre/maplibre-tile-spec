@@ -359,7 +359,7 @@ pub struct ConvertArgs {
     /// Disable `FastPFOR` integer compression (only `VarInt` physical encodings compete)
     #[clap(long)]
     no_fastpfor: bool,
-    /// Disable `FSST` string compression
+    /// Disable `FSST` string compression, which only MLT version 1 has
     #[clap(long)]
     no_fsst: bool,
     /// Decode every encoded layer and fail unless it matches the input, parsed fields formatted back and vertices in any order `--vertex-sort` allows

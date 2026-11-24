@@ -70,12 +70,6 @@ enum PropConfig {
         string_lengths: IntEncoder,
         offsets: IntEncoder,
     },
-    /// String FSST + front-coded Dictionary encoding, so FSST runs over the suffixes.
-    StrFsstFrontDict {
-        sym_lengths: IntEncoder,
-        dict_lengths: IntEncoder,
-        offsets: IntEncoder,
-    },
     /// Shared dictionary: `StrEncoding` for the corpus, per-suffix `IntEncoder` for offsets.
     SharedDict {
         dict_encoding: StrEncoding,
@@ -94,7 +88,6 @@ impl PropConfig {
             | Self::StrFsstDict { .. }
             | Self::StrDict { .. }
             | Self::StrFrontDict { .. }
-            | Self::StrFsstFrontDict { .. }
             | Self::SharedDict { .. } => FloatEncoding::None,
         }
     }
@@ -106,7 +99,6 @@ impl PropConfig {
             Self::StrFsstDict { .. } => StrEncoding::FsstDict,
             Self::StrDict { .. } => StrEncoding::Dict,
             Self::StrFrontDict { .. } => StrEncoding::FrontDict,
-            Self::StrFsstFrontDict { .. } => StrEncoding::FsstFrontDict,
             Self::SharedDict { dict_encoding, .. } => *dict_encoding,
         }
     }
@@ -130,11 +122,6 @@ impl PropConfig {
                 ST::Present | ST::Data(_) | ST::Offset(_) | ST::Length(_) => *dict_lengths,
             },
             Self::StrFsstDict {
-                sym_lengths,
-                dict_lengths,
-                offsets,
-            }
-            | Self::StrFsstFrontDict {
                 sym_lengths,
                 dict_lengths,
                 offsets,
@@ -461,26 +448,6 @@ impl Layer {
         self
     }
 
-    /// Add an FSST + front-coded Dictionary string property.
-    #[must_use]
-    pub fn add_prop_str_fsst_front_dict(
-        mut self,
-        sym_lengths: IntEncoder,
-        dict_lengths: IntEncoder,
-        offsets: IntEncoder,
-        prop: StagedProperty,
-    ) -> Self {
-        self.props.push((
-            prop,
-            PropConfig::StrFsstFrontDict {
-                sym_lengths,
-                dict_lengths,
-                offsets,
-            },
-        ));
-        self
-    }
-
     /// Add an FSST+Dictionary string property.
     #[must_use]
     pub fn add_prop_str_fsst_dict(
@@ -552,24 +519,6 @@ impl Layer {
             PropConfig::StrDict {
                 string_lengths,
                 offsets,
-            },
-        ));
-        self
-    }
-
-    /// Add a vertex-scoped FSST-compressed string column.
-    #[must_use]
-    pub fn add_m_value_str_fsst(
-        mut self,
-        sym_lengths: IntEncoder,
-        dict_lengths: IntEncoder,
-        m_value: StagedMValue,
-    ) -> Self {
-        self.m_values.push((
-            m_value,
-            PropConfig::StrFsst {
-                sym_lengths,
-                dict_lengths,
             },
         ));
         self
@@ -881,7 +830,7 @@ impl SharedDict {
     ///
     /// # Arguments
     /// * `name` - The name for the property (e.g., `"name:"` for `"name:de"`, `"name:en"`).
-    /// * `dict_encoding` - The string encoding for the shared dictionary corpus (plain or FSST).
+    /// * `dict_encoding` - The string encoding for the shared dictionary corpus (plain, or FSST in v1).
     #[must_use]
     pub fn new(name: impl Into<String>, dict_encoding: StrEncoding) -> Self {
         Self {

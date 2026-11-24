@@ -6,7 +6,7 @@ const index = indexFixtures(join(import.meta.dirname, "..", "fixtures"));
 
 describe("indexFixtures", () => {
   it("indexes every synthetic tile", () => {
-    expect(index.length).toMatchInlineSnapshot(`1526`);
+    expect(index.length).toMatchInlineSnapshot(`1516`);
   });
 
   it("indexes each directory", () => {
@@ -26,7 +26,7 @@ describe("indexFixtures", () => {
         "0x01-osm": 1,
         "0x01-rust": 210,
         "0x01-simple": 6,
-        "0x02": 617,
+        "0x02": 607,
         "0x02-amazon": 11,
         "0x02-amazon_here": 5,
         "0x02-bing": 17,
@@ -47,26 +47,25 @@ describe("indexFixtures", () => {
   it("reads every facet axis from mlt ls", () => {
     const entry = index.find(
       (entry) =>
-        entry.directory === "0x02" && entry.name === "props_str_fsst.mlt",
+        entry.directory === "0x01" && entry.name === "props_str_fsst.mlt",
     );
-    // `strLayout` is `fsst`, not `fsst-dict`: an FSST-plain column has a symbol
-    // table but no value dictionary. Reading the axes rather than matching one
-    // concatenated label is what keeps `length[dictionary]` from reading as one.
+    // Reading the axes rather than matching one concatenated label is what
+    // keeps `length[dictionary]` from reading as a string layout.
     expect(entry).toMatchInlineSnapshot(`
       {
-        "bytes": 229,
-        "directory": "0x02",
+        "bytes": 228,
+        "directory": "0x01",
         "facets": {
           "dataType": [
             "str?",
           ],
-          "dictLayout": [],
+          "dictLayout": [
+            "plain",
+          ],
           "extent": [
             "64",
           ],
-          "geomLayout": [
-            "points",
-          ],
+          "geomLayout": [],
           "geometry": [
             "point",
           ],
@@ -75,13 +74,15 @@ describe("indexFixtures", () => {
           ],
           "logical": [
             "componentwise-delta",
+            "delta-rle",
+            "rle",
           ],
           "mValue": [],
           "physical": [
             "varint",
           ],
           "strLayout": [
-            "fsst",
+            "fsst-dict",
           ],
           "streamType": [
             "data[fsst]",
@@ -89,6 +90,9 @@ describe("indexFixtures", () => {
             "data[vertex]",
             "length[dictionary]",
             "length[symbol]",
+            "length[var-binary]",
+            "offset[string]",
+            "present",
           ],
           "zStep": [],
         },

@@ -109,7 +109,6 @@ pub enum RawStringsEncoding<'a> {
     FsstDictionary {
         fsst_data: RawFsstData<'a>,
         offsets: RawStream<'a>,
-        dict: DictLayout,
     },
 }
 
@@ -171,8 +170,11 @@ pub struct ColumnStorage {
 /// This is why only `Plain` and `FsstPlain` variants exist here.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RawSharedDictEncoding<'a> {
-    /// Plain shared dict (2 streams): lengths + data.
-    Plain(RawPlainData<'a>),
+    /// Plain shared dict (2 streams): lengths + data, laid out as `dict` says.
+    Plain {
+        plain_data: RawPlainData<'a>,
+        dict: DictLayout,
+    },
     /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
     FsstPlain(RawFsstData<'a>),
 }
@@ -182,7 +184,6 @@ pub enum RawSharedDictEncoding<'a> {
 pub struct RawSharedDict<'a> {
     pub name: &'a str,
     pub encoding: RawSharedDictEncoding<'a>,
-    pub dict: DictLayout,
     pub children: Vec<RawSharedDictItem<'a>>,
 }
 
@@ -405,13 +406,18 @@ impl RawProperty<'_> {
             Self::Str(column) => Some(column.storage()),
             // A shared dictionary's children are dictionary-coded strings, so it reports
             // the layout its corpus is stored with, as a lone string column would.
-            Self::SharedDict(column) => Some(ColumnStorage {
-                string: Some(match &column.encoding {
-                    RawSharedDictEncoding::Plain(_) => StringLayout::Dict,
-                    RawSharedDictEncoding::FsstPlain(_) => StringLayout::FsstDict,
-                }),
-                dictionary: Some(column.dict),
-            }),
+            Self::SharedDict(column) => {
+                let (string, dict) = match &column.encoding {
+                    RawSharedDictEncoding::Plain { dict, .. } => (StringLayout::Dict, *dict),
+                    RawSharedDictEncoding::FsstPlain(_) => {
+                        (StringLayout::FsstDict, DictLayout::Plain)
+                    }
+                };
+                Some(ColumnStorage {
+                    string: Some(string),
+                    dictionary: Some(dict),
+                })
+            }
             Self::Bool(_)
             | Self::I8(_)
             | Self::U8(_)

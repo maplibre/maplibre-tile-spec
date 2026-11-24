@@ -94,7 +94,7 @@ pub(crate) enum Logical {
 }
 
 /// How a string column lays its streams out, named by the extension bits of its leading stream.
-/// The two bits have exactly four patterns, so every one of them is a layout.
+/// Patterns `0b10` and `0b11` are reserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]
 pub(crate) enum StrLayout {
@@ -103,20 +103,15 @@ pub(crate) enum StrLayout {
     Plain = 0b00,
     /// `codes` then the distinct values' lengths and bytes.
     Dict = 0b01,
-    /// `lengths` then the FSST symbol table and the compressed corpus.
-    Fsst = 0b10,
-    /// `codes` then the distinct values' lengths, the FSST symbol table and the compressed corpus.
-    FsstDict = 0b11,
 }
 
 impl StrLayout {
     /// The layout an encoding byte's extension field names.
-    pub(crate) fn from_bits(enc_byte: u8) -> Self {
+    pub(crate) fn from_bits(enc_byte: u8) -> MltResult<Self> {
         match enc_byte & EXTENSION_MASK {
-            0b00 => Self::Plain,
-            0b01 => Self::Dict,
-            0b10 => Self::Fsst,
-            _ => Self::FsstDict,
+            0b00 => Ok(Self::Plain),
+            0b01 => Ok(Self::Dict),
+            _ => Err(MltError::ParsingEncodingByte(enc_byte)),
         }
     }
 }
@@ -250,8 +245,6 @@ pub(crate) enum StreamCtx02 {
     StrData(StrLayout),
     /// The lengths of the distinct values a string column stores once.
     StrDictLengths,
-    /// The lengths of a string column's FSST symbols.
-    StrSymbolLengths,
     /// One of a string column's byte blobs, named by the dictionary role it fills.
     StrBlob(DictionaryType),
     GeomTypes,
@@ -293,7 +286,6 @@ impl StreamCtx02 {
             Self::StrBlob(_) => Family::Bytes,
             Self::NestedPresence | Self::NestedShapeTable => Family::Bool,
             Self::StrDictLengths
-            | Self::StrSymbolLengths
             | Self::GeomTypes
             | Self::GeomVertexOffsets
             | Self::GeomTreeSymbols
@@ -313,13 +305,8 @@ impl StreamCtx02 {
             Self::StrData(StrLayout::Plain) | Self::GeomTypes => {
                 StreamType::Length(LengthType::VarBinary)
             }
-            Self::StrData(StrLayout::Fsst) | Self::StrDictLengths => {
-                StreamType::Length(LengthType::Dictionary)
-            }
-            Self::StrData(StrLayout::Dict | StrLayout::FsstDict) => {
-                StreamType::Offset(OffsetType::String)
-            }
-            Self::StrSymbolLengths => StreamType::Length(LengthType::Symbol),
+            Self::StrDictLengths => StreamType::Length(LengthType::Dictionary),
+            Self::StrData(StrLayout::Dict) => StreamType::Offset(OffsetType::String),
             Self::StrBlob(dictionary) => StreamType::Data(dictionary),
             Self::GeomVertices => StreamType::Data(DictionaryType::Vertex),
             Self::GeomVertexOffsets => StreamType::Offset(OffsetType::Vertex),
@@ -582,7 +569,7 @@ impl Encoding02 {
             Family::Int(_) => Self::Int(logical_int(family, enc_byte, logical)?),
             Family::Str(layout) => {
                 // The caller resolves the layout from this very byte, so a mismatch means it read another.
-                if StrLayout::from_bits(enc_byte) != layout {
+                if StrLayout::from_bits(enc_byte)? != layout {
                     return Err(MltError::ParsingEncodingByte(enc_byte));
                 }
                 Self::Str(logical_int(family, enc_byte, logical)?, layout)
@@ -1279,7 +1266,7 @@ mod tests {
     const FLOAT: StreamCtx02 = StreamCtx02::Property(DataType02::F64);
     const VERTEX: StreamCtx02 = StreamCtx02::GeomVertices;
     const STR_PLAIN: StreamCtx02 = StreamCtx02::StrData(StrLayout::Plain);
-    const STR_FSST_DICT: StreamCtx02 = StreamCtx02::StrData(StrLayout::FsstDict);
+    const STR_DICT: StreamCtx02 = StreamCtx02::StrData(StrLayout::Dict);
     const BLOB: StreamCtx02 = StreamCtx02::StrBlob(DictionaryType::None);
 
     const INT_FAMILY: Family = Family::Int(WordWidth::W32);
@@ -1418,18 +1405,8 @@ mod tests {
         StreamType::Length(LengthType::VarBinary)
     )]
     #[case::dict_codes(
-        StreamCtx02::StrData(StrLayout::Dict),
+        STR_DICT,
         Family::Str(StrLayout::Dict),
-        StreamType::Offset(OffsetType::String)
-    )]
-    #[case::fsst_lengths(
-        StreamCtx02::StrData(StrLayout::Fsst),
-        Family::Str(StrLayout::Fsst),
-        StreamType::Length(LengthType::Dictionary)
-    )]
-    #[case::fsst_dict_codes(
-        STR_FSST_DICT,
-        Family::Str(StrLayout::FsstDict),
         StreamType::Offset(OffsetType::String)
     )]
     #[case::dict_lengths(
@@ -1437,16 +1414,11 @@ mod tests {
         INT_FAMILY,
         StreamType::Length(LengthType::Dictionary)
     )]
-    #[case::symbol_lengths(
-        StreamCtx02::StrSymbolLengths,
-        INT_FAMILY,
-        StreamType::Length(LengthType::Symbol)
-    )]
     #[case::plain_blob(BLOB, Family::Bytes, StreamType::Data(DictionaryType::None))]
-    #[case::symbol_table(
-        StreamCtx02::StrBlob(DictionaryType::Fsst),
+    #[case::dict_blob(
+        StreamCtx02::StrBlob(DictionaryType::Single),
         Family::Bytes,
-        StreamType::Data(DictionaryType::Fsst)
+        StreamType::Data(DictionaryType::Single)
     )]
     fn a_string_streams_position_picks_its_family_and_role(
         #[case] ctx: StreamCtx02,
@@ -1544,17 +1516,11 @@ mod tests {
         Family::Str(StrLayout::Dict),
         0b0010_0001
     )]
-    #[case::str_fsst_lengths(
+    #[case::str_dict_codes_delta(
         int(IntLogical::Delta, PE::VarInt, 5),
         5,
-        Family::Str(StrLayout::Fsst),
-        0b0001_1010
-    )]
-    #[case::str_fsst_dict_codes(
-        int(IntLogical::None, PE::VarInt, 5),
-        5,
-        Family::Str(StrLayout::FsstDict),
-        0b0000_1011
+        Family::Str(StrLayout::Dict),
+        0b0001_1001
     )]
     #[case::blob_never_carries_a_count(
         int(IntLogical::None, PE::None, 24),
@@ -1640,7 +1606,7 @@ mod tests {
         VERTEX
     )]
     #[case::str_plain_lengths(int(IntLogical::None, PE::VarInt, 5), 5, STR_PLAIN)]
-    #[case::str_fsst_dict_codes(int(IntLogical::DeltaRle(rle(5)), PE::VarInt, 5), 5, STR_FSST_DICT)]
+    #[case::str_dict_codes(int(IntLogical::DeltaRle(rle(5)), PE::VarInt, 5), 5, STR_DICT)]
     fn header_roundtrip(
         #[case] meta: StreamMeta,
         #[case] implicit_count: u32,
@@ -1848,6 +1814,8 @@ mod tests {
     #[case::bool_physical_varint(BOOL, 0b0000_1000)]
     #[case::str_layout_disagrees_with_the_context(STR_PLAIN, 0b0000_1001)]
     #[case::str_logical_past_table(STR_PLAIN, 0b0110_1000)]
+    #[case::str_reserved_layout_0b10(STR_PLAIN, 0b0000_1010)]
+    #[case::str_reserved_layout_0b11(STR_DICT, 0b0000_1011)]
     #[case::blob_with_an_explicit_count(BLOB, 0b1000_0100)]
     #[case::blob_with_an_extension(BLOB, 0b0000_0101)]
     #[case::blob_logical_past_table(BLOB, 0b0010_0100)]

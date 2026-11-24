@@ -22,7 +22,7 @@ use crate::decoder::stream::header02::{
 use crate::decoder::{
     AlpScale, Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02,
     GeoLayout, Interior02, LayerHeader02, LayerLayout, LengthType, NodeKind02, NodePresence,
-    NodeType02, Presence02, SharedDictKind, StreamType, ValuesColumn02,
+    NodeType02, Presence02, StreamType, ValuesColumn02,
 };
 use crate::dump::model::{BitField, BlobInfo, DecodeHint};
 use crate::tile::{MAX_NESTED_DEPTH, MValueScope, ZAxis};
@@ -234,8 +234,8 @@ impl<'a> Walker<'a> {
         let (_, typ_byte) = parse_u8(input)?;
         let shared_count = u8::try_from(shared.len())?;
         let typ = match Column02::parse(typ_byte, shared_count)? {
-            Column02::SharedDict(kind) => {
-                let input = self.walk_shared_dict02(input, ci, i, kind, feature_count, shared)?;
+            Column02::SharedDict => {
+                let input = self.walk_shared_dict02(input, ci, i, feature_count, shared)?;
                 self.close(ci, input);
                 return Ok(input);
             }
@@ -621,14 +621,13 @@ impl<'a> Walker<'a> {
         input: &'a [u8],
         ci: usize,
         i: u32,
-        kind: SharedDictKind,
         feature_count: u32,
         shared: &[BitVec<u8, Lsb0>],
     ) -> MltResult<&'a [u8]> {
         let (mut input, _) = self.byte_field(
             input,
             "type",
-            |b| format!("0x{b:02X} {kind:?} SharedDict"),
+            |b| format!("0x{b:02X} SharedDict"),
             shared_dict_type_bits02,
         )?;
 
@@ -642,54 +641,20 @@ impl<'a> Walker<'a> {
 
         // The corpus streams mirror a lone string column's dictionary tail. Nothing
         // implies the dictionary's entry count, so each writes its own.
-        match kind {
-            SharedDictKind::Plain => {
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrDictLengths,
-                    Count02::Explicit,
-                    "dict_lengths",
-                    DecodeHint::U32,
-                )?;
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrBlob(DictionaryType::Shared),
-                    Count02::Explicit,
-                    "dict_values",
-                    DecodeHint::Bytes,
-                )?;
-            }
-            SharedDictKind::Fsst => {
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrDictLengths,
-                    Count02::Explicit,
-                    "dict_lengths",
-                    DecodeHint::U32,
-                )?;
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrSymbolLengths,
-                    Count02::Explicit,
-                    "symbol_lengths",
-                    DecodeHint::U32,
-                )?;
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrBlob(DictionaryType::Fsst),
-                    Count02::Explicit,
-                    "symbol_table",
-                    DecodeHint::Bytes,
-                )?;
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrBlob(DictionaryType::Shared),
-                    Count02::Explicit,
-                    "corpus",
-                    DecodeHint::Bytes,
-                )?;
-            }
-        }
+        (input, _) = self.walk_stream02(
+            input,
+            StreamCtx02::StrDictLengths,
+            Count02::Explicit,
+            "dict_lengths",
+            DecodeHint::U32,
+        )?;
+        (input, _) = self.walk_stream02(
+            input,
+            StreamCtx02::StrBlob(DictionaryType::Shared),
+            Count02::Explicit,
+            "dict_values",
+            DecodeHint::Bytes,
+        )?;
 
         let shared_count = u8::try_from(shared.len())?;
         for child in 0..child_count {
@@ -743,21 +708,6 @@ impl<'a> Walker<'a> {
         /// One string stream: what it holds, what to call it, and how to read its payload.
         type Stream = (StreamCtx02, &'static str, DecodeHint);
         const DICT_LENGTHS: Stream = (StreamCtx02::StrDictLengths, "dict_lengths", DecodeHint::U32);
-        const SYMBOL_LENGTHS: Stream = (
-            StreamCtx02::StrSymbolLengths,
-            "symbol_lengths",
-            DecodeHint::U32,
-        );
-        const SYMBOL_TABLE: Stream = (
-            StreamCtx02::StrBlob(DictionaryType::Fsst),
-            "symbol_table",
-            DecodeHint::Bytes,
-        );
-        const CORPUS: Stream = (
-            StreamCtx02::StrBlob(DictionaryType::Single),
-            "corpus",
-            DecodeHint::Bytes,
-        );
         const VALUES: Stream = (
             StreamCtx02::StrBlob(DictionaryType::None),
             "values",
@@ -770,16 +720,10 @@ impl<'a> Walker<'a> {
         );
 
         let (_, enc_byte) = parse_u8(input)?;
-        let layout = StrLayout::from_bits(enc_byte);
-        let leading = match layout {
-            StrLayout::Plain | StrLayout::Fsst => "lengths",
-            StrLayout::Dict | StrLayout::FsstDict => "codes",
-        };
-        let rest: &[Stream] = match layout {
-            StrLayout::Plain => &[VALUES],
-            StrLayout::Dict => &[DICT_LENGTHS, DICT_VALUES],
-            StrLayout::Fsst => &[SYMBOL_LENGTHS, SYMBOL_TABLE, CORPUS],
-            StrLayout::FsstDict => &[DICT_LENGTHS, SYMBOL_LENGTHS, SYMBOL_TABLE, CORPUS],
+        let layout = StrLayout::from_bits(enc_byte)?;
+        let (leading, rest): (&str, &[Stream]) = match layout {
+            StrLayout::Plain => ("lengths", &[VALUES]),
+            StrLayout::Dict => ("codes", &[DICT_LENGTHS, DICT_VALUES]),
         };
 
         let (mut input, meta) = self.walk_stream02(
@@ -972,19 +916,10 @@ struct Column<'l> {
     scoped: bool,
 }
 
-/// Bit breakdown of a shared-dictionary column's type byte, whose high nibble names the
-/// corpus encoding rather than presence.
+/// Bit breakdown of a shared-dictionary column's type byte, whose high nibble is reserved.
 fn shared_dict_type_bits02(byte: u8) -> Vec<BitField> {
-    let (kind, _) = ColumnType02::fields(byte);
     vec![
-        BitField::mask(
-            ColumnType02::PRESENCE_MASK,
-            byte,
-            SharedDictKind::parse(kind).map_or_else(
-                || "corpus = reserved".to_string(),
-                |k| format!("corpus = {k:?}"),
-            ),
-        ),
+        BitField::mask(ColumnType02::PRESENCE_MASK, byte, "reserved"),
         BitField::mask(ColumnType02::DATA_TYPE_MASK, byte, "data type = SharedDict"),
     ]
 }

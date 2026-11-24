@@ -43,16 +43,9 @@ const FSST_V1: &str = concat!(
     "/../../test/synthetic/0x01/props_shared_dict_fsst.mlt"
 );
 
-#[cfg(feature = "unstable-v2")]
-const FSST_V2: &str = concat!(
+const FSST_STR_V1: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../test/synthetic/0x02/props_str_fsst.mlt"
-);
-
-#[cfg(feature = "unstable-v2")]
-const FSST_FRONT_V2: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../test/synthetic/0x02/props_str_fsst_front_dict.mlt"
+    "/../../test/synthetic/0x01/props_str_fsst.mlt"
 );
 
 #[test]
@@ -179,30 +172,18 @@ fn decode_at(tree: &DumpTree, buf: &[u8], index: usize, max_values: usize) -> De
     decode_region(tree, buf, index, max_values, &mut Decoder::default())
 }
 
-#[cfg(feature = "unstable-v2")]
 #[test]
-fn a_v2_fsst_corpus_decodes_to_the_strings_it_stands_for() {
-    let (tree, buf) = annotate(FSST_V2);
+fn an_fsst_string_corpus_decodes_to_the_strings_it_stands_for() {
+    let (tree, buf) = annotate(FSST_STR_V1);
     insta::assert_snapshot!(
         json(&decode_at(&tree, &buf, corpus_index(&tree), 0)),
         @r#"{"kind":"strings","values":["residential_zone_north_sector_1","commercial_zone_south_sector_2","industrial_zone_east_sector_3","park_zone_west_sector_4","water_zone_north_sector_5","residential_zone_south_sector_6"],"truncatedFrom":null}"#
     );
 }
 
-#[cfg(feature = "unstable-v2")]
-#[test]
-fn a_front_coded_fsst_corpus_decodes_to_the_whole_strings() {
-    let (tree, buf) = annotate(FSST_FRONT_V2);
-    insta::assert_snapshot!(
-        json(&decode_at(&tree, &buf, corpus_index(&tree), 0)),
-        @r#"{"kind":"strings","values":["residential_zone_north_sector_1","residential_zone_north_sector_2","residential_zone_north_sector_3"],"truncatedFrom":null}"#
-    );
-}
-
-#[cfg(feature = "unstable-v2")]
 #[test]
 fn an_fsst_corpus_that_is_not_utf8_decodes_to_an_error() {
-    let (tree, mut buf) = annotate(FSST_V2);
+    let (tree, mut buf) = annotate(FSST_STR_V1);
     let symbols = tree
         .regions
         .iter()
@@ -219,7 +200,7 @@ fn an_fsst_corpus_that_is_not_utf8_decodes_to_an_error() {
 }
 
 #[test]
-fn a_v1_fsst_corpus_decodes_to_the_strings_it_stands_for() {
+fn an_fsst_shared_dict_corpus_decodes_to_the_strings_it_stands_for() {
     let (tree, buf) = annotate(FSST_V1);
     insta::assert_snapshot!(
         json(&decode_at(&tree, &buf, corpus_index(&tree), 0)),
@@ -227,10 +208,9 @@ fn a_v1_fsst_corpus_decodes_to_the_strings_it_stands_for() {
     );
 }
 
-#[cfg(feature = "unstable-v2")]
 #[test]
 fn max_values_caps_the_strings_and_reports_the_full_count() {
-    let (tree, buf) = annotate(FSST_V2);
+    let (tree, buf) = annotate(FSST_STR_V1);
     insta::assert_snapshot!(
         json(&decode_at(&tree, &buf, corpus_index(&tree), 2)),
         @r#"{"kind":"strings","values":["residential_zone_north_sector_1","commercial_zone_south_sector_2"],"truncatedFrom":6}"#

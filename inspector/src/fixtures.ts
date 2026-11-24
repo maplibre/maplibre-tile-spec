@@ -539,9 +539,9 @@ const STARTERS: Starter[] = [
     note: "point through multi-line, in one layer",
   },
   {
-    key: "0x02/props_str_fsst.mlt",
-    title: "compressed strings",
-    note: "an FSST-coded property column",
+    key: "0x02/props_str_front_dict.mlt",
+    title: "front-coded strings",
+    note: "a dictionary column with shared prefixes factored out",
   },
   {
     key: "0x02/nested_struct.mlt",

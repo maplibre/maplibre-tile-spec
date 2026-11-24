@@ -5,8 +5,6 @@ use usize_cast::IntoUsize as _;
 use crate::MltResult;
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::front_coding::{FrontCoded, front_code};
-#[cfg(feature = "unstable-v2")]
-use crate::codecs::fsst::{FsstBlob, compress_fsst_bytes};
 use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::DictLayout;
@@ -119,7 +117,7 @@ impl Codecs {
                     write_str_dict(&non_null, presence, name, enc, self)?;
                 }
                 StrEncoding::Fsst => write_str_fsst(&non_null, presence, name, enc, self)?,
-                StrEncoding::FsstDict | StrEncoding::FsstFrontDict => {
+                StrEncoding::FsstDict => {
                     write_str_fsst_dict(&non_null, presence, name, enc, self)?;
                 }
             }
@@ -159,8 +157,9 @@ impl Codecs {
     /// Encode a v2 string column as the [`StrLayout`] that stores the fewest bytes.
     ///
     /// Mirrors [`Self::write_str_col`]: [`Encoder::override_str_enc`] pins one layout when set,
-    /// otherwise all four compete. Nulls live in the column's presence bitfield rather than in a
+    /// otherwise all three compete. Nulls live in the column's presence bitfield rather than in a
     /// stream of this column's own, so every layout writes only the present values.
+    /// v2 has no FSST, so each FSST override falls back to the same layout without it.
     #[hotpath::measure]
     pub(crate) fn write_str_col02(
         &mut self,
@@ -172,58 +171,28 @@ impl Codecs {
         let pinned = at.qualified();
         if let Some(str_enc) = enc.override_str_enc(&pinned) {
             return match str_enc {
-                StrEncoding::Plain => write_str_plain02(&non_null, at, enc, self),
-                StrEncoding::Dict => {
+                StrEncoding::Plain | StrEncoding::Fsst => {
+                    write_str_plain02(&non_null, at, enc, self)
+                }
+                StrEncoding::Dict | StrEncoding::FsstDict => {
                     let (unique, codes) = dedup_strings(&non_null)?;
                     write_str_dict02(&unique, &codes, at, enc, self)
-                }
-                StrEncoding::Fsst => write_str_fsst02(&compress_fsst(&non_null), at, enc, self),
-                StrEncoding::FsstDict => {
-                    let (unique, codes) = dedup_strings(&non_null)?;
-                    write_str_fsst_dict02(&compress_fsst(&unique), &codes, at, enc, self)
                 }
                 StrEncoding::FrontDict => {
                     let (unique, codes) = dedup_strings(&non_null)?;
                     let (front, sorted_codes) = front_coded_dict(&unique, &codes)?;
                     write_str_front_dict02(&front, &sorted_codes, at, enc, self)
                 }
-                StrEncoding::FsstFrontDict => {
-                    let (unique, codes) = dedup_strings(&non_null)?;
-                    let (front, sorted_codes) = front_coded_dict(&unique, &codes)?;
-                    let parts = suffix_parts(&front);
-                    let blob = compress_fsst_bytes(&parts, &front.suffixes);
-                    write_str_fsst_front_dict02(&front, &blob, &sorted_codes, at, enc, self)
-                }
             };
         }
 
-        // Dedup once; reused by Dict and FSST+Dict alternatives.
         let (unique, codes) = dedup_strings(&non_null)?;
         let (front, sorted_codes) = front_coded_dict(&unique, &codes)?;
-        // `None` disables FSST, so only Plain and Dict compete.
-        let compressor = enc.fsst_compressor(&pinned, &unique);
-        // Compute before try_alternatives borrows enc; FsstRawData is owned so the cache borrow ends here.
-        let plain_fsst = compressor.map(|c| compress_fsst_with(&non_null, c));
-        let dict_fsst = compressor.map(|c| compress_fsst_with(&unique, c));
-        // FSST over the suffixes is trained on them, since they are not the corpus `unique` is.
-        let front_fsst = enc.config().allow_fsst().then(|| {
-            let parts = suffix_parts(&front);
-            compress_fsst_bytes(&parts, &front.suffixes)
-        });
 
         let mut alt = enc.try_alternatives();
         alt.with(|enc| write_str_plain02(&non_null, at, enc, self))?;
         alt.with(|enc| write_str_dict02(&unique, &codes, at, enc, self))?;
         alt.with(|enc| write_str_front_dict02(&front, &sorted_codes, at, enc, self))?;
-        if let Some(ref raw) = plain_fsst {
-            alt.with(|enc| write_str_fsst02(raw, at, enc, self))?;
-        }
-        if let Some(ref raw) = dict_fsst {
-            alt.with(|enc| write_str_fsst_dict02(raw, &codes, at, enc, self))?;
-        }
-        if let Some(ref raw) = front_fsst {
-            alt.with(|enc| write_str_fsst_front_dict02(&front, raw, &sorted_codes, at, enc, self))?;
-        }
         Ok(())
     }
 }
@@ -305,33 +274,6 @@ pub(crate) fn write_dict_tail02(
     write_str_blob02(unique, enc)
 }
 
-/// [`StrLayout::Fsst`]: one length per value, then the symbol table and the compressed corpus.
-#[cfg(feature = "unstable-v2")]
-fn write_str_fsst02(
-    raw: &FsstRawData,
-    at: StrAt<'_>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    write_str_leading02(&raw.value_lengths, StrLayout::Fsst, at, enc, codecs)?;
-    write_fsst_tail02(&raw.blob, DictLayout::Plain, at, enc, codecs)
-}
-
-/// [`StrLayout::FsstDict`]: one code per value, then the distinct values' lengths, symbol table and corpus.
-#[cfg(feature = "unstable-v2")]
-fn write_str_fsst_dict02(
-    raw: &FsstRawData,
-    offset_indices: &[u32],
-    at: StrAt<'_>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    write_str_leading02(offset_indices, StrLayout::FsstDict, at, enc, codecs)?;
-    let ctx = at.ctx(StreamType::Length(LengthType::Dictionary));
-    codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
-    write_fsst_tail02(&raw.blob, DictLayout::Plain, at, enc, codecs)
-}
-
 /// A dictionary in lexicographic order, beside the new code each of its old codes becomes.
 ///
 /// Front coding only pays when neighbours share prefixes, which sorting is what arranges.
@@ -360,19 +302,6 @@ pub(crate) fn recode(codes: &[u32], rank: &[u32]) -> Vec<u32> {
     codes.iter().map(|&c| rank[c.into_usize()]).collect()
 }
 
-/// The suffixes as one slice per entry, which is what FSST trains its symbols on.
-#[cfg(feature = "unstable-v2")]
-pub(crate) fn suffix_parts(coded: &FrontCoded) -> Vec<&[u8]> {
-    let mut parts = Vec::with_capacity(coded.suffix_lengths.len());
-    let mut at = 0_usize;
-    for &len in &coded.suffix_lengths {
-        let len = len.into_usize();
-        parts.push(&coded.suffixes[at..at + len]);
-        at += len;
-    }
-    parts
-}
-
 /// Write a front-coded dictionary's lengths stream, which holds the prefix then the suffix lengths.
 #[cfg(feature = "unstable-v2")]
 pub(crate) fn write_front_lengths02(
@@ -398,36 +327,6 @@ fn write_str_front_dict02(
     write_str_leading02(offset_indices, StrLayout::Dict, at, enc, codecs)?;
     write_front_lengths02(coded, at, enc, codecs)?;
     write_blob02(&coded.suffixes, DictLayout::FrontCoded, enc)
-}
-
-/// [`StrLayout::FsstDict`] over a front-coded dictionary, so FSST runs over the suffixes.
-#[cfg(feature = "unstable-v2")]
-fn write_str_fsst_front_dict02(
-    coded: &FrontCoded,
-    blob: &FsstBlob,
-    offset_indices: &[u32],
-    at: StrAt<'_>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    write_str_leading02(offset_indices, StrLayout::FsstDict, at, enc, codecs)?;
-    write_front_lengths02(coded, at, enc, codecs)?;
-    write_fsst_tail02(blob, DictLayout::FrontCoded, at, enc, codecs)
-}
-
-/// The symbol lengths, symbol table and compressed corpus both v2 FSST layouts end with.
-#[cfg(feature = "unstable-v2")]
-pub(crate) fn write_fsst_tail02(
-    blob: &FsstBlob,
-    corpus_layout: DictLayout,
-    at: StrAt<'_>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    let ctx = at.ctx(StreamType::Length(LengthType::Symbol));
-    codecs.write_int_stream(&blob.symbol_lengths, &ctx, enc)?;
-    write_blob02(&blob.symbol_bytes, DictLayout::Plain, enc)?;
-    write_blob02(&blob.corpus, corpus_layout, enc)
 }
 
 /// Encode with plain (`VarBinary` lengths) layout.
