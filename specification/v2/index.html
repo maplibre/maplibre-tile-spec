@@ -996,7 +996,7 @@ It also changes the byte layout to make tiles smaller.</p>
 <ul>
 <li><strong>Extent in four bits.</strong> Powers of two from <code>64</code> to <code>2097152</code> fit in the layer header byte. See <a href="#extent">extent</a>.</li>
 <li><strong>Uniform geometry type.</strong> A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See <a href="#uniform-geometry-type">uniform geometry type</a>.</li>
-<li><strong>Cheaper nulls.</strong> The presence of a column is stored as a bitmap, run list or sparse bitmap, whichever is smallest, and can be shared between columns. See <a href="#presence-encodings">presence encodings</a>.</li>
+<li><strong>Cheaper nulls.</strong> The presence of a column is stored as a bitmap or byte RLE and can be shared between columns. See <a href="#presence-encodings">presence encodings</a>.</li>
 <li><strong>Smaller triangles.</strong> A tessellated layer stores about two bits per triangle and one index per outline vertex, instead of three indices per triangle. See <a href="#triangle-trees">triangle trees</a>.</li>
 <li><strong>More encodings.</strong> Bit packing, <code>Int8</code> and <code>UInt8</code> columns, <a href="../../encodings/#alp">ALP</a> for floats, <a href="../../encodings/#front-coding">front coding</a> for strings and optional <a href="../../encodings/#rans">rANS</a> for vertices.</li>
 </ul>
@@ -1221,7 +1221,7 @@ The uniform geometry type MUST agree with the topology the <a href="#geometry-la
 <h3 id="presence-encodings">Presence Encodings<a class="headerlink" href="#presence-encodings" title="Link to this section">&para;</a></h3>
 <p>A presence field says which of <code>N</code> values are present.
 <code>N</code> is <code>feature_count</code> for a column, and the parent's value count for a <a href="#node-presence-nibble">nested node</a>.</p>
-<p>The same three encodings store every one-bit-per-value field: a presence field, a boolean column's data stream and a nested node's presence stream.
+<p>The same two encodings store every one-bit-per-value field: a presence field, a boolean column's data stream and a nested node's presence stream.
 Their codes are the members of the <code>Bool</code> <a href="#families">family</a>.</p>
 <table>
 <thead>
@@ -1239,124 +1239,51 @@ Their codes are the members of the <code>Bool</code> <a href="#families">family<
 </tr>
 <tr>
 <td style="text-align: right;"><code>1</code></td>
-<td><code>Runs</code></td>
-<td>Alternating varint run lengths. The first run counts absent values and MAY be <code>0</code>. The lengths MUST sum to <code>N</code>.</td>
-</tr>
-<tr>
-<td style="text-align: right;"><code>2</code></td>
-<td><code>Sparse</code></td>
-<td>A summary bitmap of <code>ceil(B / 8)</code> bytes, where <code>B = ceil(N / 8)</code>, then the non-zero bytes of the <code>Bitmap</code> form in order. Summary bit <code>i</code>, LSB-first, is set when byte <code>i</code> of the <code>Bitmap</code> form is non-zero.</td>
+<td><code>Boolean RLE</code></td>
+<td>The <code>Bitmap</code> form's <code>B = ceil(N / 8)</code> bytes, stored in <a href="../../encodings/#boolean-rle">byte RLE</a>.</td>
 </tr>
 </tbody>
 </table>
-<p><code>Runs</code> and <code>Sparse</code> are self-delimiting, so no length is stored for either.
-<code>Sparse</code> reads its summary, takes the population count <code>k</code> of it, then takes <code>k</code> bytes.</p>
-<p>A bitmap costs <code>ceil(N / 8)</code> bytes whatever it holds, so it is the smallest form only while <code>N</code> is small or the present values are scattered.
-A column present over one run of features, or on only a handful of them, needs much less.
-<code>Runs</code> grows with the number of runs.
-<code>Sparse</code> stores a summary of <code>ceil(N / 64)</code> bytes plus one byte for each bitmap byte that holds a present value, so for a very sparse column its size is mostly the summary.</p>
-<p>Six present values among <code>N = 32</code>, at <code>10</code> to <code>15</code>:</p>
-<p><svg class="mlt-diagram" viewBox="0 0 710 220" role="img" aria-label="Six present values among 32, at 10 to 15, stored as a bitmap in 4 bytes, as runs of 10 absent, 6 present and 16 absent in 3 bytes, and as a summary byte and one stored byte in 2 bytes" xmlns="http://www.w3.org/2000/svg">
-<text class="muted small mid" x="138" y="12">0</text>
-<text class="muted small mid" x="318" y="12">10</text>
-<text class="muted small mid" x="408" y="12">15</text>
-<text class="muted small mid" x="696" y="12">31</text>
-<text class="row" x="0" y="38">present</text>
-<rect class="plain" x="130" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="138" y="38">0</text>
-<rect class="plain" x="148" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="156" y="38">0</text>
-<rect class="plain" x="166" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="174" y="38">0</text>
-<rect class="plain" x="184" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="192" y="38">0</text>
-<rect class="plain" x="202" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="210" y="38">0</text>
-<rect class="plain" x="220" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="228" y="38">0</text>
-<rect class="plain" x="238" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="246" y="38">0</text>
-<rect class="plain" x="256" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="264" y="38">0</text>
-<rect class="plain" x="274" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="282" y="38">0</text>
-<rect class="plain" x="292" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="300" y="38">0</text>
-<rect class="f1" x="310" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="318" y="38">1</text>
-<rect class="f1" x="328" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="336" y="38">1</text>
-<rect class="f1" x="346" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="354" y="38">1</text>
-<rect class="f1" x="364" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="372" y="38">1</text>
-<rect class="f1" x="382" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="390" y="38">1</text>
-<rect class="f1" x="400" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="408" y="38">1</text>
-<rect class="plain" x="418" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="426" y="38">0</text>
-<rect class="plain" x="436" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="444" y="38">0</text>
-<rect class="plain" x="454" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="462" y="38">0</text>
-<rect class="plain" x="472" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="480" y="38">0</text>
-<rect class="plain" x="490" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="498" y="38">0</text>
-<rect class="plain" x="508" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="516" y="38">0</text>
-<rect class="plain" x="526" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="534" y="38">0</text>
-<rect class="plain" x="544" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="552" y="38">0</text>
-<rect class="plain" x="562" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="570" y="38">0</text>
-<rect class="plain" x="580" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="588" y="38">0</text>
-<rect class="plain" x="598" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="606" y="38">0</text>
-<rect class="plain" x="616" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="624" y="38">0</text>
-<rect class="plain" x="634" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="642" y="38">0</text>
-<rect class="plain" x="652" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="660" y="38">0</text>
-<rect class="plain" x="670" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="678" y="38">0</text>
-<rect class="plain" x="688" y="24" width="16" height="28" rx="3"/>
-<text class="cell small" x="696" y="38">0</text>
-<text class="row" x="0" y="82">Bitmap<tspan class="muted"> 4 B</tspan></text>
-<rect class="plain" x="130" y="68" width="142" height="28" rx="3"/>
-<text class="cell" x="201" y="82">00</text>
-<rect class="plain" x="274" y="68" width="142" height="28" rx="3"/>
-<text class="cell" x="345" y="82">FC</text>
-<rect class="plain" x="418" y="68" width="142" height="28" rx="3"/>
-<text class="cell" x="489" y="82">00</text>
-<rect class="plain" x="562" y="68" width="142" height="28" rx="3"/>
-<text class="cell" x="633" y="82">00</text>
-<text class="row" x="0" y="122">Runs<tspan class="muted"> 3 B</tspan></text>
-<rect class="plain" x="130" y="108" width="178" height="28" rx="3"/>
-<text class="cell" x="219" y="122">0A</text>
-<text class="muted small mid" x="219" y="150">10 absent</text>
-<rect class="f1" x="310" y="108" width="106" height="28" rx="3"/>
-<text class="cell" x="363" y="122">06</text>
-<text class="muted small mid" x="363" y="150">6 present</text>
-<rect class="plain" x="418" y="108" width="286" height="28" rx="3"/>
-<text class="cell" x="561" y="122">10</text>
-<text class="muted small mid" x="561" y="150">16 absent</text>
-<text class="row" x="0" y="182">Sparse<tspan class="t1"> 2 B</tspan></text>
-<rect class="plain" x="130" y="168" width="142" height="28" rx="3"/>
-<text class="cell" x="201" y="182">02</text>
-<text class="muted small mid" x="201" y="210">byte 1 is non-zero</text>
-<rect class="f1" x="274" y="168" width="142" height="28" rx="3"/>
-<text class="cell" x="345" y="182">FC</text>
-<text class="muted small mid" x="345" y="210">byte 1</text>
+<p><code>Boolean RLE</code> is self-delimiting: it is read run by run until exactly <code>B</code> bytes are produced, and no length or run count is stored.
+Decoders MUST reject a run that would produce more than <code>B</code> bytes.
+Bits past <code>N</code> in the last byte are padding and MUST be ignored, as for <code>Bitmap</code>.</p>
+<p><code>Boolean RLE</code> pays for long blocks of all-absent or all-present values.</p>
+<p>Six present values among <code>N = 64</code>, at <code>10</code> to <code>15</code>:</p>
+<p><svg class="mlt-diagram" viewBox="0 0 710 110" role="img" aria-label="Six present values among 64, at 10 to 15, stored as a bitmap in 8 bytes and as a Boolean RLE literal run of 2 bytes and a repeated run of 6 zero bytes in 5 bytes" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="14">Bitmap<tspan class="muted"> 8 B</tspan></text>
+<rect class="plain" x="130" y="0" width="70" height="28" rx="3"/>
+<text class="cell" x="165" y="14">00</text>
+<rect class="f1" x="202" y="0" width="70" height="28" rx="3"/>
+<text class="cell" x="237" y="14">FC</text>
+<rect class="plain" x="274" y="0" width="70" height="28" rx="3"/>
+<text class="cell" x="309" y="14">00</text>
+<rect class="plain" x="346" y="0" width="70" height="28" rx="3"/>
+<text class="cell" x="381" y="14">00</text>
+<rect class="plain" x="418" y="0" width="70" height="28" rx="3"/>
+<text class="cell" x="453" y="14">00</text>
+<rect class="plain" x="490" y="0" width="70" height="28" rx="3"/>
+<text class="cell" x="525" y="14">00</text>
+<rect class="plain" x="562" y="0" width="70" height="28" rx="3"/>
+<text class="cell" x="597" y="14">00</text>
+<rect class="plain" x="634" y="0" width="70" height="28" rx="3"/>
+<text class="cell" x="669" y="14">00</text>
+<text class="row" x="0" y="74">Boolean RLE<tspan class="t1"> 5 B</tspan></text>
+<rect class="plain" x="130" y="60" width="70" height="28" rx="3"/>
+<text class="cell" x="165" y="74">FE</text>
+<rect class="plain" x="202" y="60" width="70" height="28" rx="3"/>
+<text class="cell" x="237" y="74">00</text>
+<rect class="f1" x="274" y="60" width="70" height="28" rx="3"/>
+<text class="cell" x="309" y="74">FC</text>
+<rect class="plain" x="346" y="60" width="70" height="28" rx="3"/>
+<text class="cell" x="381" y="74">03</text>
+<rect class="plain" x="418" y="60" width="70" height="28" rx="3"/>
+<text class="cell" x="453" y="74">00</text>
+<text class="muted small mid" x="238" y="102">literal 2</text>
+<text class="muted small mid" x="417" y="102">repeat 6</text>
 </svg></p>
-<p>Encoders MUST write whichever of the three encodings stores the field smallest, breaking a tie toward the lowest code.
-This also applies to a boolean column's data stream and a nested node's presence stream.
-Decoders MUST reject run lengths that do not sum to <code>N</code>, a <code>Sparse</code> summary bit set at or past <code>B</code>, and a stored <code>Sparse</code> byte that is <code>0</code>.
-Bits past <code>N</code> in the last <code>Sparse</code> byte are padding and MUST be ignored, as for <code>Bitmap</code>.</p>
+<p>Encoders MAY write either encoding.
+An encoder that writes <code>Boolean RLE</code> SHOULD only do so where it is smaller than <code>Bitmap</code>.
+This also applies to a boolean column's data stream and a nested node's presence stream.</p>
 <h3 id="shared-presence-fields">Shared Presence Fields<a class="headerlink" href="#shared-presence-fields" title="Link to this section">&para;</a></h3>
 <p>Several columns MAY reference the same presence field.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprops_sp.mlt&amp;at=shared_presence" target="_blank">View example</a> - two columns referencing one shared field.</p>
@@ -1367,9 +1294,8 @@ Bits past <code>N</code> in the last <code>Sparse</code> byte are padding and MU
 A shared field has no presence nibble to carry its encoding.
 Without the layout byte's encoding flag, every shared field is a <code>Bitmap</code>, and no byte naming it is stored.
 With it, every shared field leads with the byte naming its encoding.
-That byte is the <a href="#encoding-byte">encoding byte</a> of a <code>Bool</code> stream, so the code sits in bits 6-4 and every other bit MUST be <code>0</code>: <code>0x00</code>, <code>0x10</code> or <code>0x20</code>.</p>
-<p>Encoders MUST pick each shared field's encoding as for an inline one.
-Encoders MUST set the encoding flag only when some shared field's encoding is not <code>Bitmap</code>.</p>
+That byte is the <a href="#encoding-byte">encoding byte</a> of a <code>Bool</code> stream, so the code sits in bits 6-4 and every other bit MUST be <code>0</code>: <code>0x00</code> or <code>0x10</code>.</p>
+<p>Encoders MUST set the encoding flag only when some shared field's encoding is not <code>Bitmap</code>.</p>
 <p>A column references a shared field through its <a href="#presence-nibble">presence nibble</a>.
 Encoders SHOULD only share a field that more than one column references.
 Encoders SHOULD store an unshared field inline.
@@ -3319,8 +3245,12 @@ There is no geometry code, since the geometry column is not a counted column.</p
 <td>Every feature has a value. Nothing is stored.</td>
 </tr>
 <tr>
-<td style="text-align: right;"><code>1</code>-<code>3</code></td>
+<td style="text-align: right;"><code>1</code>-<code>2</code></td>
 <td>An inline presence field, in the <a href="#presence-encodings">encoding</a> whose code is <code>nibble - 1</code>, follows the type byte and the name, if any.</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>3</code></td>
+<td>Reserved. MUST be rejected.</td>
 </tr>
 <tr>
 <td style="text-align: right;"><code>4</code>-<code>10</code></td>
@@ -3333,7 +3263,7 @@ There is no geometry code, since the geometry column is not a counted column.</p
 </tbody>
 </table>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=present" target="_blank">View example</a> - an optional column, so the nibble names an inline bitmap.</p>
-<p>The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those columns for the other two encodings.</p>
+<p>The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those columns for the other encoding.</p>
 <p>A shared reference at or past the count in the layout byte MUST be rejected.</p>
 <p>The presence nibble determines the column's value count: <code>feature_count</code> for nibble <code>0</code>, otherwise the number of present values the field names.</p>
 <h3 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h3>
@@ -5115,8 +5045,8 @@ Each family numbers its own members from <code>0</code>.</p>
 <td><strong>Bool</strong></td>
 <td>A boolean column's data stream, a nested node's presence stream</td>
 <td>Bitmap</td>
-<td>Runs</td>
-<td>Sparse</td>
+<td><a href="../../encodings/#boolean-rle">Boolean RLE</a></td>
+<td></td>
 <td></td>
 <td></td>
 <td></td>

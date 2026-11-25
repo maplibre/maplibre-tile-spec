@@ -18,7 +18,7 @@ v2 extends v1's [data model](<https://maplibre.org/maplibre-tile-spec/overview/i
 
 - **Extent in four bits.** Powers of two from `64` to `2097152` fit in the layer header byte. See [extent](<#extent>).
 - **Uniform geometry type.** A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See [uniform geometry type](<#uniform-geometry-type>).
-- **Cheaper nulls.** The presence of a column is stored as a bitmap, run list or sparse bitmap, whichever is smallest, and can be shared between columns. See [presence encodings](<#presence-encodings>).
+- **Cheaper nulls.** The presence of a column is stored as a bitmap or byte RLE and can be shared between columns. See [presence encodings](<#presence-encodings>).
 - **Smaller triangles.** A tessellated layer stores about two bits per triangle and one index per outline vertex, instead of three indices per triangle. See [triangle trees](<#triangle-trees>).
 - **More encodings.** Bit packing, `Int8` and `UInt8` columns, [ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) for floats, [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) for strings and optional [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#rans>) for vertices.
 
@@ -112,21 +112,20 @@ A set encoding flag with a count of `0` MUST be rejected.
 
 A presence field says which of `N` values are present. `N` is `feature_count` for a column, and the parent's value count for a [nested node](<#node-presence-nibble>).
 
-The same three encodings store every one-bit-per-value field: a presence field, a boolean column's data stream and a nested node's presence stream. Their codes are the members of the `Bool` [family](<#families>).
+The same two encodings store every one-bit-per-value field: a presence field, a boolean column's data stream and a nested node's presence stream. Their codes are the members of the `Bool` [family](<#families>).
 
 | Code | Encoding | Payload |
 | ---: | --- | --- |
 | `0` | `Bitmap` | `ceil(N / 8)` bytes, LSB-first: bit `i % 8` of byte `i / 8` is value `i`. Bits past `N` in the final byte are padding and MUST be ignored. |
-| `1` | `Runs` | Alternating varint run lengths. The first run counts absent values and MAY be `0`. The lengths MUST sum to `N`. |
-| `2` | `Sparse` | A summary bitmap of `ceil(B / 8)` bytes, where `B = ceil(N / 8)`, then the non-zero bytes of the `Bitmap` form in order. Summary bit `i`, LSB-first, is set when byte `i` of the `Bitmap` form is non-zero. |
+| `1` | `Boolean RLE` | The `Bitmap` form's `B = ceil(N / 8)` bytes, stored in [byte RLE](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#boolean-rle>). |
 
-`Runs` and `Sparse` are self-delimiting, so no length is stored for either. `Sparse` reads its summary, takes the population count `k` of it, then takes `k` bytes.
+`Boolean RLE` is self-delimiting: it is read run by run until exactly `B` bytes are produced, and no length or run count is stored. Decoders MUST reject a run that would produce more than `B` bytes. Bits past `N` in the last byte are padding and MUST be ignored, as for `Bitmap`.
 
-A bitmap costs `ceil(N / 8)` bytes whatever it holds, so it is the smallest form only while `N` is small or the present values are scattered. A column present over one run of features, or on only a handful of them, needs much less. `Runs` grows with the number of runs. `Sparse` stores a summary of `ceil(N / 64)` bytes plus one byte for each bitmap byte that holds a present value, so for a very sparse column its size is mostly the summary.
+`Boolean RLE` pays for long blocks of all-absent or all-present values.
 
-Six present values among `N = 32`, at `10` to `15`:
+Six present values among `N = 64`, at `10` to `15`:
 
-Encoders MUST write whichever of the three encodings stores the field smallest, breaking a tie toward the lowest code. This also applies to a boolean column's data stream and a nested node's presence stream. Decoders MUST reject run lengths that do not sum to `N`, a `Sparse` summary bit set at or past `B`, and a stored `Sparse` byte that is `0`. Bits past `N` in the last `Sparse` byte are padding and MUST be ignored, as for `Bitmap`.
+Encoders MAY write either encoding. An encoder that writes `Boolean RLE` SHOULD only do so where it is smaller than `Bitmap`. This also applies to a boolean column's data stream and a nested node's presence stream.
 
 ### Shared Presence Fields
 
@@ -139,9 +138,9 @@ shared_presence := [u8 encoding] only when the layout byte's encoding flag is se
                    [payload]     per that encoding, self-delimiting
 ```
 
-The `n` shared fields follow the layout byte back to back, in index order. A shared field has no presence nibble to carry its encoding. Without the layout byte's encoding flag, every shared field is a `Bitmap`, and no byte naming it is stored. With it, every shared field leads with the byte naming its encoding. That byte is the [encoding byte](<#encoding-byte>) of a `Bool` stream, so the code sits in bits 6-4 and every other bit MUST be `0`: `0x00`, `0x10` or `0x20`.
+The `n` shared fields follow the layout byte back to back, in index order. A shared field has no presence nibble to carry its encoding. Without the layout byte's encoding flag, every shared field is a `Bitmap`, and no byte naming it is stored. With it, every shared field leads with the byte naming its encoding. That byte is the [encoding byte](<#encoding-byte>) of a `Bool` stream, so the code sits in bits 6-4 and every other bit MUST be `0`: `0x00` or `0x10`.
 
-Encoders MUST pick each shared field's encoding as for an inline one. Encoders MUST set the encoding flag only when some shared field's encoding is not `Bitmap`.
+Encoders MUST set the encoding flag only when some shared field's encoding is not `Bitmap`.
 
 A column references a shared field through its [presence nibble](<#presence-nibble>). Encoders SHOULD only share a field that more than one column references. Encoders SHOULD store an unshared field inline. Shared fields are ordered by the first column that references each.
 
@@ -522,13 +521,14 @@ A layer MUST contain at most one `Id` or `LongId` column.
 | Nibble | Meaning |
 | ---: | --- |
 | `0` | Every feature has a value. Nothing is stored. |
-| `1`-`3` | An inline presence field, in the [encoding](<#presence-encodings>) whose code is `nibble - 1`, follows the type byte and the name, if any. |
+| `1`-`2` | An inline presence field, in the [encoding](<#presence-encodings>) whose code is `nibble - 1`, follows the type byte and the name, if any. |
+| `3` | Reserved. MUST be rejected. |
 | `4`-`10` | The layer's shared field at index `nibble - 4`. |
 | `11`-`15` | Reserved. MUST be rejected. |
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32.mlt&amp;at=present>) - an optional column, so the nibble names an inline bitmap.
 
-The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those columns for the other two encodings.
+The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those columns for the other encoding.
 
 A shared reference at or past the count in the layout byte MUST be rejected.
 
@@ -902,7 +902,7 @@ The logical encodings available to a stream depend on what it holds. Each family
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | **Int** | Lengths, offsets, ids, integer columns, geometry topology, nested list and map lengths | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Str** | A string column's leading stream | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
-| **Bool** | A boolean column's data stream, a nested node's presence stream | Bitmap | Runs | Sparse |  |  |  |
+| **Bool** | A boolean column's data stream, a nested node's presence stream | Bitmap | [Boolean RLE](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#boolean-rle>) |  |  |  |  |
 | **Float** | A float or double column's data stream | None |  | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) |  |  |  |
 | **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#componentwise-delta2>) | [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#rans>) |
 | **Bytes** | Byte blobs: string values, dictionaries, FSST symbol tables | None | [FrontCoded](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) |  |  |  |  |
