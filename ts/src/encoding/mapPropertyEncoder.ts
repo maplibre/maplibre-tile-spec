@@ -1,14 +1,13 @@
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { MapMask } from "../metadata/tile/mapMask";
 import { MapControlValue } from "../metadata/tile/mapControlValue";
-import { createStream } from "../decoding/decodingTestUtils";
-import { concatenateBuffers, encodeBooleanRle } from "./encodingUtils";
+import { concatenateBuffers } from "./encodingUtils";
 import { encodePlainStrings } from "./stringEncoder";
 import {
     encodeDoubleColumn,
     encodeFloatColumn,
     encodeInt32NoneColumn,
     encodeInt64NoneColumn,
+    encodePresentStream,
     encodeUint32Column,
     encodeUint64Column,
 } from "./propertyEncoder";
@@ -359,9 +358,7 @@ function encodePresenceStream(presenceBits: boolean[], parts: Uint8Array[]): Wri
         return { mask: 0, count: 0 };
     }
 
-    parts.push(
-        createStream(PhysicalStreamType.PRESENT, encodeBooleanRle(presenceBits), { count: presenceBits.length }),
-    );
+    parts.push(encodePresentStream(presenceBits));
     return { mask: MapMask.PRESENCE, count: 1 };
 }
 
