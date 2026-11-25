@@ -7,7 +7,7 @@ import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique"
 import { createStream } from "../decoding/decodingTestUtils";
 import IntWrapper from "../decoding/intWrapper";
 import { concatenateBuffers } from "./encodingUtils";
-import { encodeVarintInt32, encodeVarintInt32Value, encodeZigZagInt32 } from "./integerEncodingUtils";
+import { encodeVarintInt32, encodeVarintInt32Value, encodeZigZagVarintInt32 } from "./integerEncodingUtils";
 import { encodeChildCount, encodeFieldName, encodeTypeCode, scalarTypeCode } from "./embeddedTilesetMetadataEncoder";
 import { ColumnTypeCode } from "../metadata/tileset/typeMap";
 import { encodePlainStrings } from "./stringEncoder";
@@ -150,31 +150,37 @@ function encodeLayer(layer: Layer, options: EncodeOptions): Uint8Array {
 
 /** Property columns appear in every feature's order of first appearance, so the layout is stable. */
 function collectPropertyNames(features: Feature[]): string[] {
-    const names: string[] = [];
+    const names = new Set<string>();
     for (const feature of features) {
-        for (const name of Object.keys(feature.properties ?? {})) {
-            if (!names.includes(name)) names.push(name);
-        }
+        for (const name of Object.keys(feature.properties ?? {})) names.add(name);
     }
-    return names;
+    return [...names];
 }
 
 function inferPropertyType(name: string, values: PropertyValue[]): PropertyType {
-    const present = values.filter((value) => value !== null);
-    if (present.length === 0) return "string";
-    // One map or list anywhere in the column makes the whole column nested. The nested encoding also
-    // takes plain scalars, so the features whose value is a scalar still fit.
-    if (present.some((value) => typeof value === "object")) return "map";
-    if (present.every((value) => typeof value === "boolean")) return "boolean";
-    if (present.every((value) => typeof value === "string")) return "string";
-    if (present.every((value) => typeof value === "bigint")) {
-        // Values past the signed maximum only fit in the unsigned column.
-        return present.some((value) => value > INT64_MAX) ? "uint64" : "int64";
+    const kinds = new Set<string>();
+    let aboveInt64 = false;
+    let allSafeIntegers = true;
+    let allInt32 = true;
+    for (const value of values) {
+        if (value === null) continue;
+        // One map or list anywhere in the column makes the whole column nested. The nested encoding also
+        // takes plain scalars, so the features whose value is a scalar still fit.
+        if (typeof value === "object") return "map";
+        kinds.add(typeof value);
+        if (typeof value === "bigint" && value > INT64_MAX) aboveInt64 = true;
+        if (typeof value !== "number") continue;
+        if (!Number.isSafeInteger(value)) allSafeIntegers = false;
+        else if (value < INT32_MIN || value > INT32_MAX) allInt32 = false;
     }
-    if (present.every((value) => typeof value === "number")) {
-        if (!present.every((value) => Number.isSafeInteger(value))) return "double";
-        return present.every((value) => value >= INT32_MIN && value <= INT32_MAX) ? "int32" : "int64";
-    }
+    if (kinds.size === 0) return "string";
+    const kind = kinds.size === 1 ? [...kinds][0] : undefined;
+    if (kind === "boolean") return "boolean";
+    if (kind === "string") return "string";
+    // Values past the signed maximum only fit in the unsigned column.
+    if (kind === "bigint") return aboveInt64 ? "uint64" : "int64";
+    if (kind === "number" && !allSafeIntegers) return "double";
+    if (kind === "number") return allInt32 ? "int32" : "int64";
     throw new Error(`Property "${name}" mixes value types, so no single column type fits it`);
 }
 
@@ -204,7 +210,6 @@ function scalarTypeOf(type: Exclude<PropertyType, "map">): number {
 function encodeIdColumn(features: Feature[]): { typeCode: number; data: Uint8Array } {
     const ids = features.map((feature) => feature.id);
     const nullable = ids.some((id) => id === undefined);
-    const wide = ids.some((id) => id !== undefined && BigInt(id) > BigInt(UINT32_MAX));
 
     if (nullable) {
         return {
@@ -212,6 +217,7 @@ function encodeIdColumn(features: Feature[]): { typeCode: number; data: Uint8Arr
             data: encodeUint64NullableColumn(ids.map((id) => (id === undefined ? null : BigInt(id)))),
         };
     }
+    const wide = ids.some((id) => id !== undefined && id > UINT32_MAX);
     if (wide) {
         return {
             typeCode: ColumnTypeCode.ID | ColumnTypeCode.ID_LONG,
@@ -283,7 +289,8 @@ function encodeGeometryColumn(features: Feature[]): Uint8Array {
     const ringLengths: number[] = [];
     const vertices: number[] = [];
 
-    for (const [index, feature] of features.entries()) {
+    for (let index = 0; index < features.length; index++) {
+        const feature = features[index];
         const type = types[index];
         // Every geometry is normalised to polygon -> ring -> position, so one walk covers them all.
         const polygons = toPolygons(feature.geometry);
@@ -310,7 +317,7 @@ function encodeGeometryColumn(features: Feature[]): Uint8Array {
             }
 
             for (const ring of rings) {
-                for (const [x, y] of ring) vertices.push(x, y);
+                for (let i = 0; i < ring.length; i++) vertices.push(ring[i][0], ring[i][1]);
             }
         }
     }
@@ -327,7 +334,7 @@ function encodeGeometryColumn(features: Feature[]): Uint8Array {
     if (hasPolygon) streams.push(lengthStream(LengthType.RINGS, ringLengths));
 
     streams.push(
-        createStream(PhysicalStreamType.DATA, encodeVarints(zigZag(vertices)), {
+        createStream(PhysicalStreamType.DATA, encodeZigZagVarintInt32(vertices), {
             logical: { dictionaryType: DictionaryType.VERTEX },
             technique: PhysicalLevelTechnique.VARINT,
             count: vertices.length,
@@ -386,10 +393,6 @@ function openRing(ring: Position[]): Position[] {
     const [firstX, firstY] = ring[0];
     const [lastX, lastY] = ring[ring.length - 1];
     return firstX === lastX && firstY === lastY ? ring.slice(0, -1) : ring;
-}
-
-function zigZag(values: number[]): Uint32Array {
-    return encodeZigZagInt32(Int32Array.from(values));
 }
 
 function encodeVarints(values: number[] | Uint32Array): Uint8Array {

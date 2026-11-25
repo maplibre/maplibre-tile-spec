@@ -6,7 +6,7 @@ import { LengthType } from "../metadata/tile/lengthType";
 import { OffsetType } from "../metadata/tile/offsetType";
 import IntWrapper from "./intWrapper";
 import { type Column, type Field, ColumnScope, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata";
-import { encodeBooleanRle, encodeStrings, createStringLengths } from "../encoding/encodingUtils";
+import { encodeBooleanRle, encodeUtf8Strings } from "../encoding/encodingUtils";
 import { encodeVarintInt32Value, encodeVarintInt32 } from "../encoding/integerEncodingUtils";
 import {
     decodeStreamMetadata,
@@ -175,8 +175,7 @@ export function encodeSharedDictionary(
 } {
     const { useFsst = false, dictionaryType = DictionaryType.SHARED } = options;
 
-    const encodedDictionary = encodeStrings(dictionaryStrings);
-    const dictionaryLengths = createStringLengths(dictionaryStrings);
+    const { bytes: encodedDictionary, lengths: dictionaryLengths } = encodeUtf8Strings(dictionaryStrings);
 
     const lengthStream = createStream(
         PhysicalStreamType.LENGTH,

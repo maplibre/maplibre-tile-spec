@@ -107,26 +107,36 @@ export function encodeByteRle(values: Uint8Array): Uint8Array {
     return new Uint8Array(result);
 }
 
-export function encodeStrings(strings: string[]): Uint8Array {
-    const encoder = new TextEncoder();
-    const encoded = strings.map((s) => encoder.encode(s));
-    const totalLength = encoded.reduce((sum, arr) => sum + arr.length, 0);
-    const result = new Uint8Array(totalLength);
+/** The encoder every string of the module goes through. */
+const textEncoder = new TextEncoder();
+
+/**
+ * The UTF-8 bytes of the strings, one after the other, and the byte length of each, written in one pass. ASCII
+ * code units are copied as they are, and a string with any other goes through the `TextEncoder`, so the bytes are
+ * those `TextEncoder.encode` gives.
+ */
+export function encodeUtf8Strings(strings: readonly string[]): { bytes: Uint8Array; lengths: Uint32Array } {
+    let capacity = 0;
+    for (const string of strings) capacity += string.length * 3;
+    const bytes = new Uint8Array(capacity);
+    const lengths = new Uint32Array(strings.length);
     let offset = 0;
-    for (const arr of encoded) {
-        result.set(arr, offset);
-        offset += arr.length;
+    for (let i = 0; i < strings.length; i++) {
+        const string = strings[i];
+        const start = offset;
+        let code = 0;
+        for (let c = 0; c < string.length && code < 0x80; c++) {
+            code = string.charCodeAt(c);
+            bytes[offset++] = code;
+        }
+        if (code >= 0x80) offset = start + textEncoder.encodeInto(string, bytes.subarray(start)).written;
+        lengths[i] = offset - start;
     }
-    return result;
+    return { bytes: bytes.slice(0, offset), lengths };
 }
 
-export function createStringLengths(strings: string[]): Uint32Array {
-    const lengths = new Uint32Array(strings.length);
-    const encoder = new TextEncoder();
-    for (let i = 0; i < strings.length; i++) {
-        lengths[i] = encoder.encode(strings[i]).length;
-    }
-    return lengths;
+export function encodeStrings(strings: string[]): Uint8Array {
+    return encodeUtf8Strings(strings).bytes;
 }
 
 export function concatenateBuffers(...buffers: Uint8Array[]): Uint8Array {
