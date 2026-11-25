@@ -1,0 +1,46 @@
+<svg class="mlt-diagram" viewBox="0 0 710 224" role="img" aria-label="Line part C (200, 100) (300, 100) fills slots 0 and 1, and line part D starts with a reference to slot 1, written as flag 1 and index 1, then flag 0 for its last vertex: reference byte C0" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="lr-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="50">vertices</text>
+<rect class="f0" x="130" y="36" width="88" height="28" rx="3"/>
+<text class="cell" x="174" y="50">(200, 100)</text>
+<rect class="f0" x="222" y="36" width="88" height="28" rx="3"/>
+<text class="cell" x="266" y="50">(300, 100)</text>
+<rect class="f1" x="314" y="36" width="88" height="28" rx="3"/>
+<text class="cell" x="358" y="50">(300, 100)</text>
+<rect class="plain" x="406" y="36" width="88" height="28" rx="3"/>
+<text class="cell" x="450" y="50">(300, 200)</text>
+<path class="link t1" d="M272 36C272 14 352 14 352 32" marker-end="url(#lr-t1)"/>
+<text class="muted small mid" x="174" y="78">slot 0</text>
+<text class="muted small mid" x="266" y="78">slot 1</text>
+<path class="bracket" d="M130 88V94H310V88"/>
+<text class="muted small mid" x="220" y="108">part C</text>
+<path class="bracket" d="M314 88V94H494V88"/>
+<text class="muted small mid" x="404" y="108">part D</text>
+<text class="row" x="0" y="174">bits</text>
+<text class="muted small mid" x="154" y="134">D0 flag</text>
+<path class="bracket" d="M130 154V148H178V154"/>
+<text class="muted small mid" x="206" y="134">index</text>
+<path class="bracket" d="M182 154V148H230V154"/>
+<text class="muted small mid" x="258" y="134">D1 flag</text>
+<path class="bracket" d="M234 154V148H282V154"/>
+<text class="muted small mid" x="388" y="134">padding</text>
+<path class="bracket" d="M286 154V148H542V154"/>
+<rect class="f1" x="130" y="160" width="48" height="28" rx="3"/>
+<text class="cell" x="154" y="174">1</text>
+<rect class="f1" x="182" y="160" width="48" height="28" rx="3"/>
+<text class="cell" x="206" y="174">1</text>
+<rect class="plain" x="234" y="160" width="48" height="28" rx="3"/>
+<text class="cell" x="258" y="174">0</text>
+<rect class="plain" x="286" y="160" width="48" height="28" rx="3"/>
+<text class="cell muted" x="310" y="174">0</text>
+<rect class="plain" x="338" y="160" width="48" height="28" rx="3"/>
+<text class="cell muted" x="362" y="174">0</text>
+<rect class="plain" x="390" y="160" width="48" height="28" rx="3"/>
+<text class="cell muted" x="414" y="174">0</text>
+<rect class="plain" x="442" y="160" width="48" height="28" rx="3"/>
+<text class="cell muted" x="466" y="174">0</text>
+<rect class="plain" x="494" y="160" width="48" height="28" rx="3"/>
+<text class="cell muted" x="518" y="174">0</text>
+<path class="bracket" d="M130 194V200H542V194"/>
+<text class="bold mid" x="336" y="214">C0</text>
+</svg>
