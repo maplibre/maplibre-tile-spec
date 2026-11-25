@@ -1,0 +1,36 @@
+<svg class="mlt-diagram" viewBox="0 0 710 210" role="img" aria-label="5, 300 and 7 as varints 05, AC 02, 07, and as a split varint: the head bytes 05 AC 07, then the tail byte 02" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="sv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="14">values</text>
+<text class="row" x="0" y="74">varint</text>
+<text class="row" x="0" y="164">split varint</text>
+<rect class="f0" x="130" y="0" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="14">5</text>
+<rect class="f1" x="178" y="0" width="92" height="28" rx="3"/>
+<text class="cell" x="224" y="14">300</text>
+<rect class="f0" x="274" y="0" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="14">7</text>
+<rect class="f0" x="130" y="60" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="74">05</text>
+<rect class="f1" x="178" y="60" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="74">AC</text>
+<rect class="f1" x="226" y="60" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="74">02</text>
+<rect class="f0" x="274" y="60" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="74">07</text>
+<path class="link" d="M152 88V146" marker-end="url(#sv)"/>
+<path class="link" d="M200 88V146" marker-end="url(#sv)"/>
+<path class="link" d="M248 88C248 118 312 118 312 146" marker-end="url(#sv)"/>
+<path class="link" d="M296 88C296 118 248 118 248 146" marker-end="url(#sv)"/>
+<rect class="f0" x="130" y="150" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="164">05</text>
+<rect class="f1" x="178" y="150" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="164">AC</text>
+<rect class="f0" x="226" y="150" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="164">07</text>
+<rect class="f1" x="290" y="150" width="44" height="28" rx="3"/>
+<text class="cell" x="312" y="164">02</text>
+<path class="bracket" d="M130 184V190H270V184"/>
+<text class="muted small mid" x="200" y="202">heads</text>
+<path class="bracket" d="M290 184V190H334V184"/>
+<text class="muted small mid" x="312" y="202">tail</text>
+</svg>

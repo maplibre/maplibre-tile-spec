@@ -878,11 +878,10 @@ words:      [27, 3, 15]
 
 Each vertex is stored as its residual against a guess made from the vertices decoded before it.
 The residuals are split into six streams by the class of their vertex.
-The streams follow the vertex-buffer pipeline of [Turtelll's thesis](https://turtelll.github.io/Thesis/), and the classes follow [mactrem's proposal](https://github.com/maplibre/maplibre-tile-spec/discussions/1921#discussioncomment-19862670).
-It only applies to `(x, y)` pairs, not to [triples](specification/v2.md#z-coordinates) or a vertex dictionary.
+It applies only to `(x, y)` pairs, not to [triples](specification/v2.md#z-coordinates) or a [vertex dictionary](#vertex-dictionary).
 
 The stream's physical field is `0`, and `byte_length` covers the whole payload.
-The payload is one header byte followed by the non-empty class streams, and it must be consumed exactly.
+The payload is one header byte followed by the non-empty class streams in stream order, and it must be consumed exactly.
 
 [View example](inspector/app/?fixture=0x02%2Fpoly_hole_predicted.mlt&at=vertices){target=_blank .inspector-example} - a polygon with a hole, its vertices stored as predicted residuals.
 
@@ -896,72 +895,100 @@ The decoder derives every run from the topology, so no class or stream length is
 |---|---|---|---|
 | `0` | `start` | the first vertex of every run | the start guess |
 | `1` | `point` | every vertex outside a run | the previous vertex |
-| `2` | `ring` | every later ring vertex that is no corner | the previous vertex |
+| `2` | `ring` | every ring vertex after the first that is not a corner | the previous vertex |
 | `3` | `corner` | the fourth vertex of every four-vertex ring | `p[i-3] + p[i-1] - p[i-2]` |
 | `4` | `line second` | the second vertex of every line part | the previous vertex |
-| `5` | `line` | from the third vertex of every line part | the line guess |
+| `5` | `line` | every line part vertex from the third on | the line guess |
 
-The previous vertex is the one before in the buffer, even across runs and features, and `(0, 0)` for the first vertex.
+`p[i]` is vertex `i` of the buffer.
+The previous vertex `p[i-1]` is the one before in the buffer, even across runs and features, and `(0, 0)` for the first vertex.
 The residual is `p[i] - guess`, per component, with wrapping 32-bit arithmetic, then [zigzag](#zigzag)-encoded.
 
 #### Header
 
+Bit 0 is the least significant bit of the header byte.
+
 | Bits | Field | Values |
 |---|---|---|
 | 0 | start guess | `0` the previous vertex, `1` the first vertex of the previous run, `(0, 0)` for the first run |
-| 1-2 | line guess | `0` the previous vertex, `1` `2 * p[i-1] - p[i-2]` in line parts of six or more, `2` the same in line parts of three or more, `3` reserved |
+| 1-2 | line guess | `0` the previous vertex, `1` `2 * p[i-1] - p[i-2]` in line parts of six or more vertices, `2` `2 * p[i-1] - p[i-2]` in line parts of three or more vertices, `3` reserved |
 | 3-7 | reserved | `0` |
 
 A `line` vertex in a part shorter than the line guess asks for is guessed as the previous vertex.
+A reserved value is malformed.
 
 #### Byte layout
 
 Each stream holds `x` and `y` interleaved, two values per vertex.
 The `start` and `point` streams are split varints, the other four are two planes.
 
-#### Split varint
+##### Split varint
 
-The values of a [varint](#varint) stream in a different byte order: the first byte of every value, then the remaining bytes of every value that has them.
+The bytes of a [varint](#varint) stream in a different order: the head byte of every value, then the tail, which is the remaining bytes of every value that has them.
 A head byte with its top bit set continues in the tail.
 A varint must be minimal and fit 32 bits.
 
-```
-values:        5   300   7
-varint:        05 | AC 02 | 07
-split varint:  05 AC 07 | 02
-```
+=== "Bytes"
 
-#### Two planes
+    --8<-- "diagrams/split-varint.svg"
+
+=== "Values"
+
+    ```
+    values:        5   300   7
+    varint:        05 | AC 02 | 07
+    split varint:  05 AC 07 | 02
+    ```
+
+##### Two planes
 
 One byte per value, then the values that do not fit in it.
-A value below `255` is its own byte, and a larger one is `0xFF`.
+A value below `255` is its own byte, and a value of `255` or more is `0xFF`.
 After the low bytes, every escaped value follows in order as the [varint](#varint) of `value - 255`.
 That varint must be minimal, and the value must fit 32 bits.
 
-```
-values:     5   300   7   255   70000
-low bytes:  05 FF 07 FF FF
-varints:    2D | 00 | F1 A0 04
-```
+=== "Bytes"
+
+    --8<-- "diagrams/two-planes.svg"
+
+=== "Values"
+
+    ```
+    values:     5   300   7   255   70000
+    low bytes:  05 FF 07 FF FF
+    varints:    2D | 00 | F1 A0 04
+    ```
 
 #### Example
 
 A rectangle, then a line part of three vertices, with the run-start guess and lines continued from three:
 
-```
-vertices:     (100, 200)  (130, 200)  (130, 240)  (100, 240)  (105, 205)  (115, 205)    (125, 207)
-class:        start       ring        ring        corner      start       line second   line
-guess:        (0, 0)      (100, 200)  (130, 200)  (100, 240)  (100, 200)  (105, 205)    (125, 205)
-residual:     (100, 200)  (30, 0)     (0, 40)     (0, 0)      (5, 5)      (10, 0)       (0, 2)
+=== "Guesses"
 
-header:       05
-start:        C8 90 0A 0A | 01 03       200, 400, 10, 10
-ring:         3C 00 00 50
-corner:       00 00
-line second:  14 00
-line:         00 04
-payload:      05 C8 90 0A 0A 01 03 3C 00 00 50 00 00 14 00 00 04
-```
+    --8<-- "diagrams/predicted-guesses.svg"
 
-An encoder chooses the start and line guess per layer.
-The Rust encoder measures all six pairs by their stored bytes, keeps the smallest with the lowest header byte on a tie, and races it against the other vertex encodings.
+=== "Values"
+
+    ```
+    vertices:     (100, 200)  (130, 200)  (130, 240)  (100, 240)  (105, 205)  (115, 205)    (125, 207)
+    class:        start       ring        ring        corner      start       line second   line
+    guess:        (0, 0)      (100, 200)  (130, 200)  (100, 240)  (100, 200)  (105, 205)    (125, 205)
+    residual:     (100, 200)  (30, 0)     (0, 40)     (0, 0)      (5, 5)      (10, 0)       (0, 2)
+
+    header:       05
+    start:        C8 90 0A 0A | 01 03       200, 400, 10, 10
+    ring:         3C 00 00 50
+    corner:       00 00
+    line second:  14 00
+    line:         00 04
+    payload:      05 C8 90 0A 0A 01 03 3C 00 00 50 00 00 14 00 00 04
+    ```
+
+??? note "Rust encoder"
+
+    `mlt convert --predicted-vertices`, and `--profile min_size` under v2, let the encoder race predicted vertices against the other vertex encodings.
+    It chooses the start and line guess per layer: it measures every pair by its stored bytes and keeps the smallest, with the lowest header byte on a tie.
+
+??? note "Sources"
+
+    The streams follow the vertex-buffer pipeline of [Turtelll's thesis](https://turtelll.github.io/Thesis/), and the classes follow [mactrem's proposal](https://github.com/maplibre/maplibre-tile-spec/discussions/1921#discussioncomment-19862670).
