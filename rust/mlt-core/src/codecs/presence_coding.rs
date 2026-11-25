@@ -77,25 +77,31 @@ impl From<PresenceCoding> for BoolLogical {
     }
 }
 
-/// `bits` as the `ceil(N/8)` bytes of a bitmap.
-fn packed(bits: &[bool]) -> Vec<u8> {
-    let mut bytes = vec![0u8; bits.len().div_ceil(8)];
+/// Append `bits` to `out` as the `ceil(N/8)` bytes of a bitmap.
+fn pack_into(out: &mut Vec<u8>, bits: &[bool]) {
+    let start = out.len();
+    out.resize(start + bits.len().div_ceil(8), 0);
     for (i, &bit) in bits.iter().enumerate() {
         if bit {
-            bytes[i / 8] |= 1 << (i % 8);
+            out[start + i / 8] |= 1 << (i % 8);
         }
     }
+}
+
+/// `bits` as the `ceil(N/8)` bytes of a bitmap.
+fn packed(bits: &[bool]) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    pack_into(&mut bytes, bits);
     bytes
 }
 
 /// Write `bits` in `coding`, appending to `out`.
 pub(crate) fn write(out: &mut Vec<u8>, bits: &[bool], coding: PresenceCoding) {
-    let bytes = packed(bits);
     match coding {
-        PresenceCoding::Bitmap => out.extend_from_slice(&bytes),
+        PresenceCoding::Bitmap => pack_into(out, bits),
         PresenceCoding::ByteRle => {
             let mut encoded = Vec::new();
-            out.extend_from_slice(encode_byte_rle(&bytes, &mut encoded));
+            out.extend_from_slice(encode_byte_rle(&packed(bits), &mut encoded));
         }
     }
 }
