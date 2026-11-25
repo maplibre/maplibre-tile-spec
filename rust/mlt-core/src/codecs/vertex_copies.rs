@@ -156,7 +156,9 @@ fn parse_op(ops: &[u8], end: usize, vertex_count: usize) -> MltResult<(&[u8], Co
     let Some(dst) = end.checked_add(gap.into_usize()) else {
         return Err(Malformed("copy past the last vertex"));
     };
-    let len = len.into_usize() + 1;
+    let Some(len) = len.into_usize().checked_add(1) else {
+        return Err(Malformed("copy past the last vertex"));
+    };
     if dst.checked_add(len).is_none_or(|e| e > vertex_count) {
         return Err(Malformed("copy past the last vertex"));
     }
@@ -452,6 +454,7 @@ mod tests {
     #[rstest]
     #[case::past_the_last_vertex(&[0x08, 0x02, 0x00], "copy past the last vertex")]
     #[case::too_long(&[0x04, 0x02, 0x04], "copy past the last vertex")]
+    #[case::max_length(&[0x04, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F], "copy past the last vertex")]
     #[case::zero_distance(&[0x04, 0x00, 0x01], "copy source out of range")]
     #[case::before_the_first_vertex(&[0x04, 0x0A, 0x01], "copy source out of range")]
     #[case::directed_single(&[0x04, 0x03, 0x00], "a one-vertex copy has a direction")]
