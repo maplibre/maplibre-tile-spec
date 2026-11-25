@@ -1915,29 +1915,10 @@ mod delta2 {
 }
 
 mod predicted_vertices {
-    use std::io::Write as _;
-
-    use flate2::Compression;
-    use flate2::write::GzEncoder;
-    use mlt_core::encoder::VertexSize;
     use mlt_core::test_helpers::stream_logicals;
     use mlt_core::wire::{DictionaryType, LogicalEncoding, StreamType, VertexLogical};
 
     use super::*;
-
-    fn cfg_predicted() -> EncoderConfig {
-        cfg_v2().with_predicted_vertices(true)
-    }
-
-    fn cfg_predicted_gzip() -> EncoderConfig {
-        cfg_predicted().with_vertex_size(VertexSize::Gzip)
-    }
-
-    fn gzipped_len(bytes: &[u8]) -> usize {
-        let mut gz = GzEncoder::new(Vec::new(), Compression::new(6));
-        gz.write_all(bytes).unwrap();
-        gz.finish().unwrap().len()
-    }
 
     fn vertex_logicals(bytes: &[u8]) -> Vec<LogicalEncoding> {
         stream_logicals(bytes, StreamType::Data(DictionaryType::Vertex))
@@ -1980,6 +1961,17 @@ mod predicted_vertices {
             .collect()
     }
 
+    fn curved_lines() -> Vec<Geometry<i32>> {
+        (0..40)
+            .map(|i| {
+                let vertices: Vec<(i32, i32)> = (0..25)
+                    .map(|j| (i * 50 + j * 40 + j * j, i * 20 + j * 30 - j * j / 2))
+                    .collect();
+                line(&vertices)
+            })
+            .collect()
+    }
+
     fn mixed() -> Vec<Geometry<i32>> {
         (0..90)
             .map(|i| match i % 3 {
@@ -1991,22 +1983,22 @@ mod predicted_vertices {
     }
 
     #[rstest]
-    #[case::lines(lines())]
+    #[case::curved_lines(curved_lines())]
     #[case::polygons(polygons())]
     #[case::mixed(mixed())]
-    fn the_gzip_race_predicts_vertices_that_decode_unchanged(#[case] geoms: Vec<Geometry<i32>>) {
+    fn predicted_vertices_shrink_the_layer_and_decode_unchanged(#[case] geoms: Vec<Geometry<i32>>) {
         let l = layer(geoms, None, &[]);
         let plain = l.encode(cfg_v2()).unwrap();
-        let predicted = l.encode(cfg_predicted_gzip()).unwrap();
+        let predicted = l.encode(cfg_v2().with_predicted_vertices(true)).unwrap();
         assert_eq!(
             vertex_logicals(&predicted),
             [LogicalEncoding::Vertex(VertexLogical::Predicted)]
         );
         assert!(
-            gzipped_len(&predicted) < gzipped_len(&plain),
+            predicted.len() < plain.len(),
             "{} vs {}",
-            gzipped_len(&predicted),
-            gzipped_len(&plain)
+            predicted.len(),
+            plain.len()
         );
         assert_eq!(decode(&predicted).1, decode(&plain).1);
         assert_dump_covers(&predicted);
@@ -2014,12 +2006,13 @@ mod predicted_vertices {
 
     #[rstest]
     #[case::lines(lines())]
+    #[case::curved_lines(curved_lines())]
     #[case::polygons(polygons())]
     #[case::mixed(mixed())]
-    fn the_stored_race_never_grows_the_layer(#[case] geoms: Vec<Geometry<i32>>) {
+    fn the_race_never_grows_the_layer(#[case] geoms: Vec<Geometry<i32>>) {
         let l = layer(geoms, None, &[]);
         let plain = l.encode(cfg_v2()).unwrap();
-        let raced = l.encode(cfg_predicted()).unwrap();
+        let raced = l.encode(cfg_v2().with_predicted_vertices(true)).unwrap();
         assert!(
             raced.len() <= plain.len(),
             "{} vs {}",
@@ -2030,26 +2023,31 @@ mod predicted_vertices {
     }
 
     #[rstest]
-    fn a_tessellated_layer_codes_its_vertices(#[values(false, true)] triangles_only: bool) {
+    #[case::outlines(false, VertexLogical::Predicted)]
+    #[case::triangles_only(true, VertexLogical::ComponentwiseDelta)]
+    fn a_tessellated_layer_races_its_vertices(
+        #[case] triangles_only: bool,
+        #[case] expected: VertexLogical,
+    ) {
         let l = layer(polygons(), None, &[]);
-        let cfg = cfg_predicted_gzip()
+        let tessellated = cfg_v2()
             .with_tessellation(Tessellation::Always)
             .with_triangles_only(triangles_only);
-        let predicted = l.encode(cfg).unwrap();
+        let predicted = l.encode(tessellated.with_predicted_vertices(true)).unwrap();
         assert_eq!(
             vertex_logicals(&predicted),
-            [LogicalEncoding::Vertex(VertexLogical::Predicted)]
+            [LogicalEncoding::Vertex(expected)]
         );
         assert_eq!(
             decode(&predicted).1,
-            decode(&l.encode(cfg.with_predicted_vertices(false)).unwrap()).1
+            decode(&l.encode(tessellated).unwrap()).1
         );
     }
 
     #[test]
     fn a_few_vertices_stay_componentwise_delta() {
         let predicted = layer(vec![pt(1, 2), pt(3, 4)], None, &[])
-            .encode(cfg_predicted())
+            .encode(cfg_v2().with_predicted_vertices(true))
             .unwrap();
         assert_eq!(
             vertex_logicals(&predicted),

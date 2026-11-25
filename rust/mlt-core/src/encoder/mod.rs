@@ -45,6 +45,8 @@ pub(crate) use stream::*;
 pub use crate::encoder::geometry::VertexBufferType;
 pub use crate::encoder::geometry::{wound_geometry, wound_layer};
 pub use crate::encoder::id::StagedId;
+#[cfg(feature = "unstable-v2")]
+pub use crate::encoder::model::WireVersion;
 pub use crate::encoder::model::{
     Client, EncodedUnknown, EncoderConfig, Network, Profile, Tessellation,
 };
@@ -52,8 +54,6 @@ pub use crate::encoder::model::{
 pub use crate::encoder::model::{
     ColumnKind, CurveParams, ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding, StreamCtx,
 };
-#[cfg(feature = "unstable-v2")]
-pub use crate::encoder::model::{VertexSize, WireVersion};
 #[cfg(all(feature = "unstable-v2", feature = "__private"))]
 pub use crate::encoder::mvalue::{StagedMValue, StagedValues};
 #[cfg(all(feature = "unstable-v2", feature = "__private"))]
