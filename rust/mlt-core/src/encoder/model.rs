@@ -448,13 +448,13 @@ pub enum Tessellation {
 /// Encoder defaults for one kind of tile consumer, which explicit settings override.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Profile {
-    /// `MapLibre GL JS`: no triangles, which it ignores, and no `FastPFOR` or `FSST` unless [`Network::Offline`], since they lose bytes after HTTP compression.
+    /// `MapLibre GL JS`: no triangles, which it ignores, and no `FastPFOR` or `FSST` unless [`Network::Offline`], since they lose bytes after HTTP compression, and under v2 no Boolean RLE presence.
     Web(Network),
     /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
     Native(Network),
-    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas and rANS vertices.
+    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas, rANS vertices and Boolean RLE presence.
     MinSize,
-    /// Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries, and under v2 second-order deltas.
+    /// Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries, and under v2 second-order deltas but no Boolean RLE presence.
     Diffable,
     /// The quickest encode: no triangles, sorts or optional codecs, so tiles come out larger.
     FastEncoding,
@@ -535,6 +535,9 @@ pub struct EncoderConfig {
     /// Allow the v2-only rANS vertex encoding
     #[cfg(feature = "unstable-v2")]
     allow_rans_vertices: bool,
+    /// Allow the v2-only Boolean RLE coding of presence and bool bitfields
+    #[cfg(feature = "unstable-v2")]
+    allow_presence_rle: bool,
 }
 impl EncoderConfig {
     /// The settings `profile` picks, which the `with_*` methods override.
@@ -565,6 +568,8 @@ impl EncoderConfig {
                 allow_delta2: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_rans_vertices: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_presence_rle: true,
             },
             Profile::Web(network) => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -589,6 +594,8 @@ impl EncoderConfig {
                 allow_delta2: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_rans_vertices: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_presence_rle: false,
             },
             Profile::MinSize => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -613,6 +620,8 @@ impl EncoderConfig {
                 allow_delta2: true,
                 #[cfg(feature = "unstable-v2")]
                 allow_rans_vertices: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_presence_rle: true,
             },
             Profile::Diffable => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -637,6 +646,8 @@ impl EncoderConfig {
                 allow_delta2: true,
                 #[cfg(feature = "unstable-v2")]
                 allow_rans_vertices: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_presence_rle: false,
             },
             Profile::FastEncoding => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -661,6 +672,8 @@ impl EncoderConfig {
                 allow_delta2: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_rans_vertices: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_presence_rle: false,
             },
         }
     }
@@ -794,6 +807,21 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_delta2(mut self, enabled: bool) -> Self {
         self.allow_delta2 = enabled;
+        self
+    }
+
+    /// Whether presence and bool bitfields may be stored as Boolean RLE, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_presence_rle(self) -> bool {
+        self.allow_presence_rle && self.wire_version != WireVersion::V01
+    }
+
+    /// Allow presence and bool bitfields to be stored as Boolean RLE.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_presence_rle(mut self, enabled: bool) -> Self {
+        self.allow_presence_rle = enabled;
         self
     }
 

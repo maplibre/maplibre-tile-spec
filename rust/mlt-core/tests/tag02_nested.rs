@@ -928,8 +928,7 @@ fn a_root_holding_fewer_values_than_its_column_is_rejected() {
     );
 }
 
-#[test]
-fn a_node_present_on_one_block_of_rows_writes_its_presence_in_runs() {
+fn one_block_of_rows_layer() -> TileLayer {
     let kind = map_kind(&[("a", leaf(PropKind::I32)), ("b", leaf(PropKind::I32))]);
     let geometries: Vec<_> = (0..200).map(|i| point(i, i)).collect();
     let values: Vec<_> = (0..200)
@@ -941,9 +940,19 @@ fn a_node_present_on_one_block_of_rows_writes_its_presence_in_runs() {
             }
         })
         .collect();
-    let bytes = assert_round_trips_as_v2(&nested_layer(kind, &geometries, &values));
+    nested_layer(kind, &geometries, &values)
+}
+
+#[rstest::rstest]
+#[case::byte_rle_allowed(cfg_v2(), 0b0001_0000)]
+#[case::byte_rle_not_allowed(cfg_v2().with_presence_rle(false), 0b0000_0000)]
+fn a_node_present_on_one_block_of_rows_picks_its_presence_coding(
+    #[case] cfg: EncoderConfig,
+    #[case] logical_bits: u8,
+) {
+    let bytes = assert_round_trips_with(&one_block_of_rows_layer(), cfg);
     let (offset, _) = region(&bytes, "encoding", encoding_index(&bytes, "present"));
-    assert_eq!(bytes[offset] & 0b0111_0000, 0b0001_0000);
+    assert_eq!(bytes[offset] & 0b0111_0000, logical_bits);
 }
 
 fn shape_labels(bytes: &[u8]) -> Vec<String> {

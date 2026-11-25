@@ -204,8 +204,6 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
         StatLogicalCodec::ComponentwiseDelta2 => "componentwise-delta2",
         StatLogicalCodec::MortonDelta => "morton-delta",
         StatLogicalCodec::Alp => "alp",
-        StatLogicalCodec::Runs => "runs",
-        StatLogicalCodec::Sparse => "sparse",
         StatLogicalCodec::Rans => "rans",
     })
 }
@@ -384,9 +382,8 @@ pub fn na(v: Option<String>) -> String {
 /// holds: that keeps the shape its own consumers need, while this is the one flat
 /// surface a facet filter reads.
 ///
-/// TODO: a `presence` axis (bitmap / runs / indices / shared) belongs here, but
-/// `RawPresence` collapses `Runs` and `Indices` into one variant and does not record
-/// whether a bitfield was inline or shared, so the coding is lost during parsing.
+/// TODO: a `presence` axis (bitmap / byte-rle / shared) belongs here, but `RawPresence`
+/// does not record whether a bitfield was inline or shared, so the coding is lost during parsing.
 /// Reporting it needs the coding retained in `mlt-core`'s v2 parse path first.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -973,8 +970,6 @@ pub enum StatLogicalCodec {
     MortonDelta,
     Alp,
     Rans,
-    Runs,
-    Sparse,
 }
 
 impl From<LogicalEncoding> for StatLogicalCodec {
@@ -988,14 +983,13 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Int(IntLogical::Delta) | LE::Vertex(VertexLogical::Delta) => Self::Delta,
             LE::Int(IntLogical::DeltaRle(_)) => Self::DeltaRle,
             LE::Vertex(VertexLogical::ComponentwiseDelta) => Self::ComponentwiseDelta,
-            LE::Int(IntLogical::Rle(_)) | LE::Bool(BoolLogical::ByteRle(_)) => Self::Rle,
+            LE::Int(IntLogical::Rle(_))
+            | LE::Bool(BoolLogical::ByteRle(_) | BoolLogical::SelfDelimitedByteRle) => Self::Rle,
             LE::Vertex(VertexLogical::MortonDelta(_)) => Self::MortonDelta,
             LE::Float(FloatLogical::Alp(_)) => Self::Alp,
             LE::Int(IntLogical::Delta2) => Self::Delta2,
             LE::Vertex(VertexLogical::ComponentwiseDelta2) => Self::ComponentwiseDelta2,
             LE::Vertex(VertexLogical::Rans) => Self::Rans,
-            LE::Bool(BoolLogical::Runs) => Self::Runs,
-            LE::Bool(BoolLogical::Sparse) => Self::Sparse,
             // z is the extension bit, not a codec: report the codec the triples use,
             // and leave the step to the `zStep` facet.
             LE::Vertex(VertexLogical::Xyz(_, xyz)) => match xyz {

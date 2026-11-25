@@ -232,13 +232,11 @@ pub enum IntLogical {
 pub enum BoolLogical {
     /// A raw packed bitmap, one bit per value.
     None,
-    /// Alternating run lengths, which only the tag `0x02` codec reads or writes.
-    Runs,
-    /// A bitmap of the bitmap's non-zero bytes and then those bytes, which only the tag `0x02` codec reads or writes.
-    Sparse,
     /// A byte-RLE compressed bitmap.
     /// Its run parameters come from the stream's context rather than from its header.
     ByteRle(RleMeta),
+    /// A byte-RLE compressed bitmap that ends as soon as it has produced every byte of the bitmap, which only the tag `0x02` codec reads or writes.
+    SelfDelimitedByteRle,
 }
 
 /// Logical encoding of a float column's data stream.
@@ -605,9 +603,7 @@ impl Display for LogicalEncoding {
                 "bool",
                 match b {
                     BoolLogical::None => "none",
-                    BoolLogical::Runs => "runs",
-                    BoolLogical::Sparse => "sparse",
-                    BoolLogical::ByteRle(_) => "byte-rle",
+                    BoolLogical::ByteRle(_) | BoolLogical::SelfDelimitedByteRle => "byte-rle",
                 },
             ),
             Self::Float(float) => (
@@ -736,9 +732,11 @@ mod tests {
     #[case::int_delta_rle(LogicalEncoding::Int(IntLogical::DeltaRle(rle())), "int/delta-rle")]
     #[case::int_delta2(LogicalEncoding::Int(IntLogical::Delta2), "int/delta2")]
     #[case::bool_none(LogicalEncoding::Bool(BoolLogical::None), "bool/none")]
-    #[case::bool_runs(LogicalEncoding::Bool(BoolLogical::Runs), "bool/runs")]
-    #[case::bool_sparse(LogicalEncoding::Bool(BoolLogical::Sparse), "bool/sparse")]
     #[case::bool_byte_rle(LogicalEncoding::Bool(BoolLogical::ByteRle(rle())), "bool/byte-rle")]
+    #[case::bool_self_delimited_byte_rle(
+        LogicalEncoding::Bool(BoolLogical::SelfDelimitedByteRle),
+        "bool/byte-rle"
+    )]
     #[case::float_none(LogicalEncoding::Float(FloatLogical::None), "float/none")]
     #[case::float_alp(LogicalEncoding::Float(FloatLogical::Alp(alp())), "float/alp")]
     #[case::vertex_none(LogicalEncoding::Vertex(VertexLogical::None), "vertex/none")]

@@ -33,6 +33,8 @@ void MltEncoderOptions_set_allow_triangles_only(MltEncoderOptions* self, bool en
 
 void MltEncoderOptions_set_allow_delta2(MltEncoderOptions* self, bool enabled);
 
+void MltEncoderOptions_set_allow_presence_rle(MltEncoderOptions* self, bool enabled);
+
 void MltEncoderOptions_set_allow_float_alp(MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_set_allow_packed_dict_codes(MltEncoderOptions* self, bool enabled);

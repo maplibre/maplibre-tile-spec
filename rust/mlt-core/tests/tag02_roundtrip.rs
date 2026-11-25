@@ -1748,13 +1748,8 @@ mod bit_packing {
     }
 }
 
-/// A presence field that is not a bitmap builds its bits instead of borrowing them, so a
-/// tile can name far more of them than the bytes it spent naming them. The bits are
-/// charged to the parse budget before they are allocated, which this holds to.
 #[test]
-fn a_run_coded_presence_is_charged_to_the_parse_budget() {
-    // One block of present features over enough of them that the mask costs runs, not a
-    // bitmap: three varints on the wire, 2000 bits once read.
+fn a_byte_rle_presence_is_charged_to_the_parse_budget() {
     let mask: String = (0..2000)
         .map(|i| if (500..1500).contains(&i) { 'x' } else { '-' })
         .collect();
@@ -1771,19 +1766,69 @@ fn a_run_coded_presence_is_charged_to_the_parse_budget() {
     let layer = layer(points(&mask), None, &[("v", values)]);
     let tile = layer.encode(cfg_v2()).unwrap();
 
-    // The field is tiny on the wire, so a budget that small still reads the header.
     assert!(
         tile.len() < 4096,
-        "the mask should cost runs, not a bitmap: {}",
+        "the mask should cost a handful of runs, not a bitmap: {}",
         tile.len()
     );
 
-    // A budget with room decodes it; one without fails rather than allocating the bits.
     assert!(Parser::default().parse_layers(&tile).is_ok());
     let err = Parser::with_max_size(64).parse_layers(&tile).unwrap_err();
     assert!(
         matches!(err, mlt_core::MltError::MemoryLimitExceeded { .. }),
         "the bits should be refused by the budget, not by something else: {err}"
+    );
+}
+
+fn byte_rle_presence_fields(bytes: &[u8]) -> usize {
+    annotate(bytes)
+        .regions
+        .iter()
+        .filter_map(|r| r.blob.as_ref())
+        .filter(|blob| matches!(blob.hint, mlt_core::dump::DecodeHint::PresenceCoded(_)))
+        .count()
+}
+
+#[rstest]
+#[case::byte_rle_allowed(cfg_v2(), 1)]
+#[case::byte_rle_not_allowed(cfg_v2().with_presence_rle(false), 0)]
+fn a_presence_field_over_one_block_is_byte_rle_only_when_the_config_allows(
+    #[case] cfg: EncoderConfig,
+    #[case] byte_rle_fields: usize,
+) {
+    let mask = "1".repeat(300) + &"0".repeat(1500);
+    let layer = layer(points(&mask), None, &[("v", opt_col(&mask))]);
+    let tile = layer.encode(cfg).unwrap();
+    assert_eq!(decode(&tile).1, layer);
+    assert_eq!(byte_rle_presence_fields(&tile), byte_rle_fields);
+}
+
+#[rstest]
+#[case::byte_rle_allowed(
+    cfg_v2(),
+    mlt_core::wire::LogicalEncoding::Bool(mlt_core::wire::BoolLogical::SelfDelimitedByteRle)
+)]
+#[case::byte_rle_not_allowed(
+    cfg_v2().with_presence_rle(false),
+    mlt_core::wire::LogicalEncoding::Bool(mlt_core::wire::BoolLogical::None)
+)]
+fn a_bool_column_over_long_runs_is_byte_rle_only_when_the_config_allows(
+    #[case] cfg: EncoderConfig,
+    #[case] expected: mlt_core::wire::LogicalEncoding,
+) {
+    use mlt_core::test_helpers::stream_logicals;
+    use mlt_core::wire::{DictionaryType, StreamType};
+
+    let geoms: Vec<_> = (0..2000).map(|i| pt(i, 0)).collect();
+    let values: Vec<PropValue> = (0..2000)
+        .map(|i| PropValue::Bool(Some(i >= 1000)))
+        .collect();
+    let layer = layer(geoms, None, &[("flag", values)]);
+    let tile = layer.encode(cfg).unwrap();
+    assert_eq!(decode(&tile).1, layer);
+    assert_eq!(
+        stream_logicals(&tile, StreamType::Data(DictionaryType::None)),
+        [expected]
     );
 }
 

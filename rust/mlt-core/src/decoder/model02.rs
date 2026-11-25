@@ -376,13 +376,13 @@ impl SharedDictKind {
 /// Where a v2 column's presence bits live and how they are coded, the high nibble
 /// of the column type byte.
 ///
-/// Nibble `0` says there are none; `1`-`3` name a [`PresenceCoding`] the column
-/// carries itself; `4`-`10` point at one of the layer's shared bitfields; `11`-`15`
-/// are reserved.
+/// Nibble `0` says there are none; `1`-`2` name a [`PresenceCoding`] the column
+/// carries itself; `3` is reserved; `4`-`10` point at one of the layer's shared bitfields;
+/// `11`-`15` are reserved.
 ///
 /// The coding rides in the nibble rather than in a byte of its own because the
 /// bitmap is still the right answer for most columns, and a tag byte would charge
-/// every one of those for the two that are not.
+/// every one of those for the one that is not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Presence02 {
     /// Every feature has a value and nothing is stored.
@@ -1099,11 +1099,10 @@ mod tests {
         Presence02::Inline(PresenceCoding::Bitmap),
         DataType02::F64
     )]
-    #[case::runs(0b0010_0101, Presence02::Inline(PresenceCoding::Runs), DataType02::I32)]
-    #[case::sparse(
-        0b0011_1010,
-        Presence02::Inline(PresenceCoding::Sparse),
-        DataType02::F64
+    #[case::byte_rle(
+        0b0010_0101,
+        Presence02::Inline(PresenceCoding::ByteRle),
+        DataType02::I32
     )]
     #[case::str(0b0000_1011, Presence02::AllPresent, DataType02::Str)]
     #[case::first_shared(0b0100_0101, Presence02::Shared(0), DataType02::I32)]
@@ -1198,6 +1197,7 @@ mod tests {
     #[case::shared_ref_without_shared_columns(0b0100_0101, 0)]
     #[case::shared_ref_past_declared_count(0b0101_0101, 1)]
     #[case::unassigned_inline_coding(0b0101_0101, 0)]
+    #[case::reserved_presence_nibble_three(0b0011_0101, ALL_SHARED)]
     fn column_type_byte_rejects_unassigned(#[case] byte: u8, #[case] shared_count: u8) {
         let err = ColumnType02::parse(byte, shared_count).unwrap_err();
         assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));

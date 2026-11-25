@@ -21,6 +21,7 @@ final class MltEncoderOptions {
     SHARED_DICT(mlt_ffi_h::MltEncoderOptions_set_allow_shared_dict),
     TRIANGLES_ONLY(mlt_ffi_h::MltEncoderOptions_set_allow_triangles_only),
     DELTA2(mlt_ffi_h::MltEncoderOptions_set_allow_delta2),
+    PRESENCE_RLE(mlt_ffi_h::MltEncoderOptions_set_allow_presence_rle),
     FLOAT_ALP(mlt_ffi_h::MltEncoderOptions_set_allow_float_alp),
     PACKED_DICT_CODES(mlt_ffi_h::MltEncoderOptions_set_allow_packed_dict_codes),
     RANS_VERTICES(mlt_ffi_h::MltEncoderOptions_set_allow_rans_vertices),

@@ -214,6 +214,11 @@ mod ffi {
             self.0 = self.0.with_delta2(enabled);
         }
 
+        /// v2 only: allow presence and bool bitfields to be stored as Boolean RLE.
+        pub fn set_allow_presence_rle(&mut self, enabled: bool) {
+            self.0 = self.0.with_presence_rle(enabled);
+        }
+
         /// v2 only: allow float columns to store each value as a decimal-scaled integer (ALP).
         pub fn set_allow_float_alp(&mut self, enabled: bool) {
             self.0 = self.0.with_float_alp(enabled);

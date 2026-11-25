@@ -60,6 +60,11 @@ internal interface MltEncoderOptionsLib : Library {
         enabled: Boolean,
     ): Unit
 
+    fun MltEncoderOptions_set_allow_presence_rle(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
     fun MltEncoderOptions_set_allow_float_alp(
         handle: Pointer,
         enabled: Boolean,
@@ -203,6 +208,13 @@ class MltEncoderOptions internal constructor(
      */
     fun setAllowDelta2(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_delta2(handle, enabled)
+    }
+
+    /**
+     * v2 only: allow presence and bool bitfields to be stored as Boolean RLE.
+     */
+    fun setAllowPresenceRle(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_presence_rle(handle, enabled)
     }
 
     /**

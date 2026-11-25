@@ -387,6 +387,11 @@ public final class MltEncoder implements AutoCloseable {
       return set(MltEncoderOptions.Flag.DELTA2, enabled);
     }
 
+    /** v2 only: allows presence and bool bitfields to be stored as Boolean RLE. */
+    public Builder allowPresenceRle(boolean enabled) {
+      return set(MltEncoderOptions.Flag.PRESENCE_RLE, enabled);
+    }
+
     /** v2 only: allows float columns to store each value as a decimal-scaled integer (ALP). */
     public Builder allowFloatAlp(boolean enabled) {
       return set(MltEncoderOptions.Flag.FLOAT_ALP, enabled);
