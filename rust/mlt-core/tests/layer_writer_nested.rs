@@ -236,7 +236,7 @@ fn decodes_to_the_values_written_and_null_where_none_was() {
     feature
         .nested(
             entries,
-            NestedValue::list([NestedValue::map([("name", text("a")), ("n", int(1))])]),
+            NestedValue::list([NestedValue::map([("name", text("a")), ("n", int(1 << 40))])]),
         )
         .unwrap();
     feature.finish().unwrap();
@@ -250,7 +250,7 @@ fn decodes_to_the_values_written_and_null_where_none_was() {
         decoded.features()[0].nested(),
         [NestedValue::list([NestedValue::map([
             ("name", text("a")),
-            ("n", int(1))
+            ("n", int(1 << 40))
         ])])]
     );
     assert!(decoded.features()[1].nested()[0].is_null());

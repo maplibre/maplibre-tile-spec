@@ -263,9 +263,10 @@ fn shred(kind: &NestedKind, inputs: &[Option<&NestedValue>]) -> StagedNode {
         .collect();
 
     match kind {
-        NestedKind::Leaf(leaf) => {
-            StagedNode::Leaf(StagedLeaf::new(presence, leaf_values(*leaf, &dense)))
-        }
+        NestedKind::Leaf(leaf) => StagedNode::Leaf(StagedLeaf::new(
+            presence,
+            narrow_leaf(leaf_values(*leaf, &dense)),
+        )),
         NestedKind::List(element) => {
             let mut lengths = Vec::with_capacity(dense.len());
             let mut items: Vec<Option<&NestedValue>> = Vec::new();
@@ -333,6 +334,36 @@ fn leaf_values(kind: PropKind, dense: &[&NestedValue]) -> StagedValues {
         PropKind::F32 => leaf!(F32),
         PropKind::F64 => leaf!(F64),
         PropKind::Str => leaf!(Str),
+    }
+}
+
+/// Narrow a 64-bit leaf to 32 bits when every value fits, as [`build_scalar_column`] does.
+///
+/// An empty leaf keeps its declared type, since there are no values to narrow it by.
+#[cfg(feature = "unstable-v2")]
+fn narrow_leaf(values: StagedValues) -> StagedValues {
+    use StagedValues as V;
+
+    fn fit<S: Copy, D: TryFrom<S>>(values: &[S]) -> Option<Vec<D>> {
+        values.iter().map(|&v| D::try_from(v).ok()).collect()
+    }
+    match values {
+        // `u32` is tried before `i32`, matching `build_scalar_column`.
+        V::I64(v) if !v.is_empty() => fit(&v)
+            .map(V::U32)
+            .or_else(|| fit(&v).map(V::I32))
+            .unwrap_or(V::I64(v)),
+        V::U64(v) if !v.is_empty() => fit(&v).map_or(V::U64(v), V::U32),
+        values @ (V::Bool(_)
+        | V::I8(_)
+        | V::U8(_)
+        | V::I32(_)
+        | V::U32(_)
+        | V::I64(_)
+        | V::U64(_)
+        | V::F32(_)
+        | V::F64(_)
+        | V::Str(_)) => values,
     }
 }
 

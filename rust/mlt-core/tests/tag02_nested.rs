@@ -238,8 +238,14 @@ fn a_struct_of_every_leaf_type_round_trips() {
             ("u8", NestedValue::Leaf(PropValue::U8(Some(2)))),
             ("i32", i32_value(n)),
             ("u32", NestedValue::Leaf(PropValue::U32(Some(4)))),
-            ("i64", NestedValue::Leaf(PropValue::I64(Some(-5)))),
-            ("u64", NestedValue::Leaf(PropValue::U64(Some(6)))),
+            (
+                "i64",
+                NestedValue::Leaf(PropValue::I64(Some(-5_000_000_000))),
+            ),
+            (
+                "u64",
+                NestedValue::Leaf(PropValue::U64(Some(6_000_000_000))),
+            ),
             ("f32", NestedValue::Leaf(PropValue::F32(Some(7.5)))),
             ("f64", NestedValue::Leaf(PropValue::F64(Some(8.25)))),
             ("s", str_value("ok")),
@@ -247,6 +253,63 @@ fn a_struct_of_every_leaf_type_round_trips() {
     };
     let layer = nested_layer(kind, &two_points(), &[value(0), value(1)]);
     assert_round_trips_as_v2(&layer);
+}
+
+#[rstest]
+#[case::i64_to_u32(PropValue::I64(Some(6)), PropValue::U32(Some(6)))]
+#[case::i64_to_i32(PropValue::I64(Some(-5)), PropValue::I32(Some(-5)))]
+#[case::i64_kept(PropValue::I64(Some(-5_000_000_000)), PropValue::I64(Some(-5_000_000_000)))]
+#[case::u64_to_u32(PropValue::U64(Some(6)), PropValue::U32(Some(6)))]
+#[case::u64_kept(
+    PropValue::U64(Some(6_000_000_000)),
+    PropValue::U64(Some(6_000_000_000))
+)]
+fn a_64_bit_leaf_narrows_to_the_smallest_type_that_fits(
+    #[case] written: PropValue,
+    #[case] decoded: PropValue,
+) {
+    let kind = map_kind(&[("v", leaf(written.kind()))]);
+    let value = entries(&[("v", NestedValue::Leaf(written))]);
+    let layer = nested_layer(kind, &two_points(), &[value.clone(), value]);
+
+    let tile = decode(&layer.encode(cfg_v2()).expect("v2 encode"));
+
+    assert_eq!(
+        tile.nested_kinds(),
+        [map_kind(&[("v", leaf(decoded.kind()))])]
+    );
+    assert_eq!(
+        tile.features()[0].nested(),
+        [entries(&[("v", NestedValue::Leaf(decoded))])]
+    );
+}
+
+#[rstest]
+#[case::small_then_past_both_ranges(PropValue::I64(Some(1)), PropValue::I64(Some(5_000_000_000)))]
+#[case::negative_then_past_i32(
+    PropValue::I64(Some(-1)),
+    PropValue::I64(Some(i64::from(i32::MAX) + 1))
+)]
+#[case::small_then_past_u32(
+    PropValue::U64(Some(1)),
+    PropValue::U64(Some(u64::from(u32::MAX) + 1))
+)]
+fn a_64_bit_leaf_stays_64_bit_unless_every_value_fits(
+    #[case] first: PropValue,
+    #[case] second: PropValue,
+) {
+    let kind = map_kind(&[("v", leaf(first.kind()))]);
+    let values = [first, second].map(|v| entries(&[("v", NestedValue::Leaf(v))]));
+    assert_round_trips_as_v2(&nested_layer(kind, &two_points(), &values));
+}
+
+#[rstest]
+#[case::i64(PropValue::I64(None))]
+#[case::u64(PropValue::U64(None))]
+fn an_all_null_64_bit_leaf_keeps_its_type(#[case] null: PropValue) {
+    let kind = NestedKind::list(leaf(null.kind()));
+    let value = NestedValue::list([NestedValue::Leaf(null)]);
+    assert_round_trips_as_v2(&nested_layer(kind, &two_points(), &[value.clone(), value]));
 }
 
 #[test]

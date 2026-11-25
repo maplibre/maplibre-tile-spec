@@ -65,8 +65,8 @@ fn a_running_sum_adds_each_value_to_the_one_before() {
         &[(2, "10+1-2+0"), (2, "-100+0-1")],
     );
     insta::assert_snapshot!(report, @r#"
-    "10+1-2+0" -> i64 [10, 11, 9, 9]
-    "-100+0-1" -> i64 [-100, -100, -101]
+    "10+1-2+0" -> i32 [10, 11, 9, 9]
+    "-100+0-1" -> i32 [-100, -100, -101]
     "#);
 }
 
@@ -598,8 +598,8 @@ fn existing_m_values_and_nested_columns_are_kept() {
         feature.nested(),
         [
             NestedValue::list([
-                NestedValue::Leaf(PropValue::U64(Some(5))),
-                NestedValue::Leaf(PropValue::U64(Some(6))),
+                NestedValue::Leaf(PropValue::U32(Some(5))),
+                NestedValue::Leaf(PropValue::U32(Some(6))),
             ]),
             NestedValue::map([("k", NestedValue::Leaf(PropValue::Str(Some("v".into()))))]),
         ]
