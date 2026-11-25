@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.2.5...rust-mlt-ffi-v0.3.0) - 2026-11-25
+
+### Added
+
+- *(v2)* [**breaking**] replace the Runs and Sparse presence codings with Boolean RLE ([#2123](https://github.com/maplibre/maplibre-tile-spec/pull/2123))
+- *(v2)* [**breaking**] drop the float dictionary encoding ([#2115](https://github.com/maplibre/maplibre-tile-spec/pull/2115))
+
 ## [0.2.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.2.4...rust-mlt-ffi-v0.2.5) - 2026-11-22
 
 ### Added

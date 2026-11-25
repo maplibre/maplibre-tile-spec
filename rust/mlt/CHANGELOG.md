@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.7.0...rust-mlt-v0.8.0) - 2026-11-25
+
+### Added
+
+- *(v2)* [**breaking**] replace the Runs and Sparse presence codings with Boolean RLE ([#2123](https://github.com/maplibre/maplibre-tile-spec/pull/2123))
+- *(v2)* narrow 64-bit nested leaves to 32 bits when every value fits ([#2121](https://github.com/maplibre/maplibre-tile-spec/pull/2121))
+- *(v2)* [**breaking**] drop the float dictionary encoding ([#2115](https://github.com/maplibre/maplibre-tile-spec/pull/2115))
+- *(mlt)* tile CityJSON like CityGML through one city model ([#2089](https://github.com/maplibre/maplibre-tile-spec/pull/2089))
+- *(mlt)* tile CityGML 2.0/3.0 buildings into multi-zoom v2 Meshes layers ([#2087](https://github.com/maplibre/maplibre-tile-spec/pull/2087))
+
 ## [0.7.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.6.2...rust-mlt-v0.7.0) - 2026-11-22
 
 ### Added
