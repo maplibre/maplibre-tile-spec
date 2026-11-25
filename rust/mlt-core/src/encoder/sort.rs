@@ -558,6 +558,18 @@ mod tests {
     }
 
     #[test]
+    fn chain_sort_enters_a_multi_line_with_an_empty_first_part_at_its_first_stored_vertex() {
+        let multi_line = GeoGeom::MultiLineString(MultiLineString::new(vec![
+            LineString::new(vec![]),
+            LineString::new(vec![Coord { x: 2, y: 2 }, Coord { x: 3, y: 3 }]),
+        ]));
+        let layer = layer_after_sort(&[pt(50, 50), multi_line], &[1, 2], SortStrategy::Chain);
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(2), Some(1)]);
+    }
+
+    #[test]
     fn chain_sort_takes_features_sharing_a_start_in_index_order() {
         let layer = layer_after_sort(
             &[pt(5, 5), ls(&[(5, 5), (9, 9)]), pt(5, 5), pt(9, 9)],
