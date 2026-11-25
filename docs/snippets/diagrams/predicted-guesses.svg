@@ -1,0 +1,45 @@
+<svg class="mlt-diagram" viewBox="0 0 710 410" role="img" aria-label="The rectangle (100, 200) (130, 200) (130, 240) (100, 240) and, enlarged beside it, the line part (105, 205) (115, 205) (125, 207), each vertex labelled with its class, with an arrow to each vertex from the vertices its guess is made of" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="pg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="pg-t0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="pg-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<path class="land" fill-opacity="0.2" d="M90,40H300V320H90Z"/>
+<path class="lost" d="M90,40H300V320H90Z"/>
+<path class="lost" d="M125,75L195,75L265,89"/>
+<circle class="dot" cx="125" cy="75" r="2"/>
+<circle class="dot" cx="195" cy="75" r="2"/>
+<circle class="dot" cx="265" cy="89" r="2"/>
+<path class="implicit" d="M104,47H286V117H104Z"/>
+<path class="implicit" d="M286,47L370,40M286,117L370,160"/>
+<path class="link" d="M97,28H293" marker-end="url(#pg)"/>
+<path class="link" d="M312,47V313" marker-end="url(#pg)"/>
+<path class="link t1" stroke-dasharray="5 3" d="M78,47V313" marker-end="url(#pg-t1)"/>
+<path class="link t0" d="M95,45L120,70" marker-end="url(#pg-t0)"/>
+<circle class="dot" cx="90" cy="40" r="3.5"/>
+<circle class="dot" cx="300" cy="40" r="3.5"/>
+<circle class="dot" cx="300" cy="320" r="3.5"/>
+<circle class="dot" cx="90" cy="320" r="3.5"/>
+<text class="halo" x="80" y="26" text-anchor="end"><tspan class="bold">p0</tspan> start</text>
+<text class="halo" x="310" y="26"><tspan class="bold">p1</tspan> ring</text>
+<text class="halo" x="310" y="334"><tspan class="bold">p2</tspan> ring</text>
+<text class="halo" x="80" y="334" text-anchor="end"><tspan class="bold">p3</tspan> corner</text>
+<path class="land" fill-opacity="0.2" d="M370,40H682V160H370Z"/>
+<path class="implicit" d="M370,40H682V160H370Z"/>
+<path class="lost" d="M406,88L526,88L646,112"/>
+<path class="link t0" d="M370,52L400,82" marker-end="url(#pg-t0)"/>
+<path class="link" d="M412,100H520" marker-end="url(#pg)"/>
+<path class="link t1" d="M533,88H639" marker-end="url(#pg-t1)"/>
+<circle class="node" cx="646" cy="88" r="4"/>
+<text class="muted small mid" x="646" y="72">guess</text>
+<circle class="dot" cx="406" cy="88" r="3.5"/>
+<circle class="dot" cx="526" cy="88" r="3.5"/>
+<circle class="dot" cx="646" cy="112" r="3.5"/>
+<text class="halo mid" x="406" y="126"><tspan class="bold">p4</tspan> start</text>
+<text class="halo mid" x="526" y="126"><tspan class="bold">p5</tspan> line second</text>
+<text class="halo mid" x="646" y="132"><tspan class="bold">p6</tspan> line</text>
+<path class="link" d="M40,370H80" marker-end="url(#pg)"/>
+<text class="muted" x="90" y="370">previous vertex</text>
+<path class="link t0" d="M370,370H410" marker-end="url(#pg-t0)"/>
+<text class="muted" x="420" y="370">first vertex of the previous run</text>
+<path class="link t1" stroke-dasharray="5 3" d="M40,394H80" marker-end="url(#pg-t1)"/>
+<text class="muted" x="90" y="394">p[i-3] + p[i-1] - p[i-2]</text>
+<path class="link t1" d="M370,394H410" marker-end="url(#pg-t1)"/>
+<text class="muted" x="420" y="394">2 * p[i-1] - p[i-2]</text>
+</svg>
