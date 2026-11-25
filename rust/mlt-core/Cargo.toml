@@ -141,6 +141,10 @@ name = "string_copy_budget"
 required-features = ["__private-v2"]
 
 [[test]]
+name = "tag02_vertex_copies"
+required-features = ["unstable-v2"]
+
+[[test]]
 name = "tag02_vertex_sort"
 required-features = ["unstable-v2"]
 
