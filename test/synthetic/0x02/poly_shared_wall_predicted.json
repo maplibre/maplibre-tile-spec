@@ -1,0 +1,147 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              10,
+              10
+            ],
+            [
+              10,
+              2
+            ],
+            [
+              34,
+              2
+            ],
+            [
+              34,
+              10
+            ],
+            [
+              30,
+              12
+            ],
+            [
+              26,
+              10
+            ],
+            [
+              22,
+              13
+            ],
+            [
+              18,
+              10
+            ],
+            [
+              14,
+              12
+            ],
+            [
+              10,
+              10
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              34,
+              10
+            ],
+            [
+              34,
+              18
+            ],
+            [
+              10,
+              18
+            ],
+            [
+              10,
+              10
+            ],
+            [
+              14,
+              12
+            ],
+            [
+              18,
+              10
+            ],
+            [
+              22,
+              13
+            ],
+            [
+              26,
+              10
+            ],
+            [
+              30,
+              12
+            ],
+            [
+              34,
+              10
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              34,
+              18
+            ],
+            [
+              34,
+              26
+            ],
+            [
+              10,
+              26
+            ],
+            [
+              10,
+              18
+            ],
+            [
+              34,
+              18
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

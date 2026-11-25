@@ -225,8 +225,8 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             fmt_bits(n, |i| data[i / 8] >> (i % 8) & 1 == 1)
         }
         #[cfg(feature = "unstable-v2")]
-        DecodeHint::Predicted => match crate::codecs::predicted::guesses(data) {
-            Ok(guesses) => fmt_guesses(guesses, data.len()),
+        DecodeHint::Predicted => match crate::codecs::predicted::header(data) {
+            Ok(header) => fmt_predicted(header, data.len()),
             Err(e) => format!("<undecodable: {e}>"),
         },
         DecodeHint::Bool => fmt_res(RawStream::new(meta, data).decode_bools(dec)),
@@ -249,20 +249,30 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
     }
 }
 
-/// The guesses of a predicted vertex payload, e.g. `starts from the previous run, lines continued from six, 812 B`.
+/// The header of a predicted vertex payload, e.g. `starts from the previous run, lines continued from six, copies, 812 B`.
 #[cfg(feature = "unstable-v2")]
-fn fmt_guesses(guesses: crate::codecs::predicted::Guesses, len: usize) -> String {
+fn fmt_predicted(header: crate::codecs::predicted::Header, len: usize) -> String {
     use crate::codecs::predicted::{LineGuess, StartGuess};
-    let start = match guesses.start {
+    let start = match header.guesses.start {
         StartGuess::Previous => "starts from the previous vertex",
         StartGuess::RunStart => "starts from the previous run",
     };
-    let line = match guesses.line {
+    let line = match header.guesses.line {
         LineGuess::Previous => "lines from the previous vertex",
         LineGuess::ContinuedFromSix => "lines continued from six",
         LineGuess::ContinuedFromThree => "lines continued from three",
     };
-    format!("{start}, {line}, {len} B")
+    let copies = if header.sharing.copies {
+        ", copies"
+    } else {
+        ""
+    };
+    let line_references = if header.sharing.line_references {
+        ", line endpoint references"
+    } else {
+        ""
+    };
+    format!("{start}, {line}{copies}{line_references}, {len} B")
 }
 
 /// Render the first 96 of `n` presence bits as a `0`/`1` string.

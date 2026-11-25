@@ -903,6 +903,7 @@ impl EncoderConfig {
     }
 
     /// Allow plain vertex streams as residuals against a guess from the layer's vertex runs.
+    /// A run of vertices that repeats earlier ones may be stored as a copy, and a line part endpoint as a reference to an earlier line part.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn with_predicted_vertices(mut self, enabled: bool) -> Self {

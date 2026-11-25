@@ -444,6 +444,18 @@ fn generate_predicted_vertices(w: &mut SynthWriter) {
         .geo(poly1h())
         .predicted_vertices()
         .write(w, "mix_pt_line_polyh_predicted");
+    geo_varint()
+        .geo(wkt!(POLYGON((10 10, 10 2, 34 2, 34 10, 30 12, 26 10, 22 13, 18 10, 14 12, 10 10))))
+        .geo(wkt!(POLYGON((34 10, 34 18, 10 18, 10 10, 14 12, 18 10, 22 13, 26 10, 30 12, 34 10))))
+        .geo(wkt!(POLYGON((34 18, 34 26, 10 26, 10 18, 34 18))))
+        .predicted_vertices()
+        .write(w, "poly_shared_wall_predicted");
+    geo_varint()
+        .geo(wkt!(LINESTRING(1200 1200, 1440 1600, 1760 1760, 2000 2240, 2400 2400)))
+        .geo(wkt!(LINESTRING(0 0, 320 240, 640 400, 700 1100, 1200 1200)))
+        .geo(wkt!(LINESTRING(2480 240, 2000 720, 1700 900, 1200 1200)))
+        .predicted_vertices()
+        .write(w, "line_junction_predicted");
 }
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
