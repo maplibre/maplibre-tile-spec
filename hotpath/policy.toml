@@ -2,8 +2,6 @@
 #
 # Docs: https://hotpath.rs/cloud
 
-pr_comment = "on_change"
-
 [functions]
 min_percent_total = 2
 

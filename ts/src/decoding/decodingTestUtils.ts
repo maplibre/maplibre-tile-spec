@@ -8,7 +8,11 @@ import IntWrapper from "./intWrapper";
 import { type Column, type Field, ColumnScope, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { encodeBooleanRle, encodeUtf8Strings } from "../encoding/encodingUtils";
 import { encodeVarintInt32Value, encodeVarintInt32 } from "../encoding/integerEncodingUtils";
-import type { RleEncodedStreamMetadata, StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import {
+    decodeStreamMetadata,
+    type RleEncodedStreamMetadata,
+    type StreamMetadata,
+} from "../metadata/tile/streamMetadataDecoder";
 import type { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 
 /**
@@ -366,4 +370,16 @@ export function concatenateBuffers(...buffers: Uint8Array[]): Uint8Array {
     }
 
     return result;
+}
+
+/** The headers of streams written back to back, which is how an encoder returns those of a column. */
+export function decodeStreamHeaders(data: Uint8Array): StreamMetadata[] {
+    const offset = new IntWrapper(0);
+    const headers: StreamMetadata[] = [];
+    while (offset.get() < data.length) {
+        const header = decodeStreamMetadata(data, offset);
+        offset.add(header.byteLength);
+        headers.push(header);
+    }
+    return headers;
 }

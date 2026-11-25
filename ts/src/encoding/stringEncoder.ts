@@ -5,8 +5,9 @@ import { OffsetType } from "../metadata/tile/offsetType";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import IntWrapper from "../decoding/intWrapper";
-import { encodeBooleanRle, encodeUtf8Strings, concatenateBuffers } from "./encodingUtils";
+import { encodeUtf8Strings, concatenateBuffers } from "./encodingUtils";
 import { encodeVarintInt32Value, encodeVarintInt32 } from "./integerEncodingUtils";
+import { encodePresentStream } from "./propertyEncoder";
 import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import type { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 
@@ -24,13 +25,7 @@ export function encodePlainStrings(strings: (string | null)[]): Uint8Array {
 
     // Add PRESENT stream if nulls exist
     if (hasNull) {
-        const nullabilityValues = strings.map((s) => s !== null);
-        streams.push(
-            createStream(PhysicalStreamType.PRESENT, encodeBooleanRle(nullabilityValues), {
-                technique: PhysicalLevelTechnique.VARINT,
-                count: nullabilityValues.length,
-            }),
-        );
+        streams.push(encodePresentStream(strings.map((s) => s !== null)));
     }
 
     // Add LENGTH stream
@@ -78,23 +73,8 @@ export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array 
 
     // Add PRESENT stream if nulls exist
     if (hasNull) {
-        const nullabilityValues = strings.map((s) => s !== null);
-        streams.push(
-            createStream(PhysicalStreamType.PRESENT, encodeBooleanRle(nullabilityValues), {
-                technique: PhysicalLevelTechnique.VARINT,
-                count: nullabilityValues.length,
-            }),
-        );
+        streams.push(encodePresentStream(strings.map((s) => s !== null)));
     }
-
-    // Add OFFSET stream
-    streams.push(
-        createStream(PhysicalStreamType.OFFSET, encodeVarintInt32(new Uint32Array(offsets)), {
-            logical: { offsetType: OffsetType.STRING },
-            technique: PhysicalLevelTechnique.VARINT,
-            count: offsets.length,
-        }),
-    );
 
     // Add LENGTH stream (for dictionary)
     streams.push(
@@ -102,6 +82,15 @@ export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array 
             logical: { lengthType: LengthType.DICTIONARY },
             technique: PhysicalLevelTechnique.VARINT,
             count: lengths.length,
+        }),
+    );
+
+    // Add OFFSET stream
+    streams.push(
+        createStream(PhysicalStreamType.OFFSET, encodeVarintInt32(new Uint32Array(offsets)), {
+            logical: { offsetType: OffsetType.STRING },
+            technique: PhysicalLevelTechnique.VARINT,
+            count: offsets.length,
         }),
     );
 

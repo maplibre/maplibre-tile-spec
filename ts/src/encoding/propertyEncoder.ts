@@ -97,27 +97,7 @@ export function encodeInt32DeltaRleColumn(runs: Array<[number, number]>): Uint8A
  * Encodes nullable INT_32 values
  */
 export function encodeInt32NullableColumn(values: (number | null)[]): Uint8Array {
-    const nonNullValues = values.filter((v): v is number => v !== null);
-    const zigzagEncoded = new Uint32Array(nonNullValues.map((v) => encodeZigZagInt32Value(v)));
-    const encodedData = encodeVarintInt32(zigzagEncoded);
-    const dataStreamMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nonNullValues.length,
-    );
-    const dataStream = buildEncodedStream(dataStreamMetadata, encodedData);
-
-    // Nullability stream
-    const nullabilityValues = values.map((v) => v !== null);
-    const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
-    const nullabilityMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nullabilityValues.length,
-    );
-    const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
-
-    return concatenateBuffers(nullabilityStream, dataStream);
+    return encodeNullableColumn(values, (present) => encodeInt32NoneColumn(Int32Array.from(present)));
 }
 
 /**
@@ -212,26 +192,7 @@ export function encodeInt64DeltaRleColumn(runs: Array<[number, bigint]>): Uint8A
  * Encodes nullable INT_64 values
  */
 export function encodeInt64NullableColumn(values: (bigint | null)[]): Uint8Array {
-    const nonNullValues = values.filter((v): v is bigint => v !== null);
-    const zigzagEncoded = new BigUint64Array(Array.from(nonNullValues, (val) => encodeZigZagInt64Value(val)));
-    const encodedData = encodeVarintInt64(zigzagEncoded);
-    const dataStreamMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nonNullValues.length,
-    );
-    const dataStream = buildEncodedStream(dataStreamMetadata, encodedData);
-
-    const nullabilityValues = values.map((v) => v !== null);
-    const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
-    const nullabilityMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nullabilityValues.length,
-    );
-    const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
-
-    return concatenateBuffers(nullabilityStream, dataStream);
+    return encodeNullableColumn(values, (present) => encodeInt64NoneColumn(BigInt64Array.from(present)));
 }
 
 /**
@@ -247,25 +208,7 @@ export function encodeUint64Column(values: BigUint64Array): Uint8Array {
  * Encodes nullable UINT_64 values
  */
 export function encodeUint64NullableColumn(values: (bigint | null)[]): Uint8Array {
-    const nonNullValues = values.filter((v): v is bigint => v !== null);
-    const encodedData = encodeVarintInt64(new BigUint64Array(nonNullValues));
-    const dataStreamMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nonNullValues.length,
-    );
-    const dataStream = buildEncodedStream(dataStreamMetadata, encodedData);
-
-    const nullabilityValues = values.map((v) => v !== null);
-    const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
-    const nullabilityMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nullabilityValues.length,
-    );
-    const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
-
-    return concatenateBuffers(nullabilityStream, dataStream);
+    return encodeNullableColumn(values, (present) => encodeUint64Column(BigUint64Array.from(present)));
 }
 
 /**
@@ -273,7 +216,7 @@ export function encodeUint64NullableColumn(values: (bigint | null)[]): Uint8Arra
  */
 export function encodeFloatColumn(values: Float32Array): Uint8Array {
     const encodedData = encodeFloatsLE(values);
-    const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
+    const streamMetadata = createFixedWidthStreamMetadata(values.length);
     return buildEncodedStream(streamMetadata, encodedData);
 }
 
@@ -281,25 +224,7 @@ export function encodeFloatColumn(values: Float32Array): Uint8Array {
  * Encodes nullable FLOAT values
  */
 export function encodeFloatNullableColumn(values: (number | null)[]): Uint8Array {
-    const nonNullValues = values.filter((v): v is number => v !== null);
-    const encodedData = encodeFloatsLE(new Float32Array(nonNullValues));
-    const dataStreamMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nonNullValues.length,
-    );
-    const dataStream = buildEncodedStream(dataStreamMetadata, encodedData);
-
-    const nullabilityValues = values.map((v) => v !== null);
-    const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
-    const nullabilityMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nullabilityValues.length,
-    );
-    const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
-
-    return concatenateBuffers(nullabilityStream, dataStream);
+    return encodeNullableColumn(values, (present) => encodeFloatColumn(Float32Array.from(present)));
 }
 
 /**
@@ -307,7 +232,7 @@ export function encodeFloatNullableColumn(values: (number | null)[]): Uint8Array
  */
 export function encodeDoubleColumn(values: Float64Array): Uint8Array {
     const encodedData = encodeDoubleLE(values);
-    const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
+    const streamMetadata = createFixedWidthStreamMetadata(values.length);
     return buildEncodedStream(streamMetadata, encodedData);
 }
 
@@ -315,25 +240,7 @@ export function encodeDoubleColumn(values: Float64Array): Uint8Array {
  * Encodes nullable DOUBLE values
  */
 export function encodeDoubleNullableColumn(values: (number | null)[]): Uint8Array {
-    const nonNullValues = values.filter((v): v is number => v !== null);
-    const encodedData = encodeDoubleLE(new Float64Array(nonNullValues));
-    const dataStreamMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nonNullValues.length,
-    );
-    const dataStream = buildEncodedStream(dataStreamMetadata, encodedData);
-
-    const nullabilityValues = values.map((v) => v !== null);
-    const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
-    const nullabilityMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nullabilityValues.length,
-    );
-    const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
-
-    return concatenateBuffers(nullabilityStream, dataStream);
+    return encodeNullableColumn(values, (present) => encodeDoubleColumn(Float64Array.from(present)));
 }
 
 /**
@@ -341,7 +248,7 @@ export function encodeDoubleNullableColumn(values: (number | null)[]): Uint8Arra
  */
 export function encodeBooleanColumn(values: boolean[]): Uint8Array {
     const encodedData = encodeBooleanRle(values);
-    const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, values.length);
+    const streamMetadata = createBooleanStreamMetadata(values.length);
     return buildEncodedStream(streamMetadata, encodedData);
 }
 
@@ -349,38 +256,62 @@ export function encodeBooleanColumn(values: boolean[]): Uint8Array {
  * Encodes nullable BOOLEAN values
  */
 export function encodeBooleanNullableColumn(values: (boolean | null)[]): Uint8Array {
-    const nonNullValues = values.filter((v): v is boolean => v !== null);
-    const encodedData = encodeBooleanRle(nonNullValues);
-    const dataStreamMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nonNullValues.length,
-    );
-    const dataStream = buildEncodedStream(dataStreamMetadata, encodedData);
+    return encodeNullableColumn(values, encodeBooleanColumn);
+}
 
-    const nullabilityValues = values.map((v) => v !== null);
-    const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
-    const nullabilityMetadata = createStreamMetadata(
-        LogicalLevelTechnique.NONE,
-        LogicalLevelTechnique.NONE,
-        nullabilityValues.length,
-    );
-    const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
+/** A nullable column: its `Present` stream, then the column its present values make. */
+function encodeNullableColumn<T>(values: (T | null)[], encodeColumn: (present: T[]) => Uint8Array): Uint8Array {
+    const presentStream = encodePresentStream(values.map((value) => value !== null));
+    const presentValues = values.filter((value): value is T => value !== null);
+    return concatenateBuffers(presentStream, encodeColumn(presentValues));
+}
 
-    return concatenateBuffers(nullabilityStream, dataStream);
+/** The `Present` stream of a nullable column: one bit per value, set where the value is present. */
+export function encodePresentStream(present: boolean[]): Uint8Array {
+    const metadata: StreamMetadata = {
+        ...createBooleanStreamMetadata(present.length),
+        physicalStreamType: PhysicalStreamType.PRESENT,
+        logicalStreamType: {},
+    };
+    return buildEncodedStream(metadata, encodeBooleanRle(present));
+}
+
+/**
+ * The metadata of the data stream of a boolean column, which a `Present` stream shares apart from its type. The
+ * bits are packed into bytes and the bytes run-length encoded. The header has no run counts, unlike that of an
+ * integer RLE stream: they follow from the number of values.
+ */
+function createBooleanStreamMetadata(numValues: number): StreamMetadata {
+    return createStreamMetadata(
+        LogicalLevelTechnique.RLE,
+        LogicalLevelTechnique.NONE,
+        numValues,
+        PhysicalLevelTechnique.NONE,
+    );
+}
+
+/** The metadata of a stream of fixed-width words, which is how float and double columns store their values. */
+function createFixedWidthStreamMetadata(numValues: number): StreamMetadata {
+    return createStreamMetadata(
+        LogicalLevelTechnique.NONE,
+        LogicalLevelTechnique.NONE,
+        numValues,
+        PhysicalLevelTechnique.NONE,
+    );
 }
 
 function createStreamMetadata(
     logicalTechnique1: LogicalLevelTechnique,
     logicalTechnique2: LogicalLevelTechnique = LogicalLevelTechnique.NONE,
     numValues = 3,
+    physicalLevelTechnique: PhysicalLevelTechnique = PhysicalLevelTechnique.VARINT,
 ): StreamMetadata {
     return {
         physicalStreamType: PhysicalStreamType.DATA,
         logicalStreamType: { dictionaryType: DictionaryType.NONE },
         logicalLevelTechnique1: logicalTechnique1,
         logicalLevelTechnique2: logicalTechnique2,
-        physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
+        physicalLevelTechnique,
         numValues,
         byteLength: 10,
         decompressedCount: numValues,
@@ -430,7 +361,7 @@ function encodeStreamMetadata(metadata: StreamMetadata | RleEncodedStreamMetadat
 
     // Byte 1: Stream type
     const physicalTypeIndex = Object.values(PhysicalStreamType).indexOf(metadata.physicalStreamType);
-    const lowerNibble = 0; // For DATA stream with NONE dictionary type
+    const lowerNibble = 0; // The subtype: a Present stream has none, a Data stream no dictionary
     buffer[writeOffset++] = (physicalTypeIndex << 4) | lowerNibble;
 
     // Byte 2: Encoding techniques
