@@ -68,7 +68,6 @@ Pick a dataset below; the [method](#method) applies to all of them.
     | `--sort all` | -0.4% | -0.4% | +1% | +1% |
     | `--no-alp` | - | +0.0% | - | 0% |
     | `--no-bitpacking` | - | +0.7% | - | +1% |
-    | `--delta2` | - | -0.5% | - | 0% |
     | `--tessellate=always` | +21.9% | +24.9% | +27% | +14% |
     | `--tessellate=always --triangles-only` | - | +23.2% | - | +10% |
 
@@ -121,7 +120,6 @@ Pick a dataset below; the [method](#method) applies to all of them.
     | `--sort all` | -0.1% | -0.1% | +1% | +1% |
     | `--no-alp` | - | +0.1% | - | 0% |
     | `--no-bitpacking` | - | +0.3% | - | 0% |
-    | `--delta2` | - | -0.6% | - | +1% |
     | `--tessellate=always` | +32.4% | +35.8% | +145% | +68% |
     | `--tessellate=always --triangles-only` | - | +33.5% | - | +59% |
 
