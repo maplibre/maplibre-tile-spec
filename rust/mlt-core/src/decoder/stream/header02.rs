@@ -530,10 +530,9 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
             LogicalInt::BitPacked
         }
         Logical::Delta2 => LogicalInt::Delta2(physical_int(enc_byte)?),
-        Logical::CwDelta
-        | Logical::Morton
-        | Logical::Alp
-        | Logical::FrontCoded => unreachable_member(family, logical),
+        Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::FrontCoded => {
+            unreachable_member(family, logical)
+        }
     })
 }
 
