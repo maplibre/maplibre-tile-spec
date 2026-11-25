@@ -362,11 +362,9 @@ pub(crate) fn vertex_runs(
         return Ok(Vec::new());
     };
     let mut runs = dec.alloc(deepest.len().saturating_sub(1))?;
-    let at = |level: &[u32], idx: usize| {
-        level
-            .get(idx)
-            .copied()
-            .ok_or(MltError::GeometryIndexOutOfBounds(idx))
+    let at = |level: &[u32], idx: usize| match level.get(idx) {
+        Some(&value) => Ok(value),
+        None => Err(MltError::GeometryIndexOutOfBounds(idx)),
     };
     for (index, geometry_type) in types.iter().enumerate() {
         let kind = if geometry_type.is_linestring() {

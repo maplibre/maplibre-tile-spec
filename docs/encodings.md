@@ -878,12 +878,12 @@ words:      [27, 3, 15]
 ### Predicted Vertices <span class="experimental"></span> {#predicted-vertices}
 
 Each vertex is stored as its residual against a guess made from the vertices decoded before it.
-The residuals are split into streams by the class of their vertex, then written as split varints or as escaped bytes.
-The encoding follows the vertex-buffer pipeline of [Turtelll's thesis](https://turtelll.github.io/Thesis/), without its frames, shared references and reorders.
+The residuals are split into six streams by the class of their vertex.
+The streams follow the vertex-buffer pipeline of [Turtelll's thesis](https://turtelll.github.io/Thesis/), and the classes follow [mactrem's proposal](https://github.com/maplibre/maplibre-tile-spec/discussions/1921#discussioncomment-19862670).
 It only applies to `(x, y)` pairs, not to [triples](specification/v2.md#z-coordinates) or a vertex dictionary.
 
 The stream's physical field is `0`, and `byte_length` covers the whole payload.
-The payload is one header byte followed by the non-empty streams, and it must be consumed exactly.
+The payload is one header byte followed by the non-empty class streams, and it must be consumed exactly.
 
 [View example](inspector/app/?fixture=0x02%2Fpoly_hole_predicted.mlt&at=vertices){target=_blank .inspector-example} - a polygon with a hole, its vertices stored as predicted residuals.
 
@@ -893,34 +893,32 @@ A run is one polygon ring or one line part, taken from the deepest topology leve
 Points belong to no run.
 The decoder derives every run from the topology, so no class or stream length is stored.
 
-Each vertex has one class:
-
-- `start`: the first vertex of a run.
-- `delta`: every other vertex, guessed as the previous vertex.
-- `predicted`: a vertex the predictor guesses from its run.
-
-The guess of a `start` or `delta` vertex is the previous vertex of the buffer, `(0, 0)` for the first one, even across runs and features.
-
-| Code | Predictor | `predicted` vertices | Guess |
+| Stream | Class | Vertices | Guess |
 |---|---|---|---|
-| `0` | Delta | none | |
-| `1` | Quad corner | the fourth vertex of every four-vertex ring | `p[i-3] + p[i-1] - p[i-2]` |
-| `2` | Line continuation | from the third vertex of every line part of six or more | `2 * p[i-1] - p[i-2]` |
+| `0` | `start` | the first vertex of every run | the start guess |
+| `1` | `point` | every vertex outside a run | the previous vertex |
+| `2` | `ring` | every later ring vertex that is no corner | the previous vertex |
+| `3` | `corner` | the fourth vertex of every four-vertex ring | `p[i-3] + p[i-1] - p[i-2]` |
+| `4` | `line second` | the second vertex of every line part | the previous vertex |
+| `5` | `line` | from the third vertex of every line part | the line guess |
 
+The previous vertex is the one before in the buffer, even across runs and features, and `(0, 0)` for the first vertex.
 The residual is `p[i] - guess`, per component, with wrapping 32-bit arithmetic, then [zigzag](#zigzag)-encoded.
 
 #### Header
 
 | Bits | Field | Values |
 |---|---|---|
-| 0-3 | predictor | the codes above, `3`-`15` reserved |
-| 4 | segmentation | `0` one stream in vertex order, `1` one stream per class |
-| 5-6 | byte layout | `0` split varint, `1` escaped, `2`-`3` reserved |
-| 7 | reserved | `0` |
+| 0 | start guess | `0` the previous vertex, `1` the first vertex of the previous run, `(0, 0)` for the first run |
+| 1-2 | line guess | `0` the previous vertex, `1` `2 * p[i-1] - p[i-2]` in line parts of six or more, `2` the same in line parts of three or more, `3` reserved |
+| 3-7 | reserved | `0` |
 
-With one stream per class the order is `start`, `delta`, `predicted`, and an empty stream is left out.
-The delta predictor must use one stream in vertex order.
+A `line` vertex in a part shorter than the line guess asks for is guessed as the previous vertex.
+
+#### Byte layout
+
 Each stream holds `x` and `y` interleaved, two values per vertex.
+The `start` and `point` streams are split varints, the other four are two planes.
 
 #### Split varint
 
@@ -934,46 +932,37 @@ varint:        05 | AC 02 | 07
 split varint:  05 AC 07 | 02
 ```
 
-#### Escaped
+#### Two planes
 
-A descriptor byte, then the values.
-
-| Bits | Field |
-|---|---|
-| 0-1 | width: `0` one byte, `1` two, `2` four |
-| 2 | escape |
-| 3-4 | exception width, the same codes, `0` without escape |
-| 5-7 | reserved, `0` |
-
-Without escape, the values are written at the width as byte planes: byte `b` of value `i` of `n` is at `b * n + i`, little-endian.
-With escape, the width must be one byte.
-Each value below `255` is written as it is, and a larger one as `0xFF`.
-The exceptions `value - 255` follow, in order, as byte planes at the exception width.
-The decoder counts the `0xFF` markers to size them.
+One byte per value, then the values that do not fit in it.
+A value below `255` is its own byte, and a larger one is `0xFF`.
+After the low bytes, every escaped value follows in order as the [varint](#varint) of `value - 255`.
+That varint must be minimal, and the value must fit 32 bits.
 
 ```
-values:      5   300   7   9   1000   12
-descriptor:  0C                          (escape, two-byte exceptions)
-main:        05 FF 07 09 FF 0C
-exceptions:  45, 745 as planes: 2D E9 | 00 02
+values:     5   300   7   255   70000
+low bytes:  05 FF 07 FF FF
+varints:    2D | 00 | F1 A0 04
 ```
 
 #### Example
 
-A rectangle, the only ring of its layer, with quad corner, one stream per class and escaped bytes:
+A rectangle, then a line part of three vertices, with the run-start guess and lines continued from three:
 
 ```
-vertices:   (100, 200)  (130, 200)  (130, 240)  (100, 240)
-class:      start       delta       delta       predicted
-guess:      (0, 0)      (100, 200)  (130, 200)  (100, 240)
-residual:   (100, 200)  (30, 0)     (0, 40)     (0, 0)
+vertices:     (100, 200)  (130, 200)  (130, 240)  (100, 240)  (105, 205)  (115, 205)    (125, 207)
+class:        start       ring        ring        corner      start       line second   line
+guess:        (0, 0)      (100, 200)  (130, 200)  (100, 240)  (100, 200)  (105, 205)    (125, 205)
+residual:     (100, 200)  (30, 0)     (0, 40)     (0, 0)      (5, 5)      (10, 0)       (0, 2)
 
-header:     31
-start:      04 C8 FF 91       200, then 400 as an exception of 145
-delta:      00 3C 00 00 50
-predicted:  00 00 00
-payload:    31 04 C8 FF 91 00 3C 00 00 50 00 00 00
+header:       05
+start:        C8 90 0A 0A | 01 03       200, 400, 10, 10
+ring:         3C 00 00 50
+corner:       00 00
+line second:  14 00
+line:         00 04
+payload:      05 C8 90 0A 0A 01 03 3C 00 00 50 00 00 14 00 00 04
 ```
 
-An encoder chooses the predictor, segmentation and byte layout per layer.
-The Rust encoder measures every combination by its stored bytes, or by its deflated bytes with `--vertex-size gzip`, and races the smallest against the other vertex encodings.
+An encoder chooses the start and line guess per layer.
+The Rust encoder measures all six pairs by their stored bytes, keeps the smallest with the lowest header byte on a tie, and races it against the other vertex encodings.

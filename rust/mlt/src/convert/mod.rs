@@ -23,7 +23,7 @@ use martin_tile_utils::{
 use mbtiles::{MbtType, NormalizedSchema};
 use mlt_core::encoder::{
     Client, EncodedUnknown, Encoder, EncoderConfig, Network as CoreNetwork, Profile as CoreProfile,
-    Tessellation, VertexSize, WireVersion,
+    Tessellation, WireVersion,
 };
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
@@ -465,18 +465,6 @@ struct V2EncoderArgs {
     /// Store vertex streams as residuals against a guess from the topology when that is shorter
     #[clap(long)]
     predicted_vertices: bool,
-    /// How the vertex race measures a candidate stream [default: stored]
-    #[clap(long, value_enum)]
-    vertex_size: Option<VertexSizeArg>,
-}
-
-/// How the vertex race measures a candidate stream.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
-enum VertexSizeArg {
-    /// Its stored bytes, as every other race does
-    Stored,
-    /// Its bytes deflated on their own, for tiles served gzipped
-    Gzip,
 }
 
 /// Whether `path` names a `GeoJSON` file, which `convert` tiles rather than re-encodes.
@@ -588,12 +576,6 @@ impl ConvertArgs {
         }
         if v2.predicted_vertices {
             encoder = encoder.with_predicted_vertices(true);
-        }
-        if let Some(size) = v2.vertex_size {
-            encoder = encoder.with_vertex_size(match size {
-                VertexSizeArg::Stored => VertexSize::Stored,
-                VertexSizeArg::Gzip => VertexSize::Gzip,
-            });
         }
         Ok(encoder
             .with_float_alp(!v2.no_alp)
@@ -1514,14 +1496,6 @@ mod tests {
     }
 
     #[test]
-    fn vertex_size_gzip_measures_the_vertex_race_deflated() {
-        let encoder = parse_args(&["--mlt-version", "2", "--vertex-size", "gzip", "src", "dst"])
-            .encoder()
-            .unwrap();
-        assert_eq!(encoder.vertex_size(), VertexSize::Gzip);
-    }
-
-    #[test]
     fn triangles_only_with_tessellate_off_is_rejected() {
         let flags = [
             "--mlt-version",
@@ -1594,7 +1568,6 @@ mod tests {
             &["--delta2"],
             &["--no-presence-rle"],
             &["--predicted-vertices"],
-            &["--vertex-size", "gzip"],
         ] {
             let mut argv = flags.to_vec();
             argv.extend(["src", "dst"]);

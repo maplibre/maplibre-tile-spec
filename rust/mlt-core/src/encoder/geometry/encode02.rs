@@ -2,9 +2,6 @@
 
 use usize_cast::IntoUsize as _;
 
-use flate2::Compression;
-use flate2::write::DeflateEncoder;
-
 use super::streams::{
     dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_hilbert_xyz_vertex_streams02,
     encode_level1_length_stream, encode_level1_without_ring_buffer_length_stream,
@@ -23,7 +20,7 @@ use crate::decoder::{
 };
 use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
-use crate::encoder::{Codecs, Encoder, VertexSize};
+use crate::encoder::{Codecs, Encoder};
 use crate::tile::ZAxis;
 use crate::{Decoder, MltError, MltResult};
 
@@ -658,8 +655,6 @@ fn write_xyz_vertices(
 }
 
 /// The plain vertex stream the encoder picks itself: componentwise delta, raced against predicted vertices when the config allows them.
-///
-/// The race measures each candidate by [`VertexSize`].
 fn write_plain_vertices(
     vertices: &[i32],
     runs: &dyn Fn() -> MltResult<Vec<Run>>,
@@ -670,21 +665,8 @@ fn write_plain_vertices(
         return encode_vec2_vertex_stream02(vertices, enc, codecs);
     }
     let runs = runs()?;
-    let mut alt = match enc.config().vertex_size() {
-        VertexSize::Stored => enc.try_alternatives(),
-        VertexSize::Gzip => enc.try_alternatives_by(deflated_len),
-    };
+    let mut alt = enc.try_alternatives();
     alt.with(|enc| encode_vec2_vertex_stream02(vertices, enc, codecs))?;
     alt.with(|enc| encode_predicted_vertex_stream02(vertices, &runs, enc))?;
     Ok(())
-}
-
-/// The size of `bytes` deflated at level 6, as gzip writes them less its fixed header and trailer.
-pub(super) fn deflated_len(bytes: &[u8]) -> usize {
-    use std::io::Write as _;
-    let mut deflate = DeflateEncoder::new(Vec::new(), Compression::new(6));
-    deflate
-        .write_all(bytes)
-        .and_then(|()| deflate.finish())
-        .map_or(usize::MAX, |out| out.len())
 }

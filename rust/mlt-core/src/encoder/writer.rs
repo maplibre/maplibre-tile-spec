@@ -455,24 +455,11 @@ impl Encoder {
     /// // alt drops -> finalises the competition
     /// ```
     pub fn try_alternatives(&mut self) -> AltSession<'_> {
-        self.open_alternatives(None)
-    }
-
-    /// Begin a competition like [`Self::try_alternatives`], measuring each candidate's data by `cost` instead of its length.
-    ///
-    /// The candidate's meta bytes still count by their length.
-    pub fn try_alternatives_by(&mut self, cost: fn(&[u8]) -> usize) -> AltSession<'_> {
-        self.open_alternatives(Some(cost))
-    }
-
-    fn open_alternatives(&mut self, cost: Option<fn(&[u8]) -> usize>) -> AltSession<'_> {
         self.alt_stack.push(AltLevel {
             data_start: self.data.len(),
             meta_start: self.meta.len(),
             best_data: None,
             best_meta: None,
-            best_cost: 0,
-            cost,
         });
         AltSession { enc: self }
     }
@@ -525,12 +512,9 @@ impl Encoder {
         let best_meta_end = level.meta_start + level.best_meta.unwrap_or(0);
         let cand_data = data.len() - best_data_end;
         let cand_meta = meta.len() - best_meta_end;
-        let cand_cost = match level.cost {
-            None => cand_data + cand_meta,
-            Some(cost) => cost(&data[best_data_end..]) + cand_meta,
-        };
-        if level.best_data.is_none_or(|_| cand_cost < level.best_cost) {
-            level.best_cost = cand_cost;
+        let cand_total = cand_data + cand_meta;
+        let best_total = level.best_data.unwrap_or(0) + level.best_meta.unwrap_or(0);
+        if level.best_data.is_none_or(|_| cand_total < best_total) {
             // New best: shift data candidate bytes to data_start.
             if level.best_data.is_some() {
                 data.copy_within(best_data_end..best_data_end + cand_data, level.data_start);
@@ -564,10 +548,6 @@ struct AltLevel {
     best_data: Option<usize>,
     /// Byte count appended to `meta` by the current best candidate.
     best_meta: Option<usize>,
-    /// What the current best candidate costs.
-    best_cost: usize,
-    /// What a candidate's data costs, or [`None`] for its length.
-    cost: Option<fn(&[u8]) -> usize>,
 }
 
 /// RAII guard for a stream-encoding competition opened by [`Encoder::try_alternatives`].
