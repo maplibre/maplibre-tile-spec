@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import decodeTile from "../mltDecoder";
 import { encodeTile, type EncodeOptions, type Feature, type FeatureGeometry } from "./mltEncoder";
 import { GEOMETRY_TYPE } from "../vector/geometry/geometryType";
+import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
+import { StringFlatVector } from "../vector/flat/stringFlatVector";
 
 /** Encodes one layer, decodes it again, and returns the features in a comparable plain shape. */
 function roundTrip(features: Feature[], options: EncodeOptions = {}, extent = 4096) {
@@ -213,6 +215,36 @@ describe("encodeTile - ids and properties", () => {
             { geometry: point, properties: { name: "beta" } },
         ]);
         expect(decoded.map((feature) => feature.properties.name)).toEqual(["alpha", "beta"]);
+    });
+
+    it("writes the string columns named in stringEncodings as dictionaries, and leaves the others as they are", () => {
+        const features: Feature[] = ["alpha", null, "beta", "alpha"].map((name, rank) => ({
+            geometry: point,
+            properties: { name, kind: "city", rank },
+        }));
+        const stringEncodings = { name: "dictionary", rank: "dictionary" } as const;
+        const table = decodeTile(encodeTile([{ name: "layer", features }], { stringEncodings }), undefined, false)[0];
+        const rows = [0, 1, 2, 3];
+
+        const names = table.getPropertyVector("name");
+        expect(names).toBeInstanceOf(StringDictionaryVector);
+        expect(rows.map((row) => names.getValue(row))).toEqual(["alpha", null, "beta", "alpha"]);
+        expect(table.getPropertyVector("kind")).toBeInstanceOf(StringFlatVector);
+        expect(rows.map((row) => table.getPropertyVector("rank").getValue(row))).toEqual(rows);
+    });
+
+    it("writes every string column as a dictionary when stringEncodings is one encoding", () => {
+        const features: Feature[] = ["alpha", "beta", "alpha"].map((name) => ({
+            geometry: point,
+            properties: { name, kind: "city" },
+        }));
+        const tile = encodeTile([{ name: "layer", features }], { stringEncodings: "dictionary" });
+        const table = decodeTile(tile, undefined, false)[0];
+
+        const names = table.getPropertyVector("name");
+        expect(names).toBeInstanceOf(StringDictionaryVector);
+        expect([0, 1, 2].map((row) => names.getValue(row))).toEqual(["alpha", "beta", "alpha"]);
+        expect(table.getPropertyVector("kind")).toBeInstanceOf(StringDictionaryVector);
     });
 
     it("round-trips integer properties", () => {

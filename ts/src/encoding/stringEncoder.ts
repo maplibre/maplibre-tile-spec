@@ -53,20 +53,21 @@ export function encodePlainStrings(strings: (string | null)[]): Uint8Array {
  * @returns Encoded Uint8Array that can be passed to decodeString
  */
 export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array {
-    const hasNull = strings.some((s) => s === null);
-    const nonNullStrings = strings.filter((s): s is string => s !== null);
-
-    // Create dictionary of unique strings
-    const uniqueStrings = Array.from(new Set(nonNullStrings));
-    const stringMap = new Map(uniqueStrings.map((s, i) => [s, i]));
-    const offsets = nonNullStrings.map((s) => {
-        const offset = stringMap.get(s);
-        if (offset === undefined) {
-            throw new Error(`String not found in dictionary: ${s}`);
+    const codes = new Map<string, number>();
+    const uniqueStrings: string[] = [];
+    const offsets = new Uint32Array(strings.length);
+    let count = 0;
+    for (const string of strings) {
+        if (string === null) continue;
+        let code = codes.get(string);
+        if (code === undefined) {
+            code = uniqueStrings.length;
+            codes.set(string, code);
+            uniqueStrings.push(string);
         }
-        return offset;
-    });
-
+        offsets[count++] = code;
+    }
+    const hasNull = count < strings.length;
     const { bytes: stringBytes, lengths } = encodeUtf8Strings(uniqueStrings);
 
     const streams: Uint8Array[] = [];
@@ -87,10 +88,10 @@ export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array 
 
     // Add OFFSET stream
     streams.push(
-        createStream(PhysicalStreamType.OFFSET, encodeVarintInt32(new Uint32Array(offsets)), {
+        createStream(PhysicalStreamType.OFFSET, encodeVarintInt32(offsets.subarray(0, count)), {
             logical: { offsetType: OffsetType.STRING },
             technique: PhysicalLevelTechnique.VARINT,
-            count: offsets.length,
+            count,
         }),
     );
 

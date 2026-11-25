@@ -10,7 +10,7 @@ import { concatenateBuffers } from "./encodingUtils";
 import { encodeVarintInt32, encodeVarintInt32Value, encodeZigZagVarintInt32 } from "./integerEncodingUtils";
 import { encodeChildCount, encodeFieldName, encodeTypeCode, scalarTypeCode } from "./embeddedTilesetMetadataEncoder";
 import { ColumnTypeCode } from "../metadata/tileset/typeMap";
-import { encodePlainStrings } from "./stringEncoder";
+import { encodeDictionaryStrings, encodePlainStrings } from "./stringEncoder";
 import { encodeMapPropertyColumn, type MapEncodingOptions, type MapValue } from "./mapPropertyEncoder";
 import {
     encodeBooleanColumn,
@@ -73,11 +73,22 @@ export interface Layer {
  */
 export type PropertyType = "boolean" | "int32" | "int64" | "uint64" | "float" | "double" | "string" | "map";
 
+/**
+ * How a string column is written: `plain` holds one value per feature, `dictionary` holds each distinct value once
+ * and, per feature, the index of its value.
+ */
+export type StringEncoding = "plain" | "dictionary";
+
 export interface EncodeOptions {
     /** Physical type per property name, for columns whose values do not imply one. */
     propertyTypes?: Record<string, PropertyType>;
     /** Dictionary widths for nested columns, which the values alone do not always imply. */
     mapOptions?: MapEncodingOptions;
+    /**
+     * How string columns are written: one encoding for all of them, or one per property name. Under names, a string
+     * column that is not named is written `plain`, and a name that is not a string column is ignored.
+     */
+    stringEncodings?: StringEncoding | Record<string, StringEncoding>;
 }
 
 const INT32_MIN = -(2 ** 31);
@@ -91,12 +102,13 @@ const TAG = 1;
  * Encodes layers into an MLT tile, the inverse of `decodeTile`.
  *
  * This is the plainest encoding the format allows: values go out as varints and plain strings, with
- * no dictionaries, no RLE, no FastPFOR or FSST, no morton-coded or dictionary-encoded vertices and
- * no pre-tessellation. The result is larger than what the Java or Rust encoders produce but is
+ * no RLE, no FastPFOR or FSST, no morton-coded or dictionary-encoded vertices and no
+ * pre-tessellation. The result is larger than what the Java or Rust encoders produce but is
  * built only from the stream encoders already in this package, and decodes to the same features.
  *
- * Nested (MAP) columns are the one exception: the format stores them as dictionaries of scalars and
- * a stream of tokens, so there is no plainer form to write them in.
+ * There are two exceptions. A string column goes out as a dictionary where `stringEncodings` asks
+ * for it. And nested (MAP) columns are always dictionaries of scalars and a stream of tokens, as
+ * the format has no plainer form to write them in.
  */
 export function encodeTile(layers: Layer[], options: EncodeOptions = {}): Uint8Array {
     return concatenateBuffers(...layers.map((layer) => encodeLayer(layer, options)));
@@ -120,6 +132,7 @@ function encodeLayer(layer: Layer, options: EncodeOptions): Uint8Array {
     metadata.push(encodeTypeCode(ColumnTypeCode.GEOMETRY));
     columns.push(encodeGeometryColumn(layer.features));
 
+    const { stringEncodings } = options;
     for (const name of propertyNames) {
         const values = layer.features.map((feature) => feature.properties?.[name] ?? null);
         const type = options.propertyTypes?.[name] ?? inferPropertyType(name, values);
@@ -133,7 +146,8 @@ function encodeLayer(layer: Layer, options: EncodeOptions): Uint8Array {
 
         const nullable = values.some((value) => value === null);
         metadata.push(encodeTypeCode(scalarTypeCode(scalarTypeOf(type), nullable)), encodeFieldName(name));
-        columns.push(encodePropertyColumn(type, values, nullable));
+        const stringEncoding = typeof stringEncodings === "string" ? stringEncodings : stringEncodings?.[name];
+        columns.push(encodePropertyColumn(type, values, nullable, stringEncoding));
     }
 
     const body = concatenateBuffers(
@@ -232,11 +246,15 @@ function encodePropertyColumn(
     type: Exclude<PropertyType, "map">,
     values: PropertyValue[],
     nullable: boolean,
+    stringEncoding: StringEncoding = "plain",
 ): Uint8Array {
     if (type === "string") {
         const strings = values.map((value) => (value === null ? null : String(value)));
-        // The decoder is told how many streams the column holds; plain strings use a length and a
-        // data stream, preceded by a presence stream when the column is nullable.
+        // The decoder is told how many streams the column holds: two for plain strings, three for a
+        // dictionary, and one more for the presence stream of a nullable column.
+        if (stringEncoding === "dictionary") {
+            return concatenateBuffers(encodeVarintValue(nullable ? 4 : 3), encodeDictionaryStrings(strings));
+        }
         return concatenateBuffers(encodeVarintValue(nullable ? 3 : 2), encodePlainStrings(strings));
     }
 

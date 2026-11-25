@@ -17,4 +17,5 @@ export type {
     Position,
     PropertyType,
     PropertyValue,
+    StringEncoding,
 } from "./encoding/mltEncoder";
