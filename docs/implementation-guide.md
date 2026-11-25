@@ -40,6 +40,16 @@ Varint is simpler and can come out smaller once a heavyweight compressor like gz
 Choosing which column to sort features by can shrink a layer considerably, since sorting lengthens runs and shrinks deltas.
 Testing every column of every layer is too costly, so the same sampling applies.
 
+A vertex is coded against the vertices before it in the buffer, across feature boundaries too, so a spatial order also shortens the step from one feature to the next.
+A curve order sorts features by the Hilbert or Morton index of their first vertex.
+A chain order starts at `(0, 0)` and repeatedly takes the feature whose first vertex is nearest the last vertex of the feature before it, the earliest feature on a tie.
+
+??? note "Rust encoder"
+
+    `mlt convert --sort chain` races the chain order against the source order, and no other `--sort` value tries it.
+    The last vertex of a feature is the one the encoder stores last, after `--vertex-sort` rotates its rings or reverses its lines.
+    Features without a vertex come last.
+
 ## In-Memory Format
 
 The record-oriented, array-of-structures in-memory model used by libraries that process Mapbox Vector Tiles incurs considerable overhead.
