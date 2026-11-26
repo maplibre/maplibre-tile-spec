@@ -2024,7 +2024,7 @@ mod predicted_vertices {
 
     #[rstest]
     #[case::outlines(false, VertexLogical::Predicted)]
-    #[case::triangles_only(true, VertexLogical::ComponentwiseDelta)]
+    #[case::triangles_only(true, VertexLogical::Predicted)]
     fn a_tessellated_layer_races_its_vertices(
         #[case] triangles_only: bool,
         #[case] expected: VertexLogical,

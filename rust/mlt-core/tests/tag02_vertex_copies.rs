@@ -140,7 +140,12 @@ fn star() -> Vec<Geometry<i32>> {
             let (dx, dy) = DIRECTIONS[arm];
             let mut spoke: Vec<(i32, i32)> = (1..=9)
                 .rev()
-                .map(|k| (2000 + k * dx + (k * k) % 7, 2000 + k * dy - (k * 3) % 5))
+                .map(|k| {
+                    (
+                        2000 + k * dx * 8 + (k * k * 53) % 97 * 3,
+                        2000 + k * dy * 8 - (k * 31) % 89 * 3,
+                    )
+                })
                 .collect();
             spoke.push((2000, 2000));
             if arm % 2 == 0 {
@@ -160,7 +165,7 @@ fn polygons_that_share_walls_are_stored_as_copies() {
     let bytes = layer(strip(0)).encode(predicted).unwrap();
     assert_debug_snapshot!(predicted_headers(&bytes), @r#"
     [
-        "starts from the previous vertex, lines from the previous vertex, copies, 131 B",
+        "starts from the previous run, lines from the previous vertex, copies, rice, 112 B",
     ]
     "#);
 }
@@ -177,7 +182,7 @@ fn copies_make_a_strip_of_polygons_smaller() {
         .with_predicted_vertices(true);
     let without = source.encode(unpredicted).unwrap();
     let with = source.encode(predicted).unwrap();
-    assert_eq!((without.len(), with.len()), (201, 152));
+    assert_eq!((without.len(), with.len()), (201, 132));
 }
 
 #[test]
@@ -210,7 +215,7 @@ fn polygons_that_share_walls_decode_to_the_same_rings_under_vertex_sort() {
         .with_vertex_sort(true);
     let unsorted = source.encode(predicted).unwrap();
     let sorted = source.encode(vertex_sorted).unwrap();
-    assert_eq!((unsorted.len(), sorted.len()), (152, 151));
+    assert_eq!((unsorted.len(), sorted.len()), (141, 139));
     assert_eq!(canonical_layer(&decode(&sorted)), canonical_layer(&source));
 }
 
@@ -223,7 +228,7 @@ fn lines_that_meet_at_a_junction_are_stored_as_line_endpoint_references() {
     let bytes = layer(star()).encode(predicted).unwrap();
     assert_debug_snapshot!(predicted_headers(&bytes), @r#"
     [
-        "starts from the previous vertex, lines from the previous vertex, line endpoint references, 127 B",
+        "starts from the previous vertex, lines from the previous vertex, line endpoint references, rice, 156 B",
     ]
     "#);
 }
