@@ -1905,9 +1905,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.32.1"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c512d9810e0836ad7aae1ecc363a727a20e7d56e1d497433150a354f6ddaccee"
+checksum = "43bc32875cd2ac7904b2741b1bff0d39e5c3d7d335d5940b69f9ba07e463635b"
 dependencies = [
  "arc-swap",
  "axum",
@@ -1921,7 +1921,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.32.1",
+ "hotpath-macros 0.33.0",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -1941,28 +1941,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotpath"
+name = "hotpath-drain"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43bc32875cd2ac7904b2741b1bff0d39e5c3d7d335d5940b69f9ba07e463635b"
-dependencies = [
- "hotpath-macros 0.33.0",
-]
-
-[[package]]
-name = "hotpath-drain"
-version = "0.32.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa3baccda92e8ec88e76475c59de2edfb1da8ba0ada8027acecc823142bdc8a4"
+checksum = "9b14e13a25026f1b7c41477e43fdc2182dd41d233212fba5e08bb595316134db"
 dependencies = [
  "hotpath-meta",
 ]
 
 [[package]]
 name = "hotpath-drain-meta"
-version = "0.32.1"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab6200fe7119c39c234c09d19e3c52c089891757cbd31c8bb31868fedc17b05b"
+checksum = "4995ca92f72ae599af7ac7c4ed40a6a2d7c78c8ae7620b26639d5c779aea83af"
 
 [[package]]
 name = "hotpath-macros"
@@ -1972,9 +1963,9 @@ checksum = "183e2530804a17d4aeef73a9d613a6977ad220cc11a1cd9312b9b6e52852ead4"
 
 [[package]]
 name = "hotpath-macros"
-version = "0.32.1"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1afbcca1689d57e341a886622a751f0893add180871306b99e8061fbe4361be"
+checksum = "44c4cc8b0a9c80dfec65e0f2f4fb5cdc0b8f1ddfd4c025d4ad39c318da7b1165"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1982,16 +1973,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotpath-macros"
+name = "hotpath-macros-meta"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c4cc8b0a9c80dfec65e0f2f4fb5cdc0b8f1ddfd4c025d4ad39c318da7b1165"
-
-[[package]]
-name = "hotpath-macros-meta"
-version = "0.32.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d80db0414ad4ab6532ac5cf5f438c23fbc14277567fdd2bacb68472b916b270f"
+checksum = "b39baca797a8ba9014cc8b71f9915224d2229142d4bb0137de6f0b341a1ce65b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2000,9 +1985,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-meta"
-version = "0.32.1"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bb584f60f58ea756a970a9e8df2feda2ea132acf1056adb6925501eb3a74db4"
+checksum = "1ed1a17975690700dd2a29827d52cce1fc6ebc746444f1011072b6c2c789e9a7"
 dependencies = [
  "arc-swap",
  "axum",
@@ -2873,7 +2858,7 @@ dependencies = [
  "glob",
  "globset",
  "hilbert_2d",
- "hotpath 0.32.1",
+ "hotpath 0.33.0",
  "indicatif",
  "insta",
  "martin-tile-utils",
@@ -2927,7 +2912,7 @@ dependencies = [
  "hegeltest",
  "hex",
  "hilbert_2d",
- "hotpath 0.32.1",
+ "hotpath 0.33.0",
  "insta",
  "integer-encoding",
  "num-traits",
