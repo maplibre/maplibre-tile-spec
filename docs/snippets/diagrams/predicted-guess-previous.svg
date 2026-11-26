@@ -1,0 +1,16 @@
+<svg class="mlt-diagram" viewBox="0 0 710 230" role="img" aria-label="The ring vertex p1 (130, 200) is guessed as the vertex before it, p0 (100, 200), so its residual is (30, 0)" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="predicted-guess-previous-t0" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="predicted-guess-previous-t1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<path class="lost" d="M290,40L410,40L410,200L290,200Z"/>
+<path class="link t0" style="stroke-width:2.5" d="M290.0,40.0L405.0,40.0" marker-end="url(#predicted-guess-previous-t0)"/>
+<circle class="node" cx="290" cy="40" r="7"/>
+<circle class="dot" cx="290" cy="40" r="3.5"/>
+<circle class="dot" cx="410" cy="40" r="3.5"/>
+<circle class="dot" cx="410" cy="200" r="3.5"/>
+<circle class="dot" cx="290" cy="200" r="3.5"/>
+<text class="halo muted small" text-anchor="middle" x="350" y="24">residual (30, 0)</text>
+<text class="halo muted small" text-anchor="middle" x="290" y="58">guess</text>
+<text class="halo" text-anchor="end" x="276" y="40"><tspan class="bold">p0</tspan> (100, 200)</text>
+<text class="halo" x="424" y="40"><tspan class="bold">p1</tspan> (130, 200)</text>
+<text class="halo" x="424" y="200"><tspan class="bold">p2</tspan> (130, 240)</text>
+<text class="halo" text-anchor="end" x="276" y="200"><tspan class="bold">p3</tspan> (100, 240)</text>
+</svg>

@@ -882,52 +882,114 @@ The residuals are split into six streams by the class of their vertex.
 It applies only to `(x, y)` pairs, not to [triples](specification/v2.md#z-coordinates) or a [vertex dictionary](#vertex-dictionary).
 
 The stream's physical field is `0`, and `byte_length` covers the whole payload.
-The payload is one header byte followed by the non-empty class streams in stream order, and it must be consumed exactly.
 
 [View example](inspector/app/?fixture=0x02%2Fpoly_hole_predicted.mlt&at=vertices){target=_blank .inspector-example} - a polygon with a hole, its vertices stored as predicted residuals.
-
-#### Runs and classes
-
-A run is one polygon ring or one line part, taken from the deepest topology level of the layer.
-Points belong to no run.
-The decoder derives every run from the topology, so no class or stream length is stored.
-
-| Stream | Class | Vertices | Guess |
-|---|---|---|---|
-| `0` | `start` | the first vertex of every run | the start guess |
-| `1` | `point` | every vertex outside a run | the previous vertex |
-| `2` | `ring` | every ring vertex after the first that is not a corner | the previous vertex |
-| `3` | `corner` | the fourth vertex of every four-vertex ring | `p[i-3] + p[i-1] - p[i-2]` |
-| `4` | `line second` | the second vertex of every line part | the previous vertex |
-| `5` | `line` | every line part vertex from the third on | the line guess |
-
-`p[i]` is vertex `i` of the buffer.
-The previous vertex `p[i-1]` is the one before in the buffer, even across runs and features, and `(0, 0)` for the first vertex.
-The residual is `p[i] - guess`, per component, with wrapping 32-bit arithmetic, then [zigzag](#zigzag)-encoded.
 
 #### Header
 
 Bit 0 is the least significant bit of the header byte.
 
+--8<-- "diagrams/predicted-header.svg"
+
 | Bits | Field | Values |
 |---|---|---|
-| 0 | start guess | `0` the previous vertex, `1` the first vertex of the previous run, `(0, 0)` for the first run |
-| 1-2 | line guess | `0` the previous vertex, `1` `2 * p[i-1] - p[i-2]` in line parts of six or more vertices, `2` `2 * p[i-1] - p[i-2]` in line parts of three or more vertices, `3` reserved |
+| 0 | start guess | `0` or `1`, the [start guess](#guesses) |
+| 1-2 | line guess | `0` to `2`, the [line guess](#guesses), `3` reserved |
 | 3-7 | reserved | `0` |
 
-A `line` vertex in a part shorter than the line guess asks for is guessed as the previous vertex.
-A reserved value is malformed.
+A header with a line guess of `3` or a reserved bit set MUST be rejected.
+
+#### Payload
+
+--8<-- "diagrams/predicted-payload.svg"
+
+The header byte is followed by the class streams in stream order.
+The payload MUST be consumed exactly.
+
+#### Runs and classes
+
+A run is one polygon ring or one line part, taken from the deepest topology level of the layer.
+A run with no vertex is skipped.
+Points belong to no run.
+
+Each vertex has one class, and each class has one stream:
+
+| Stream | Class | Vertices | Guess |
+|---|---|---|---|
+| `0` | `start` | the first vertex of every run | the start guess |
+| `1` | `point` | every vertex outside a run | `p[i-1]` |
+| `2` | `ring` | every ring vertex after the first that is not a corner | `p[i-1]` |
+| `3` | `corner` | the fourth vertex of a ring of exactly four vertices | `p[i-3] + p[i-1] - p[i-2]` |
+| `4` | `line second` | the second vertex of every line part | `p[i-1]` |
+| `5` | `line` | every line part vertex from the third on | the line guess |
+
+The decoder derives the runs from the topology.
+The class of every vertex and the vertex count of every class follow from the runs, so neither is stored.
+
+#### Guesses
+
+`p[i]` is vertex `i` of the buffer.
+`p[i-1]` is the vertex before it in the buffer, even across runs and features, and `(0, 0)` for vertex `0`.
+Every sum, difference and product wraps at 32 bits, per component.
+
+The start guess, set by header bit 0, is the guess for a `start` vertex:
+
+- `0`: `p[i-1]`.
+- `1`: the first vertex of the run before this one, or `(0, 0)` for the first run.
+  Points between the runs do not change it.
+
+The line guess, set by header bits 1-2, is the guess for a `line` vertex:
+
+- `0`: `p[i-1]`.
+- `1`: `2 * p[i-1] - p[i-2]` in a line part of six or more vertices, and `p[i-1]` in a shorter part.
+- `2`: `2 * p[i-1] - p[i-2]`.
+
+Each guess on the vertices of the [example](#predicted-example):
+
+=== "Previous vertex"
+
+    `p[i-1]` is the guess for `point`, `ring` and `line second` vertices, and for start guess `0` and line guess `0`.
+    The residual is the step from the vertex before.
+
+    --8<-- "diagrams/predicted-guess-previous.svg"
+
+=== "Run start"
+
+    Start guess `1` guesses a `start` vertex as the first vertex of the run before it.
+    Start guess `0` guesses it as the vertex before it, which is the last vertex of the run before.
+
+    --8<-- "diagrams/predicted-guess-run-start.svg"
+
+=== "Corner"
+
+    `p[i-3] + p[i-1] - p[i-2]` moves `p[i-1]` by the edge from `p[i-2]` to `p[i-3]`.
+    It completes the parallelogram, so it is exact for a rectangle.
+
+    --8<-- "diagrams/predicted-guess-corner.svg"
+
+=== "Line"
+
+    `2 * p[i-1] - p[i-2]` repeats the last step from `p[i-1]`.
+    It is exact for evenly spaced vertices on a straight line.
+
+    --8<-- "diagrams/predicted-guess-line.svg"
+
+#### Residuals
+
+The residual of a vertex is `p[i] - guess` per component, then [zigzag](#zigzag)-encoded to an unsigned 32-bit value.
+A class stream holds the residuals of its vertices in buffer order, `x` then `y` per vertex.
+A class stream with no residual takes no bytes.
 
 #### Byte layout
 
-Each stream holds `x` and `y` interleaved, two values per vertex.
+Each class stream holds `x` and `y` interleaved, two values per vertex.
 The `start` and `point` streams are split varints, the other four are two planes.
 
 ##### Split varint
 
 The bytes of a [varint](#varint) stream in a different order: the head byte of every value, then the tail, which is the remaining bytes of every value that has them.
 A head byte with its top bit set continues in the tail.
-A varint must be minimal and fit 32 bits.
+A varint MUST be minimal and fit 32 bits.
 
 === "Bytes"
 
@@ -946,7 +1008,7 @@ A varint must be minimal and fit 32 bits.
 One byte per value, then the values that do not fit in it.
 A value below `255` is its own byte, and a value of `255` or more is `0xFF`.
 After the low bytes, every escaped value follows in order as the [varint](#varint) of `value - 255`.
-That varint must be minimal, and the value must fit 32 bits.
+That varint MUST be minimal, and the value MUST fit 32 bits.
 
 === "Bytes"
 
@@ -960,13 +1022,13 @@ That varint must be minimal, and the value must fit 32 bits.
     varints:    2D | 00 | F1 A0 04
     ```
 
-#### Example
+#### Example {#predicted-example}
 
-A rectangle, then a line part of three vertices, with the run-start guess and lines continued from three:
+A rectangle, then a line part of three vertices, with the run-start guess and the line guess `2`:
 
-=== "Guesses"
+=== "Vertices"
 
-    --8<-- "diagrams/predicted-guesses.svg"
+    --8<-- "diagrams/predicted-example.svg"
 
 === "Values"
 
@@ -975,15 +1037,30 @@ A rectangle, then a line part of three vertices, with the run-start guess and li
     class:        start       ring        ring        corner      start       line second   line
     guess:        (0, 0)      (100, 200)  (130, 200)  (100, 240)  (100, 200)  (105, 205)    (125, 205)
     residual:     (100, 200)  (30, 0)     (0, 40)     (0, 0)      (5, 5)      (10, 0)       (0, 2)
+    zigzag:       (200, 400)  (60, 0)     (0, 80)     (0, 0)      (10, 10)    (20, 0)       (0, 4)
+    ```
 
+=== "Payload"
+
+    ```
     header:       05
-    start:        C8 90 0A 0A | 01 03       200, 400, 10, 10
+    start:        C8 90 0A 0A | 01 03
     ring:         3C 00 00 50
     corner:       00 00
     line second:  14 00
     line:         00 04
     payload:      05 C8 90 0A 0A 01 03 3C 00 00 50 00 00 14 00 00 04
     ```
+
+#### Decoding
+
+1. Read the header byte.
+2. Derive the runs from the topology, then the class of every vertex and the vertex count of every class.
+3. Read the class streams that hold a residual, in stream order.
+4. Decode the vertices in buffer order: each vertex is its guess plus the next residual of its class stream, with the zigzag undone.
+5. Check that every class stream is consumed exactly.
+
+A class stream with a residual left over, or too few, MUST be rejected.
 
 ??? note "Rust encoder"
 

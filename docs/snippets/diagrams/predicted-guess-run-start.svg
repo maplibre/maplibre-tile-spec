@@ -1,0 +1,20 @@
+<svg class="mlt-diagram" viewBox="0 0 710 230" role="img" aria-label="The start vertex p4 (105, 205) of the line part. Start guess 1 guesses the first vertex of the run before, p0 (100, 200), with residual (5, 5). Start guess 0 guesses the vertex before it, p3 (100, 240), with residual (5, -35)" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="predicted-guess-run-start-t0" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="predicted-guess-run-start-t1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<path class="lost" d="M290,40L410,40L410,200L290,200Z"/>
+<path class="link t0" style="stroke-width:2.5" d="M290.0,40.0L307.2,57.2" marker-end="url(#predicted-guess-run-start-t0)"/>
+<path class="link t0" style="stroke-width:2.5" d="M290.0,200.0L309.4,64.0" marker-end="url(#predicted-guess-run-start-t0)"/>
+<circle class="node" cx="290" cy="40" r="7"/>
+<circle class="node" cx="290" cy="200" r="7"/>
+<circle class="dot" cx="290" cy="40" r="3.5"/>
+<circle class="dot" cx="410" cy="40" r="3.5"/>
+<circle class="dot" cx="410" cy="200" r="3.5"/>
+<circle class="dot" cx="290" cy="200" r="3.5"/>
+<circle class="dot" cx="310" cy="60" r="3.5"/>
+<text class="halo" text-anchor="end" x="276" y="40"><tspan class="bold">p0</tspan> (100, 200)</text>
+<text class="halo" x="424" y="40"><tspan class="bold">p1</tspan> (130, 200)</text>
+<text class="halo" x="424" y="200"><tspan class="bold">p2</tspan> (130, 240)</text>
+<text class="halo" text-anchor="end" x="276" y="200"><tspan class="bold">p3</tspan> (100, 240)</text>
+<text class="halo" x="322" y="66"><tspan class="bold">p4</tspan> (105, 205)</text>
+<text class="halo muted small" text-anchor="end" x="276" y="72">start guess 1: residual (5, 5)</text>
+<text class="halo muted small" text-anchor="end" x="276" y="140">start guess 0: residual (5, -35)</text>
+</svg>

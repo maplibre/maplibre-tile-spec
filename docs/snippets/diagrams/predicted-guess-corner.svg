@@ -1,0 +1,17 @@
+<svg class="mlt-diagram" viewBox="0 0 710 230" role="img" aria-label="The corner p3 (100, 240) is guessed as p2 moved by the edge from p1 to p0, (-30, 0), which lands on p3, so its residual is (0, 0)" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="predicted-guess-corner-t0" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="predicted-guess-corner-t1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<path class="lost" d="M290,40L410,40L410,200L290,200Z"/>
+<path class="link t1" style="stroke-width:2.5" d="M410.0,40.0L295.0,40.0" marker-end="url(#predicted-guess-corner-t1)"/>
+<path class="link t1" style="stroke-width:2.5" stroke-dasharray="6 4" d="M410.0,200.0L295.0,200.0" marker-end="url(#predicted-guess-corner-t1)"/>
+<circle class="node" cx="290" cy="200" r="7"/>
+<circle class="dot" cx="290" cy="40" r="3.5"/>
+<circle class="dot" cx="410" cy="40" r="3.5"/>
+<circle class="dot" cx="410" cy="200" r="3.5"/>
+<circle class="dot" cx="290" cy="200" r="3.5"/>
+<text class="halo muted small" text-anchor="middle" x="350" y="24">p[i-3] - p[i-2] = (-30, 0)</text>
+<text class="halo muted small" text-anchor="middle" x="350" y="216">guess = p3, residual (0, 0)</text>
+<text class="halo" text-anchor="end" x="276" y="40"><tspan class="bold">p0</tspan> (100, 200)</text>
+<text class="halo" x="424" y="40"><tspan class="bold">p1</tspan> (130, 200)</text>
+<text class="halo" x="424" y="200"><tspan class="bold">p2</tspan> (130, 240)</text>
+<text class="halo" text-anchor="end" x="276" y="200"><tspan class="bold">p3</tspan> (100, 240)</text>
+</svg>
