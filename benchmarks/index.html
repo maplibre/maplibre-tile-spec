@@ -1137,7 +1137,7 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 This is because as bsdiff patches between two versions you pay for every byte that differs between the old and the new tile.
 This means that encodings that keep edits local beat ones that make the tile smaller but rewrite it after the first changed value.</p>
 <p>Here is our current recommendation for this workflow (with a few caveats, read table below)</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mlt convert --mlt-version 2 --delta2 --sort none --no-shared-dict --no-fsst --fields ./string_to_field_config.toml new.mbtiles new.mlt2.mbtiles
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mlt convert --mlt-version 2 --delta2 --sort none --no-shared-dict --no-fsst --no-fastpfor --fields ./string_to_field_config.toml new.mbtiles new.mlt2.mbtiles
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mbtiles diff --strict --patch-type bin-diff-raw old.mlt2.mbtiles new.mlt2.mbtiles old_to_new.bindiff
 </span></code></pre></div>
 <table>
@@ -1175,6 +1175,11 @@ This means that encodings that keep edits local beat ones that make the tile sma
 <td>FSST trains its symbol table on the column, so one changed string can change every compressed string.</td>
 </tr>
 <tr>
+<td><code>--no-fastpfor</code></td>
+<td>Use</td>
+<td>FastPFOR packs blocks of 128 values and stores larger values separately as exceptions. An edit can change the chosen width, block metadata, or exception arrays shared across a page. On road-network tiles with nested connection lists, the patches came out 6x smaller without it, for 11% larger tiles.</td>
+</tr>
+<tr>
 <td><code>--fields</code></td>
 <td>Use</td>
 <td>Numbers parsed out of strings are smaller as typed columns, and an edit changes only the values it touches.</td>
@@ -1183,11 +1188,6 @@ This means that encodings that keep edits local beat ones that make the tile sma
 <td><code>--no-alp</code></td>
 <td>Depends</td>
 <td>ALP stores a column as offsets from its minimum at one decimal scale, so a new minimum or a finer value changes every offset. Without it, floats are stored raw and change only where a value changes.</td>
-</tr>
-<tr>
-<td><code>--no-fastpfor</code></td>
-<td>Likely Avoid</td>
-<td>The patch stays the same, and the tiles grow. <em>Good/bad for bsdiff may be different based on data.</em></td>
 </tr>
 <tr>
 <td><code>--rans-vertices</code></td>
