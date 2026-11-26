@@ -454,7 +454,7 @@ pub enum Profile {
     Native(Network),
     /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas, rANS vertices and Boolean RLE presence.
     MinSize,
-    /// Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries, and under v2 second-order deltas but no Boolean RLE presence.
+    /// Small binary diffs between releases: no triangles, no `FSST`, `FastPFOR` or shared dictionaries, and under v2 second-order deltas but no Boolean RLE presence.
     Diffable,
     /// The quickest encode: no triangles, sorts or optional codecs, so tiles come out larger.
     FastEncoding,
@@ -632,7 +632,7 @@ impl EncoderConfig {
                 attempt_id_sort: false,
                 vertex_sort: false,
                 allow_fsst: false,
-                allow_fastpfor: true,
+                allow_fastpfor: false,
                 allow_shared_dict: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
