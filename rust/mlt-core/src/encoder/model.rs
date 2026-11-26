@@ -452,7 +452,7 @@ pub enum Profile {
     Web(Network),
     /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
     Native(Network),
-    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 second-order deltas, rANS vertices and Boolean RLE presence.
+    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 ALP floats, second-order deltas, rANS vertices and Boolean RLE presence.
     MinSize,
     /// Small binary diffs between releases: no triangles, no `FSST`, `FastPFOR` or shared dictionaries, and under v2 second-order deltas but no Boolean RLE presence.
     Diffable,
@@ -543,7 +543,7 @@ impl EncoderConfig {
     /// The settings `profile` picks, which the `with_*` methods override.
     #[must_use]
     pub fn from_profile(profile: Profile) -> Self {
-        // ALP stays off in every preset while it is still being measured.
+        // ALP is on only in `MinSize`.
         match profile {
             Profile::Native(network) => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -609,7 +609,7 @@ impl EncoderConfig {
                 allow_fastpfor: true,
                 allow_shared_dict: true,
                 #[cfg(feature = "unstable-v2")]
-                allow_float_alp: false,
+                allow_float_alp: true,
                 #[cfg(feature = "unstable-v2")]
                 allow_row_shapes: false,
                 #[cfg(feature = "unstable-v2")]
