@@ -71,6 +71,7 @@ hex.workspace = true
 hilbert_2d.workspace = true
 hotpath.workspace = true
 integer-encoding.workspace = true
+miniz_oxide.workspace = true
 num-traits.workspace = true
 num_enum.workspace = true
 rustc-hash.workspace = true
@@ -107,6 +108,10 @@ required-features = ["__private-v2"]
 
 [[test]]
 name = "columnar_access"
+required-features = ["unstable-v2"]
+
+[[test]]
+name = "deflate_ranking"
 required-features = ["unstable-v2"]
 
 [[test]]

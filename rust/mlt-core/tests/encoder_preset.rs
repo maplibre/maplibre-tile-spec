@@ -250,6 +250,23 @@ fn the_min_size_preset_allows_no_float_alp_under_v1() {
 }
 
 #[rstest::rstest]
+#[case::native(Profile::Native(Network::Cellular4G), false)]
+#[case::web(Profile::Web(Network::Cellular4G), true)]
+#[case::web_offline(Profile::Web(Network::Offline), false)]
+#[case::min_size(Profile::MinSize, false)]
+#[case::diffable(Profile::Diffable, false)]
+#[case::fast_encoding(Profile::FastEncoding, false)]
+fn a_preset_ranks_candidates_by_deflated_size_as_documented(
+    #[case] profile: Profile,
+    #[case] by_deflate: bool,
+) {
+    assert_eq!(
+        EncoderConfig::from_profile(profile).deflate_ranking(),
+        by_deflate
+    );
+}
+
+#[rstest::rstest]
 #[case::native(Profile::Native(Network::Cellular4G))]
 #[case::min_size(Profile::MinSize)]
 fn a_preset_allows_no_presence_rle_under_v1(#[case] profile: Profile) {

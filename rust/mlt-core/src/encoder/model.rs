@@ -448,7 +448,7 @@ pub enum Tessellation {
 /// Encoder defaults for one kind of tile consumer, which explicit settings override.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Profile {
-    /// `MapLibre GL JS`: no triangles, which it ignores, and no `FastPFOR` or `FSST` unless [`Network::Offline`], since they lose bytes after HTTP compression, and under v2 no Boolean RLE presence.
+    /// `MapLibre GL JS`: no triangles, which it ignores, and unless [`Network::Offline`] no `FastPFOR` or `FSST` and candidates ranked by deflated size, since tiles travel HTTP-compressed, and under v2 no Boolean RLE presence.
     Web(Network),
     /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
     Native(Network),
@@ -517,6 +517,8 @@ pub struct EncoderConfig {
     allow_fastpfor: bool,
     /// Allow string grouping into shared dictionaries
     allow_shared_dict: bool,
+    /// Rank stream candidates by their deflated size instead of their stored size.
+    deflate_ranking: bool,
     /// Allow the v2-only Framed, Exception-Free ALP float encoding
     #[cfg(feature = "unstable-v2")]
     allow_float_alp: bool,
@@ -556,6 +558,7 @@ impl EncoderConfig {
                 allow_fsst: true,
                 allow_fastpfor: true,
                 allow_shared_dict: true,
+                deflate_ranking: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -582,6 +585,7 @@ impl EncoderConfig {
                 allow_fsst: network == Network::Offline,
                 allow_fastpfor: network == Network::Offline,
                 allow_shared_dict: true,
+                deflate_ranking: network != Network::Offline,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -608,6 +612,7 @@ impl EncoderConfig {
                 allow_fsst: true,
                 allow_fastpfor: true,
                 allow_shared_dict: true,
+                deflate_ranking: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: true,
                 #[cfg(feature = "unstable-v2")]
@@ -634,6 +639,7 @@ impl EncoderConfig {
                 allow_fsst: false,
                 allow_fastpfor: false,
                 allow_shared_dict: false,
+                deflate_ranking: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -660,6 +666,7 @@ impl EncoderConfig {
                 allow_fsst: false,
                 allow_fastpfor: false,
                 allow_shared_dict: false,
+                deflate_ranking: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -733,6 +740,20 @@ impl EncoderConfig {
     #[must_use]
     pub fn allow_shared_dict(self) -> bool {
         self.allow_shared_dict
+    }
+
+    #[must_use]
+    pub fn deflate_ranking(self) -> bool {
+        self.deflate_ranking
+    }
+
+    /// Rank stream candidates by their raw deflate size instead of their stored size.
+    /// Candidates under 32 stored bytes are still ranked by stored size.
+    /// The wire format is unchanged, only which candidate is kept.
+    #[must_use]
+    pub fn with_deflate_ranking(mut self, enabled: bool) -> Self {
+        self.deflate_ranking = enabled;
+        self
     }
 
     /// Whether a nested struct or map may code its row shapes, which only v2 can express.

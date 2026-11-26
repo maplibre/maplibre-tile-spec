@@ -1,8 +1,12 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::{io, mem};
 
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
+use miniz_oxide::deflate::core::{
+    CompressorOxide, TDEFLFlush, TDEFLStatus, compress_to_output, create_comp_flags_from_zip_params,
+};
 
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::LayerHeader02;
@@ -460,6 +464,7 @@ impl Encoder {
             meta_start: self.meta.len(),
             best_data: None,
             best_meta: None,
+            best_deflated: None,
         });
         AltSession { enc: self }
     }
@@ -468,16 +473,18 @@ impl Encoder {
     ///
     /// Compares bytes written since the last commit against the running best
     /// by **total** (`data + meta`) size; keeps the shorter one.
+    /// Returns whether the candidate is now the best.
     ///
     /// Called internally by `AltSession::with` on `Ok`.
-    fn alt_commit(&mut self) {
+    fn alt_commit(&mut self) -> bool {
         debug_assert!(
             !self.alt_stack.is_empty(),
             "alt_commit called outside an active AltSession"
         );
+        let by_deflate = self.cfg.deflate_ranking();
         let (data, meta, stack) = (&mut self.data, &mut self.meta, &mut self.alt_stack);
         let level = stack.last_mut().unwrap();
-        Self::close_candidate(data, meta, level);
+        Self::close_candidate(data, meta, level, by_deflate)
     }
 
     /// Finalize the innermost competition and pop it from the stack.
@@ -491,12 +498,13 @@ impl Encoder {
             "alt_pop called outside an active AltSession"
         );
         {
+            let by_deflate = self.cfg.deflate_ranking();
             let (data, meta, stack) = (&mut self.data, &mut self.meta, &mut self.alt_stack);
             let level = stack.last_mut().unwrap();
             let data_pending = data.len() - (level.data_start + level.best_data.unwrap_or(0));
             let meta_pending = meta.len() - (level.meta_start + level.best_meta.unwrap_or(0));
             if data_pending > 0 || meta_pending > 0 || level.best_data.is_none() {
-                Self::close_candidate(data, meta, level);
+                Self::close_candidate(data, meta, level, by_deflate);
             }
         }
         self.alt_stack.pop();
@@ -505,16 +513,38 @@ impl Encoder {
     /// Shared compare-and-keep logic used by both `alt_commit` and `alt_pop`.
     ///
     /// Compares the bytes written since the last committed candidate against
-    /// the current best by **total** (`data + meta`) size.
-    /// Keeps the shorter one; ties preserve the existing best.
-    fn close_candidate(data: &mut Vec<u8>, meta: &mut Vec<u8>, level: &mut AltLevel) {
+    /// the current best by **total** (`data + meta`) size, or with `by_deflate` by their deflated size.
+    /// Keeps the smaller one, ties going to the fewer stored bytes and then to the existing best.
+    /// Returns whether the candidate is now the best.
+    fn close_candidate(
+        data: &mut Vec<u8>,
+        meta: &mut Vec<u8>,
+        level: &mut AltLevel,
+        by_deflate: bool,
+    ) -> bool {
         let best_data_end = level.data_start + level.best_data.unwrap_or(0);
         let best_meta_end = level.meta_start + level.best_meta.unwrap_or(0);
         let cand_data = data.len() - best_data_end;
         let cand_meta = meta.len() - best_meta_end;
         let cand_total = cand_data + cand_meta;
         let best_total = level.best_data.unwrap_or(0) + level.best_meta.unwrap_or(0);
-        if level.best_data.is_none_or(|_| cand_total < best_total) {
+        let mut cand_deflated = None;
+        let wins = if level.best_data.is_none() {
+            true
+        } else if by_deflate && cand_total.max(best_total) >= DEFLATE_RANKING_MIN_LEN {
+            let best = *level.best_deflated.get_or_insert_with(|| {
+                deflated_len(
+                    &meta[level.meta_start..best_meta_end],
+                    &data[level.data_start..best_data_end],
+                )
+            });
+            let cand = deflated_len(&meta[best_meta_end..], &data[best_data_end..]);
+            cand_deflated = Some(cand);
+            (cand, cand_total) < (best, best_total)
+        } else {
+            cand_total < best_total
+        };
+        if wins {
             // New best: shift data candidate bytes to data_start.
             if level.best_data.is_some() {
                 data.copy_within(best_data_end..best_data_end + cand_data, level.data_start);
@@ -524,12 +554,47 @@ impl Encoder {
             meta.truncate(level.meta_start + cand_meta);
             level.best_data = Some(cand_data);
             level.best_meta = Some(cand_meta);
+            level.best_deflated = cand_deflated;
         } else {
             // Not an improvement: discard.
             data.truncate(best_data_end);
             meta.truncate(best_meta_end);
         }
+        wins
     }
+}
+
+/// Stored size below which deflate ranking falls back to stored size, since deflate only adds framing to so few bytes.
+const DEFLATE_RANKING_MIN_LEN: usize = 32;
+
+/// The deflate level candidates are ranked at.
+const DEFLATE_RANKING_LEVEL: i32 = 1;
+
+thread_local! {
+    /// The compressor [`deflated_len`] resets for each call, kept to spare its allocations.
+    static DEFLATER: RefCell<Option<Box<CompressorOxide>>> = const { RefCell::new(None) };
+}
+
+/// The raw deflate length of `head` followed by `tail`.
+///
+/// Each call starts from a reset compressor, since a full flush instead leaves stale positions that make lengths depend on earlier calls.
+fn deflated_len(head: &[u8], tail: &[u8]) -> usize {
+    DEFLATER.with_borrow_mut(|slot| {
+        let deflater = slot.get_or_insert_with(|| {
+            let flags = create_comp_flags_from_zip_params(DEFLATE_RANKING_LEVEL, -15, 0);
+            Box::new(CompressorOxide::new(flags))
+        });
+        deflater.reset();
+        let mut len = 0;
+        let mut count = |out: &[u8]| {
+            len += out.len();
+            true
+        };
+        compress_to_output(deflater, head, TDEFLFlush::None, &mut count);
+        let (status, _) = compress_to_output(deflater, tail, TDEFLFlush::Finish, &mut count);
+        debug_assert_eq!(status, TDEFLStatus::Done);
+        len
+    })
 }
 
 /// State for one level of an encoding competition.
@@ -548,6 +613,8 @@ struct AltLevel {
     best_data: Option<usize>,
     /// Byte count appended to `meta` by the current best candidate.
     best_meta: Option<usize>,
+    /// Deflated length of the current best candidate, once a deflate-ranked comparison measured it.
+    best_deflated: Option<usize>,
 }
 
 /// RAII guard for a stream-encoding competition opened by [`Encoder::try_alternatives`].
@@ -573,18 +640,17 @@ impl AltSession<'_> {
     /// - **`Err`** - truncates the partial write back to the pre-call checkpoint
     ///   and returns the error.  The guard's `Drop` still finalises the
     ///   competition cleanly using whichever candidates succeeded so far.
+    ///
+    /// Returns whether this candidate is now the best.
     #[hotpath::measure]
-    pub fn with<F>(&mut self, f: F) -> MltResult<()>
+    pub fn with<F>(&mut self, f: F) -> MltResult<bool>
     where
         F: FnOnce(&mut Encoder) -> MltResult<()>,
     {
         let data_cp = self.enc.data.len();
         let meta_cp = self.enc.meta.len();
         match f(self.enc) {
-            Ok(()) => {
-                self.enc.alt_commit();
-                Ok(())
-            }
+            Ok(()) => Ok(self.enc.alt_commit()),
             Err(e) => {
                 self.enc.data.truncate(data_cp);
                 self.enc.meta.truncate(meta_cp);
@@ -875,5 +941,88 @@ mod tests {
         drop(alt);
 
         assert_eq!(enc.data, b"ok"); // "partial" was rolled back; "ok" kept
+    }
+
+    fn scrambled(len: u8) -> Vec<u8> {
+        (0..len)
+            .map(|i| i.wrapping_mul(167).wrapping_add(13))
+            .collect()
+    }
+
+    #[test]
+    fn deflate_ranking_keeps_the_longer_candidate_that_deflates_smaller() {
+        let mut enc = Encoder::new(
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+                .with_deflate_ranking(true),
+        );
+
+        let mut alt = enc.try_alternatives();
+        let won = [
+            alt.with(|enc| {
+                push(enc, &scrambled(40));
+                Ok(())
+            })
+            .unwrap(),
+            alt.with(|enc| {
+                push(enc, &[0; 64]);
+                Ok(())
+            })
+            .unwrap(),
+        ];
+        drop(alt);
+
+        assert_eq!(won, [true, true]);
+        assert_eq!(enc.data, [0; 64]);
+    }
+
+    #[test]
+    fn deflate_ranking_ranks_candidates_under_32_bytes_by_stored_size() {
+        let mut enc = Encoder::new(
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+                .with_deflate_ranking(true),
+        );
+
+        let mut alt = enc.try_alternatives();
+        let won = [
+            alt.with(|enc| {
+                push(enc, &scrambled(20));
+                Ok(())
+            })
+            .unwrap(),
+            alt.with(|enc| {
+                push(enc, &[0; 31]);
+                Ok(())
+            })
+            .unwrap(),
+        ];
+        drop(alt);
+
+        assert_eq!(won, [true, false]);
+        assert_eq!(enc.data, scrambled(20));
+    }
+
+    #[test]
+    fn stored_size_ranking_keeps_the_shorter_candidate_that_deflates_larger() {
+        let mut enc = Encoder::new(EncoderConfig::from_profile(Profile::Native(
+            Network::Cellular4G,
+        )));
+
+        let mut alt = enc.try_alternatives();
+        let won = [
+            alt.with(|enc| {
+                push(enc, &scrambled(40));
+                Ok(())
+            })
+            .unwrap(),
+            alt.with(|enc| {
+                push(enc, &[0; 64]);
+                Ok(())
+            })
+            .unwrap(),
+        ];
+        drop(alt);
+
+        assert_eq!(won, [true, false]);
+        assert_eq!(enc.data, scrambled(40));
     }
 }

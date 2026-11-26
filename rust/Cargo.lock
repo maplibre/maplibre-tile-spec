@@ -2915,6 +2915,7 @@ dependencies = [
  "hotpath 0.33.0",
  "insta",
  "integer-encoding",
+ "miniz_oxide 0.9.1",
  "num-traits",
  "num_enum",
  "pretty_assertions",

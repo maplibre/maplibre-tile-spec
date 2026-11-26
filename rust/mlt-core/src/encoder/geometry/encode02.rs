@@ -562,27 +562,22 @@ type VertexCandidate<'a> = (
     &'a dyn Fn(&mut Encoder, &mut Codecs) -> MltResult<()>,
 );
 
-/// Write every candidate, keep the one that stores the fewest bytes, and report its storage.
+/// Write every candidate, keep the one the encoder ranks smallest, and report its storage.
 fn keep_shortest(
     enc: &mut Encoder,
     codecs: &mut Codecs,
     candidates: &[VertexCandidate<'_>],
 ) -> MltResult<VertexStorage> {
     let mut winner = VertexStorage::Plain;
-    let mut winner_size = usize::MAX;
     let mut alt = enc.try_alternatives();
     for &(storage, write) in candidates {
-        alt.with(|enc| {
-            let (data, meta) = (enc.data().len(), enc.meta().len());
+        let best = alt.with(|enc| {
             enc.family_context = Family::Vertex;
-            write(enc, codecs)?;
-            let size = (enc.data().len() - data) + (enc.meta().len() - meta);
-            if size < winner_size {
-                winner = storage;
-                winner_size = size;
-            }
-            Ok(())
+            write(enc, codecs)
         })?;
+        if best {
+            winner = storage;
+        }
     }
     drop(alt);
     Ok(winner)
