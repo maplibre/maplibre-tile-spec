@@ -1,0 +1,19 @@
+<svg class="mlt-diagram" viewBox="0 0 710 112" role="img" aria-label="Payload sections in order: the header, then class streams 0 to 5, each when it holds a residual" xmlns="http://www.w3.org/2000/svg">
+<rect class="plain" x="209" y="34" width="64" height="34" rx="3"/>
+<text class="cell" x="241" y="51">header</text>
+<rect class="f1" x="277" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="294" y="51">0</text>
+<rect class="f1" x="315" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="332" y="51">1</text>
+<rect class="f1" x="353" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="370" y="51">2</text>
+<rect class="f1" x="391" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="408" y="51">3</text>
+<rect class="f1" x="429" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="446" y="51">4</text>
+<rect class="f1" x="467" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="484" y="51">5</text>
+<path class="bracket" d="M277 28V22H501V28"/>
+<text class="small mid" x="389" y="10">class streams</text>
+<text class="muted small mid" x="389" y="86">each when it holds a residual</text>
+</svg>
