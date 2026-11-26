@@ -204,8 +204,7 @@ impl PhysicalCodecs {
         alt.with(|enc| {
             let meta = StreamMeta::new2(stream_type, logical, PE::VarInt, values.len())?;
             write_stream_payload(enc, meta, false, self.varint(values))
-        })?;
-        Ok(())
+        })
     }
 }
 

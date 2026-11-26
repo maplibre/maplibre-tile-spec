@@ -538,8 +538,8 @@ fn write_vertices(
     }
 
     // Morton fits (the gate above ensures it), so race all three layouts and keep
-    // the shortest, as the v1 writer does.
-    keep_shortest(
+    // the smallest, as the v1 writer does.
+    keep_smallest(
         enc,
         codecs,
         &[
@@ -563,24 +563,20 @@ type VertexCandidate<'a> = (
 );
 
 /// Write every candidate, keep the one the encoder ranks smallest, and report its storage.
-fn keep_shortest(
+fn keep_smallest(
     enc: &mut Encoder,
     codecs: &mut Codecs,
     candidates: &[VertexCandidate<'_>],
 ) -> MltResult<VertexStorage> {
-    let mut winner = VertexStorage::Plain;
     let mut alt = enc.try_alternatives();
     for &(storage, write) in candidates {
-        let best = alt.with(|enc| {
+        alt.with(|enc| {
             enc.family_context = Family::Vertex;
-            write(enc, codecs)
+            write(enc, codecs)?;
+            Ok(storage)
         })?;
-        if best {
-            winner = storage;
-        }
     }
-    drop(alt);
-    Ok(winner)
+    Ok(alt.finish().unwrap_or(VertexStorage::Plain))
 }
 
 /// Write `(x, y, z)` vertex streams and report the storage they used.
@@ -634,7 +630,7 @@ fn write_xyz_vertices(
         return Ok(VertexStorage::Plain);
     }
 
-    keep_shortest(
+    keep_smallest(
         enc,
         codecs,
         &[

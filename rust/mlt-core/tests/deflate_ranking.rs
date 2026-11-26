@@ -1,4 +1,4 @@
-use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Ranking, WireVersion};
 use mlt_core::geo_types::{Geometry, Point};
 use mlt_core::wire::{Analyze as _, StreamMeta};
 use mlt_core::{Layer, Parser, PropKind, PropValue, TileLayer};
@@ -57,12 +57,12 @@ fn the_web_preset_keeps_the_column_coding_that_deflates_smaller(#[case] wire: Wi
 #[rstest]
 #[case::v1(WireVersion::V01)]
 #[case::v2(WireVersion::V02)]
-fn the_web_preset_without_deflate_ranking_keeps_the_column_coding_that_stores_fewer_bytes(
+fn the_web_preset_ranked_by_stored_size_keeps_the_column_coding_that_stores_fewer_bytes(
     #[case] wire: WireVersion,
 ) {
     let web = EncoderConfig::from_profile(Profile::Web(Network::Cellular4G))
         .with_wire_version(wire)
-        .with_deflate_ranking(false);
+        .with_ranking(Ranking::StoredSize);
     let bytes = three_large_values_in_random_order().encode(web).unwrap();
     assert_eq!(last_stream_encoding(&bytes), "data int/delta varint");
 }

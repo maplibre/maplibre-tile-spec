@@ -203,29 +203,11 @@ impl GeometryValues {
             };
         } else if !tessellated && dict_may_be_beneficial(&vertices, enc) {
             // Morton fits (the gate above ensures it), so race all three.
-            let mut winner_stream_cnt: u8 = 0;
-            let mut cnt = 0;
             let mut alt = enc.try_alternatives();
-            if alt.with(|e| {
-                cnt = encode_vec2_vertex_stream(&vertices, e, codecs)?;
-                Ok(())
-            })? {
-                winner_stream_cnt = cnt;
-            }
-            if alt.with(|e| {
-                cnt = encode_hilbert_vertex_streams(&vertices, e, codecs)?;
-                Ok(())
-            })? {
-                winner_stream_cnt = cnt;
-            }
-            if alt.with(|e| {
-                cnt = encode_morton_vertex_streams(&vertices, e, codecs)?;
-                Ok(())
-            })? {
-                winner_stream_cnt = cnt;
-            }
-            drop(alt);
-            n += winner_stream_cnt;
+            alt.with(|e| encode_vec2_vertex_stream(&vertices, e, codecs))?;
+            alt.with(|e| encode_hilbert_vertex_streams(&vertices, e, codecs))?;
+            alt.with(|e| encode_morton_vertex_streams(&vertices, e, codecs))?;
+            n += alt.finish().unwrap_or_default();
         } else {
             n += encode_vec2_vertex_stream(&vertices, enc, codecs)?;
         }

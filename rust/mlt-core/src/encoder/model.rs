@@ -491,6 +491,17 @@ pub enum Network {
     Cellular5G,
 }
 
+/// What the encoder compares to keep one of several candidate encodings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum Ranking {
+    /// The bytes the tile stores.
+    StoredSize,
+    /// The bytes after level-1 deflate, for tiles that travel HTTP-compressed.
+    /// Candidates under 32 stored bytes still compare by stored size.
+    DeflatedSize,
+}
+
 /// Global encoder settings controlling which optimization strategies are attempted.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 #[expect(
@@ -517,8 +528,8 @@ pub struct EncoderConfig {
     allow_fastpfor: bool,
     /// Allow string grouping into shared dictionaries
     allow_shared_dict: bool,
-    /// Rank stream candidates by their deflated size instead of their stored size.
-    deflate_ranking: bool,
+    /// What candidate encodings are compared by
+    ranking: Ranking,
     /// Allow the v2-only Framed, Exception-Free ALP float encoding
     #[cfg(feature = "unstable-v2")]
     allow_float_alp: bool,
@@ -558,7 +569,7 @@ impl EncoderConfig {
                 allow_fsst: true,
                 allow_fastpfor: true,
                 allow_shared_dict: true,
-                deflate_ranking: false,
+                ranking: Ranking::StoredSize,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -585,7 +596,11 @@ impl EncoderConfig {
                 allow_fsst: network == Network::Offline,
                 allow_fastpfor: network == Network::Offline,
                 allow_shared_dict: true,
-                deflate_ranking: network != Network::Offline,
+                ranking: if network == Network::Offline {
+                    Ranking::StoredSize
+                } else {
+                    Ranking::DeflatedSize
+                },
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -612,7 +627,7 @@ impl EncoderConfig {
                 allow_fsst: true,
                 allow_fastpfor: true,
                 allow_shared_dict: true,
-                deflate_ranking: false,
+                ranking: Ranking::StoredSize,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: true,
                 #[cfg(feature = "unstable-v2")]
@@ -639,7 +654,7 @@ impl EncoderConfig {
                 allow_fsst: false,
                 allow_fastpfor: false,
                 allow_shared_dict: false,
-                deflate_ranking: false,
+                ranking: Ranking::StoredSize,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -666,7 +681,7 @@ impl EncoderConfig {
                 allow_fsst: false,
                 allow_fastpfor: false,
                 allow_shared_dict: false,
-                deflate_ranking: false,
+                ranking: Ranking::StoredSize,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -743,16 +758,14 @@ impl EncoderConfig {
     }
 
     #[must_use]
-    pub fn deflate_ranking(self) -> bool {
-        self.deflate_ranking
+    pub fn ranking(self) -> Ranking {
+        self.ranking
     }
 
-    /// Rank stream candidates by their raw deflate size instead of their stored size.
-    /// Candidates under 32 stored bytes are still ranked by stored size.
-    /// The wire format is unchanged, only which candidate is kept.
+    /// Compare candidate encodings by `ranking`, which changes only which one is kept.
     #[must_use]
-    pub fn with_deflate_ranking(mut self, enabled: bool) -> Self {
-        self.deflate_ranking = enabled;
+    pub fn with_ranking(mut self, ranking: Ranking) -> Self {
+        self.ranking = ranking;
         self
     }
 
