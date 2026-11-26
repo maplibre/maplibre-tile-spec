@@ -272,8 +272,7 @@ fn fmt_predicted(header: crate::codecs::predicted::Header, len: usize) -> String
     } else {
         ""
     };
-    let rice = if header.rice { ", rice" } else { "" };
-    format!("{start}, {line}{copies}{line_references}{rice}, {len} B")
+    format!("{start}, {line}{copies}{line_references}, {len} B")
 }
 
 /// Render the first 96 of `n` presence bits as a `0`/`1` string.

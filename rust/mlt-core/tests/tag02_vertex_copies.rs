@@ -165,7 +165,7 @@ fn polygons_that_share_walls_are_stored_as_copies() {
     let bytes = layer(strip(0)).encode(predicted).unwrap();
     assert_debug_snapshot!(predicted_headers(&bytes), @r#"
     [
-        "starts from the previous run, lines from the previous vertex, copies, rice, 112 B",
+        "starts from the previous run, lines from the previous vertex, copies, 112 B",
     ]
     "#);
 }
@@ -228,7 +228,7 @@ fn lines_that_meet_at_a_junction_are_stored_as_line_endpoint_references() {
     let bytes = layer(star()).encode(predicted).unwrap();
     assert_debug_snapshot!(predicted_headers(&bytes), @r#"
     [
-        "starts from the previous vertex, lines from the previous vertex, line endpoint references, rice, 156 B",
+        "starts from the previous vertex, lines from the previous vertex, line endpoint references, 156 B",
     ]
     "#);
 }

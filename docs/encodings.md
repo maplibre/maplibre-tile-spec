@@ -896,8 +896,7 @@ Bit 0 is the least significant bit of the header byte.
 | 1-2 | line guess | `0` to `2`, the [line guess](#guesses), `3` reserved |
 | 3 | copies | `1` the payload holds [vertex copies](#vertex-copies) |
 | 4 | line references | `1` the payload holds [line endpoint references](#line-endpoint-references) |
-| 5 | layout | `0` the [byte layout](#byte-layout), `1` the [Rice layout](#rice-layout) |
-| 6-7 | reserved | `0` |
+| 5-7 | reserved | `0` |
 
 A header with a line guess of `3` or a reserved bit set MUST be rejected.
 
@@ -990,11 +989,10 @@ Each guess on the vertices of the [example](#predicted-example):
 The residual of a vertex is `p[i] - guess` per component, then [zigzag](#zigzag)-encoded to an unsigned 32-bit value.
 A class stream holds the residuals of its vertices that are not [shared](#shared-vertices), in buffer order, `x` then `y` per vertex.
 A class stream with no residual takes no bytes.
-Header bit 5 sets one layout for all six class streams.
 
 #### Rice layout
 
-With header bit 5 set, every class stream that holds a residual is:
+Every class stream that holds a residual is Rice coded:
 
 | Field | Content |
 |---|---|
@@ -1056,48 +1054,6 @@ A Rice stream MUST be rejected when:
     For each axis, it adds up the codeword bits of the stream's residuals for every `k` from `0` to `15`.
     It keeps the `k` with the fewest bits, and the lowest `k` on a tie.
 
-#### Byte layout
-
-With header bit 5 clear, each class stream holds `x` and `y` interleaved, two values per vertex.
-The `start` and `point` streams are split varints, the other four are two planes.
-
-##### Split varint
-
-The bytes of a [varint](#varint) stream in a different order: the head byte of every value, then the tail, which is the remaining bytes of every value that has them.
-A head byte with its top bit set continues in the tail.
-A varint MUST be minimal and fit 32 bits.
-
-=== "Bytes"
-
-    --8<-- "diagrams/split-varint.svg"
-
-=== "Values"
-
-    ```
-    values:        5   300   7
-    varint:        05 | AC 02 | 07
-    split varint:  05 AC 07 | 02
-    ```
-
-##### Two planes
-
-One byte per value, then the values that do not fit in it.
-A value below `255` is its own byte, and a value of `255` or more is `0xFF`.
-After the low bytes, every escaped value follows in order as the [varint](#varint) of `value - 255`.
-That varint MUST be minimal, and the value MUST fit 32 bits.
-
-=== "Bytes"
-
-    --8<-- "diagrams/two-planes.svg"
-
-=== "Values"
-
-    ```
-    values:     5   300   7   255   70000
-    low bytes:  05 FF 07 FF FF
-    varints:    2D | 00 | F1 A0 04
-    ```
-
 #### Example {#predicted-example}
 
 A rectangle, then a line part of three vertices, with the run-start guess and the line guess `2`:
@@ -1116,28 +1072,16 @@ A rectangle, then a line part of three vertices, with the run-start guess and th
     zigzag:       (200, 400)  (60, 0)     (0, 80)     (0, 0)      (10, 10)    (20, 0)       (0, 4)
     ```
 
-=== "Byte layout"
+=== "Payload"
 
     ```
     header:       05
-    start:        C8 90 0A 0A | 01 03
-    ring:         3C 00 00 50
-    corner:       00 00
-    line second:  14 00
-    line:         00 04
-    payload:      05 C8 90 0A 0A 01 03 3C 00 00 50 00 00 14 00 00 04
-    ```
-
-=== "Rice layout"
-
-    ```
-    header:       25
     start:        76 05 88 20 A4 52 01
     ring:         54 04 C8 41 20 04
     corner:       00 01 03
     line second:  03 01 64
     line:         10 01 09
-    payload:      25 76 05 88 20 A4 52 01 54 04 C8 41 20 04 00 01 03 03 01 64 10 01 09
+    payload:      05 76 05 88 20 A4 52 01 54 04 C8 41 20 04 00 01 03 03 01 64 10 01 09
     ```
 
 #### Shared vertices
@@ -1224,7 +1168,7 @@ An index past the slots, a missing bit, a set padding bit or a byte left over MU
 3. With copies or line refs (bit 3 or 4), read the counts.
    The residual count of a class is its vertex count less its count.
 4. With copies and line refs (bits 3 and 4), read `ops_len`.
-5. Read the class streams that hold a residual, in stream order, in the layout of bit 5.
+5. Read the class streams that hold a residual, in stream order.
 6. Take the copy ops and the reference bits from the rest of the payload.
 7. Decode the vertices in buffer order:
     1. A vertex an op covers is the next vertex of its source.
@@ -1243,14 +1187,14 @@ vertices:    (0, 0) (100, 0) (100, 100) (0, 100)        ring A
              (300, 100) (300, 200)                      line part D
 
 header:      19
-counts:      02 01 00 00             start (B0, D0), ring (B1), corner, line second
+counts:      02 01 00 00                  start (B0, D0), ring (B1), corner, line second
 ops_len:     03
-start:       00 00 C8 00 | 01        A0, then C0 against B0
-ring:        C8 00 00 C8 C8 00       A1, A2, B2
-corner:      00 00 00 00             A3, B3
-line second: C8 00 00 C8             C1, D1
-copy op:     04 05 01                gap 4, dist 2 backward, n 2: A2 A1 to B0 B1
-references:  C0                      D0: flag 1, index 1 of 2 slots | D1: flag 0
+start:       06 03 81 88 04               A0, then C0 against B0
+ring:        57 07 22 83 00 20 12 19 00   A1, A2, B2
+corner:      00 01 0F                     A3, B3
+line second: 66 05 88 04 02 88 00         C1, D1
+copy op:     04 05 01                     gap 4, dist 2 backward, n 2: A2 A1 to B0 B1
+references:  C0                           D0: flag 1, index 1 of 2 slots | D1: flag 0
 ```
 
 [View example](inspector/app/?fixture=0x02%2Fpoly_shared_wall_predicted.mlt&at=vertices){target=_blank .inspector-example} - three polygons, two of which share a wall of seven vertices.
@@ -1260,7 +1204,7 @@ references:  C0                      D0: flag 1, index 1 of 2 slots | D1: flag 0
     `mlt convert --predicted-vertices`, and `--profile min_size` under v2, let the encoder race predicted vertices against the other vertex encodings.
     It plans copies greedily: from each vertex it tries the latest 32 earlier vertices at the same position, both ways, and keeps the copy of two or more vertices that saves the most residual bytes over its op.
     A line endpoint refers to the first slot that holds its position.
-    It prices each of the six guess pairs with no sharing, copies, line references and both, in both layouts.
+    It prices each of the six guess pairs with no sharing, copies, line references and both, in the Rice layout.
     It writes the shortest, with the lowest header byte on a tie.
 
 ??? note "Sources"
