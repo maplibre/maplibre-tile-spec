@@ -897,7 +897,8 @@ Bit 0 is the least significant bit of the header byte.
 | 1-2 | line guess | `0` to `2`, the [line guess](#guesses), `3` reserved |
 | 3 | copies | `1` the payload holds [vertex copies](#vertex-copies) |
 | 4 | line references | `1` the payload holds [line endpoint references](#line-endpoint-references) |
-| 5-7 | reserved | `0` |
+| 5 | layout | `0` the [byte layout](#byte-layout), `1` the [Rice layout](#rice-layout) |
+| 6-7 | reserved | `0` |
 
 A header with a line guess of `3` or a reserved bit set MUST be rejected.
 
@@ -990,10 +991,75 @@ Each guess on the vertices of the [example](#predicted-example):
 The residual of a vertex is `p[i] - guess` per component, then [zigzag](#zigzag)-encoded to an unsigned 32-bit value.
 A class stream holds the residuals of its vertices that are not [shared](#shared-vertices), in buffer order, `x` then `y` per vertex.
 A class stream with no residual takes no bytes.
+Header bit 5 sets one layout for all six class streams.
+
+#### Rice layout
+
+With header bit 5 set, every class stream that holds a residual is:
+
+| Field | Content |
+|---|---|
+| parameters | one byte, `k_x` in bits 0-3 and `k_y` in bits 4-7 |
+| `byte_len` | a varint, the byte length of the bit data |
+| bit data | one codeword per residual in stream order, `x` with `k_x` and `y` with `k_y` |
+
+`k_x` and `k_y` may each be any value from `0` to `15`.
+`byte_len` MUST be minimal.
+
+##### Codewords
+
+A codeword stores the value `v` with the parameter `k`, and `q = v >> k`.
+With `q < 16`, the codeword is `q` zero bits, one `1` bit, then the low `k` bits of `v`.
+With `q >= 16`, the codeword is an escape: 16 zero bits, then `n` in 6 bits, then the `n` bits of `e = v - (16 << k)`.
+`n` is the bit width of `e`, and `0` for `e = 0`.
+
+--8<-- "diagrams/rice-codeword.svg"
+
+##### Bit order
+
+The bit data fills each byte from bit 0, its least significant bit, to bit 7, then the next byte.
+Each field of a codeword is written from its least significant bit.
+Codewords follow each other with no alignment, so a codeword may span several bytes.
+The bits after the last codeword fill its byte with zeros.
+
+A decoder counts zero bits, up to 16, at the start of each codeword:
+
+- On a `1` bit after fewer than 16 zeros, `q` is the count of zeros, `r` is the next `k` bits, and `v = (q << k) + r`.
+- After 16 zeros, `n` is the next 6 bits, `e` is the next `n` bits, and `v = (16 << k) + e`.
+
+A Rice stream MUST be rejected when:
+
+- `byte_len` runs past the payload,
+- the bit data ends inside a codeword,
+- a whole byte of the bit data follows the last codeword,
+- a padding bit is set,
+- an escape has `n > 32`, or
+- an escape decodes to `v > 2^32 - 1`.
+
+=== "Bits"
+
+    --8<-- "diagrams/rice-stream.svg"
+
+=== "Values"
+
+    ```
+    x:           200, 10                       k_x 6
+    y:           400, 10                       k_y 7
+    parameters:  76
+    byte_len:    05
+    codewords:   000 1 000100 | 000 1 0000100 | 1 010100 | 1 0101000
+    bit data:    88 20 A4 52 01
+    ```
+
+??? note "Choosing k"
+
+    The Rust encoder picks `k_x` and `k_y` separately for each class stream.
+    For each axis, it adds up the codeword bits of the stream's residuals for every `k` from `0` to `15`.
+    It keeps the `k` with the fewest bits, and the lowest `k` on a tie.
 
 #### Byte layout
 
-Each class stream holds `x` and `y` interleaved, two values per vertex.
+With header bit 5 clear, each class stream holds `x` and `y` interleaved, two values per vertex.
 The `start` and `point` streams are split varints, the other four are two planes.
 
 ##### Split varint
@@ -1051,7 +1117,7 @@ A rectangle, then a line part of three vertices, with the run-start guess and th
     zigzag:       (200, 400)  (60, 0)     (0, 80)     (0, 0)      (10, 10)    (20, 0)       (0, 4)
     ```
 
-=== "Payload"
+=== "Byte layout"
 
     ```
     header:       05
@@ -1061,6 +1127,18 @@ A rectangle, then a line part of three vertices, with the run-start guess and th
     line second:  14 00
     line:         00 04
     payload:      05 C8 90 0A 0A 01 03 3C 00 00 50 00 00 14 00 00 04
+    ```
+
+=== "Rice layout"
+
+    ```
+    header:       25
+    start:        76 05 88 20 A4 52 01
+    ring:         54 04 C8 41 20 04
+    corner:       00 01 03
+    line second:  03 01 64
+    line:         10 01 09
+    payload:      25 76 05 88 20 A4 52 01 54 04 C8 41 20 04 00 01 03 03 01 64 10 01 09
     ```
 
 #### Shared vertices
@@ -1147,7 +1225,7 @@ An index past the slots, a missing bit, a set padding bit or a byte left over MU
 3. With copies or line refs (bit 3 or 4), read the counts.
    The residual count of a class is its vertex count less its count.
 4. With copies and line refs (bits 3 and 4), read `ops_len`.
-5. Read the class streams that hold a residual, in stream order.
+5. Read the class streams that hold a residual, in stream order, in the layout of bit 5.
 6. Take the copy ops and the reference bits from the rest of the payload.
 7. Decode the vertices in buffer order:
     1. A vertex an op covers is the next vertex of its source.
@@ -1183,7 +1261,8 @@ references:  C0                      D0: flag 1, index 1 of 2 slots | D1: flag 0
     `mlt convert --predicted-vertices`, and `--profile min_size` under v2, let the encoder race predicted vertices against the other vertex encodings.
     It plans copies greedily: from each vertex it tries the latest 32 earlier vertices at the same position, both ways, and keeps the copy of two or more vertices that saves the most residual bytes over its op.
     A line endpoint refers to the first slot that holds its position.
-    It writes every buffer with no sharing, copies, line references and both, for each of the six guess pairs, and keeps the fewest stored bytes, with the lowest header byte on a tie.
+    It prices each of the six guess pairs with no sharing, copies, line references and both, in both layouts.
+    It writes the shortest, with the lowest header byte on a tie.
 
 ??? note "Sources"
 

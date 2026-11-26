@@ -1,0 +1,93 @@
+<svg class="mlt-diagram" viewBox="0 0 710 206" role="img" aria-label="Two Rice codewords, bit 0 first. 200 with k 6: three zero bits for the quotient 3, a 1 bit, then the 6 low bits of 200. 80 with k 1: 16 zero bits, the 6-bit width 6, then the 6 bits of 48, which is 80 less 16 shifted left by 1" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="54">200, k 6</text>
+<rect class="plain" x="130" y="40" width="18" height="28" rx="3"/>
+<text class="cell" x="139" y="54">0</text>
+<rect class="plain" x="150" y="40" width="18" height="28" rx="3"/>
+<text class="cell" x="159" y="54">0</text>
+<rect class="plain" x="170" y="40" width="18" height="28" rx="3"/>
+<text class="cell" x="179" y="54">0</text>
+<text class="muted small mid" x="159" y="14">q = 3</text>
+<path class="bracket" d="M130 34V28H188V34"/>
+<rect class="plain" x="190" y="40" width="18" height="28" rx="3"/>
+<text class="cell bold" x="199" y="54">1</text>
+<rect class="f0" x="210" y="40" width="18" height="28" rx="3"/>
+<text class="cell" x="219" y="54">0</text>
+<rect class="f0" x="230" y="40" width="18" height="28" rx="3"/>
+<text class="cell" x="239" y="54">0</text>
+<rect class="f0" x="250" y="40" width="18" height="28" rx="3"/>
+<text class="cell" x="259" y="54">0</text>
+<rect class="f0" x="270" y="40" width="18" height="28" rx="3"/>
+<text class="cell" x="279" y="54">1</text>
+<rect class="f0" x="290" y="40" width="18" height="28" rx="3"/>
+<text class="cell" x="299" y="54">0</text>
+<rect class="f0" x="310" y="40" width="18" height="28" rx="3"/>
+<text class="cell" x="319" y="54">0</text>
+<text class="muted small mid" x="269" y="14">low k bits = 8</text>
+<path class="bracket" d="M210 34V28H328V34"/>
+<text class="muted small mid" x="219" y="82">b0</text>
+<text class="row" x="0" y="152">80, k 1</text>
+<rect class="plain" x="130" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="139" y="152">0</text>
+<rect class="plain" x="150" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="159" y="152">0</text>
+<rect class="plain" x="170" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="179" y="152">0</text>
+<rect class="plain" x="190" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="199" y="152">0</text>
+<rect class="plain" x="210" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="219" y="152">0</text>
+<rect class="plain" x="230" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="239" y="152">0</text>
+<rect class="plain" x="250" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="259" y="152">0</text>
+<rect class="plain" x="270" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="279" y="152">0</text>
+<rect class="plain" x="290" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="299" y="152">0</text>
+<rect class="plain" x="310" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="319" y="152">0</text>
+<rect class="plain" x="330" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="339" y="152">0</text>
+<rect class="plain" x="350" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="359" y="152">0</text>
+<rect class="plain" x="370" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="379" y="152">0</text>
+<rect class="plain" x="390" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="399" y="152">0</text>
+<rect class="plain" x="410" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="419" y="152">0</text>
+<rect class="plain" x="430" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="439" y="152">0</text>
+<text class="muted small mid" x="289" y="112">16 zeros</text>
+<path class="bracket" d="M130 132V126H448V132"/>
+<rect class="f1" x="450" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="459" y="152">0</text>
+<rect class="f1" x="470" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="479" y="152">1</text>
+<rect class="f1" x="490" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="499" y="152">1</text>
+<rect class="f1" x="510" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="519" y="152">0</text>
+<rect class="f1" x="530" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="539" y="152">0</text>
+<rect class="f1" x="550" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="559" y="152">0</text>
+<text class="muted small mid" x="509" y="112">n = 6</text>
+<path class="bracket" d="M450 132V126H568V132"/>
+<text class="muted small mid" x="459" y="180">b0</text>
+<rect class="f0" x="570" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="579" y="152">0</text>
+<rect class="f0" x="590" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="599" y="152">0</text>
+<rect class="f0" x="610" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="619" y="152">0</text>
+<rect class="f0" x="630" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="639" y="152">0</text>
+<rect class="f0" x="650" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="659" y="152">1</text>
+<rect class="f0" x="670" y="138" width="18" height="28" rx="3"/>
+<text class="cell" x="679" y="152">1</text>
+<text class="muted small mid" x="629" y="112">e = 48</text>
+<path class="bracket" d="M570 132V126H688V132"/>
+<text class="muted small mid" x="579" y="180">b0</text>
+</svg>

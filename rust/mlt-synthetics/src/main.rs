@@ -451,9 +451,10 @@ fn generate_predicted_vertices(w: &mut SynthWriter) {
         .predicted_vertices()
         .write(w, "poly_shared_wall_predicted");
     geo_varint()
-        .geo(wkt!(LINESTRING(1200 1200, 1440 1600, 1760 1760, 2000 2240, 2400 2400)))
-        .geo(wkt!(LINESTRING(0 0, 320 240, 640 400, 700 1100, 1200 1200)))
-        .geo(wkt!(LINESTRING(2480 240, 2000 720, 1700 900, 1200 1200)))
+        .geo(wkt!(LINESTRING(1979 1950, 2333 2613, 2866 2790, 3227 3619, 3893 3826)))
+        .geo(wkt!(LINESTRING(5 11, 530 366, 1003 669, 1150 1733, 1979 1950)))
+        .geo(wkt!(LINESTRING(3986 421, 3221 1131, 2702 1475, 1979 1950)))
+        .geo(wkt!(LINESTRING(1003 3900, 1517 3104, 1979 1950)))
         .predicted_vertices()
         .write(w, "line_junction_predicted");
 }
