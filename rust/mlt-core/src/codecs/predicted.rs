@@ -1656,10 +1656,7 @@ mod tests {
         ];
         let runs = [ring(0, 4), ring(4, 4), line(8, 2), line(10, 2), line(12, 3)];
         for guesses in Guesses::ALL {
-            let header = Header {
-                guesses,
-                sharing,
-            };
+            let header = Header { guesses, sharing };
             let payload = encode_as(&vertices, &runs, header).unwrap();
             assert_eq!(super::header(&payload).unwrap(), header);
             assert_eq!(decode(&payload, &runs, 17, &mut dec()).unwrap(), vertices);
@@ -1705,10 +1702,7 @@ mod tests {
         let (mut stream, rest) = Rice::locate(&written, 4).unwrap();
         assert_eq!(rest, [0_u8; 0]);
         for pair in values.as_chunks::<2>().0 {
-            assert_eq!(
-                stream.residual(),
-                [unzigzag(pair[0]), unzigzag(pair[1])]
-            );
+            assert_eq!(stream.residual(), [unzigzag(pair[0]), unzigzag(pair[1])]);
         }
         stream.finish().unwrap();
     }
