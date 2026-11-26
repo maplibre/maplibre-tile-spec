@@ -894,7 +894,9 @@ Bit 0 is the least significant bit of the header byte.
 |---|---|---|
 | 0 | start guess | `0` or `1`, the [start guess](#guesses) |
 | 1-2 | line guess | `0` to `2`, the [line guess](#guesses), `3` reserved |
-| 3-7 | reserved | `0` |
+| 3 | copies | `1` the payload holds [vertex copies](#vertex-copies) |
+| 4 | line references | `1` the payload holds [line endpoint references](#line-endpoint-references) |
+| 5-7 | reserved | `0` |
 
 A header with a line guess of `3` or a reserved bit set MUST be rejected.
 
@@ -902,7 +904,15 @@ A header with a line guess of `3` or a reserved bit set MUST be rejected.
 
 --8<-- "diagrams/predicted-payload.svg"
 
-The header byte is followed by the class streams in stream order.
+A section is present when the [header](#header) fields named under it are set.
+
+- The counts hold the number of [shared vertices](#shared-vertices) of each class, so the decoder knows how many residuals each class stream holds.
+- The copy ops hold the [vertex copies](#vertex-copies), and the reference bits the [line endpoint references](#line-endpoint-references).
+- With copies alone, the copy ops run to the end of the payload.
+  With line refs alone, the reference bits do.
+- With both, `ops_len` is a varint that holds the byte length of the copy ops.
+  The reference bits start after them and run to the end of the payload.
+
 The payload MUST be consumed exactly.
 
 #### Runs and classes
@@ -929,6 +939,7 @@ The class of every vertex and the vertex count of every class follow from the ru
 
 `p[i]` is vertex `i` of the buffer.
 `p[i-1]` is the vertex before it in the buffer, even across runs and features, and `(0, 0)` for vertex `0`.
+A guess reads decoded vertices, shared vertices included.
 Every sum, difference and product wraps at 32 bits, per component.
 
 The start guess, set by header bit 0, is the guess for a `start` vertex:
@@ -976,7 +987,7 @@ Each guess on the vertices of the [example](#predicted-example):
 #### Residuals
 
 The residual of a vertex is `p[i] - guess` per component, then [zigzag](#zigzag)-encoded to an unsigned 32-bit value.
-A class stream holds the residuals of its vertices in buffer order, `x` then `y` per vertex.
+A class stream holds the residuals of its vertices that are not [shared](#shared-vertices), in buffer order, `x` then `y` per vertex.
 A class stream with no residual takes no bytes.
 
 #### Byte layout
@@ -1051,21 +1062,128 @@ A rectangle, then a line part of three vertices, with the run-start guess and th
     payload:      05 C8 90 0A 0A 01 03 3C 00 00 50 00 00 14 00 00 04
     ```
 
+#### Shared vertices
+
+A shared vertex is copied from, or refers to, a vertex decoded before it, and has no residual.
+
+With header bit 3 or 4 set, the counts hold one varint for each class that has a vertex, in stream order.
+Each count is the number of shared vertices of its class.
+A class with no vertex has no count.
+
+Every varint of the counts, `ops_len` and the copy ops MUST be minimal.
+A count larger than the vertex count of its class MUST be rejected.
+
+##### Vertex copies
+
+A copy writes `n` consecutive vertices of the buffer from vertices decoded before them.
+Each op is three varints:
+
+| Varint | Value |
+|---|---|
+| `gap` | the vertices between the end of the previous copy, or vertex `0`, and the first vertex `d` of this copy |
+| `dist << 1 \| backward` | the source starts at vertex `d - dist`, and steps backwards when `backward` is `1` |
+| `n - 1` | the number of vertices copied, less one |
+
+Copy vertex `k` is written to `d + k` from source vertex `s[k]`, with `s[0] = d - dist`.
+When `s[0]` is in a ring, `s[k + 1]` is the next vertex of that ring after `s[k]`, and the last vertex wraps to the first.
+Backwards it is the vertex before `s[k]`, and the first vertex wraps to the last.
+When `s[0]` is in no ring, `s[k + 1]` is `s[k] + 1`, or `s[k] - 1` backwards.
+The destination may cross runs and features.
+
+=== "Copies"
+
+    --8<-- "diagrams/vertex-copies.svg"
+
+=== "Values"
+
+    ```
+    forward:   (0, 0) (7, 3) (9, 8) (50, 50) (0, 0) (7, 3) (9, 8)
+               op 04 08 02     gap 4, dist 4, n 3: vertices 0 1 2 to 4 5 6
+    backward:  (0, 0) (10, 0) (10, 10) (0, 10) (10, 10) (10, 0) (20, 0) (20, 10)
+               op 04 05 01     gap 4, dist 2, n 2: vertices 2 1 to 4 5
+    wrap:      (0, 0) (10, 0) (10, 10) (0, 10) (0, 10) (0, 0) (10, 0) (5, -20)
+               op 04 02 02     gap 4, dist 1, n 3: vertices 3 0 1 to 4 5 6
+    ```
+
+A copy MUST be rejected when:
+
+- `dist` is `0` or larger than `d`,
+- it ends past the last vertex,
+- a source vertex lies before vertex `0` or is not decoded before the vertex it writes, or
+- `n` is `1` and `backward` is `1`.
+
+##### Line endpoint references
+
+The first vertex of every line part, and its last when the part has two or more vertices, may refer to a vertex of an earlier line part.
+The line slots are the vertices of all earlier line parts in buffer order.
+Ring and point vertices take no slot.
+
+Such an endpoint takes a flag when the line slots hold a vertex and no copy writes it.
+On a flag of `1`, an index follows, and the vertex is the slot it names.
+An index into `n` slots takes `ceil(log2 n)` bits, and none for one slot.
+Any slot that holds the position is valid.
+
+The flags and indexes are written most significant bit first, in decoding order, and the last byte is padded with zeros.
+An index past the slots, a missing bit, a set padding bit or a byte left over MUST be rejected.
+
+=== "Bits"
+
+    --8<-- "diagrams/line-endpoint-reference.svg"
+
+=== "Values"
+
+    ```
+    part C:      (200, 100) (300, 100)     slots 0 and 1
+    part D:      (300, 100) (300, 200)
+    bits:        1 1 0 00000               D0: flag 1, index 1 of 2 slots | D1: flag 0
+    references:  C0
+    ```
+
 #### Decoding
 
 1. Read the header byte.
 2. Derive the runs from the topology, then the class of every vertex and the vertex count of every class.
-3. Read the class streams that hold a residual, in stream order.
-4. Decode the vertices in buffer order: each vertex is its guess plus the next residual of its class stream, with the zigzag undone.
-5. Check that every class stream is consumed exactly.
+3. With copies or line refs (bit 3 or 4), read the counts.
+   The residual count of a class is its vertex count less its count.
+4. With copies and line refs (bits 3 and 4), read `ops_len`.
+5. Read the class streams that hold a residual, in stream order.
+6. Take the copy ops and the reference bits from the rest of the payload.
+7. Decode the vertices in buffer order:
+    1. A vertex an op covers is the next vertex of its source.
+    2. Otherwise, a line part endpoint with a flag of `1` is the slot its index names.
+    3. Otherwise, the vertex is its guess plus the next residual of its class stream, with the zigzag undone.
+8. Check that every class stream, the copy ops and the reference bits are consumed exactly.
 
 A class stream with a residual left over, or too few, MUST be rejected.
+
+Two squares that share a wall, then two line parts that meet, with the run-start guess, copies and line references:
+
+```
+vertices:    (0, 0) (100, 0) (100, 100) (0, 100)        ring A
+             (100, 100) (100, 0) (200, 0) (200, 100)    ring B
+             (200, 100) (300, 100)                      line part C
+             (300, 100) (300, 200)                      line part D
+
+header:      19
+counts:      02 01 00 00             start (B0, D0), ring (B1), corner, line second
+ops_len:     03
+start:       00 00 C8 00 | 01        A0, then C0 against B0
+ring:        C8 00 00 C8 C8 00       A1, A2, B2
+corner:      00 00 00 00             A3, B3
+line second: C8 00 00 C8             C1, D1
+copy op:     04 05 01                gap 4, dist 2 backward, n 2: A2 A1 to B0 B1
+references:  C0                      D0: flag 1, index 1 of 2 slots | D1: flag 0
+```
+
+[View example](inspector/app/?fixture=0x02%2Fpoly_shared_wall_predicted.mlt&at=vertices){target=_blank .inspector-example} - three polygons, two of which share a wall of seven vertices.
 
 ??? note "Rust encoder"
 
     `mlt convert --predicted-vertices`, and `--profile min_size` under v2, let the encoder race predicted vertices against the other vertex encodings.
-    It chooses the start and line guess per layer: it measures every pair by its stored bytes and keeps the smallest, with the lowest header byte on a tie.
+    It plans copies greedily: from each vertex it tries the latest 32 earlier vertices at the same position, both ways, and keeps the copy of two or more vertices that saves the most residual bytes over its op.
+    A line endpoint refers to the first slot that holds its position.
+    It writes every buffer with no sharing, copies, line references and both, for each of the six guess pairs, and keeps the fewest stored bytes, with the lowest header byte on a tie.
 
 ??? note "Sources"
 
-    The streams follow the vertex-buffer pipeline of [Turtelll's thesis](https://turtelll.github.io/Thesis/), and the classes follow [mactrem's proposal](https://github.com/maplibre/maplibre-tile-spec/discussions/1921#discussioncomment-19862670).
+    The streams follow the vertex-buffer pipeline of [Turtelll's thesis](https://turtelll.github.io/Thesis/), and the classes and [vertex copies](#vertex-copies) follow [mactrem's proposal](https://github.com/maplibre/maplibre-tile-spec/discussions/1921#discussioncomment-19862670).

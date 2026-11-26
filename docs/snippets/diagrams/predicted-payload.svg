@@ -1,19 +1,36 @@
-<svg class="mlt-diagram" viewBox="0 0 710 112" role="img" aria-label="Payload sections in order: the header, then class streams 0 to 5, each when it holds a residual" xmlns="http://www.w3.org/2000/svg">
-<rect class="plain" x="209" y="34" width="64" height="34" rx="3"/>
-<text class="cell" x="241" y="51">header</text>
-<rect class="f1" x="277" y="34" width="34" height="34" rx="3"/>
-<text class="cell" x="294" y="51">0</text>
-<rect class="f1" x="315" y="34" width="34" height="34" rx="3"/>
-<text class="cell" x="332" y="51">1</text>
-<rect class="f1" x="353" y="34" width="34" height="34" rx="3"/>
-<text class="cell" x="370" y="51">2</text>
-<rect class="f1" x="391" y="34" width="34" height="34" rx="3"/>
-<text class="cell" x="408" y="51">3</text>
-<rect class="f1" x="429" y="34" width="34" height="34" rx="3"/>
-<text class="cell" x="446" y="51">4</text>
-<rect class="f1" x="467" y="34" width="34" height="34" rx="3"/>
-<text class="cell" x="484" y="51">5</text>
-<path class="bracket" d="M277 28V22H501V28"/>
-<text class="small mid" x="389" y="10">class streams</text>
-<text class="muted small mid" x="389" y="86">each when it holds a residual</text>
+<svg class="mlt-diagram" viewBox="0 0 710 112" role="img" aria-label="Payload sections in order: header, always; counts, with copies or line references; ops_len, with copies and line references; class streams 0 to 5, each when it holds a residual; copy ops, with copies, ops_len bytes long when ops_len is present; reference bits, with line references" xmlns="http://www.w3.org/2000/svg">
+<rect class="plain" x="5" y="34" width="64" height="34" rx="3"/>
+<text class="cell" x="37" y="51">header</text>
+<text class="muted small mid" x="37" y="86">always</text>
+<rect class="f0" x="73" y="34" width="84" height="34" rx="3"/>
+<text class="cell" x="115" y="51">counts</text>
+<text class="muted small mid" x="115" y="86">copies or</text>
+<text class="muted small mid" x="115" y="100">line refs</text>
+<rect class="f0" x="161" y="34" width="92" height="34" rx="3"/>
+<text class="cell" x="207" y="51">ops_len</text>
+<text class="muted small mid" x="207" y="86">copies and</text>
+<text class="muted small mid" x="207" y="100">line refs</text>
+<rect class="f1" x="257" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="274" y="51">0</text>
+<rect class="f1" x="295" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="312" y="51">1</text>
+<rect class="f1" x="333" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="350" y="51">2</text>
+<rect class="f1" x="371" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="388" y="51">3</text>
+<rect class="f1" x="409" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="426" y="51">4</text>
+<rect class="f1" x="447" y="34" width="34" height="34" rx="3"/>
+<text class="cell" x="464" y="51">5</text>
+<rect class="f0" x="485" y="34" width="92" height="34" rx="3"/>
+<text class="cell" x="531" y="51">copy ops</text>
+<text class="muted small mid" x="531" y="86">copies</text>
+<rect class="f0" x="581" y="34" width="124" height="34" rx="3"/>
+<text class="cell" x="643" y="51">reference bits</text>
+<text class="muted small mid" x="643" y="86">line refs</text>
+<path class="bracket" d="M257 28V22H481V28"/>
+<text class="small mid" x="369" y="10">class streams</text>
+<text class="muted small mid" x="369" y="86">each when it holds a residual</text>
+<path class="bracket" d="M485 28V22H577V28"/>
+<text class="small mid" x="531" y="10">ops_len bytes</text>
 </svg>
