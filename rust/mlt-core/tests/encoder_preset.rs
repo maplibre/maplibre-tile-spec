@@ -229,6 +229,27 @@ fn a_preset_allows_presence_rle_under_v2_as_documented(
 }
 
 #[rstest::rstest]
+#[case::native(Profile::Native(Network::Cellular4G), false)]
+#[case::web(Profile::Web(Network::Cellular4G), false)]
+#[case::min_size(Profile::MinSize, true)]
+#[case::diffable(Profile::Diffable, false)]
+#[case::fast_encoding(Profile::FastEncoding, false)]
+fn a_preset_allows_float_alp_under_v2_as_documented(
+    #[case] profile: Profile,
+    #[case] allowed: bool,
+) {
+    let v2 = EncoderConfig::from_profile(profile).with_wire_version(WireVersion::V02);
+    assert_eq!(v2.allow_float_alp(), allowed);
+}
+
+#[test]
+fn the_min_size_preset_allows_no_float_alp_under_v1() {
+    let min_size_v1 =
+        EncoderConfig::from_profile(Profile::MinSize).with_wire_version(WireVersion::V01);
+    assert!(!min_size_v1.allow_float_alp());
+}
+
+#[rstest::rstest]
 #[case::native(Profile::Native(Network::Cellular4G))]
 #[case::min_size(Profile::MinSize)]
 fn a_preset_allows_no_presence_rle_under_v1(#[case] profile: Profile) {
