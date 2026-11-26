@@ -205,7 +205,7 @@ enum Profile {
     /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2 --rans-vertices`
     #[value(name = "min_size", alias = "min-size")]
     MinSize,
-    /// Small binary diffs between releases: `--no-fsst --no-shared-dict`, and under MLT version 2 `--delta2 --no-presence-rle`
+    /// Small binary diffs between releases: `--no-fsst --no-fastpfor --no-shared-dict`, and under MLT version 2 `--delta2 --no-presence-rle`
     Diffable,
     /// The quickest encode: no triangles, sorts, `FSST`, `FastPFOR` or shared dictionaries, so tiles come out larger
     #[value(name = "fast_encoding", alias = "fast-encoding")]

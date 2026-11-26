@@ -138,9 +138,9 @@ fn the_diffable_preset_switches_shared_dictionaries_off() {
 }
 
 #[test]
-fn the_diffable_preset_keeps_fastpfor() {
+fn the_diffable_preset_switches_fastpfor_off() {
     let diffable = EncoderConfig::from_profile(Profile::Diffable);
-    assert!(diffable.allow_fastpfor());
+    assert!(!diffable.allow_fastpfor());
 }
 
 #[test]
