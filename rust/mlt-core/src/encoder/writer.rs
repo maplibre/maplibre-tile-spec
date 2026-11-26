@@ -25,7 +25,7 @@ use crate::{MltError, MltResult};
 /// Logical temporary buffers live in `Codecs` and are passed alongside
 /// the encoder while a stream is being transformed and serialized. Physical
 /// encoders live here with their own scratch buffers, then copy complete
-/// payloads into [`data`](Encoder::data).
+/// payloads into `data`.
 ///
 /// # Buffer layout
 ///
@@ -42,42 +42,9 @@ use crate::{MltError, MltResult};
 /// combined at the end *without* any in-place insertion or extra copies:
 ///
 /// * `hdr` - layer header (name, extent, `column_count`).
-/// * [`meta`] - column-type bytes (one byte + optional name per column).
-/// * [`data`] - encoded stream data; also the target of [`impl Write`].
+/// * `meta` - column-type bytes (one byte + optional name per column).
+/// * `data` - encoded stream data; also the target of [`impl Write`].
 ///
-/// # Sort-strategy trialing
-///
-/// Create one `Encoder` per sort-strategy trial, encode the layer into it,
-/// and keep the one whose `total_len()` is smallest:
-///
-/// ```rust,ignore
-/// let mut codecs = Codecs::default();
-/// let mut best: Option<Encoder> = None;
-/// for strategy in strategies {
-///     let mut enc = Encoder::new(cfg);
-///     layer.write_to(&mut enc, &mut codecs)?;
-///     if best.as_ref().is_none_or(|b| enc.total_len() < b.total_len()) {
-///         best = Some(enc);
-///     }
-/// }
-/// return best.unwrap().into_layer_bytes();
-/// ```
-///
-/// # Stream-level encoding alternatives
-///
-/// Use [`Encoder::try_alternatives`] to open a competition,
-/// then submit each candidate via `AltSession::with`.  The guard's `Drop`
-/// impl finalises the competition automatically:
-///
-/// ```rust,ignore
-/// let mut alt = enc.try_alternatives();
-/// alt.with(|enc| write_stream_as_varint(data, enc))?;
-/// alt.with(|enc| write_stream_as_fastpfor(data, enc))?;
-/// // alt drops -> keeps whichever is smaller by the configured `Ranking`
-/// ```
-///
-/// [`meta`]: Encoder::meta
-/// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
 pub struct Encoder {
     /// Encoding configuration: controls which optimization strategies are tried
@@ -240,13 +207,13 @@ impl Encoder {
 
     #[inline]
     #[must_use]
-    pub fn config(&self) -> EncoderConfig {
+    pub(crate) fn config(&self) -> EncoderConfig {
         self.cfg
     }
 
     #[inline]
     #[must_use]
-    pub fn data(&self) -> &[u8] {
+    pub(crate) fn data(&self) -> &[u8] {
         &self.data
     }
 
@@ -255,21 +222,16 @@ impl Encoder {
         &mut self.data
     }
 
+    #[cfg(test)]
     #[inline]
     #[must_use]
-    pub fn meta(&self) -> &[u8] {
+    pub(crate) fn meta(&self) -> &[u8] {
         &self.meta
     }
 
     #[inline]
     pub(crate) fn meta_mut(&mut self) -> &mut Vec<u8> {
         &mut self.meta
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn section_lens(&self) -> (usize, usize, usize) {
-        (self.hdr.len(), self.meta.len(), self.data.len())
     }
 
     #[inline]
@@ -286,7 +248,7 @@ impl Encoder {
     ///
     /// Must be called exactly once per layer, after all column meta and data.
     #[hotpath::measure]
-    pub fn write_header01(
+    pub(crate) fn write_header01(
         &mut self,
         name: &str,
         extent: u32,
@@ -380,7 +342,7 @@ impl Encoder {
     /// Total encoded bytes across all three sections (`hdr + meta + data`).
     #[inline]
     #[must_use]
-    pub fn total_len(&self) -> usize {
+    pub(crate) fn total_len(&self) -> usize {
         self.hdr.len() + self.meta.len() + self.data.len()
     }
 
@@ -459,7 +421,7 @@ impl Encoder {
     /// }
     /// // alt drops -> finalises the competition
     /// ```
-    pub fn try_alternatives<T>(&mut self) -> AltSession<'_, T> {
+    pub(crate) fn try_alternatives<T>(&mut self) -> AltSession<'_, T> {
         self.alt_stack.push(AltLevel {
             data_start: self.data.len(),
             meta_start: self.meta.len(),
@@ -633,7 +595,7 @@ struct AltLevel {
 /// `with` closure opens an inner competition that is fully
 /// resolved before the outer candidate is committed.
 #[must_use = "AltSession must be used; drop it to finalise the competition"]
-pub struct AltSession<'a, T = ()> {
+pub(crate) struct AltSession<'a, T = ()> {
     enc: &'a mut Encoder,
     /// What the closure of the current best candidate returned.
     winner: Option<T>,
@@ -647,7 +609,7 @@ impl<T> AltSession<'_, T> {
     ///   and returns the error.  The guard's `Drop` still finalises the
     ///   competition cleanly using whichever candidates succeeded so far.
     #[hotpath::measure]
-    pub fn with<F>(&mut self, f: F) -> MltResult<()>
+    pub(crate) fn with<F>(&mut self, f: F) -> MltResult<()>
     where
         F: FnOnce(&mut Encoder) -> MltResult<T>,
     {
@@ -671,7 +633,7 @@ impl<T> AltSession<'_, T> {
 
 impl<T> AltSession<'_, T> {
     /// Finalise the competition and return what the kept candidate's closure returned, or `None` if no candidate succeeded.
-    pub fn finish(mut self) -> Option<T> {
+    pub(crate) fn finish(mut self) -> Option<T> {
         self.winner.take()
     }
 }
@@ -682,7 +644,7 @@ impl<T> Drop for AltSession<'_, T> {
     }
 }
 
-/// Writes bytes to [`Encoder::data`].
+/// Writes bytes to the encoder's stream data section.
 ///
 /// This blanket implementation makes `Encoder` compatible with all
 /// `BinarySerializer`, `VarIntWriter`, and other `Write`-based utilities so that
