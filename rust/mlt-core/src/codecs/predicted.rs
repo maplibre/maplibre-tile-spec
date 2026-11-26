@@ -67,8 +67,6 @@ pub struct Sharing {
 pub struct Header {
     pub guesses: Guesses,
     pub sharing: Sharing,
-    /// Whether the class streams are Rice coded.
-    pub rice: bool,
 }
 
 /// The class of a vertex, which picks its stream and its guess.
@@ -84,14 +82,10 @@ enum Tag {
 }
 
 const CLASSES: usize = 6;
-/// The leading class streams written as split varints, the others as two planes.
-const SPLIT_VARINT_CLASSES: usize = 2;
 const QUAD: u32 = 4;
-const ESCAPE: u8 = 0xFF;
 const COPIES: u8 = 0x08;
 const LINE_REFERENCES: u8 = 0x10;
-const RICE: u8 = 0x20;
-const RESERVED: u8 = 0xC0;
+const RESERVED: u8 = 0xE0;
 
 impl LineGuess {
     /// The shortest line part whose later vertices continue the last edge.
@@ -179,8 +173,7 @@ impl Header {
         } else {
             0
         };
-        let rice = if self.rice { RICE } else { 0 };
-        self.guesses.bits() | copies | line_references | rice
+        self.guesses.bits() | copies | line_references
     }
 
     fn from_byte(byte: u8) -> MltResult<Self> {
@@ -193,7 +186,6 @@ impl Header {
                 copies: byte & COPIES != 0,
                 line_references: byte & LINE_REFERENCES != 0,
             },
-            rice: byte & RICE != 0,
         })
     }
 }
@@ -430,61 +422,36 @@ pub fn header(data: &[u8]) -> MltResult<Header> {
     Header::from_byte(byte)
 }
 
-/// What the vertices of one class stream cost in every layout.
+/// What the vertices of one class stream cost.
 #[derive(Clone, Copy)]
 struct ClassCost {
     axes: [RiceCosts; 2],
-    /// The bytes of the byte layout.
-    bytes: usize,
     vertices: usize,
 }
 
 impl ClassCost {
     const NONE: Self = Self {
         axes: [RiceCosts::NONE; 2],
-        bytes: 0,
         vertices: 0,
     };
 
-    fn add(&mut self, class: usize, pair: [u32; 2]) {
+    fn add(&mut self, pair: [u32; 2]) {
         self.vertices += 1;
         self.axes[0].add(pair[0]);
         self.axes[1].add(pair[1]);
-        self.bytes += pair.iter().map(|&v| byte_len(class, v)).sum::<usize>();
     }
 
     fn sub(&mut self, other: &Self) {
         self.axes[0].sub(&other.axes[0]);
         self.axes[1].sub(&other.axes[1]);
-        self.bytes -= other.bytes;
         self.vertices -= other.vertices;
     }
 
-    /// The bytes of the stream in a layout.
-    fn stream_len(&self, rice: bool) -> usize {
-        if !rice {
-            return self.bytes;
-        }
+    /// The bytes of the stream.
+    fn stream_len(&self) -> usize {
         let bits = self.axes[0].best().1 + self.axes[1].best().1;
         let bytes = usize::try_from(bits.div_ceil(8)).unwrap_or(usize::MAX);
         1 + vertex_copies::varint_len(bytes) + bytes
-    }
-}
-
-/// The bytes a value of a class takes in the byte layout.
-fn byte_len(class: usize, v: u32) -> usize {
-    if class < SPLIT_VARINT_CLASSES {
-        1 + if v > 0x7F {
-            vertex_copies::varint_len((v >> 7).into_usize())
-        } else {
-            0
-        }
-    } else {
-        1 + if v >= u32::from(ESCAPE) {
-            vertex_copies::varint_len((v - u32::from(ESCAPE)).into_usize())
-        } else {
-            0
-        }
     }
 }
 
@@ -497,8 +464,7 @@ fn class_costs(
     let mut costs = [ClassCost::NONE; CLASSES];
     for (i, (&tag, &pair)) in tags.iter().zip(residuals.as_chunks::<2>().0).enumerate() {
         if keep(i) {
-            let class = tag.stream();
-            costs[class].add(class, pair);
+            costs[tag.stream()].add(pair);
         }
     }
     costs
@@ -525,7 +491,7 @@ fn payload_len(
     len + stored
         .iter()
         .filter(|c| c.vertices > 0)
-        .map(|c| c.stream_len(header.rice))
+        .map(ClassCost::stream_len)
         .sum::<usize>()
 }
 
@@ -566,25 +532,22 @@ pub fn encode(vertices: &[i32], runs: &[Run]) -> MltResult<Vec<u8>> {
                     stored.sub(shared);
                 }
             }
-            for rice in [false, true] {
-                let header = Header {
-                    guesses,
-                    sharing: plan.sharing,
-                    rice,
-                };
-                let len = payload_len(header, plan, &totals, &stored);
-                if best
-                    .as_ref()
-                    .is_none_or(|b| (len, header.byte()) < (b.len, b.header.byte()))
-                {
-                    best = Some(Best {
-                        len,
-                        header,
-                        tags: tags.clone(),
-                        residuals: residuals.clone(),
-                        plan: plan.clone(),
-                    });
-                }
+            let header = Header {
+                guesses,
+                sharing: plan.sharing,
+            };
+            let len = payload_len(header, plan, &totals, &stored);
+            if best
+                .as_ref()
+                .is_none_or(|b| (len, header.byte()) < (b.len, b.header.byte()))
+            {
+                best = Some(Best {
+                    len,
+                    header,
+                    tags: tags.clone(),
+                    residuals: residuals.clone(),
+                    plan: plan.clone(),
+                });
             }
         }
     }
@@ -661,17 +624,8 @@ fn write(residuals: &[u32], tags: &[Tag], header: Header, plan: &Plan) -> Vec<u8
     if header.sharing.copies && header.sharing.line_references {
         write_varint(plan.ops.len(), &mut out);
     }
-    for (class, stream) in streams.iter().enumerate() {
-        if stream.is_empty() {
-            continue;
-        }
-        if header.rice {
-            write_rice(stream, &mut out);
-        } else if class < SPLIT_VARINT_CLASSES {
-            write_split_varint(stream, &mut out);
-        } else {
-            write_two_plane(stream, &mut out);
-        }
+    for stream in streams.iter().filter(|s| !s.is_empty()) {
+        write_rice(stream, &mut out);
     }
     out.extend_from_slice(&plan.ops);
     out.extend_from_slice(&plan.bits);
@@ -686,11 +640,7 @@ pub fn decode(
     dec: &mut Decoder,
 ) -> MltResult<Vec<i32>> {
     let (&byte, mut rest) = data.split_first().ok_or(Malformed("no header byte"))?;
-    let Header {
-        guesses,
-        sharing,
-        rice,
-    } = Header::from_byte(byte)?;
+    let Header { guesses, sharing } = Header::from_byte(byte)?;
     let n = vertex_count.into_usize();
     let totals = class_lengths(runs, n)?;
     let mut lengths = totals;
@@ -710,7 +660,7 @@ pub fn decode(
     } else {
         None
     };
-    let (mut walk, rest) = Walk::new(rest, &lengths, guesses, rice)?;
+    let (mut walk, rest) = Walk::new(rest, &lengths, guesses)?;
     let (ops, bits) = match (sharing.copies, ops_len) {
         (false, _) => (&[][..], rest),
         (true, None) => (rest, &[][..]),
@@ -746,7 +696,7 @@ pub fn decode(
             _ => None,
         };
         if line_references.is_none() && !copier.copies_before(end) {
-            walk.residuals(&mut vertices[..end], start, [start, end], run.kind)?;
+            walk.residuals(&mut vertices[..end], start, [start, end], run.kind);
         } else {
             walk.shared_run(
                 &mut vertices[..end],
@@ -808,12 +758,12 @@ fn class_lengths(runs: &[Run], vertex_count: usize) -> MltResult<[usize; CLASSES
 
 /// The decoder state between runs, with a reader per class stream.
 struct Walk<'a> {
-    start: Values<'a>,
-    point: Values<'a>,
-    ring: Values<'a>,
-    corner: Values<'a>,
-    line_second: Values<'a>,
-    line: Values<'a>,
+    start: Rice<'a>,
+    point: Rice<'a>,
+    ring: Rice<'a>,
+    corner: Rice<'a>,
+    line_second: Rice<'a>,
+    line: Rice<'a>,
     start_guess: StartGuess,
     /// The shortest line part whose later vertices continue the last edge.
     continued_from: usize,
@@ -827,17 +777,12 @@ impl<'a> Walk<'a> {
         data: &'a [u8],
         lengths: &[usize; CLASSES],
         guesses: Guesses,
-        rice: bool,
     ) -> MltResult<(Self, &'a [u8])> {
-        let mut streams = [Values::default(); CLASSES];
+        let mut streams = [Rice::default(); CLASSES];
         let mut rest = data;
-        for (class, (stream, &len)) in streams.iter_mut().zip(lengths).enumerate() {
+        for (stream, &len) in streams.iter_mut().zip(lengths) {
             if len > 0 {
-                (*stream, rest) = if rice {
-                    Values::locate_rice(rest, 2 * len)?
-                } else {
-                    Values::locate(rest, 2 * len, class < SPLIT_VARINT_CLASSES)?
-                };
+                (*stream, rest) = Rice::locate(rest, 2 * len)?;
             }
         }
         let [start, point, ring, corner, line_second, line] = streams;
@@ -871,19 +816,10 @@ impl<'a> Walk<'a> {
             }
             let stop = copier.next().min(vertices.len());
             let mut p = previous(vertices, i);
-            let points = &mut vertices[i..stop];
-            if let Some(rice) = &mut self.point.rice {
-                rice.fill(points, |r| {
-                    p = add(p, r);
-                    p
-                });
-            } else {
-                let pairs = self.point.pairs(points.len())?;
-                for (v, &heads) in points.iter_mut().zip(pairs) {
-                    p = add(p, self.point.split_varint(heads)?);
-                    *v = p;
-                }
-            }
+            self.point.fill(&mut vertices[i..stop], |r| {
+                p = add(p, r);
+                p
+            });
             i = stop;
         }
         Ok(())
@@ -919,7 +855,7 @@ impl<'a> Walk<'a> {
             if references.is_some() && i < last {
                 stop = stop.min(last);
             }
-            self.residuals(vertices, start, [i, stop], kind)?;
+            self.residuals(vertices, start, [i, stop], kind);
             i = stop;
         }
         self.run_start = vertices[start];
@@ -933,7 +869,7 @@ impl<'a> Walk<'a> {
         start: usize,
         [from, to]: [usize; 2],
         kind: RunKind,
-    ) -> MltResult<()> {
+    ) {
         let len = vertices.len() - start;
         let mut k = from - start;
         if k == 0 {
@@ -941,24 +877,24 @@ impl<'a> Walk<'a> {
                 StartGuess::Previous => previous(vertices, start),
                 StartGuess::RunStart => self.run_start,
             };
-            self.run_start = add(guess, self.start.residual()?);
+            self.run_start = add(guess, self.start.residual());
             vertices[start] = self.run_start;
             k = 1;
         }
         let run = &mut vertices[start..to];
         if k >= run.len() {
-            return Ok(());
+            return;
         }
         match kind {
             RunKind::Ring if len == QUAD.into_usize() && k == 1 && run.len() == len => {
-                run[1] = add(run[0], self.ring.residual()?);
-                run[2] = add(run[1], self.ring.residual()?);
+                run[1] = add(run[0], self.ring.residual());
+                run[2] = add(run[1], self.ring.residual());
                 let corner = [0, 1].map(|axis| {
                     run[0][axis]
                         .wrapping_add(run[2][axis])
                         .wrapping_sub(run[1][axis])
                 });
-                run[3] = add(corner, self.corner.residual()?);
+                run[3] = add(corner, self.corner.residual());
             }
             RunKind::Ring if len == QUAD.into_usize() => {
                 for k in k..run.len() {
@@ -968,28 +904,27 @@ impl<'a> Walk<'a> {
                                 .wrapping_add(run[2][axis])
                                 .wrapping_sub(run[1][axis])
                         });
-                        run[3] = add(corner, self.corner.residual()?);
+                        run[3] = add(corner, self.corner.residual());
                     } else {
-                        run[k] = add(run[k - 1], self.ring.residual()?);
+                        run[k] = add(run[k - 1], self.ring.residual());
                     }
                 }
             }
-            RunKind::Ring => self.ring.deltas(&mut run[k - 1..])?,
+            RunKind::Ring => self.ring.deltas(&mut run[k - 1..]),
             RunKind::Line => {
                 if k == 1 {
-                    run[1] = add(run[0], self.line_second.residual()?);
+                    run[1] = add(run[0], self.line_second.residual());
                     k = 2;
                 }
                 if k < run.len() {
                     if len >= self.continued_from {
-                        self.line.continued(&mut run[k - 2..])?;
+                        self.line.continued(&mut run[k - 2..]);
                     } else {
-                        self.line.deltas(&mut run[k - 1..])?;
+                        self.line.deltas(&mut run[k - 1..]);
                     }
                 }
             }
         }
-        Ok(())
     }
 
     /// Checks that the vertices took every residual of every class stream.
@@ -1015,202 +950,8 @@ fn add(a: Pos, b: Pos) -> Pos {
     [a[0].wrapping_add(b[0]), a[1].wrapping_add(b[1])]
 }
 
-/// One class stream, read in order: a head byte per value, then the wider values.
+/// One Rice coded class stream, read least significant bit first through a 64 bit buffer.
 #[derive(Clone, Copy, Default)]
-struct Values<'a> {
-    heads: &'a [u8],
-    tail: &'a [u8],
-    split_varint: bool,
-    rice: Option<Rice<'a>>,
-}
-
-impl<'a> Values<'a> {
-    /// Splits a stream of `count` values off `data`, as split varints or as two planes.
-    fn locate(data: &'a [u8], count: usize, split_varint: bool) -> MltResult<(Self, &'a [u8])> {
-        let (cut_heads, cut_tail) = if split_varint {
-            (
-                "split varint heads are cut short",
-                "split varint tail is cut short",
-            )
-        } else {
-            (
-                "two-plane low bytes are cut short",
-                "two-plane varint is cut short",
-            )
-        };
-        let Some((heads, rest)) = data.split_at_checked(count) else {
-            return Err(Malformed(cut_heads));
-        };
-        #[expect(
-            clippy::naive_bytecount,
-            reason = "one count per stream needs no bytecount dependency"
-        )]
-        let wide = if split_varint {
-            heads.iter().filter(|&&h| h & 0x80 != 0).count()
-        } else {
-            heads.iter().filter(|&&h| h == ESCAPE).count()
-        };
-        let Some(tail_len) = varints_len(rest, wide) else {
-            return Err(Malformed(cut_tail));
-        };
-        let (tail, rest) = rest.split_at(tail_len);
-        let values = Self {
-            heads,
-            tail,
-            split_varint,
-            rice: None,
-        };
-        Ok((values, rest))
-    }
-
-    /// Splits a Rice coded stream of `count` values off `data`.
-    fn locate_rice(data: &'a [u8], count: usize) -> MltResult<(Self, &'a [u8])> {
-        let Some((&params, rest)) = data.split_first() else {
-            return Err(Malformed("rice parameters are cut short"));
-        };
-        let (rest, byte_len) = parse_varint::<u32>(rest)?;
-        let Some((bits, rest)) = rest.split_at_checked(byte_len.into_usize()) else {
-            return Err(Malformed("rice bits are cut short"));
-        };
-        let rice = Rice {
-            data: bits,
-            at: 0,
-            buf: 0,
-            filled: 0,
-            ks: [u32::from(params & 0x0F), u32::from(params >> 4)],
-            masks: [(1_u32 << (params & 0x0F)) - 1, (1_u32 << (params >> 4)) - 1],
-            fixed_bits: 2 + u32::from(params & 0x0F) + u32::from(params >> 4),
-            pair_bits: 2 * RICE_ESCAPE_Q + u32::from(params & 0x0F) + u32::from(params >> 4),
-            remaining: count,
-            bad: 0,
-        };
-        let values = Self {
-            rice: Some(rice),
-            ..Self::default()
-        };
-        Ok((values, rest))
-    }
-
-    /// The residual of the next vertex, from whichever layout the stream has.
-    #[expect(
-        clippy::inline_always,
-        reason = "measured 34M fewer instructions than #[inline] on the omt tiles"
-    )]
-    #[inline(always)]
-    fn residual(&mut self) -> MltResult<Pos> {
-        if let Some(rice) = &mut self.rice {
-            return Ok(rice.pair());
-        }
-        let heads = self.pair()?;
-        if self.split_varint {
-            self.split_varint(heads)
-        } else {
-            self.two_plane(heads)
-        }
-    }
-
-    /// Checks that the vertices took every residual of the stream.
-    fn finish(&self) -> MltResult<()> {
-        match &self.rice {
-            Some(rice) => rice.finish(),
-            None if self.heads.is_empty() => Ok(()),
-            None => Err(Malformed(
-                "shared vertices disagree with the stream lengths",
-            )),
-        }
-    }
-
-    /// The head bytes of the next `count` vertices.
-    fn pairs(&mut self, count: usize) -> MltResult<&'a [[u8; 2]]> {
-        let Some((pairs, rest)) = self.heads.split_at_checked(2 * count) else {
-            return Err(Malformed(
-                "shared vertices disagree with the stream lengths",
-            ));
-        };
-        self.heads = rest;
-        Ok(pairs.as_chunks::<2>().0)
-    }
-
-    /// The head bytes of the next vertex.
-    fn pair(&mut self) -> MltResult<[u8; 2]> {
-        let Some((&pair, rest)) = self.heads.split_first_chunk() else {
-            return Err(Malformed(
-                "shared vertices disagree with the stream lengths",
-            ));
-        };
-        self.heads = rest;
-        Ok(pair)
-    }
-
-    /// The residual of a vertex with split varint `heads`.
-    #[inline]
-    fn split_varint(&mut self, heads: [u8; 2]) -> MltResult<Pos> {
-        if (heads[0] | heads[1]) & 0x80 == 0 {
-            return Ok(heads.map(|h| unzigzag(u32::from(h))));
-        }
-        let x = read_split_varint(heads[0], &mut self.tail)?;
-        let y = read_split_varint(heads[1], &mut self.tail)?;
-        Ok([unzigzag(x), unzigzag(y)])
-    }
-
-    /// The residual of a vertex with two-plane `low` bytes.
-    #[inline]
-    fn two_plane(&mut self, low: [u8; 2]) -> MltResult<Pos> {
-        if low[0] != ESCAPE && low[1] != ESCAPE {
-            return Ok(low.map(|b| unzigzag(u32::from(b))));
-        }
-        let x = read_two_plane(low[0], &mut self.tail)?;
-        let y = read_two_plane(low[1], &mut self.tail)?;
-        Ok([unzigzag(x), unzigzag(y)])
-    }
-
-    /// Decodes each vertex of `run` after the first as the one before it plus its residual.
-    fn deltas(&mut self, run: &mut [Pos]) -> MltResult<()> {
-        let Some((first, later)) = run.split_first_mut() else {
-            return Ok(());
-        };
-        let mut p = *first;
-        if let Some(rice) = &mut self.rice {
-            rice.fill(later, |r| {
-                p = add(p, r);
-                p
-            });
-            return Ok(());
-        }
-        let pairs = self.pairs(later.len())?;
-        for (v, &low) in later.iter_mut().zip(pairs) {
-            p = add(p, self.two_plane(low)?);
-            *v = p;
-        }
-        Ok(())
-    }
-
-    /// Decodes each vertex of `run` after the second as the last edge continued plus its residual.
-    fn continued(&mut self, run: &mut [Pos]) -> MltResult<()> {
-        let [mut a, mut b, ..] = *run else {
-            return Ok(());
-        };
-        let later = &mut run[2..];
-        if let Some(rice) = &mut self.rice {
-            rice.fill(later, |r| {
-                let guess = [0, 1].map(|axis| b[axis].wrapping_mul(2).wrapping_sub(a[axis]));
-                (a, b) = (b, add(guess, r));
-                b
-            });
-            return Ok(());
-        }
-        let pairs = self.pairs(later.len())?;
-        for (v, &low) in later.iter_mut().zip(pairs) {
-            let guess = [0, 1].map(|axis| b[axis].wrapping_mul(2).wrapping_sub(a[axis]));
-            (a, b) = (b, add(guess, self.two_plane(low)?));
-            *v = b;
-        }
-        Ok(())
-    }
-}
-
-/// Bit data of a Rice coded stream, read least significant bit first through a 64 bit buffer.
-#[derive(Clone, Copy)]
 struct Rice<'a> {
     data: &'a [u8],
     /// The next byte of `data` to buffer.
@@ -1231,7 +972,7 @@ struct Rice<'a> {
     bad: u8,
 }
 
-impl Rice<'_> {
+impl<'a> Rice<'a> {
     /// Bits an escaped value takes at most, the largest read between two refills.
     const MAX_BITS: u32 = RICE_ESCAPE_Q + 6 + 32;
 
@@ -1246,6 +987,55 @@ impl Rice<'_> {
         "rice value exceeds 32 bits",
         "shared vertices disagree with the stream lengths",
     ];
+
+    /// Splits a stream of `count` values off `data`.
+    fn locate(data: &'a [u8], count: usize) -> MltResult<(Self, &'a [u8])> {
+        let Some((&params, rest)) = data.split_first() else {
+            return Err(Malformed("rice parameters are cut short"));
+        };
+        let (rest, byte_len) = parse_varint::<u32>(rest)?;
+        let Some((bits, rest)) = rest.split_at_checked(byte_len.into_usize()) else {
+            return Err(Malformed("rice bits are cut short"));
+        };
+        let ks = [u32::from(params & 0x0F), u32::from(params >> 4)];
+        let rice = Self {
+            data: bits,
+            at: 0,
+            buf: 0,
+            filled: 0,
+            ks,
+            masks: ks.map(|k| (1_u32 << k) - 1),
+            fixed_bits: 2 + ks[0] + ks[1],
+            pair_bits: 2 * RICE_ESCAPE_Q + ks[0] + ks[1],
+            remaining: count,
+            bad: 0,
+        };
+        Ok((rice, rest))
+    }
+
+    /// Decodes each vertex of `run` after the first as the one before it plus its residual.
+    fn deltas(&mut self, run: &mut [Pos]) {
+        let Some((first, later)) = run.split_first_mut() else {
+            return;
+        };
+        let mut p = *first;
+        self.fill(later, |r| {
+            p = add(p, r);
+            p
+        });
+    }
+
+    /// Decodes each vertex of `run` after the second as the last edge continued plus its residual.
+    fn continued(&mut self, run: &mut [Pos]) {
+        let [mut a, mut b, ..] = *run else {
+            return;
+        };
+        self.fill(&mut run[2..], |r| {
+            let guess = [0, 1].map(|axis| b[axis].wrapping_mul(2).wrapping_sub(a[axis]));
+            (a, b) = (b, add(guess, r));
+            b
+        });
+    }
 
     #[inline]
     fn refill(&mut self) {
@@ -1304,8 +1094,12 @@ impl Rice<'_> {
     }
 
     /// The residual of the next vertex.
-    #[inline]
-    fn pair(&mut self) -> Pos {
+    #[expect(
+        clippy::inline_always,
+        reason = "measured 34M fewer instructions than #[inline] on the omt tiles"
+    )]
+    #[inline(always)]
+    fn residual(&mut self) -> Pos {
         self.reserve(1);
         self.pair_reserved()
     }
@@ -1565,23 +1359,6 @@ fn write_rice(values: &[u32], out: &mut Vec<u8>) {
     out.extend_from_slice(&bytes);
 }
 
-/// The bytes the first `count` varints of `data` take, or `None` when it holds fewer.
-fn varints_len(data: &[u8], count: usize) -> Option<usize> {
-    if count == 0 {
-        return Some(0);
-    }
-    let mut left = count;
-    for (i, &byte) in data.iter().enumerate() {
-        if byte & 0x80 == 0 {
-            left -= 1;
-            if left == 0 {
-                return Some(i + 1);
-            }
-        }
-    }
-    None
-}
-
 /// The tag of every vertex, which only the topology and the line guess decide.
 fn classify(runs: &[Run], vertex_count: usize, line: LineGuess) -> MltResult<Vec<Tag>> {
     let mut tags = vec![Tag::Point; vertex_count];
@@ -1674,85 +1451,6 @@ pub(super) fn write_varint(mut v: usize, out: &mut Vec<u8>) {
     }
 }
 
-/// One head byte per value, then the continuation bytes of all values.
-fn write_split_varint(values: &[u32], out: &mut Vec<u8>) {
-    out.extend(values.iter().map(|&v| {
-        let low = (v & 0x7F) as u8;
-        if v > 0x7F { low | 0x80 } else { low }
-    }));
-    for &v in values.iter().filter(|&&v| v > 0x7F) {
-        write_varint((v >> 7).into_usize(), out);
-    }
-}
-
-/// The value of split varint `head`, taking its continuation bytes off `tail`.
-fn read_split_varint(head: u8, tail: &mut &[u8]) -> MltResult<u32> {
-    let mut value = u32::from(head & 0x7F);
-    if head & 0x80 == 0 {
-        return Ok(value);
-    }
-    let mut shift = 7;
-    loop {
-        let Some((&byte, rest)) = tail.split_first() else {
-            return Err(Malformed("split varint tail is cut short"));
-        };
-        *tail = rest;
-        let bits = u32::from(byte & 0x7F);
-        if shift > 28 || (shift == 28 && bits > 0x0F) {
-            return Err(Malformed("split varint exceeds 32 bits"));
-        }
-        value |= bits << shift;
-        if byte & 0x80 == 0 {
-            if byte == 0 {
-                return Err(Malformed("split varint is not minimal"));
-            }
-            return Ok(value);
-        }
-        shift += 7;
-    }
-}
-
-/// One byte per value with `0xFF` escaping a larger one, then the escaped values less `255` as varints.
-fn write_two_plane(values: &[u32], out: &mut Vec<u8>) {
-    #[expect(clippy::cast_possible_truncation, reason = "below the escape marker")]
-    out.extend(values.iter().map(|&v| v.min(u32::from(ESCAPE)) as u8));
-    for &v in values {
-        if let Some(wide) = v.checked_sub(u32::from(ESCAPE)) {
-            write_varint(wide.into_usize(), out);
-        }
-    }
-}
-
-/// The value of two-plane `low` byte, taking its escaped varint off `high`.
-fn read_two_plane(low: u8, high: &mut &[u8]) -> MltResult<u32> {
-    if low != ESCAPE {
-        return Ok(u32::from(low));
-    }
-    let mut value = 0_u32;
-    let mut shift = 0;
-    loop {
-        let Some((&byte, rest)) = high.split_first() else {
-            return Err(Malformed("two-plane varint is cut short"));
-        };
-        *high = rest;
-        let bits = u32::from(byte & 0x7F);
-        if shift > 28 || (shift == 28 && bits > 0x0F) {
-            return Err(Malformed("two-plane varint exceeds 32 bits"));
-        }
-        value |= bits << shift;
-        if byte & 0x80 == 0 {
-            if byte == 0 && shift > 0 {
-                return Err(Malformed("two-plane varint is not minimal"));
-            }
-            let Some(value) = value.checked_add(u32::from(ESCAPE)) else {
-                return Err(Malformed("two-plane value exceeds 32 bits"));
-            };
-            return Ok(value);
-        }
-        shift += 7;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -1801,29 +1499,6 @@ mod tests {
         let vertices = [
             100, 200, 130, 200, 130, 240, 100, 240, 105, 205, 115, 205, 125, 207,
         ];
-        let header = Header {
-            guesses: Guesses {
-                start: StartGuess::RunStart,
-                line: LineGuess::ContinuedFromThree,
-            },
-            sharing: Sharing::NONE,
-            rice: false,
-        };
-        let payload = encode_as(&vertices, &[ring(0, 4), line(4, 3)], header).unwrap();
-        assert_eq!(
-            payload,
-            [
-                0x05, 0xC8, 0x90, 0x0A, 0x0A, 0x01, 0x03, 0x3C, 0x00, 0x00, 0x50, 0x00, 0x00, 0x14,
-                0x00, 0x00, 0x04
-            ]
-        );
-    }
-
-    #[test]
-    fn a_ring_and_a_line_encode_to_the_exact_rice_payload() {
-        let vertices = [
-            100, 200, 130, 200, 130, 240, 100, 240, 105, 205, 115, 205, 125, 207,
-        ];
         let runs = [ring(0, 4), line(4, 3)];
         let header = Header {
             guesses: Guesses {
@@ -1831,13 +1506,12 @@ mod tests {
                 line: LineGuess::ContinuedFromThree,
             },
             sharing: Sharing::NONE,
-            rice: true,
         };
         let payload = encode_as(&vertices, &runs, header).unwrap();
         assert_eq!(
             payload,
             [
-                0x25, 0x76, 0x05, 0x88, 0x20, 0xA4, 0x52, 0x01, 0x54, 0x04, 0xC8, 0x41, 0x20, 0x04,
+                0x05, 0x76, 0x05, 0x88, 0x20, 0xA4, 0x52, 0x01, 0x54, 0x04, 0xC8, 0x41, 0x20, 0x04,
                 0x00, 0x01, 0x03, 0x03, 0x01, 0x64, 0x10, 0x01, 0x09
             ]
         );
@@ -1860,15 +1534,14 @@ mod tests {
                 copies: true,
                 line_references: true,
             },
-            rice: false,
         };
         let payload = encode_as(&vertices, &runs, header).unwrap();
         assert_eq!(
             payload,
             [
-                0x19, 0x02, 0x01, 0x00, 0x00, 0x03, 0x00, 0x00, 0xC8, 0x00, 0x01, 0xC8, 0x00, 0x00,
-                0xC8, 0xC8, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC8, 0x00, 0x00, 0xC8, 0x04, 0x05, 0x01,
-                0xC0
+                0x19, 0x02, 0x01, 0x00, 0x00, 0x03, 0x06, 0x03, 0x81, 0x88, 0x04, 0x57, 0x07, 0x22,
+                0x83, 0x00, 0x20, 0x12, 0x19, 0x00, 0x00, 0x01, 0x0F, 0x66, 0x05, 0x88, 0x04, 0x02,
+                0x88, 0x00, 0x04, 0x05, 0x01, 0xC0
             ]
         );
         assert_eq!(decode(&payload, &runs, 12, &mut dec()).unwrap(), vertices);
@@ -1949,7 +1622,6 @@ mod tests {
                 line: line_guess,
             },
             sharing,
-            rice: false,
         };
         let payload = encode_as(&vertices, &runs, header).unwrap();
         assert_eq!(super::header(&payload).unwrap(), header);
@@ -1957,7 +1629,7 @@ mod tests {
     }
 
     fn rice_points_payload(bits: &[u8]) -> Vec<u8> {
-        let mut payload = vec![RICE, 0x00];
+        let mut payload = vec![0x00, 0x00];
         write_varint(bits.len(), &mut payload);
         payload.extend_from_slice(bits);
         payload
@@ -1986,7 +1658,6 @@ mod tests {
             let header = Header {
                 guesses,
                 sharing,
-                rice: true,
             };
             let payload = encode_as(&vertices, &runs, header).unwrap();
             assert_eq!(super::header(&payload).unwrap(), header);
@@ -2000,7 +1671,6 @@ mod tests {
         let header = Header {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
-            rice: true,
         };
         let payload = encode_as(&vertices, &[], header).unwrap();
         assert_eq!(decode(&payload, &[], 5, &mut dec()).unwrap(), vertices);
@@ -2031,11 +1701,11 @@ mod tests {
         let mut written = Vec::new();
         write_rice(&values, &mut written);
         assert_eq!(written[0], 0xFF);
-        let (mut stream, rest) = Values::locate_rice(&written, 4).unwrap();
+        let (mut stream, rest) = Rice::locate(&written, 4).unwrap();
         assert_eq!(rest, [0_u8; 0]);
         for pair in values.as_chunks::<2>().0 {
             assert_eq!(
-                stream.residual().unwrap(),
+                stream.residual(),
                 [unzigzag(pair[0]), unzigzag(pair[1])]
             );
         }
@@ -2047,7 +1717,6 @@ mod tests {
         let header = Header {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
-            rice: true,
         };
         let payload = encode_as(&[1, 1, 2, 2], &[], header).unwrap();
         let (&last, shorter) = payload.split_last().unwrap();
@@ -2065,7 +1734,6 @@ mod tests {
         let header = Header {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
-            rice: true,
         };
         let mut payload = encode_as(&[1, 1, 2, 2], &[], header).unwrap();
         payload.push(0);
@@ -2081,7 +1749,6 @@ mod tests {
         let header = Header {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
-            rice: true,
         };
         let mut payload = encode_as(&[1, 1, 2, 2], &[], header).unwrap();
         *payload.last_mut().unwrap() |= 0x80;
@@ -2125,44 +1792,11 @@ mod tests {
         let header = Header {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
-            rice: true,
         };
         let payload = encode_as(&vertices, &[], header).unwrap();
         for cut in 0..payload.len() {
             assert!(decode(&payload[..cut], &[], 4, &mut dec()).is_err());
         }
-    }
-
-    #[rstest]
-    #[case::below_the_escape(254, &[0xFE])]
-    #[case::at_the_escape(255, &[0xFF, 0x00])]
-    #[case::above_the_escape(256, &[0xFF, 0x01])]
-    #[case::two_varint_bytes(255 + 128, &[0xFF, 0x80, 0x01])]
-    #[case::largest(u32::MAX, &[0xFF, 0x80, 0xFE, 0xFF, 0xFF, 0x0F])]
-    fn two_planes_escape_from_255(#[case] value: u32, #[case] bytes: &[u8]) {
-        let mut written = Vec::new();
-        write_two_plane(&[value], &mut written);
-        assert_eq!(written, bytes);
-        let (&low, mut high) = bytes.split_first().unwrap();
-        assert_eq!(read_two_plane(low, &mut high).unwrap(), value);
-        assert_eq!(high, &[] as &[u8]);
-    }
-
-    #[test]
-    fn two_planes_keep_escaped_values_in_order_behind_the_low_bytes() {
-        let mut written = Vec::new();
-        write_two_plane(&[3, 300, 254, 255, 70_000], &mut written);
-        assert_eq!(
-            written,
-            [0x03, 0xFF, 0xFE, 0xFF, 0xFF, 0x2D, 0x00, 0xF1, 0xA0, 0x04]
-        );
-    }
-
-    #[test]
-    fn split_varints_move_continuation_bytes_behind_the_heads() {
-        let mut written = Vec::new();
-        write_split_varint(&[5, 300, 7], &mut written);
-        assert_eq!(written, [0x05, 0xAC, 0x07, 0x02]);
     }
 
     #[test]
@@ -2176,7 +1810,7 @@ mod tests {
     #[test]
     fn the_race_keeps_the_lowest_header_byte_on_a_tie() {
         let payload = encode(&[1, 2, 3, 4], &[line(0, 2)]).unwrap();
-        assert_eq!(payload, [0x00, 0x02, 0x04, 0x04, 0x04]);
+        assert_eq!(payload, [0x00, 0x10, 0x01, 0x24, 0x11, 0x01, 0x44]);
     }
 
     #[test]
@@ -2236,19 +1870,18 @@ mod tests {
 
     #[rstest]
     #[case::no_header(&[], "no header byte")]
-    #[case::line_guess_three(&[0x06, 0x00, 0x00], "unknown line guess")]
-    #[case::run_start_line_guess_three(&[0x07, 0x00, 0x00], "unknown line guess")]
-    #[case::reserved_bit_6(&[0x40, 0x00, 0x00], "reserved header bit set")]
-    #[case::reserved_bit_7(&[0x80, 0x00, 0x00], "reserved header bit set")]
-    #[case::trailing_bytes(&[0x00, 0x00, 0x00, 0x00], "bytes after the last stream")]
-    #[case::cut_heads(&[0x00, 0x00], "split varint heads are cut short")]
-    #[case::cut_tail(&[0x00, 0x80, 0x00], "split varint tail is cut short")]
-    #[case::not_minimal(&[0x00, 0x80, 0x00, 0x00], "split varint is not minimal")]
-    #[case::too_wide(&[0x00, 0x80, 0x00, 0xFF, 0xFF, 0xFF, 0x7F], "split varint exceeds 32 bits")]
+    #[case::line_guess_three(&[0x06, 0x00, 0x01, 0x03], "unknown line guess")]
+    #[case::run_start_line_guess_three(&[0x07, 0x00, 0x01, 0x03], "unknown line guess")]
+    #[case::reserved_bit_5(&[0x20, 0x00, 0x01, 0x03], "reserved header bit set")]
+    #[case::reserved_bit_6(&[0x40, 0x00, 0x01, 0x03], "reserved header bit set")]
+    #[case::reserved_bit_7(&[0x80, 0x00, 0x01, 0x03], "reserved header bit set")]
+    #[case::trailing_bytes(&[0x00, 0x00, 0x01, 0x03, 0x00], "bytes after the last stream")]
+    #[case::no_parameter_byte(&[0x00], "rice parameters are cut short")]
+    #[case::bit_data_shorter_than_its_length(&[0x00, 0x00, 0x01], "rice bits are cut short")]
     #[case::more_shared_than_vertices(&[0x08, 0x02], "more shared vertices than vertices in a stream")]
     #[case::shared_without_a_copy(&[0x08, 0x01], "shared vertices disagree with the stream lengths")]
-    #[case::ops_cut_short(&[0x18, 0x00, 0x01, 0x00, 0x00], "copy ops are cut short")]
-    #[case::bits_after_the_reference_flags(&[0x10, 0x00, 0x00, 0x00, 0x00], "bytes after the last reference bit")]
+    #[case::ops_cut_short(&[0x18, 0x00, 0x01, 0x00, 0x01, 0x03], "copy ops are cut short")]
+    #[case::bits_after_the_reference_flags(&[0x10, 0x00, 0x00, 0x01, 0x03, 0x00], "bytes after the last reference bit")]
     fn malformed_point_payloads_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
         let err = decode(data, &[], 1, &mut dec()).unwrap_err();
         assert_eq!(
@@ -2258,13 +1891,10 @@ mod tests {
     }
 
     #[rstest]
-    #[case::cut_low(&[0x00, 0x00, 0x00, 0x00], "two-plane low bytes are cut short")]
-    #[case::cut_high(&[0x00, 0x00, 0x00, 0xFF, 0x00], "two-plane varint is cut short")]
-    #[case::not_minimal(&[0x00, 0x00, 0x00, 0xFF, 0x00, 0x80, 0x00], "two-plane varint is not minimal")]
-    #[case::too_wide(&[0x00, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F], "two-plane varint exceeds 32 bits")]
-    #[case::overflow(&[0x00, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F], "two-plane value exceeds 32 bits")]
-    #[case::copy_without_a_count(&[0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x00], "shared vertices disagree with the stream lengths")]
-    #[case::count_without_a_copy(&[0x08, 0x00, 0x01, 0x00, 0x00], "shared vertices disagree with the stream lengths")]
+    #[case::no_ring_stream(&[0x00, 0x00, 0x01, 0x03], "rice parameters are cut short")]
+    #[case::ring_bits_shorter_than_their_length(&[0x00, 0x00, 0x01, 0x03, 0x00, 0x01], "rice bits are cut short")]
+    #[case::copy_without_a_count(&[0x08, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x03, 0x01, 0x02, 0x00], "shared vertices disagree with the stream lengths")]
+    #[case::count_without_a_copy(&[0x08, 0x00, 0x01, 0x00, 0x01, 0x03], "shared vertices disagree with the stream lengths")]
     fn malformed_ring_payloads_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
         let err = decode(data, &[ring(0, 2)], 2, &mut dec()).unwrap_err();
         assert_eq!(
@@ -2274,10 +1904,10 @@ mod tests {
     }
 
     #[rstest]
-    #[case::flag_cut_short(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], "reference bits are cut short")]
-    #[case::index_past_the_slots(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xE0], "reference index past the slots")]
-    #[case::padding_set(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x88], "bytes after the last reference bit")]
-    #[case::byte_after_the_bits(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00], "bytes after the last reference bit")]
+    #[case::flag_cut_short(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x0F, 0x00, 0x01, 0x03], "reference bits are cut short")]
+    #[case::index_past_the_slots(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x0F, 0x00, 0x01, 0x03, 0xE0], "reference index past the slots")]
+    #[case::padding_set(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x0F, 0x00, 0x01, 0x03, 0x88], "bytes after the last reference bit")]
+    #[case::byte_after_the_bits(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x0F, 0x00, 0x01, 0x03, 0x80, 0x00], "bytes after the last reference bit")]
     fn malformed_line_references_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
         let runs = [line(0, 3), line(3, 2)];
         let err = decode(data, &runs, 5, &mut dec()).unwrap_err();
@@ -2297,13 +1927,12 @@ mod tests {
                 line: LineGuess::Previous,
             },
             sharing: Sharing::NONE,
-            rice: false,
         };
         let payload = encode_as(&vertices, &runs, header).unwrap();
         let err = decode(&payload[..payload.len() - 1], &runs, 6, &mut dec()).unwrap_err();
         assert_eq!(
             err.to_string(),
-            "predicted vertex stream is malformed: two-plane low bytes are cut short"
+            "predicted vertex stream is malformed: rice bits are cut short"
         );
     }
 
@@ -2331,7 +1960,6 @@ mod tests {
                 copies: true,
                 line_references: true,
             },
-            rice: false,
         };
         let payload = encode_as(&vertices, &runs, header).unwrap();
         assert_eq!(decode(&payload, &runs, 4, &mut dec()).unwrap(), vertices);
@@ -2381,10 +2009,8 @@ mod tests {
             let count = u32::try_from(vertices.len() / 2).unwrap();
             for guesses in Guesses::ALL {
                 for sharing in SHARINGS {
-                    for rice in [false, true] {
-                        let payload = encode_as(&vertices, &runs, Header { guesses, sharing, rice }).unwrap();
-                        prop_assert_eq!(decode(&payload, &runs, count, &mut dec()).unwrap(), vertices.clone());
-                    }
+                    let payload = encode_as(&vertices, &runs, Header { guesses, sharing }).unwrap();
+                    prop_assert_eq!(decode(&payload, &runs, count, &mut dec()).unwrap(), vertices.clone());
                 }
             }
         }
@@ -2400,7 +2026,7 @@ mod tests {
         fn the_race_is_never_longer_than_any_unshared_guess_pair((vertices, runs) in arb_layer()) {
             let raced = encode(&vertices, &runs).unwrap();
             for guesses in Guesses::ALL {
-                let unshared = Header { guesses, sharing: Sharing::NONE, rice: false };
+                let unshared = Header { guesses, sharing: Sharing::NONE };
                 prop_assert!(raced.len() <= encode_as(&vertices, &runs, unshared).unwrap().len());
             }
         }

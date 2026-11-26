@@ -1,5 +1,5 @@
-<svg class="mlt-diagram" viewBox="0 0 710 128" role="img" aria-label="The header byte 25 drawn bit 7 first: bits 6-7 reserved 0, bit 5 layout 1 for Rice, bit 4 line references 0, bit 3 copies 0, bits 1-2 line guess 2, bit 0 start guess 1" xmlns="http://www.w3.org/2000/svg">
-<text class="row" x="0" y="48">25</text>
+<svg class="mlt-diagram" viewBox="0 0 710 128" role="img" aria-label="The header byte 05 drawn bit 7 first: bits 5-7 reserved 0, bit 4 line references 0, bit 3 copies 0, bits 1-2 line guess 2, bit 0 start guess 1" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="48">05</text>
 <text class="muted small mid" x="162" y="14">b7</text>
 <rect class="plain" x="130" y="28" width="64" height="40" rx="3"/>
 <text class="cell" x="162" y="48">0</text>
@@ -7,8 +7,8 @@
 <rect class="plain" x="198" y="28" width="64" height="40" rx="3"/>
 <text class="cell" x="230" y="48">0</text>
 <text class="muted small mid" x="298" y="14">b5</text>
-<rect class="f0" x="266" y="28" width="64" height="40" rx="3"/>
-<text class="cell" x="298" y="48">1</text>
+<rect class="plain" x="266" y="28" width="64" height="40" rx="3"/>
+<text class="cell" x="298" y="48">0</text>
 <text class="muted small mid" x="366" y="14">b4</text>
 <rect class="f1" x="334" y="28" width="64" height="40" rx="3"/>
 <text class="cell" x="366" y="48">0</text>
@@ -24,12 +24,9 @@
 <text class="muted small mid" x="638" y="14">b0</text>
 <rect class="f0" x="606" y="28" width="64" height="40" rx="3"/>
 <text class="cell" x="638" y="48">1</text>
-<path class="bracket" d="M130 76V82H262V76"/>
-<text class="small mid" x="196" y="98">reserved</text>
-<text class="muted small mid" x="196" y="114">0</text>
-<path class="bracket" d="M266 76V82H330V76"/>
-<text class="small mid" x="298" y="98">layout</text>
-<text class="muted small mid" x="298" y="114">1 Rice</text>
+<path class="bracket" d="M130 76V82H330V76"/>
+<text class="small mid" x="230" y="98">reserved</text>
+<text class="muted small mid" x="230" y="114">0</text>
 <path class="bracket" d="M334 76V82H398V76"/>
 <text class="small mid" x="366" y="98">line refs</text>
 <text class="muted small mid" x="366" y="114">0</text>
