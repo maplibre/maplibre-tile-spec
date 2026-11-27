@@ -382,7 +382,7 @@ public final class MltEncoder implements AutoCloseable {
       return set(MltEncoderOptions.Flag.TRIANGLES_ONLY, enabled);
     }
 
-    /** v2 only: allows integer and vertex streams to store the deltas of their deltas. */
+    /** v2 only: allows integer streams to store the deltas of their deltas. */
     public Builder allowDelta2(boolean enabled) {
       return set(MltEncoderOptions.Flag.DELTA2, enabled);
     }

@@ -68,7 +68,6 @@ Pick a dataset below; the [method](#method) applies to all of them.
     | `--sort all` | -0.4% | -0.4% | +1% | +1% |
     | `--no-alp` | - | +0.0% | - | 0% |
     | `--no-bitpacking` | - | +0.7% | - | +1% |
-    | `--delta2` | - | -0.5% | - | 0% |
     | `--tessellate=always` | +21.9% | +24.9% | +27% | +14% |
     | `--tessellate=always --triangles-only` | - | +23.2% | - | +10% |
 
@@ -121,7 +120,6 @@ Pick a dataset below; the [method](#method) applies to all of them.
     | `--sort all` | -0.1% | -0.1% | +1% | +1% |
     | `--no-alp` | - | +0.1% | - | 0% |
     | `--no-bitpacking` | - | +0.3% | - | 0% |
-    | `--delta2` | - | -0.6% | - | +1% |
     | `--tessellate=always` | +32.4% | +35.8% | +145% | +68% |
     | `--tessellate=always --triangles-only` | - | +33.5% | - | +59% |
 
@@ -141,7 +139,7 @@ Pick a dataset below; the [method](#method) applies to all of them.
     | Option | For binary diffs | Rationale |
     |---|---|---|
     | `--mlt-version 2` | Use | Smaller tiles, less metadata, supports `--delta2`. |
-    | `--delta2` | Use | Densely sampled lines have tiny second differences, and an edit changes only the deltas next to it. |
+    | `--delta2` | Use | Smooth integer columns, such as per-vertex values along a densely sampled line, have tiny second differences, and an edit changes only the deltas next to it. |
     | `--sort none` | Likely use | Features keep their source order, so an edited feature does not move others. *Good/bad for bsdiff may be different based on data.* |
     | `--no-shared-dict` | Use | One new string would renumber the dictionary shared by several columns. |
     | `--no-fsst` | Use | FSST trains its symbol table on the column, so one changed string can change every compressed string. |

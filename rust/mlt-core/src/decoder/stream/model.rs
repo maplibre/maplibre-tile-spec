@@ -255,8 +255,6 @@ pub enum VertexLogical {
     None,
     Delta,
     ComponentwiseDelta,
-    /// Componentwise deltas of the componentwise deltas.
-    ComponentwiseDelta2,
     MortonDelta(Morton),
     /// Interleaved `(x, y, z)` triples, whose z lie on the grid of the step.
     #[cfg(feature = "unstable-v2")]
@@ -268,7 +266,7 @@ impl VertexLogical {
     #[must_use]
     pub fn words_per_vertex(self) -> u32 {
         match self {
-            Self::None | Self::Delta | Self::ComponentwiseDelta | Self::ComponentwiseDelta2 => 2,
+            Self::None | Self::Delta | Self::ComponentwiseDelta => 2,
             Self::MortonDelta(_) => 1,
             #[cfg(feature = "unstable-v2")]
             Self::Xyz(..) => 3,
@@ -613,7 +611,6 @@ impl Display for LogicalEncoding {
                     VertexLogical::None => "none",
                     VertexLogical::Delta => "delta",
                     VertexLogical::ComponentwiseDelta => "componentwise-delta",
-                    VertexLogical::ComponentwiseDelta2 => "componentwise-delta2",
                     VertexLogical::MortonDelta(_) => "morton-delta",
                     #[cfg(feature = "unstable-v2")]
                     VertexLogical::Xyz(_, XyzLogical::None) => "xyz-none",
@@ -737,10 +734,6 @@ mod tests {
     #[case::vertex_componentwise_delta(
         LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta),
         "vertex/componentwise-delta"
-    )]
-    #[case::vertex_componentwise_delta2(
-        LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2),
-        "vertex/componentwise-delta2"
     )]
     #[case::vertex_morton_delta(
         LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())),

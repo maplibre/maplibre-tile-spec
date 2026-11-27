@@ -201,7 +201,6 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
         StatLogicalCodec::DeltaRle => "delta-rle",
         StatLogicalCodec::Rle => "rle",
         StatLogicalCodec::ComponentwiseDelta => "componentwise-delta",
-        StatLogicalCodec::ComponentwiseDelta2 => "componentwise-delta2",
         StatLogicalCodec::MortonDelta => "morton-delta",
         StatLogicalCodec::Alp => "alp",
     })
@@ -964,7 +963,6 @@ pub enum StatLogicalCodec {
     Delta2,
     DeltaRle,
     ComponentwiseDelta,
-    ComponentwiseDelta2,
     Rle,
     MortonDelta,
     Alp,
@@ -986,7 +984,6 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Vertex(VertexLogical::MortonDelta(_)) => Self::MortonDelta,
             LE::Float(FloatLogical::Alp(_)) => Self::Alp,
             LE::Int(IntLogical::Delta2) => Self::Delta2,
-            LE::Vertex(VertexLogical::ComponentwiseDelta2) => Self::ComponentwiseDelta2,
             // z is the extension bit, not a codec: report the codec the triples use,
             // and leave the step to the `zStep` facet.
             LE::Vertex(VertexLogical::Xyz(_, xyz)) => match xyz {

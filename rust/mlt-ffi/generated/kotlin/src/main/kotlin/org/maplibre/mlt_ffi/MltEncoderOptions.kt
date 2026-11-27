@@ -199,7 +199,7 @@ class MltEncoderOptions internal constructor(
     }
 
     /**
-     * v2 only: allow integer and vertex streams to store the deltas of their deltas.
+     * v2 only: allow integer streams to store the deltas of their deltas.
      */
     fun setAllowDelta2(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_delta2(handle, enabled)

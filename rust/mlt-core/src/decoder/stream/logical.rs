@@ -8,8 +8,7 @@ use crate::MltError::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogi
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::zigzag::decode_componentwise_delta_vec3s;
 use crate::codecs::zigzag::{
-    decode_componentwise_delta_vec2s, decode_componentwise_delta2_vec2s, decode_zigzag,
-    decode_zigzag_delta, decode_zigzag_delta2,
+    decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta, decode_zigzag_delta2,
 };
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::XyzLogical;
@@ -144,7 +143,6 @@ impl LogicalValue {
                 decode_zigzag_delta::<i32, _>(&expanded, dec)
             }
             LE::Int(IL::Delta2) => decode_zigzag_delta2::<i32, _>(data, dec),
-            LE::Vertex(VL::ComponentwiseDelta2) => decode_componentwise_delta2_vec2s(data, dec),
             LE::Vertex(VL::MortonDelta(v)) => v.decode_delta(data, dec),
             #[cfg(feature = "unstable-v2")]
             LE::Vertex(VL::Xyz(_, xyz)) => {

@@ -83,7 +83,7 @@ public:
     inline void set_allow_triangles_only(bool enabled);
 
     /**
-     * v2 only: allow integer and vertex streams to store the deltas of their deltas.
+     * v2 only: allow integer streams to store the deltas of their deltas.
      */
     inline void set_allow_delta2(bool enabled);
 

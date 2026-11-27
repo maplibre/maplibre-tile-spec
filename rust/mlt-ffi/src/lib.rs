@@ -209,7 +209,7 @@ mod ffi {
             self.0 = self.0.with_triangles_only(enabled);
         }
 
-        /// v2 only: allow integer and vertex streams to store the deltas of their deltas.
+        /// v2 only: allow integer streams to store the deltas of their deltas.
         pub fn set_allow_delta2(&mut self, enabled: bool) {
             self.0 = self.0.with_delta2(enabled);
         }

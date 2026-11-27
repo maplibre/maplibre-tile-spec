@@ -529,7 +529,7 @@ pub struct EncoderConfig {
     /// Let a tessellated all-polygon layer store its triangles without the outlines.
     #[cfg(feature = "unstable-v2")]
     allow_triangles_only: bool,
-    /// Allow the v2-only second-order delta encodings of integer and vertex streams
+    /// Allow the v2-only second-order delta encodings of integer streams
     #[cfg(feature = "unstable-v2")]
     allow_delta2: bool,
     /// Allow the v2-only Boolean RLE coding of presence and bool bitfields
@@ -782,14 +782,14 @@ impl EncoderConfig {
         self
     }
 
-    /// Whether integer and vertex streams may store the deltas of their deltas, which only v2 can express.
+    /// Whether integer streams may store the deltas of their deltas, which only v2 can express.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn allow_delta2(self) -> bool {
         self.allow_delta2 && self.wire_version != WireVersion::V01
     }
 
-    /// Allow integer and vertex streams to store the deltas of their deltas.
+    /// Allow integer streams to store the deltas of their deltas.
     #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn with_delta2(mut self, enabled: bool) -> Self {

@@ -456,7 +456,7 @@ struct V2EncoderArgs {
     /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
     #[clap(long)]
     triangles_only: bool,
-    /// Let integer and vertex streams store the deltas of their deltas when that is shorter
+    /// Let integer streams store the deltas of their deltas when that is shorter
     #[clap(long)]
     delta2: bool,
     /// Store presence and bool bitfields as plain bitmaps, never as Boolean RLE
