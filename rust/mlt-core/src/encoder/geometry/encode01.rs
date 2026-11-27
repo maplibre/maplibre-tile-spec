@@ -203,39 +203,11 @@ impl GeometryValues {
             };
         } else if !tessellated && dict_may_be_beneficial(&vertices, enc) {
             // Morton fits (the gate above ensures it), so race all three.
-            let mut winner_size: usize = usize::MAX;
-            let mut winner_stream_cnt: u8 = 0;
             let mut alt = enc.try_alternatives();
-            alt.with(|e| {
-                let ds = e.data().len();
-                let ms = e.meta().len();
-                winner_stream_cnt = encode_vec2_vertex_stream(&vertices, e, codecs)?;
-                winner_size = (e.data().len() - ds) + (e.meta().len() - ms);
-                Ok(())
-            })?;
-            alt.with(|e| {
-                let ds = e.data().len();
-                let ms = e.meta().len();
-                let cnt = encode_hilbert_vertex_streams(&vertices, e, codecs)?;
-                let size = (e.data().len() - ds) + (e.meta().len() - ms);
-                if size < winner_size {
-                    winner_stream_cnt = cnt;
-                    winner_size = size;
-                }
-                Ok(())
-            })?;
-            alt.with(|e| {
-                let ds = e.data().len();
-                let ms = e.meta().len();
-                let cnt = encode_morton_vertex_streams(&vertices, e, codecs)?;
-                let size = (e.data().len() - ds) + (e.meta().len() - ms);
-                if size < winner_size {
-                    winner_stream_cnt = cnt;
-                }
-                Ok(())
-            })?;
-            drop(alt);
-            n += winner_stream_cnt;
+            alt.with(|e| encode_vec2_vertex_stream(&vertices, e, codecs))?;
+            alt.with(|e| encode_hilbert_vertex_streams(&vertices, e, codecs))?;
+            alt.with(|e| encode_morton_vertex_streams(&vertices, e, codecs))?;
+            n += alt.finish().unwrap_or_default();
         } else {
             n += encode_vec2_vertex_stream(&vertices, enc, codecs)?;
         }

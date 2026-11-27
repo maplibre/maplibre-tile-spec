@@ -448,7 +448,7 @@ pub enum Tessellation {
 /// Encoder defaults for one kind of tile consumer, which explicit settings override.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Profile {
-    /// `MapLibre GL JS`: no triangles, which it ignores, and no `FastPFOR` or `FSST` unless [`Network::Offline`], since they lose bytes after HTTP compression, and under v2 no Boolean RLE presence.
+    /// `MapLibre GL JS`: no triangles, which it ignores, and unless [`Network::Offline`] no `FastPFOR` or `FSST` and candidates ranked by deflated size, since tiles travel HTTP-compressed, and under v2 no Boolean RLE presence.
     Web(Network),
     /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
     Native(Network),
@@ -491,6 +491,17 @@ pub enum Network {
     Cellular5G,
 }
 
+/// What the encoder compares to keep one of several candidate encodings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub enum Ranking {
+    /// The bytes the tile stores.
+    StoredSize,
+    /// The bytes after level-1 deflate, for tiles that travel HTTP-compressed.
+    /// Candidates under 32 stored bytes still compare by stored size.
+    DeflatedSize,
+}
+
 /// Global encoder settings controlling which optimization strategies are attempted.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 #[expect(
@@ -517,6 +528,8 @@ pub struct EncoderConfig {
     allow_fastpfor: bool,
     /// Allow string grouping into shared dictionaries
     allow_shared_dict: bool,
+    /// What candidate encodings are compared by
+    ranking: Ranking,
     /// Allow the v2-only Framed, Exception-Free ALP float encoding
     #[cfg(feature = "unstable-v2")]
     allow_float_alp: bool,
@@ -556,6 +569,7 @@ impl EncoderConfig {
                 allow_fsst: true,
                 allow_fastpfor: true,
                 allow_shared_dict: true,
+                ranking: Ranking::StoredSize,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -582,6 +596,11 @@ impl EncoderConfig {
                 allow_fsst: network == Network::Offline,
                 allow_fastpfor: network == Network::Offline,
                 allow_shared_dict: true,
+                ranking: if network == Network::Offline {
+                    Ranking::StoredSize
+                } else {
+                    Ranking::DeflatedSize
+                },
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -608,6 +627,7 @@ impl EncoderConfig {
                 allow_fsst: true,
                 allow_fastpfor: true,
                 allow_shared_dict: true,
+                ranking: Ranking::StoredSize,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: true,
                 #[cfg(feature = "unstable-v2")]
@@ -634,6 +654,7 @@ impl EncoderConfig {
                 allow_fsst: false,
                 allow_fastpfor: false,
                 allow_shared_dict: false,
+                ranking: Ranking::StoredSize,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -660,6 +681,7 @@ impl EncoderConfig {
                 allow_fsst: false,
                 allow_fastpfor: false,
                 allow_shared_dict: false,
+                ranking: Ranking::StoredSize,
                 #[cfg(feature = "unstable-v2")]
                 allow_float_alp: false,
                 #[cfg(feature = "unstable-v2")]
@@ -733,6 +755,18 @@ impl EncoderConfig {
     #[must_use]
     pub fn allow_shared_dict(self) -> bool {
         self.allow_shared_dict
+    }
+
+    #[must_use]
+    pub fn ranking(self) -> Ranking {
+        self.ranking
+    }
+
+    /// Compare candidate encodings by `ranking`, which changes only which one is kept.
+    #[must_use]
+    pub fn with_ranking(mut self, ranking: Ranking) -> Self {
+        self.ranking = ranking;
+        self
     }
 
     /// Whether a nested struct or map may code its row shapes, which only v2 can express.

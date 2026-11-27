@@ -1,8 +1,12 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::{io, mem};
 
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
+use miniz_oxide::deflate::core::{
+    CompressorOxide, TDEFLFlush, TDEFLStatus, compress_to_output, create_comp_flags_from_zip_params,
+};
 
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::LayerHeader02;
@@ -12,7 +16,7 @@ use crate::decoder::{ColumnType, Morton};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::model::FloatEncoding;
 use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
-use crate::encoder::{EncoderConfig, IntEncoder, Network, Profile, VertexBufferType};
+use crate::encoder::{EncoderConfig, IntEncoder, Network, Profile, Ranking, VertexBufferType};
 use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
@@ -21,7 +25,7 @@ use crate::{MltError, MltResult};
 /// Logical temporary buffers live in `Codecs` and are passed alongside
 /// the encoder while a stream is being transformed and serialized. Physical
 /// encoders live here with their own scratch buffers, then copy complete
-/// payloads into [`data`](Encoder::data).
+/// payloads into `data`.
 ///
 /// # Buffer layout
 ///
@@ -38,42 +42,9 @@ use crate::{MltError, MltResult};
 /// combined at the end *without* any in-place insertion or extra copies:
 ///
 /// * `hdr` - layer header (name, extent, `column_count`).
-/// * [`meta`] - column-type bytes (one byte + optional name per column).
-/// * [`data`] - encoded stream data; also the target of [`impl Write`].
+/// * `meta` - column-type bytes (one byte + optional name per column).
+/// * `data` - encoded stream data; also the target of [`impl Write`].
 ///
-/// # Sort-strategy trialing
-///
-/// Create one `Encoder` per sort-strategy trial, encode the layer into it,
-/// and keep the one whose `total_len()` is smallest:
-///
-/// ```rust,ignore
-/// let mut codecs = Codecs::default();
-/// let mut best: Option<Encoder> = None;
-/// for strategy in strategies {
-///     let mut enc = Encoder::new(cfg);
-///     layer.write_to(&mut enc, &mut codecs)?;
-///     if best.as_ref().is_none_or(|b| enc.total_len() < b.total_len()) {
-///         best = Some(enc);
-///     }
-/// }
-/// return best.unwrap().into_layer_bytes();
-/// ```
-///
-/// # Stream-level encoding alternatives
-///
-/// Use [`Encoder::try_alternatives`] to open a competition,
-/// then submit each candidate via `AltSession::with`.  The guard's `Drop`
-/// impl finalises the competition automatically:
-///
-/// ```rust,ignore
-/// let mut alt = enc.try_alternatives();
-/// alt.with(|enc| write_stream_as_varint(data, enc))?;
-/// alt.with(|enc| write_stream_as_fastpfor(data, enc))?;
-/// // alt drops -> keeps whichever was shorter
-/// ```
-///
-/// [`meta`]: Encoder::meta
-/// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
 pub struct Encoder {
     /// Encoding configuration: controls which optimization strategies are tried
@@ -236,13 +207,13 @@ impl Encoder {
 
     #[inline]
     #[must_use]
-    pub fn config(&self) -> EncoderConfig {
+    pub(crate) fn config(&self) -> EncoderConfig {
         self.cfg
     }
 
     #[inline]
     #[must_use]
-    pub fn data(&self) -> &[u8] {
+    pub(crate) fn data(&self) -> &[u8] {
         &self.data
     }
 
@@ -251,21 +222,16 @@ impl Encoder {
         &mut self.data
     }
 
+    #[cfg(test)]
     #[inline]
     #[must_use]
-    pub fn meta(&self) -> &[u8] {
+    pub(crate) fn meta(&self) -> &[u8] {
         &self.meta
     }
 
     #[inline]
     pub(crate) fn meta_mut(&mut self) -> &mut Vec<u8> {
         &mut self.meta
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn section_lens(&self) -> (usize, usize, usize) {
-        (self.hdr.len(), self.meta.len(), self.data.len())
     }
 
     #[inline]
@@ -282,7 +248,7 @@ impl Encoder {
     ///
     /// Must be called exactly once per layer, after all column meta and data.
     #[hotpath::measure]
-    pub fn write_header01(
+    pub(crate) fn write_header01(
         &mut self,
         name: &str,
         extent: u32,
@@ -376,7 +342,7 @@ impl Encoder {
     /// Total encoded bytes across all three sections (`hdr + meta + data`).
     #[inline]
     #[must_use]
-    pub fn total_len(&self) -> usize {
+    pub(crate) fn total_len(&self) -> usize {
         self.hdr.len() + self.meta.len() + self.data.len()
     }
 
@@ -439,7 +405,8 @@ impl Encoder {
     ///
     /// Returns an `AltSession` guard.  Submit each candidate via
     /// `AltSession::with`; the guard's `Drop` impl finalises
-    /// the competition and retains the shortest candidate automatically.
+    /// the competition and retains the smallest candidate automatically.
+    /// `AltSession::finish` also returns the value the kept candidate's closure returned.
     ///
     /// Nesting is supported: calling `try_alternatives` inside a
     /// `with` closure opens an inner competition on the same stack,
@@ -454,30 +421,35 @@ impl Encoder {
     /// }
     /// // alt drops -> finalises the competition
     /// ```
-    pub fn try_alternatives(&mut self) -> AltSession<'_> {
+    pub(crate) fn try_alternatives<T>(&mut self) -> AltSession<'_, T> {
         self.alt_stack.push(AltLevel {
             data_start: self.data.len(),
             meta_start: self.meta.len(),
             best_data: None,
             best_meta: None,
+            best_deflated: None,
         });
-        AltSession { enc: self }
+        AltSession {
+            enc: self,
+            winner: None,
+        }
     }
 
     /// Commit the current candidate at the innermost competition level.
     ///
-    /// Compares bytes written since the last commit against the running best
-    /// by **total** (`data + meta`) size; keeps the shorter one.
+    /// Compares bytes written since the last commit against the running best by the configured [`Ranking`].
+    /// Returns whether the candidate is now the best.
     ///
     /// Called internally by `AltSession::with` on `Ok`.
-    fn alt_commit(&mut self) {
+    fn alt_commit(&mut self) -> bool {
         debug_assert!(
             !self.alt_stack.is_empty(),
             "alt_commit called outside an active AltSession"
         );
+        let ranking = self.cfg.ranking();
         let (data, meta, stack) = (&mut self.data, &mut self.meta, &mut self.alt_stack);
         let level = stack.last_mut().unwrap();
-        Self::close_candidate(data, meta, level);
+        Self::close_candidate(data, meta, level, ranking)
     }
 
     /// Finalize the innermost competition and pop it from the stack.
@@ -491,12 +463,13 @@ impl Encoder {
             "alt_pop called outside an active AltSession"
         );
         {
+            let ranking = self.cfg.ranking();
             let (data, meta, stack) = (&mut self.data, &mut self.meta, &mut self.alt_stack);
             let level = stack.last_mut().unwrap();
             let data_pending = data.len() - (level.data_start + level.best_data.unwrap_or(0));
             let meta_pending = meta.len() - (level.meta_start + level.best_meta.unwrap_or(0));
             if data_pending > 0 || meta_pending > 0 || level.best_data.is_none() {
-                Self::close_candidate(data, meta, level);
+                Self::close_candidate(data, meta, level, ranking);
             }
         }
         self.alt_stack.pop();
@@ -504,17 +477,40 @@ impl Encoder {
 
     /// Shared compare-and-keep logic used by both `alt_commit` and `alt_pop`.
     ///
-    /// Compares the bytes written since the last committed candidate against
-    /// the current best by **total** (`data + meta`) size.
-    /// Keeps the shorter one; ties preserve the existing best.
-    fn close_candidate(data: &mut Vec<u8>, meta: &mut Vec<u8>, level: &mut AltLevel) {
+    /// Compares the bytes written since the last committed candidate against the current best by `ranking`.
+    /// Sizes are **total** (`data + meta`), ties go to the fewer stored bytes and then to the existing best.
+    /// Returns whether the candidate is now the best.
+    fn close_candidate(
+        data: &mut Vec<u8>,
+        meta: &mut Vec<u8>,
+        level: &mut AltLevel,
+        ranking: Ranking,
+    ) -> bool {
         let best_data_end = level.data_start + level.best_data.unwrap_or(0);
         let best_meta_end = level.meta_start + level.best_meta.unwrap_or(0);
         let cand_data = data.len() - best_data_end;
         let cand_meta = meta.len() - best_meta_end;
         let cand_total = cand_data + cand_meta;
         let best_total = level.best_data.unwrap_or(0) + level.best_meta.unwrap_or(0);
-        if level.best_data.is_none_or(|_| cand_total < best_total) {
+        let mut cand_deflated = None;
+        let wins = if level.best_data.is_none() {
+            true
+        } else if ranking == Ranking::DeflatedSize
+            && cand_total.max(best_total) >= DEFLATE_RANKING_MIN_LEN
+        {
+            let best = *level.best_deflated.get_or_insert_with(|| {
+                deflated_len(
+                    &meta[level.meta_start..best_meta_end],
+                    &data[level.data_start..best_data_end],
+                )
+            });
+            let cand = deflated_len(&meta[best_meta_end..], &data[best_data_end..]);
+            cand_deflated = Some(cand);
+            (cand, cand_total) < (best, best_total)
+        } else {
+            cand_total < best_total
+        };
+        if wins {
             // New best: shift data candidate bytes to data_start.
             if level.best_data.is_some() {
                 data.copy_within(best_data_end..best_data_end + cand_data, level.data_start);
@@ -524,12 +520,47 @@ impl Encoder {
             meta.truncate(level.meta_start + cand_meta);
             level.best_data = Some(cand_data);
             level.best_meta = Some(cand_meta);
+            level.best_deflated = cand_deflated;
         } else {
             // Not an improvement: discard.
             data.truncate(best_data_end);
             meta.truncate(best_meta_end);
         }
+        wins
     }
+}
+
+/// Stored size below which [`Ranking::DeflatedSize`] compares stored size, since deflate only adds framing to so few bytes.
+const DEFLATE_RANKING_MIN_LEN: usize = 32;
+
+/// The deflate level [`Ranking::DeflatedSize`] measures at.
+const DEFLATE_RANKING_LEVEL: i32 = 1;
+
+thread_local! {
+    /// The compressor [`deflated_len`] resets for each call, kept to spare its allocations.
+    static DEFLATER: RefCell<Option<Box<CompressorOxide>>> = const { RefCell::new(None) };
+}
+
+/// The raw deflate length of `meta` followed by `data`.
+///
+/// Each call starts from a reset compressor, since a full flush instead leaves stale positions that make lengths depend on earlier calls.
+fn deflated_len(meta: &[u8], data: &[u8]) -> usize {
+    DEFLATER.with_borrow_mut(|slot| {
+        let deflater = slot.get_or_insert_with(|| {
+            let flags = create_comp_flags_from_zip_params(DEFLATE_RANKING_LEVEL, -15, 0);
+            Box::new(CompressorOxide::new(flags))
+        });
+        deflater.reset();
+        let mut len = 0;
+        let mut count = |out: &[u8]| {
+            len += out.len();
+            true
+        };
+        compress_to_output(deflater, meta, TDEFLFlush::None, &mut count);
+        let (status, _) = compress_to_output(deflater, data, TDEFLFlush::Finish, &mut count);
+        debug_assert_eq!(status, TDEFLStatus::Done);
+        len
+    })
 }
 
 /// State for one level of an encoding competition.
@@ -538,8 +569,8 @@ impl Encoder {
 /// [`meta`](Encoder::meta) buffers, and the byte count of the best candidate
 /// committed so far.
 ///
-/// Candidates are compared by **total** bytes (`data + meta`); the shorter one
-/// wins, with ties resolved in favor of the earlier candidate.
+/// Candidates are compared by **total** bytes (`data + meta`) under the configured [`Ranking`],
+/// with ties resolved in favor of the earlier candidate.
 #[derive(Debug, Default, Clone)]
 struct AltLevel {
     data_start: usize,
@@ -548,12 +579,14 @@ struct AltLevel {
     best_data: Option<usize>,
     /// Byte count appended to `meta` by the current best candidate.
     best_meta: Option<usize>,
+    /// Deflated length of the current best candidate, once a deflate-ranked comparison measured it.
+    best_deflated: Option<usize>,
 }
 
 /// RAII guard for a stream-encoding competition opened by [`Encoder::try_alternatives`].
 ///
 /// Submit each candidate via [`with`](AltSession::with); on `Ok` the candidate is
-/// committed (compared against the running best and kept if shorter); on `Err`
+/// committed (compared against the running best and kept if smaller); on `Err`
 /// the partial write is rolled back and the error propagates.  The guard's
 /// `Drop` impl finalises the competition automatically, so the [`Encoder`] is
 /// always left in a consistent state even when an error exits the loop early.
@@ -562,27 +595,31 @@ struct AltLevel {
 /// `with` closure opens an inner competition that is fully
 /// resolved before the outer candidate is committed.
 #[must_use = "AltSession must be used; drop it to finalise the competition"]
-pub struct AltSession<'a> {
+pub(crate) struct AltSession<'a, T = ()> {
     enc: &'a mut Encoder,
+    /// What the closure of the current best candidate returned.
+    winner: Option<T>,
 }
 
-impl AltSession<'_> {
+impl<T> AltSession<'_, T> {
     /// Encode one candidate.
     ///
-    /// - **`Ok`** - commits the candidate; replaces the running best if shorter.
+    /// - **`Ok`** - commits the candidate; replaces the running best if smaller.
     /// - **`Err`** - truncates the partial write back to the pre-call checkpoint
     ///   and returns the error.  The guard's `Drop` still finalises the
     ///   competition cleanly using whichever candidates succeeded so far.
     #[hotpath::measure]
-    pub fn with<F>(&mut self, f: F) -> MltResult<()>
+    pub(crate) fn with<F>(&mut self, f: F) -> MltResult<()>
     where
-        F: FnOnce(&mut Encoder) -> MltResult<()>,
+        F: FnOnce(&mut Encoder) -> MltResult<T>,
     {
         let data_cp = self.enc.data.len();
         let meta_cp = self.enc.meta.len();
         match f(self.enc) {
-            Ok(()) => {
-                self.enc.alt_commit();
+            Ok(value) => {
+                if self.enc.alt_commit() {
+                    self.winner = Some(value);
+                }
                 Ok(())
             }
             Err(e) => {
@@ -594,13 +631,20 @@ impl AltSession<'_> {
     }
 }
 
-impl Drop for AltSession<'_> {
+impl<T> AltSession<'_, T> {
+    /// Finalise the competition and return what the kept candidate's closure returned, or `None` if no candidate succeeded.
+    pub(crate) fn finish(mut self) -> Option<T> {
+        self.winner.take()
+    }
+}
+
+impl<T> Drop for AltSession<'_, T> {
     fn drop(&mut self) {
         self.enc.alt_pop();
     }
 }
 
-/// Writes bytes to [`Encoder::data`].
+/// Writes bytes to the encoder's stream data section.
 ///
 /// This blanket implementation makes `Encoder` compatible with all
 /// `BinarySerializer`, `VarIntWriter`, and other `Write`-based utilities so that
@@ -875,5 +919,80 @@ mod tests {
         drop(alt);
 
         assert_eq!(enc.data, b"ok"); // "partial" was rolled back; "ok" kept
+    }
+
+    fn scrambled(len: u8) -> Vec<u8> {
+        (0..len)
+            .map(|i| i.wrapping_mul(167).wrapping_add(13))
+            .collect()
+    }
+
+    #[test]
+    fn deflated_size_ranking_keeps_the_longer_candidate_that_deflates_smaller() {
+        let mut enc = Encoder::new(
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+                .with_ranking(Ranking::DeflatedSize),
+        );
+
+        let mut alt = enc.try_alternatives();
+        alt.with(|enc| {
+            push(enc, &scrambled(40));
+            Ok("scrambled")
+        })
+        .unwrap();
+        alt.with(|enc| {
+            push(enc, &[0; 64]);
+            Ok("zeros")
+        })
+        .unwrap();
+
+        assert_eq!(alt.finish(), Some("zeros"));
+        assert_eq!(enc.data, [0; 64]);
+    }
+
+    #[test]
+    fn deflated_size_ranking_compares_candidates_under_32_bytes_by_stored_size() {
+        let mut enc = Encoder::new(
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+                .with_ranking(Ranking::DeflatedSize),
+        );
+
+        let mut alt = enc.try_alternatives();
+        alt.with(|enc| {
+            push(enc, &scrambled(20));
+            Ok("scrambled")
+        })
+        .unwrap();
+        alt.with(|enc| {
+            push(enc, &[0; 31]);
+            Ok("zeros")
+        })
+        .unwrap();
+
+        assert_eq!(alt.finish(), Some("scrambled"));
+        assert_eq!(enc.data, scrambled(20));
+    }
+
+    #[test]
+    fn stored_size_ranking_keeps_the_shorter_candidate_that_deflates_larger() {
+        let mut enc = Encoder::new(
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+                .with_ranking(Ranking::StoredSize),
+        );
+
+        let mut alt = enc.try_alternatives();
+        alt.with(|enc| {
+            push(enc, &scrambled(40));
+            Ok("scrambled")
+        })
+        .unwrap();
+        alt.with(|enc| {
+            push(enc, &[0; 64]);
+            Ok("zeros")
+        })
+        .unwrap();
+
+        assert_eq!(alt.finish(), Some("scrambled"));
+        assert_eq!(enc.data, scrambled(40));
     }
 }

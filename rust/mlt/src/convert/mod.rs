@@ -198,7 +198,7 @@ enum TessellateMode {
 /// Encoder defaults for one kind of tile consumer.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 enum Profile {
-    /// `MapLibre GL JS`: online, `--no-fastpfor --no-fsst`, which lose bytes after gzip, brotli and zstd, and under MLT version 2 `--no-presence-rle`
+    /// `MapLibre GL JS`: online, `--no-fastpfor --no-fsst`, which lose bytes after gzip, brotli and zstd, stream encodings picked by their deflated size, and under MLT version 2 `--no-presence-rle`
     Web,
     /// `MapLibre Native`: `--tessellate=auto`
     Native,

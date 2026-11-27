@@ -48,7 +48,7 @@ pub use crate::encoder::id::StagedId;
 #[cfg(feature = "unstable-v2")]
 pub use crate::encoder::model::WireVersion;
 pub use crate::encoder::model::{
-    Client, EncodedUnknown, EncoderConfig, Network, Profile, Tessellation,
+    Client, EncodedUnknown, EncoderConfig, Network, Profile, Ranking, Tessellation,
 };
 #[cfg(feature = "__private")]
 pub use crate::encoder::model::{
