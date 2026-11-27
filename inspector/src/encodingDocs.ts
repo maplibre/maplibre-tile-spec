@@ -125,13 +125,9 @@ const BY_LABEL: Record<string, Partial<Record<"v1" | "v2", string>>> = {
     v1: "v1#shared-dictionary-columns",
     v2: "v2#shared-dictionary-columns",
   },
-  // The vertex streams, and the two codecs that split their parameters into fields of
-  // their own: without these the header bytes beside a payload explain nothing.
+  // The vertex stream, and the parameters that split into fields of their own:
+  // without these the header bytes beside a payload explain nothing.
   vertices: { v2: "v2#the-vertex-sequence" },
-  vertex_dict: same("encodings#vertex-dictionary"),
-  vertex_offsets: same("encodings#vertex-dictionary"),
-  morton_bits: same("encodings#morton"),
-  morton_shift: same("encodings#morton"),
   alp_base: same("encodings#alp"),
   alp_scale: same("encodings#alp"),
   z_axis: { v2: "v2#z-coordinates" },
@@ -162,13 +158,7 @@ const BY_LABEL: Record<string, Partial<Record<"v1" | "v2", string>>> = {
 };
 
 /** A codec's parameters in a stream header, whose bytes the payload's encodings do not pack. */
-const CODEC_PARAMETERS = new Set([
-  "morton_bits",
-  "morton_shift",
-  "alp_base",
-  "alp_scale",
-  "z_axis",
-]);
+const CODEC_PARAMETERS = new Set(["alp_base", "alp_scale", "z_axis"]);
 
 /** The spec page describing the tile in hand, since the two tags lay bytes out differently. */
 export function specPage(tree: DumpTree | null): "v1" | "v2" {

@@ -430,6 +430,8 @@ pub enum MltError {
     },
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
+    #[error("v2 has no vertex dictionaries, so it cannot write {0} vertices")]
+    VertexDictionaryInV2(&'static str),
     #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
     UnsupportedPropertyEncoderCombination(&'static str, &'static str),
     #[error("mixed property types are not allowed in column {0} ({1})")]

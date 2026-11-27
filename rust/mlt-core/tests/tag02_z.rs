@@ -159,7 +159,7 @@ fn a_triangles_only_feature_carries_the_z_of_each_corner_in_decoded_order() {
 }
 
 #[test]
-fn repeated_vertices_pick_a_dictionary() {
+fn repeated_vertices_stay_plain() {
     let l = {
         let mut builder = TileLayer::builder("z", 4096).unwrap();
         builder.set_z_axis(step()).unwrap();
@@ -171,7 +171,7 @@ fn repeated_vertices_pick_a_dictionary() {
         builder.finish()
     };
     let bytes = assert_round_trips(&l, cfg_v2());
-    assert_eq!(geometry_layout(&bytes), "geometry layout = PointsDict");
+    assert_eq!(geometry_layout(&bytes), "geometry layout = Points");
 }
 
 #[test]

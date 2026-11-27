@@ -677,17 +677,15 @@ mod geometry_layouts {
         )
     }
 
-    /// Points cycling through a handful of coordinates, so a vertex dictionary pays off.
-    fn repeated_points(n: i32) -> Vec<Geometry<i32>> {
-        (0..n).map(|i| pt((i % 7) * 10, (i % 5) * 10)).collect()
-    }
-
     #[test]
-    fn repeated_vertices_pick_a_dictionary_layout() {
-        let l = layer(repeated_points(200), None, &[]);
+    fn repeated_vertices_stay_plain() {
+        let l = layer(
+            (0..200).map(|i| pt((i % 7) * 10, (i % 5) * 10)).collect(),
+            None,
+            &[],
+        );
         let dump = dump_text(&l.encode(cfg_v2()).unwrap());
-        assert!(dump.contains("geometry layout = PointsDict"), "{dump}");
-        assert!(dump.contains("vertex_offsets"), "{dump}");
+        assert!(dump.contains("geometry layout = Points\n"), "{dump}");
         assert_differential(&l);
     }
 

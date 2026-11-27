@@ -17,8 +17,6 @@ use crate::codecs::zigzag::encode_componentwise_delta_vec3s;
 use crate::decoder::GeometryType::Point;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::XyzLogical;
-#[cfg(feature = "unstable-v2")]
-use crate::decoder::stream::header02::{Family, WordWidth};
 use crate::decoder::{
     DictionaryType, GeometryType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType, VertexLogical,
@@ -371,17 +369,6 @@ pub(super) fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
         )
 }
 
-/// [`dict_may_be_beneficial`] for `(x, y, z)` triples, which a dictionary shares only when all three repeat.
-#[cfg(feature = "unstable-v2")]
-pub(super) fn xyz_dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
-    enc.morton_cache.is_some()
-        && mostly_repeated(vertices.as_chunks::<3>().0.iter().map(|&[x, y, z]| {
-            u128::from(x.cast_unsigned())
-                | (u128::from(y.cast_unsigned()) << 32)
-                | (u128::from(z.cast_unsigned()) << 64)
-        }))
-}
-
 /// Whether fewer than 66% of the packed `vertices` are distinct.
 ///
 /// Counts exactly, and stops as soon as the distinct count reaches that share.
@@ -561,69 +548,6 @@ pub(super) fn encode_hilbert_vertex_streams(
     Ok(n)
 }
 
-/// Encode a Morton-keyed vertex dictionary the way v2 orders it: the delta-coded
-/// Morton-code dictionary, then the per-vertex offsets into it.
-#[cfg(feature = "unstable-v2")]
-pub(super) fn encode_morton_vertex_streams02(
-    vertices: &[i32],
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    let morton = get_morton(enc);
-    let (dict, offsets) = build_morton_dict(vertices, morton)?;
-
-    // Take the scratch buffer out: the dictionary write below borrows it while
-    // `codecs.physical` is passed on, and the offsets write wants all of `codecs`.
-    let mut delta = mem::take(&mut codecs.logical.u32_tmp);
-    encode_morton_deltas(&dict, &mut delta);
-    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
-    let logical = LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton));
-    enc.family_context = Family::Vertex;
-    write_geo_precomputed_stream(&delta, ctx, logical, enc, &mut codecs.physical, true)?;
-    codecs.logical.u32_tmp = delta;
-
-    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
-    enc.family_context = Family::Int(WordWidth::W32);
-    write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
-    Ok(())
-}
-
-/// Encode a Hilbert-keyed vertex dictionary the way v2 orders it: the
-/// componentwise-delta-coded `[x, y, …]` dictionary in Hilbert order, then the
-/// per-vertex offsets into it.
-#[cfg(feature = "unstable-v2")]
-pub(super) fn encode_hilbert_vertex_streams02(
-    vertices: &[i32],
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    let params = get_hilbert_params(enc);
-
-    // Take scratch ownership locally: `write_geo_u32_stream` needs `&mut Codecs`,
-    // which would otherwise conflict with our `&[..]` views into these slots.
-    let mut offsets = mem::take(&mut codecs.logical.hilbert_offsets);
-    let mut indexed = mem::take(&mut codecs.logical.hilbert_indexed);
-    let mut dict_xy = mem::take(&mut codecs.logical.hilbert_dict_xy);
-    let mut delta = mem::take(&mut codecs.logical.u32_tmp);
-
-    build_hilbert_dict(vertices, params, &mut offsets, &mut indexed, &mut dict_xy);
-    codecs.logical.hilbert_indexed = indexed;
-
-    encode_componentwise_delta_vec2s(&dict_xy, &mut delta);
-    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
-    let logical = LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta);
-    enc.family_context = Family::Vertex;
-    write_geo_precomputed_stream(&delta, ctx, logical, enc, &mut codecs.physical, true)?;
-    codecs.logical.u32_tmp = delta;
-    codecs.logical.hilbert_dict_xy = dict_xy;
-
-    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
-    enc.family_context = Family::Int(WordWidth::W32);
-    write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
-    codecs.logical.hilbert_offsets = offsets;
-    Ok(())
-}
-
 /// The plain `(x, y, z)` vertex layout v2 writes: componentwise delta over `[x0, y0, z0, …]`.
 ///
 /// Always a stream, even an empty one, as [`encode_vec2_vertex_stream02`] writes.
@@ -638,58 +562,6 @@ pub(super) fn encode_vec3_vertex_stream02(
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
     let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(axis, XyzLogical::ComponentwiseDelta));
     write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical, false)?;
-    Ok(())
-}
-
-/// The distinct `(x, y, z)` triples of `vertices` in Hilbert order of their `(x, y)`, and the slot of each vertex.
-///
-/// A Hilbert key keeps only 16 bits per axis, so the triple itself breaks ties and decides what repeats.
-#[cfg(feature = "unstable-v2")]
-fn build_hilbert_xyz_dict(vertices: &[i32], params: CurveParams) -> (Vec<i32>, Vec<u32>) {
-    let triples = vertices.as_chunks::<3>().0;
-    let mut keyed: Vec<(u32, [i32; 3], usize)> = triples
-        .iter()
-        .enumerate()
-        .map(|(i, &[x, y, z])| (hilbert_sort_key(Coord { x, y }, params), [x, y, z], i))
-        .collect();
-    keyed.sort_unstable();
-
-    let mut dict = Vec::new();
-    let mut offsets = vec![0; triples.len()];
-    let mut last = None;
-    for (_, triple, i) in keyed {
-        if last != Some(triple) {
-            dict.extend_from_slice(&triple);
-            last = Some(triple);
-        }
-        offsets[i] = u32::try_from(dict.len() / 3 - 1).expect("vertex count fits a u32 index");
-    }
-    (dict, offsets)
-}
-
-/// The Hilbert-keyed `(x, y, z)` dictionary v2 writes: the componentwise-delta-coded triples, then the per-vertex offsets.
-///
-/// A Morton code spans only `x` and `y`, so this is the one dictionary an xyz layer has.
-#[cfg(feature = "unstable-v2")]
-pub(super) fn encode_hilbert_xyz_vertex_streams02(
-    vertices: &[i32],
-    axis: ZAxis,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    let (dict, offsets) = build_hilbert_xyz_dict(vertices, get_hilbert_params(enc));
-
-    let mut delta = mem::take(&mut codecs.logical.u32_tmp);
-    encode_componentwise_delta_vec3s(&dict, &mut delta);
-    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
-    let logical = LogicalEncoding::Vertex(VertexLogical::Xyz(axis, XyzLogical::ComponentwiseDelta));
-    enc.family_context = Family::Vertex;
-    write_geo_precomputed_stream(&delta, ctx, logical, enc, &mut codecs.physical, true)?;
-    codecs.logical.u32_tmp = delta;
-
-    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
-    enc.family_context = Family::Int(WordWidth::W32);
-    write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
     Ok(())
 }
 

@@ -602,24 +602,35 @@ mod v2 {
         assert_eq!(read_back, geoms);
     }
 
-    #[rstest]
-    #[case::vec2(VertexBufferType::Vec2)]
-    #[case::morton(VertexBufferType::Morton)]
-    #[case::hilbert(VertexBufferType::Hilbert)]
-    fn a_forced_vertex_layout_decodes_as_v1_does(#[case] strategy: VertexBufferType) {
+    #[test]
+    fn a_forced_vec2_layout_decodes_as_v1_does() {
         let decoded = repeated_multipoint();
         let v1 = forced_layer(&decoded, VertexBufferType::Vec2, WireVersion::V01);
-        assert_eq!(v1, forced_layer(&decoded, strategy, WireVersion::V02));
+        assert_eq!(
+            v1,
+            forced_layer(&decoded, VertexBufferType::Vec2, WireVersion::V02)
+        );
     }
 
     #[test]
-    fn a_forced_morton_layout_rejects_z() {
+    fn a_forced_morton_layout_is_v1_only() {
+        let err = forced_layer_bytes(
+            &repeated_multipoint(),
+            VertexBufferType::Morton,
+            WireVersion::V02,
+        )
+        .unwrap_err();
+        assert_snapshot!(err, @"v2 has no vertex dictionaries, so it cannot write Morton vertices");
+    }
+
+    #[test]
+    fn a_forced_hilbert_layout_with_z_is_v1_only() {
         let mut decoded = repeated_multipoint();
         decoded
             .add_z(ZStep::new(0).unwrap(), &[1, 2, 3, 4, 5, 6])
             .unwrap();
         let err =
-            forced_layer_bytes(&decoded, VertexBufferType::Morton, WireVersion::V02).unwrap_err();
-        assert_snapshot!(err, @"not implemented: Morton vertices with z coordinates, since a Morton code spans only x and y");
+            forced_layer_bytes(&decoded, VertexBufferType::Hilbert, WireVersion::V02).unwrap_err();
+        assert_snapshot!(err, @"v2 has no vertex dictionaries, so it cannot write Hilbert vertices");
     }
 }

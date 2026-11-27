@@ -305,17 +305,11 @@ fn geom_layout_token(layout: mlt_core::wire::GeoLayout) -> &'static str {
     use mlt_core::wire::GeoLayout as G;
     match layout {
         G::Points => "points",
-        G::PointsDict => "points-dict",
         G::MultiPoints => "multi-points",
-        G::MultiPointsDict => "multi-points-dict",
         G::Lines => "lines",
-        G::LinesDict => "lines-dict",
         G::MultiLines => "multi-lines",
-        G::MultiLinesDict => "multi-lines-dict",
         G::Polygons => "polygons",
-        G::PolygonsDict => "polygons-dict",
         G::MultiPolygons => "multi-polygons",
-        G::MultiPolygonsDict => "multi-polygons-dict",
         G::TessPolygons => "tess-polygons",
         G::TessPolygonsWithOutlines => "tess-polygons-with-outlines",
         G::Meshes => "meshes",

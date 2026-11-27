@@ -192,29 +192,15 @@ impl<'a> Walker<'a> {
             }
         }
 
-        let label = if layout.is_dict() {
-            "vertex_dict"
-        } else {
-            "vertices"
-        };
         let vertex_meta;
         (input, vertex_meta) = self.walk_stream02(
             input,
             StreamCtx02::GeomVertices,
             count,
-            label,
+            "vertices",
             DecodeHint::I32,
         )?;
         check_vertex_layout(layout, vertex_meta)?;
-        if layout.is_dict() {
-            (input, _) = self.walk_stream02(
-                input,
-                StreamCtx02::GeomVertexOffsets,
-                count,
-                "vertex_offsets",
-                DecodeHint::U32,
-            )?;
-        }
         Ok(input)
     }
 
@@ -901,16 +887,6 @@ impl<'a> Walker<'a> {
                 |i| parse_u8(i),
                 |v| ZAxis::from_code(*v).ok().map(|a| a.to_string()),
             )?;
-        }
-        // So do the Morton grid's, for a vertex dictionary keyed by Morton code.
-        if matches!(
-            stream.meta.encoding.logical,
-            LogicalEncoding::Vertex(VertexLogical::MortonDelta(_))
-        ) {
-            for name in ["morton_bits", "morton_shift"] {
-                (c, _) =
-                    self.field(c, name, |i| parse_varint::<u32>(i), |v| Some(v.to_string()))?;
-            }
         }
         let (after_payload, payload) = take(c, byte_length)?;
         // Consistency guard: the hand re-walk must land exactly on the authoritative tail.

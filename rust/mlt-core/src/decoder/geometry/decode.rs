@@ -463,7 +463,6 @@ fn decode_vertex_stream(
     stream: RawStream<'_>,
     types: &[GeometryType],
     levels: &Levels,
-    dictionary: bool,
     dec: &mut Decoder,
 ) -> MltResult<Vec<i32>> {
     #[cfg(feature = "unstable-v2")]
@@ -480,12 +479,6 @@ fn decode_vertex_stream(
             | LogicalEncoding::Vertex(_) => None,
         };
         if let Some(components) = components {
-            if dictionary {
-                return Err(MltError::UnsupportedLogicalEncoding(
-                    stream.meta.encoding.logical,
-                    "a vertex dictionary",
-                ));
-            }
             let words = stream.meta.num_words()?;
             if !words.is_multiple_of(components) {
                 return Err(MltError::MalformedPredictedVertices(if components == 2 {
@@ -702,15 +695,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             dec,
         )?;
         let mut vertices = vertex_stream
-            .map(|stream| {
-                decode_vertex_stream(
-                    stream,
-                    &vector_types,
-                    &levels,
-                    vertex_offsets.is_some(),
-                    dec,
-                )
-            })
+            .map(|stream| decode_vertex_stream(stream, &vector_types, &levels, dec))
             .transpose()?;
         let Levels {
             geometries: geometry_offsets,

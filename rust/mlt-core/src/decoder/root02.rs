@@ -783,14 +783,10 @@ fn parse_geometry<'a>(
         input = stream(input, StreamCtx02::GeomTreeCycles, &mut items)?;
     }
 
-    // Vertex stream, holding the whole vertex sequence or a dictionary of the distinct
-    // ones (explicit count in practice; context falls back to feature_count).
+    // Vertex stream, holding the whole vertex sequence (explicit count in practice; context falls back to feature_count).
     input = stream(input, StreamCtx02::GeomVertices, &mut items)?;
     if let Some(vertices) = items.last() {
         check_vertex_layout(layout, vertices.meta)?;
-    }
-    if layout.is_dict() {
-        input = stream(input, StreamCtx02::GeomVertexOffsets, &mut items)?;
     }
 
     Ok((

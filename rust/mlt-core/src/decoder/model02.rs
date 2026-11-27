@@ -605,33 +605,22 @@ impl Column02 {
 ///
 /// Selects which geometry streams are present and in what fixed order,
 /// replacing v1's `stream_count` varint and per-stream `stream_type` bytes.
+/// Codes `0x1`, `0x3`, `0x5`, `0x7`, `0x9`, `0xB` and `0xF` are reserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, strum::IntoStaticStr)]
 #[repr(u8)]
 pub enum GeoLayout {
     /// `Types`, `Vertices`
     Points = 0x00,
-    /// `Types`, `VertexData` (dict), `VertexOffsets`
-    PointsDict = 0x01,
     /// `Types`, `GeoLengths`, `Vertices`
     MultiPoints = 0x02,
-    /// `Types`, `GeoLengths`, `VertexData` (dict), `VertexOffsets`
-    MultiPointsDict = 0x03,
     /// `Types`, `PartLengths`, `Vertices`
     Lines = 0x04,
-    /// `Types`, `PartLengths`, `VertexData` (dict), `VertexOffsets`
-    LinesDict = 0x05,
     /// `Types`, `GeoLengths`, `PartLengths`, `Vertices`
     MultiLines = 0x06,
-    /// `Types`, `GeoLengths`, `PartLengths`, `VertexData` (dict), `VertexOffsets`
-    MultiLinesDict = 0x07,
     /// `Types`, `PartLengths`, `RingLengths`, `Vertices`
     Polygons = 0x08,
-    /// `Types`, `PartLengths`, `RingLengths`, `VertexData` (dict), `VertexOffsets`
-    PolygonsDict = 0x09,
     /// `Types`, `GeoLengths`, `PartLengths`, `RingLengths`, `Vertices`
     MultiPolygons = 0x0A,
-    /// `Types`, `GeoLengths`, `PartLengths`, `RingLengths`, `VertexData` (dict), `VertexOffsets`
-    MultiPolygonsDict = 0x0B,
     /// `Types`, `TriLengths`, `TreeSymbols`, `TreeCycles`, `Vertices`
     TessPolygons = 0x0C,
     /// `Types`, `GeoLengths`, `PartLengths`, `RingLengths`, `TriLengths`, `TreeSymbols`, `TreeCycles`, `Vertices`
@@ -640,15 +629,6 @@ pub enum GeoLayout {
     ///
     /// Every feature is a [`GeometryType::Mesh`], which the header byte names.
     Meshes = 0x0E,
-}
-
-/// How a v2 geometry section stores its vertices, which [`GeoLayout`] names alongside the topology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum VertexStorage {
-    /// One entry per vertex, in a single stream.
-    Plain,
-    /// The distinct vertices once, then one index per vertex into them.
-    Dict,
 }
 
 /// The nesting of a v2 geometry section below the geometry level, carrying the streams that name it.
@@ -693,34 +673,23 @@ impl Topology {
 }
 
 impl GeoLayout {
-    /// Layout for a stream set with plain or dictionary vertices.
+    /// Layout for an untessellated stream set.
     ///
     /// `has_geo` is independent of the nesting below it: any [`Topology`] can be
     /// addressed either per feature or per sub-geometry.
     #[must_use]
-    pub(crate) fn from_topology(
-        topology: &Topology,
-        has_geo: bool,
-        vertices: VertexStorage,
-    ) -> Self {
-        use VertexStorage as V;
-        match (topology, has_geo, vertices) {
-            (Topology::Flat, false, V::Plain) => Self::Points,
-            (Topology::Flat, false, V::Dict) => Self::PointsDict,
-            (Topology::Flat, true, V::Plain) => Self::MultiPoints,
-            (Topology::Flat, true, V::Dict) => Self::MultiPointsDict,
-            (Topology::Parts(_), false, V::Plain) => Self::Lines,
-            (Topology::Parts(_), false, V::Dict) => Self::LinesDict,
-            (Topology::Parts(_), true, V::Plain) => Self::MultiLines,
-            (Topology::Parts(_), true, V::Dict) => Self::MultiLinesDict,
-            (Topology::PartsAndRings { .. }, false, V::Plain) => Self::Polygons,
-            (Topology::PartsAndRings { .. }, false, V::Dict) => Self::PolygonsDict,
-            (Topology::PartsAndRings { .. }, true, V::Plain) => Self::MultiPolygons,
-            (Topology::PartsAndRings { .. }, true, V::Dict) => Self::MultiPolygonsDict,
+    pub(crate) fn from_topology(topology: &Topology, has_geo: bool) -> Self {
+        match (topology, has_geo) {
+            (Topology::Flat, false) => Self::Points,
+            (Topology::Flat, true) => Self::MultiPoints,
+            (Topology::Parts(_), false) => Self::Lines,
+            (Topology::Parts(_), true) => Self::MultiLines,
+            (Topology::PartsAndRings { .. }, false) => Self::Polygons,
+            (Topology::PartsAndRings { .. }, true) => Self::MultiPolygons,
         }
     }
 
-    /// Layout for a tessellated stream set, which keeps its vertices plain.
+    /// Layout for a tessellated stream set.
     ///
     /// Tessellation pairs with the full outline topology or with none of it, so a
     /// layer holding only part of it pads the streams it is missing with empty ones.
@@ -738,11 +707,8 @@ impl GeoLayout {
         matches!(
             self,
             Self::MultiPoints
-                | Self::MultiPointsDict
                 | Self::MultiLines
-                | Self::MultiLinesDict
                 | Self::MultiPolygons
-                | Self::MultiPolygonsDict
                 | Self::TessPolygonsWithOutlines
                 | Self::Meshes
         )
@@ -753,13 +719,9 @@ impl GeoLayout {
         matches!(
             self,
             Self::Lines
-                | Self::LinesDict
                 | Self::MultiLines
-                | Self::MultiLinesDict
                 | Self::Polygons
-                | Self::PolygonsDict
                 | Self::MultiPolygons
-                | Self::MultiPolygonsDict
                 | Self::TessPolygonsWithOutlines
         )
     }
@@ -768,25 +730,7 @@ impl GeoLayout {
     pub(crate) fn has_ring_lengths(self) -> bool {
         matches!(
             self,
-            Self::Polygons
-                | Self::PolygonsDict
-                | Self::MultiPolygons
-                | Self::MultiPolygonsDict
-                | Self::TessPolygonsWithOutlines
-        )
-    }
-
-    /// Whether vertex data is stored as a dictionary + offsets pair.
-    #[must_use]
-    pub(crate) fn is_dict(self) -> bool {
-        matches!(
-            self,
-            Self::PointsDict
-                | Self::MultiPointsDict
-                | Self::LinesDict
-                | Self::MultiLinesDict
-                | Self::PolygonsDict
-                | Self::MultiPolygonsDict
+            Self::Polygons | Self::MultiPolygons | Self::TessPolygonsWithOutlines
         )
     }
 
@@ -798,7 +742,7 @@ impl GeoLayout {
     /// vertex count at all.
     #[must_use]
     pub(crate) fn allows_m_values(self) -> bool {
-        !matches!(self, Self::Points | Self::PointsDict | Self::TessPolygons)
+        !matches!(self, Self::Points | Self::TessPolygons)
     }
 
     /// Whether tessellation streams (`TriLengths`, `TreeSymbols`, `TreeCycles`) are present.
@@ -1204,31 +1148,23 @@ mod tests {
     }
 
     #[rstest]
-    #[case::points(Topology::Flat, false, VertexStorage::Plain, GeoLayout::Points)]
-    #[case::points_dict(Topology::Flat, false, VertexStorage::Dict, GeoLayout::PointsDict)]
-    #[case::multi_points(Topology::Flat, true, VertexStorage::Plain, GeoLayout::MultiPoints)]
-    #[case::lines_dict(Topology::Parts(vec![2]), false, VertexStorage::Dict, GeoLayout::LinesDict)]
-    #[case::multi_lines(Topology::Parts(vec![2]), true, VertexStorage::Plain, GeoLayout::MultiLines)]
-    #[case::polygons(parts_and_rings(), false, VertexStorage::Plain, GeoLayout::Polygons)]
-    #[case::multi_polygons_dict(
-        parts_and_rings(),
-        true,
-        VertexStorage::Dict,
-        GeoLayout::MultiPolygonsDict
-    )]
+    #[case::points(Topology::Flat, false, GeoLayout::Points)]
+    #[case::multi_points(Topology::Flat, true, GeoLayout::MultiPoints)]
+    #[case::lines(Topology::Parts(vec![2]), false, GeoLayout::Lines)]
+    #[case::multi_lines(Topology::Parts(vec![2]), true, GeoLayout::MultiLines)]
+    #[case::polygons(parts_and_rings(), false, GeoLayout::Polygons)]
+    #[case::multi_polygons(parts_and_rings(), true, GeoLayout::MultiPolygons)]
     fn a_stream_set_picks_its_layout(
         #[case] topology: Topology,
         #[case] has_geo: bool,
-        #[case] vertices: VertexStorage,
         #[case] expected: GeoLayout,
     ) {
-        let layout = GeoLayout::from_topology(&topology, has_geo, vertices);
+        let layout = GeoLayout::from_topology(&topology, has_geo);
         let (parts, rings) = topology.streams();
         assert_eq!(layout, expected);
         assert_eq!(layout.has_geo_lengths(), has_geo);
         assert_eq!(layout.has_part_lengths(), parts.is_some());
         assert_eq!(layout.has_ring_lengths(), rings.is_some());
-        assert_eq!(layout.is_dict(), vertices == VertexStorage::Dict);
         assert!(!layout.is_tess());
     }
 
@@ -1242,7 +1178,6 @@ mod tests {
         let layout = GeoLayout::tessellated(has_outlines);
         assert_eq!(layout, expected);
         assert!(layout.is_tess());
-        assert!(!layout.is_dict());
         assert_eq!(layout.has_geo_lengths(), has_outlines);
         assert_eq!(layout.has_part_lengths(), has_outlines);
         assert_eq!(layout.has_ring_lengths(), has_outlines);
@@ -1320,10 +1255,9 @@ mod tests {
 
     #[rstest]
     #[case::points(GeoLayout::Points, false)]
-    #[case::points_dict(GeoLayout::PointsDict, false)]
     #[case::multi_points(GeoLayout::MultiPoints, true)]
     #[case::lines(GeoLayout::Lines, true)]
-    #[case::multi_polygons_dict(GeoLayout::MultiPolygonsDict, true)]
+    #[case::multi_polygons(GeoLayout::MultiPolygons, true)]
     #[case::tess_polygons(GeoLayout::TessPolygons, false)]
     #[case::tess_polygons_with_outlines(GeoLayout::TessPolygonsWithOutlines, true)]
     #[case::meshes(GeoLayout::Meshes, true)]
@@ -1441,6 +1375,12 @@ mod tests {
     #[rstest]
     #[case::unassigned_geo_layout(0b0000_1111)]
     #[case::unassigned_geo_layout_with_shared(0b0010_1111)]
+    #[case::points_dict(0b0000_0001)]
+    #[case::multi_points_dict(0b0000_0011)]
+    #[case::lines_dict(0b0000_0101)]
+    #[case::multi_lines_dict(0b0000_0111)]
+    #[case::polygons_dict(0b0000_1001)]
+    #[case::multi_polygons_dict(0b0000_1011)]
     fn layer_layout_byte_rejects_unassigned_geo_layout(#[case] byte: u8) {
         let err = LayerLayout::parse(byte).unwrap_err();
         assert!(

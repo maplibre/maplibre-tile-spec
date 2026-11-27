@@ -1,17 +1,12 @@
 //! Round-trip and wire-level tests for v2 m-values, the vertex-scoped columns.
 
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{
-    Codecs, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder, Network, Profile,
-    StagedId, StagedLayer, StagedMValue, StagedValues, StrEncoding, Tessellation, VertexBufferType,
-    WireVersion,
-};
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 use mlt_core::{
-    Decoder, GeometryValues, Layer, MValue, MltError, Parser, PropKind, PropValue, TileFeature,
-    TileLayer,
+    Decoder, Layer, MValue, MltError, Parser, PropKind, PropValue, TileFeature, TileLayer,
 };
 use rstest::rstest;
 
@@ -723,69 +718,8 @@ fn a_feature_iterator_sees_the_same_geometry_as_the_m_values_describe() {
     assert_eq!(feature.m_values()[0].count(), Some(3));
 }
 
-fn encode_dictionary_vertex_layer() -> Vec<u8> {
-    let mut geometry = GeometryValues::default();
-    // Two lines over the same three vertices, so the dictionary holds three of six.
-    for _ in 0..2 {
-        geometry.push_geom(&line(&[(0, 0), (8, 8), (16, 16)]));
-    }
-    let m_value = StagedMValue::new("m", None, StagedValues::I32(vec![1, 2, 3, 4, 5, 6]));
-    let staged = StagedLayer::with_m_values(
-        "test_layer",
-        4096,
-        StagedId::None,
-        geometry,
-        vec![],
-        vec![m_value],
-    )
-    .expect("staged layer");
-    let explicit = ExplicitEncoder {
-        vertex_buffer_type: VertexBufferType::Hilbert,
-        force_stream: Box::new(|_| false),
-        get_int_encoder: Box::new(|_| IntEncoder::varint()),
-        get_str_encoding: Box::new(|_| StrEncoding::Plain),
-        get_float_encoding: Box::new(|_| FloatEncoding::None),
-    };
-    staged
-        .encode_into(
-            Encoder::with_explicit(cfg_v2(), explicit),
-            &mut Codecs::default(),
-        )
-        .expect("encode")
-        .into_layer_bytes()
-        .expect("layer bytes")
-}
-
-#[test]
-fn a_dictionary_vertex_layout_holds_one_value_per_offset() {
-    let bytes = encode_dictionary_vertex_layer();
-    insta::assert_snapshot!(header_bits_and_column_types(&bytes), @r#"
-    an m-value section ends the body
-    every feature is a LineString, no types stream
-    extent 2^(n+6) = 4096
-    shared bitfields are bitmaps
-    shared presence bitfields = 0
-    geometry layout = LinesDict
-    m_value[0] I32 "m": presence = AllPresent
-    "#);
-    let (count, _) = region_after(&bytes, "m_value[", "num_values");
-    // Six vertices over a dictionary of three.
-    assert_eq!(bytes[count], 6);
-
-    let decoded = decode(&bytes);
-    assert_eq!(
-        decoded.features()[0].m_values()[0],
-        MValue::I32(Some(vec![1, 2, 3]))
-    );
-    assert_eq!(
-        decoded.features()[1].m_values()[0],
-        MValue::I32(Some(vec![4, 5, 6]))
-    );
-}
-
 #[rstest]
 #[case::points(0x0, "Points")]
-#[case::points_dict(0x1, "PointsDict")]
 #[case::tess_polygons(0xC, "TessPolygons")]
 fn a_geometry_layout_without_vertex_counts_is_rejected(#[case] geo_layout: u8, #[case] name: &str) {
     let mut bytes = encode_four_one_byte_m_values();

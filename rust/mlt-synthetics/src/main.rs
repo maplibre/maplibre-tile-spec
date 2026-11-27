@@ -165,6 +165,7 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(LineString::new(morton_curve()))
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .write(w, "line_morton_curve_morton");
     geo_varint()
         .geo(LineString::new(morton_curve()))
@@ -300,16 +301,9 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .geo(morton_poly.clone())
-        .write(w, "poly_morton_ring_morton");
-    // No layout pairs triangles with a vertex dictionary, so the vertices stay plain.
-    geo_varint()
-        .vertex_buffer_type(VertexBufferType::Morton)
-        .vertex_offsets(E::delta_rle_varint())
-        .tessellate()
-        .no_v1()
+        .no_v2()
         .geo(morton_poly)
-        .write(w, "poly_morton_ring_morton_tes");
+        .write(w, "poly_morton_ring_morton");
 
     // Split the Morton curve into two halves and close each into a ring to form a MultiPolygon.
     let mc = morton_curve();
@@ -332,6 +326,7 @@ fn generate_geometry(w: &mut SynthWriter) {
         .rings2(E::rle_varint())
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(mp_morton)
         .write(w, "poly_multi_morton_ring_morton");
 
@@ -341,11 +336,13 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(MultiPoint(morton_curve().into_iter().map(Point).collect()))
         .write(w, "multipoint_morton_dictionary-rust");
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geos(morton_curve().into_iter().map(Point))
         .write(w, "point_morton_dictionary-rust");
     // Split the Morton curve at a different place so that the rings are different lengths,
@@ -359,11 +356,13 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(poly_with_hole.clone())
         .write(w, "poly_morton_hole_morton");
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(MultiPolygon(vec![poly_with_hole]))
         .write(w, "poly_multi_morton_hole_morton");
 
@@ -389,6 +388,7 @@ fn generate_geometry(w: &mut SynthWriter) {
         .no_rings(E::rle_varint())
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(MultiLineString(vec![mline1, mline2]))
         .write(w, "multiline_morton");
 }
@@ -1517,23 +1517,15 @@ fn m_strings() -> Vec<CompactString> {
     .collect()
 }
 
-/// Every geometry layout an m-value section is allowed to sit on, `0x2`-`0xB` and `0xD`.
+/// Every geometry layout an m-value section is allowed to sit on, the even codes `0x2`-`0xA` and `0xD`.
 ///
-/// `Points`, `PointsDict` and `TessPolygons` carry no per-feature vertex count,
+/// `Points` and `TessPolygons` carry no per-feature vertex count,
 /// so they are rejected rather than covered here.
-///
-/// Each dictionary layout repeats vertices, so its dictionary is shorter than the
-/// sequence the vertex offsets spell out and the column still holds one value per offset.
 fn generate_m_value_geometries(w: &mut SynthWriter) {
     let e = E::delta_varint();
     let vals = |n: u32| M::new("dist", None, MV::U32((0..n).map(|i| i * 5).collect()));
-    let dict = |layer: Layer| {
-        layer
-            .vertex_buffer_type(VertexBufferType::Morton)
-            .vertex_offsets(E::varint())
-    };
 
-    // 0x2 MultiPoints, 0x3 MultiPointsDict: 3 + 2 vertices.
+    // 0x2 MultiPoints: 3 + 2 vertices.
     geo_varint()
         .no_v1()
         .geos(vec![
@@ -1542,19 +1534,8 @@ fn generate_m_value_geometries(w: &mut SynthWriter) {
         ])
         .add_m_value(e, vals(5))
         .write(w, "mvalues_mpoint");
-    dict(geo_varint().no_v1().add_m_value(e, vals(5)).geos(vec![
-        wkt!(MULTIPOINT(8 0, 0 0, 8 0)),
-        wkt!(MULTIPOINT(0 8, 8 0)),
-    ]))
-    .write(w, "mvalues_mpoint_dict");
 
-    // 0x5 LinesDict, the dictionary sibling of the `mvalues` fixture's `Lines`.
-    dict(geo_varint().geo(wkt!(LINESTRING(8 0, 0 0, 8 0, 0 8))))
-        .no_v1()
-        .add_m_value(e, vals(4))
-        .write(w, "mvalues_line_dict");
-
-    // 0x6 MultiLines, 0x7 MultiLinesDict: 2 + 3 vertices in one feature, 2 in the other.
+    // 0x6 MultiLines: 2 + 3 vertices in one feature, 2 in the other.
     geo_varint()
         .no_v1()
         .add_m_value(e, vals(7))
@@ -1563,24 +1544,14 @@ fn generate_m_value_geometries(w: &mut SynthWriter) {
             wkt!(MULTILINESTRING((5 38, 12 45))),
         ])
         .write(w, "mvalues_mline");
-    dict(geo_varint().no_v1().add_m_value(e, vals(7)).geos(vec![
-        wkt!(MULTILINESTRING((8 0, 0 0),(8 0, 0 8, 8 0))),
-        wkt!(MULTILINESTRING((0 8, 0 0))),
-    ]))
-    .write(w, "mvalues_mline_dict");
 
-    // 0x8 Polygons, 0x9 PolygonsDict: a ring's closing vertex is not stored,
+    // 0x8 Polygons: a ring's closing vertex is not stored,
     // so each triangle holds 3 values, not 4.
     geo_varint()
         .geos(vec![poly1(), poly2()])
         .no_v1()
         .add_m_value(e, vals(6))
         .write(w, "mvalues_poly");
-    dict(geo_varint().no_v1().add_m_value(e, vals(6)).geos(vec![
-        wkt!(POLYGON((0 0, 8 0, 0 8, 0 0))),
-        wkt!(POLYGON((8 8, 0 8, 8 0, 8 8))),
-    ]))
-    .write(w, "mvalues_poly_dict");
 
     // A hole adds a second ring, whose vertices continue the same flat sequence.
     geo_varint()
@@ -1590,7 +1561,7 @@ fn generate_m_value_geometries(w: &mut SynthWriter) {
         .geo(poly1h())
         .write(w, "mvalues_poly_hole");
 
-    // 0xA MultiPolygons, 0xB MultiPolygonsDict: two rings across two parts of one feature.
+    // 0xA MultiPolygons: two rings across two parts of one feature.
     geo_varint()
         .no_v1()
         .rings(E::rle_varint())
@@ -1598,18 +1569,6 @@ fn generate_m_value_geometries(w: &mut SynthWriter) {
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .add_m_value(e, vals(6))
         .write(w, "mvalues_mpoly");
-    dict(
-        geo_varint()
-            .rings(E::rle_varint())
-            .rings2(E::rle_varint())
-            .geo(MultiPolygon(vec![
-                wkt!(POLYGON((0 0, 8 0, 0 8, 0 0))),
-                wkt!(POLYGON((8 8, 0 8, 8 0, 8 8))),
-            ])),
-    )
-    .no_v1()
-    .add_m_value(e, vals(6))
-    .write(w, "mvalues_mpoly_dict");
 
     // 0xD TessPolygonsWithOutlines: the outline vertices are the sequence,
     // which the index buffer indexes into rather than replaces.
@@ -2690,13 +2649,6 @@ fn generate_z(w: &mut SynthWriter) {
         .geo(poly1h())
         .z(-1, decimetres(&[40, 41, 42, 10, 11, 12]))
         .write(w, "z_poly_hole_tri");
-    // P0 repeats at the same height and P1 at two, so the dictionary holds four triples.
-    geo_varint()
-        .geos([P0, P1, P0, P1, P2])
-        .vertex_buffer_type(VertexBufferType::Hilbert)
-        .vertex_offsets(E::varint())
-        .z(-1, decimetres(&[5, 6, 5, 7, 8]))
-        .write(w, "z_points_hilbert");
     // The same line twice, its z read from sea level and from the terrain under each vertex.
     geo_varint()
         .geo(line1())

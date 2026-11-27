@@ -16,7 +16,7 @@
 //!                       whose length follows from its count and element width
 //! [varint parameters]   what the logical encoding carries, if anything:
 //!                       Framed, Exception-Free ALP's scale and frame of reference,
-//!                       Morton's grid, or an xyz vertex stream's z step
+//!                       or an xyz vertex stream's z step
 //! ```
 //!
 //! What the fields mean is per [`Family`], which is fixed by context read before the encoding byte.
@@ -40,8 +40,8 @@ use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     Alp, AlpScale, BoolLogical, DataType02, DictLayout, DictionaryType, FastPForKind, FloatLogical,
-    IntEncoding, IntLogical, LengthType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
-    RawStream, RleMeta, StreamMeta, StreamType, VertexLogical, XyzLogical,
+    IntEncoding, IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding, RawStream,
+    RleMeta, StreamMeta, StreamType, VertexLogical, XyzLogical,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::tile::ZAxis;
@@ -81,7 +81,6 @@ pub(crate) enum Logical {
     CwDelta,
     Rle,
     DeltaRle,
-    Morton,
     Alp,
     FrontCoded,
     BitPacked,
@@ -180,13 +179,7 @@ impl Family {
             ],
             Self::Bool => &[Some(L::None), Some(L::Rle)],
             Self::Float(_) => &[Some(L::None), None, Some(L::Alp)],
-            Self::Vertex => &[
-                None,
-                None,
-                Some(L::CwDelta),
-                Some(L::Morton),
-                Some(L::Predicted),
-            ],
+            Self::Vertex => &[None, None, Some(L::CwDelta), None, Some(L::Predicted)],
             Self::Bytes => &[Some(L::None), Some(L::FrontCoded)],
         }
     }
@@ -249,10 +242,7 @@ pub(crate) enum StreamCtx02 {
     /// One of a string column's byte blobs, named by the dictionary role it fills.
     StrBlob(DictionaryType),
     GeomTypes,
-    /// The vertices themselves, or the distinct ones a dictionary layout stores once.
     GeomVertices,
-    /// One index per vertex into the dictionary the preceding stream holds.
-    GeomVertexOffsets,
     /// One triangle tree symbol per triangle of a tessellated layer.
     GeomTreeSymbols,
     /// The outline cycle of each triangle tree of a tessellated layer.
@@ -289,7 +279,6 @@ impl StreamCtx02 {
             Self::StrDictLengths
             | Self::StrSymbolLengths
             | Self::GeomTypes
-            | Self::GeomVertexOffsets
             | Self::GeomTreeSymbols
             | Self::GeomTreeCycles
             | Self::GeomOffsets(_)
@@ -315,7 +304,6 @@ impl StreamCtx02 {
             Self::StrSymbolLengths => StreamType::Length(LengthType::Symbol),
             Self::StrBlob(dictionary) => StreamType::Data(dictionary),
             Self::GeomVertices => StreamType::Data(DictionaryType::Vertex),
-            Self::GeomVertexOffsets => StreamType::Offset(OffsetType::Vertex),
             Self::GeomTreeSymbols => StreamType::Offset(OffsetType::TreeSymbols),
             Self::GeomTreeCycles => StreamType::Offset(OffsetType::TreeCycles),
             Self::GeomOffsets(length_type) => StreamType::Length(length_type),
@@ -441,14 +429,11 @@ pub(crate) enum LogicalBytes {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LogicalVertex {
     CwDelta(PhysicalInt),
-    /// Deltas between the Morton codes of a sorted vertex dictionary.
-    /// The grid the codes are laid on follows the byte length as two varints.
-    Morton(PhysicalInt),
     /// Residuals against a guess from the decoded vertices, so the physical field is reserved.
     Predicted,
 }
 
-/// Logical encoding of an `(x, y, z)` vertex stream, which has no Morton member.
+/// Logical encoding of an `(x, y, z)` vertex stream.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LogicalXyz {
     CwDelta(PhysicalInt),
@@ -537,11 +522,9 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
             LogicalInt::BitPacked
         }
         Logical::Delta2 => LogicalInt::Delta2(physical_int(enc_byte)?),
-        Logical::CwDelta
-        | Logical::Morton
-        | Logical::Alp
-        | Logical::FrontCoded
-        | Logical::Predicted => unreachable_member(family, logical),
+        Logical::CwDelta | Logical::Alp | Logical::FrontCoded | Logical::Predicted => {
+            unreachable_member(family, logical)
+        }
     })
 }
 
@@ -579,7 +562,6 @@ impl Encoding02 {
                     | Logical::CwDelta
                     | Logical::Rle
                     | Logical::DeltaRle
-                    | Logical::Morton
                     | Logical::Alp
                     | Logical::BitPacked
                     | Logical::Delta2
@@ -592,7 +574,6 @@ impl Encoding02 {
                 Logical::Delta
                 | Logical::CwDelta
                 | Logical::DeltaRle
-                | Logical::Morton
                 | Logical::Alp
                 | Logical::FrontCoded
                 | Logical::BitPacked
@@ -606,7 +587,6 @@ impl Encoding02 {
                 | Logical::CwDelta
                 | Logical::Rle
                 | Logical::DeltaRle
-                | Logical::Morton
                 | Logical::FrontCoded
                 | Logical::BitPacked
                 | Logical::Delta2
@@ -617,10 +597,6 @@ impl Encoding02 {
                 Logical::Predicted => {
                     no_physical(enc_byte)?;
                     LogicalXyz::Predicted
-                }
-                // A Morton code spans only x and y.
-                Logical::Morton => {
-                    return Err(MltError::ParsingEncodingByte(enc_byte));
                 }
                 Logical::None
                 | Logical::Delta
@@ -636,7 +612,6 @@ impl Encoding02 {
                     return Err(MltError::ParsingEncodingByte(enc_byte));
                 }
                 Logical::CwDelta => LogicalVertex::CwDelta(physical_int(enc_byte)?),
-                Logical::Morton => LogicalVertex::Morton(physical_int(enc_byte)?),
                 Logical::Predicted => {
                     no_physical(enc_byte)?;
                     LogicalVertex::Predicted
@@ -671,7 +646,6 @@ impl Encoding02 {
             }
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
             Self::Int(LogicalInt::BitPacked) => Logical::BitPacked,
-            Self::Vertex(LogicalVertex::Morton(_)) => Logical::Morton,
             Self::Vertex(LogicalVertex::Predicted) | Self::Xyz(LogicalXyz::Predicted) => {
                 Logical::Predicted
             }
@@ -687,7 +661,7 @@ impl Encoding02 {
             Self::Int(LogicalInt::None(raw)) => raw.label(),
             Self::Int(LogicalInt::Delta(p) | LogicalInt::Delta2(p))
             | Self::Float(LogicalFloat::Alp(p))
-            | Self::Vertex(LogicalVertex::CwDelta(p) | LogicalVertex::Morton(p))
+            | Self::Vertex(LogicalVertex::CwDelta(p))
             | Self::Xyz(LogicalXyz::CwDelta(p)) => p.into(),
             Self::Float(LogicalFloat::None(p)) => p.into(),
             Self::Bytes(LogicalBytes::None | LogicalBytes::FrontCoded) => {
@@ -706,12 +680,7 @@ impl Encoding02 {
         match self {
             Self::Xyz(_) => 3,
             Self::Vertex(LogicalVertex::CwDelta(_) | LogicalVertex::Predicted) => 2,
-            Self::Int(_)
-            | Self::Bool(_)
-            | Self::Float(_)
-            | Self::Vertex(LogicalVertex::Morton(_))
-            | Self::Str(..)
-            | Self::Bytes(_) => 1,
+            Self::Int(_) | Self::Bool(_) | Self::Float(_) | Self::Str(..) | Self::Bytes(_) => 1,
         }
     }
 
@@ -732,7 +701,7 @@ impl Encoding02 {
     /// Map to the shared model, reading any parameter varints the encoding carries.
     ///
     /// `num_values` is the expanded element count, which the RLE members need.
-    /// Parameters follow the byte length, as v1 writes Morton's and RLE's.
+    /// Parameters follow the byte length, as v1 writes RLE's.
     fn to_model(self, input: &[u8], num_values: u32) -> MltRefResult<'_, IntEncoding> {
         let rle = || RleMeta::Interleaved {
             num_rle_values: num_values,
@@ -805,15 +774,6 @@ impl Encoding02 {
                 IntEncoding::new(
                     LogicalEncoding::Vertex(VertexLogical::Xyz(ZAxis::from_code(step)?, logical)),
                     physical,
-                )
-            }
-            Self::Vertex(LogicalVertex::Morton(p)) => {
-                let (after, bits) = parse_varint::<u32>(input)?;
-                let (after, shift) = parse_varint::<u32>(after)?;
-                rest = after;
-                IntEncoding::new(
-                    LogicalEncoding::Vertex(VertexLogical::MortonDelta(Morton::new(bits, shift)?)),
-                    flat_int(p),
                 )
             }
         };
@@ -992,9 +952,11 @@ fn wire_fields(
                 "v2, whose byte-RLE bool columns delimit themselves",
             ));
         }
-        // v2 stores Morton codes only as a sorted dictionary, whose deltas are always the shorter form.
         LE::Vertex(VL::MortonDelta(_)) => {
-            with_length(Logical::Morton, physical_int_field(encoding.physical)?)
+            return Err(MltError::UnsupportedLogicalEncoding(
+                encoding.logical,
+                "v2, which has no Morton vertices",
+            ));
         }
     })
 }
@@ -1135,10 +1097,6 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     if let LE::Vertex(VertexLogical::Xyz(step, _)) = meta.encoding.logical {
         writer.write_u8(step.code())?;
     }
-    if let LE::Vertex(VertexLogical::MortonDelta(morton)) = meta.encoding.logical {
-        writer.write_varint(morton.bits)?;
-        writer.write_varint(morton.shift)?;
-    }
     Ok(())
 }
 
@@ -1199,6 +1157,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::decoder::Morton;
     use crate::test_helpers::parser;
     use crate::tile::{HeightMode, ZStep};
 
@@ -1260,7 +1219,6 @@ mod tests {
     #[case::float_none(FLOAT_FAMILY, Logical::None, 0b000)]
     #[case::float_alp(FLOAT_FAMILY, Logical::Alp, 0b010)]
     #[case::vertex_cw_delta(Family::Vertex, Logical::CwDelta, 0b010)]
-    #[case::vertex_morton(Family::Vertex, Logical::Morton, 0b011)]
     #[case::str_none(Family::Str(StrLayout::Dict), Logical::None, 0b000)]
     #[case::str_delta_rle(Family::Str(StrLayout::Dict), Logical::DeltaRle, 0b011)]
     #[case::bytes_none(Family::Bytes, Logical::None, 0b000)]
@@ -1277,6 +1235,7 @@ mod tests {
     #[case::float_code_one(FLOAT_FAMILY, 0b001)]
     #[case::vertex_code_zero(Family::Vertex, 0b000)]
     #[case::vertex_code_one(Family::Vertex, 0b001)]
+    #[case::vertex_code_three(Family::Vertex, 0b011)]
     fn a_reserved_code_names_no_encoding(#[case] family: Family, #[case] code: u8) {
         assert_eq!(family.logical(code), None);
     }
@@ -1337,7 +1296,6 @@ mod tests {
     #[case::types(StreamCtx02::GeomTypes, INT_FAMILY)]
     #[case::lengths(StreamCtx02::GeomOffsets(LengthType::Parts), INT_FAMILY)]
     #[case::vertices(StreamCtx02::GeomVertices, Family::Vertex)]
-    #[case::vertex_offsets(StreamCtx02::GeomVertexOffsets, INT_FAMILY)]
     #[case::tree_symbols(StreamCtx02::GeomTreeSymbols, INT_FAMILY)]
     #[case::tree_cycles(StreamCtx02::GeomTreeCycles, INT_FAMILY)]
     fn geometry_role_picks_its_family(#[case] ctx: StreamCtx02, #[case] family: Family) {
@@ -1435,12 +1393,6 @@ mod tests {
         Family::Vertex,
         0b1010_1000
     )]
-    #[case::morton_dict_varint(
-        vertex(VertexLogical::MortonDelta(Morton::new(12, 3).unwrap()), PE::VarInt, 5),
-        5,
-        Family::Vertex,
-        0b0011_1000
-    )]
     #[case::str_plain_lengths(
         int(IntLogical::None, PE::VarInt, 5),
         5,
@@ -1523,16 +1475,6 @@ mod tests {
         FLOAT
     )]
     #[case::cw_delta_vertices(vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 10), 5, VERTEX)]
-    #[case::morton_dict(
-        vertex(VertexLogical::MortonDelta(Morton::new(16, 4096).unwrap()), PE::VarInt, 10),
-        5,
-        VERTEX
-    )]
-    #[case::morton_dict_fastpfor128(
-        vertex(VertexLogical::MortonDelta(Morton::new(0, 0).unwrap()), FPF128, 5),
-        5,
-        VERTEX
-    )]
     #[case::xyz_cw_delta(vertex(xyz(XyzLogical::ComponentwiseDelta), FPF128, 9), 5, VERTEX)]
     #[case::xyz_predicted(vertex(xyz(XyzLogical::Predicted), PE::None, 9), 9, VERTEX)]
     #[case::xyz_finest_step(
@@ -1660,7 +1602,6 @@ mod tests {
     #[rstest]
     #[case::pairs(vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 3), 3)]
     #[case::triples(vertex(xyz(XyzLogical::ComponentwiseDelta), PE::VarInt, 3), 3)]
-    #[case::morton_codes(vertex(VertexLogical::MortonDelta(Morton::new(0, 0).unwrap()), PE::VarInt, 5), 5)]
     fn a_vertex_stream_count_on_the_wire(#[case] meta: StreamMeta, #[case] count: u8) {
         let mut buf = Vec::new();
         write_stream_meta(&meta, &mut buf, 0, Count02::Explicit, Family::Vertex).unwrap();
@@ -1771,7 +1712,7 @@ mod tests {
     #[case::xyz_none(VERTEX, 0b0000_0001)]
     #[case::xyz_delta(VERTEX, 0b0001_1001)]
     #[case::cw_delta_no_len(VERTEX, 0b0010_0000)]
-    #[case::morton_no_len(VERTEX, 0b0011_0000)]
+    #[case::vertex_morton(VERTEX, 0b0011_1000)]
     #[case::xyz_morton(VERTEX, 0b0011_1001)]
     #[case::xyz_predicted_with_a_physical_codec(VERTEX, 0b0100_0101)]
     #[case::vertex_extension_bit1(VERTEX, 0b0010_1010)]
@@ -2033,6 +1974,7 @@ mod tests {
     #[rstest]
     #[case::none(VertexLogical::None, PE::None)]
     #[case::delta(VertexLogical::Delta, PE::VarInt)]
+    #[case::morton(VertexLogical::MortonDelta(Morton::new(4, 0).unwrap()), PE::VarInt)]
     fn write_rejects_a_vertex_encoding_only_v1_reads(
         #[case] logical: VertexLogical,
         #[case] physical: PhysicalEncoding,
@@ -2044,7 +1986,7 @@ mod tests {
         assert!(
             matches!(
                 err,
-                MltError::UnsupportedLogicalEncoding(LogicalEncoding::Vertex(l), "vertex stream") if l == logical
+                MltError::UnsupportedLogicalEncoding(LogicalEncoding::Vertex(l), _) if l == logical
             ),
             "{err:?}"
         );

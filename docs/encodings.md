@@ -736,11 +736,13 @@ words:    [200, 400, 10, 20, 5, 10]
 
 ### Vertex Dictionary {#vertex-dictionary}
 
+Only [v1](specification/v1.md) has vertex dictionaries.
+
 The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex.
 `VertexOffsets` is an ordinary unsigned integer stream.
-`VertexDict` is a vertex stream and carries any of the encodings in this section except [predicted vertices](#predicted-vertices).
+`VertexDict` is a vertex stream.
 
-[View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices stored once and indexed.
+[View example](inspector/app/?fixture=0x01-rust%2Fpoint_morton_dictionary.mlt&at=column%5B0%5D){target=_blank .inspector-example} - vertices stored once and indexed.
 
 === "Offsets"
 
@@ -770,9 +772,9 @@ Two vertices with the same curve key are one dictionary entry.
 
 A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer.
 Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas.
-Only a `VertexDict` stream uses it.
+Only a v1 `VertexDict` stream uses it.
 
-[View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices as Morton codes, delta-encoded.
+[View example](inspector/app/?fixture=0x01-rust%2Fpoint_morton_dictionary.mlt&at=stream%5B1%5D){target=_blank .inspector-example} - vertices as Morton codes, delta-encoded.
 
 The parameters are two varints in the stream header:
 
@@ -862,7 +864,7 @@ let sy = compact(code >> 1);
 
 The codes are stored as an integer stream of unsigned 32-bit words.
 The stream holds the first code, then each code's difference from the previous one.
-v1 names this `MortonDelta`; v2 names it `Morton` in the `Vertex` family.
+v1 names this `MortonDelta`.
 There is no plain or RLE Morton encoding.
 
 The deltas are plain differences, not ZigZag-encoded.
@@ -877,7 +879,7 @@ words:      [27, 3, 15]
 
 Each vertex is stored as its residual against a guess made from the vertices decoded before it.
 The residuals are Rice coded with parameters per class of vertex.
-It applies to `(x, y)` pairs and to [`(x, y, z)` triples](#predicted-triples), not to a [vertex dictionary](#vertex-dictionary).
+It applies to `(x, y)` pairs and to [`(x, y, z)` triples](#predicted-triples).
 
 The stream's physical field is `0`, and `byte_length` covers the whole payload.
 
