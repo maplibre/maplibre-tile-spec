@@ -879,7 +879,7 @@ words:      [27, 3, 15]
 
 Each vertex is stored as its residual against a guess made from the vertices decoded before it.
 The residuals are Rice coded with parameters per class of vertex.
-It applies only to `(x, y)` pairs, not to [triples](specification/v2.md#z-coordinates) or a [vertex dictionary](#vertex-dictionary).
+It applies to `(x, y)` pairs and to [`(x, y, z)` triples](#predicted-triples), not to a [vertex dictionary](#vertex-dictionary).
 
 The stream's physical field is `0`, and `byte_length` covers the whole payload.
 
@@ -942,14 +942,14 @@ The class of every vertex and the vertex count of every class follow from the ru
 #### Guesses
 
 `p[i]` is vertex `i` of the buffer.
-`p[i-1]` is the vertex before it in the buffer, even across runs and features, and `(0, 0)` for vertex `0`.
+`p[i-1]` is the vertex before it in the buffer, even across runs and features, and the origin for vertex `0`.
 A guess reads decoded vertices, shared vertices included.
 Every sum, difference and product wraps at 32 bits, per component.
 
 The start guess, set by header bit 0, is the guess for a `start` vertex:
 
 - `0`: `p[i-1]`.
-- `1`: the first vertex of the run before this one, or `(0, 0)` for the first run.
+- `1`: the first vertex of the run before this one, or the origin for the first run.
   Points between the runs do not change it.
 
 The line guess, set by header bits 1-2, is the guess for a `line` vertex:
@@ -991,7 +991,7 @@ Each guess on the vertices of the [example](#predicted-example):
 #### Residuals
 
 The residual of a vertex is `p[i] - guess` per component, then [zigzag](#zigzag)-encoded to an unsigned 32-bit value.
-Every vertex that is not [shared](#shared-vertices) has a residual, `x` then `y`.
+Every vertex that is not [shared](#shared-vertices) has a residual, `x` then `y`, and then `z` on [triples](#predicted-triples).
 
 #### Rice layout
 
@@ -1000,6 +1000,7 @@ The parameter bytes follow each other in class order, and a class with no residu
 `k_x` and `k_y` may each be any value from `0` to `15`.
 
 The bit data holds one codeword per residual in buffer order, `x` with the `k_x` of its vertex's class and `y` with its `k_y`.
+On triples, each class also has a [z parameter byte](#predicted-triples).
 `byte_len`, where present, MUST be minimal.
 
 ##### Codewords
@@ -1056,6 +1057,7 @@ A payload MUST be rejected when:
     The Rust encoder picks `k_x` and `k_y` separately for each class.
     For each axis, it adds up the codeword bits of the class's residuals for every `k` from `0` to `15`.
     It keeps the `k` with the fewest bits, and the lowest `k` on a tie.
+    On triples, it picks `k_z` the same way, and sets the zero flag when every `z` residual of the class is `0`.
 
 #### Example {#predicted-example}
 
@@ -1082,6 +1084,51 @@ A rectangle, then a line part of three vertices, with the run-start guess and th
     parameters:   76 54 00 03 10
     bit data:     88 20 04 39 08 84 57 2A C8 09
     payload:      05 76 54 00 03 10 88 20 04 39 08 84 57 2A C8 09
+    ```
+
+#### Triples {#predicted-triples}
+
+On [`(x, y, z)` triples](specification/v2.md#z-coordinates), every guess takes `z` from the same vertices as `x` and `y`, component by component.
+The z axis byte precedes the payload, and the payload does not read it.
+
+Each class that holds a residual has a z parameter byte right after its parameter byte:
+
+| Bits | Field | Values |
+|---|---|---|
+| 0-3 | `k_z` | `0` to `15` |
+| 4 | zero flag | `1` every `z` residual of the class is `0` and has no codeword |
+| 5-7 | reserved | `0` |
+
+A z parameter byte with a reserved bit set, or with the zero flag set and a nonzero `k_z`, MUST be rejected.
+
+The codewords of a vertex are `x`, `y`, then `z` with the `k_z` of its class, unless the class has the zero flag.
+A [copy](#vertex-copies) or a [line endpoint reference](#line-endpoint-references) writes the whole vertex, `z` included.
+
+[View example](inspector/app/?fixture=0x02%2Fz_line_flat_predicted.mlt&at=vertices){target=_blank .inspector-example} - a contour line at 25 m, whose classes after `start` have the zero flag.
+
+A line at 25 m on a 1 dm grid, with the previous-vertex guesses:
+
+=== "Values"
+
+    ```
+    vertices:     (100, 200, 250)  (110, 205, 250)  (120, 210, 250)  (135, 212, 250)
+    class:        start            line second      line             line
+    guess:        (0, 0, 0)        (100, 200, 250)  (110, 205, 250)  (120, 210, 250)
+    residual:     (100, 200, 250)  (10, 5, 0)       (10, 5, 0)       (15, 2, 0)
+    zigzag:       (200, 400, 500)  (20, 10, 0)      (20, 10, 0)      (30, 4, 0)
+    ```
+
+=== "Payload"
+
+    ```
+    header:       00
+    parameters:   87 08 23 10 24 10                 start, line second, line
+    start:        (200, 400, 500) with k 7, 8, 8    0 1 0001001 | 0 1 00001001 | 0 1 00101111
+    line second:  (20, 10) with k 3, 2, zero flag   00 1 001 | 00 1 01
+    line:         (20, 10) with k 4, 2, zero flag   0 1 0010 | 00 1 01
+    line:         (30, 4) with k 4, 2, zero flag    0 1 0111 | 0 1 00
+    bit data:     22 85 94 9E A4 12 D5 05
+    payload:      00 87 08 23 10 24 10 22 85 94 9E A4 12 D5 05
     ```
 
 #### Shared vertices
@@ -1168,7 +1215,7 @@ An index past the slots, a missing bit, a set padding bit or a byte left over MU
 3. With copies or line refs (bit 3 or 4), read the counts.
    The residual count of a class is its vertex count less its count.
 4. With copies and line refs (bits 3 and 4), read `ops_len`.
-5. Read the parameter byte of every class that holds a residual, in class order.
+5. Read the parameter byte of every class that holds a residual, in class order, each followed by its z parameter byte on triples.
 6. With copies or line refs, read `byte_len`.
 7. Take the bit data, then the copy ops and the reference bits from the rest of the payload.
 8. Decode the vertices in buffer order:

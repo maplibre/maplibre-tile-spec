@@ -449,6 +449,7 @@ pub(crate) enum LogicalXyz {
     None(RawInt),
     Delta(PhysicalInt),
     CwDelta(PhysicalInt),
+    Predicted,
 }
 
 /// One encoding byte's logical and physical fields, read in its family's terms.
@@ -612,8 +613,12 @@ impl Encoding02 {
                 Logical::None => LogicalXyz::None(raw_int(enc_byte)?),
                 Logical::Delta => LogicalXyz::Delta(physical_int(enc_byte)?),
                 Logical::CwDelta => LogicalXyz::CwDelta(physical_int(enc_byte)?),
-                // A Morton code spans only x and y, and predicted vertices are defined over pairs.
-                Logical::Morton | Logical::Predicted => {
+                Logical::Predicted => {
+                    no_physical(enc_byte)?;
+                    LogicalXyz::Predicted
+                }
+                // A Morton code spans only x and y.
+                Logical::Morton => {
                     return Err(MltError::ParsingEncodingByte(enc_byte));
                 }
                 Logical::Rle
@@ -668,7 +673,9 @@ impl Encoding02 {
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
             Self::Int(LogicalInt::BitPacked) => Logical::BitPacked,
             Self::Vertex(LogicalVertex::Morton(_)) => Logical::Morton,
-            Self::Vertex(LogicalVertex::Predicted) => Logical::Predicted,
+            Self::Vertex(LogicalVertex::Predicted) | Self::Xyz(LogicalXyz::Predicted) => {
+                Logical::Predicted
+            }
             Self::Float(LogicalFloat::Alp(_)) => Logical::Alp,
             Self::Bytes(LogicalBytes::FrontCoded) => Logical::FrontCoded,
         }
@@ -694,7 +701,8 @@ impl Encoding02 {
             Self::Int(LogicalInt::BitPacked) => "BitPacked",
             Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
             | Self::Bool(_)
-            | Self::Vertex(LogicalVertex::Predicted) => "implied",
+            | Self::Vertex(LogicalVertex::Predicted)
+            | Self::Xyz(LogicalXyz::Predicted) => "implied",
         }
     }
 
@@ -813,6 +821,7 @@ impl Encoding02 {
                     LogicalXyz::None(raw) => (XyzLogical::None, flat_raw_int(raw)),
                     LogicalXyz::Delta(p) => (XyzLogical::Delta, flat_int(p)),
                     LogicalXyz::CwDelta(p) => (XyzLogical::ComponentwiseDelta, flat_int(p)),
+                    LogicalXyz::Predicted => (XyzLogical::Predicted, PhysicalEncoding::None),
                 };
                 IntEncoding::new(
                     LogicalEncoding::Vertex(VertexLogical::Xyz(ZAxis::from_code(step)?, logical)),
@@ -955,7 +964,7 @@ fn wire_fields(
             with_length(Logical::CwDelta, physical(encoding)?)
         }
         LE::Int(IL::Delta2) => with_length(Logical::Delta2, physical(encoding)?),
-        LE::Vertex(VL::Predicted) => {
+        LE::Vertex(VL::Predicted | VL::Xyz(_, XyzLogical::Predicted)) => {
             if encoding.physical != PhysicalEncoding::None {
                 return Err(MltError::UnsupportedPhysicalEncoding(
                     "v2 predicted vertices, which define their own payload",
@@ -1555,6 +1564,7 @@ mod tests {
     #[case::xyz_none(vertex(xyz(XyzLogical::None), PE::VarInt, 9), 9, VERTEX)]
     #[case::xyz_delta(vertex(xyz(XyzLogical::Delta), PE::VarInt, 9), 9, VERTEX)]
     #[case::xyz_cw_delta(vertex(xyz(XyzLogical::ComponentwiseDelta), FPF128, 9), 5, VERTEX)]
+    #[case::xyz_predicted(vertex(xyz(XyzLogical::Predicted), PE::None, 9), 9, VERTEX)]
     #[case::xyz_finest_step(
         vertex(VertexLogical::Xyz(ZStep::new(-3).unwrap().into(), XyzLogical::ComponentwiseDelta), PE::VarInt, 3),
         3,
@@ -1802,6 +1812,7 @@ mod tests {
     #[case::cw_delta_no_len(VERTEX, 0b0010_0000)]
     #[case::morton_no_len(VERTEX, 0b0011_0000)]
     #[case::xyz_morton(VERTEX, 0b0011_1001)]
+    #[case::xyz_predicted_with_a_physical_codec(VERTEX, 0b0100_0101)]
     #[case::vertex_extension_bit1(VERTEX, 0b0010_1010)]
     #[case::vertex_both_extension_bits(VERTEX, 0b0010_1011)]
     #[case::xyz_cw_delta_no_len(VERTEX, 0b0010_0001)]
@@ -1935,6 +1946,7 @@ mod tests {
         Family::Bool
     )]
     #[case::varint_predicted(vertex(VertexLogical::Predicted, PE::VarInt, 5), Family::Vertex)]
+    #[case::varint_xyz_predicted(vertex(xyz(XyzLogical::Predicted), PE::VarInt, 9), Family::Vertex)]
     #[case::rle_without_varint(int(IntLogical::Rle(rle(5)), PE::None, 5), INT_FAMILY)]
     fn write_rejects_a_physical_codec_the_encoding_cannot_carry(
         #[case] meta: StreamMeta,

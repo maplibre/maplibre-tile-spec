@@ -467,21 +467,41 @@ fn decode_vertex_stream(
     dec: &mut Decoder,
 ) -> MltResult<Vec<i32>> {
     #[cfg(feature = "unstable-v2")]
-    if stream.meta.encoding.logical == LogicalEncoding::Vertex(VertexLogical::Predicted) {
-        if dictionary {
-            return Err(MltError::UnsupportedLogicalEncoding(
-                stream.meta.encoding.logical,
-                "a vertex dictionary",
-            ));
+    {
+        use crate::codecs::predicted;
+        use crate::decoder::XyzLogical;
+
+        let components = match stream.meta.encoding.logical {
+            LogicalEncoding::Vertex(VertexLogical::Predicted) => Some(2_u32),
+            LogicalEncoding::Vertex(VertexLogical::Xyz(_, XyzLogical::Predicted)) => Some(3),
+            LogicalEncoding::Int(_)
+            | LogicalEncoding::Bool(_)
+            | LogicalEncoding::Float(_)
+            | LogicalEncoding::Vertex(_) => None,
+        };
+        if let Some(components) = components {
+            if dictionary {
+                return Err(MltError::UnsupportedLogicalEncoding(
+                    stream.meta.encoding.logical,
+                    "a vertex dictionary",
+                ));
+            }
+            let words = stream.meta.num_words()?;
+            if !words.is_multiple_of(components) {
+                return Err(MltError::MalformedPredictedVertices(if components == 2 {
+                    "odd vertex word count"
+                } else {
+                    "vertex word count is not a multiple of three"
+                }));
+            }
+            let runs = vertex_runs(types, levels, dec)?;
+            let count = words / components;
+            return if components == 2 {
+                predicted::decode::<2>(stream.data, &runs, count, dec)
+            } else {
+                predicted::decode::<3>(stream.data, &runs, count, dec)
+            };
         }
-        let words = stream.meta.num_words()?;
-        if !words.is_multiple_of(2) {
-            return Err(MltError::MalformedPredictedVertices(
-                "odd vertex word count",
-            ));
-        }
-        let runs = vertex_runs(types, levels, dec)?;
-        return crate::codecs::predicted::decode(stream.data, &runs, words / 2, dec);
     }
     stream.decode_ints::<i32>(dec)
 }

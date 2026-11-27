@@ -993,6 +993,7 @@ impl From<LogicalEncoding> for StatLogicalCodec {
                 XyzLogical::None => Self::None,
                 XyzLogical::Delta => Self::Delta,
                 XyzLogical::ComponentwiseDelta => Self::ComponentwiseDelta,
+                XyzLogical::Predicted => Self::Predicted,
             },
         }
     }

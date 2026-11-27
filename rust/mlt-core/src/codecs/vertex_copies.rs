@@ -4,7 +4,7 @@ use rustc_hash::FxHashMap;
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::MalformedPredictedVertices as Malformed;
-use crate::codecs::predicted::{Pos, Run, RunKind, write_varint};
+use crate::codecs::predicted::{Run, RunKind, write_varint};
 use crate::codecs::varint::parse_varint;
 use crate::{Decoder, MltResult};
 
@@ -60,9 +60,9 @@ fn op_bytes(gap: usize, op: &CopyOp) -> usize {
 /// `saved` holds the residual bytes of each vertex.
 /// Each destination tries the latest few earlier vertices at its position, so planning is linear in the vertices.
 #[must_use]
-pub fn plan(vertices: &[i32], runs: &[Run], saved: &[usize]) -> Vec<CopyOp> {
+pub fn plan<const D: usize>(vertices: &[i32], runs: &[Run], saved: &[usize]) -> Vec<CopyOp> {
     let n = saved.len();
-    let pos = |i: usize| -> Pos { [vertices[2 * i], vertices[2 * i + 1]] };
+    let pos = |i: usize| -> [i32; D] { vertices.as_chunks::<D>().0[i] };
     let rings = ring_bounds(runs, n);
     let mut prefix = Vec::with_capacity(n + 1);
     prefix.push(0_usize);
@@ -70,7 +70,7 @@ pub fn plan(vertices: &[i32], runs: &[Run], saved: &[usize]) -> Vec<CopyOp> {
         prefix.push(prefix[prefix.len() - 1] + s);
     }
     let mut previous = vec![usize::MAX; n];
-    let mut latest: FxHashMap<Pos, usize> = FxHashMap::default();
+    let mut latest: FxHashMap<[i32; D], usize> = FxHashMap::default();
     for (i, prev) in previous.iter_mut().enumerate() {
         if let Some(j) = latest.insert(pos(i), i) {
             *prev = j;
@@ -257,7 +257,7 @@ impl<'a> Copier<'a> {
 
     /// Writes the vertices of `vertices` from `i` on that one op covers and returns how many.
     #[inline]
-    pub fn copies(&mut self, i: usize, vertices: &mut [Pos]) -> MltResult<usize> {
+    pub fn copies<T: Copy>(&mut self, i: usize, vertices: &mut [T]) -> MltResult<usize> {
         if self.remaining == 0 {
             if i != self.next {
                 return Ok(0);
@@ -351,7 +351,7 @@ mod tests {
     #[test]
     fn a_shared_wall_walked_backwards_is_one_backward_copy() {
         let runs = [ring(0, 4), ring(4, 4)];
-        let copies = plan(&HOUSES, &runs, &[3; 8]);
+        let copies = plan::<2>(&HOUSES, &runs, &[3; 8]);
         assert_eq!(
             copies,
             [CopyOp {
@@ -370,7 +370,7 @@ mod tests {
     fn a_repeated_line_is_one_forward_copy() {
         let vertices = [0, 0, 7, 3, 9, 8, 50, 50, 0, 0, 7, 3, 9, 8];
         let runs = [line(0, 3), line(4, 3)];
-        let copies = plan(&vertices, &runs, &[3; 7]);
+        let copies = plan::<2>(&vertices, &runs, &[3; 7]);
         assert_eq!(
             copies,
             [CopyOp {
@@ -389,7 +389,7 @@ mod tests {
     fn a_backward_copy_wraps_over_the_start_of_its_source_ring() {
         let vertices = [0, 0, 10, 0, 10, 10, 0, 10, 0, 0, 0, 10, 5, 20];
         let runs = [ring(0, 4), ring(4, 3)];
-        let copies = plan(&vertices, &runs, &[3; 7]);
+        let copies = plan::<2>(&vertices, &runs, &[3; 7]);
         assert_eq!(
             copies,
             [CopyOp {
@@ -408,7 +408,7 @@ mod tests {
     fn a_forward_copy_wraps_over_the_end_of_its_source_ring() {
         let vertices = [0, 0, 10, 0, 10, 10, 0, 10, 0, 10, 0, 0, 10, 0, 5, -20];
         let runs = [ring(0, 4), ring(4, 4)];
-        let copies = plan(&vertices, &runs, &[3; 8]);
+        let copies = plan::<2>(&vertices, &runs, &[3; 8]);
         assert_eq!(
             copies,
             [CopyOp {
@@ -426,13 +426,13 @@ mod tests {
     #[test]
     fn a_copy_that_saves_less_than_its_op_is_dropped() {
         let runs = [ring(0, 4), ring(4, 4)];
-        assert_eq!(plan(&HOUSES, &runs, &[1; 8]), []);
+        assert_eq!(plan::<2>(&HOUSES, &runs, &[1; 8]), []);
     }
 
     #[test]
     fn a_single_shared_vertex_is_not_copied() {
         let vertices = [0, 0, 50, 50, 99, 0, 50, 50, 0, 99];
-        assert_eq!(plan(&vertices, &[], &[4; 5]), []);
+        assert_eq!(plan::<2>(&vertices, &[], &[4; 5]), []);
     }
 
     #[rstest]
@@ -505,7 +505,7 @@ mod tests {
     proptest! {
         #[test]
         fn any_plan_replays_to_its_vertices((vertices, runs) in arb_layer()) {
-            let copies = plan(&vertices, &runs, &vec![2; vertices.len() / 2]);
+            let copies = plan::<2>(&vertices, &runs, &vec![2; vertices.len() / 2]);
             prop_assert_eq!(replay(&ops_of(&copies), &runs, &vertices).unwrap(), vertices);
         }
     }

@@ -1,0 +1,110 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": 0
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            10,
+            10,
+            0
+          ],
+          [
+            20,
+            20,
+            15
+          ],
+          [
+            10,
+            30,
+            0
+          ],
+          [
+            30,
+            30,
+            0
+          ],
+          [
+            30,
+            10,
+            0
+          ]
+        ]
+      },
+      "triangles": [
+        [
+          0,
+          1,
+          4
+        ],
+        [
+          4,
+          1,
+          3
+        ],
+        [
+          3,
+          1,
+          2
+        ],
+        [
+          2,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": 0
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            50,
+            30,
+            0
+          ],
+          [
+            70,
+            30,
+            0
+          ],
+          [
+            70,
+            30,
+            10
+          ],
+          [
+            50,
+            30,
+            10
+          ]
+        ]
+      },
+      "triangles": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          0,
+          2,
+          3
+        ]
+      ]
+    }
+  ]
+}

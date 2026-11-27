@@ -285,6 +285,7 @@ pub enum XyzLogical {
     None,
     Delta,
     ComponentwiseDelta,
+    Predicted,
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
@@ -623,6 +624,8 @@ impl Display for LogicalEncoding {
                     VertexLogical::Xyz(_, XyzLogical::ComponentwiseDelta) => {
                         "xyz-componentwise-delta"
                     }
+                    #[cfg(feature = "unstable-v2")]
+                    VertexLogical::Xyz(_, XyzLogical::Predicted) => "xyz-predicted",
                 },
             ),
         };
@@ -755,6 +758,7 @@ mod tests {
     #[case::none(XyzLogical::None, "vertex/xyz-none")]
     #[case::delta(XyzLogical::Delta, "vertex/xyz-delta")]
     #[case::componentwise_delta(XyzLogical::ComponentwiseDelta, "vertex/xyz-componentwise-delta")]
+    #[case::predicted(XyzLogical::Predicted, "vertex/xyz-predicted")]
     fn every_xyz_encoding_renders_kind_then_encoding(
         #[case] xyz: XyzLogical,
         #[case] expected: &str,

@@ -1,0 +1,142 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": -1
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            1979,
+            1950,
+            5200
+          ],
+          [
+            2333,
+            2613,
+            5240
+          ],
+          [
+            2866,
+            2790,
+            5310
+          ],
+          [
+            3227,
+            3619,
+            5400
+          ],
+          [
+            3893,
+            3826,
+            5520
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": -1
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            5,
+            11,
+            4980
+          ],
+          [
+            530,
+            366,
+            5030
+          ],
+          [
+            1003,
+            669,
+            5090
+          ],
+          [
+            1150,
+            1733,
+            5140
+          ],
+          [
+            1979,
+            1950,
+            5200
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": -1
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            3986,
+            421,
+            5470
+          ],
+          [
+            3221,
+            1131,
+            5380
+          ],
+          [
+            2702,
+            1475,
+            5290
+          ],
+          [
+            1979,
+            1950,
+            5200
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z_step": -1
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            1003,
+            3900,
+            5080
+          ],
+          [
+            1517,
+            3104,
+            5150
+          ],
+          [
+            1979,
+            1950,
+            5260
+          ]
+        ]
+      }
+    }
+  ]
+}

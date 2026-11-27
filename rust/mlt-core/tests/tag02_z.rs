@@ -256,6 +256,97 @@ fn a_relative_to_ground_layer_sets_bit_3_of_the_z_axis_byte() {
     ");
 }
 
+/// A layer on `step` of `features`, each a geometry and the z of its stored vertices.
+fn z_features(features: Vec<(Geometry<i32>, Vec<i32>)>) -> TileLayer {
+    let mut builder = TileLayer::builder("z", 4096).unwrap();
+    builder.set_z_axis(step()).unwrap();
+    for (geom, z) in features {
+        let mut feature = builder.feature(geom);
+        feature.z(z).unwrap();
+        feature.finish().unwrap();
+    }
+    builder.finish()
+}
+
+/// Lines of 20 vertices, each at one height 25 m above the one before.
+fn contours() -> Vec<(Geometry<i32>, Vec<i32>)> {
+    (0..30)
+        .map(|i| {
+            let pts: Vec<(i32, i32)> = (0..20)
+                .map(|j| (i * 40 + j * 17 + (j * j) % 7, i * 30 + j * 11 - (j * 3) % 5))
+                .collect();
+            (line(&pts), vec![2500 + i * 250; 20])
+        })
+        .collect()
+}
+
+/// Squares whose corners rise towards the east and the south.
+fn slopes() -> Vec<(Geometry<i32>, Vec<i32>)> {
+    (0..40)
+        .map(|i| {
+            let (x, y) = ((i % 8) * 300, (i / 8) * 300);
+            let z = [0, 120, 170, 50].map(|dz| 4000 + i * 13 + dz);
+            (Geometry::Polygon(square(x, y)), z.to_vec())
+        })
+        .collect()
+}
+
+/// The vertex stream's encoding byte as the dump names it.
+fn vertex_encoding(bytes: &[u8]) -> String {
+    annotate(bytes)
+        .regions
+        .iter()
+        .skip_while(|r| r.label != "vertices")
+        .find(|r| r.label == "encoding")
+        .and_then(|r| r.value.clone())
+        .expect("a vertex stream encoding")
+}
+
+#[rstest]
+#[case::contours(z_features(contours()))]
+#[case::slopes(z_features(slopes()))]
+#[case::mixed(z_layer((0..60).map(|i| if i % 2 == 0 {
+    line(&[(i * 9, i * 4), (i * 9 + 30, i * 4 + 7), (i * 9 + 61, i * 4 + 15)])
+} else {
+    Geometry::Polygon(square(i * 20, 900))
+}).collect()))]
+fn predicted_vertices_shrink_a_z_layer_and_decode_unchanged(#[case] layer: TileLayer) {
+    let plain = assert_round_trips(&layer, cfg_v2());
+    let predicted = assert_round_trips(&layer, cfg_v2().with_predicted_vertices(true));
+    assert_snapshot!(vertex_encoding(&predicted), @"0xC1 logical=Predicted physical=implied");
+    assert!(
+        predicted.len() < plain.len(),
+        "{} vs {}",
+        predicted.len(),
+        plain.len()
+    );
+}
+
+#[test]
+fn a_tessellated_z_layer_races_predicted_vertices() {
+    let layer = z_features(slopes());
+    let tessellated = cfg_v2().with_tessellation(Tessellation::Always);
+    let predicted = assert_round_trips(&layer, tessellated.with_predicted_vertices(true));
+    assert_snapshot!(vertex_encoding(&predicted), @"0xC1 logical=Predicted physical=implied");
+}
+
+#[test]
+fn a_predicted_vertex_stream_header_names_its_axis() {
+    let bytes = z_features(contours())
+        .encode(cfg_v2().with_predicted_vertices(true))
+        .unwrap();
+    assert_snapshot!(vertex_header_fields(&bytes), @"
+    encoding = 0xC1 logical=Predicted physical=implied
+      has_explicit_count = true -> a num_values varint follows
+      logical = Predicted, numbered for vertex stream
+      physical = implied
+      xyz = true -> (x, y, z) triples, a z axis byte follows
+    num_values = 600
+    byte_length = 754
+    z_axis = 1 dm, absolute
+    ");
+}
+
 #[test]
 fn geometry_values_take_z_only_once() {
     let mut geometry = GeometryValues::default();
