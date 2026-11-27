@@ -536,17 +536,6 @@ words:    [200, 400, 10, 20, 5, 10]
 
 The v2 `Vertex` family also has a plain `Delta`, which is the integer [delta](<#delta>) over the flat word sequence and does not separate the components.
 
-### Componentwise Delta2
-
-[Delta2](<#delta2>) of each coordinate, with `x` and `y` keeping separate predecessors.
-
-```text
-vertices: (0, 0), (70, 1), (140, 3), (210, 6)
-deltas:   (0, 0), (70, 1), (70, 2), (70, 3)
-delta2:   (0, 0), (70, 1), (0, 1), (0, 1)
-words:    [0, 0, 140, 2, 0, 2, 0, 2]
-```
-
 ### Vertex Dictionary
 
 The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex. `VertexOffsets` is an ordinary unsigned integer stream. `VertexDict` is a vertex stream and carries any of the encodings in this section.

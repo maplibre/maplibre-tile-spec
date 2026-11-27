@@ -418,7 +418,7 @@ The stream holds `3 * num_values` words for `num_values` vertices, with `x`, `y`
 
 `z_mvalues` at a `z_step` of 1 dm:
 
-Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, with `Componentwise Delta` running over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. `Componentwise Delta2` is defined only over pairs, so a vertex stream with bit 0 set and logical `Componentwise Delta2` MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
+Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, with `Componentwise Delta` running over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mix.mlt&at=vertices>) - all six non-mesh geometry types, each vertex an interleaved triple.
 
@@ -904,7 +904,7 @@ The logical encodings available to a stream depend on what it holds. Each family
 | **Str** | A string column's leading stream | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Bool** | A boolean column's data stream, a nested node's presence stream | Bitmap | [Boolean RLE](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#boolean-rle>) |  |  |  |  |
 | **Float** | A float or double column's data stream | None |  | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) |  |  |  |
-| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#componentwise-delta2>) |  |
+| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton |  |  |
 | **Bytes** | Byte blobs: string values, dictionaries, FSST symbol tables | None | [FrontCoded](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) |  |  |  |  |
 
 The `Str` family has the same members as `Int`. It differs only in the use of the extension bits. A code not listed for the stream's family MUST be rejected.

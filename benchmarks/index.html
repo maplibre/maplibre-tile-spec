@@ -850,13 +850,6 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 <td style="text-align: right;">+1%</td>
 </tr>
 <tr>
-<td><code>--delta2</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">-0.5%</td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">0%</td>
-</tr>
-<tr>
 <td><code>--tessellate=always</code></td>
 <td style="text-align: right;">+21.9%</td>
 <td style="text-align: right;">+24.9%</td>
@@ -1095,13 +1088,6 @@ Size is measured without gzip, and <code>-</code> marks an option only v2 has.</
 <td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><code>--delta2</code></td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">-0.6%</td>
-<td style="text-align: right;">-</td>
-<td style="text-align: right;">+1%</td>
-</tr>
-<tr>
 <td><code>--tessellate=always</code></td>
 <td style="text-align: right;">+32.4%</td>
 <td style="text-align: right;">+35.8%</td>
@@ -1146,7 +1132,7 @@ This means that encodings that keep edits local beat ones that make the tile sma
 <tr>
 <td><code>--delta2</code></td>
 <td>Use</td>
-<td>Densely sampled lines have tiny second differences, and an edit changes only the deltas next to it.</td>
+<td>Smooth integer columns, such as per-vertex values along a densely sampled line, have tiny second differences, and an edit changes only the deltas next to it.</td>
 </tr>
 <tr>
 <td><code>--sort none</code></td>

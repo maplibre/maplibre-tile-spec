@@ -247,7 +247,6 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 | `--sort all` | \-0.4% | \-0.4% | \+1% | \+1% |
 | `--no-alp` | \- | \+0.0% | \- | 0% |
 | `--no-bitpacking` | \- | \+0.7% | \- | \+1% |
-| `--delta2` | \- | \-0.5% | \- | 0% |
 | `--tessellate=always` | \+21.9% | \+24.9% | \+27% | \+14% |
 | `--tessellate=always --triangles-only` | \- | \+23.2% | \- | \+10% |
 
@@ -292,7 +291,6 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 | `--sort all` | \-0.1% | \-0.1% | \+1% | \+1% |
 | `--no-alp` | \- | \+0.1% | \- | 0% |
 | `--no-bitpacking` | \- | \+0.3% | \- | 0% |
-| `--delta2` | \- | \-0.6% | \- | \+1% |
 | `--tessellate=always` | \+32.4% | \+35.8% | \+145% | \+68% |
 | `--tessellate=always --triangles-only` | \- | \+33.5% | \- | \+59% |
 
@@ -312,7 +310,7 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 > | Option | For binary diffs | Rationale |
 > | --- | --- | --- |
 > | `--mlt-version 2` | Use | Smaller tiles, less metadata, supports `--delta2`. |
-> | `--delta2` | Use | Densely sampled lines have tiny second differences, and an edit changes only the deltas next to it. |
+> | `--delta2` | Use | Smooth integer columns, such as per-vertex values along a densely sampled line, have tiny second differences, and an edit changes only the deltas next to it. |
 > | `--sort none` | Likely use | Features keep their source order, so an edited feature does not move others. *Good/bad for bsdiff may be different based on data.* |
 > | `--no-shared-dict` | Use | One new string would renumber the dictionary shared by several columns. |
 > | `--no-fsst` | Use | FSST trains its symbol table on the column, so one changed string can change every compressed string. |
@@ -1656,7 +1654,7 @@ The stream holds `3 * num_values` words for `num_values` vertices, with `x`, `y`
 
 `z_mvalues` at a `z_step` of 1 dm:
 
-Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, with `Componentwise Delta` running over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. `Componentwise Delta2` is defined only over pairs, so a vertex stream with bit 0 set and logical `Componentwise Delta2` MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
+Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, with `Componentwise Delta` running over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mix.mlt&at=vertices>) - all six non-mesh geometry types, each vertex an interleaved triple.
 
@@ -2142,7 +2140,7 @@ The logical encodings available to a stream depend on what it holds. Each family
 | **Str** | A string column's leading stream | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Bool** | A boolean column's data stream, a nested node's presence stream | Bitmap | [Boolean RLE](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#boolean-rle>) |  |  |  |  |
 | **Float** | A float or double column's data stream | None |  | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) |  |  |  |
-| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#componentwise-delta2>) |  |
+| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton |  |  |
 | **Bytes** | Byte blobs: string values, dictionaries, FSST symbol tables | None | [FrontCoded](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) |  |  |  |  |
 
 The `Str` family has the same members as `Int`. It differs only in the use of the extension bits. A code not listed for the stream's family MUST be rejected.
@@ -3458,17 +3456,6 @@ words:    [200, 400, 10, 20, 5, 10]
 ```
 
 The v2 `Vertex` family also has a plain `Delta`, which is the integer [delta](<#delta>) over the flat word sequence and does not separate the components.
-
-### Componentwise Delta2
-
-[Delta2](<#delta2>) of each coordinate, with `x` and `y` keeping separate predecessors.
-
-```text
-vertices: (0, 0), (70, 1), (140, 3), (210, 6)
-deltas:   (0, 0), (70, 1), (70, 2), (70, 3)
-delta2:   (0, 0), (70, 1), (0, 1), (0, 1)
-words:    [0, 0, 140, 2, 0, 2, 0, 2]
-```
 
 ### Vertex Dictionary
 

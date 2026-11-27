@@ -54652,7 +54652,7 @@
   {
     "name": "10_518_352.mlt",
     "directory": "0x02-amazon",
-    "bytes": 84215,
+    "bytes": 84253,
     "facets": {
       "extent": [
         "4096"
@@ -54718,7 +54718,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -54730,7 +54729,7 @@
   {
     "name": "11_1037_704.mlt",
     "directory": "0x02-amazon",
-    "bytes": 61787,
+    "bytes": 61794,
     "facets": {
       "extent": [
         "4096"
@@ -54793,7 +54792,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -54804,7 +54802,7 @@
   {
     "name": "5_16_11.mlt",
     "directory": "0x02-amazon",
-    "bytes": 265344,
+    "bytes": 265351,
     "facets": {
       "extent": [
         "4096"
@@ -54868,7 +54866,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -54880,7 +54877,7 @@
   {
     "name": "5_5_11.mlt",
     "directory": "0x02-amazon",
-    "bytes": 248705,
+    "bytes": 248721,
     "facets": {
       "extent": [
         "4096"
@@ -54944,7 +54941,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -54956,7 +54952,7 @@
   {
     "name": "5_6_21.mlt",
     "directory": "0x02-amazon",
-    "bytes": 261982,
+    "bytes": 261988,
     "facets": {
       "extent": [
         "4096"
@@ -55021,7 +55017,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -55033,7 +55028,7 @@
   {
     "name": "5_8_12.mlt",
     "directory": "0x02-amazon",
-    "bytes": 259751,
+    "bytes": 259766,
     "facets": {
       "extent": [
         "4096"
@@ -55097,7 +55092,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -55109,7 +55103,7 @@
   {
     "name": "6_33_21.mlt",
     "directory": "0x02-amazon",
-    "bytes": 214890,
+    "bytes": 214911,
     "facets": {
       "extent": [
         "4096"
@@ -55174,7 +55168,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -55186,7 +55179,7 @@
   {
     "name": "6_33_22.mlt",
     "directory": "0x02-amazon",
-    "bytes": 239722,
+    "bytes": 239804,
     "facets": {
       "extent": [
         "4096"
@@ -55250,7 +55243,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -55262,7 +55254,7 @@
   {
     "name": "7_68_44.mlt",
     "directory": "0x02-amazon",
-    "bytes": 109034,
+    "bytes": 109040,
     "facets": {
       "extent": [
         "4096"
@@ -55327,7 +55319,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -55417,7 +55408,7 @@
   {
     "name": "9_259_176.mlt",
     "directory": "0x02-amazon",
-    "bytes": 131034,
+    "bytes": 131050,
     "facets": {
       "extent": [
         "4096"
@@ -55483,7 +55474,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -55494,7 +55484,7 @@
   {
     "name": "4_8_5.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 163839,
+    "bytes": 163843,
     "facets": {
       "extent": [
         "4096"
@@ -55566,7 +55556,6 @@
       "logical": [
         "alp",
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -55578,7 +55567,7 @@
   {
     "name": "4_9_4.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 108223,
+    "bytes": 108224,
     "facets": {
       "extent": [
         "4096"
@@ -55646,7 +55635,6 @@
       "logical": [
         "alp",
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -56129,7 +56117,7 @@
   {
     "name": "4-9-5.mlt",
     "directory": "0x02-bing",
-    "bytes": 55075,
+    "bytes": 55076,
     "facets": {
       "extent": [
         "4096"
@@ -56198,7 +56186,6 @@
       "logical": [
         "alp",
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -56522,7 +56509,7 @@
   {
     "name": "5-17-11.mlt",
     "directory": "0x02-bing",
-    "bytes": 93191,
+    "bytes": 93192,
     "facets": {
       "extent": [
         "4096"
@@ -56591,7 +56578,6 @@
       "logical": [
         "alp",
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -56602,7 +56588,7 @@
   {
     "name": "6-32-21.mlt",
     "directory": "0x02-bing",
-    "bytes": 40012,
+    "bytes": 40013,
     "facets": {
       "extent": [
         "4096"
@@ -56668,7 +56654,6 @@
       "logical": [
         "alp",
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -56680,7 +56665,7 @@
   {
     "name": "6-32-22.mlt",
     "directory": "0x02-bing",
-    "bytes": 46220,
+    "bytes": 46221,
     "facets": {
       "extent": [
         "4096"
@@ -56746,7 +56731,6 @@
       "logical": [
         "alp",
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -56834,7 +56818,7 @@
   {
     "name": "6-33-22.mlt",
     "directory": "0x02-bing",
-    "bytes": 55484,
+    "bytes": 55485,
     "facets": {
       "extent": [
         "4096"
@@ -56901,7 +56885,6 @@
       "logical": [
         "alp",
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -57303,7 +57286,7 @@
   {
     "name": "10_530_682.mlt",
     "directory": "0x02-omt",
-    "bytes": 48005,
+    "bytes": 48042,
     "facets": {
       "extent": [
         "4096"
@@ -57366,7 +57349,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -57377,7 +57359,7 @@
   {
     "name": "10_530_683.mlt",
     "directory": "0x02-omt",
-    "bytes": 43252,
+    "bytes": 43259,
     "facets": {
       "extent": [
         "4096"
@@ -57442,7 +57424,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -57453,7 +57434,7 @@
   {
     "name": "10_530_684.mlt",
     "directory": "0x02-omt",
-    "bytes": 40626,
+    "bytes": 40644,
     "facets": {
       "extent": [
         "4096"
@@ -57516,7 +57497,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -57527,7 +57507,7 @@
   {
     "name": "10_531_682.mlt",
     "directory": "0x02-omt",
-    "bytes": 74274,
+    "bytes": 74278,
     "facets": {
       "extent": [
         "4096"
@@ -57592,7 +57572,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -57603,7 +57582,7 @@
   {
     "name": "10_531_683.mlt",
     "directory": "0x02-omt",
-    "bytes": 77411,
+    "bytes": 77432,
     "facets": {
       "extent": [
         "4096"
@@ -57666,7 +57645,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -57677,7 +57655,7 @@
   {
     "name": "10_531_684.mlt",
     "directory": "0x02-omt",
-    "bytes": 39037,
+    "bytes": 39047,
     "facets": {
       "extent": [
         "4096"
@@ -57743,7 +57721,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -57754,7 +57731,7 @@
   {
     "name": "10_532_682.mlt",
     "directory": "0x02-omt",
-    "bytes": 68369,
+    "bytes": 68370,
     "facets": {
       "extent": [
         "4096"
@@ -57819,7 +57796,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -57831,7 +57807,7 @@
   {
     "name": "10_532_683.mlt",
     "directory": "0x02-omt",
-    "bytes": 79718,
+    "bytes": 79731,
     "facets": {
       "extent": [
         "4096"
@@ -57895,7 +57871,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -57907,7 +57882,7 @@
   {
     "name": "10_532_684.mlt",
     "directory": "0x02-omt",
-    "bytes": 41892,
+    "bytes": 41894,
     "facets": {
       "extent": [
         "4096"
@@ -57974,7 +57949,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -57985,7 +57959,7 @@
   {
     "name": "10_533_682.mlt",
     "directory": "0x02-omt",
-    "bytes": 54672,
+    "bytes": 54676,
     "facets": {
       "extent": [
         "4096"
@@ -58048,7 +58022,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58059,7 +58032,7 @@
   {
     "name": "10_533_683.mlt",
     "directory": "0x02-omt",
-    "bytes": 68359,
+    "bytes": 68365,
     "facets": {
       "extent": [
         "4096"
@@ -58124,7 +58097,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -58136,7 +58108,7 @@
   {
     "name": "10_533_684.mlt",
     "directory": "0x02-omt",
-    "bytes": 37003,
+    "bytes": 37017,
     "facets": {
       "extent": [
         "4096"
@@ -58201,7 +58173,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58212,7 +58183,7 @@
   {
     "name": "11_1062_1366.mlt",
     "directory": "0x02-omt",
-    "bytes": 45969,
+    "bytes": 46003,
     "facets": {
       "extent": [
         "4096"
@@ -58275,7 +58246,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58286,7 +58256,7 @@
   {
     "name": "11_1062_1367.mlt",
     "directory": "0x02-omt",
-    "bytes": 28628,
+    "bytes": 28629,
     "facets": {
       "extent": [
         "4096"
@@ -58348,7 +58318,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58359,7 +58328,7 @@
   {
     "name": "11_1062_1368.mlt",
     "directory": "0x02-omt",
-    "bytes": 18833,
+    "bytes": 18839,
     "facets": {
       "extent": [
         "4096"
@@ -58422,7 +58391,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58433,7 +58401,7 @@
   {
     "name": "11_1063_1366.mlt",
     "directory": "0x02-omt",
-    "bytes": 54011,
+    "bytes": 54022,
     "facets": {
       "extent": [
         "4096"
@@ -58496,7 +58464,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58507,7 +58474,7 @@
   {
     "name": "11_1063_1367.mlt",
     "directory": "0x02-omt",
-    "bytes": 32543,
+    "bytes": 32546,
     "facets": {
       "extent": [
         "4096"
@@ -58571,7 +58538,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58582,7 +58548,7 @@
   {
     "name": "11_1063_1368.mlt",
     "directory": "0x02-omt",
-    "bytes": 22019,
+    "bytes": 22022,
     "facets": {
       "extent": [
         "4096"
@@ -58646,7 +58612,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58657,7 +58622,7 @@
   {
     "name": "11_1064_1366.mlt",
     "directory": "0x02-omt",
-    "bytes": 45664,
+    "bytes": 45669,
     "facets": {
       "extent": [
         "4096"
@@ -58720,7 +58685,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58731,7 +58695,7 @@
   {
     "name": "11_1064_1367.mlt",
     "directory": "0x02-omt",
-    "bytes": 41353,
+    "bytes": 41360,
     "facets": {
       "extent": [
         "4096"
@@ -58795,7 +58759,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58806,7 +58769,7 @@
   {
     "name": "11_1064_1368.mlt",
     "directory": "0x02-omt",
-    "bytes": 26365,
+    "bytes": 26376,
     "facets": {
       "extent": [
         "4096"
@@ -58868,7 +58831,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -58879,7 +58841,7 @@
   {
     "name": "11_1065_1366.mlt",
     "directory": "0x02-omt",
-    "bytes": 50156,
+    "bytes": 50166,
     "facets": {
       "extent": [
         "4096"
@@ -58942,7 +58904,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -59026,7 +58987,7 @@
   {
     "name": "11_1065_1368.mlt",
     "directory": "0x02-omt",
-    "bytes": 20273,
+    "bytes": 20285,
     "facets": {
       "extent": [
         "4096"
@@ -59085,7 +59046,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -59096,7 +59056,7 @@
   {
     "name": "12_2130_2733.mlt",
     "directory": "0x02-omt",
-    "bytes": 87298,
+    "bytes": 87318,
     "facets": {
       "extent": [
         "4096"
@@ -59160,7 +59120,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -59170,7 +59129,7 @@
   {
     "name": "12_2130_2734.mlt",
     "directory": "0x02-omt",
-    "bytes": 56887,
+    "bytes": 56900,
     "facets": {
       "extent": [
         "4096"
@@ -59228,7 +59187,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -59238,7 +59196,7 @@
   {
     "name": "12_2131_2733.mlt",
     "directory": "0x02-omt",
-    "bytes": 63756,
+    "bytes": 63763,
     "facets": {
       "extent": [
         "4096"
@@ -59301,7 +59259,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -59312,7 +59269,7 @@
   {
     "name": "12_2131_2734.mlt",
     "directory": "0x02-omt",
-    "bytes": 44005,
+    "bytes": 44019,
     "facets": {
       "extent": [
         "4096"
@@ -59373,7 +59330,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -59526,7 +59482,7 @@
   {
     "name": "12_2133_2733.mlt",
     "directory": "0x02-omt",
-    "bytes": 59503,
+    "bytes": 59505,
     "facets": {
       "extent": [
         "4096"
@@ -59587,7 +59543,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -59598,7 +59553,7 @@
   {
     "name": "12_2133_2734.mlt",
     "directory": "0x02-omt",
-    "bytes": 55455,
+    "bytes": 55478,
     "facets": {
       "extent": [
         "4096"
@@ -59662,7 +59617,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -59809,7 +59763,7 @@
   {
     "name": "12_3229_2032_big_transportation.mlt",
     "directory": "0x02-omt",
-    "bytes": 147170,
+    "bytes": 147188,
     "facets": {
       "extent": [
         "4096"
@@ -59878,7 +59832,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -60172,7 +60125,7 @@
   {
     "name": "13_4264_5467.mlt",
     "directory": "0x02-omt",
-    "bytes": 43800,
+    "bytes": 43802,
     "facets": {
       "extent": [
         "4096"
@@ -60232,7 +60185,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -60312,7 +60264,7 @@
   {
     "name": "13_4265_5467.mlt",
     "directory": "0x02-omt",
-    "bytes": 46231,
+    "bytes": 46236,
     "facets": {
       "extent": [
         "4096"
@@ -60372,7 +60324,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -60521,7 +60472,7 @@
   {
     "name": "13_4266_5468.mlt",
     "directory": "0x02-omt",
-    "bytes": 42765,
+    "bytes": 42780,
     "facets": {
       "extent": [
         "4096"
@@ -60581,7 +60532,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -60591,7 +60541,7 @@
   {
     "name": "13_4267_5467.mlt",
     "directory": "0x02-omt",
-    "bytes": 44664,
+    "bytes": 44667,
     "facets": {
       "extent": [
         "4096"
@@ -60650,7 +60600,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -61312,7 +61261,7 @@
   {
     "name": "14_6435_8363_big_building_not_optimized.mlt",
     "directory": "0x02-omt",
-    "bytes": 717301,
+    "bytes": 717335,
     "facets": {
       "extent": [
         "4096"
@@ -61375,7 +61324,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -61385,7 +61333,7 @@
   {
     "name": "14_6435_8363_big_building_optimized.mlt",
     "directory": "0x02-omt",
-    "bytes": 535544,
+    "bytes": 535578,
     "facets": {
       "extent": [
         "4096"
@@ -61450,7 +61398,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -61460,7 +61407,7 @@
   {
     "name": "14_6435_8364_big_building_not_optimized.mlt",
     "directory": "0x02-omt",
-    "bytes": 702748,
+    "bytes": 702757,
     "facets": {
       "extent": [
         "4096"
@@ -61523,7 +61470,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -61533,7 +61479,7 @@
   {
     "name": "14_6435_8364_big_building_optimized.mlt",
     "directory": "0x02-omt",
-    "bytes": 549900,
+    "bytes": 549909,
     "facets": {
       "extent": [
         "4096"
@@ -61598,7 +61544,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -64046,7 +63991,7 @@
   {
     "name": "5_5_11_big_park.mlt",
     "directory": "0x02-omt",
-    "bytes": 182258,
+    "bytes": 182282,
     "facets": {
       "extent": [
         "4096"
@@ -64113,7 +64058,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "rle"
@@ -65778,7 +65722,7 @@
   {
     "name": "8_69_107_big_landuse.mlt",
     "directory": "0x02-omt",
-    "bytes": 237135,
+    "bytes": 237155,
     "facets": {
       "extent": [
         "4096"
@@ -65842,7 +65786,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "delta2",
@@ -65853,7 +65796,7 @@
   {
     "name": "9_264_340.mlt",
     "directory": "0x02-omt",
-    "bytes": 86605,
+    "bytes": 86610,
     "facets": {
       "extent": [
         "4096"
@@ -65917,7 +65860,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -65928,7 +65870,7 @@
   {
     "name": "9_264_341.mlt",
     "directory": "0x02-omt",
-    "bytes": 58584,
+    "bytes": 58596,
     "facets": {
       "extent": [
         "4096"
@@ -65990,7 +65932,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -66001,7 +65942,7 @@
   {
     "name": "9_264_342.mlt",
     "directory": "0x02-omt",
-    "bytes": 69791,
+    "bytes": 69798,
     "facets": {
       "extent": [
         "4096"
@@ -66064,7 +66005,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -66149,7 +66089,7 @@
   {
     "name": "9_265_341.mlt",
     "directory": "0x02-omt",
-    "bytes": 137858,
+    "bytes": 137871,
     "facets": {
       "extent": [
         "4096"
@@ -66213,7 +66153,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -66224,7 +66163,7 @@
   {
     "name": "9_265_342.mlt",
     "directory": "0x02-omt",
-    "bytes": 53785,
+    "bytes": 53786,
     "facets": {
       "extent": [
         "4096"
@@ -66287,7 +66226,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",
@@ -66448,7 +66386,7 @@
   {
     "name": "9_266_342.mlt",
     "directory": "0x02-omt",
-    "bytes": 64438,
+    "bytes": 64458,
     "facets": {
       "extent": [
         "4096"
@@ -66513,7 +66451,6 @@
       ],
       "logical": [
         "componentwise-delta",
-        "componentwise-delta2",
         "delta",
         "delta-rle",
         "morton-delta",

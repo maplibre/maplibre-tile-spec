@@ -3026,7 +3026,6 @@ At the finest step the grid spans about 2147 km either side of the base.</p>
 </svg></p>
 <p>Logical <code>None</code>, <code>Delta</code> and <code>Componentwise Delta</code> read as they do over pairs, with <code>Componentwise Delta</code> running over three components.
 A Morton code spans only <code>x</code> and <code>y</code>, so a vertex stream with bit 0 set and logical <code>Morton</code> MUST be rejected.
-<code>Componentwise Delta2</code> is defined only over pairs, so a vertex stream with bit 0 set and logical <code>Componentwise Delta2</code> MUST be rejected.
 Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices" target="_blank">View example</a> - all six non-mesh geometry types, each vertex an interleaved triple.</p>
 <p>The vertex stream is indexed, so (<span class="arithmatex">\(x_1, y_1, z_1, x_2, y_2, z_2, ..., x_i, y_i, z_i\)</span>) has index <span class="arithmatex">\(i\)</span>:</p>
@@ -5071,7 +5070,7 @@ Each family numbers its own members from <code>0</code>.</p>
 <td>Delta</td>
 <td>Componentwise Delta</td>
 <td>Morton</td>
-<td><a href="../../encodings/#componentwise-delta2">Componentwise Delta2</a></td>
+<td></td>
 <td></td>
 </tr>
 <tr>
