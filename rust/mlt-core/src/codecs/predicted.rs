@@ -1164,7 +1164,9 @@ impl Rice<'_, '_> {
     )]
     #[inline(always)]
     fn residual(&mut self) -> Pos {
-        self.reserve(1);
+        if !self.reserve(1) {
+            return [0, 0];
+        }
         if self.bits.filled < self.p.pair_bits {
             self.bits.refill();
         }
@@ -1178,17 +1180,18 @@ impl Rice<'_, '_> {
         self.pair_exact()
     }
 
-    /// Claims `vertices` residuals of the class.
+    /// Claims `vertices` residuals of the class, false when it has fewer left.
     #[inline]
-    fn reserve(&mut self, vertices: usize) {
+    fn reserve(&mut self, vertices: usize) -> bool {
         let Some(remaining) = vertices
             .checked_mul(2)
             .and_then(|values| self.p.remaining.checked_sub(values))
         else {
             self.fail(DISAGREE);
-            return;
+            return false;
         };
         self.p.remaining = remaining;
+        true
     }
 
     /// Records the first malformed condition, which `finish` reports.
@@ -1207,7 +1210,9 @@ impl Rice<'_, '_> {
     )]
     #[inline(always)]
     fn fill(&mut self, out: &mut [Pos], mut step: impl FnMut(Pos) -> Pos) {
-        self.reserve(out.len());
+        if !self.reserve(out.len()) {
+            return;
+        }
         let p = *self.p;
         let (mut buf, mut filled) = (self.bits.buf, self.bits.filled);
         for v in out.iter_mut() {
@@ -1915,6 +1920,18 @@ mod tests {
         assert_eq!(
             err.to_string(),
             format!("predicted vertex stream is malformed: {reason}")
+        );
+    }
+
+    #[test]
+    fn a_shared_count_without_a_copy_on_a_class_with_no_residual_is_rejected() {
+        let data = [
+            0x08, 0x00, 0x01, 0xCC, 0x08, 0x00, 0x80, 0x00, 0x00, 0x00, 0x02, 0x00, 0x0A,
+        ];
+        let err = decode(&data, &[line(0, 2)], 2, &mut dec()).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "predicted vertex stream is malformed: shared vertices disagree with the stream lengths"
         );
     }
 
