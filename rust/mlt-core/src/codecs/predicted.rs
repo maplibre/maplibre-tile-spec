@@ -1,4 +1,4 @@
-//! Predicted vertices: residuals against a guess from the decoded vertices, in six class streams.
+//! Predicted vertices: residuals against a guess from the decoded vertices, Rice coded with parameters per class.
 
 use rustc_hash::FxHashMap;
 use usize_cast::IntoUsize as _;
@@ -191,7 +191,7 @@ impl Header {
 }
 
 impl Tag {
-    fn stream(self) -> usize {
+    const fn stream(self) -> usize {
         match self {
             Self::Start => 0,
             Self::Point => 1,
@@ -422,7 +422,7 @@ pub fn header(data: &[u8]) -> MltResult<Header> {
     Header::from_byte(byte)
 }
 
-/// What the vertices of one class stream cost.
+/// What the residuals of one class cost.
 #[derive(Clone, Copy)]
 struct ClassCost {
     axes: [RiceCosts; 2],
@@ -447,11 +447,11 @@ impl ClassCost {
         self.vertices -= other.vertices;
     }
 
-    /// The bytes of the stream.
-    fn stream_len(&self) -> usize {
-        let bits = self.axes[0].best().1 + self.axes[1].best().1;
-        let bytes = usize::try_from(bits.div_ceil(8)).unwrap_or(usize::MAX);
-        1 + vertex_copies::varint_len(bytes) + bytes
+    /// The parameter of each axis, and the codeword bits the class takes with them.
+    fn params(&self) -> ([u32; 2], u64) {
+        let (kx, x) = self.axes[0].best();
+        let (ky, y) = self.axes[1].best();
+        ([kx, ky], x + y)
     }
 }
 
@@ -488,11 +488,13 @@ fn payload_len(
     if header.sharing.copies && header.sharing.line_references {
         len += vertex_copies::varint_len(plan.ops.len());
     }
-    len + stored
-        .iter()
-        .filter(|c| c.vertices > 0)
-        .map(ClassCost::stream_len)
-        .sum::<usize>()
+    let written = || stored.iter().filter(|c| c.vertices > 0);
+    let bits: u64 = written().map(|c| c.params().1).sum();
+    let bytes = usize::try_from(bits.div_ceil(8)).unwrap_or(usize::MAX);
+    if header.sharing.any() {
+        len += vertex_copies::varint_len(bytes);
+    }
+    len + written().count() + bytes
 }
 
 /// The shortest payload so far.
@@ -601,18 +603,19 @@ fn residuals(vertices: &[i32], tags: &[Tag], start: StartGuess) -> Vec<u32> {
 }
 
 fn write(residuals: &[u32], tags: &[Tag], header: Header, plan: &Plan) -> Vec<u8> {
-    let mut streams: [Vec<u32>; CLASSES] = Default::default();
+    let mut stored = [ClassCost::NONE; CLASSES];
     let mut totals = [0_usize; CLASSES];
     let mut shared = [0_usize; CLASSES];
-    for (i, (&tag, pair)) in tags.iter().zip(residuals.as_chunks::<2>().0).enumerate() {
+    for (i, (&tag, &pair)) in tags.iter().zip(residuals.as_chunks::<2>().0).enumerate() {
         let stream = tag.stream();
         totals[stream] += 1;
         if plan.shared[i] {
             shared[stream] += 1;
         } else {
-            streams[stream].extend_from_slice(pair);
+            stored[stream].add(pair);
         }
     }
+    let ks = stored.map(|c| c.params().0);
     let mut out = Vec::with_capacity(residuals.len() + plan.ops.len() + plan.bits.len() + 8);
     out.push(header.byte());
     if header.sharing.any() {
@@ -625,9 +628,24 @@ fn write(residuals: &[u32], tags: &[Tag], header: Header, plan: &Plan) -> Vec<u8
     if header.sharing.copies && header.sharing.line_references {
         write_varint(plan.ops.len(), &mut out);
     }
-    for stream in streams.iter().filter(|s| !s.is_empty()) {
-        write_rice(stream, &mut out);
+    for (class, [kx, ky]) in stored.iter().zip(ks) {
+        if class.vertices > 0 {
+            out.push(kx.to_le_bytes()[0] | ky.to_le_bytes()[0] << 4);
+        }
     }
+    let mut bits = LsbBitWriter::default();
+    for (i, (&tag, pair)) in tags.iter().zip(residuals.as_chunks::<2>().0).enumerate() {
+        if !plan.shared[i] {
+            for (&v, k) in pair.iter().zip(ks[tag.stream()]) {
+                put_rice(v, k, &mut bits);
+            }
+        }
+    }
+    let bits = bits.finish();
+    if header.sharing.any() {
+        write_varint(bits.len(), &mut out);
+    }
+    out.extend_from_slice(&bits);
     out.extend_from_slice(&plan.ops);
     out.extend_from_slice(&plan.bits);
     out
@@ -661,7 +679,7 @@ pub fn decode(
     } else {
         None
     };
-    let (mut walk, rest) = Walk::new(rest, &lengths, guesses)?;
+    let (mut walk, rest) = Walk::new(rest, &lengths, guesses, sharing.any())?;
     let (ops, bits) = match (sharing.copies, ops_len) {
         (false, _) => (&[][..], rest),
         (true, None) => (rest, &[][..]),
@@ -669,9 +687,6 @@ pub fn decode(
             .split_at_checked(len)
             .ok_or(Malformed("copy ops are cut short"))?,
     };
-    if !sharing.line_references && !bits.is_empty() {
-        return Err(Malformed("bytes after the last stream"));
-    }
     let mut copier = Copier::new(ops, runs, n, dec)?;
     let mut references = if sharing.line_references {
         Some(LineReferences::new(bits, runs, dec)?)
@@ -757,14 +772,10 @@ fn class_lengths(runs: &[Run], vertex_count: usize) -> MltResult<[usize; CLASSES
     Ok(lengths)
 }
 
-/// The decoder state between runs, with a reader per class stream.
+/// The decoder state between runs: the parameters of each class over the one bit data.
 struct Walk<'a> {
-    start: Rice<'a>,
-    point: Rice<'a>,
-    ring: Rice<'a>,
-    corner: Rice<'a>,
-    line_second: Rice<'a>,
-    line: Rice<'a>,
+    bits: Bits<'a>,
+    params: [Params; CLASSES],
     start_guess: StartGuess,
     /// The shortest line part whose later vertices continue the last edge.
     continued_from: usize,
@@ -773,32 +784,55 @@ struct Walk<'a> {
 }
 
 impl<'a> Walk<'a> {
-    /// Locates the class streams of `lengths` vertices at the front of `data`.
+    /// Reads the parameters of the classes with `lengths` vertices off `data`, then locates the bit data.
+    ///
+    /// With `delimited`, a `byte_len` varint precedes the bit data, which otherwise runs to the end.
     fn new(
         data: &'a [u8],
         lengths: &[usize; CLASSES],
         guesses: Guesses,
+        delimited: bool,
     ) -> MltResult<(Self, &'a [u8])> {
-        let mut streams = [Rice::default(); CLASSES];
+        let mut params = [Params::default(); CLASSES];
         let mut rest = data;
-        for (stream, &len) in streams.iter_mut().zip(lengths) {
+        for (p, &len) in params.iter_mut().zip(lengths) {
             if len > 0 {
-                (*stream, rest) = Rice::locate(rest, 2 * len)?;
+                let Some((&byte, tail)) = rest.split_first() else {
+                    return Err(Malformed("rice parameters are cut short"));
+                };
+                (*p, rest) = (Params::new(byte, 2 * len), tail);
             }
         }
-        let [start, point, ring, corner, line_second, line] = streams;
+        let data;
+        if delimited {
+            let (tail, byte_len) = parse_varint::<u32>(rest)?;
+            (data, rest) = tail
+                .split_at_checked(byte_len.into_usize())
+                .ok_or(Malformed("rice bits are cut short"))?;
+        } else {
+            (data, rest) = (rest, &[][..]);
+        }
         let walk = Self {
-            start,
-            point,
-            ring,
-            corner,
-            line_second,
-            line,
+            bits: Bits {
+                data,
+                ..Bits::default()
+            },
+            params,
             start_guess: guesses.start,
             continued_from: guesses.line.min_len().map_or(usize::MAX, u32::into_usize),
             run_start: [0, 0],
         };
         Ok((walk, rest))
+    }
+
+    /// The reader of class `c`.
+    #[expect(clippy::inline_always, reason = "keeps the bit buffer in registers")]
+    #[inline(always)]
+    fn rice(&mut self, c: usize) -> Rice<'_, 'a> {
+        Rice {
+            bits: &mut self.bits,
+            p: &mut self.params[c],
+        }
     }
 
     /// Decodes the points from `from` to the end of `vertices`, from copies or residuals.
@@ -817,7 +851,7 @@ impl<'a> Walk<'a> {
             }
             let stop = copier.next().min(vertices.len());
             let mut p = previous(vertices, i);
-            self.point.fill(&mut vertices[i..stop], |r| {
+            self.rice(POINT).fill(&mut vertices[i..stop], |r| {
                 p = add(p, r);
                 p
             });
@@ -878,7 +912,7 @@ impl<'a> Walk<'a> {
                 StartGuess::Previous => previous(vertices, start),
                 StartGuess::RunStart => self.run_start,
             };
-            self.run_start = add(guess, self.start.residual());
+            self.run_start = add(guess, self.rice(START).residual());
             vertices[start] = self.run_start;
             k = 1;
         }
@@ -888,58 +922,60 @@ impl<'a> Walk<'a> {
         }
         match kind {
             RunKind::Ring if len == QUAD.into_usize() && k == 1 && run.len() == len => {
-                run[1] = add(run[0], self.ring.residual());
-                run[2] = add(run[1], self.ring.residual());
-                let corner = [0, 1].map(|axis| {
-                    run[0][axis]
-                        .wrapping_add(run[2][axis])
-                        .wrapping_sub(run[1][axis])
-                });
-                run[3] = add(corner, self.corner.residual());
+                let mut ring = self.rice(RING);
+                run[1] = add(run[0], ring.residual());
+                run[2] = add(run[1], ring.residual());
+                run[3] = add(corner(run), self.rice(CORNER).residual());
             }
             RunKind::Ring if len == QUAD.into_usize() => {
                 for k in k..run.len() {
                     if k == 3 {
-                        let corner = [0, 1].map(|axis| {
-                            run[0][axis]
-                                .wrapping_add(run[2][axis])
-                                .wrapping_sub(run[1][axis])
-                        });
-                        run[3] = add(corner, self.corner.residual());
+                        run[3] = add(corner(run), self.rice(CORNER).residual());
                     } else {
-                        run[k] = add(run[k - 1], self.ring.residual());
+                        run[k] = add(run[k - 1], self.rice(RING).residual());
                     }
                 }
             }
-            RunKind::Ring => self.ring.deltas(&mut run[k - 1..]),
+            RunKind::Ring => self.rice(RING).deltas(&mut run[k - 1..]),
             RunKind::Line => {
                 if k == 1 {
-                    run[1] = add(run[0], self.line_second.residual());
+                    run[1] = add(run[0], self.rice(LINE_SECOND).residual());
                     k = 2;
                 }
                 if k < run.len() {
                     if len >= self.continued_from {
-                        self.line.continued(&mut run[k - 2..]);
+                        self.rice(LINE).continued(&mut run[k - 2..]);
                     } else {
-                        self.line.deltas(&mut run[k - 1..]);
+                        self.rice(LINE).deltas(&mut run[k - 1..]);
                     }
                 }
             }
         }
     }
 
-    /// Checks that the vertices took every residual of every class stream.
+    /// Checks that the vertices took every residual of every class and only padding is left.
     fn finish(&self) -> MltResult<()> {
-        let streams = [
-            &self.start,
-            &self.point,
-            &self.ring,
-            &self.corner,
-            &self.line_second,
-            &self.line,
-        ];
-        streams.iter().try_for_each(|s| s.finish())
+        for p in &self.params {
+            p.finish()?;
+        }
+        self.bits.finish()
     }
+}
+
+const START: usize = Tag::Start.stream();
+const POINT: usize = Tag::Point.stream();
+const RING: usize = Tag::Ring.stream();
+const CORNER: usize = Tag::Corner.stream();
+const LINE_SECOND: usize = Tag::LineSecond.stream();
+const LINE: usize = Tag::Line.stream();
+
+/// The guess for the fourth vertex of a ring of four, `p[0] + p[2] - p[1]`.
+fn corner(run: &[Pos]) -> Pos {
+    [0, 1].map(|axis| {
+        run[0][axis]
+            .wrapping_add(run[2][axis])
+            .wrapping_sub(run[1][axis])
+    })
 }
 
 /// The vertex before `i`, or the origin for the first.
@@ -951,15 +987,51 @@ fn add(a: Pos, b: Pos) -> Pos {
     [a[0].wrapping_add(b[0]), a[1].wrapping_add(b[1])]
 }
 
-/// One Rice coded class stream, read least significant bit first through a 64 bit buffer.
+/// The Rice bit data, read least significant bit first through a 64 bit buffer.
 #[derive(Clone, Copy, Default)]
-struct Rice<'a> {
+struct Bits<'a> {
     data: &'a [u8],
     /// The next byte of `data` to buffer.
     at: usize,
     buf: u64,
     /// The bits of `buf` that hold data.
     filled: u32,
+}
+
+impl Bits<'_> {
+    #[inline]
+    fn refill(&mut self) {
+        if let Some(word) = self.data.get(self.at..).and_then(<[u8]>::first_chunk::<8>) {
+            self.buf |= u64::from_le_bytes(*word) << self.filled;
+            self.at += usize::try_from((63 - self.filled) / 8).expect("at most 7");
+            self.filled |= 0x38;
+            return;
+        }
+        while self.filled <= 56 {
+            let Some(&byte) = self.data.get(self.at) else {
+                return;
+            };
+            self.buf |= u64::from(byte) << self.filled;
+            self.filled += 8;
+            self.at += 1;
+        }
+    }
+
+    /// Checks that only zero padding follows the last codeword.
+    fn finish(&self) -> MltResult<()> {
+        if self.at != self.data.len() || self.filled >= 8 {
+            return Err(Malformed("bytes after the last rice value"));
+        }
+        if self.buf != 0 {
+            return Err(Malformed("rice padding bit is set"));
+        }
+        Ok(())
+    }
+}
+
+/// The parameters of one class and the residual values it has left.
+#[derive(Clone, Copy, Default)]
+struct Params {
     ks: [u32; 2],
     /// The low `k` bits of each axis.
     masks: [u32; 2],
@@ -969,50 +1041,59 @@ struct Rice<'a> {
     fixed_bits: u32,
     /// The values left to read.
     remaining: usize,
-    /// The first malformed condition met, zero while the stream is sound.
+    /// The first malformed condition met, zero while the class is sound.
     bad: u8,
 }
 
-impl<'a> Rice<'a> {
-    /// Bits an escaped value takes at most, the largest read between two refills.
-    const MAX_BITS: u32 = RICE_ESCAPE_Q + 6 + 32;
+/// Failure codes, one more than the index into `REASONS`.
+const CUT_SHORT: u8 = 1;
+const WIDE_ESCAPE: u8 = 2;
+const PAST_U32: u8 = 3;
+const DISAGREE: u8 = 4;
+const REASONS: [&str; 4] = [
+    "rice bits are cut short",
+    "rice escape wider than 32 bits",
+    "rice value exceeds 32 bits",
+    "shared vertices disagree with the stream lengths",
+];
 
-    /// Failure codes, one more than the index into `REASONS`.
-    const CUT_SHORT: u8 = 1;
-    const WIDE_ESCAPE: u8 = 2;
-    const PAST_U32: u8 = 3;
-    const DISAGREE: u8 = 4;
-    const REASONS: [&'static str; 4] = [
-        "rice bits are cut short",
-        "rice escape wider than 32 bits",
-        "rice value exceeds 32 bits",
-        "shared vertices disagree with the stream lengths",
-    ];
-
-    /// Splits a stream of `count` values off `data`.
-    fn locate(data: &'a [u8], count: usize) -> MltResult<(Self, &'a [u8])> {
-        let Some((&params, rest)) = data.split_first() else {
-            return Err(Malformed("rice parameters are cut short"));
-        };
-        let (rest, byte_len) = parse_varint::<u32>(rest)?;
-        let Some((bits, rest)) = rest.split_at_checked(byte_len.into_usize()) else {
-            return Err(Malformed("rice bits are cut short"));
-        };
-        let ks = [u32::from(params & 0x0F), u32::from(params >> 4)];
-        let rice = Self {
-            data: bits,
-            at: 0,
-            buf: 0,
-            filled: 0,
+impl Params {
+    /// The parameters a byte holds, for a class of `count` values.
+    fn new(byte: u8, count: usize) -> Self {
+        let ks = [u32::from(byte & 0x0F), u32::from(byte >> 4)];
+        Self {
             ks,
             masks: ks.map(|k| (1_u32 << k) - 1),
             fixed_bits: 2 + ks[0] + ks[1],
             pair_bits: 2 * RICE_ESCAPE_Q + ks[0] + ks[1],
             remaining: count,
             bad: 0,
-        };
-        Ok((rice, rest))
+        }
     }
+
+    /// Checks that every value of the class was read and none was malformed.
+    fn finish(&self) -> MltResult<()> {
+        if self.bad != 0 {
+            return Err(Malformed(REASONS[usize::from(self.bad - 1)]));
+        }
+        if self.remaining > 0 {
+            return Err(Malformed(
+                "shared vertices disagree with the stream lengths",
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// The reader of one class: its parameters over the shared bit data.
+struct Rice<'r, 'a> {
+    bits: &'r mut Bits<'a>,
+    p: &'r mut Params,
+}
+
+impl Rice<'_, '_> {
+    /// Bits an escaped value takes at most, the largest read between two refills.
+    const MAX_BITS: u32 = RICE_ESCAPE_Q + 6 + 32;
 
     /// Decodes each vertex of `run` after the first as the one before it plus its residual.
     fn deltas(&mut self, run: &mut [Pos]) {
@@ -1038,59 +1119,42 @@ impl<'a> Rice<'a> {
         });
     }
 
-    #[inline]
-    fn refill(&mut self) {
-        if let Some(word) = self.data.get(self.at..).and_then(<[u8]>::first_chunk::<8>) {
-            self.buf |= u64::from_le_bytes(*word) << self.filled;
-            self.at += usize::try_from((63 - self.filled) / 8).expect("at most 7");
-            self.filled |= 0x38;
-            return;
-        }
-        while self.filled <= 56 {
-            let Some(&byte) = self.data.get(self.at) else {
-                return;
-            };
-            self.buf |= u64::from(byte) << self.filled;
-            self.filled += 8;
-            self.at += 1;
-        }
-    }
-
     /// The value of the next residual, with parameter `k`.
     #[inline]
     fn value(&mut self, k: u32) -> Result<u32, u8> {
-        if self.filled < Self::MAX_BITS {
-            self.refill();
+        let b = &mut *self.bits;
+        if b.filled < Self::MAX_BITS {
+            b.refill();
         }
-        let zeros = self.buf.trailing_zeros();
+        let zeros = b.buf.trailing_zeros();
         if zeros < RICE_ESCAPE_Q {
             let used = zeros + 1 + k;
-            if used > self.filled {
-                return Err(Self::CUT_SHORT);
+            if used > b.filled {
+                return Err(CUT_SHORT);
             }
-            let low = (self.buf >> (zeros + 1)) & ((1_u64 << k) - 1);
-            self.buf >>= used;
-            self.filled -= used;
+            let low = (b.buf >> (zeros + 1)) & ((1_u64 << k) - 1);
+            b.buf >>= used;
+            b.filled -= used;
             return Ok(zeros << k | u32::try_from(low).expect("below 2^15"));
         }
-        if self.filled < RICE_ESCAPE_Q + 6 {
-            return Err(Self::CUT_SHORT);
+        if b.filled < RICE_ESCAPE_Q + 6 {
+            return Err(CUT_SHORT);
         }
-        let n = u32::try_from((self.buf >> RICE_ESCAPE_Q) & 0x3F).expect("six bits");
+        let n = u32::try_from((b.buf >> RICE_ESCAPE_Q) & 0x3F).expect("six bits");
         if n > 32 {
-            return Err(Self::WIDE_ESCAPE);
+            return Err(WIDE_ESCAPE);
         }
         let used = RICE_ESCAPE_Q + 6 + n;
-        if used > self.filled {
-            return Err(Self::CUT_SHORT);
+        if used > b.filled {
+            return Err(CUT_SHORT);
         }
-        let e = (self.buf >> (RICE_ESCAPE_Q + 6)) & ((1_u64 << n) - 1);
+        let e = (b.buf >> (RICE_ESCAPE_Q + 6)) & ((1_u64 << n) - 1);
         let value = (u64::from(RICE_ESCAPE_Q) << k) + e;
         let Ok(value) = u32::try_from(value) else {
-            return Err(Self::PAST_U32);
+            return Err(PAST_U32);
         };
-        self.buf >>= used;
-        self.filled -= used;
+        b.buf >>= used;
+        b.filled -= used;
         Ok(value)
     }
 
@@ -1102,32 +1166,42 @@ impl<'a> Rice<'a> {
     #[inline(always)]
     fn residual(&mut self) -> Pos {
         self.reserve(1);
-        self.pair_reserved()
+        if self.bits.filled < self.p.pair_bits {
+            self.bits.refill();
+        }
+        let (mut buf, mut filled) = (self.bits.buf, self.bits.filled);
+        if filled >= self.p.pair_bits
+            && let Some(pair) = fast_pair(self.p, &mut buf, &mut filled)
+        {
+            (self.bits.buf, self.bits.filled) = (buf, filled);
+            return pair;
+        }
+        self.pair_exact()
     }
 
-    /// Claims `vertices` residuals of the stream.
+    /// Claims `vertices` residuals of the class.
     #[inline]
     fn reserve(&mut self, vertices: usize) {
         let Some(remaining) = vertices
             .checked_mul(2)
-            .and_then(|values| self.remaining.checked_sub(values))
+            .and_then(|values| self.p.remaining.checked_sub(values))
         else {
-            self.fail(Self::DISAGREE);
+            self.fail(DISAGREE);
             return;
         };
-        self.remaining = remaining;
+        self.p.remaining = remaining;
     }
 
     /// Records the first malformed condition, which `finish` reports.
     #[cold]
     #[inline(never)]
     fn fail(&mut self, reason: u8) {
-        if self.bad == 0 {
-            self.bad = reason;
+        if self.p.bad == 0 {
+            self.p.bad = reason;
         }
     }
 
-    /// Sets each vertex of `out` to `step` of the next residual, keeping the bit buffer in registers.
+    /// Sets each vertex of `out` to `step` of the next residual, keeping the bit buffer and the parameters in registers.
     #[expect(
         clippy::inline_always,
         reason = "measured 34M fewer instructions than #[inline] on the omt tiles"
@@ -1135,77 +1209,32 @@ impl<'a> Rice<'a> {
     #[inline(always)]
     fn fill(&mut self, out: &mut [Pos], mut step: impl FnMut(Pos) -> Pos) {
         self.reserve(out.len());
-        let (mut buf, mut filled) = (self.buf, self.filled);
+        let p = *self.p;
+        let (mut buf, mut filled) = (self.bits.buf, self.bits.filled);
         for v in out.iter_mut() {
-            if filled < self.pair_bits {
-                (self.buf, self.filled) = (buf, filled);
-                self.refill();
-                (buf, filled) = (self.buf, self.filled);
+            if filled < p.pair_bits {
+                (self.bits.buf, self.bits.filled) = (buf, filled);
+                self.bits.refill();
+                (buf, filled) = (self.bits.buf, self.bits.filled);
             }
-            if filled >= self.pair_bits
-                && let Some(pair) = self.fast_pair(&mut buf, &mut filled)
+            if filled >= p.pair_bits
+                && let Some(pair) = fast_pair(&p, &mut buf, &mut filled)
             {
                 *v = step(pair);
                 continue;
             }
-            (self.buf, self.filled) = (buf, filled);
+            (self.bits.buf, self.bits.filled) = (buf, filled);
             *v = step(self.pair_exact());
-            (buf, filled) = (self.buf, self.filled);
+            (buf, filled) = (self.bits.buf, self.bits.filled);
         }
-        (self.buf, self.filled) = (buf, filled);
-    }
-
-    /// The residual of the next vertex when it takes no escape, given that `buf` holds `pair_bits` bits.
-    #[expect(
-        clippy::inline_always,
-        reason = "the bulk loop and the single reader share one body"
-    )]
-    #[inline(always)]
-    fn fast_pair(&self, buf: &mut u64, filled: &mut u32) -> Option<Pos> {
-        let [kx, ky] = self.ks;
-        let [mx, my] = self.masks;
-        let zx = buf.trailing_zeros();
-        if zx >= RICE_ESCAPE_Q {
-            return None;
-        }
-        let rest = *buf >> (zx + 1);
-        let lx = u32::try_from(rest & 0xFFFF_FFFF).expect("masked") & mx;
-        let rest = rest >> kx;
-        let zy = rest.trailing_zeros();
-        if zy >= RICE_ESCAPE_Q {
-            return None;
-        }
-        let ly = u32::try_from((rest >> (zy + 1)) & 0xFFFF_FFFF).expect("masked") & my;
-        *buf = rest >> (zy + 1 + ky);
-        *filled -= zx + zy + self.fixed_bits;
-        Some([unzigzag(zx << kx | lx), unzigzag(zy << ky | ly)])
-    }
-
-    /// The residual of the next vertex, which `reserve` has claimed.
-    #[expect(
-        clippy::inline_always,
-        reason = "measured 59M fewer instructions than #[inline] on the omt tiles"
-    )]
-    #[inline(always)]
-    fn pair_reserved(&mut self) -> Pos {
-        if self.filled < self.pair_bits {
-            self.refill();
-        }
-        let (mut buf, mut filled) = (self.buf, self.filled);
-        if filled >= self.pair_bits
-            && let Some(pair) = self.fast_pair(&mut buf, &mut filled)
-        {
-            (self.buf, self.filled) = (buf, filled);
-            return pair;
-        }
-        self.pair_exact()
+        (self.bits.buf, self.bits.filled) = (buf, filled);
     }
 
     /// The residual of the next vertex, with every cut-short check.
     #[inline(never)]
     fn pair_exact(&mut self) -> Pos {
-        let x = self.value(self.ks[0]);
-        let y = self.value(self.ks[1]);
+        let x = self.value(self.p.ks[0]);
+        let y = self.value(self.p.ks[1]);
         match (x, y) {
             (Ok(x), Ok(y)) => [unzigzag(x), unzigzag(y)],
             (Err(reason), _) | (_, Err(reason)) => {
@@ -1214,25 +1243,32 @@ impl<'a> Rice<'a> {
             }
         }
     }
+}
 
-    /// Checks that every value was read and only zero padding follows the last.
-    fn finish(&self) -> MltResult<()> {
-        if self.bad != 0 {
-            return Err(Malformed(Self::REASONS[usize::from(self.bad - 1)]));
-        }
-        if self.remaining > 0 {
-            return Err(Malformed(
-                "shared vertices disagree with the stream lengths",
-            ));
-        }
-        if self.at != self.data.len() || self.filled >= 8 {
-            return Err(Malformed("bytes after the last rice value"));
-        }
-        if self.buf != 0 {
-            return Err(Malformed("rice padding bit is set"));
-        }
-        Ok(())
+/// The residual of the next vertex when it takes no escape, given that `buf` holds `pair_bits` bits.
+#[expect(
+    clippy::inline_always,
+    reason = "the bulk loop and the single reader share one body"
+)]
+#[inline(always)]
+fn fast_pair(p: &Params, buf: &mut u64, filled: &mut u32) -> Option<Pos> {
+    let [kx, ky] = p.ks;
+    let [mx, my] = p.masks;
+    let zx = buf.trailing_zeros();
+    if zx >= RICE_ESCAPE_Q {
+        return None;
     }
+    let rest = *buf >> (zx + 1);
+    let lx = u32::try_from(rest & 0xFFFF_FFFF).expect("masked") & mx;
+    let rest = rest >> kx;
+    let zy = rest.trailing_zeros();
+    if zy >= RICE_ESCAPE_Q {
+        return None;
+    }
+    let ly = u32::try_from((rest >> (zy + 1)) & 0xFFFF_FFFF).expect("masked") & my;
+    *buf = rest >> (zy + 1 + ky);
+    *filled -= zx + zy + p.fixed_bits;
+    Some([unzigzag(zx << kx | lx), unzigzag(zy << ky | ly)])
 }
 
 /// The unary quotient from which a Rice value escapes.
@@ -1329,35 +1365,20 @@ impl LsbBitWriter {
     }
 }
 
-/// A parameter byte, the byte length of the bit data, then the Rice coded `values` as x then y per vertex.
-fn write_rice(values: &[u32], out: &mut Vec<u8>) {
-    let mut axes = [RiceCosts::NONE; 2];
-    for pair in values.as_chunks::<2>().0 {
-        axes[0].add(pair[0]);
-        axes[1].add(pair[1]);
+/// Appends the codeword of `v` with parameter `k`.
+fn put_rice(value: u32, k: u32, bits: &mut LsbBitWriter) {
+    let quotient = value >> k;
+    if quotient < RICE_ESCAPE_Q {
+        bits.put(0, quotient);
+        bits.put(1, 1);
+        bits.put(u64::from(value), k);
+    } else {
+        let excess = value - (RICE_ESCAPE_Q << k);
+        let width = excess.bit_width();
+        bits.put(0, RICE_ESCAPE_Q);
+        bits.put(u64::from(width), 6);
+        bits.put(u64::from(excess), width);
     }
-    let ks = [axes[0].best().0, axes[1].best().0];
-    let mut bits = LsbBitWriter::default();
-    for pair in values.as_chunks::<2>().0 {
-        for (&v, k) in pair.iter().zip(ks) {
-            let q = v >> k;
-            if q < RICE_ESCAPE_Q {
-                bits.put(0, q);
-                bits.put(1, 1);
-                bits.put(u64::from(v), k);
-            } else {
-                let e = v - (RICE_ESCAPE_Q << k);
-                let n = e.bit_width();
-                bits.put(0, RICE_ESCAPE_Q);
-                bits.put(u64::from(n), 6);
-                bits.put(u64::from(e), n);
-            }
-        }
-    }
-    let bytes = bits.finish();
-    out.push(ks[0].to_le_bytes()[0] | ks[1].to_le_bytes()[0] << 4);
-    write_varint(bytes.len(), out);
-    out.extend_from_slice(&bytes);
 }
 
 /// The tag of every vertex, which only the topology and the line guess decide.
@@ -1512,8 +1533,8 @@ mod tests {
         assert_eq!(
             payload,
             [
-                0x05, 0x76, 0x05, 0x88, 0x20, 0xA4, 0x52, 0x01, 0x54, 0x04, 0xC8, 0x41, 0x20, 0x04,
-                0x00, 0x01, 0x03, 0x03, 0x01, 0x64, 0x10, 0x01, 0x09
+                0x05, 0x76, 0x54, 0x00, 0x03, 0x10, 0x88, 0x20, 0x04, 0x39, 0x08, 0x84, 0x57, 0x2A,
+                0xC8, 0x09
             ]
         );
         assert_eq!(decode(&payload, &runs, 7, &mut dec()).unwrap(), vertices);
@@ -1540,9 +1561,9 @@ mod tests {
         assert_eq!(
             payload,
             [
-                0x19, 0x02, 0x01, 0x00, 0x00, 0x03, 0x06, 0x03, 0x81, 0x88, 0x04, 0x57, 0x07, 0x22,
-                0x83, 0x00, 0x20, 0x12, 0x19, 0x00, 0x00, 0x01, 0x0F, 0x66, 0x05, 0x88, 0x04, 0x02,
-                0x88, 0x00, 0x04, 0x05, 0x01, 0xC0
+                0x19, 0x02, 0x01, 0x00, 0x00, 0x03, 0x06, 0x57, 0x00, 0x66, 0x0E, 0x81, 0x22, 0x83,
+                0x00, 0x20, 0x5A, 0x64, 0x30, 0x22, 0x11, 0x09, 0x04, 0x10, 0x01, 0x04, 0x05, 0x01,
+                0xC0
             ]
         );
         assert_eq!(decode(&payload, &runs, 12, &mut dec()).unwrap(), vertices);
@@ -1630,10 +1651,7 @@ mod tests {
     }
 
     fn rice_points_payload(bits: &[u8]) -> Vec<u8> {
-        let mut payload = vec![0x00, 0x00];
-        write_varint(bits.len(), &mut payload);
-        payload.extend_from_slice(bits);
-        payload
+        [&[0x00, 0x00], bits].concat()
     }
 
     fn rice_error(payload: &[u8], vertex_count: u32) -> String {
@@ -1676,35 +1694,38 @@ mod tests {
 
     #[test]
     fn k_zero_rice_values_are_unary_bits_least_significant_first() {
-        let mut written = Vec::new();
-        write_rice(&[0, 0, 0, 0], &mut written);
-        assert_eq!(written, [0x00, 0x01, 0x0F]);
+        let header = Header {
+            guesses: Guesses::ALL[0],
+            sharing: Sharing::NONE,
+        };
+        let payload = encode_as(&[0, 0, 0, 0], &[], header).unwrap();
+        assert_eq!(payload, [0x00, 0x00, 0x0F]);
     }
 
     #[test]
     fn a_quotient_of_sixteen_escapes_to_the_width_and_bits_of_v_less_sixteen_shifted_by_k() {
-        let mut values = [1, 0].repeat(7);
-        values.extend([80, 0]);
-        let mut written = Vec::new();
-        write_rice(&values, &mut written);
+        let vertices = [-1, 0, -2, 0, -3, 0, -4, 0, -5, 0, -6, 0, -7, 0, 33, 0];
+        let header = Header {
+            guesses: Guesses::ALL[0],
+            sharing: Sharing::NONE,
+        };
+        let payload = encode_as(&vertices, &[], header).unwrap();
         assert_eq!(
-            written,
-            [0x01, 0x07, 0xFF, 0xFF, 0x1F, 0x00, 0xC0, 0x80, 0x03]
+            payload,
+            [0x00, 0x01, 0xFF, 0xFF, 0x1F, 0x00, 0xC0, 0x80, 0x03]
         );
     }
 
     #[test]
     fn k_fifteen_rice_values_round_trip_with_both_nibbles_set() {
-        let values = [500_000_u32, 524_287, 400_000, 450_000];
-        let mut written = Vec::new();
-        write_rice(&values, &mut written);
-        assert_eq!(written[0], 0xFF);
-        let (mut stream, rest) = Rice::locate(&written, 4).unwrap();
-        assert_eq!(rest, [0_u8; 0]);
-        for pair in values.as_chunks::<2>().0 {
-            assert_eq!(stream.residual(), [unzigzag(pair[0]), unzigzag(pair[1])]);
-        }
-        stream.finish().unwrap();
+        let vertices = [250_000, -262_144, 450_000, -37_144];
+        let header = Header {
+            guesses: Guesses::ALL[0],
+            sharing: Sharing::NONE,
+        };
+        let payload = encode_as(&vertices, &[], header).unwrap();
+        assert_eq!(payload[1], 0xFF);
+        assert_eq!(decode(&payload, &[], 2, &mut dec()).unwrap(), vertices);
     }
 
     #[test]
@@ -1716,10 +1737,8 @@ mod tests {
         let payload = encode_as(&[1, 1, 2, 2], &[], header).unwrap();
         let (&last, shorter) = payload.split_last().unwrap();
         assert_ne!(last, 0);
-        let mut cut = shorter.to_vec();
-        cut[2] -= 1;
         assert_eq!(
-            rice_error(&cut, 2),
+            rice_error(shorter, 2),
             "predicted vertex stream is malformed: rice bits are cut short"
         );
     }
@@ -1732,7 +1751,6 @@ mod tests {
         };
         let mut payload = encode_as(&[1, 1, 2, 2], &[], header).unwrap();
         payload.push(0);
-        payload[2] += 1;
         assert_eq!(
             rice_error(&payload, 2),
             "predicted vertex stream is malformed: bytes after the last rice value"
@@ -1805,7 +1823,7 @@ mod tests {
     #[test]
     fn the_race_keeps_the_lowest_header_byte_on_a_tie() {
         let payload = encode(&[1, 2, 3, 4], &[line(0, 2)]).unwrap();
-        assert_eq!(payload, [0x00, 0x10, 0x01, 0x24, 0x11, 0x01, 0x44]);
+        assert_eq!(payload, [0x00, 0x10, 0x11, 0x24, 0x22]);
     }
 
     #[test]
@@ -1852,7 +1870,9 @@ mod tests {
 
     #[test]
     fn the_race_refers_to_a_line_junction() {
-        let vertices = [0, 0, 1000, 1000, 5000, 0, 1000, 1000];
+        let vertices = [
+            0, 0, 1_000_000, 1_000_000, 5_000_000, 0, 1_000_000, 1_000_000,
+        ];
         let payload = encode(&vertices, &[line(0, 2), line(2, 2)]).unwrap();
         assert_eq!(
             header(&payload).unwrap().sharing,
@@ -1865,16 +1885,17 @@ mod tests {
 
     #[rstest]
     #[case::no_header(&[], "no header byte")]
-    #[case::line_guess_three(&[0x06, 0x00, 0x01, 0x03], "unknown line guess")]
-    #[case::run_start_line_guess_three(&[0x07, 0x00, 0x01, 0x03], "unknown line guess")]
-    #[case::reserved_bit_5(&[0x20, 0x00, 0x01, 0x03], "reserved header bit set")]
-    #[case::reserved_bit_6(&[0x40, 0x00, 0x01, 0x03], "reserved header bit set")]
-    #[case::reserved_bit_7(&[0x80, 0x00, 0x01, 0x03], "reserved header bit set")]
-    #[case::trailing_bytes(&[0x00, 0x00, 0x01, 0x03, 0x00], "bytes after the last stream")]
+    #[case::line_guess_three(&[0x06, 0x00, 0x03], "unknown line guess")]
+    #[case::run_start_line_guess_three(&[0x07, 0x00, 0x03], "unknown line guess")]
+    #[case::reserved_bit_5(&[0x20, 0x00, 0x03], "reserved header bit set")]
+    #[case::reserved_bit_6(&[0x40, 0x00, 0x03], "reserved header bit set")]
+    #[case::reserved_bit_7(&[0x80, 0x00, 0x03], "reserved header bit set")]
+    #[case::trailing_bytes(&[0x00, 0x00, 0x03, 0x00], "bytes after the last rice value")]
     #[case::no_parameter_byte(&[0x00], "rice parameters are cut short")]
-    #[case::bit_data_shorter_than_its_length(&[0x00, 0x00, 0x01], "rice bits are cut short")]
+    #[case::no_bit_data(&[0x00, 0x00], "rice bits are cut short")]
+    #[case::bit_data_shorter_than_its_length(&[0x08, 0x00, 0x00, 0x02, 0x03], "rice bits are cut short")]
     #[case::more_shared_than_vertices(&[0x08, 0x02], "more shared vertices than vertices in a stream")]
-    #[case::shared_without_a_copy(&[0x08, 0x01], "shared vertices disagree with the stream lengths")]
+    #[case::shared_without_a_copy(&[0x08, 0x01, 0x00], "shared vertices disagree with the stream lengths")]
     #[case::ops_cut_short(&[0x18, 0x00, 0x01, 0x00, 0x01, 0x03], "copy ops are cut short")]
     #[case::bits_after_the_reference_flags(&[0x10, 0x00, 0x00, 0x01, 0x03, 0x00], "bytes after the last reference bit")]
     fn malformed_point_payloads_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
@@ -1886,9 +1907,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case::no_ring_stream(&[0x00, 0x00, 0x01, 0x03], "rice parameters are cut short")]
-    #[case::ring_bits_shorter_than_their_length(&[0x00, 0x00, 0x01, 0x03, 0x00, 0x01], "rice bits are cut short")]
-    #[case::copy_without_a_count(&[0x08, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x03, 0x01, 0x02, 0x00], "shared vertices disagree with the stream lengths")]
+    #[case::no_ring_parameters(&[0x00, 0x00], "rice parameters are cut short")]
+    #[case::ring_bits_cut_short(&[0x00, 0x00, 0x00, 0x03], "rice bits are cut short")]
+    #[case::copy_without_a_count(&[0x08, 0x00, 0x00, 0x00, 0x00, 0x01, 0x0F, 0x01, 0x02, 0x00], "shared vertices disagree with the stream lengths")]
     #[case::count_without_a_copy(&[0x08, 0x00, 0x01, 0x00, 0x01, 0x03], "shared vertices disagree with the stream lengths")]
     fn malformed_ring_payloads_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
         let err = decode(data, &[ring(0, 2)], 2, &mut dec()).unwrap_err();
@@ -1899,10 +1920,10 @@ mod tests {
     }
 
     #[rstest]
-    #[case::flag_cut_short(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x0F, 0x00, 0x01, 0x03], "reference bits are cut short")]
-    #[case::index_past_the_slots(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x0F, 0x00, 0x01, 0x03, 0xE0], "reference index past the slots")]
-    #[case::padding_set(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x0F, 0x00, 0x01, 0x03, 0x88], "bytes after the last reference bit")]
-    #[case::byte_after_the_bits(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x01, 0x0F, 0x00, 0x01, 0x03, 0x80, 0x00], "bytes after the last reference bit")]
+    #[case::flag_cut_short(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF], "reference bits are cut short")]
+    #[case::index_past_the_slots(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0xE0], "reference index past the slots")]
+    #[case::padding_set(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0x88], "bytes after the last reference bit")]
+    #[case::byte_after_the_bits(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0x80, 0x00], "bytes after the last reference bit")]
     fn malformed_line_references_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
         let runs = [line(0, 3), line(3, 2)];
         let err = decode(data, &runs, 5, &mut dec()).unwrap_err();

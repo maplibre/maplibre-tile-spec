@@ -877,7 +877,7 @@ words:      [27, 3, 15]
 ### Predicted Vertices <span class="experimental"></span> {#predicted-vertices}
 
 Each vertex is stored as its residual against a guess made from the vertices decoded before it.
-The residuals are split into six streams by the class of their vertex.
+The residuals are Rice coded with parameters per class of vertex.
 It applies only to `(x, y)` pairs, not to [triples](specification/v2.md#z-coordinates) or a [vertex dictionary](#vertex-dictionary).
 
 The stream's physical field is `0`, and `byte_length` covers the whole payload.
@@ -906,7 +906,10 @@ A header with a line guess of `3` or a reserved bit set MUST be rejected.
 
 A section is present when the [header](#header) fields named under it are set.
 
-- The counts hold the number of [shared vertices](#shared-vertices) of each class, so the decoder knows how many residuals each class stream holds.
+- The counts hold the number of [shared vertices](#shared-vertices) of each class, so the decoder knows how many residuals each class holds.
+- The parameters and the bit data hold the residuals, see [Rice layout](#rice-layout).
+- Without copies and line refs, the bit data runs to the end of the payload.
+  With either, `byte_len` is a varint that holds the byte length of the bit data.
 - The copy ops hold the [vertex copies](#vertex-copies), and the reference bits the [line endpoint references](#line-endpoint-references).
 - With copies alone, the copy ops run to the end of the payload.
   With line refs alone, the reference bits do.
@@ -921,9 +924,9 @@ A run is one polygon ring or one line part, taken from the deepest topology leve
 A run with no vertex is skipped.
 Points belong to no run.
 
-Each vertex has one class, and each class has one stream:
+Each vertex has one of six classes:
 
-| Stream | Class | Vertices | Guess |
+| Index | Class | Vertices | Guess |
 |---|---|---|---|
 | `0` | `start` | the first vertex of every run | the start guess |
 | `1` | `point` | every vertex outside a run | `p[i-1]` |
@@ -987,21 +990,16 @@ Each guess on the vertices of the [example](#predicted-example):
 #### Residuals
 
 The residual of a vertex is `p[i] - guess` per component, then [zigzag](#zigzag)-encoded to an unsigned 32-bit value.
-A class stream holds the residuals of its vertices that are not [shared](#shared-vertices), in buffer order, `x` then `y` per vertex.
-A class stream with no residual takes no bytes.
+Every vertex that is not [shared](#shared-vertices) has a residual, `x` then `y`.
 
 #### Rice layout
 
-Every class stream that holds a residual is Rice coded:
-
-| Field | Content |
-|---|---|
-| parameters | one byte, `k_x` in bits 0-3 and `k_y` in bits 4-7 |
-| `byte_len` | a varint, the byte length of the bit data |
-| bit data | one codeword per residual in stream order, `x` with `k_x` and `y` with `k_y` |
-
+Every class that holds a residual has a parameter byte, `k_x` in bits 0-3 and `k_y` in bits 4-7.
+The parameter bytes follow each other in class order, and a class with no residual has none.
 `k_x` and `k_y` may each be any value from `0` to `15`.
-`byte_len` MUST be minimal.
+
+The bit data holds one codeword per residual in buffer order, `x` with the `k_x` of its vertex's class and `y` with its `k_y`.
+`byte_len`, where present, MUST be minimal.
 
 ##### Codewords
 
@@ -1024,8 +1022,9 @@ A decoder counts zero bits, up to 16, at the start of each codeword:
 - On a `1` bit after fewer than 16 zeros, `q` is the count of zeros, `r` is the next `k` bits, and `v = (q << k) + r`.
 - After 16 zeros, `n` is the next 6 bits, `e` is the next `n` bits, and `v = (16 << k) + e`.
 
-A Rice stream MUST be rejected when:
+A payload MUST be rejected when:
 
+- a parameter byte is missing,
 - `byte_len` runs past the payload,
 - the bit data ends inside a codeword,
 - a whole byte of the bit data follows the last codeword,
@@ -1040,18 +1039,21 @@ A Rice stream MUST be rejected when:
 === "Values"
 
     ```
-    x:           200, 10                       k_x 6
-    y:           400, 10                       k_y 7
-    parameters:  76
-    byte_len:    05
-    codewords:   000 1 000100 | 000 1 0000100 | 1 010100 | 1 0101000
-    bit data:    88 20 A4 52 01
+    parameters:   76 54 00 03 10           start, ring, corner, line second, line
+    start:        (200, 400) with k 6, 7   000 1 000100 | 000 1 0000100
+    ring:         (60, 0) with k 4, 5      000 1 0011 | 1 00000
+    ring:         (0, 80) with k 4, 5      1 0000 | 00 1 00001
+    corner:       (0, 0) with k 0, 0       1 | 1
+    start:        (10, 10) with k 6, 7     1 010100 | 1 0101000
+    line second:  (20, 0) with k 3, 0      00 1 001 | 1
+    line:         (0, 4) with k 0, 1       1 | 00 1 0
+    bit data:     88 20 04 39 08 84 57 2A C8 09
     ```
 
 ??? note "Choosing k"
 
-    The Rust encoder picks `k_x` and `k_y` separately for each class stream.
-    For each axis, it adds up the codeword bits of the stream's residuals for every `k` from `0` to `15`.
+    The Rust encoder picks `k_x` and `k_y` separately for each class.
+    For each axis, it adds up the codeword bits of the class's residuals for every `k` from `0` to `15`.
     It keeps the `k` with the fewest bits, and the lowest `k` on a tie.
 
 #### Example {#predicted-example}
@@ -1076,19 +1078,16 @@ A rectangle, then a line part of three vertices, with the run-start guess and th
 
     ```
     header:       05
-    start:        76 05 88 20 A4 52 01
-    ring:         54 04 C8 41 20 04
-    corner:       00 01 03
-    line second:  03 01 64
-    line:         10 01 09
-    payload:      05 76 05 88 20 A4 52 01 54 04 C8 41 20 04 00 01 03 03 01 64 10 01 09
+    parameters:   76 54 00 03 10
+    bit data:     88 20 04 39 08 84 57 2A C8 09
+    payload:      05 76 54 00 03 10 88 20 04 39 08 84 57 2A C8 09
     ```
 
 #### Shared vertices
 
 A shared vertex is copied from, or refers to, a vertex decoded before it, and has no residual.
 
-With header bit 3 or 4 set, the counts hold one varint for each class that has a vertex, in stream order.
+With header bit 3 or 4 set, the counts hold one varint for each class that has a vertex, in class order.
 Each count is the number of shared vertices of its class.
 A class with no vertex has no count.
 
@@ -1168,15 +1167,14 @@ An index past the slots, a missing bit, a set padding bit or a byte left over MU
 3. With copies or line refs (bit 3 or 4), read the counts.
    The residual count of a class is its vertex count less its count.
 4. With copies and line refs (bits 3 and 4), read `ops_len`.
-5. Read the class streams that hold a residual, in stream order.
-6. Take the copy ops and the reference bits from the rest of the payload.
-7. Decode the vertices in buffer order:
+5. Read the parameter byte of every class that holds a residual, in class order.
+6. With copies or line refs, read `byte_len`.
+7. Take the bit data, then the copy ops and the reference bits from the rest of the payload.
+8. Decode the vertices in buffer order:
     1. A vertex an op covers is the next vertex of its source.
     2. Otherwise, a line part endpoint with a flag of `1` is the slot its index names.
-    3. Otherwise, the vertex is its guess plus the next residual of its class stream, with the zigzag undone.
-8. Check that every class stream, the copy ops and the reference bits are consumed exactly.
-
-A class stream with a residual left over, or too few, MUST be rejected.
+    3. Otherwise, the vertex is its guess plus the next residual in the bit data, read with the parameters of its class, with the zigzag undone.
+9. Check that the bit data, the copy ops and the reference bits are consumed exactly.
 
 Two squares that share a wall, then two line parts that meet, with the run-start guess, copies and line references:
 
@@ -1189,10 +1187,10 @@ vertices:    (0, 0) (100, 0) (100, 100) (0, 100)        ring A
 header:      19
 counts:      02 01 00 00                  start (B0, D0), ring (B1), corner, line second
 ops_len:     03
-start:       06 03 81 88 04               A0, then C0 against B0
-ring:        57 07 22 83 00 20 12 19 00   A1, A2, B2
-corner:      00 01 0F                     A3, B3
-line second: 66 05 88 04 02 88 00         C1, D1
+parameters:  06 57 00 66                  start, ring, corner, line second
+byte_len:    0E
+bit data:    81 22 83 00 20 5A 64 30 22 11 09 04 10 01
+                                          A0 A1 A2 A3, B2 B3, C0 C1, D1
 copy op:     04 05 01                     gap 4, dist 2 backward, n 2: A2 A1 to B0 B1
 references:  C0                           D0: flag 1, index 1 of 2 slots | D1: flag 0
 ```
@@ -1204,7 +1202,7 @@ references:  C0                           D0: flag 1, index 1 of 2 slots | D1: f
     `mlt convert --predicted-vertices`, and `--profile min_size` under v2, let the encoder race predicted vertices against the other vertex encodings.
     It plans copies greedily: from each vertex it tries the latest 32 earlier vertices at the same position, both ways, and keeps the copy of two or more vertices that saves the most residual bytes over its op.
     A line endpoint refers to the first slot that holds its position.
-    It prices each of the six guess pairs with no sharing, copies, line references and both, in the Rice layout.
+    It prices each of the six guess pairs with no sharing, copies, line references and both.
     It writes the shortest, with the lowest header byte on a tie.
 
 ??? note "Sources"
