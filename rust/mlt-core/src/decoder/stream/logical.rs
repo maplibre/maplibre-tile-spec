@@ -154,8 +154,6 @@ impl LogicalValue {
                     return Err(crate::MltError::InvalidTripleStreamSize(data.len()));
                 }
                 match xyz {
-                    XyzLogical::None => decode_zigzag(data, dec),
-                    XyzLogical::Delta => decode_zigzag_delta::<i32, _>(data, dec),
                     XyzLogical::ComponentwiseDelta => decode_componentwise_delta_vec3s(data, dec),
                     XyzLogical::Predicted => Err(UnsupportedLogicalEncoding(
                         self.meta.encoding.logical,
@@ -384,22 +382,21 @@ mod tests {
     }
 
     #[cfg(feature = "unstable-v2")]
-    #[rstest::rstest]
-    #[case::none(XyzLogical::None, [1, 2, -1, 3, 4, -2])]
-    #[case::delta(XyzLogical::Delta, [1, 3, 2, 5, 9, 7])]
-    #[case::componentwise_delta(XyzLogical::ComponentwiseDelta, [1, 2, -1, 4, 6, -3])]
-    fn an_xyz_stream_decodes_its_triples(#[case] logical: XyzLogical, #[case] expected: [i32; 6]) {
+    #[test]
+    fn an_xyz_componentwise_delta_stream_decodes_its_triples() {
         let zigzag = [2, 4, 1, 6, 8, 3];
         assert_eq!(
-            xyz(logical).decode_i32(&zigzag, &mut dec()).unwrap(),
-            expected
+            xyz(XyzLogical::ComponentwiseDelta)
+                .decode_i32(&zigzag, &mut dec())
+                .unwrap(),
+            [1, 2, -1, 4, 6, -3]
         );
     }
 
     #[cfg(feature = "unstable-v2")]
     #[test]
     fn an_xyz_stream_of_partial_triples_is_rejected() {
-        let err = xyz(XyzLogical::None)
+        let err = xyz(XyzLogical::ComponentwiseDelta)
             .decode_i32(&[2, 4, 1, 6], &mut dec())
             .unwrap_err();
         assert!(matches!(err, crate::MltError::InvalidTripleStreamSize(4)));

@@ -990,8 +990,6 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             // z is the extension bit, not a codec: report the codec the triples use,
             // and leave the step to the `zStep` facet.
             LE::Vertex(VertexLogical::Xyz(_, xyz)) => match xyz {
-                XyzLogical::None => Self::None,
-                XyzLogical::Delta => Self::Delta,
                 XyzLogical::ComponentwiseDelta => Self::ComponentwiseDelta,
                 XyzLogical::Predicted => Self::Predicted,
             },

@@ -252,7 +252,9 @@ pub enum FloatLogical {
 /// Logical encoding of a geometry vertex stream, whose values are interleaved coordinate pairs.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VertexLogical {
+    /// Only the tag `0x01` codec reads it.
     None,
+    /// Only the tag `0x01` codec reads it.
     Delta,
     ComponentwiseDelta,
     MortonDelta(Morton),
@@ -282,8 +284,6 @@ impl VertexLogical {
 #[cfg(feature = "unstable-v2")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum XyzLogical {
-    None,
-    Delta,
     ComponentwiseDelta,
     Predicted,
 }
@@ -617,10 +617,6 @@ impl Display for LogicalEncoding {
                     VertexLogical::MortonDelta(_) => "morton-delta",
                     VertexLogical::Predicted => "predicted",
                     #[cfg(feature = "unstable-v2")]
-                    VertexLogical::Xyz(_, XyzLogical::None) => "xyz-none",
-                    #[cfg(feature = "unstable-v2")]
-                    VertexLogical::Xyz(_, XyzLogical::Delta) => "xyz-delta",
-                    #[cfg(feature = "unstable-v2")]
                     VertexLogical::Xyz(_, XyzLogical::ComponentwiseDelta) => {
                         "xyz-componentwise-delta"
                     }
@@ -755,8 +751,6 @@ mod tests {
 
     #[cfg(feature = "unstable-v2")]
     #[rstest]
-    #[case::none(XyzLogical::None, "vertex/xyz-none")]
-    #[case::delta(XyzLogical::Delta, "vertex/xyz-delta")]
     #[case::componentwise_delta(XyzLogical::ComponentwiseDelta, "vertex/xyz-componentwise-delta")]
     #[case::predicted(XyzLogical::Predicted, "vertex/xyz-predicted")]
     fn every_xyz_encoding_renders_kind_then_encoding(
@@ -803,7 +797,7 @@ mod tests {
     #[case::pairs(LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta), 6, 3)]
     #[case::morton_codes(LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())), 6, 6)]
     #[cfg_attr(feature = "unstable-v2", case::triples(
-        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap().into(), XyzLogical::Delta)),
+        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap().into(), XyzLogical::ComponentwiseDelta)),
         6,
         2
     ))]
@@ -826,7 +820,7 @@ mod tests {
     #[rstest]
     #[case::pairs(LogicalEncoding::Vertex(VertexLogical::Delta), 5, 2)]
     #[cfg_attr(feature = "unstable-v2", case::triples(
-        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap().into(), XyzLogical::Delta)),
+        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap().into(), XyzLogical::ComponentwiseDelta)),
         4,
         3
     ))]
