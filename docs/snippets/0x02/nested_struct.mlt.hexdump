@@ -13,9 +13,9 @@
                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 0000000c                                                                     |   geometry (8 B)
 0000000c                                                                     |     vertices (8 B)
-0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
-                                                                             |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
                                                                              |         └ bits 1-0 = 00 -> extension = 0
 0000000d  06                                                .                |       byte_length: 6

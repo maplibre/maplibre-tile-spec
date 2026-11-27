@@ -22,9 +22,9 @@
 0000000e  03 03 02                                          ...              |       data [Length(Parts) Int(None)/VarInt, 3 values, 3 B]
                                                                              |         decoded: [3, 3, 2]
 00000011                                                                     |     vertices (19 B)
-00000011  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+00000011  88                                                .                |       encoding: 0x88 logical=CwDelta physical=VarInt
                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
                                                                              |         └ bits 1-0 = 00 -> extension = 0
 00000012  08                                                .                |       num_values: 8

@@ -556,7 +556,7 @@ fn a_mesh_without_vertices_and_one_without_triangles_encode_to_the_bytes_the_was
     let bytes = builder.finish().encode(cfg_v2()).unwrap();
     let back = try_decode(&bytes).unwrap();
     assert_eq!(rows(&back).len(), 2);
-    assert_snapshot!(hex::encode(&bytes), @"2902096c616e646d61726b7376020e180200043002020080008000290609020206020206010018020002");
+    assert_snapshot!(hex::encode(&bytes), @"2902096c616e646d61726b7376020e180200043002020080008000090609020206020206010018020002");
 }
 
 #[test]

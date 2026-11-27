@@ -220,7 +220,7 @@ fn vertex_header_fields(bytes: &[u8]) -> String {
 fn the_vertex_stream_header_names_its_axis() {
     let bytes = z_layer(vec![pt(1, 2)]).encode(cfg_v2()).unwrap();
     assert_snapshot!(vertex_header_fields(&bytes), @"
-    encoding = 0x29 logical=CwDelta physical=VarInt
+    encoding = 0x09 logical=CwDelta physical=VarInt
       has_explicit_count = false -> 1 values from context
       logical = CwDelta, numbered for vertex stream
       physical = VarInt
@@ -246,7 +246,7 @@ fn a_relative_to_ground_layer_sets_bit_3_of_the_z_axis_byte() {
     let bytes = assert_round_trips(&layer, cfg_v2());
     assert_eq!(decode(&bytes).z_axis(), Some(axis));
     assert_snapshot!(vertex_header_fields(&bytes), @"
-    encoding = 0x29 logical=CwDelta physical=VarInt
+    encoding = 0x09 logical=CwDelta physical=VarInt
       has_explicit_count = false -> 1 values from context
       logical = CwDelta, numbered for vertex stream
       physical = VarInt

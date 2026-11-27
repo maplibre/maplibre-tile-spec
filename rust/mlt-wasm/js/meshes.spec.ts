@@ -239,7 +239,7 @@ describe("Meshes edge cases", () => {
 
   it("reads an empty Meshes layer as one", () => {
     const [layer] = decodeTileColumns(
-      hex("1f02096c616e646d61726b73f6000e0000000025000902050104666163658000"),
+      hex("1f02096c616e646d61726b73f6000e0000000005000902050104666163658000"),
     ).layers;
     expect([layer.featureCount, layer.geometry.layout]).toEqual([0, "meshes"]);
     expect(layer.triangleValues.map((c) => c.name)).toEqual(["face"]);
@@ -250,7 +250,7 @@ describe("Meshes edge cases", () => {
 
   it("reads a mesh without vertices and one without triangles", () => {
     const data = hex(
-      "2902096c616e646d61726b7376020e180200043002020080008000290609020206020206010018020002",
+      "2902096c616e646d61726b7376020e180200043002020080008000090609020206020206010018020002",
     );
     const [layer] = decodeTileColumns(data).layers;
     const meshes = [0, 1].map((f) => featureGeometry(layer, f));
