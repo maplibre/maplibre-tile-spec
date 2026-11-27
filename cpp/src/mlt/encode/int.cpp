@@ -46,16 +46,23 @@ template <typename TInt>
 std::vector<std::uint8_t> encodeVarintsIntegral(std::span<const TInt> values, bool zigZagForSigned = false) {
     static_assert(std::is_integral_v<TInt>, "encodeVarintsIntegral requires integral type");
 
-    std::vector<std::uint8_t> result;
-    result.reserve(values.size() * (sizeof(TInt) <= sizeof(std::uint32_t) ? 2 : 3));
-    for (const auto v : values) {
+    const auto toUnsigned = [&](TInt v) {
         if constexpr (std::is_signed_v<TInt>) {
-            const auto encoded = zigZagForSigned ? util::encoding::encodeZigZag(v)
-                                                 : static_cast<std::make_unsigned_t<TInt>>(v);
-            util::encoding::encodeVarint(encoded, result);
+            return zigZagForSigned ? util::encoding::encodeZigZag(v) : static_cast<std::make_unsigned_t<TInt>>(v);
         } else {
-            util::encoding::encodeVarint(v, result);
+            return v;
         }
+    };
+
+    // Size the output exactly first, then write the varints straight into it
+    std::size_t size = 0;
+    for (const auto v : values) {
+        size += util::encoding::getVarintSize(toUnsigned(v));
+    }
+    std::vector<std::uint8_t> result(size);
+    std::uint8_t* out = result.data();
+    for (const auto v : values) {
+        out += util::encoding::encodeVarint(toUnsigned(v), out);
     }
     return result;
 }
@@ -98,6 +105,15 @@ IntegerEncodingResult encodeSignedIntegral(std::span<const TInt> values,
                                            IntegerEncodingOption option,
                                            EncodeFn encode,
                                            bool preferConstRleWhenSingleRun) {
+    if (option == IntegerEncodingOption::PLAIN) {
+        // The plain encoding is returned whatever the other candidates give, so don't build them
+        return {.logicalLevelTechnique1 = LogicalLevelTechnique::NONE,
+                .logicalLevelTechnique2 = LogicalLevelTechnique::NONE,
+                .encodedValues = encode(values, isSigned),
+                .numRuns = 0,
+                .physicalLevelEncodedValuesLength = static_cast<std::uint32_t>(values.size())};
+    }
+
     auto plainEncoded = encode(values, isSigned);
 
     std::vector<TInt> deltaValues(values.size());
@@ -236,6 +252,15 @@ template <typename TUInt, typename EncodeFn>
 IntegerEncodingResult encodeUnsignedIntegralNoDelta(std::span<const TUInt> values,
                                                     IntegerEncodingOption option,
                                                     EncodeFn encode) {
+    if (option == IntegerEncodingOption::PLAIN || option == IntegerEncodingOption::DELTA) {
+        // Both return the plain encoding whatever the RLE candidate gives, so don't build it
+        return {.logicalLevelTechnique1 = LogicalLevelTechnique::NONE,
+                .logicalLevelTechnique2 = LogicalLevelTechnique::NONE,
+                .encodedValues = encode(values),
+                .numRuns = 0,
+                .physicalLevelEncodedValuesLength = static_cast<std::uint32_t>(values.size())};
+    }
+
     auto plainEncoded = encode(values);
 
     Candidate best{.t1 = LogicalLevelTechnique::NONE,
