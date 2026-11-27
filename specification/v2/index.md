@@ -20,7 +20,7 @@ v2 extends v1's [data model](<https://maplibre.org/maplibre-tile-spec/overview/i
 - **Uniform geometry type.** A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See [uniform geometry type](<#uniform-geometry-type>).
 - **Cheaper nulls.** The presence of a column is stored as a bitmap or byte RLE and can be shared between columns. See [presence encodings](<#presence-encodings>).
 - **Smaller triangles.** A tessellated layer stores about two bits per triangle and one index per outline vertex, instead of three indices per triangle. See [triangle trees](<#triangle-trees>).
-- **More encodings.** Bit packing, `Int8` and `UInt8` columns, [ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) for floats, [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) for strings and optional [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#rans>) for vertices.
+- **More encodings.** Bit packing, `Int8` and `UInt8` columns, [ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) for floats and [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) for strings.
 
 Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT. Gzipped v2 is 10-18% smaller than gzipped MVT. See [benchmarks](<https://maplibre.org/maplibre-tile-spec/benchmarks/index.md>).
 
@@ -28,7 +28,7 @@ Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% sm
 
 Unchanged from [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md#tile-layout>), except that a v2 frame has `tag = 0x02`. A tile MAY contain both v1 and v2 layers.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint.mlt&amp;at=size>) - a single `Point` and the layer around it.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint.mlt&at=size>) - a single `Point` and the layer around it.
 
 ## Layer Body
 
@@ -64,7 +64,7 @@ A decoder needs these fields before it can read the rest of the layer.
 
 v2 stores only power-of-two extents, so the nibble holds `log2(extent) - 6`:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fextent_512.mlt&amp;at=header>) - the extent nibble encoding `512`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fextent_512.mlt&at=header>) - the extent nibble encoding `512`.
 
 | Code | `0x0` | `0x1` | ... | `0xF` |
 | --- | --- | --- | --- | --- |
@@ -79,7 +79,7 @@ Every code is assigned, so no extent nibble is rejected. An encoder given an ext
 | `0x0` | The [geometry section](<#geometry-section>) leads with a types stream |
 | `0x1`-`0x7` | No types stream, since every feature has [geometry type](<#geometry-types>) `code - 1` |
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint.mlt&amp;at=header>) - every feature is a `Point`, so no types stream is written.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint.mlt&at=header>) - every feature is a `Point`, so no types stream is written.
 
 To optimize for the common case of a layer with a single geometry type, the types stream can be omitted. The uniform geometry type MUST agree with the topology the [geometry layout](<#geometry-layout>) declares.
 
@@ -87,7 +87,7 @@ To optimize for the common case of a layer with a single geometry type, the type
 
 A layer has two kinds of columns, so it stores how many of each it has.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues_sp_prop.mlt&amp;at=column_counts>) - one property column and one m-value column, counted apart.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues_sp_prop.mlt&at=column_counts>) - one property column and one m-value column, counted apart.
 
 `column_count` is the number of ids and properties, not counting geometry or m-values. `m_value_count` is the number of [m-value columns](<#m-values>).
 
@@ -131,7 +131,7 @@ Encoders MAY write either encoding. An encoder that writes `Boolean RLE` SHOULD 
 
 Several columns MAY reference the same presence field.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_sp.mlt&amp;at=shared_presence>) - two columns referencing one shared field.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_sp.mlt&at=shared_presence>) - two columns referencing one shared field.
 
 ```text
 shared_presence := [u8 encoding] only when the layout byte's encoding flag is set; a Bool encoding byte, see below
@@ -171,7 +171,7 @@ Streams appear in exactly this order. Each stream's role is given by its positio
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Type | `Point` | `LineString` | `Polygon` | `MultiPoint` | `MultiLineString` | `MultiPolygon` | `Mesh` |
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types>) - all six non-mesh kinds in one layer, so the types stream carries each.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&at=types>) - all six non-mesh kinds in one layer, so the types stream carries each.
 
 The types stream holds one of codes `0x0`-`0x5` per feature. A layer whose features all share one type writes the [uniform geometry type](<#uniform-geometry-type>) nibble instead.
 
@@ -181,7 +181,7 @@ A `Mesh`, a set of `(x, y, z)` vertices and the triangles between them, is held 
 
 The low nibble of the layer layout byte:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoly.mlt&amp;at=layout>) - the `Polygons` layout: part and ring lengths, no vertex offsets.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoly.mlt&at=layout>) - the `Polygons` layout: part and ring lengths, no vertex offsets.
 
 Every layout leads with the types stream, unless the header byte names a [uniform geometry type](<#uniform-geometry-type>). The streams it writes after that, in column order:
 
@@ -223,7 +223,7 @@ A polygon ring is stored without its closing vertex, and its ring length does no
 
 A tessellated layer stores the triangles its polygons were cut into, next to their vertices.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=tri_lengths>) - the triangles and vertices drawn below.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&at=tri_lengths>) - the triangles and vertices drawn below.
 
 Three streams carry the triangles of the example below:
 
@@ -307,7 +307,7 @@ Its decode, with \\(p = \[8, 7, 6, 3, 5, 4\]\\):
 >
 > Stroking a `0xC` cycle draws cuts too. A decoder cannot rebuild the rings the encoder was given, or count their vertices. That is why `0xC` cannot carry [m-values](<#m-values>).
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tri.mlt&amp;at=layout>) - the same two features as triangles alone, layout `0xC`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tri.mlt&at=layout>) - the same two features as triangles alone, layout `0xC`.
 
 `0xC` stores the triangles and no topology:
 
@@ -331,7 +331,7 @@ A tree's cycle is the outline of its triangles, which differs from the feature's
 - A vertex that no triangle names, such as one earcut drops as collinear, is in no cycle, and neither is a ring with no area.
 - Parts of a `MultiPolygon` that share an edge can join into one tree, with one cycle around both.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=layout>) - the same two features with their rings kept, layout `0xD`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&at=layout>) - the same two features with their rings kept, layout `0xD`.
 
 `0xD` keeps the full ring topology next to the triangles. Each feature decodes as the geometry it was encoded from, plus its triangles.
 
@@ -388,7 +388,7 @@ A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of
 
 Bits 2-0 hold `z_step + 3`, and bit 3 holds the height mode. Bits 7-4 are reserved, and a byte with any of them set MUST be rejected.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_point.mlt&amp;at=vertices>) - a point 12 m up, its `z` one word after `x` and `y`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_point.mlt&at=vertices>) - a point 12 m up, its `z` one word after `x` and `y`.
 
 \\\[ \\text{height} = z \\cdot 10^{\\,\\mathit{z\\\_step}}\\,\\text{m} \\\]
 
@@ -406,11 +406,11 @@ The height mode says what `z = 0` stands for, with the names of KML's `altitudeM
 
 A layer without `z` is `clampToGround`, and its vertices lie on the terrain. A renderer with no terrain reads the terrain as sea level, so `relativeToGround` reads as `absolute`.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_absolute.mlt&amp;at=vertices>) - a line 412 m to 418 m above sea level, bit 3 clear.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_absolute.mlt&at=vertices>) - a line 412 m to 418 m above sea level, bit 3 clear.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_relative_to_ground.mlt&amp;at=vertices>) - a line 12 m to 18 m above the terrain, bit 3 set.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_relative_to_ground.mlt&at=vertices>) - a line 12 m to 18 m above the terrain, bit 3 set.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices>) - a polygon with a hole at a `z_step` of `-1`, one unit per decimeter.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole.mlt&at=vertices>) - a polygon with a hole at a `z_step` of `-1`, one unit per decimeter.
 
 `z` is a signed 32-bit word like `x` and `y`, so a point below its base has a negative `z`. At the finest step the grid spans about 2147 km either side of the base.
 
@@ -418,15 +418,15 @@ The stream holds `3 * num_values` words for `num_values` vertices, with `x`, `y`
 
 `z_mvalues` at a `z_step` of 1 dm:
 
-Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, with `Componentwise Delta` running over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. `Componentwise Delta2` and [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#rans>) are defined only over pairs, so a vertex stream with bit 0 set and either of them MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
+Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, with `Componentwise Delta` running over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. `Componentwise Delta2` is defined only over pairs, so a vertex stream with bit 0 set and logical `Componentwise Delta2` MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mix.mlt&amp;at=vertices>) - all six non-mesh geometry types, each vertex an interleaved triple.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mix.mlt&at=vertices>) - all six non-mesh geometry types, each vertex an interleaved triple.
 
 The vertex stream is indexed, so (\\(x\_1, y\_1, z\_1, x\_2, y\_2, z\_2, ..., x\_i, y\_i, z\_i\\)) has index \\(i\\):
 
-- Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them. Two vertices share an entry only when their `x`, `y` and `z` are identical. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict>) - five points in four entries: a repeat at the same height shares one, a new height does not.
-- Under a tessellated layout, the triangles name triples. A `TessPolygons` feature holds the `z` of each triangle corner, in decoded order. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole_tri.mlt&amp;at=tri_cycles>) - a polygon with a hole, cut into six triangles over six `(x, y, z)` vertices.
-- An [m-value](<#m-values>) runs over the same vertex sequence it does without `z`. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mvalues.mlt&amp;at=vertices>) - a line whose three vertices carry both a `z` and an m-value.
+- Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them. Two vertices share an entry only when their `x`, `y` and `z` are identical. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_points_hilbert.mlt&at=vertex_dict>) - five points in four entries: a repeat at the same height shares one, a new height does not.
+- Under a tessellated layout, the triangles name triples. A `TessPolygons` feature holds the `z` of each triangle corner, in decoded order. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole_tri.mlt&at=tri_cycles>) - a polygon with a hole, cut into six triangles over six `(x, y, z)` vertices.
+- An [m-value](<#m-values>) runs over the same vertex sequence it does without `z`. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mvalues.mlt&at=vertices>) - a line whose three vertices carry both a `z` and an m-value.
 
 A decoder that renders in 2D MAY read `x` and `y` and step over `z`.
 
@@ -471,7 +471,7 @@ An inline presence field is written in the [encoding](<#presence-encodings>) its
 
 A layer has one namespace of column names, so a name identifies exactly one column, and a style expression such as `["get", "foo"]` resolves to that column:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_sp_id.mlt&amp;at=column%5B0%5D>) - an id, which has no name, beside a named `u32` column.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_sp_id.mlt&at=column%5B0%5D>) - an id, which has no name, beside a named `u32` column.
 
 | Column | Name |
 | --- | --- |
@@ -526,7 +526,7 @@ A layer MUST contain at most one `Id` or `LongId` column.
 | `4`-`10` | The layer's shared field at index `nibble - 4`. |
 | `11`-`15` | Reserved. MUST be rejected. |
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32.mlt&amp;at=present>) - an optional column, so the nibble names an inline bitmap.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32.mlt&at=present>) - an optional column, so the nibble names an inline bitmap.
 
 The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those columns for the other encoding.
 
@@ -538,13 +538,13 @@ The presence nibble determines the column's value count: `feature_count` for nib
 
 Boolean, integer, id, float and double columns have a single data stream.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32_delta_np.mlt&amp;at=column%5B0%5D>) - a non-optional `i32` column.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32_delta_np.mlt&at=column%5B0%5D>) - a non-optional `i32` column.
 
 ### String Columns
 
 The extension bits of the leading stream's encoding byte give the column's layout:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_plain_np.mlt&amp;at=column%5B0%5D>) - the plain layout: the lengths, then the strings back to back.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_plain_np.mlt&at=column%5B0%5D>) - the plain layout: the lengths, then the strings back to back.
 
 | Extension | Layout | Streams, in order |
 | ---: | --- | --- |
@@ -563,7 +563,7 @@ The same column in each layout, then in byte order:
 
 Data type `0xF` introduces a dictionary followed by the columns that index into it. Its high nibble gives the dictionary kind instead of presence:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D>) - child columns reading one dictionary.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_shared_dict_bp.mlt&at=column%5B0%5D>) - child columns reading one dictionary.
 
 | Nibble | Kind | Corpus streams, in order |
 | ---: | --- | --- |
@@ -670,7 +670,7 @@ A nested column MUST NOT nest more than 8 levels deep, counting the root as the 
 
 `0xC`. A fixed set of named, individually typed fields.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_struct.mlt&amp;at=column%5B0%5D>) - a struct column with two leaves.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_struct.mlt&at=column%5B0%5D>) - a struct column with two leaves.
 
 ```text
 struct_body := [varint field_count]      non-zero
@@ -687,7 +687,7 @@ A field reads like a counted column: its type byte, then its name, then its null
 
 `0xD`. A repeated value of one type.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_list_struct.mlt&amp;at=column%5B0%5D>) - a list of structs.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_list_struct.mlt&at=column%5B0%5D>) - a list of structs.
 
 ```text
 list_body := [lengths stream]            Int family, one length per present list
@@ -711,7 +711,7 @@ A list that is null and a list that is empty are different:
 
 `0xE`. String keys chosen per value, over one value type.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_map_str.mlt&amp;at=column%5B0%5D>) - a map with string values.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_map_str.mlt&at=column%5B0%5D>) - a map with string values.
 
 ```text
 map_body := [lengths stream]             Int family, one length per present map
@@ -746,7 +746,7 @@ The first three `tags` of [`nested_map_shapes`](<#examples>), both ways:
 
 An m-value is a measurement taken at a vertex, or in a [`Meshes`](<#meshes>) layer at a triangle, rather than at a feature:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues.mlt&amp;at=m_value%5B0%5D>) - two m-value columns over the vertices.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues.mlt&at=m_value%5B0%5D>) - two m-value columns over the vertices.
 
 - a distance along a road,
 - a timestamp per GPS fix,
@@ -892,7 +892,7 @@ For an RLE stream the value count is the decoded element count. The number of `(
 | A `Float` column's values | `num_values * 4` |
 | A `Double` column's values | `num_values * 8` |
 
-A byte blob takes its count from `byte_length`, so it MUST NOT use the pattern. Every other logical encoding that reads the physical field MUST reject it. `RLE`, `DeltaRLE`, `BitPacked` and `rANS` reserve the field as `0` and still write `byte_length`. An encoder SHOULD use it wherever it is allowed, since it is one varint shorter.
+A byte blob takes its count from `byte_length`, so it MUST NOT use the pattern. Every other logical encoding that reads the physical field MUST reject it. `RLE`, `DeltaRLE` and `BitPacked` reserve the field as `0` and still write `byte_length`. An encoder SHOULD use it wherever it is allowed, since it is one varint shorter.
 
 ### Families
 
@@ -904,7 +904,7 @@ The logical encodings available to a stream depend on what it holds. Each family
 | **Str** | A string column's leading stream | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Bool** | A boolean column's data stream, a nested node's presence stream | Bitmap | [Boolean RLE](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#boolean-rle>) |  |  |  |  |
 | **Float** | A float or double column's data stream | None |  | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) |  |  |  |
-| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#componentwise-delta2>) | [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#rans>) |
+| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#componentwise-delta2>) |  |
 | **Bytes** | Byte blobs: string values, dictionaries, FSST symbol tables | None | [FrontCoded](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) |  |  |  |  |
 
 The `Str` family has the same members as `Int`. It differs only in the use of the extension bits. A code not listed for the stream's family MUST be rejected.
@@ -932,7 +932,7 @@ For a stream of opaque fixed-width elements, meaning raw `Float` values or a `By
 | `01` | Elements as they are |
 | `10`, `11` | Unassigned, MUST be rejected |
 
-`RLE`, `DeltaRLE`, `BitPacked`, `rANS` and every `Bool` encoding define their own physical layout. The physical field MUST be `0` for them.
+`RLE`, `DeltaRLE`, `BitPacked` and every `Bool` encoding define their own physical layout. The physical field MUST be `0` for them.
 
 > [!NOTE]
 >

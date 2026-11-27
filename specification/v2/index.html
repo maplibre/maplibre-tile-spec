@@ -32,7 +32,7 @@
       
       
       <link rel="icon" href="https://maplibre.org/favicon.ico">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.4">
     
     
       
@@ -43,7 +43,7 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.5cb9f1ba.min.css">
       
         
           
@@ -924,7 +924,10 @@
   
     <a href="https://github.com/maplibre/maplibre-tile-spec/edit/main/docs/specification/v2.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      <span aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      </span>
+      <span class="md-visually-hidden">Edit this page</span>
     </a>
   
   
@@ -998,7 +1001,7 @@ It also changes the byte layout to make tiles smaller.</p>
 <li><strong>Uniform geometry type.</strong> A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See <a href="#uniform-geometry-type">uniform geometry type</a>.</li>
 <li><strong>Cheaper nulls.</strong> The presence of a column is stored as a bitmap or byte RLE and can be shared between columns. See <a href="#presence-encodings">presence encodings</a>.</li>
 <li><strong>Smaller triangles.</strong> A tessellated layer stores about two bits per triangle and one index per outline vertex, instead of three indices per triangle. See <a href="#triangle-trees">triangle trees</a>.</li>
-<li><strong>More encodings.</strong> Bit packing, <code>Int8</code> and <code>UInt8</code> columns, <a href="../../encodings/#alp">ALP</a> for floats, <a href="../../encodings/#front-coding">front coding</a> for strings and optional <a href="../../encodings/#rans">rANS</a> for vertices.</li>
+<li><strong>More encodings.</strong> Bit packing, <code>Int8</code> and <code>UInt8</code> columns, <a href="../../encodings/#alp">ALP</a> for floats and <a href="../../encodings/#front-coding">front coding</a> for strings.</li>
 </ul>
 <p>Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT.
 Gzipped v2 is 10-18% smaller than gzipped MVT.
@@ -3023,7 +3026,7 @@ At the finest step the grid spans about 2147 km either side of the base.</p>
 </svg></p>
 <p>Logical <code>None</code>, <code>Delta</code> and <code>Componentwise Delta</code> read as they do over pairs, with <code>Componentwise Delta</code> running over three components.
 A Morton code spans only <code>x</code> and <code>y</code>, so a vertex stream with bit 0 set and logical <code>Morton</code> MUST be rejected.
-<code>Componentwise Delta2</code> and <a href="../../encodings/#rans">rANS</a> are defined only over pairs, so a vertex stream with bit 0 set and either of them MUST be rejected.
+<code>Componentwise Delta2</code> is defined only over pairs, so a vertex stream with bit 0 set and logical <code>Componentwise Delta2</code> MUST be rejected.
 Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices" target="_blank">View example</a> - all six non-mesh geometry types, each vertex an interleaved triple.</p>
 <p>The vertex stream is indexed, so (<span class="arithmatex">\(x_1, y_1, z_1, x_2, y_2, z_2, ..., x_i, y_i, z_i\)</span>) has index <span class="arithmatex">\(i\)</span>:</p>
@@ -5002,7 +5005,7 @@ On logical <code>None</code> the payload is the raw elements, so with that patte
 </table>
 <p>A byte blob takes its count from <code>byte_length</code>, so it MUST NOT use the pattern.
 Every other logical encoding that reads the physical field MUST reject it.
-<code>RLE</code>, <code>DeltaRLE</code>, <code>BitPacked</code> and <code>rANS</code> reserve the field as <code>0</code> and still write <code>byte_length</code>.
+<code>RLE</code>, <code>DeltaRLE</code> and <code>BitPacked</code> reserve the field as <code>0</code> and still write <code>byte_length</code>.
 An encoder SHOULD use it wherever it is allowed, since it is one varint shorter.</p>
 <h3 id="families">Families<a class="headerlink" href="#families" title="Link to this section">&para;</a></h3>
 <p>The logical encodings available to a stream depend on what it holds.
@@ -5069,7 +5072,7 @@ Each family numbers its own members from <code>0</code>.</p>
 <td>Componentwise Delta</td>
 <td>Morton</td>
 <td><a href="../../encodings/#componentwise-delta2">Componentwise Delta2</a></td>
-<td><a href="../../encodings/#rans">rANS</a></td>
+<td></td>
 </tr>
 <tr>
 <td><strong>Bytes</strong></td>
@@ -5142,7 +5145,7 @@ It has no <code>byte_length</code>.</p>
 </tr>
 </tbody>
 </table>
-<p><code>RLE</code>, <code>DeltaRLE</code>, <code>BitPacked</code>, <code>rANS</code> and every <code>Bool</code> encoding define their own physical layout.
+<p><code>RLE</code>, <code>DeltaRLE</code>, <code>BitPacked</code> and every <code>Bool</code> encoding define their own physical layout.
 The physical field MUST be <code>0</code> for them.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -6077,7 +6080,7 @@ The lengths stream counts elements per feature, and it and every stream below it
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      <script src="../../assets/javascripts/bundle.ef37db6d.min.js"></script>
       
       
         <script src="../../assets/mathjax.js"></script>

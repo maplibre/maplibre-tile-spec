@@ -248,7 +248,6 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 | `--no-alp` | \- | \+0.0% | \- | 0% |
 | `--no-bitpacking` | \- | \+0.7% | \- | \+1% |
 | `--delta2` | \- | \-0.5% | \- | 0% |
-| `--rans-vertices` | \- | \-5.4% | \- | \+16% |
 | `--tessellate=always` | \+21.9% | \+24.9% | \+27% | \+14% |
 | `--tessellate=always --triangles-only` | \- | \+23.2% | \- | \+10% |
 
@@ -294,7 +293,6 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 | `--no-alp` | \- | \+0.1% | \- | 0% |
 | `--no-bitpacking` | \- | \+0.3% | \- | 0% |
 | `--delta2` | \- | \-0.6% | \- | \+1% |
-| `--rans-vertices` | \- | \-5.3% | \- | \+88% |
 | `--tessellate=always` | \+32.4% | \+35.8% | \+145% | \+68% |
 | `--tessellate=always --triangles-only` | \- | \+33.5% | \- | \+59% |
 
@@ -321,7 +319,6 @@ Planet size and decode time with one `mlt convert` option added, relative to the
 > | `--no-fastpfor` | Use | FastPFOR packs blocks of 128 values and stores larger values separately as exceptions. An edit can change the chosen width, block metadata, or exception arrays shared across a page. On road-network tiles with nested connection lists, the patches came out 6x smaller without it, for 11% larger tiles. |
 > | `--fields` | Use | Numbers parsed out of strings are smaller as typed columns, and an edit changes only the values it touches. |
 > | `--no-alp` | Depends | ALP stores a column as offsets from its minimum at one decimal scale, so a new minimum or a finer value changes every offset. Without it, floats are stored raw and change only where a value changes. |
-> | `--rans-vertices` | Avoid | Every byte of the rANS stream after the first changed symbol differs, which roughly doubles the patch. |
 > | `--tile-compression gzip` | Avoid | Deflate output differs after the first change. If wanted, compress the patch instead. |
 > | `--tessellate` | Avoid | Adds triangles that change with every polygon edit, and `--tessellate=always` grows the tiles by a fifth or more. |
 > | `--no-bitpacking` | Avoid | Only string dictionary indexes are bit-packed. |
@@ -348,7 +345,7 @@ The tile layout is shared by every format and is not part of v1 itself; see [fra
 
 A tile is a concatenation of frames, with no tile header. A v1 frame is one layer, with `tag = 0x01`. Layers are encoded independently, so they can be concatenated without re-encoding.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fpoint.mlt&amp;at=size>) - a single `Point` and the layer around it.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fpoint.mlt&at=size>) - a single `Point` and the layer around it.
 
 ```text
 tile   := frame*
@@ -514,19 +511,19 @@ The algorithms themselves are specified in [encoding definitions](<https://mapli
 
 An `id` column is optional. An encoder SHOULD write `Id` rather than `LongId` when every id fits in 32 bits, since the narrower type allows efficient encodings such as SIMD-FastPFOR.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fid.mlt&amp;at=column%5B0%5D>) - a 32-bit `Id` column.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fid.mlt&at=column%5B0%5D>) - a 32-bit `Id` column.
 
 ### Scalar Columns
 
 Boolean, integer and floating-point columns store a `Present` stream when nullable, followed by one data stream. Boolean data streams are bit-packed, one bit per present value; float and double data streams hold fixed-width IEEE 754 words.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fprop_i32.mlt&amp;at=column%5B1%5D>) - an `i32` column and its presence stream.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fprop_i32.mlt&at=column%5B1%5D>) - an `i32` column and its presence stream.
 
 ### String Columns
 
 A string column declares how many streams follow, and the number of streams determines its layout:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fprops_str.mlt&amp;at=column%5B1%5D>) - the byte length of each value, then the values back to back.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fprops_str.mlt&at=column%5B1%5D>) - the byte length of each value, then the values back to back.
 
 | Streams | Layout | Stream order |
 | ---: | --- | --- |
@@ -549,7 +546,7 @@ The same column in each layout, then in byte order:
 
 Several string columns, such as `name:en`, `name:de` and `name:fr`, can share a single dictionary.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fprops_shared_dict.mlt&amp;at=column%5B1%5D>) - several string columns sharing one dictionary.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fprops_shared_dict.mlt&at=column%5B1%5D>) - several string columns sharing one dictionary.
 
 ```text
 shared_dict := [varint stream_count]
@@ -608,7 +605,7 @@ An additional `VertexOffsets` stream is present when the vertices use Dictionary
 
 Six geometry types are supported, encoded as unsigned integers:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=meta>) - all six types in one layer.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&at=meta>) - all six types in one layer.
 
 | Value | Type | Description |
 | --- | --- | --- |
@@ -631,7 +628,7 @@ A polygon ring is stored without its closing vertex, and its ring length does no
 
 A geometry column is stored as a sequence of streams, prefixed by a stream count:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fpoly.mlt&amp;at=column%5B0%5D>) - a polygon, with the topology streams v1 writes.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fpoly.mlt&at=column%5B0%5D>) - a polygon, with the topology streams v1 writes.
 
 ```text
 geometry_column := [varint stream_count]
@@ -714,7 +711,7 @@ Result: geometry_offsets = [0, 1, 4, 5]
 
 Vertices are stored as interleaved (x, y) coordinate pairs using **componentwise delta encoding**:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fline.mlt&amp;at=stream%5B1%5D>) - three vertices, each stored as its step from the one before.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fline.mlt&at=stream%5B1%5D>) - three vertices, each stored as its step from the one before.
 
 **Encoding steps:**
 
@@ -739,7 +736,7 @@ The vertex dictionary is sorted by [Hilbert curve](<https://en.wikipedia.org/wik
 
 For spatial optimization, vertices can be [Morton-encoded](<https://en.wikipedia.org/wiki/Z-order_curve>) (Z-order curve):
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01-rust%2Fmultipoint_morton_dictionary.mlt&amp;at=stream%5B2%5D>) - vertices as Morton codes.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01-rust%2Fmultipoint_morton_dictionary.mlt&at=stream%5B2%5D>) - vertices as Morton codes.
 
 ```text
 Coordinate (5, 3):
@@ -767,7 +764,7 @@ Topology streams (lengths and offsets) use an encoding chosen to minimize size. 
 
 [Run-length encoding](<https://en.wikipedia.org/wiki/Run-length_encoding>) stores all run lengths, followed by all values:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fids_rle.mlt&amp;at=column%5B0%5D>) - four equal ids as one run: the run length `4`, then the value `103`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fids_rle.mlt&at=column%5B0%5D>) - four equal ids as one run: the run length `4`, then the value `103`.
 
 ```text
 Input:  [5, 5, 5, 3, 3, 3, 3]
@@ -782,7 +779,7 @@ The stream header carries the `runs` and `num_rle_values` counts needed for deco
 
 Pre-tessellated polygons include additional streams for direct GPU rendering:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fmix_2_poly_mpoly_tes.mlt&amp;at=stream%5B3%5D>) - the triangles and vertices drawn below.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fmix_2_poly_mpoly_tes.mlt&at=stream%5B3%5D>) - the triangles and vertices drawn below.
 
 - **Triangles** (`LENGTH/TRIANGLES`) hold one triangle count per polygon feature.
 - **The index buffer** (`OFFSET/INDEX`) holds three vertex indices per triangle.
@@ -1261,7 +1258,7 @@ v2 extends v1's [data model](<https://maplibre.org/maplibre-tile-spec/overview/i
 - **Uniform geometry type.** A layer where every feature has the same geometry type stores that type in the header and no geometry type stream. See [uniform geometry type](<#uniform-geometry-type>).
 - **Cheaper nulls.** The presence of a column is stored as a bitmap or byte RLE and can be shared between columns. See [presence encodings](<#presence-encodings>).
 - **Smaller triangles.** A tessellated layer stores about two bits per triangle and one index per outline vertex, instead of three indices per triangle. See [triangle trees](<#triangle-trees>).
-- **More encodings.** Bit packing, `Int8` and `UInt8` columns, [ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) for floats, [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) for strings and optional [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#rans>) for vertices.
+- **More encodings.** Bit packing, `Int8` and `UInt8` columns, [ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) for floats and [front coding](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) for strings.
 
 Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% smaller than gzipped MVT. Gzipped v2 is 10-18% smaller than gzipped MVT. See [benchmarks](<https://maplibre.org/maplibre-tile-spec/benchmarks/index.md>).
 
@@ -1269,7 +1266,7 @@ Over whole planets, an uncompressed v2 tile is 9-10% smaller than v1 and 4-8% sm
 
 Unchanged from [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md#tile-layout>), except that a v2 frame has `tag = 0x02`. A tile MAY contain both v1 and v2 layers.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint.mlt&amp;at=size>) - a single `Point` and the layer around it.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint.mlt&at=size>) - a single `Point` and the layer around it.
 
 ## Layer Body
 
@@ -1305,7 +1302,7 @@ A decoder needs these fields before it can read the rest of the layer.
 
 v2 stores only power-of-two extents, so the nibble holds `log2(extent) - 6`:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fextent_512.mlt&amp;at=header>) - the extent nibble encoding `512`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fextent_512.mlt&at=header>) - the extent nibble encoding `512`.
 
 | Code | `0x0` | `0x1` | ... | `0xF` |
 | --- | --- | --- | --- | --- |
@@ -1320,7 +1317,7 @@ Every code is assigned, so no extent nibble is rejected. An encoder given an ext
 | `0x0` | The [geometry section](<#geometry-section>) leads with a types stream |
 | `0x1`-`0x7` | No types stream, since every feature has [geometry type](<#geometry-types>) `code - 1` |
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint.mlt&amp;at=header>) - every feature is a `Point`, so no types stream is written.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint.mlt&at=header>) - every feature is a `Point`, so no types stream is written.
 
 To optimize for the common case of a layer with a single geometry type, the types stream can be omitted. The uniform geometry type MUST agree with the topology the [geometry layout](<#geometry-layout>) declares.
 
@@ -1328,7 +1325,7 @@ To optimize for the common case of a layer with a single geometry type, the type
 
 A layer has two kinds of columns, so it stores how many of each it has.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues_sp_prop.mlt&amp;at=column_counts>) - one property column and one m-value column, counted apart.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues_sp_prop.mlt&at=column_counts>) - one property column and one m-value column, counted apart.
 
 `column_count` is the number of ids and properties, not counting geometry or m-values. `m_value_count` is the number of [m-value columns](<#m-values>).
 
@@ -1372,7 +1369,7 @@ Encoders MAY write either encoding. An encoder that writes `Boolean RLE` SHOULD 
 
 Several columns MAY reference the same presence field.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_sp.mlt&amp;at=shared_presence>) - two columns referencing one shared field.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_sp.mlt&at=shared_presence>) - two columns referencing one shared field.
 
 ```text
 shared_presence := [u8 encoding] only when the layout byte's encoding flag is set; a Bool encoding byte, see below
@@ -1412,7 +1409,7 @@ Streams appear in exactly this order. Each stream's role is given by its positio
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Type | `Point` | `LineString` | `Polygon` | `MultiPoint` | `MultiLineString` | `MultiPolygon` | `Mesh` |
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types>) - all six non-mesh kinds in one layer, so the types stream carries each.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&at=types>) - all six non-mesh kinds in one layer, so the types stream carries each.
 
 The types stream holds one of codes `0x0`-`0x5` per feature. A layer whose features all share one type writes the [uniform geometry type](<#uniform-geometry-type>) nibble instead.
 
@@ -1422,7 +1419,7 @@ A `Mesh`, a set of `(x, y, z)` vertices and the triangles between them, is held 
 
 The low nibble of the layer layout byte:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoly.mlt&amp;at=layout>) - the `Polygons` layout: part and ring lengths, no vertex offsets.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoly.mlt&at=layout>) - the `Polygons` layout: part and ring lengths, no vertex offsets.
 
 Every layout leads with the types stream, unless the header byte names a [uniform geometry type](<#uniform-geometry-type>). The streams it writes after that, in column order:
 
@@ -1464,7 +1461,7 @@ A polygon ring is stored without its closing vertex, and its ring length does no
 
 A tessellated layer stores the triangles its polygons were cut into, next to their vertices.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=tri_lengths>) - the triangles and vertices drawn below.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&at=tri_lengths>) - the triangles and vertices drawn below.
 
 Three streams carry the triangles of the example below:
 
@@ -1548,7 +1545,7 @@ Its decode, with \\(p = \[8, 7, 6, 3, 5, 4\]\\):
 >
 > Stroking a `0xC` cycle draws cuts too. A decoder cannot rebuild the rings the encoder was given, or count their vertices. That is why `0xC` cannot carry [m-values](<#m-values>).
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tri.mlt&amp;at=layout>) - the same two features as triangles alone, layout `0xC`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tri.mlt&at=layout>) - the same two features as triangles alone, layout `0xC`.
 
 `0xC` stores the triangles and no topology:
 
@@ -1572,7 +1569,7 @@ A tree's cycle is the outline of its triangles, which differs from the feature's
 - A vertex that no triangle names, such as one earcut drops as collinear, is in no cycle, and neither is a ring with no area.
 - Parts of a `MultiPolygon` that share an edge can join into one tree, with one cycle around both.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&amp;at=layout>) - the same two features with their rings kept, layout `0xD`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmix_2_poly_mpoly_tes.mlt&at=layout>) - the same two features with their rings kept, layout `0xD`.
 
 `0xD` keeps the full ring topology next to the triangles. Each feature decodes as the geometry it was encoded from, plus its triangles.
 
@@ -1629,7 +1626,7 @@ A vertex stream MAY hold `(x, y, z)` triples instead of `(x, y)` pairs. Bit 0 of
 
 Bits 2-0 hold `z_step + 3`, and bit 3 holds the height mode. Bits 7-4 are reserved, and a byte with any of them set MUST be rejected.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_point.mlt&amp;at=vertices>) - a point 12 m up, its `z` one word after `x` and `y`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_point.mlt&at=vertices>) - a point 12 m up, its `z` one word after `x` and `y`.
 
 \\\[ \\text{height} = z \\cdot 10^{\\,\\mathit{z\\\_step}}\\,\\text{m} \\\]
 
@@ -1647,11 +1644,11 @@ The height mode says what `z = 0` stands for, with the names of KML's `altitudeM
 
 A layer without `z` is `clampToGround`, and its vertices lie on the terrain. A renderer with no terrain reads the terrain as sea level, so `relativeToGround` reads as `absolute`.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_absolute.mlt&amp;at=vertices>) - a line 412 m to 418 m above sea level, bit 3 clear.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_absolute.mlt&at=vertices>) - a line 412 m to 418 m above sea level, bit 3 clear.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_relative_to_ground.mlt&amp;at=vertices>) - a line 12 m to 18 m above the terrain, bit 3 set.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_height_relative_to_ground.mlt&at=vertices>) - a line 12 m to 18 m above the terrain, bit 3 set.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole.mlt&amp;at=vertices>) - a polygon with a hole at a `z_step` of `-1`, one unit per decimeter.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole.mlt&at=vertices>) - a polygon with a hole at a `z_step` of `-1`, one unit per decimeter.
 
 `z` is a signed 32-bit word like `x` and `y`, so a point below its base has a negative `z`. At the finest step the grid spans about 2147 km either side of the base.
 
@@ -1659,15 +1656,15 @@ The stream holds `3 * num_values` words for `num_values` vertices, with `x`, `y`
 
 `z_mvalues` at a `z_step` of 1 dm:
 
-Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, with `Componentwise Delta` running over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. `Componentwise Delta2` and [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#rans>) are defined only over pairs, so a vertex stream with bit 0 set and either of them MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
+Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, with `Componentwise Delta` running over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. `Componentwise Delta2` is defined only over pairs, so a vertex stream with bit 0 set and logical `Componentwise Delta2` MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mix.mlt&amp;at=vertices>) - all six non-mesh geometry types, each vertex an interleaved triple.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mix.mlt&at=vertices>) - all six non-mesh geometry types, each vertex an interleaved triple.
 
 The vertex stream is indexed, so (\\(x\_1, y\_1, z\_1, x\_2, y\_2, z\_2, ..., x\_i, y\_i, z\_i\\)) has index \\(i\\):
 
-- Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them. Two vertices share an entry only when their `x`, `y` and `z` are identical. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict>) - five points in four entries: a repeat at the same height shares one, a new height does not.
-- Under a tessellated layout, the triangles name triples. A `TessPolygons` feature holds the `z` of each triangle corner, in decoded order. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole_tri.mlt&amp;at=tri_cycles>) - a polygon with a hole, cut into six triangles over six `(x, y, z)` vertices.
-- An [m-value](<#m-values>) runs over the same vertex sequence it does without `z`. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mvalues.mlt&amp;at=vertices>) - a line whose three vertices carry both a `z` and an m-value.
+- Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them. Two vertices share an entry only when their `x`, `y` and `z` are identical. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_points_hilbert.mlt&at=vertex_dict>) - five points in four entries: a repeat at the same height shares one, a new height does not.
+- Under a tessellated layout, the triangles name triples. A `TessPolygons` feature holds the `z` of each triangle corner, in decoded order. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole_tri.mlt&at=tri_cycles>) - a polygon with a hole, cut into six triangles over six `(x, y, z)` vertices.
+- An [m-value](<#m-values>) runs over the same vertex sequence it does without `z`. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mvalues.mlt&at=vertices>) - a line whose three vertices carry both a `z` and an m-value.
 
 A decoder that renders in 2D MAY read `x` and `y` and step over `z`.
 
@@ -1712,7 +1709,7 @@ An inline presence field is written in the [encoding](<#presence-encodings>) its
 
 A layer has one namespace of column names, so a name identifies exactly one column, and a style expression such as `["get", "foo"]` resolves to that column:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_sp_id.mlt&amp;at=column%5B0%5D>) - an id, which has no name, beside a named `u32` column.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_sp_id.mlt&at=column%5B0%5D>) - an id, which has no name, beside a named `u32` column.
 
 | Column | Name |
 | --- | --- |
@@ -1767,7 +1764,7 @@ A layer MUST contain at most one `Id` or `LongId` column.
 | `4`-`10` | The layer's shared field at index `nibble - 4`. |
 | `11`-`15` | Reserved. MUST be rejected. |
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32.mlt&amp;at=present>) - an optional column, so the nibble names an inline bitmap.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32.mlt&at=present>) - an optional column, so the nibble names an inline bitmap.
 
 The encoding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those columns for the other encoding.
 
@@ -1779,13 +1776,13 @@ The presence nibble determines the column's value count: `feature_count` for nib
 
 Boolean, integer, id, float and double columns have a single data stream.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32_delta_np.mlt&amp;at=column%5B0%5D>) - a non-optional `i32` column.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32_delta_np.mlt&at=column%5B0%5D>) - a non-optional `i32` column.
 
 ### String Columns
 
 The extension bits of the leading stream's encoding byte give the column's layout:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_plain_np.mlt&amp;at=column%5B0%5D>) - the plain layout: the lengths, then the strings back to back.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_plain_np.mlt&at=column%5B0%5D>) - the plain layout: the lengths, then the strings back to back.
 
 | Extension | Layout | Streams, in order |
 | ---: | --- | --- |
@@ -1804,7 +1801,7 @@ The same column in each layout, then in byte order:
 
 Data type `0xF` introduces a dictionary followed by the columns that index into it. Its high nibble gives the dictionary kind instead of presence:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D>) - child columns reading one dictionary.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_shared_dict_bp.mlt&at=column%5B0%5D>) - child columns reading one dictionary.
 
 | Nibble | Kind | Corpus streams, in order |
 | ---: | --- | --- |
@@ -1911,7 +1908,7 @@ A nested column MUST NOT nest more than 8 levels deep, counting the root as the 
 
 `0xC`. A fixed set of named, individually typed fields.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_struct.mlt&amp;at=column%5B0%5D>) - a struct column with two leaves.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_struct.mlt&at=column%5B0%5D>) - a struct column with two leaves.
 
 ```text
 struct_body := [varint field_count]      non-zero
@@ -1928,7 +1925,7 @@ A field reads like a counted column: its type byte, then its name, then its null
 
 `0xD`. A repeated value of one type.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_list_struct.mlt&amp;at=column%5B0%5D>) - a list of structs.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_list_struct.mlt&at=column%5B0%5D>) - a list of structs.
 
 ```text
 list_body := [lengths stream]            Int family, one length per present list
@@ -1952,7 +1949,7 @@ A list that is null and a list that is empty are different:
 
 `0xE`. String keys chosen per value, over one value type.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_map_str.mlt&amp;at=column%5B0%5D>) - a map with string values.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fnested_map_str.mlt&at=column%5B0%5D>) - a map with string values.
 
 ```text
 map_body := [lengths stream]             Int family, one length per present map
@@ -1987,7 +1984,7 @@ The first three `tags` of [`nested_map_shapes`](<#examples>), both ways:
 
 An m-value is a measurement taken at a vertex, or in a [`Meshes`](<#meshes>) layer at a triangle, rather than at a feature:
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues.mlt&amp;at=m_value%5B0%5D>) - two m-value columns over the vertices.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues.mlt&at=m_value%5B0%5D>) - two m-value columns over the vertices.
 
 - a distance along a road,
 - a timestamp per GPS fix,
@@ -2133,7 +2130,7 @@ For an RLE stream the value count is the decoded element count. The number of `(
 | A `Float` column's values | `num_values * 4` |
 | A `Double` column's values | `num_values * 8` |
 
-A byte blob takes its count from `byte_length`, so it MUST NOT use the pattern. Every other logical encoding that reads the physical field MUST reject it. `RLE`, `DeltaRLE`, `BitPacked` and `rANS` reserve the field as `0` and still write `byte_length`. An encoder SHOULD use it wherever it is allowed, since it is one varint shorter.
+A byte blob takes its count from `byte_length`, so it MUST NOT use the pattern. Every other logical encoding that reads the physical field MUST reject it. `RLE`, `DeltaRLE` and `BitPacked` reserve the field as `0` and still write `byte_length`. An encoder SHOULD use it wherever it is allowed, since it is one varint shorter.
 
 ### Families
 
@@ -2145,7 +2142,7 @@ The logical encodings available to a stream depend on what it holds. Each family
 | **Str** | A string column's leading stream | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Bool** | A boolean column's data stream, a nested node's presence stream | Bitmap | [Boolean RLE](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#boolean-rle>) |  |  |  |  |
 | **Float** | A float or double column's data stream | None |  | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) |  |  |  |
-| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#componentwise-delta2>) | [rANS](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#rans>) |
+| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton | [Componentwise Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#componentwise-delta2>) |  |
 | **Bytes** | Byte blobs: string values, dictionaries, FSST symbol tables | None | [FrontCoded](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) |  |  |  |  |
 
 The `Str` family has the same members as `Int`. It differs only in the use of the extension bits. A code not listed for the stream's family MUST be rejected.
@@ -2173,7 +2170,7 @@ For a stream of opaque fixed-width elements, meaning raw `Float` values or a `By
 | `01` | Elements as they are |
 | `10`, `11` | Unassigned, MUST be rejected |
 
-`RLE`, `DeltaRLE`, `BitPacked`, `rANS` and every `Bool` encoding define their own physical layout. The physical field MUST be `0` for them.
+`RLE`, `DeltaRLE`, `BitPacked` and every `Bool` encoding define their own physical layout. The physical field MUST be `0` for them.
 
 > [!NOTE]
 >
@@ -2983,7 +2980,7 @@ In v2 a stream whose logical encoding is also `None` may leave out `byte_length`
 
 Each word is stored in 7-bit groups, least significant group first. Bit 7 of each byte is set when another byte follows. A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_u32_np.mlt&amp;at=column%5B0%5D>) - four `9000`s, two bytes each, the first byte of each with bit 7 set.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_u32_np.mlt&at=column%5B0%5D>) - four `9000`s, two bytes each, the first byte of each with bit 7 set.
 
 ```text
 300 = 0b0000_0001_0010_1100
@@ -2997,7 +2994,7 @@ This is the unsigned varint of [Protocol Buffers](<https://protobuf.dev/programm
 
 Every word is stored in the same number of bits, the bit width of the largest value.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - dictionary codes `0` to `2`, each in two bits.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_dict_bp_np.mlt&at=codes>) - dictionary codes `0` to `2`, each in two bits.
 
 Bit packing stands in for the whole physical step: the words come straight out of the packed bits, and only [zigzag](<#zigzag>) on a signed stream is applied to them.
 
@@ -3022,7 +3019,7 @@ Bit packing beats varint when the values are of similar magnitude, since varint 
 
 A block codec that stores each block of words at the bit width most of them need, and patches the few words that need more from separate exception arrays. Unlike [bit packing](<#bit-packing>), it is not sensitive to a handful of outliers. It is described by [Lemire and Boytsov, *Decoding billions of integers per second through vectorization*](<https://arxiv.org/pdf/1209.2137.pdf>).
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fids_fpf.mlt&amp;at=column%5B0%5D>) - an id stream in the v2 `128le` variant.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fids_fpf.mlt&at=column%5B0%5D>) - an id stream in the v2 `128le` variant.
 
 v1 and v2 use different variants:
 
@@ -3141,7 +3138,7 @@ The words are the values. On a signed stream each word is [zigzag](<#zigzag>)-de
 
 Each word is the difference from the previous value. The first value's predecessor is `0`. Each difference is [zigzag](<#zigzag>)-encoded before it becomes a word, whatever the stream's type.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fids_opt_delta.mlt&amp;at=column%5B0%5D>) - ids `100`, `101`, `105`, `106`, stored as the steps between them.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fids_opt_delta.mlt&at=column%5B0%5D>) - ids `100`, `101`, `105`, `106`, stored as the steps between them.
 
 ```text
 delta[0] = values[0] - 0
@@ -3197,7 +3194,7 @@ Delta2 suits smooth sequences, such as a per-vertex elevation along a densely sa
 
 The values are stored as runs, each a `(run_length, value)` pair that expands to `run_length` copies of `value`. On a signed stream `value` is [zigzag](<#zigzag>)-encoded. Run lengths never are.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues_rle.mlt&amp;at=m_value%5B0%5D>) - five `5`s and three `7`s, as two runs.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fmvalues_rle.mlt&at=m_value%5B0%5D>) - five `5`s and three `7`s, as two runs.
 
 The two tile versions lay the runs out differently:
 
@@ -3222,7 +3219,7 @@ In both versions the decoded element count is known before the payload is read. 
 
 [Delta](<#delta>) followed by [RLE](<#rle>). The deltas are ZigZag-encoded, and those unsigned words are run-length encoded. Decoding undoes both steps in reverse order: expand the runs, then undo ZigZag and prefix-sum.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fids_delta_rle.mlt&amp;at=column%5B0%5D>) - four equal ids: one step of `103`, then a run of three `0`s.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fids_delta_rle.mlt&at=column%5B0%5D>) - four equal ids: one step of `103`, then a run of three `0`s.
 
 ```text
 values: [10, 11, 12, 13, 20, 20, 20]
@@ -3241,7 +3238,7 @@ Boolean columns and v1 `Present` streams hold one bit per value.
 
 Bit `i % 8` of byte `i / 8` is value `i`, LSB-first. The bitmap is `ceil(count / 8)` bytes. Bits past `count` in the final byte are padding and MUST be ignored.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32_val_null.mlt&amp;at=present>) - a value, then a null: bits `1` and `0`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_i32_val_null.mlt&at=present>) - a value, then a null: bits `1` and `0`.
 
 ```text
 values: [1, 0, 1, 1, 0, 1]
@@ -3252,7 +3249,7 @@ byte:   0b0010_1101 = 0x2D
 
 The [bitmap](<#bitmap>) compressed with the byte-level run-length encoding of [ORC](<https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding>). v1 uses it for Present and boolean streams, and v2 for the `Bool` family's code `1`. The payload is a sequence of runs, each a control byte followed by the bytes it describes.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fids_opt.mlt&amp;at=present>) - five ids, one of them missing, as byte runs.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x01%2Fids_opt.mlt&at=present>) - five ids, one of them missing, as byte runs.
 
 | Control byte `c` | Meaning |
 | --- | --- |
@@ -3278,13 +3275,13 @@ v2 stores no length or run count either.
 
 IEEE 754 words, little-endian, 4 bytes for a `Float` and 8 for a `Double`. This is the only float encoding v1 has.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_f64_max_np.mlt&amp;at=column%5B0%5D>) - raw IEEE 754 words.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_f64_max_np.mlt&at=column%5B0%5D>) - raw IEEE 754 words.
 
 ### Framed, Exception-Free ALP
 
 Framed, Exception-Free ALP (Adaptive Lossless floating-Point compression) stores a float column as integers, which are then [physically encoded](<#physical-encodings>) like any other integer stream.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_f32_alp_np.mlt&amp;at=column%5B0%5D>) - `-0.75` to `0.75`, stored as `-75` to `75` with `e = 2`.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprop_f32_alp_np.mlt&at=column%5B0%5D>) - `-0.75` to `0.75`, stored as `-75` to `75` with `e = 2`.
 
 Most floats in map data are decimals with few significant digits, such as `12.75` or `0.3`, and are exactly representable as a scaled integer. Framed, Exception-Free ALP finds one decimal scale for the whole column and stores \\(i = \\operatorname{round}(v \\cdot 10^e / 10^f)\\) per value.
 
@@ -3352,13 +3349,13 @@ The streams of each encoding and how a column announces it are the business of [
 
 The bytes as they are. Value `i` is the `lengths[i]` bytes that follow the first `lengths[0] + ... + lengths[i - 1]`. Each value MUST be valid UTF-8.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_plain_np.mlt&amp;at=column%5B0%5D>) - several strings, each its length's worth of bytes in turn.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_plain_np.mlt&at=column%5B0%5D>) - several strings, each its length's worth of bytes in turn.
 
 ### Front Coding
 
 Neighboring entries of a sorted dictionary often share a prefix, for example `Main Street`, `Main Street North` and `Maple Avenue`. Front coding stores the length of the prefix shared with the previous entry, and only the suffix bytes.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_front_dict_np.mlt&amp;at=column%5B0%5D>) - a dictionary whose entries share prefixes.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_front_dict_np.mlt&at=column%5B0%5D>) - a dictionary whose entries share prefixes.
 
 The lengths stream that precedes the blob holds `2N` values: `N` shared-prefix lengths, then `N` suffix lengths. The blob holds the `N` suffixes back to back.
 
@@ -3384,7 +3381,7 @@ Front coding can be combined with [FSST](<#fsst>). The corpus is front-coded fir
 
 Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes. Unlike a dictionary, it compresses strings that merely share substrings, such as localized country names. It decodes quickly, since every code is one byte.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_fsst_dict_np.mlt&amp;at=column%5B0%5D>) - a symbol table and the codes into it.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_fsst_dict_np.mlt&at=column%5B0%5D>) - a symbol table and the codes into it.
 
 An FSST-compressed blob comes with two streams that carry its symbol table:
 
@@ -3418,7 +3415,7 @@ The algorithm that trains the table is described by [Boncz, Neumann and Leis, *F
 
 The distinct values are stored once, and a code names one of them per element. Repeated values such as a city or a country cost one code instead of their bytes.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_dict_bp_np.mlt&amp;at=codes>) - three distinct strings and one code per feature.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_str_dict_bp_np.mlt&at=codes>) - three distinct strings and one code per feature.
 
 The codes are an unsigned integer stream, so any [logical](<#logical-encodings>) and [physical](<#physical-encodings>) encoding can compress them. The dictionary is a byte blob, [plain](<#plain-bytes>), [front-coded](<#front-coding>) or [FSST](<#fsst>)-compressed. Its lengths are those of the distinct values.
 
@@ -3434,7 +3431,7 @@ A code at or past the dictionary's count MUST be rejected. A dictionary beats pl
 
 Several string columns, such as `name:en`, `name:de` and `name:fr`, index into one dictionary. The dictionary is written once, and each member column then stores only its presence and its codes.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_shared_dict_bp.mlt&amp;at=column%5B0%5D>) - several columns reading one corpus.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fprops_shared_dict_bp.mlt&at=column%5B0%5D>) - several columns reading one corpus.
 
 The dictionary can be plain, front-coded or FSST-compressed, as for a single column. See [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md#shared-dictionary-columns>) and [v2](<https://maplibre.org/maplibre-tile-spec/specification/v2/index.md#shared-dictionary-columns>) for the group header each version writes.
 
@@ -3446,7 +3443,7 @@ The vertex buffer holds \\(x\\) and \\(y\\) interleaved: \\(\[x\_0, y\_0, x\_1, 
 
 Each coordinate is a delta to the same coordinate of the previous vertex. `x` and `y` keep separate predecessors, both starting at `0`. Each delta is [zigzag](<#zigzag>)-encoded.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fline.mlt&amp;at=vertices>) - three vertices, each stored as its step from the one before.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fline.mlt&at=vertices>) - three vertices, each stored as its step from the one before.
 
 ```text
 dx[i] = x[i] - x[i - 1]        x[-1] = 0
@@ -3477,7 +3474,7 @@ words:    [0, 0, 140, 2, 0, 2, 0, 2]
 
 The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex. `VertexOffsets` is an ordinary unsigned integer stream. `VertexDict` is a vertex stream and carries any of the encodings in this section.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices stored once and indexed.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict>) - vertices stored once and indexed.
 
 ```text
 VertexOffsets: [0, 1, 2, 1, 0, 2]
@@ -3497,7 +3494,7 @@ The reference encoders use the curve of the [`hilbert_2d`](<https://crates.io/cr
 
 A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer. Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas. Only a `VertexDict` stream uses it.
 
-[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict>) - vertices as Morton codes, delta-encoded.
+[View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict>) - vertices as Morton codes, delta-encoded.
 
 The parameters are two varints in the stream header:
 
@@ -3583,240 +3580,6 @@ The deltas are plain differences, not ZigZag-encoded. The dictionary is sorted a
 dict codes: [27, 30, 45]
 words:      [27, 3, 15]
 ```
-
-### rANS
-
-rANS entropy-codes the [componentwise deltas](<#componentwise-delta>) of a plain layout's vertex stream. A `VertexDict` stream MUST NOT use it.
-
-Each delta is split in two:
-
-- a **symbol**, which says roughly how large the delta is and its sign, and is coded with [rANS](<https://arxiv.org/abs/1311.2540>) so that frequent symbols take fewer bits,
-- the delta's low **raw bits**, which are close to random and stored as they are.
-
-The symbol frequencies are counted per **context**, so each delta is coded with a table built from similar deltas. The tables travel in the payload.
-
-To decode, a decoder:
-
-1. reads the depth and the tables,
-2. marks which vertices start a [run](<#rans-runs>), from the topology streams,
-3. per vertex, decodes the `dx` symbol, then the `dy` symbol in a context that depends on `dx`, then reads both deltas' raw bits,
-4. prefix-sums the deltas into coordinates, as for componentwise delta.
-
-#### How rANS decodes a symbol
-
-A table of precision `p` divides `2^p` slots among its symbols. Symbol `s` owns `freq(s)` consecutive slots, starting at `cum(s)`, the sum of the frequencies of the symbols below it.
-
-The decoder holds a state `x`, a 32-bit number. The low `p` bits of `x` are a slot, and the symbol owning that slot is the one decoded. The state then shrinks by about `log2(2^p / freq(s))` bits, so a symbol owning half the slots costs one bit, and one owning a quarter costs two. When the state drops below `2^16`, the next 16-bit word of the stream is shifted in from below. The state stays in `[2^16, 2^32)` between symbols.
-
-```text
-slot = x & (2^p - 1)
-s    = the symbol whose slots hold slot
-x    = freq(s) * (x >> p) + slot - cum(s)
-if x < 2^16: x = (x << 16) | next refill word of the lane
-```
-
-A table of precision `3`, decoding the state `0x10005`:
-
-The state becomes `2 * 8192 + 5 - 4 = 16385`, two bits smaller, and is below `2^16`, so the next word is shifted in.
-
-A table of precision `0` has one slot and one symbol. Decoding from it leaves `x` unchanged and costs no bits.
-
-#### Why rANS compresses
-
-A symbol of probability \\(P\\) carries \\(\\log\_2 \\frac{1}{P}\\) bits of information. A table approximates \\(P(s)\\) as \\(\\frac{\\mathit{freq}(s)}{2^p}\\), so the ideal cost of \\(s\\) is \\(\\log\_2 \\frac{2^p}{\\mathit{freq}(s)}\\) bits.
-
-The state \\(x\\) holds the symbols encoded so far in about \\(\\log\_2 x\\) bits. Encoding \\(s\\) maps \\(x\\) to
-
-\\\[ x' = 2^p \\left\\lfloor \\frac{x}{\\mathit{freq}(s)} \\right\\rfloor + \\mathit{cum}(s) + (x \\bmod \\mathit{freq}(s)) \\\]
-
-so \\(x' \\approx x \\cdot \\frac{2^p}{\\mathit{freq}(s)}\\), and \\(\\log\_2 x\\) grows by the ideal cost of \\(s\\).
-
-With every frequency `1` this is \\(x' = 2^p x + s\\), which appends \\(s\\) as a digit of \\(x\\) in base \\(2^p\\), and every symbol costs \\(p\\) bits. rANS instead gives \\(s\\) the \\(\\mathit{freq}(s)\\) digit values from \\(\\mathit{cum}(s)\\) on. The digit is \\(\\mathit{cum}(s) + (x \\bmod \\mathit{freq}(s))\\), so it carries \\(\\log\_2 \\mathit{freq}(s)\\) bits of \\(x\\).
-
-The decoder finds \\(s\\) as the symbol whose slots hold the digit \\(x' \\bmod 2^p\\). The quotient \\(\\lfloor x' / 2^p \\rfloor\\) is \\(\\lfloor x / \\mathit{freq}(s) \\rfloor\\), and the digit's offset into those slots is \\(x \\bmod \\mathit{freq}(s)\\), so the decoder rebuilds \\(x\\) exactly. Every \\(x'\\) decodes to exactly one pair of \\(x\\) and \\(s\\).
-
-The last symbol encoded is the lowest digit and is decoded first, so the [encoder](<#rans-encoding>) codes each lane in reverse.
-
-Encoding symbol `3` of the table above into \\(x = 16385\\) gives the state the decoder started from:
-
-\\\[ x' = 8 \\left\\lfloor \\frac{16385}{2} \\right\\rfloor + 4 + (16385 \\bmod 2) = 8 \\cdot 8192 + 5 = 65541 = \\mathtt{0x10005} \\\]
-
-\\(x\\) grows by \\(\\log\_2 \\frac{65541}{16385} \\approx 2 = \\log\_2 \\frac{8}{2}\\) bits.
-
-If symbol \\(s\\) occurs \\(n(s)\\) times among the \\(N\\) symbols of a context, that context costs on average
-
-\\\[ \\sum\_s \\frac{n(s)}{N} \\log\_2 \\frac{2^p}{\\mathit{freq}(s)} \\\]
-
-bits per symbol. It is lowest when \\(\\frac{\\mathit{freq}(s)}{2^p} = \\frac{n(s)}{N}\\) for every \\(s\\), and is then the entropy \\(\\sum\_s \\frac{n(s)}{N} \\log\_2 \\frac{N}{n(s)}\\). A low precision rounds the frequencies further from the counts and costs more per symbol, and a high one costs more table bits.
-
-#### Renormalization
-
-The state stays in \\(\[2^{16}, 2^{32})\\). The encoder shifts 16-bit words out of the state into its lane, and the decoder shifts them back in.
-
-Before encoding \\(s\\), the encoder shifts words out until \\(x \< \\mathit{freq}(s) \\cdot 2^{32 - p}\\), so that \\(x' \< 2^{32}\\). A shift divides \\(x\\) by \\(2^{16}\\), and the interval \\(\[\\mathit{freq}(s) \\cdot 2^{16 - p}, \\mathit{freq}(s) \\cdot 2^{32 - p})\\) spans exactly that factor. So \\(x\\) lands in it after a unique number of shifts, and \\(x' \\ge 2^{16}\\).
-
-Decoding from \\(x \\ge 2^{16}\\) leaves \\(x \\ge \\mathit{freq}(s) \\cdot 2^{16 - p} \\ge 2^{16 - p}\\). Since \\(p \\le 11\\), one refill word brings \\(x\\) back to at least \\(2^{16}\\).
-
-[*Asymmetric numeral systems*](<https://arxiv.org/abs/1311.2540>) by Duda proves these properties, and [*rANS*](<https://reearth.engineering/posts/r-ans-en/>) by Re:Earth derives them with small decimal examples.
-
-#### Runs
-
-The first vertex of a ring, part or geometry jumps from the last vertex of the one before it, so its delta is much larger than the others. Such a vertex is encoded in contexts of its own.
-
-A run is the vertex range - of each ring, else - of each part, else - of each geometry, taken from the deepest offset level the geometry section has.
-
-A layer with none of the three levels has one run per vertex. A vertex starts a run when it is the first of one. The runs MUST cover exactly the stream's `num_values` vertices. Because the runs come from the topology, the stream is decoded after the topology streams.
-
-#### Symbols
-
-Each delta is the wrapping 32-bit difference from the same coordinate of the previous vertex, as in componentwise delta, without ZigZag.
-
-The symbol keeps the bit length `len` of the magnitude and the `d` bits after its leading one. `d` is the stream's mantissa depth, `0` to `2`. The leading one is implied by `len`. The remaining low bits are the raw bits. This is the same split a float makes into exponent, mantissa and dropped precision.
-
-At depth `1`:
-
-| Delta | Binary | `len` | Kept bit | Raw bits | Symbol |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| `0` |  |  |  |  | `0` |
-| `1` | `1` | `1` |  |  | `3` |
-| `-1` | `1` | `1` |  |  | `4` |
-| `2` | `10` | `2` | `0` |  | `7` |
-| `3` | `11` | `2` | `1` |  | `9` |
-| `-3` | `11` | `2` | `1` |  | `10` |
-| `5` | `101` | `3` | `0` | `1` | `11` |
-| `100` | `1100100` | `7` | `1` | `00100` | `29` |
-
-Positive deltas get odd symbols and negative ones the even symbol above. A magnitude with fewer than `d` bits after its leading one makes the unused mantissa positions `0`.
-
-```text
-delta = 0:  symbol 0, no raw bits
-otherwise:  m = |delta|                       as an unsigned 32-bit value
-            len = bit length of m             1-32
-            k = min(len - 1, d)               mantissa bits the symbol keeps
-            raw_bits = len - 1 - k
-            mantissa = (m >> raw_bits) & (2^k - 1)
-            code = (len << d) | (mantissa << (d - k))
-            symbol = 2 * code - 1 if delta > 0, 2 * code if delta < 0
-            raw = the low raw_bits bits of m
-```
-
-Decoding reverses it:
-
-```text
-symbol = 0:  delta 0
-otherwise:   code = ceil(symbol / 2)
-             len = code >> d
-             k = min(len - 1, d)
-             raw_bits = len - 1 - k
-             mantissa = (code & (2^d - 1)) >> (d - k)
-             m = ((2^k | mantissa) << raw_bits) | the next raw_bits raw bits
-             delta = m if symbol is odd, -m if it is even     wrapping, so m = 2^31 is i32::MIN
-```
-
-Symbols run up to `64` at depth `0`, `128` at depth `1` and `256` at depth `2`, the symbol of `i32::MIN`. The codes above it at depths `1` and `2` name no delta. A larger depth moves bits from the raw bits into the symbol, where a predictable bit costs less than one, at the price of larger tables.
-
-#### Contexts
-
-There are 14 contexts, each with its own table:
-
-| Context | Codes |
-| --- | --- |
-| `0` | `dx` inside a run |
-| `1` | `dx` at a run start |
-| `2 + 2c + s` | `dy`, where `c` is `dx`'s `len` capped at `5`, `0` for a zero `dx`, and `s` is `1` at a run start |
-
-`dx` and `dy` of a vertex tend to be of similar size, so the `dy` table is picked by how large `dx` was.
-
-A polygon with a hole:
-
-#### Payload
-
-```text
-payload := [u8 depth]           0-2
-           [tables]             bit-packed LSB-first, padded to a byte
-           [varint lane_len; 4]
-           [lane; 4]
-           [raw bits]           LSB-first, padded to a byte
-```
-
-The tables are one per context, in context order:
-
-```text
-table := [1 bit present]
-         if present:
-           [4 bits precision]   0-11
-           [9 bits max_symbol]  0-256
-           if precision > 0:
-             [gamma(freq + 1)] for every symbol 0..=max_symbol
-```
-
-`gamma(v)` is Elias gamma, LSB-first: `z` zero bits, a one bit, then the low `z` bits of `v`, where `z` is the bit length of `v` minus one. A zero frequency is `gamma(1)`, a single one bit. `z` above `12` MUST be rejected.
-
-A table of precision `0` has no frequencies on the wire. Its only symbol is `max_symbol`, with frequency `1`.
-
-The frequencies MUST sum to `2^precision`, the frequency of `max_symbol` MUST be non-zero, and a symbol with a non-zero frequency MUST be one that some delta maps to at the stream's depth.
-
-#### Lanes
-
-Four rANS states decode in parallel, each with a lane of its own. Vertex `i` codes `dx` on lane `2 * (i mod 2)` and `dy` on lane `2 * (i mod 2) + 1`, so even vertices use lanes `0` and `1`, and odd vertices lanes `2` and `3`. A lane is its state's initial value as a little-endian `u32`, then the little-endian `u16` refill words in the order they are read. Its length MUST be even and at least `4`.
-
-The raw bits are one stream shared by all lanes, read in vertex order: `dx`'s raw bits, then `dy`'s.
-
-The symbols and raw bits of the example below:
-
-```text
-x_prev = y_prev = 0
-for i in 0..vertex_count:
-    s  = 1 if vertex i starts a run, else 0
-    a  = 2 * (i mod 2)
-    sx = decode a symbol on lane a,     from context s
-    sy = decode a symbol on lane a + 1, from context 2 + 2 * min(ceil(sx / 2) >> d, 5) + s
-    x_prev = x_prev + delta(sx)           reads dx's raw bits, wrapping
-    y_prev = y_prev + delta(sy)           reads dy's raw bits, wrapping
-    output x_prev, y_prev
-```
-
-A decoder MUST reject a symbol from a context without a table, a lane that does not end on state `2^16` with every word read, and raw bits whose byte length is not exactly the number of bytes the raw bit reads need.
-
-#### Encoding
-
-rANS is last in, first out, so an encoder codes each lane's symbols in reverse, starting every state at `2^16`:
-
-```text
-while x >= freq(s) * 2^(32 - p): emit x & 0xFFFF; x = x >> 16
-x = ((x / freq(s)) << p) + x mod freq(s) + cum(s)
-```
-
-A lane is the final state, then the emitted words in reverse order. The final state is where decoding starts, and decoding every symbol returns it to `2^16`.
-
-An encoder SHOULD pick the depth and precisions that make the stream shortest, and SHOULD compare its stored size with componentwise delta.
-
-> [!NOTE]
->
-> **Example**
->
-> The vertices `(100, 200)`, `(105, 210)`, `(102, 215)` as one run, at depth `1`:
->
-> | Vertex | Lanes | `dx` | Symbol | Context | Raw bits | `dy` | Symbol | Context | Raw bits |
-> | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-> | `0` | `0`, `1` | `100` | `29` | `1` | `00100` | `200` | `33` | `13` | `001000` |
-> | `1` | `2`, `3` | `5` | `11` | `0` | `1` | `10` | `15` | `8` | `10` |
-> | `2` | `0`, `1` | `-3` | `10` | `0` |  | `5` | `11` | `6` | `1` |
->
-> Context `0` holds symbols `10` and `11`, once each, and gets precision `1` with one slot per symbol. Contexts `1`, `6`, `8` and `13` hold a single symbol each and get precision `0`. The other nine contexts are absent.
->
-> Only context `0` changes a state. Lane `0` starts at `0x20000`, decodes `29` for free, then slot `0x20000 & 1 = 0`, symbol `10`, and ends on `1 * (0x20000 >> 1) + 0 - 0 = 0x10000`. Lane `2` starts at `0x20001`, slot `1`, symbol `11`, and ends on `1 * 0x10000 + 1 - 1 = 0x10000`. Lanes `1` and `3` start and end at `0x10000`. No state drops below `2^16`, so no lane has refill words.
->
-> ```text
-> depth:    01
-> tables:   63 C1 FF 52 E8 00 61 81 F0 00 42 08     95 bits, padded
-> lanes:    04 04 04 04                            four lanes of 4 bytes
->           00 00 02 00                            lane 0: 0x00020000
->           00 00 01 00                            lane 1: 0x00010000
->           01 00 02 00                            lane 2: 0x00020001
->           00 00 01 00                            lane 3: 0x00010000
-> raw bits: 04 69                                  15 bits: 4, 8, 1, 2, 1, padded
-> ```
 
 # Implementation Guide
 
