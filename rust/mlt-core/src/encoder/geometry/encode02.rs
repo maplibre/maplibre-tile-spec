@@ -6,9 +6,9 @@ use super::streams::{
     dict_may_be_beneficial, encode_level1_length_stream,
     encode_level1_without_ring_buffer_length_stream, encode_level2_length_stream,
     encode_morton_vertex_streams02, encode_predicted_vertex_stream02,
-    encode_ring_lengths_for_mixed, encode_root_length_stream, encode_vec2_vertex_stream02,
-    encode_vec3_vertex_stream02, normalize_geometry_offsets, normalize_part_offsets_for_rings,
-    seed_curve_caches,
+    encode_predicted_xyz_vertex_stream02, encode_ring_lengths_for_mixed, encode_root_length_stream,
+    encode_vec2_vertex_stream02, encode_vec3_vertex_stream02, normalize_geometry_offsets,
+    normalize_part_offsets_for_rings, seed_curve_caches,
 };
 use crate::codecs::predicted::Run;
 use crate::codecs::tri::{self, TriTrees};
@@ -459,28 +459,23 @@ impl GeometrySection02 {
         let geo_lengths = self.geo_lengths;
         let topology = self.topology;
         let types = self.types;
+        let runs = || {
+            let (parts, rings) = topology.streams();
+            let lengths = Levels {
+                geometries: geo_lengths.clone(),
+                parts: parts.map(<[u32]>::to_vec),
+                rings: rings.map(<[u32]>::to_vec),
+            };
+            let dec = &mut Decoder::with_max_size(u32::MAX);
+            let levels = decode_topology(&types, lengths, dec)?;
+            vertex_runs(&types, &levels, dec)
+        };
         let vertices = match self.z_axis {
             Some(axis) => {
-                write_xyz_vertices(&self.vertices, axis, enc, codecs)?;
+                write_xyz_vertices(&self.vertices, &runs, axis, enc, codecs)?;
                 VertexStorage::Plain
             }
-            None => write_vertices(
-                &self.vertices,
-                &|| {
-                    let (parts, rings) = topology.streams();
-                    let lengths = Levels {
-                        geometries: geo_lengths.clone(),
-                        parts: parts.map(<[u32]>::to_vec),
-                        rings: rings.map(<[u32]>::to_vec),
-                    };
-                    let dec = &mut Decoder::with_max_size(u32::MAX);
-                    let levels = decode_topology(&types, lengths, dec)?;
-                    vertex_runs(&types, &levels, dec)
-                },
-                tessellated,
-                enc,
-                codecs,
-            )?,
+            None => write_vertices(&self.vertices, &runs, tessellated, enc, codecs)?,
         };
         let layout = if uniform_type == Some(GeometryType::Mesh) {
             GeoLayout::Meshes
@@ -588,23 +583,41 @@ fn keep_shortest(
 /// Write the `(x, y, z)` vertex stream, which has no dictionary layout since a Morton code spans only `x` and `y`.
 fn write_xyz_vertices(
     vertices: &[i32],
+    runs: &dyn Fn() -> MltResult<Vec<Run>>,
     axis: ZAxis,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     enc.family_context = Family::Vertex;
     match enc.override_vertex_buffer_type() {
-        None | Some(VertexBufferType::Vec2) => {
-            encode_vec3_vertex_stream02(vertices, axis, enc, codecs)
+        None => write_plain_xyz_vertices(vertices, runs, axis, enc, codecs),
+        Some(VertexBufferType::Vec2) => encode_vec3_vertex_stream02(vertices, axis, enc, codecs),
+        Some(VertexBufferType::Predicted) => {
+            encode_predicted_xyz_vertex_stream02(vertices, &runs()?, axis, enc)
         }
         Some(VertexBufferType::Hilbert) => Err(MltError::HilbertDictionaryInV2),
         Some(VertexBufferType::Morton) => Err(MltError::NotImplemented(
             "Morton vertices with z coordinates, since a Morton code spans only x and y",
         )),
-        Some(VertexBufferType::Predicted) => Err(MltError::NotImplemented(
-            "predicted vertices with z coordinates, since its tables are defined over pairs",
-        )),
     }
+}
+
+/// The plain `(x, y, z)` vertex stream: componentwise delta, raced against predicted vertices when the config allows them.
+fn write_plain_xyz_vertices(
+    vertices: &[i32],
+    runs: &dyn Fn() -> MltResult<Vec<Run>>,
+    axis: ZAxis,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    if vertices.is_empty() || !enc.config().allow_predicted_vertices() {
+        return encode_vec3_vertex_stream02(vertices, axis, enc, codecs);
+    }
+    let runs = runs()?;
+    let mut alt = enc.try_alternatives();
+    alt.with(|enc| encode_vec3_vertex_stream02(vertices, axis, enc, codecs))?;
+    alt.with(|enc| encode_predicted_xyz_vertex_stream02(vertices, &runs, axis, enc))?;
+    Ok(())
 }
 
 /// The plain vertex stream the encoder picks itself: componentwise delta, raced against predicted vertices when the config allows them.

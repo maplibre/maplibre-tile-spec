@@ -15,7 +15,7 @@ pub enum VertexBufferType {
     /// componentwise-delta encoded. Each vertex position in the stream is replaced
     /// by its index into that dictionary.
     Hilbert,
-    /// Standard 2D `(x, y)` pairs as residuals against a guess from the decoded vertices.
+    /// Vertices as residuals against a guess from the decoded vertices, over `(x, y)` pairs or `(x, y, z)` triples.
     /// Only v2 can write it.
     Predicted,
 }

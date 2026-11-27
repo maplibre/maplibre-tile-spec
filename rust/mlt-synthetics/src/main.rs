@@ -457,6 +457,35 @@ fn generate_predicted_vertices(w: &mut SynthWriter) {
         .geo(wkt!(LINESTRING(1003 3900, 1517 3104, 1979 1950)))
         .predicted_vertices()
         .write(w, "line_junction_predicted");
+    // A contour line at 25 m, whose vertices after the first need no z codeword.
+    geo_varint()
+        .predicted_vertices()
+        .geo(wkt!(LINESTRING(10 40, 22 35, 35 33, 47 36, 58 44, 66 55)))
+        .z(-1, decimetres(&[25; 6]))
+        .write(w, "z_line_flat_predicted");
+    geo_varint()
+        .predicted_vertices()
+        .geo(poly1h())
+        .z(-1, decimetres(&[40, 41, 42, 10, 11, 12]))
+        .write(w, "z_poly_hole_predicted");
+    // Three roads meet at one height, and the fourth passes over the junction on a bridge.
+    geo_varint()
+        .predicted_vertices()
+        .geo(wkt!(LINESTRING(1979 1950, 2333 2613, 2866 2790, 3227 3619, 3893 3826)))
+        .geo(wkt!(LINESTRING(5 11, 530 366, 1003 669, 1150 1733, 1979 1950)))
+        .geo(wkt!(LINESTRING(3986 421, 3221 1131, 2702 1475, 1979 1950)))
+        .geo(wkt!(LINESTRING(1003 3900, 1517 3104, 1979 1950)))
+        .z(
+            -1,
+            decimetres(&[
+                520, 524, 531, 540, 552, 498, 503, 509, 514, 520, 547, 538, 529, 520, 508, 515, 526,
+            ]),
+        )
+        .write(w, "z_line_junction_predicted");
+    geo_varint()
+        .predicted_vertices()
+        .meshes(0, [roof(), wall()])
+        .write(w, "mesh_roof_wall_predicted");
 }
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
