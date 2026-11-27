@@ -25,9 +25,6 @@ pub struct Decoder {
     /// Reusable scratch buffer for the physical u64 decode pass.
     /// Held here so its heap allocation is reused across streams without extra cost.
     pub(crate) buffer_u64: Vec<u64>,
-    /// The rANS vertex decoder's slot tables, filled per stream but never cleared.
-    #[cfg(feature = "unstable-v2")]
-    pub(crate) rans_slots: Vec<u64>,
 }
 
 impl Decoder {

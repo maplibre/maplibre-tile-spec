@@ -229,11 +229,6 @@ mod ffi {
             self.0 = self.0.with_packed_dict_codes(enabled);
         }
 
-        /// v2 only: allow plain vertex streams to be rANS-coded.
-        pub fn set_allow_rans_vertices(&mut self, enabled: bool) {
-            self.0 = self.0.with_rans_vertices(enabled);
-        }
-
         /// v2 only: let a nested struct or map code its row shapes instead of per-field presence.
         pub fn set_allow_row_shapes(&mut self, enabled: bool) {
             self.0 = self.0.with_row_shapes(enabled);

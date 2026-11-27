@@ -418,8 +418,7 @@ impl<'a> Walker<'a> {
                 VertexLogical::None
                 | VertexLogical::Delta
                 | VertexLogical::ComponentwiseDelta
-                | VertexLogical::ComponentwiseDelta2
-                | VertexLogical::Rans,
+                | VertexLogical::ComponentwiseDelta2,
             ) => {}
             // A v1 header never parses into one.
             #[cfg(feature = "unstable-v2")]

@@ -106,13 +106,6 @@ fn the_min_size_preset_allows_delta2_under_v2() {
 }
 
 #[test]
-fn the_min_size_preset_allows_rans_vertices_under_v2() {
-    let min_size_v2 =
-        EncoderConfig::from_profile(Profile::MinSize).with_wire_version(WireVersion::V02);
-    assert!(min_size_v2.allow_rans_vertices());
-}
-
-#[test]
 fn the_min_size_preset_allows_no_delta2_under_v1() {
     let min_size_v1 =
         EncoderConfig::from_profile(Profile::MinSize).with_wire_version(WireVersion::V01);
@@ -205,13 +198,6 @@ fn the_fast_encoding_preset_allows_no_delta2_under_v2() {
     let fast_v2 =
         EncoderConfig::from_profile(Profile::FastEncoding).with_wire_version(WireVersion::V02);
     assert!(!fast_v2.allow_delta2());
-}
-
-#[test]
-fn the_fast_encoding_preset_allows_no_rans_vertices_under_v2() {
-    let fast_v2 =
-        EncoderConfig::from_profile(Profile::FastEncoding).with_wire_version(WireVersion::V02);
-    assert!(!fast_v2.allow_rans_vertices());
 }
 
 #[rstest::rstest]

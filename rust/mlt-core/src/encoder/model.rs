@@ -452,7 +452,7 @@ pub enum Profile {
     Web(Network),
     /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
     Native(Network),
-    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 ALP floats, second-order deltas, rANS vertices and Boolean RLE presence.
+    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 ALP floats, second-order deltas and Boolean RLE presence.
     MinSize,
     /// Small binary diffs between releases: no triangles, no `FSST`, `FastPFOR` or shared dictionaries, and under v2 second-order deltas but no Boolean RLE presence.
     Diffable,
@@ -532,9 +532,6 @@ pub struct EncoderConfig {
     /// Allow the v2-only second-order delta encodings of integer and vertex streams
     #[cfg(feature = "unstable-v2")]
     allow_delta2: bool,
-    /// Allow the v2-only rANS vertex encoding
-    #[cfg(feature = "unstable-v2")]
-    allow_rans_vertices: bool,
     /// Allow the v2-only Boolean RLE coding of presence and bool bitfields
     #[cfg(feature = "unstable-v2")]
     allow_presence_rle: bool,
@@ -567,8 +564,6 @@ impl EncoderConfig {
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: false,
                 #[cfg(feature = "unstable-v2")]
-                allow_rans_vertices: false,
-                #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: true,
             },
             Profile::Web(network) => Self {
@@ -592,8 +587,6 @@ impl EncoderConfig {
                 allow_triangles_only: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: false,
-                #[cfg(feature = "unstable-v2")]
-                allow_rans_vertices: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: false,
             },
@@ -619,8 +612,6 @@ impl EncoderConfig {
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: true,
                 #[cfg(feature = "unstable-v2")]
-                allow_rans_vertices: true,
-                #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: true,
             },
             Profile::Diffable => Self {
@@ -645,8 +636,6 @@ impl EncoderConfig {
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: true,
                 #[cfg(feature = "unstable-v2")]
-                allow_rans_vertices: false,
-                #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: false,
             },
             Profile::FastEncoding => Self {
@@ -670,8 +659,6 @@ impl EncoderConfig {
                 allow_triangles_only: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_delta2: false,
-                #[cfg(feature = "unstable-v2")]
-                allow_rans_vertices: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: false,
             },
@@ -892,21 +879,6 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_packed_dict_codes(mut self, enabled: bool) -> Self {
         self.allow_packed_dict_codes = enabled;
-        self
-    }
-
-    /// Whether vertex streams may be rANS-coded.
-    #[cfg(feature = "unstable-v2")]
-    #[must_use]
-    pub fn allow_rans_vertices(self) -> bool {
-        self.allow_rans_vertices && self.wire_version != WireVersion::V01
-    }
-
-    /// Allow plain vertex streams to be rANS-coded over the layer's vertex runs.
-    #[cfg(feature = "unstable-v2")]
-    #[must_use]
-    pub fn with_rans_vertices(mut self, enabled: bool) -> Self {
-        self.allow_rans_vertices = enabled;
         self
     }
 }

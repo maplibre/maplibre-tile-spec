@@ -1,4 +1,4 @@
-//! v2 decode with and without rANS vertices, against the gunzip + MVT decode it has to beat.
+//! v2 decode against the gunzip + MVT decode it has to beat.
 
 use std::hint::black_box;
 
@@ -52,12 +52,10 @@ fn bench_decode(c: &mut Criterion) {
             .map(|(path, data)| (path.clone(), compress_gzip(data)))
             .collect();
         let plain = encode(&mvt, cfg_v2());
-        let rans = encode(&mvt, cfg_v2().with_rans_vertices(true));
         eprintln!(
-            "{corpus}: mvt+gzip {} B, v2 {} B, v2+rans {} B",
+            "{corpus}: mvt+gzip {} B, v2 {} B",
             total_bytes(&gz),
-            total_bytes(&plain),
-            total_bytes(&rans)
+            total_bytes(&plain)
         );
         group.bench_with_input(BenchmarkId::new("mvt+gzip", corpus), &gz, |b, t| {
             b.iter(|| {
@@ -67,9 +65,6 @@ fn bench_decode(c: &mut Criterion) {
             });
         });
         group.bench_with_input(BenchmarkId::new("mlt-v2", corpus), &plain, |b, t| {
-            b.iter(|| mlt_decode(t));
-        });
-        group.bench_with_input(BenchmarkId::new("mlt-v2+rans", corpus), &rans, |b, t| {
             b.iter(|| mlt_decode(t));
         });
     }
