@@ -427,6 +427,7 @@ pub fn header(data: &[u8]) -> MltResult<Header> {
 /// The shortest payload for interleaved `(x, y)` `vertices` over `runs`, the lowest header byte on a tie.
 pub fn encode(vertices: &[i32], runs: &[Run]) -> MltResult<Vec<u8>> {
     let n = vertex_count(vertices)?;
+    classify(runs, n, LineGuess::Previous)?;
     let unshared = Plan::unshared(n);
     let line_references = unshared.with_line_references(vertices, runs).useful();
     let mut best: Option<Vec<u8>> = None;
@@ -1524,6 +1525,17 @@ mod tests {
     #[case::past_the_end(&[line(0, 9)], "a run ends past the last vertex")]
     fn bad_runs_are_rejected(#[case] runs: &[Run], #[case] reason: &str) {
         let err = decode(&[0x00], runs, 8, &mut dec()).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!("predicted vertex stream is malformed: {reason}")
+        );
+    }
+
+    #[rstest]
+    #[case::overlapping(&[ring(0, 4), line(2, 6)], "runs overlap or are out of order")]
+    #[case::past_the_end(&[line(0, 9)], "a run ends past the last vertex")]
+    fn bad_runs_are_rejected_by_the_encoder(#[case] runs: &[Run], #[case] reason: &str) {
+        let err = encode(&[0; 16], runs).unwrap_err();
         assert_eq!(
             err.to_string(),
             format!("predicted vertex stream is malformed: {reason}")
