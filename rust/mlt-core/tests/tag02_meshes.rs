@@ -536,7 +536,7 @@ fn an_empty_staged_meshes_layer_round_trips_to_the_bytes_the_wasm_spec_decodes()
     assert_eq!(back.feature_count(), 0);
     assert_eq!(back.z_axis(), Some(height()));
     assert_eq!(back.m_value_scopes(), &[MValueScope::Triangle]);
-    assert_snapshot!(hex::encode(&bytes), @"1f02096c616e646d61726b73f6000e0000000025000902050104666163658000");
+    assert_snapshot!(hex::encode(&bytes), @"1f02096c616e646d61726b73f6000e0000000005000902050104666163658000");
 }
 
 #[test]
@@ -556,7 +556,7 @@ fn a_mesh_without_vertices_and_one_without_triangles_encode_to_the_bytes_the_was
     let bytes = builder.finish().encode(cfg_v2()).unwrap();
     let back = try_decode(&bytes).unwrap();
     assert_eq!(rows(&back).len(), 2);
-    assert_snapshot!(hex::encode(&bytes), @"2902096c616e646d61726b7376020e180200043002020080008000290609020206020206010018020002");
+    assert_snapshot!(hex::encode(&bytes), @"2902096c616e646d61726b7376020e180200043002020080008000090609020206020206010018020002");
 }
 
 #[test]

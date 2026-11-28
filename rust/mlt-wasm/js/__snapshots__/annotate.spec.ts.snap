@@ -690,7 +690,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
           "hi": 6,
           "lo": 4,
           "meaning": "logical = CwDelta, numbered for vertex stream",
-          "raw": 2,
+          "raw": 0,
         },
         {
           "hi": 3,
@@ -712,7 +712,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "label": "encoding",
       "len": 1,
       "offset": 12,
-      "value": "0x28 logical=CwDelta physical=VarInt",
+      "value": "0x08 logical=CwDelta physical=VarInt",
     },
     {
       "bits": [],

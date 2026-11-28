@@ -51,9 +51,9 @@
 00000022  00 01 02 03 04 05 03 06 07 08 06 09 0a 0b         ..............   |       data [Offset(TreeCycles) Int(None)/VarInt, 14 values, 14 B]
                                                                              |         decoded: [0, 1, 2, 3, 4, 5, 3, 6, 7, 8, 6, 9, 10, 11]
 00000030                                                                     |     vertices (27 B)
-00000030  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+00000030  88                                                .                |       encoding: 0x88 logical=CwDelta physical=VarInt
                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
                                                                              |         └ bits 1-0 = 00 -> extension = 0
 00000031  0c                                                .                |       num_values: 12
