@@ -79,7 +79,7 @@ jobs:
           -e RUSTFLAGS='-C strip=symbols -C panic=abort -C target-feature=-crt-static'
           rust:1-alpine
           sh -c 'apk add musl-dev && cargo build --release --target ${{ matrix.target }} -p mlt-ffi'
-      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         if: contains(matrix.target, 'freebsd')
         with: { tool: 'cross' }
       # GitHub has no FreeBSD runners, and the cross image carries the FreeBSD sysroot and linker.
@@ -126,7 +126,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
-      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with: { tool: 'just' }
 
       - name: Get version from tag
