@@ -1,13 +1,13 @@
-import type IntWrapper from "./intWrapper";
+import type IntWrapper from "./intWrapper.js";
 import {
     createFastPforWireDecodeWorkspace,
     decodeFastPforInt32,
     ensureFastPforWireEncodedWordsCapacity,
     type FastPforWireDecodeWorkspace,
-} from "./fastPforDecoder";
-import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
-export type { FastPforWireDecodeWorkspace } from "./fastPforDecoder";
-export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder";
+} from "./fastPforDecoder.js";
+import { decodeBigEndianInt32sInto } from "./bigEndianDecode.js";
+export type { FastPforWireDecodeWorkspace } from "./fastPforDecoder.js";
+export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder.js";
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Uint32Array {

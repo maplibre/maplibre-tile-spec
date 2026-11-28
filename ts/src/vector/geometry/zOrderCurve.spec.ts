@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { decodeZOrderCurve } from "./zOrderCurve";
-import { encodeZOrderCurve } from "../../encoding/zOrderCurveEncoder";
+import { decodeZOrderCurve } from "./zOrderCurve.js";
+import { encodeZOrderCurve } from "../../encoding/zOrderCurveEncoder.js";
 
 describe("zOrderCurve", () => {
     it("should encode and decode z-order curve", () => {

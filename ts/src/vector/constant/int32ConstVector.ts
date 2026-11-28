@@ -1,5 +1,5 @@
-import type BitVector from "../flat/bitVector";
-import Vector from "../vector";
+import type BitVector from "../flat/bitVector.js";
+import Vector from "../vector.js";
 
 export class Int32ConstVector extends Vector<Int32Array | Uint32Array, number> {
     public constructor(name: string, value: number, sizeOrNullabilityBuffer: number | BitVector, isSigned: boolean) {

@@ -1,5 +1,5 @@
-import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
+import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder.js";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique.js";
 import {
     encodeDeltaRleInt32,
     encodeZigZagInt32,
@@ -17,12 +17,12 @@ import {
     encodeComponentwiseDeltaVec2,
     encodeComponentwiseDeltaVec2Scaled,
     encodeZigZagDeltaInt32,
-} from "./integerEncodingUtils";
-import type BitVector from "../vector/flat/bitVector";
-import { packNullable } from "./packNullableUtils";
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import type GeometryScaling from "../decoding/geometryScaling";
-import { encodeUint32sLE } from "./encodingUtils";
+} from "./integerEncodingUtils.js";
+import type BitVector from "../vector/flat/bitVector.js";
+import { packNullable } from "./packNullableUtils.js";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique.js";
+import type GeometryScaling from "../decoding/geometryScaling.js";
+import { encodeUint32sLE } from "./encodingUtils.js";
 
 export function encodeSignedInt32Stream(
     values: Int32Array,

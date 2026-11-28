@@ -1,5 +1,5 @@
-import type BitVector from "../flat/bitVector";
-import Vector from "../vector";
+import type BitVector from "../flat/bitVector.js";
+import Vector from "../vector.js";
 
 export class Int64ConstVector extends Vector<BigInt64Array | BigUint64Array, bigint> {
     public constructor(name: string, value: bigint, sizeOrNullabilityBuffer: number | BitVector, isSigned: boolean) {

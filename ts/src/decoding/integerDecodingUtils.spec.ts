@@ -31,8 +31,8 @@ import {
     decodeRleDeltaInt32,
     decodeComponentwiseDeltaVec2,
     decodeComponentwiseDeltaVec2Scaled,
-} from "./integerDecodingUtils";
-import IntWrapper from "./intWrapper";
+} from "./integerDecodingUtils.js";
+import IntWrapper from "./intWrapper.js";
 import {
     encodeVarintInt32,
     encodeVarintInt64,
@@ -58,7 +58,7 @@ import {
     encodeRleDeltaInt32,
     encodeComponentwiseDeltaVec2,
     encodeComponentwiseDeltaVec2Scaled,
-} from "../encoding/integerEncodingUtils";
+} from "../encoding/integerEncodingUtils.js";
 
 describe("IntegerDecodingUtils", () => {
     describe("Varint decoding", () => {

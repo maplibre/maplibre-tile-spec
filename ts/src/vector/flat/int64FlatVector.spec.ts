@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Int64FlatVector } from "./int64FlatVector";
+import { Int64FlatVector } from "./int64FlatVector.js";
 
 describe("Int64FlatVector", () => {
     it("should construct and return values correctly", () => {

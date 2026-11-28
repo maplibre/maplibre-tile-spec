@@ -1,5 +1,5 @@
-import { GpuVector } from "./gpuVector";
-import type { TopologyVector } from "./topologyVector";
+import { GpuVector } from "./gpuVector.js";
+import type { TopologyVector } from "./topologyVector.js";
 
 export function createFlatGpuVector(
     geometryTypes: Uint32Array,

@@ -1,4 +1,4 @@
-import Vector from "../vector";
+import Vector from "../vector.js";
 
 export abstract class SequenceVector<T extends ArrayBufferView, K> extends Vector<T, K> {
     protected readonly delta: K;

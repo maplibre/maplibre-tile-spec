@@ -1,7 +1,7 @@
-import { GeometryVector, type MortonSettings } from "./geometryVector";
-import { GEOMETRY_TYPE } from "./geometryType";
-import { VertexBufferType } from "./vertexBufferType";
-import type { TopologyVector } from "../../vector/geometry/topologyVector";
+import { GeometryVector, type MortonSettings } from "./geometryVector.js";
+import { GEOMETRY_TYPE } from "./geometryType.js";
+import { VertexBufferType } from "./vertexBufferType.js";
+import type { TopologyVector } from "../../vector/geometry/topologyVector.js";
 
 export function createFlatGeometryVector(
     geometryTypes: Uint32Array,

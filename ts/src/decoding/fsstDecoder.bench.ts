@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { bench, describe } from "vitest";
-import decodeTile from "../mltDecoder";
-import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
-import { decodeFsst } from "./fsstDecoder";
+import decodeTile from "../mltDecoder.js";
+import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector.js";
+import { decodeFsst } from "./fsstDecoder.js";
 
 type FsstDictionary = {
     symbols: Uint8Array;

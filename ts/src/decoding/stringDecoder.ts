@@ -1,20 +1,20 @@
-import { decodeStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-import { StringFlatVector } from "../vector/flat/stringFlatVector";
-import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
-import type IntWrapper from "./intWrapper";
-import BitVector from "../vector/flat/bitVector";
-import type Vector from "../vector/vector";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
-import { LengthType } from "../metadata/tile/lengthType";
-import { decodeUnsignedInt32Stream, decodeLengthStreamToOffsetBuffer } from "./integerStreamDecoder";
-import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
-import { decodeVarintInt32 } from "./integerDecodingUtils";
-import { decodeBooleanRle, skipColumn } from "./decodingUtils";
+import { decodeStreamMetadata } from "../metadata/tile/streamMetadataDecoder.js";
+import { StringFlatVector } from "../vector/flat/stringFlatVector.js";
+import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector.js";
+import type IntWrapper from "./intWrapper.js";
+import BitVector from "../vector/flat/bitVector.js";
+import type Vector from "../vector/vector.js";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { DictionaryType } from "../metadata/tile/dictionaryType.js";
+import { LengthType } from "../metadata/tile/lengthType.js";
+import { decodeUnsignedInt32Stream, decodeLengthStreamToOffsetBuffer } from "./integerStreamDecoder.js";
+import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata.js";
+import { decodeVarintInt32 } from "./integerDecodingUtils.js";
+import { decodeBooleanRle, skipColumn } from "./decodingUtils.js";
 import {
     type FsstDictionaryCache,
     StringFsstDictionaryVector,
-} from "../vector/fsst-dictionary/stringFsstDictionaryVector";
+} from "../vector/fsst-dictionary/stringFsstDictionaryVector.js";
 
 export function decodeString(
     name: string,

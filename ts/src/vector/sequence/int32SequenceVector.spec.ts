@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Int32SequenceVector } from "./int32SequenceVector";
+import { Int32SequenceVector } from "./int32SequenceVector.js";
 
 describe("Int32SequenceVector", () => {
     it("generates a signed sequence base + index * delta", () => {

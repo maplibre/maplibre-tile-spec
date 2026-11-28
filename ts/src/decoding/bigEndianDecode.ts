@@ -1,4 +1,4 @@
-import { bswap32 } from "./fastPforShared";
+import { bswap32 } from "./fastPforShared.js";
 
 /**
  * Decodes big-endian bytes into `out` without allocating the output buffer.

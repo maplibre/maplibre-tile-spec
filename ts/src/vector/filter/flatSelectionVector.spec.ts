@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FlatSelectionVector } from "./flatSelectionVector";
+import { FlatSelectionVector } from "./flatSelectionVector.js";
 
 describe("flatSelectionVector", () => {
     describe("Basic functionality", () => {

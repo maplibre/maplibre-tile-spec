@@ -1,6 +1,6 @@
-import type { DictionaryType } from "./dictionaryType";
-import type { OffsetType } from "./offsetType";
-import type { LengthType } from "./lengthType";
+import type { DictionaryType } from "./dictionaryType.js";
+import type { OffsetType } from "./offsetType.js";
+import type { LengthType } from "./lengthType.js";
 
 export type LogicalStreamType = {
     readonly dictionaryType?: DictionaryType;

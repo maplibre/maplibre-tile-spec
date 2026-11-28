@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { unpackNullable, unpackNullableBoolean } from "./unpackNullableUtils";
-import BitVector from "../vector/flat/bitVector";
-import { packNullable, packNullableBoolean } from "../encoding/packNullableUtils";
+import { unpackNullable, unpackNullableBoolean } from "./unpackNullableUtils.js";
+import BitVector from "../vector/flat/bitVector.js";
+import { packNullable, packNullableBoolean } from "../encoding/packNullableUtils.js";
 
 describe("unpackNullableUtils", () => {
     describe("unpackNullable", () => {

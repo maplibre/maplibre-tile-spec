@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodeUtf8Strings } from "./encodingUtils";
+import { encodeUtf8Strings } from "./encodingUtils.js";
 
 describe("encodeUtf8Strings", () => {
     it("should give the bytes and byte lengths of TextEncoder for every UTF-8 sequence length", () => {

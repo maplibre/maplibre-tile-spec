@@ -1,19 +1,19 @@
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
-import { LengthType } from "../metadata/tile/lengthType";
-import { OffsetType } from "../metadata/tile/offsetType";
-import IntWrapper from "./intWrapper";
-import { type Column, type Field, ColumnScope, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata";
-import { encodeBooleanRle, encodeUtf8Strings } from "../encoding/encodingUtils";
-import { encodeVarintInt32Value, encodeVarintInt32 } from "../encoding/integerEncodingUtils";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique.js";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique.js";
+import { DictionaryType } from "../metadata/tile/dictionaryType.js";
+import { LengthType } from "../metadata/tile/lengthType.js";
+import { OffsetType } from "../metadata/tile/offsetType.js";
+import IntWrapper from "./intWrapper.js";
+import { type Column, type Field, ColumnScope, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata.js";
+import { encodeBooleanRle, encodeUtf8Strings } from "../encoding/encodingUtils.js";
+import { encodeVarintInt32Value, encodeVarintInt32 } from "../encoding/integerEncodingUtils.js";
 import {
     decodeStreamMetadata,
     type RleEncodedStreamMetadata,
     type StreamMetadata,
-} from "../metadata/tile/streamMetadataDecoder";
-import type { LogicalStreamType } from "../metadata/tile/logicalStreamType";
+} from "../metadata/tile/streamMetadataDecoder.js";
+import type { LogicalStreamType } from "../metadata/tile/logicalStreamType.js";
 
 /**
  * Creates basic stream metadata with logical techniques.

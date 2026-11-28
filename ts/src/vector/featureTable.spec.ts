@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import FeatureTable from "./featureTable";
-import type Vector from "./vector";
-import { encodePointGeometryVector } from "../encoding/constGeometryVectorEncoder";
+import FeatureTable from "./featureTable.js";
+import type Vector from "./vector.js";
+import { encodePointGeometryVector } from "../encoding/constGeometryVectorEncoder.js";
 
 const geometryVector = encodePointGeometryVector(1, 2);
 const propertyVector = (name: string): Vector => ({ name }) as unknown as Vector;

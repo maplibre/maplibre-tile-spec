@@ -1,6 +1,6 @@
-import { createFlatGeometryVector } from "./flatGeometryVector";
-import type { CoordinatesArray } from "./geometryVector";
-import type { TopologyVector } from "./topologyVector";
+import { createFlatGeometryVector } from "./flatGeometryVector.js";
+import type { CoordinatesArray } from "./geometryVector.js";
+import type { TopologyVector } from "./topologyVector.js";
 
 export abstract class GpuVector implements Iterable<CoordinatesArray> {
     protected constructor(

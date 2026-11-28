@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { decodeFsst } from "./fsstDecoder";
-import { encodeFsst, createSymbolTable } from "../encoding/fsstEncoder";
+import { decodeFsst } from "./fsstDecoder.js";
+import { encodeFsst, createSymbolTable } from "../encoding/fsstEncoder.js";
 
 const textEncoder = new TextEncoder();
 

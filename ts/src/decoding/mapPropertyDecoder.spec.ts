@@ -1,18 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { decodePropertyColumn } from "./propertyDecoder";
-import { decodeMapPropertyColumn } from "./mapPropertyDecoder";
-import IntWrapper from "./intWrapper";
-import type Vector from "../vector/vector";
-import { ColumnScope, ComplexType, ScalarType, type Column, type Field } from "../metadata/tileset/tilesetMetadata";
-import { ObjectFlatVector } from "../vector/flat/objectFlatVector";
-import { encodeMapPropertyColumn, type MapEncodingOptions, type MapValue } from "../encoding/mapPropertyEncoder";
-import { MapControlValue } from "../metadata/tile/mapControlValue";
-import { MapMask } from "../metadata/tile/mapMask";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { createStream } from "./decodingTestUtils";
-import { concatenateBuffers, encodeBooleanRle } from "../encoding/encodingUtils";
-import { encodeInt32NoneColumn, encodeUint32Column } from "../encoding/propertyEncoder";
-import { encodePlainStrings } from "../encoding/stringEncoder";
+import { decodePropertyColumn } from "./propertyDecoder.js";
+import { decodeMapPropertyColumn } from "./mapPropertyDecoder.js";
+import IntWrapper from "./intWrapper.js";
+import type Vector from "../vector/vector.js";
+import { ColumnScope, ComplexType, ScalarType, type Column, type Field } from "../metadata/tileset/tilesetMetadata.js";
+import { ObjectFlatVector } from "../vector/flat/objectFlatVector.js";
+import { encodeMapPropertyColumn, type MapEncodingOptions, type MapValue } from "../encoding/mapPropertyEncoder.js";
+import { MapControlValue } from "../metadata/tile/mapControlValue.js";
+import { MapMask } from "../metadata/tile/mapMask.js";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { createStream } from "./decodingTestUtils.js";
+import { concatenateBuffers, encodeBooleanRle } from "../encoding/encodingUtils.js";
+import { encodeInt32NoneColumn, encodeUint32Column } from "../encoding/propertyEncoder.js";
+import { encodePlainStrings } from "../encoding/stringEncoder.js";
 
 function createMapColumnMetadata(name: string, childNames: string[] = []): Column {
     const children: Field[] = childNames.map((childName) => ({

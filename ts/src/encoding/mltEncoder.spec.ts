@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import decodeTile from "../mltDecoder";
-import { encodeTile, type EncodeOptions, type Feature, type FeatureGeometry } from "./mltEncoder";
-import { GEOMETRY_TYPE } from "../vector/geometry/geometryType";
-import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
-import { StringFlatVector } from "../vector/flat/stringFlatVector";
+import decodeTile from "../mltDecoder.js";
+import { encodeTile, type EncodeOptions, type Feature, type FeatureGeometry } from "./mltEncoder.js";
+import { GEOMETRY_TYPE } from "../vector/geometry/geometryType.js";
+import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector.js";
+import { StringFlatVector } from "../vector/flat/stringFlatVector.js";
 
 /** Encodes one layer, decodes it again, and returns the features in a comparable plain shape. */
 function roundTrip(features: Feature[], options: EncodeOptions = {}, extent = 4096) {

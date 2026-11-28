@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { bench, describe } from "vitest";
-import decodeTile from "../../mltDecoder";
-import type BitVector from "../flat/bitVector";
-import { type FsstDictionaryCache, StringFsstDictionaryVector } from "./stringFsstDictionaryVector";
+import decodeTile from "../../mltDecoder.js";
+import type BitVector from "../flat/bitVector.js";
+import { type FsstDictionaryCache, StringFsstDictionaryVector } from "./stringFsstDictionaryVector.js";
 
 type FsstVectorData = {
     indexBuffer: Uint32Array;

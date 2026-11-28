@@ -1,6 +1,6 @@
-import IntWrapper from "../decoding/intWrapper";
-import { createFastPforEncoderWorkspace, encodeFastPforInt32WithWorkspace } from "./fastPforEncoder";
-import { encodeBigEndianInt32s } from "./bigEndianEncode";
+import IntWrapper from "../decoding/intWrapper.js";
+import { createFastPforEncoderWorkspace, encodeFastPforInt32WithWorkspace } from "./fastPforEncoder.js";
+import { encodeBigEndianInt32s } from "./bigEndianEncode.js";
 
 export function encodeVarintInt32Value(value: number, dst: Uint8Array, offset: IntWrapper): void {
     let v = value;

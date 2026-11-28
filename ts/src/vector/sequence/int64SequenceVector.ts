@@ -1,4 +1,4 @@
-import { SequenceVector } from "./sequenceVector";
+import { SequenceVector } from "./sequenceVector.js";
 
 export class Int64SequenceVector extends SequenceVector<BigInt64Array | BigUint64Array, bigint> {
     public constructor(name: string, baseValue: bigint, delta: bigint, size: number, isSigned: boolean) {

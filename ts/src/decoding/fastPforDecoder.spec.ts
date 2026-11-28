@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { createFastPforEncoderWorkspace, encodeFastPforInt32WithWorkspace } from "../encoding/fastPforEncoder";
+import { createFastPforEncoderWorkspace, encodeFastPforInt32WithWorkspace } from "../encoding/fastPforEncoder.js";
 import {
     createDecoderWorkspace,
     createFastPforWireDecodeWorkspace,
     decodeFastPforInt32,
     ensureFastPforWireEncodedWordsCapacity,
-} from "./fastPforDecoder";
-import { BLOCK_SIZE } from "./fastPforShared";
+} from "./fastPforDecoder.js";
+import { BLOCK_SIZE } from "./fastPforShared.js";
 
 const LARGE_OUTLIER_VALUE = 1_048_576;
 const DEFAULT_OUTLIER_VALUE = 4;

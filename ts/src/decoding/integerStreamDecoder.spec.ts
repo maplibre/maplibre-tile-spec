@@ -11,13 +11,13 @@ import {
     decodeUnsignedInt64AsFloat64Stream,
     decodeUnsignedInt64Stream,
     getVectorType,
-} from "./integerStreamDecoder";
-import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import { VectorType } from "../vector/vectorType";
-import IntWrapper from "./intWrapper";
-import BitVector from "../vector/flat/bitVector";
-import { createRleMetadata, createStreamMetadata } from "./decodingTestUtils";
+} from "./integerStreamDecoder.js";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique.js";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique.js";
+import { VectorType } from "../vector/vectorType.js";
+import IntWrapper from "./intWrapper.js";
+import BitVector from "../vector/flat/bitVector.js";
+import { createRleMetadata, createStreamMetadata } from "./decodingTestUtils.js";
 import {
     encodeFloat64,
     encodeSignedInt32Stream,
@@ -27,8 +27,8 @@ import {
     encodeInt64SignedRle,
     encodeInt64UnsignedNone,
     encodeUnsignedInt32Stream,
-} from "../encoding/integerStreamEncoder";
-import { encodeUint64sLE } from "../encoding/encodingUtils";
+} from "../encoding/integerStreamEncoder.js";
+import { encodeUint64sLE } from "../encoding/encodingUtils.js";
 import {
     encodeDeltaRleInt32,
     encodeFastPfor,
@@ -37,7 +37,7 @@ import {
     encodeVarintInt64,
     encodeZigZagInt32Value,
     encodeZigZagInt64Value,
-} from "../encoding/integerEncodingUtils";
+} from "../encoding/integerEncodingUtils.js";
 
 function createInt32PhysicalNoneMetadata(
     numValues: number,

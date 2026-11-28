@@ -1,17 +1,17 @@
-import { GEOMETRY_TYPE } from "../vector/geometry/geometryType";
-import { ScalarType } from "../metadata/tileset/tilesetMetadata";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { LengthType } from "../metadata/tile/lengthType";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import { createStream } from "../decoding/decodingTestUtils";
-import IntWrapper from "../decoding/intWrapper";
-import { concatenateBuffers } from "./encodingUtils";
-import { encodeVarintInt32, encodeVarintInt32Value, encodeZigZagVarintInt32 } from "./integerEncodingUtils";
-import { encodeChildCount, encodeFieldName, encodeTypeCode, scalarTypeCode } from "./embeddedTilesetMetadataEncoder";
-import { ColumnTypeCode } from "../metadata/tileset/typeMap";
-import { encodeDictionaryStrings, encodePlainStrings } from "./stringEncoder";
-import { encodeMapPropertyColumn, type MapEncodingOptions, type MapValue } from "./mapPropertyEncoder";
+import { GEOMETRY_TYPE } from "../vector/geometry/geometryType.js";
+import { ScalarType } from "../metadata/tileset/tilesetMetadata.js";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { LengthType } from "../metadata/tile/lengthType.js";
+import { DictionaryType } from "../metadata/tile/dictionaryType.js";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique.js";
+import { createStream } from "../decoding/decodingTestUtils.js";
+import IntWrapper from "../decoding/intWrapper.js";
+import { concatenateBuffers } from "./encodingUtils.js";
+import { encodeVarintInt32, encodeVarintInt32Value, encodeZigZagVarintInt32 } from "./integerEncodingUtils.js";
+import { encodeChildCount, encodeFieldName, encodeTypeCode, scalarTypeCode } from "./embeddedTilesetMetadataEncoder.js";
+import { ColumnTypeCode } from "../metadata/tileset/typeMap.js";
+import { encodeDictionaryStrings, encodePlainStrings } from "./stringEncoder.js";
+import { encodeMapPropertyColumn, type MapEncodingOptions, type MapValue } from "./mapPropertyEncoder.js";
 import {
     encodeBooleanColumn,
     encodeBooleanNullableColumn,
@@ -26,7 +26,7 @@ import {
     encodeUint32Column,
     encodeUint64Column,
     encodeUint64NullableColumn,
-} from "./propertyEncoder";
+} from "./propertyEncoder.js";
 
 /** A coordinate pair in tile-local units. */
 export type Position = [number, number];

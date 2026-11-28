@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import IntWrapper from "./intWrapper";
-import { decodeString, decodeSharedDictionary } from "./stringDecoder";
-import { encodePlainStrings, encodeDictionaryStrings } from "../encoding/stringEncoder";
+import IntWrapper from "./intWrapper.js";
+import { decodeString, decodeSharedDictionary } from "./stringDecoder.js";
+import { encodePlainStrings, encodeDictionaryStrings } from "../encoding/stringEncoder.js";
 import {
     concatenateBuffers,
     createColumnMetadataForStruct,
@@ -9,14 +9,14 @@ import {
     encodeFsstStrings,
     encodeSharedDictionary,
     encodeStructField,
-} from "./decodingTestUtils";
-import { StringFlatVector } from "../vector/flat/stringFlatVector";
-import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
-import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
-import { type Column, ColumnScope, ScalarType } from "../metadata/tileset/tilesetMetadata";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { LengthType } from "../metadata/tile/lengthType";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
+} from "./decodingTestUtils.js";
+import { StringFlatVector } from "../vector/flat/stringFlatVector.js";
+import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector.js";
+import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector.js";
+import { type Column, ColumnScope, ScalarType } from "../metadata/tileset/tilesetMetadata.js";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { LengthType } from "../metadata/tile/lengthType.js";
+import { DictionaryType } from "../metadata/tile/dictionaryType.js";
 
 describe("decodeString - Plain String Decoder", () => {
     it("should decode plain strings with simple ASCII values", () => {

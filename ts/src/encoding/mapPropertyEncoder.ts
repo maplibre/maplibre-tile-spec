@@ -1,7 +1,7 @@
-import { MapMask } from "../metadata/tile/mapMask";
-import { MapControlValue } from "../metadata/tile/mapControlValue";
-import { concatenateBuffers } from "./encodingUtils";
-import { encodePlainStrings } from "./stringEncoder";
+import { MapMask } from "../metadata/tile/mapMask.js";
+import { MapControlValue } from "../metadata/tile/mapControlValue.js";
+import { concatenateBuffers } from "./encodingUtils.js";
+import { encodePlainStrings } from "./stringEncoder.js";
 import {
     encodeDoubleColumn,
     encodeFloatColumn,
@@ -10,7 +10,7 @@ import {
     encodePresentStream,
     encodeUint32Column,
     encodeUint64Column,
-} from "./propertyEncoder";
+} from "./propertyEncoder.js";
 
 /** A value that can appear inside a nested property column. `null` means the property is absent. */
 export type MapValue = string | number | bigint | boolean | MapValue[] | { [key: string]: MapValue };

@@ -5,7 +5,7 @@ import {
     ComplexType,
     LogicalScalarType,
     ScalarType,
-} from "./tilesetMetadata";
+} from "./tilesetMetadata.js";
 
 /**
  * The single varint32 that introduces every column in the tile metadata, identifying what kind of

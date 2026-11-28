@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 
-import IntWrapper from "./intWrapper";
-import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
-import { encodeFastPfor } from "../encoding/integerEncodingUtils";
-import { createFastPforWireDecodeWorkspace, decodeFastPfor, decodeFastPforWithWorkspace } from "./integerDecodingUtils";
+import IntWrapper from "./intWrapper.js";
+import { decodeBigEndianInt32sInto } from "./bigEndianDecode.js";
+import { encodeFastPfor } from "../encoding/integerEncodingUtils.js";
+import {
+    createFastPforWireDecodeWorkspace,
+    decodeFastPfor,
+    decodeFastPforWithWorkspace,
+} from "./integerDecodingUtils.js";
 
 describe("decodeFastPfor (wire format fixtures)", () => {
     const FIXTURES_DIR_URL = new URL("../../../test/fixtures/fastpfor/", import.meta.url);

@@ -1,7 +1,7 @@
-import type { SelectionVector } from "./selectionVector";
-import { FlatSelectionVector } from "./flatSelectionVector";
-import type BitVector from "../flat/bitVector";
-import { SequenceSelectionVector } from "./sequenceSelectionVector";
+import type { SelectionVector } from "./selectionVector.js";
+import { FlatSelectionVector } from "./flatSelectionVector.js";
+import type BitVector from "../flat/bitVector.js";
+import { SequenceSelectionVector } from "./sequenceSelectionVector.js";
 
 export function createSelectionVector(size: number) {
     return new SequenceSelectionVector(0, 1, size);

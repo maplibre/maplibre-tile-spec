@@ -1,7 +1,7 @@
-import { VariableSizeVector } from "../variableSizeVector";
-import type BitVector from "../flat/bitVector";
-import { decodeFsst } from "../../decoding/fsstDecoder";
-import { decodeString } from "../../decoding/decodingUtils";
+import { VariableSizeVector } from "../variableSizeVector.js";
+import type BitVector from "../flat/bitVector.js";
+import { decodeFsst } from "../../decoding/fsstDecoder.js";
+import { decodeString } from "../../decoding/decodingUtils.js";
 
 /** Mutable cache shared by the FSST child columns of one SharedDict. */
 export type FsstDictionaryCache = {

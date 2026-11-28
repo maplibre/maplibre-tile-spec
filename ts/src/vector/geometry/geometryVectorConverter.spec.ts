@@ -1,10 +1,10 @@
 import Point from "@mapbox/point-geometry";
 import { describe, it, expect } from "vitest";
-import { convertGeometryVector } from "./geometryVectorConverter";
-import { GEOMETRY_TYPE } from "./geometryType";
-import { VertexBufferType } from "./vertexBufferType";
-import { encodeZOrderCurve } from "../../encoding/zOrderCurveEncoder";
-import type { GeometryVector, MortonSettings } from "./geometryVector";
+import { convertGeometryVector } from "./geometryVectorConverter.js";
+import { GEOMETRY_TYPE } from "./geometryType.js";
+import { VertexBufferType } from "./vertexBufferType.js";
+import { encodeZOrderCurve } from "../../encoding/zOrderCurveEncoder.js";
+import type { GeometryVector, MortonSettings } from "./geometryVector.js";
 import {
     encodeLineStringGeometryVector,
     encodeLineStringGeometryVectorWithMortonEncoding,
@@ -22,9 +22,9 @@ import {
     encodePolygonGeometryVector,
     encodePolygonGeometryVectorWithMortonOffsets,
     encodePolygonGeometryVectorWithOffsets,
-} from "../../encoding/constGeometryVectorEncoder";
-import { ConstGeometryVector } from "./constGeometryVector";
-import { FlatGeometryVector } from "./flatGeometryVector";
+} from "../../encoding/constGeometryVectorEncoder.js";
+import { ConstGeometryVector } from "./constGeometryVector.js";
+import { FlatGeometryVector } from "./flatGeometryVector.js";
 
 describe("POINT - sequential vertex buffer (no vertexOffsets)", () => {
     it("creates a single point from the vertex buffer", () => {

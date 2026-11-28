@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { decodeStreamHeaders } from "../decoding/decodingTestUtils";
-import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { encodeBooleanNullableColumn, encodeDoubleNullableColumn, encodeFloatNullableColumn } from "./propertyEncoder";
+import { decodeStreamHeaders } from "../decoding/decodingTestUtils.js";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique.js";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique.js";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import {
+    encodeBooleanNullableColumn,
+    encodeDoubleNullableColumn,
+    encodeFloatNullableColumn,
+} from "./propertyEncoder.js";
 
 describe("propertyEncoder", () => {
     it("writes a nullable boolean column as a Present stream and a data stream, both byte-RLE", () => {

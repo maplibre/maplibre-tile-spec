@@ -1,12 +1,12 @@
-import { LogicalLevelTechnique } from "./logicalLevelTechnique";
-import { PhysicalLevelTechnique } from "./physicalLevelTechnique";
-import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
-import { PhysicalStreamType } from "./physicalStreamType";
-import { DictionaryType } from "./dictionaryType";
-import { OffsetType } from "./offsetType";
-import { LengthType } from "./lengthType";
-import type { LogicalStreamType } from "./logicalStreamType";
-import type IntWrapper from "../../decoding/intWrapper";
+import { LogicalLevelTechnique } from "./logicalLevelTechnique.js";
+import { PhysicalLevelTechnique } from "./physicalLevelTechnique.js";
+import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils.js";
+import { PhysicalStreamType } from "./physicalStreamType.js";
+import { DictionaryType } from "./dictionaryType.js";
+import { OffsetType } from "./offsetType.js";
+import { LengthType } from "./lengthType.js";
+import type { LogicalStreamType } from "./logicalStreamType.js";
+import type IntWrapper from "../../decoding/intWrapper.js";
 
 export type StreamMetadata = {
     readonly physicalStreamType: PhysicalStreamType;

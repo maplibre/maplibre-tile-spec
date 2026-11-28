@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { decodeField, decodeEmbeddedTileSetMetadata } from "./embeddedTilesetMetadataDecoder";
-import IntWrapper from "../../decoding/intWrapper";
-import { concatenateBuffers } from "../../decoding/decodingTestUtils";
-import { ComplexType, LogicalScalarType, ScalarType } from "./tilesetMetadata";
+import { decodeField, decodeEmbeddedTileSetMetadata } from "./embeddedTilesetMetadataDecoder.js";
+import IntWrapper from "../../decoding/intWrapper.js";
+import { concatenateBuffers } from "../../decoding/decodingTestUtils.js";
+import { ComplexType, LogicalScalarType, ScalarType } from "./tilesetMetadata.js";
 import {
     encodeChildCount,
     encodeFieldName,
     encodeTypeCode,
     scalarTypeCode,
-} from "../../encoding/embeddedTilesetMetadataEncoder";
+} from "../../encoding/embeddedTilesetMetadataEncoder.js";
 
 const STRUCT_TYPE_CODE = 30;
 

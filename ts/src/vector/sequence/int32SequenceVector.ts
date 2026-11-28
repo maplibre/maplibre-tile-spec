@@ -1,4 +1,4 @@
-import { SequenceVector } from "./sequenceVector";
+import { SequenceVector } from "./sequenceVector.js";
 
 export class Int32SequenceVector extends SequenceVector<Int32Array | Uint32Array, number> {
     public constructor(name: string, baseValue: number, delta: number, size: number, isSigned: boolean) {
