@@ -96,10 +96,21 @@ pub(crate) fn check_vertex_layout(
 ) -> MltResult<()> {
     use crate::decoder::{LogicalEncoding, VertexLogical};
 
-    match (layout == GeoLayout::Meshes, meta.encoding.logical) {
-        (true, LogicalEncoding::Vertex(VertexLogical::Xyz(..))) | (false, _) => Ok(()),
-        (true, _) => Err(MltError::MeshWithoutZ),
+    let logical = meta.encoding.logical;
+    if layout == GeoLayout::Meshes
+        && !matches!(logical, LogicalEncoding::Vertex(VertexLogical::Xyz(..)))
+    {
+        return Err(MltError::MeshWithoutZ);
     }
+    if layout.is_dict()
+        && !matches!(
+            logical,
+            LogicalEncoding::Vertex(VertexLogical::MortonDelta(_))
+        )
+    {
+        return Err(MltError::VertexDictionaryNotMorton(layout.into()));
+    }
+    Ok(())
 }
 
 /// Parse a v2 layer body (the bytes after the `tag = 2` byte).
