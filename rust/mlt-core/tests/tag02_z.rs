@@ -306,7 +306,7 @@ fn vertex_encoding(bytes: &[u8]) -> String {
 fn predicted_vertices_shrink_a_z_layer_and_decode_unchanged(#[case] layer: TileLayer) {
     let plain = assert_round_trips(&layer, cfg_v2());
     let predicted = assert_round_trips(&layer, cfg_v2().with_predicted_vertices(true));
-    assert_snapshot!(vertex_encoding(&predicted), @"0xC1 logical=Predicted physical=implied");
+    assert_snapshot!(vertex_encoding(&predicted), @"0xA1 logical=Predicted physical=implied");
     assert!(
         predicted.len() < plain.len(),
         "{} vs {}",
@@ -320,7 +320,7 @@ fn a_tessellated_z_layer_races_predicted_vertices() {
     let layer = z_features(slopes());
     let tessellated = cfg_v2().with_tessellation(Tessellation::Always);
     let predicted = assert_round_trips(&layer, tessellated.with_predicted_vertices(true));
-    assert_snapshot!(vertex_encoding(&predicted), @"0xC1 logical=Predicted physical=implied");
+    assert_snapshot!(vertex_encoding(&predicted), @"0xA1 logical=Predicted physical=implied");
 }
 
 #[test]
@@ -329,7 +329,7 @@ fn a_predicted_vertex_stream_header_names_its_axis() {
         .encode(cfg_v2().with_predicted_vertices(true))
         .unwrap();
     assert_snapshot!(vertex_header_fields(&bytes), @"
-    encoding = 0xC1 logical=Predicted physical=implied
+    encoding = 0xA1 logical=Predicted physical=implied
       has_explicit_count = true -> a num_values varint follows
       logical = Predicted, numbered for vertex stream
       physical = implied
