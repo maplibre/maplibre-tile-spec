@@ -224,6 +224,11 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             }
             fmt_bits(n, |i| data[i / 8] >> (i % 8) & 1 == 1)
         }
+        #[cfg(feature = "unstable-v2")]
+        DecodeHint::Predicted => match crate::codecs::predicted::guesses(data) {
+            Ok(guesses) => fmt_guesses(guesses, data.len()),
+            Err(e) => format!("<undecodable: {e}>"),
+        },
         DecodeHint::Bool => fmt_res(RawStream::new(meta, data).decode_bools(dec)),
         DecodeHint::I32 => fmt_res(RawStream::new(meta, data).decode_ints::<i32>(dec)),
         DecodeHint::U32 | DecodeHint::GeometryType => {
@@ -242,6 +247,22 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             Err(_) => format!("<{} binary bytes>", data.len()),
         },
     }
+}
+
+/// The guesses of a predicted vertex payload, e.g. `starts from the previous run, lines continued from six, 812 B`.
+#[cfg(feature = "unstable-v2")]
+fn fmt_guesses(guesses: crate::codecs::predicted::Guesses, len: usize) -> String {
+    use crate::codecs::predicted::{LineGuess, StartGuess};
+    let start = match guesses.start {
+        StartGuess::Previous => "starts from the previous vertex",
+        StartGuess::RunStart => "starts from the previous run",
+    };
+    let line = match guesses.line {
+        LineGuess::Previous => "lines from the previous vertex",
+        LineGuess::ContinuedFromSix => "lines continued from six",
+        LineGuess::ContinuedFromThree => "lines continued from three",
+    };
+    format!("{start}, {line}, {len} B")
 }
 
 /// Render the first 96 of `n` presence bits as a `0`/`1` string.

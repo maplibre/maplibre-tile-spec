@@ -9,6 +9,8 @@ use usize_cast::{FromUsize as _, IntoUsize as _};
 
 use crate::MltResult;
 use crate::codecs::hilbert::hilbert_sort_key;
+#[cfg(feature = "unstable-v2")]
+use crate::codecs::predicted::{self, Run};
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::zigzag::encode_componentwise_delta_vec3s;
@@ -439,6 +441,23 @@ pub(super) fn encode_vec2_vertex_stream02(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     vec2_vertex_stream(vertices, enc, codecs, false).map(|_| ())
+}
+
+/// The plain vertices as residuals against a guess over the layer's `runs`, with the guesses that store fewest bytes.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_predicted_vertex_stream02(
+    vertices: &[i32],
+    runs: &[Run],
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let payload = predicted::encode(vertices, runs)?;
+    let meta = StreamMeta::new2(
+        StreamType::Data(DictionaryType::Vertex),
+        LogicalEncoding::Vertex(VertexLogical::Predicted),
+        PhysicalEncoding::None,
+        vertices.len(),
+    )?;
+    write_stream_payload(enc, meta, false, &payload)
 }
 
 fn vec2_vertex_stream(

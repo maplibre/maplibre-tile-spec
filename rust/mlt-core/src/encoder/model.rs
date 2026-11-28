@@ -452,7 +452,7 @@ pub enum Profile {
     Web(Network),
     /// `MapLibre Native`: [`Tessellation::Auto`] on this network and every codec.
     Native(Network),
-    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 ALP floats, second-order deltas and Boolean RLE presence.
+    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sort, and under v2 ALP floats, second-order deltas, predicted vertices and Boolean RLE presence.
     MinSize,
     /// Small binary diffs between releases: no triangles, no `FSST`, `FastPFOR` or shared dictionaries, and under v2 second-order deltas but no Boolean RLE presence.
     Diffable,
@@ -535,6 +535,9 @@ pub struct EncoderConfig {
     /// Allow the v2-only Boolean RLE coding of presence and bool bitfields
     #[cfg(feature = "unstable-v2")]
     allow_presence_rle: bool,
+    /// Allow the v2-only predicted vertex encoding
+    #[cfg(feature = "unstable-v2")]
+    allow_predicted_vertices: bool,
 }
 impl EncoderConfig {
     /// The settings `profile` picks, which the `with_*` methods override.
@@ -565,6 +568,8 @@ impl EncoderConfig {
                 allow_delta2: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: false,
             },
             Profile::Web(network) => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -589,6 +594,8 @@ impl EncoderConfig {
                 allow_delta2: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: false,
             },
             Profile::MinSize => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -613,6 +620,8 @@ impl EncoderConfig {
                 allow_delta2: true,
                 #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: true,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: true,
             },
             Profile::Diffable => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -637,6 +646,8 @@ impl EncoderConfig {
                 allow_delta2: true,
                 #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: false,
             },
             Profile::FastEncoding => Self {
                 #[cfg(feature = "unstable-v2")]
@@ -661,6 +672,8 @@ impl EncoderConfig {
                 allow_delta2: false,
                 #[cfg(feature = "unstable-v2")]
                 allow_presence_rle: false,
+                #[cfg(feature = "unstable-v2")]
+                allow_predicted_vertices: false,
             },
         }
     }
@@ -879,6 +892,21 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_packed_dict_codes(mut self, enabled: bool) -> Self {
         self.allow_packed_dict_codes = enabled;
+        self
+    }
+
+    /// Whether vertex streams may be written as predicted residuals.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_predicted_vertices(self) -> bool {
+        self.allow_predicted_vertices && self.wire_version != WireVersion::V01
+    }
+
+    /// Allow plain vertex streams as residuals against a guess from the layer's vertex runs.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_predicted_vertices(mut self, enabled: bool) -> Self {
+        self.allow_predicted_vertices = enabled;
         self
     }
 }

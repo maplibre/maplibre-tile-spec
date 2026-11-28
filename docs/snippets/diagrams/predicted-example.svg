@@ -1,0 +1,19 @@
+<svg class="mlt-diagram" viewBox="0 0 710 300" role="img" aria-label="The rectangle p0 (100, 200), p1 (130, 200), p2 (130, 240), p3 (100, 240), classes start, ring, ring, corner, and inside it the line part p4 (105, 205), p5 (115, 205), p6 (125, 207), classes start, line second, line" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="predicted-example-t0" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="predicted-example-t1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<path class="lost" d="M265,40L445,40L445,280L265,280Z"/>
+<path class="line" d="M295,70L355,70L415,82"/>
+<circle class="dot" cx="265" cy="40" r="3.5"/>
+<circle class="dot" cx="445" cy="40" r="3.5"/>
+<circle class="dot" cx="445" cy="280" r="3.5"/>
+<circle class="dot" cx="265" cy="280" r="3.5"/>
+<circle class="dot" cx="295" cy="70" r="3.5"/>
+<circle class="dot" cx="355" cy="70" r="3.5"/>
+<circle class="dot" cx="415" cy="82" r="3.5"/>
+<text class="halo" text-anchor="end" x="253" y="40"><tspan class="bold">p0</tspan> start</text>
+<text class="halo" x="457" y="40"><tspan class="bold">p1</tspan> ring</text>
+<text class="halo" x="457" y="280"><tspan class="bold">p2</tspan> ring</text>
+<text class="halo" text-anchor="end" x="253" y="280"><tspan class="bold">p3</tspan> corner</text>
+<text class="halo" text-anchor="start" x="289" y="88"><tspan class="bold">p4</tspan> start</text>
+<text class="halo" text-anchor="middle" x="355" y="54"><tspan class="bold">p5</tspan> line second</text>
+<text class="halo" text-anchor="end" x="421" y="100"><tspan class="bold">p6</tspan> line</text>
+</svg>

@@ -1,0 +1,17 @@
+<svg class="mlt-diagram" viewBox="0 0 710 120" role="img" aria-label="The line vertex p6 (125, 207) is guessed as p5 plus the step from p4 to p5, (10, 0), which gives (125, 205), so its residual is (0, 2)" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="predicted-guess-line-t0" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t0" d="M0 0L10 5L0 10z"/></marker><marker id="predicted-guess-line-t1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<path class="lost" d="M230,50L350,50L470,74"/>
+<path class="link t1" style="stroke-width:2.5" d="M230.0,50.0L345.0,50.0" marker-end="url(#predicted-guess-line-t1)"/>
+<path class="link t1" style="stroke-width:2.5" stroke-dasharray="6 4" d="M350.0,50.0L465.0,50.0" marker-end="url(#predicted-guess-line-t1)"/>
+<path class="link t0" style="stroke-width:2.5" d="M470.0,50.0L470.0,70.0" marker-end="url(#predicted-guess-line-t0)"/>
+<circle class="node" cx="470" cy="50" r="7"/>
+<circle class="dot" cx="230" cy="50" r="3.5"/>
+<circle class="dot" cx="350" cy="50" r="3.5"/>
+<circle class="dot" cx="470" cy="74" r="3.5"/>
+<text class="halo muted small" text-anchor="middle" x="290" y="34">p[i-1] - p[i-2] = (10, 0)</text>
+<text class="halo muted small" x="484" y="48">guess (125, 205)</text>
+<text class="halo muted small" x="484" y="64">residual (0, 2)</text>
+<text class="halo" text-anchor="middle" x="230" y="72"><tspan class="bold">p4</tspan> (105, 205)</text>
+<text class="halo" text-anchor="middle" x="350" y="72"><tspan class="bold">p5</tspan> (115, 205)</text>
+<text class="halo" text-anchor="middle" x="470" y="104"><tspan class="bold">p6</tspan> (125, 207)</text>
+</svg>

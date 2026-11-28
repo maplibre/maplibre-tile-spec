@@ -202,7 +202,7 @@ enum Profile {
     Web,
     /// `MapLibre Native`: `--tessellate=auto`
     Native,
-    /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2`
+    /// The fewest stored bytes: `--sort auto`, which reorders features, and under MLT version 2 `--delta2 --predicted-vertices`
     #[value(name = "min_size", alias = "min-size")]
     MinSize,
     /// Small binary diffs between releases: `--no-fsst --no-fastpfor --no-shared-dict`, and under MLT version 2 `--delta2 --no-presence-rle`
@@ -462,6 +462,9 @@ struct V2EncoderArgs {
     /// Store presence and bool bitfields as plain bitmaps, never as Boolean RLE
     #[clap(long)]
     no_presence_rle: bool,
+    /// Store vertex streams as residuals against a guess from the topology when that is shorter
+    #[clap(long)]
+    predicted_vertices: bool,
 }
 
 /// Whether `path` names a `GeoJSON` file, which `convert` tiles rather than re-encodes.
@@ -570,6 +573,9 @@ impl ConvertArgs {
         }
         if v2.no_presence_rle {
             encoder = encoder.with_presence_rle(false);
+        }
+        if v2.predicted_vertices {
+            encoder = encoder.with_predicted_vertices(true);
         }
         Ok(encoder
             .with_float_alp(!v2.no_alp)
@@ -1482,6 +1488,14 @@ mod tests {
     }
 
     #[test]
+    fn predicted_vertices_switches_predicted_vertices_on() {
+        let encoder = parse_args(&["--mlt-version", "2", "--predicted-vertices", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.allow_predicted_vertices());
+    }
+
+    #[test]
     fn triangles_only_with_tessellate_off_is_rejected() {
         let flags = [
             "--mlt-version",
@@ -1553,6 +1567,7 @@ mod tests {
             &["--tessellate", "--triangles-only"],
             &["--delta2"],
             &["--no-presence-rle"],
+            &["--predicted-vertices"],
         ] {
             let mut argv = flags.to_vec();
             argv.extend(["src", "dst"]);

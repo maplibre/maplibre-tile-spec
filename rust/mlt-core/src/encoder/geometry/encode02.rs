@@ -5,16 +5,18 @@ use usize_cast::IntoUsize as _;
 use super::streams::{
     dict_may_be_beneficial, encode_level1_length_stream,
     encode_level1_without_ring_buffer_length_stream, encode_level2_length_stream,
-    encode_morton_vertex_streams02, encode_ring_lengths_for_mixed, encode_root_length_stream,
-    encode_vec2_vertex_stream02, encode_vec3_vertex_stream02, normalize_geometry_offsets,
-    normalize_part_offsets_for_rings, seed_curve_caches,
+    encode_morton_vertex_streams02, encode_predicted_vertex_stream02,
+    encode_ring_lengths_for_mixed, encode_root_length_stream, encode_vec2_vertex_stream02,
+    encode_vec3_vertex_stream02, normalize_geometry_offsets, normalize_part_offsets_for_rings,
+    seed_curve_caches,
 };
+use crate::codecs::predicted::Run;
 use crate::codecs::tri::{self, TriTrees};
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::stream::header02::{Family, WordWidth};
 use crate::decoder::{
-    GeoLayout, GeometryLayout, GeometryType, GeometryValues, LengthType, OffsetType, StreamType,
-    Topology, VertexStorage,
+    GeoLayout, GeometryLayout, GeometryType, GeometryValues, LengthType, Levels, OffsetType,
+    StreamType, Topology, VertexStorage, decode_topology, vertex_runs,
 };
 use crate::encoder::geometry::model::VertexBufferType;
 use crate::encoder::model::StreamCtx;
@@ -456,12 +458,29 @@ impl GeometrySection02 {
 
         let geo_lengths = self.geo_lengths;
         let topology = self.topology;
+        let types = self.types;
         let vertices = match self.z_axis {
             Some(axis) => {
                 write_xyz_vertices(&self.vertices, axis, enc, codecs)?;
                 VertexStorage::Plain
             }
-            None => write_vertices(&self.vertices, tessellated, enc, codecs)?,
+            None => write_vertices(
+                &self.vertices,
+                &|| {
+                    let (parts, rings) = topology.streams();
+                    let lengths = Levels {
+                        geometries: geo_lengths.clone(),
+                        parts: parts.map(<[u32]>::to_vec),
+                        rings: rings.map(<[u32]>::to_vec),
+                    };
+                    let dec = &mut Decoder::with_max_size(u32::MAX);
+                    let levels = decode_topology(&types, lengths, dec)?;
+                    vertex_runs(&types, &levels, dec)
+                },
+                tessellated,
+                enc,
+                codecs,
+            )?,
         };
         let layout = if uniform_type == Some(GeometryType::Mesh) {
             GeoLayout::Meshes
@@ -485,6 +504,7 @@ impl GeometrySection02 {
 /// buffer with a vertex dictionary, so a forced dictionary falls back to [`VertexBufferType::Vec2`].
 fn write_vertices(
     vertices: &[i32],
+    runs: &dyn Fn() -> MltResult<Vec<Run>>,
     tessellated: bool,
     enc: &mut Encoder,
     codecs: &mut Codecs,
@@ -493,8 +513,16 @@ fn write_vertices(
     enc.family_context = Family::Vertex;
 
     match (enc.override_vertex_buffer_type(), tessellated) {
-        (_, true) | (Some(VertexBufferType::Vec2), false) => {
+        (Some(VertexBufferType::Predicted), _) => {
+            encode_predicted_vertex_stream02(vertices, &runs()?, enc)?;
+            return Ok(VertexStorage::Plain);
+        }
+        (Some(_), true) | (Some(VertexBufferType::Vec2), false) => {
             encode_vec2_vertex_stream02(vertices, enc, codecs)?;
+            return Ok(VertexStorage::Plain);
+        }
+        (None, true) => {
+            write_plain_vertices(vertices, runs, enc, codecs)?;
             return Ok(VertexStorage::Plain);
         }
         (Some(VertexBufferType::Morton), false) => {
@@ -506,7 +534,7 @@ fn write_vertices(
     }
 
     if !dict_may_be_beneficial(vertices, enc) {
-        encode_vec2_vertex_stream02(vertices, enc, codecs)?;
+        write_plain_vertices(vertices, runs, enc, codecs)?;
         return Ok(VertexStorage::Plain);
     }
 
@@ -516,7 +544,7 @@ fn write_vertices(
         codecs,
         &[
             (VertexStorage::Plain, &|enc, codecs| {
-                encode_vec2_vertex_stream02(vertices, enc, codecs)
+                write_plain_vertices(vertices, runs, enc, codecs)
             }),
             (VertexStorage::Dict, &|enc, codecs| {
                 encode_morton_vertex_streams02(vertices, enc, codecs)
@@ -573,5 +601,25 @@ fn write_xyz_vertices(
         Some(VertexBufferType::Morton) => Err(MltError::NotImplemented(
             "Morton vertices with z coordinates, since a Morton code spans only x and y",
         )),
+        Some(VertexBufferType::Predicted) => Err(MltError::NotImplemented(
+            "predicted vertices with z coordinates, since its tables are defined over pairs",
+        )),
     }
+}
+
+/// The plain vertex stream the encoder picks itself: componentwise delta, raced against predicted vertices when the config allows them.
+fn write_plain_vertices(
+    vertices: &[i32],
+    runs: &dyn Fn() -> MltResult<Vec<Run>>,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    if vertices.is_empty() || !enc.config().allow_predicted_vertices() {
+        return encode_vec2_vertex_stream02(vertices, enc, codecs);
+    }
+    let runs = runs()?;
+    let mut alt = enc.try_alternatives();
+    alt.with(|enc| encode_vec2_vertex_stream02(vertices, enc, codecs))?;
+    alt.with(|enc| encode_predicted_vertex_stream02(vertices, &runs, enc))?;
+    Ok(())
 }

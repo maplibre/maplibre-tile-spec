@@ -1,0 +1,36 @@
+<svg class="mlt-diagram" viewBox="0 0 710 128" role="img" aria-label="The header byte 05 drawn bit 7 first: bits 3-7 reserved 0, bits 1-2 line guess 2, bit 0 start guess 1" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="48">05</text>
+<text class="muted small mid" x="162" y="14">b7</text>
+<rect class="plain" x="130" y="28" width="64" height="40" rx="3"/>
+<text class="cell" x="162" y="48">0</text>
+<text class="muted small mid" x="230" y="14">b6</text>
+<rect class="plain" x="198" y="28" width="64" height="40" rx="3"/>
+<text class="cell" x="230" y="48">0</text>
+<text class="muted small mid" x="298" y="14">b5</text>
+<rect class="plain" x="266" y="28" width="64" height="40" rx="3"/>
+<text class="cell" x="298" y="48">0</text>
+<text class="muted small mid" x="366" y="14">b4</text>
+<rect class="plain" x="334" y="28" width="64" height="40" rx="3"/>
+<text class="cell" x="366" y="48">0</text>
+<text class="muted small mid" x="434" y="14">b3</text>
+<rect class="plain" x="402" y="28" width="64" height="40" rx="3"/>
+<text class="cell" x="434" y="48">0</text>
+<text class="muted small mid" x="502" y="14">b2</text>
+<rect class="f1" x="470" y="28" width="64" height="40" rx="3"/>
+<text class="cell" x="502" y="48">1</text>
+<text class="muted small mid" x="570" y="14">b1</text>
+<rect class="f1" x="538" y="28" width="64" height="40" rx="3"/>
+<text class="cell" x="570" y="48">0</text>
+<text class="muted small mid" x="638" y="14">b0</text>
+<rect class="f0" x="606" y="28" width="64" height="40" rx="3"/>
+<text class="cell" x="638" y="48">1</text>
+<path class="bracket" d="M130 76V82H466V76"/>
+<text class="small mid" x="298" y="98">reserved</text>
+<text class="muted small mid" x="298" y="114">0</text>
+<path class="bracket" d="M470 76V82H602V76"/>
+<text class="small mid" x="536" y="98">line guess</text>
+<text class="muted small mid" x="536" y="114">2</text>
+<path class="bracket" d="M606 76V82H670V76"/>
+<text class="small mid" x="638" y="98">start guess</text>
+<text class="muted small mid" x="638" y="114">1</text>
+</svg>

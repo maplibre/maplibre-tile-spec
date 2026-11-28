@@ -85,6 +85,9 @@ pub enum MltError {
     )]
     StreamWithoutCount(StreamType, u8),
     #[cfg(feature = "unstable-v2")]
+    #[error("predicted vertex stream is malformed: {0}")]
+    MalformedPredictedVertices(&'static str),
+    #[cfg(feature = "unstable-v2")]
     #[error("error parsing v2 geometry layout: code={0}")]
     ParsingGeoLayout(u8),
     #[cfg(feature = "unstable-v2")]

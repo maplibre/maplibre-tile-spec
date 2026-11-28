@@ -1913,3 +1913,154 @@ mod delta2 {
         assert_eq!(l.encode(v1).unwrap(), l.encode(cfg_v1()).unwrap());
     }
 }
+
+mod predicted_vertices {
+    use mlt_core::test_helpers::stream_logicals;
+    use mlt_core::wire::{DictionaryType, LogicalEncoding, StreamType, VertexLogical};
+
+    use super::*;
+
+    fn vertex_logicals(bytes: &[u8]) -> Vec<LogicalEncoding> {
+        stream_logicals(bytes, StreamType::Data(DictionaryType::Vertex))
+    }
+
+    /// A deterministic walk of `n` vertices starting at `(x, y)`.
+    fn walk(x: i32, y: i32, n: i32) -> Vec<(i32, i32)> {
+        (0..n)
+            .map(|i| (x + i * 7 + (i * i) % 13, y + i * 3 - (i * 5) % 11))
+            .collect()
+    }
+
+    fn square_with_hole(x: i32, y: i32) -> Geometry<i32> {
+        Geometry::Polygon(Polygon::new(
+            ring(&[(x, y), (x + 90, y), (x + 90, y + 90), (x, y + 90)]),
+            vec![ring(&[
+                (x + 30, y + 30),
+                (x + 60, y + 30),
+                (x + 45, y + 60),
+            ])],
+        ))
+    }
+
+    fn lines() -> Vec<Geometry<i32>> {
+        (0..40).map(|i| line(&walk(i * 50, i * 20, 25))).collect()
+    }
+
+    fn polygons() -> Vec<Geometry<i32>> {
+        (0..60)
+            .map(|i| {
+                if i % 3 == 0 {
+                    Geometry::MultiPolygon(MultiPolygon(vec![
+                        Polygon::new(ring(&walk(i * 40, 0, 12)), vec![]),
+                        Polygon::new(ring(&walk(i * 40, 500, 9)), vec![]),
+                    ]))
+                } else {
+                    square_with_hole(i * 100, i * 30)
+                }
+            })
+            .collect()
+    }
+
+    fn curved_lines() -> Vec<Geometry<i32>> {
+        (0..40)
+            .map(|i| {
+                let vertices: Vec<(i32, i32)> = (0..25)
+                    .map(|j| (i * 50 + j * 40 + j * j, i * 20 + j * 30 - j * j / 2))
+                    .collect();
+                line(&vertices)
+            })
+            .collect()
+    }
+
+    fn mixed() -> Vec<Geometry<i32>> {
+        (0..90)
+            .map(|i| match i % 3 {
+                0 => pt(i * 11, i * 13),
+                1 => line(&walk(i * 30, 0, 15)),
+                _ => square_with_hole(i * 40, 900),
+            })
+            .collect()
+    }
+
+    #[rstest]
+    #[case::curved_lines(curved_lines())]
+    #[case::polygons(polygons())]
+    #[case::mixed(mixed())]
+    fn predicted_vertices_shrink_the_layer_and_decode_unchanged(#[case] geoms: Vec<Geometry<i32>>) {
+        let l = layer(geoms, None, &[]);
+        let plain = l.encode(cfg_v2()).unwrap();
+        let predicted = l.encode(cfg_v2().with_predicted_vertices(true)).unwrap();
+        assert_eq!(
+            vertex_logicals(&predicted),
+            [LogicalEncoding::Vertex(VertexLogical::Predicted)]
+        );
+        assert!(
+            predicted.len() < plain.len(),
+            "{} vs {}",
+            predicted.len(),
+            plain.len()
+        );
+        assert_eq!(decode(&predicted).1, decode(&plain).1);
+        assert_dump_covers(&predicted);
+    }
+
+    #[rstest]
+    #[case::lines(lines())]
+    #[case::curved_lines(curved_lines())]
+    #[case::polygons(polygons())]
+    #[case::mixed(mixed())]
+    fn the_race_never_grows_the_layer(#[case] geoms: Vec<Geometry<i32>>) {
+        let l = layer(geoms, None, &[]);
+        let plain = l.encode(cfg_v2()).unwrap();
+        let raced = l.encode(cfg_v2().with_predicted_vertices(true)).unwrap();
+        assert!(
+            raced.len() <= plain.len(),
+            "{} vs {}",
+            raced.len(),
+            plain.len()
+        );
+        assert_eq!(decode(&raced).1, decode(&plain).1);
+    }
+
+    #[rstest]
+    #[case::outlines(false, VertexLogical::Predicted)]
+    #[case::triangles_only(true, VertexLogical::ComponentwiseDelta)]
+    fn a_tessellated_layer_races_its_vertices(
+        #[case] triangles_only: bool,
+        #[case] expected: VertexLogical,
+    ) {
+        let l = layer(polygons(), None, &[]);
+        let tessellated = cfg_v2()
+            .with_tessellation(Tessellation::Always)
+            .with_triangles_only(triangles_only);
+        let predicted = l.encode(tessellated.with_predicted_vertices(true)).unwrap();
+        assert_eq!(
+            vertex_logicals(&predicted),
+            [LogicalEncoding::Vertex(expected)]
+        );
+        assert_eq!(
+            decode(&predicted).1,
+            decode(&l.encode(tessellated).unwrap()).1
+        );
+    }
+
+    #[test]
+    fn a_few_vertices_stay_componentwise_delta() {
+        let predicted = layer(vec![pt(1, 2), pt(3, 4)], None, &[])
+            .encode(cfg_v2().with_predicted_vertices(true))
+            .unwrap();
+        assert_eq!(
+            vertex_logicals(&predicted),
+            [LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta)]
+        );
+    }
+
+    #[test]
+    fn v1_ignores_predicted_vertices() {
+        let l = layer(lines(), None, &[]);
+        assert_eq!(
+            l.encode(cfg_v1().with_predicted_vertices(true)).unwrap(),
+            l.encode(cfg_v1()).unwrap()
+        );
+    }
+}
