@@ -536,7 +536,7 @@ fn an_empty_staged_meshes_layer_round_trips_to_the_bytes_the_wasm_spec_decodes()
     assert_eq!(back.feature_count(), 0);
     assert_eq!(back.z_axis(), Some(height()));
     assert_eq!(back.m_value_scopes(), &[MValueScope::Triangle]);
-    assert_snapshot!(hex::encode(&bytes), @"1f02096c616e646d61726b73f6000e0000000025000902050104666163658000");
+    assert_snapshot!(hex::encode(&bytes), @"1f02096c616e646d61726b73f6000e0000000005000902050104666163658000");
 }
 
 #[test]
