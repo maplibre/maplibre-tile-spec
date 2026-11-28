@@ -896,14 +896,14 @@ A byte blob takes its count from `byte_length`, so it MUST NOT use the pattern. 
 
 ### Families
 
-The logical encodings available to a stream depend on what it holds. Each family numbers its own members from `0`.
+The logical encodings available to a stream depend on what it holds. Each family numbers its own members from `0`, with no unassigned code between them.
 
 | Family | Used by | `0` | `1` | `2` | `3` | `4` | `5` |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | **Int** | Lengths, offsets, ids, integer columns, geometry topology, nested list and map lengths | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Str** | A string column's leading stream | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Bool** | A boolean column's data stream, a nested node's presence stream | Bitmap | [Boolean RLE](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#boolean-rle>) |  |  |  |  |
-| **Float** | A float or double column's data stream | None |  | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) |  |  |  |
+| **Float** | A float or double column's data stream | None | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) |  |  |  |  |
 | **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton |  |  |
 | **Bytes** | Byte blobs: string values, dictionaries, FSST symbol tables | None | [FrontCoded](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) |  |  |  |  |
 
@@ -1335,9 +1335,9 @@ mlt hexdump path/to/tile.mlt
 > 00000020  2d                                                -                |     present [Present Bool(None)/None, 6 values, 1 B]
 >                                                                              |       decoded: 6 present-bits: 101101
 > 00000021                                                                     |     data (12 B)
-> 00000021  28                                                (                |       encoding: 0x28 logical=Alp physical=VarInt
+> 00000021  18                                                .                |       encoding: 0x18 logical=Alp physical=VarInt
 >                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
->                                                                              |         └ bits 6-4 = 010 -> logical = Alp, numbered for float column
+>                                                                              |         └ bits 6-4 = 001 -> logical = Alp, numbered for float column
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 00000022  07                                                .                |       byte_length: 7

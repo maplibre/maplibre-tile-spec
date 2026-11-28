@@ -5008,7 +5008,7 @@ Every other logical encoding that reads the physical field MUST reject it.
 An encoder SHOULD use it wherever it is allowed, since it is one varint shorter.</p>
 <h3 id="families">Families<a class="headerlink" href="#families" title="Link to this section">&para;</a></h3>
 <p>The logical encodings available to a stream depend on what it holds.
-Each family numbers its own members from <code>0</code>.</p>
+Each family numbers its own members from <code>0</code>, with no unassigned code between them.</p>
 <table>
 <thead>
 <tr>
@@ -5057,8 +5057,8 @@ Each family numbers its own members from <code>0</code>.</p>
 <td><strong>Float</strong></td>
 <td>A float or double column's data stream</td>
 <td>None</td>
-<td></td>
 <td><a href="../../encodings/#alp">Framed, Exception-Free ALP</a></td>
+<td></td>
 <td></td>
 <td></td>
 <td></td>
@@ -5553,9 +5553,9 @@ The extension bits of the leading stream give the layout.</p>
 </span><span id="__span-19-30"><a id="__codelineno-19-30" name="__codelineno-19-30" href="#__codelineno-19-30"></a>00000020  2d                                                -                |     present [Present Bool(None)/None, 6 values, 1 B]
 </span><span id="__span-19-31"><a id="__codelineno-19-31" name="__codelineno-19-31" href="#__codelineno-19-31"></a>                                                                             |       decoded: 6 present-bits: 101101
 </span><span id="__span-19-32"><a id="__codelineno-19-32" name="__codelineno-19-32" href="#__codelineno-19-32"></a>00000021                                                                     |     data (12 B)
-</span><span id="__span-19-33"><a id="__codelineno-19-33" name="__codelineno-19-33" href="#__codelineno-19-33"></a>00000021  28                                                (                |       encoding: 0x28 logical=Alp physical=VarInt
+</span><span id="__span-19-33"><a id="__codelineno-19-33" name="__codelineno-19-33" href="#__codelineno-19-33"></a>00000021  18                                                .                |       encoding: 0x18 logical=Alp physical=VarInt
 </span><span id="__span-19-34"><a id="__codelineno-19-34" name="__codelineno-19-34" href="#__codelineno-19-34"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 4 values from context
-</span><span id="__span-19-35"><a id="__codelineno-19-35" name="__codelineno-19-35" href="#__codelineno-19-35"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = Alp, numbered for float column
+</span><span id="__span-19-35"><a id="__codelineno-19-35" name="__codelineno-19-35" href="#__codelineno-19-35"></a>                                                                             |         └ bits 6-4 = 001 -&gt; logical = Alp, numbered for float column
 </span><span id="__span-19-36"><a id="__codelineno-19-36" name="__codelineno-19-36" href="#__codelineno-19-36"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-19-37"><a id="__codelineno-19-37" name="__codelineno-19-37" href="#__codelineno-19-37"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-19-38"><a id="__codelineno-19-38" name="__codelineno-19-38" href="#__codelineno-19-38"></a>00000022  07                                                .                |       byte_length: 7
