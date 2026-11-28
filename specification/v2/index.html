@@ -1592,12 +1592,13 @@ The streams it writes after that, in column order:</p>
 </tr>
 </tbody>
 </table>
-<p><code>all</code> is every vertex in sequence, <code>distinct</code> the dictionary the vertex offsets index into.</p>
+<p><code>all</code> is every vertex in sequence, <code>distinct</code> the dictionary the vertex offsets index into.
+The vertex stream of a dictionary layout MUST be logical <code>Morton</code>.</p>
 <p><code>0xF</code> is unassigned and MUST be rejected.</p>
 <p>There is no layout with ring lengths but without part lengths.
 A tessellated layer either has no outline topology (<code>0xC</code>) or all three outline streams (<code>0xD</code>).
 A tessellated layer that needs only some of the outline streams uses <code>0xD</code> and writes the others as empty streams.</p>
-<p>The meaning of the topology streams, the length threshold rules, componentwise delta encoding, Hilbert-sorted vertex dictionaries and Morton codes are unchanged from <a href="../v1/#geometry-column">v1</a>.</p>
+<p>The meaning of the topology streams, the length threshold rules, componentwise delta encoding and Morton codes are unchanged from <a href="../v1/#geometry-column">v1</a>.</p>
 <h3 id="polygon-rings">Polygon Rings<a class="headerlink" href="#polygon-rings" title="Link to this section">&para;</a></h3>
 <p>Rings take their roles from their order: the first ring of each polygon is its exterior, and any rings after it are its holes.
 The part and ring lengths of the <a href="#geometry-layout">geometry layout</a> say which rings belong to which polygon.
@@ -3026,13 +3027,11 @@ At the finest step the grid spans about 2147 km either side of the base.</p>
 </svg></p>
 <p>Logical <code>Componentwise Delta</code> reads as it does over pairs, over three components.
 A Morton code spans only <code>x</code> and <code>y</code>, so a vertex stream with bit 0 set and logical <code>Morton</code> MUST be rejected.
+A layer with z coordinates therefore has no dictionary layout.
 Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices" target="_blank">View example</a> - all six non-mesh geometry types, each vertex an interleaved triple.</p>
 <p>The vertex stream is indexed, so (<span class="arithmatex">\(x_1, y_1, z_1, x_2, y_2, z_2, ..., x_i, y_i, z_i\)</span>) has index <span class="arithmatex">\(i\)</span>:</p>
 <ul>
-<li>Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them.
-  Two vertices share an entry only when their <code>x</code>, <code>y</code> and <code>z</code> are identical.
-  <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_points_hilbert.mlt&amp;at=vertex_dict" target="_blank">View example</a> - five points in four entries: a repeat at the same height shares one, a new height does not.</li>
 <li>Under a tessellated layout, the triangles name triples.
   A <code>TessPolygons</code> feature holds the <code>z</code> of each triangle corner, in decoded order.
   <a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_poly_hole_tri.mlt&amp;at=tri_cycles" target="_blank">View example</a> - a polygon with a hole, cut into six triangles over six <code>(x, y, z)</code> vertices.</li>

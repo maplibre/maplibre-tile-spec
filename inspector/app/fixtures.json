@@ -43737,42 +43737,6 @@
     }
   },
   {
-    "name": "z_points_hilbert.mlt",
-    "directory": "0x02",
-    "bytes": 36,
-    "facets": {
-      "extent": [
-        "64"
-      ],
-      "geometry": [
-        "point"
-      ],
-      "geomLayout": [
-        "points-dict"
-      ],
-      "zStep": [
-        "1dm"
-      ],
-      "heightMode": [
-        "absolute"
-      ],
-      "dataType": [],
-      "mValue": [],
-      "strLayout": [],
-      "dictLayout": [],
-      "streamType": [
-        "data[vertex]",
-        "offset[vertex]"
-      ],
-      "physical": [
-        "varint"
-      ],
-      "logical": [
-        "componentwise-delta"
-      ]
-    }
-  },
-  {
     "name": "z_poly_hole.mlt",
     "directory": "0x02",
     "bytes": 45,
@@ -60063,7 +60027,7 @@
   {
     "name": "13_1596_3157_big_mountain_peak.mlt",
     "directory": "0x02-omt",
-    "bytes": 203169,
+    "bytes": 203170,
     "facets": {
       "extent": [
         "4096"
@@ -60076,7 +60040,7 @@
       "geomLayout": [
         "lines",
         "multi-lines",
-        "polygons-dict"
+        "polygons"
       ],
       "zStep": [],
       "heightMode": [
@@ -60106,8 +60070,7 @@
         "length[parts]",
         "length[rings]",
         "length[var-binary]",
-        "offset[string]",
-        "offset[vertex]"
+        "offset[string]"
       ],
       "physical": [
         "bit-packed",
@@ -63387,7 +63350,7 @@
   {
     "name": "3_4_5.mlt",
     "directory": "0x02-omt",
-    "bytes": 173163,
+    "bytes": 173167,
     "facets": {
       "extent": [
         "4096"
@@ -63538,7 +63501,7 @@
   {
     "name": "4_8_10.mlt",
     "directory": "0x02-omt",
-    "bytes": 300340,
+    "bytes": 300342,
     "facets": {
       "extent": [
         "4096"
@@ -63612,7 +63575,7 @@
   {
     "name": "5_16_11.mlt",
     "directory": "0x02-omt",
-    "bytes": 176281,
+    "bytes": 176282,
     "facets": {
       "extent": [
         "4096"
@@ -63628,6 +63591,7 @@
         "lines-dict",
         "multi-lines-dict",
         "multi-polygons-dict",
+        "points",
         "points-dict",
         "polygons-dict",
         "tess-polygons-with-outlines"
@@ -63689,7 +63653,7 @@
   {
     "name": "5_16_20.mlt",
     "directory": "0x02-omt",
-    "bytes": 176281,
+    "bytes": 176282,
     "facets": {
       "extent": [
         "4096"
@@ -63705,6 +63669,7 @@
         "lines-dict",
         "multi-lines-dict",
         "multi-polygons-dict",
+        "points",
         "points-dict",
         "polygons-dict",
         "tess-polygons-with-outlines"
@@ -63766,7 +63731,7 @@
   {
     "name": "5_16_21.mlt",
     "directory": "0x02-omt",
-    "bytes": 207604,
+    "bytes": 207605,
     "facets": {
       "extent": [
         "4096"
@@ -63781,6 +63746,7 @@
       "geomLayout": [
         "multi-lines-dict",
         "multi-polygons-dict",
+        "points",
         "points-dict",
         "tess-polygons-with-outlines"
       ],
@@ -63840,7 +63806,7 @@
   {
     "name": "5_17_20.mlt",
     "directory": "0x02-omt",
-    "bytes": 166443,
+    "bytes": 166446,
     "facets": {
       "extent": [
         "4096"
@@ -63856,6 +63822,7 @@
         "lines-dict",
         "multi-lines-dict",
         "multi-polygons-dict",
+        "points",
         "points-dict",
         "polygons",
         "tess-polygons-with-outlines"
@@ -63916,7 +63883,7 @@
   {
     "name": "5_17_21.mlt",
     "directory": "0x02-omt",
-    "bytes": 119671,
+    "bytes": 119672,
     "facets": {
       "extent": [
         "4096"
@@ -63932,6 +63899,7 @@
         "lines-dict",
         "multi-lines-dict",
         "multi-polygons-dict",
+        "points",
         "points-dict",
         "tess-polygons-with-outlines"
       ],
@@ -64790,7 +64758,7 @@
   {
     "name": "7_67_84.mlt",
     "directory": "0x02-omt",
-    "bytes": 133528,
+    "bytes": 133530,
     "facets": {
       "extent": [
         "4096"
@@ -64850,7 +64818,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "delta2",
@@ -65288,7 +65255,7 @@
   {
     "name": "8_133_170.mlt",
     "directory": "0x02-omt",
-    "bytes": 149642,
+    "bytes": 149644,
     "facets": {
       "extent": [
         "4096"
@@ -65348,7 +65315,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "delta2",
@@ -65504,7 +65470,7 @@
   {
     "name": "8_134_171.mlt",
     "directory": "0x02-omt",
-    "bytes": 96481,
+    "bytes": 96484,
     "facets": {
       "extent": [
         "4096"
@@ -65565,7 +65531,6 @@
         "varint"
       ],
       "logical": [
-        "componentwise-delta",
         "delta",
         "delta-rle",
         "delta2",

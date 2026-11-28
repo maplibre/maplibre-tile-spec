@@ -536,7 +536,7 @@ words:    [200, 400, 10, 20, 5, 10]
 
 ### Vertex Dictionary
 
-The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex. `VertexOffsets` is an ordinary unsigned integer stream. `VertexDict` is a vertex stream and carries any of the encodings in this section.
+The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex. `VertexOffsets` is an ordinary unsigned integer stream. `VertexDict` is a vertex stream. In v1 it carries any of the encodings in this section, and in v2 it MUST be [Morton](<#morton>).
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict>) - vertices stored once and indexed.
 
@@ -550,7 +550,7 @@ An offset at or past the dictionary's vertex count MUST be rejected.
 
 #### Hilbert Order
 
-Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short. The order is not part of the format. A decoder resolves vertices through `VertexOffsets` and never depends on the order.
+v1 encoders SHOULD sort a dictionary that is not Morton coded along a Hilbert curve, so that the deltas between neighboring entries stay short. The order is not part of the format. A decoder resolves vertices through `VertexOffsets` and never depends on the order.
 
 The reference encoders use the curve of the [`hilbert_2d`](<https://crates.io/crates/hilbert_2d>) crate's `Hilbert` variant on a \\(2^{\\mathit{bits}} \\times 2^{\\mathit{bits}}\\) grid. `shift` and `bits` are derived as for [Morton](<#morton>) below, and each shifted coordinate is masked to 16 bits before it is placed on the grid. Two vertices with the same curve key are one dictionary entry.
 

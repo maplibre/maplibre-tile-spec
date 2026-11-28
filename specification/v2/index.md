@@ -203,13 +203,13 @@ Every layout leads with the types stream, unless the header byte names a [unifor
 | `0xD` | TessPolygonsWithOutlines | ● | ● | ● | ● | ● | ● | all |  |
 | `0xE` | [Meshes](<#meshes>) | ● |  |  | ● | ● | ● | all |  |
 
-`all` is every vertex in sequence, `distinct` the dictionary the vertex offsets index into.
+`all` is every vertex in sequence, `distinct` the dictionary the vertex offsets index into. The vertex stream of a dictionary layout MUST be logical `Morton`.
 
 `0xF` is unassigned and MUST be rejected.
 
 There is no layout with ring lengths but without part lengths. A tessellated layer either has no outline topology (`0xC`) or all three outline streams (`0xD`). A tessellated layer that needs only some of the outline streams uses `0xD` and writes the others as empty streams.
 
-The meaning of the topology streams, the length threshold rules, componentwise delta encoding, Hilbert-sorted vertex dictionaries and Morton codes are unchanged from [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md#geometry-column>).
+The meaning of the topology streams, the length threshold rules, componentwise delta encoding and Morton codes are unchanged from [v1](<https://maplibre.org/maplibre-tile-spec/specification/v1/index.md#geometry-column>).
 
 ### Polygon Rings
 
@@ -418,13 +418,12 @@ The stream holds `3 * num_values` words for `num_values` vertices, with `x`, `y`
 
 `z_mvalues` at a `z_step` of 1 dm:
 
-Logical `Componentwise Delta` reads as it does over pairs, over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
+Logical `Componentwise Delta` reads as it does over pairs, over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. A layer with z coordinates therefore has no dictionary layout. Bit 1 of the extension field MUST be `0` on every vertex stream.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mix.mlt&at=vertices>) - all six non-mesh geometry types, each vertex an interleaved triple.
 
 The vertex stream is indexed, so (\\(x\_1, y\_1, z\_1, x\_2, y\_2, z\_2, ..., x\_i, y\_i, z\_i\\)) has index \\(i\\):
 
-- Under a dictionary layout, the vertex stream holds the distinct triples, and the vertex offsets point to them. Two vertices share an entry only when their `x`, `y` and `z` are identical. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_points_hilbert.mlt&at=vertex_dict>) - five points in four entries: a repeat at the same height shares one, a new height does not.
 - Under a tessellated layout, the triangles name triples. A `TessPolygons` feature holds the `z` of each triangle corner, in decoded order. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_poly_hole_tri.mlt&at=tri_cycles>) - a polygon with a hole, cut into six triangles over six `(x, y, z)` vertices.
 - An [m-value](<#m-values>) runs over the same vertex sequence it does without `z`. [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mvalues.mlt&at=vertices>) - a line whose three vertices carry both a `z` and an m-value.
 

@@ -2569,7 +2569,8 @@ Each delta is <a href="#zigzag">zigzag</a>-encoded.</p>
 <h3 id="vertex-dictionary">Vertex Dictionary<a class="headerlink" href="#vertex-dictionary" title="Link to this section">&para;</a></h3>
 <p>The distinct vertices are stored once in a <code>VertexDict</code> stream, and a <code>VertexOffsets</code> stream holds one index into them per vertex.
 <code>VertexOffsets</code> is an ordinary unsigned integer stream.
-<code>VertexDict</code> is a vertex stream and carries any of the encodings in this section.</p>
+<code>VertexDict</code> is a vertex stream.
+In v1 it carries any of the encodings in this section, and in v2 it MUST be <a href="#morton">Morton</a>.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&amp;at=vertex_dict" target="_blank">View example</a> - vertices stored once and indexed.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="12:2"><input checked="checked" id="__tabbed_12_1" name="__tabbed_12" type="radio" /><input id="__tabbed_12_2" name="__tabbed_12" type="radio" /><div class="tabbed-labels"><label for="__tabbed_12_1">Offsets</label><label for="__tabbed_12_2">Values</label></div>
 <div class="tabbed-content">
@@ -2623,7 +2624,7 @@ Each delta is <a href="#zigzag">zigzag</a>-encoded.</p>
 </div>
 <p>An offset at or past the dictionary's vertex count MUST be rejected.</p>
 <h4 id="hilbert-order">Hilbert Order<a class="headerlink" href="#hilbert-order" title="Link to this section">&para;</a></h4>
-<p>Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short.
+<p>v1 encoders SHOULD sort a dictionary that is not Morton coded along a Hilbert curve, so that the deltas between neighboring entries stay short.
 The order is not part of the format.
 A decoder resolves vertices through <code>VertexOffsets</code> and never depends on the order.</p>
 <p>The reference encoders use the curve of the <a href="https://crates.io/crates/hilbert_2d"><code>hilbert_2d</code></a> crate's <code>Hilbert</code> variant on a <span class="arithmatex">\(2^{\mathit{bits}} \times 2^{\mathit{bits}}\)</span> grid.
