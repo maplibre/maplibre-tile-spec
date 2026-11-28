@@ -177,7 +177,7 @@ impl Family {
                 L::Delta2,
             ],
             Self::Bool => &[L::None, L::Rle],
-            Self::Float(_) => &[L::None, L::Rle, L::Alp],
+            Self::Float(_) => &[L::None, L::Alp],
             Self::Vertex => &[L::None, L::Delta, L::CwDelta, L::Morton],
             Self::Bytes => &[L::None, L::FrontCoded],
         }
@@ -590,10 +590,10 @@ impl Encoding02 {
             }),
             Family::Float(_) => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
-                Logical::Rle => return Err(MltError::ParsingEncodingByte(enc_byte)),
                 Logical::Alp => LogicalFloat::Alp(physical_int(enc_byte)?),
                 Logical::Delta
                 | Logical::CwDelta
+                | Logical::Rle
                 | Logical::DeltaRle
                 | Logical::Morton
                 | Logical::FrontCoded
@@ -1242,8 +1242,7 @@ mod tests {
     #[case::bool_none(Family::Bool, Logical::None, 0b000)]
     #[case::bool_byte_rle(Family::Bool, Logical::Rle, 0b001)]
     #[case::float_none(FLOAT_FAMILY, Logical::None, 0b000)]
-    #[case::float_rle(FLOAT_FAMILY, Logical::Rle, 0b001)]
-    #[case::float_alp(FLOAT_FAMILY, Logical::Alp, 0b010)]
+    #[case::float_alp(FLOAT_FAMILY, Logical::Alp, 0b001)]
     #[case::vertex_none(Family::Vertex, Logical::None, 0b000)]
     #[case::vertex_delta(Family::Vertex, Logical::Delta, 0b001)]
     #[case::vertex_cw_delta(Family::Vertex, Logical::CwDelta, 0b010)]
@@ -1410,13 +1409,13 @@ mod tests {
         float(FloatLogical::Alp(Alp::new(3, 1, 0).unwrap()), PE::VarInt, 5),
         5,
         FLOAT_FAMILY,
-        0b0010_1000
+        0b0001_1000
     )]
     #[case::float_alp_integers_raw(
         float(FloatLogical::Alp(Alp::new(3, 1, 0).unwrap()), PE::None, 5),
         5,
         FLOAT_FAMILY,
-        0b0010_0100
+        0b0001_0100
     )]
     #[case::cw_delta_vertices_explicit(
         vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 8),
@@ -1751,8 +1750,8 @@ mod tests {
     #[case::delta_rle_with_physical(INT, 0b0011_1000)]
     #[case::int_logical_past_table(INT, 0b0110_1000)]
     #[case::bool_logical_past_table(BOOL, 0b0010_0100)]
-    #[case::float_logical_past_table(FLOAT, 0b0011_0100)]
-    #[case::float_alp_with_extension(FLOAT, 0b0010_1001)]
+    #[case::float_logical_past_table(FLOAT, 0b0010_0100)]
+    #[case::float_alp_with_extension(FLOAT, 0b0001_1001)]
     #[case::vertex_logical_past_table(VERTEX, 0b0101_1000)]
     #[case::float_physical_varint(FLOAT, 0b0000_1000)]
     #[case::float_physical_fastpfor(FLOAT, 0b0000_1100)]
@@ -1767,7 +1766,7 @@ mod tests {
     #[case::blob_front_coded_no_len(BLOB, 0b0001_0000)]
     #[case::delta_no_len(INT, 0b0001_0000)]
     #[case::str_delta_no_len(STR_PLAIN, 0b0001_0000)]
-    #[case::float_alp_no_len(FLOAT, 0b0010_0000)]
+    #[case::float_alp_no_len(FLOAT, 0b0001_0000)]
     #[case::vertex_delta_no_len(VERTEX, 0b0001_0000)]
     #[case::cw_delta_no_len(VERTEX, 0b0010_0000)]
     #[case::morton_no_len(VERTEX, 0b0011_0000)]
@@ -1836,22 +1835,6 @@ mod tests {
         write_blob_meta(&mut buf, layout, 0).unwrap();
         assert_eq!(buf[0], enc_byte);
         assert_eq!(DictLayout::from_bits(enc_byte), Some(layout));
-    }
-
-    #[test]
-    fn logical_code_one_is_delta_for_ints_and_unassigned_for_floats() {
-        let buf = [0b0001_1000, 0];
-        let (_, as_int) = parse_stream(&buf, INT, Count02::Implied(0), &mut parser()).unwrap();
-        assert_eq!(
-            as_int.meta.encoding,
-            IntEncoding::new(LogicalEncoding::Int(IntLogical::Delta), PE::VarInt)
-        );
-        let buf = [0b0001_0000, 0];
-        let as_float = parse_stream(&buf, FLOAT, Count02::Implied(0), &mut parser()).unwrap_err();
-        assert!(
-            matches!(as_float, MltError::ParsingEncodingByte(0b0001_0000)),
-            "{as_float:?}"
-        );
     }
 
     #[test]
