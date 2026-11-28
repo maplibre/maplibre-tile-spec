@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.3.0...rust-mlt-wasm-v0.4.0) - 2026-11-28
+
+### Added
+
+- *(v2)* [**breaking**] drop vertex None and Delta, renumber the vertex family ([#2138](https://github.com/maplibre/maplibre-tile-spec/pull/2138))
+- *(v2)* [**breaking**] drop rANS vertex coding ([#2058](https://github.com/maplibre/maplibre-tile-spec/pull/2058))
+
 ## [0.3.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.2.5...rust-mlt-wasm-v0.3.0) - 2026-11-25
 
 ### Added
