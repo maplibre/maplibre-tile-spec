@@ -585,7 +585,7 @@ pub fn encode<const D: usize>(vertices: &[i32], runs: &[Run]) -> MltResult<Vec<u
 }
 
 /// The guesses [`encode_fast`] writes with.
-const FAST_GUESSES: Guesses = Guesses::new(StartGuess::Previous, LineGuess::ContinuedFromSix);
+const FAST_GUESSES: Guesses = Guesses::new(StartGuess::RunStart, LineGuess::ContinuedFromSix);
 
 /// The payload for interleaved `(x, y)` pairs (`D = 2`) or `(x, y, z)` triples (`D = 3`) over `runs`, with one fixed pair of guesses and no shared vertices.
 pub fn encode_fast<const D: usize>(vertices: &[i32], runs: &[Run]) -> MltResult<Vec<u8>> {
