@@ -19,7 +19,7 @@ use crate::decoder::{
     StreamType, Topology, VertexStorage, decode_topology, vertex_runs,
 };
 use crate::encoder::geometry::model::VertexBufferType;
-use crate::encoder::model::StreamCtx;
+use crate::encoder::model::{PredictedVertices, StreamCtx};
 use crate::encoder::{Codecs, Encoder};
 use crate::tile::ZAxis;
 use crate::{Decoder, MltError, MltResult};
@@ -610,7 +610,7 @@ fn write_plain_xyz_vertices(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    if vertices.is_empty() || !enc.config().allow_predicted_vertices() {
+    if vertices.is_empty() || enc.config().predicted_vertices() == PredictedVertices::Off {
         return encode_vec3_vertex_stream02(vertices, axis, enc, codecs);
     }
     let runs = runs()?;
@@ -627,7 +627,7 @@ fn write_plain_vertices(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    if vertices.is_empty() || !enc.config().allow_predicted_vertices() {
+    if vertices.is_empty() || enc.config().predicted_vertices() == PredictedVertices::Off {
         return encode_vec2_vertex_stream02(vertices, enc, codecs);
     }
     let runs = runs()?;

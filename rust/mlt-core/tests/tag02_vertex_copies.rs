@@ -2,7 +2,9 @@
 
 use insta::assert_debug_snapshot;
 use mlt_core::dump::{RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
+use mlt_core::encoder::{
+    EncoderConfig, Network, PredictedVertices, Profile, Tessellation, WireVersion,
+};
 use mlt_core::geo_types::{Geometry, LineString, MultiPolygon, Polygon};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 use proptest::prelude::*;
@@ -161,7 +163,7 @@ fn polygons_that_share_walls_are_stored_as_copies() {
     let predicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_tessellation(Tessellation::Off)
-        .with_predicted_vertices(true);
+        .with_predicted_vertices(PredictedVertices::Smallest);
     let bytes = layer(strip(0)).encode(predicted).unwrap();
     assert_debug_snapshot!(predicted_headers(&bytes), @r#"
     [
@@ -171,15 +173,24 @@ fn polygons_that_share_walls_are_stored_as_copies() {
 }
 
 #[test]
+fn the_fast_encoding_profile_stores_shared_walls_as_residuals() {
+    let fast =
+        EncoderConfig::from_profile(Profile::FastEncoding).with_wire_version(WireVersion::V02);
+    let bytes = layer(strip(0)).encode(fast).unwrap();
+    assert_debug_snapshot!(predicted_headers(&bytes), @"");
+}
+
+#[test]
 fn copies_make_a_strip_of_polygons_smaller() {
     let source = layer(strip(0));
     let unpredicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
-        .with_tessellation(Tessellation::Off);
+        .with_tessellation(Tessellation::Off)
+        .with_predicted_vertices(PredictedVertices::Off);
     let predicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_tessellation(Tessellation::Off)
-        .with_predicted_vertices(true);
+        .with_predicted_vertices(PredictedVertices::Smallest);
     let without = source.encode(unpredicted).unwrap();
     let with = source.encode(predicted).unwrap();
     assert_eq!((without.len(), with.len()), (201, 131));
@@ -190,11 +201,12 @@ fn polygons_that_share_walls_come_back_unchanged_without_vertex_sort() {
     let source = layer(strip(3));
     let unpredicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
-        .with_tessellation(Tessellation::Off);
+        .with_tessellation(Tessellation::Off)
+        .with_predicted_vertices(PredictedVertices::Off);
     let predicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_tessellation(Tessellation::Off)
-        .with_predicted_vertices(true);
+        .with_predicted_vertices(PredictedVertices::Smallest);
     assert_eq!(
         decode(&source.encode(predicted).unwrap()),
         decode(&source.encode(unpredicted).unwrap())
@@ -207,11 +219,11 @@ fn polygons_that_share_walls_decode_to_the_same_rings_under_vertex_sort() {
     let predicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_tessellation(Tessellation::Off)
-        .with_predicted_vertices(true);
+        .with_predicted_vertices(PredictedVertices::Smallest);
     let vertex_sorted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_tessellation(Tessellation::Off)
-        .with_predicted_vertices(true)
+        .with_predicted_vertices(PredictedVertices::Smallest)
         .with_vertex_sort(true);
     let unsorted = source.encode(predicted).unwrap();
     let sorted = source.encode(vertex_sorted).unwrap();
@@ -224,7 +236,7 @@ fn lines_that_meet_at_a_junction_are_stored_as_line_endpoint_references() {
     let predicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_tessellation(Tessellation::Off)
-        .with_predicted_vertices(true);
+        .with_predicted_vertices(PredictedVertices::Smallest);
     let bytes = layer(star()).encode(predicted).unwrap();
     assert_debug_snapshot!(predicted_headers(&bytes), @r#"
     [
@@ -238,11 +250,12 @@ fn lines_that_meet_at_a_junction_come_back_unchanged_without_vertex_sort() {
     let source = layer(star());
     let unpredicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
-        .with_tessellation(Tessellation::Off);
+        .with_tessellation(Tessellation::Off)
+        .with_predicted_vertices(PredictedVertices::Off);
     let predicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_tessellation(Tessellation::Off)
-        .with_predicted_vertices(true);
+        .with_predicted_vertices(PredictedVertices::Smallest);
     assert_eq!(
         decode(&source.encode(predicted).unwrap()),
         decode(&source.encode(unpredicted).unwrap())
@@ -255,7 +268,7 @@ fn lines_that_meet_at_a_junction_decode_to_the_same_lines_under_vertex_sort() {
     let vertex_sorted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
         .with_tessellation(Tessellation::Off)
-        .with_predicted_vertices(true)
+        .with_predicted_vertices(PredictedVertices::Smallest)
         .with_vertex_sort(true);
     let sorted = source.encode(vertex_sorted).unwrap();
     assert_eq!(canonical_layer(&decode(&sorted)), canonical_layer(&source));
@@ -276,11 +289,11 @@ proptest! {
         let predicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
             .with_wire_version(WireVersion::V02)
             .with_tessellation(Tessellation::Off)
-            .with_predicted_vertices(true);
+            .with_predicted_vertices(PredictedVertices::Smallest);
         let vertex_sorted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
             .with_wire_version(WireVersion::V02)
             .with_tessellation(Tessellation::Off)
-            .with_predicted_vertices(true)
+            .with_predicted_vertices(PredictedVertices::Smallest)
             .with_vertex_sort(true);
         let source = layer(geoms);
         for cfg in [predicted, vertex_sorted] {

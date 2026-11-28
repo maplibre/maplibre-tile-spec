@@ -23,6 +23,8 @@ use crate::decoder::{
     DictionaryType, GeometryType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType, VertexLogical,
 };
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::model::PredictedVertices;
 use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
 #[cfg(feature = "unstable-v2")]
@@ -450,7 +452,7 @@ pub(super) fn encode_predicted_vertex_stream02(
     runs: &[Run],
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let payload = predicted::encode::<2>(vertices, runs)?;
+    let payload = predicted_payload::<2>(vertices, runs, enc)?;
     let meta = StreamMeta::new2(
         StreamType::Data(DictionaryType::Vertex),
         LogicalEncoding::Vertex(VertexLogical::Predicted),
@@ -468,7 +470,7 @@ pub(super) fn encode_predicted_xyz_vertex_stream02(
     axis: ZAxis,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let payload = predicted::encode::<3>(vertices, runs)?;
+    let payload = predicted_payload::<3>(vertices, runs, enc)?;
     let meta = StreamMeta::new2(
         StreamType::Data(DictionaryType::Vertex),
         LogicalEncoding::Vertex(VertexLogical::Xyz(axis, XyzLogical::Predicted)),
@@ -476,6 +478,20 @@ pub(super) fn encode_predicted_xyz_vertex_stream02(
         vertices.len(),
     )?;
     write_stream_payload(enc, meta, false, &payload)
+}
+
+/// The predicted payload of `D`-component `vertices`, from one fixed pair of guesses under [`PredictedVertices::Fast`].
+#[cfg(feature = "unstable-v2")]
+fn predicted_payload<const D: usize>(
+    vertices: &[i32],
+    runs: &[Run],
+    enc: &Encoder,
+) -> MltResult<Vec<u8>> {
+    if enc.config().predicted_vertices() == PredictedVertices::Fast {
+        predicted::encode_fast::<D>(vertices, runs)
+    } else {
+        predicted::encode::<D>(vertices, runs)
+    }
 }
 
 fn vec2_vertex_stream(

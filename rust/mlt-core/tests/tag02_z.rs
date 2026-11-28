@@ -2,7 +2,9 @@
 
 use insta::assert_snapshot;
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
+use mlt_core::encoder::{
+    EncoderConfig, Network, PredictedVertices, Profile, Tessellation, WireVersion,
+};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
@@ -304,14 +306,20 @@ fn vertex_encoding(bytes: &[u8]) -> String {
     Geometry::Polygon(square(i * 20, 900))
 }).collect()))]
 fn predicted_vertices_shrink_a_z_layer_and_decode_unchanged(#[case] layer: TileLayer) {
-    let plain = assert_round_trips(&layer, cfg_v2());
-    let predicted = assert_round_trips(&layer, cfg_v2().with_predicted_vertices(true));
+    let componentwise = assert_round_trips(
+        &layer,
+        cfg_v2().with_predicted_vertices(PredictedVertices::Off),
+    );
+    let predicted = assert_round_trips(
+        &layer,
+        cfg_v2().with_predicted_vertices(PredictedVertices::Smallest),
+    );
     assert_snapshot!(vertex_encoding(&predicted), @"0xA1 logical=Predicted physical=implied");
     assert!(
-        predicted.len() < plain.len(),
+        predicted.len() < componentwise.len(),
         "{} vs {}",
         predicted.len(),
-        plain.len()
+        componentwise.len()
     );
 }
 
@@ -319,14 +327,17 @@ fn predicted_vertices_shrink_a_z_layer_and_decode_unchanged(#[case] layer: TileL
 fn a_tessellated_z_layer_races_predicted_vertices() {
     let layer = z_features(slopes());
     let tessellated = cfg_v2().with_tessellation(Tessellation::Always);
-    let predicted = assert_round_trips(&layer, tessellated.with_predicted_vertices(true));
+    let predicted = assert_round_trips(
+        &layer,
+        tessellated.with_predicted_vertices(PredictedVertices::Smallest),
+    );
     assert_snapshot!(vertex_encoding(&predicted), @"0xA1 logical=Predicted physical=implied");
 }
 
 #[test]
 fn a_predicted_vertex_stream_header_names_its_axis() {
     let bytes = z_features(contours())
-        .encode(cfg_v2().with_predicted_vertices(true))
+        .encode(cfg_v2().with_predicted_vertices(PredictedVertices::Smallest))
         .unwrap();
     assert_snapshot!(vertex_header_fields(&bytes), @"
     encoding = 0xA1 logical=Predicted physical=implied
