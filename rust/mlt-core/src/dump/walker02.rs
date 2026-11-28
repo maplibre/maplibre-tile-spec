@@ -921,7 +921,10 @@ impl<'a> Walker<'a> {
         // A predicted payload needs the topology to decode, so the dump shows its composition.
         let hint = match stream.meta.encoding.logical {
             LogicalEncoding::Float(FloatLogical::Alp(params)) => DecodeHint::Alp(params),
-            LogicalEncoding::Vertex(VertexLogical::Predicted) => DecodeHint::Predicted,
+            LogicalEncoding::Vertex(
+                VertexLogical::Predicted
+                | VertexLogical::Xyz(_, crate::decoder::XyzLogical::Predicted),
+            ) => DecodeHint::Predicted,
             LogicalEncoding::Float(FloatLogical::None)
             | LogicalEncoding::Int(_)
             | LogicalEncoding::Bool(_)

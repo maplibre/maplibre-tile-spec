@@ -991,6 +991,7 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             // and leave the step to the `zStep` facet.
             LE::Vertex(VertexLogical::Xyz(_, xyz)) => match xyz {
                 XyzLogical::ComponentwiseDelta => Self::ComponentwiseDelta,
+                XyzLogical::Predicted => Self::Predicted,
             },
         }
     }

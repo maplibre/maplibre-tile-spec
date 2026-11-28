@@ -155,6 +155,10 @@ impl LogicalValue {
                 }
                 match xyz {
                     XyzLogical::ComponentwiseDelta => decode_componentwise_delta_vec3s(data, dec),
+                    XyzLogical::Predicted => Err(UnsupportedLogicalEncoding(
+                        self.meta.encoding.logical,
+                        "a stream decoded without the layer's topology",
+                    )),
                 }
             }
             LE::Bool(_) | LE::Float(_) => Err(UnsupportedLogicalEncoding(

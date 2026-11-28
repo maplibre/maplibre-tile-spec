@@ -6,10 +6,8 @@ use usize_cast::IntoUsize as _;
 use crate::MltError::MalformedPredictedVertices as Malformed;
 use crate::codecs::varint::parse_varint;
 use crate::codecs::vertex_copies::{self, Copier};
+use crate::errors::AsMltError as _;
 use crate::{Decoder, MltResult};
-
-/// A vertex as `[x, y]`.
-pub type Pos = [i32; 2];
 
 /// A ring or line part, the only runs a guess looks back into.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -86,6 +84,9 @@ const QUAD: u32 = 4;
 const COPIES: u8 = 0x08;
 const LINE_REFERENCES: u8 = 0x10;
 const RESERVED: u8 = 0xE0;
+/// The z parameter byte flag of a class whose z residuals are all zero and have no codeword.
+const Z_ZERO: u8 = 0x10;
+const Z_RESERVED: u8 = 0xE0;
 
 impl LineGuess {
     /// The shortest line part whose later vertices continue the last edge.
@@ -223,17 +224,18 @@ impl Plan {
     }
 
     /// The copies that save more of the zigzagged `residuals` than their ops take.
-    fn copies(vertices: &[i32], runs: &[Run], residuals: &[u32]) -> Self {
+    fn copies<const D: usize>(vertices: &[i32], runs: &[Run], residuals: &[u32]) -> Self {
         let saved: Vec<usize> = residuals
-            .as_chunks::<2>()
+            .as_chunks::<D>()
             .0
             .iter()
-            .map(|&[x, y]| {
-                vertex_copies::varint_len(x.into_usize())
-                    + vertex_copies::varint_len(y.into_usize())
+            .map(|v| {
+                v.iter()
+                    .map(|&r| vertex_copies::varint_len(r.into_usize()))
+                    .sum()
             })
             .collect();
-        let copies = vertex_copies::plan(vertices, runs, &saved);
+        let copies = vertex_copies::plan::<D>(vertices, runs, &saved);
         let mut ops = Vec::new();
         vertex_copies::write_ops(&copies, &mut ops);
         Self {
@@ -248,12 +250,12 @@ impl Plan {
     }
 
     /// This plan with a reference for every line part endpoint it does not share yet and an earlier line part holds.
-    fn with_line_references(&self, vertices: &[i32], runs: &[Run]) -> Self {
-        let pos = |i: usize| -> Pos { [vertices[2 * i], vertices[2 * i + 1]] };
+    fn with_line_references<const D: usize>(&self, vertices: &[i32], runs: &[Run]) -> Self {
+        let pos = |i: usize| vertices.as_chunks::<D>().0[i];
         let mut shared = self.shared.clone();
         let mut bits = BitWriter::default();
         let mut slots = 0_usize;
-        let mut first_slot: FxHashMap<Pos, usize> = FxHashMap::default();
+        let mut first_slot: FxHashMap<[i32; D], usize> = FxHashMap::default();
         for run in runs.iter().filter(|r| r.kind == RunKind::Line && r.len > 0) {
             let start = run.start.into_usize();
             let end = start + run.len.into_usize();
@@ -396,7 +398,7 @@ impl<'a> LineReferences<'a> {
     }
 
     /// The vertex that a line part endpoint refers to, when its flag is set.
-    fn reference(&mut self, vertices: &[Pos]) -> MltResult<Option<Pos>> {
+    fn reference<const D: usize>(&mut self, vertices: &[[i32; D]]) -> MltResult<Option<[i32; D]>> {
         if self.bits.take(1)? == 0 {
             return Ok(None);
         }
@@ -424,58 +426,80 @@ pub fn header(data: &[u8]) -> MltResult<Header> {
 
 /// What the residuals of one class cost.
 #[derive(Clone, Copy)]
-struct ClassCost {
-    axes: [RiceCosts; 2],
+struct ClassCost<const D: usize> {
+    axes: [RiceCosts; D],
     vertices: usize,
 }
 
-impl ClassCost {
+/// The parameters a class is written with.
+#[derive(Clone, Copy)]
+struct ClassParams<const D: usize> {
+    ks: [u32; D],
+    /// Every z residual is zero and has no codeword.
+    z_zero: bool,
+}
+
+impl<const D: usize> ClassCost<D> {
     const NONE: Self = Self {
-        axes: [RiceCosts::NONE; 2],
+        axes: [RiceCosts::NONE; D],
         vertices: 0,
     };
 
-    fn add(&mut self, pair: [u32; 2]) {
+    /// The parameter bytes of a class that holds a residual: one for `x` and `y`, and one for `z` on triples.
+    const PARAM_BYTES: usize = D - 1;
+
+    fn add(&mut self, residual: &[u32; D]) {
         self.vertices += 1;
-        self.axes[0].add(pair[0]);
-        self.axes[1].add(pair[1]);
+        for (axis, &r) in self.axes.iter_mut().zip(residual) {
+            axis.add(r);
+        }
     }
 
     fn sub(&mut self, other: &Self) {
-        self.axes[0].sub(&other.axes[0]);
-        self.axes[1].sub(&other.axes[1]);
+        for (axis, other) in self.axes.iter_mut().zip(&other.axes) {
+            axis.sub(other);
+        }
         self.vertices -= other.vertices;
     }
 
-    /// The parameter of each axis, and the codeword bits the class takes with them.
-    fn params(&self) -> ([u32; 2], u64) {
-        let (kx, x) = self.axes[0].best();
-        let (ky, y) = self.axes[1].best();
-        ([kx, ky], x + y)
+    /// The parameters of the class, and the codeword bits it takes with them.
+    fn params(&self) -> (ClassParams<D>, u64) {
+        let mut ks = [0; D];
+        let mut bits = 0;
+        for (k, axis) in ks.iter_mut().zip(&self.axes) {
+            let (best, cost) = axis.best();
+            *k = best;
+            bits += cost;
+        }
+        let z_zero = D == 3 && self.axes[D - 1].all_zero();
+        if z_zero {
+            bits -= self.axes[D - 1].best().1;
+        }
+        (ClassParams { ks, z_zero }, bits)
     }
 }
 
 /// The cost of the vertices `keep` selects, per class.
-fn class_costs(
+fn class_costs<const D: usize>(
     residuals: &[u32],
     tags: &[Tag],
     keep: impl Fn(usize) -> bool,
-) -> [ClassCost; CLASSES] {
+) -> [ClassCost<D>; CLASSES] {
     let mut costs = [ClassCost::NONE; CLASSES];
-    for (i, (&tag, &pair)) in tags.iter().zip(residuals.as_chunks::<2>().0).enumerate() {
+    for (i, (&tag, residual)) in tags.iter().zip(residuals.as_chunks::<D>().0).enumerate() {
         if keep(i) {
-            costs[tag.stream()].add(pair);
+            costs[tag.stream()].add(residual);
         }
     }
     costs
 }
 
 /// The length `write` gives a payload, from the class costs of the vertices it stores.
-fn payload_len(
+fn payload_len<const D: usize>(
     header: Header,
     plan: &Plan,
-    totals: &[ClassCost; CLASSES],
-    stored: &[ClassCost; CLASSES],
+    totals: &[ClassCost<D>; CLASSES],
+    stored: &[ClassCost<D>; CLASSES],
 ) -> usize {
     let mut len = 1 + plan.ops.len() + plan.bits.len();
     if header.sharing.any() {
@@ -494,7 +518,7 @@ fn payload_len(
     if header.sharing.any() {
         len += vertex_copies::varint_len(bytes);
     }
-    len + written().count() + bytes
+    len + written().count() * ClassCost::<D>::PARAM_BYTES + bytes
 }
 
 /// The shortest payload so far.
@@ -506,31 +530,31 @@ struct Best {
     plan: Plan,
 }
 
-/// The shortest payload for interleaved `(x, y)` `vertices` over `runs`, the lowest header byte on a tie.
-pub fn encode(vertices: &[i32], runs: &[Run]) -> MltResult<Vec<u8>> {
-    let n = vertex_count(vertices)?;
+/// The shortest payload for interleaved `(x, y)` pairs (`D = 2`) or `(x, y, z)` triples (`D = 3`) over `runs`, the lowest header byte on a tie.
+pub fn encode<const D: usize>(vertices: &[i32], runs: &[Run]) -> MltResult<Vec<u8>> {
+    let n = vertex_count::<D>(vertices)?;
     classify(runs, n, LineGuess::Previous)?;
     let unshared = Plan::unshared(n);
-    let line_references = unshared.with_line_references(vertices, runs).useful();
+    let line_references = unshared.with_line_references::<D>(vertices, runs).useful();
     let mut best: Option<Best> = None;
     for guesses in Guesses::ALL.into_iter().filter(|g| g.useful(runs)) {
         let tags = classify(runs, n, guesses.line)?;
-        let residuals = residuals(vertices, &tags, guesses.start);
-        let copies = Plan::copies(vertices, runs, &residuals).useful();
+        let residuals = residuals::<D>(vertices, &tags, guesses.start);
+        let copies = Plan::copies::<D>(vertices, runs, &residuals).useful();
         let both = copies
             .as_ref()
-            .map(|c| c.with_line_references(vertices, runs));
+            .map(|c| c.with_line_references::<D>(vertices, runs));
         let plans = [
             Some(&unshared),
             copies.as_ref(),
             line_references.as_ref(),
             both.as_ref(),
         ];
-        let totals = class_costs(&residuals, &tags, |_| true);
+        let totals = class_costs::<D>(&residuals, &tags, |_| true);
         for plan in plans.into_iter().flatten() {
             let mut stored = totals;
             if plan.sharing.any() {
-                let shared = class_costs(&residuals, &tags, |i| plan.shared[i]);
+                let shared = class_costs::<D>(&residuals, &tags, |i| plan.shared[i]);
                 for (stored, shared) in stored.iter_mut().zip(&shared) {
                     stored.sub(shared);
                 }
@@ -555,67 +579,69 @@ pub fn encode(vertices: &[i32], runs: &[Run]) -> MltResult<Vec<u8>> {
         }
     }
     let best = best.expect("the previous-vertex guesses are always useful");
-    let payload = write(&best.residuals, &best.tags, best.header, &best.plan);
+    let payload = write::<D>(&best.residuals, &best.tags, best.header, &best.plan);
     debug_assert_eq!(payload.len(), best.len);
     Ok(payload)
 }
 
-/// The payload for interleaved `(x, y)` `vertices` over `runs` with `header`.
+/// The payload for interleaved `D`-component `vertices` over `runs` with `header`.
 #[cfg(test)]
-fn encode_as(vertices: &[i32], runs: &[Run], header: Header) -> MltResult<Vec<u8>> {
-    let n = vertex_count(vertices)?;
+fn encode_as<const D: usize>(vertices: &[i32], runs: &[Run], header: Header) -> MltResult<Vec<u8>> {
+    let n = vertex_count::<D>(vertices)?;
     let tags = classify(runs, n, header.guesses.line)?;
-    let residuals = residuals(vertices, &tags, header.guesses.start);
+    let residuals = residuals::<D>(vertices, &tags, header.guesses.start);
     let mut plan = if header.sharing.copies {
-        Plan::copies(vertices, runs, &residuals)
+        Plan::copies::<D>(vertices, runs, &residuals)
     } else {
         Plan::unshared(n)
     };
     if header.sharing.line_references {
-        plan = plan.with_line_references(vertices, runs);
+        plan = plan.with_line_references::<D>(vertices, runs);
     }
-    Ok(write(&residuals, &tags, header, &plan))
+    Ok(write::<D>(&residuals, &tags, header, &plan))
 }
 
-fn vertex_count(vertices: &[i32]) -> MltResult<usize> {
-    if vertices.len().is_multiple_of(2) {
-        Ok(vertices.len() / 2)
-    } else {
+fn vertex_count<const D: usize>(vertices: &[i32]) -> MltResult<usize> {
+    const { assert!(D == 2 || D == 3, "a vertex is a pair or a triple") };
+    if vertices.len().is_multiple_of(D) {
+        Ok(vertices.len() / D)
+    } else if D == 2 {
         Err(Malformed("odd vertex word count"))
+    } else {
+        Err(Malformed("vertex word count is not a multiple of three"))
     }
 }
 
-/// The zigzagged `(x, y)` residual of every vertex, interleaved.
-fn residuals(vertices: &[i32], tags: &[Tag], start: StartGuess) -> Vec<u32> {
-    let mut out = Vec::with_capacity(vertices.len());
-    let mut previous = (0_i32, 0_i32);
-    let mut run_start = (0_i32, 0_i32);
-    for (i, (&tag, v)) in tags.iter().zip(vertices.as_chunks::<2>().0).enumerate() {
-        let (gx, gy) = guess(vertices, i, tag, start, previous, run_start);
-        out.push(zigzag(v[0].wrapping_sub(gx)));
-        out.push(zigzag(v[1].wrapping_sub(gy)));
+/// The zigzagged residual of every vertex, interleaved.
+fn residuals<const D: usize>(vertices: &[i32], tags: &[Tag], start: StartGuess) -> Vec<u32> {
+    let vertices = vertices.as_chunks::<D>().0;
+    let mut out = Vec::with_capacity(D * vertices.len());
+    let mut run_start = [0; D];
+    for (i, (&tag, v)) in tags.iter().zip(vertices).enumerate() {
+        let g = guess(vertices, i, tag, start, run_start);
+        out.extend(v.iter().zip(g).map(|(&v, g)| zigzag(v.wrapping_sub(g))));
         if tag == Tag::Start {
-            run_start = (v[0], v[1]);
+            run_start = *v;
         }
-        previous = (v[0], v[1]);
     }
     out
 }
 
-fn write(residuals: &[u32], tags: &[Tag], header: Header, plan: &Plan) -> Vec<u8> {
-    let mut stored = [ClassCost::NONE; CLASSES];
+fn write<const D: usize>(residuals: &[u32], tags: &[Tag], header: Header, plan: &Plan) -> Vec<u8> {
+    let mut stored = [ClassCost::<D>::NONE; CLASSES];
     let mut totals = [0_usize; CLASSES];
     let mut shared = [0_usize; CLASSES];
-    for (i, (&tag, &pair)) in tags.iter().zip(residuals.as_chunks::<2>().0).enumerate() {
+    let chunks = residuals.as_chunks::<D>().0;
+    for (i, (&tag, residual)) in tags.iter().zip(chunks).enumerate() {
         let stream = tag.stream();
         totals[stream] += 1;
         if plan.shared[i] {
             shared[stream] += 1;
         } else {
-            stored[stream].add(pair);
+            stored[stream].add(residual);
         }
     }
-    let ks = stored.map(|c| c.params().0);
+    let params = stored.map(|c| c.params().0);
     let mut out = Vec::with_capacity(residuals.len() + plan.ops.len() + plan.bits.len() + 8);
     out.push(header.byte());
     if header.sharing.any() {
@@ -628,15 +654,24 @@ fn write(residuals: &[u32], tags: &[Tag], header: Header, plan: &Plan) -> Vec<u8
     if header.sharing.copies && header.sharing.line_references {
         write_varint(plan.ops.len(), &mut out);
     }
-    for (class, [kx, ky]) in stored.iter().zip(ks) {
+    for (class, p) in stored.iter().zip(&params) {
         if class.vertices > 0 {
-            out.push(kx.to_le_bytes()[0] | ky.to_le_bytes()[0] << 4);
+            out.push(p.ks[0].to_le_bytes()[0] | p.ks[1].to_le_bytes()[0] << 4);
+            if D == 3 {
+                out.push(if p.z_zero {
+                    Z_ZERO
+                } else {
+                    p.ks[2].to_le_bytes()[0]
+                });
+            }
         }
     }
     let mut bits = LsbBitWriter::default();
-    for (i, (&tag, pair)) in tags.iter().zip(residuals.as_chunks::<2>().0).enumerate() {
+    for (i, (&tag, residual)) in tags.iter().zip(chunks).enumerate() {
         if !plan.shared[i] {
-            for (&v, k) in pair.iter().zip(ks[tag.stream()]) {
+            let p = &params[tag.stream()];
+            let coded = if p.z_zero { 2 } else { D };
+            for (&v, &k) in residual.iter().zip(&p.ks).take(coded) {
                 put_rice(v, k, &mut bits);
             }
         }
@@ -651,13 +686,14 @@ fn write(residuals: &[u32], tags: &[Tag], header: Header, plan: &Plan) -> Vec<u8
     out
 }
 
-/// Decode `vertex_count` interleaved `(x, y)` vertices over `runs`.
-pub fn decode(
+/// Decode `vertex_count` interleaved `(x, y)` pairs (`D = 2`) or `(x, y, z)` triples (`D = 3`) over `runs`.
+pub fn decode<const D: usize>(
     data: &[u8],
     runs: &[Run],
     vertex_count: u32,
     dec: &mut Decoder,
 ) -> MltResult<Vec<i32>> {
+    const { assert!(D == 2 || D == 3, "a vertex is a pair or a triple") };
     let (&byte, mut rest) = data.split_first().ok_or(Malformed("no header byte"))?;
     let Header { guesses, sharing } = Header::from_byte(byte)?;
     let n = vertex_count.into_usize();
@@ -679,7 +715,7 @@ pub fn decode(
     } else {
         None
     };
-    let (mut walk, rest) = Walk::new(rest, &lengths, guesses, sharing.any())?;
+    let (mut walk, rest) = Walk::<D>::new(rest, &lengths, guesses, sharing.any())?;
     let (ops, bits) = match (sharing.copies, ops_len) {
         (false, _) => (&[][..], rest),
         (true, None) => (rest, &[][..]),
@@ -694,9 +730,10 @@ pub fn decode(
         None
     };
 
-    let mut out = dec.alloc::<i32>(2 * n)?;
-    out.resize(2 * n, 0);
-    let vertices = out.as_chunks_mut::<2>().0;
+    let words = n.checked_mul(D).or_overflow()?;
+    let mut out = dec.alloc::<i32>(words)?;
+    out.resize(words, 0);
+    let vertices = out.as_chunks_mut::<D>().0;
     let mut end = 0;
     for run in runs.iter().filter(|r| r.len > 0) {
         let start = run.start.into_usize();
@@ -773,17 +810,17 @@ fn class_lengths(runs: &[Run], vertex_count: usize) -> MltResult<[usize; CLASSES
 }
 
 /// The decoder state between runs: the parameters of each class over the one bit data.
-struct Walk<'a> {
+struct Walk<'a, const D: usize> {
     bits: Bits<'a>,
     params: [Params; CLASSES],
     start_guess: StartGuess,
     /// The shortest line part whose later vertices continue the last edge.
     continued_from: usize,
     /// The first vertex of the latest run.
-    run_start: Pos,
+    run_start: [i32; D],
 }
 
-impl<'a> Walk<'a> {
+impl<'a, const D: usize> Walk<'a, D> {
     /// Reads the parameters of the classes with `lengths` vertices off `data`, then locates the bit data.
     ///
     /// With `delimited`, a `byte_len` varint precedes the bit data, which otherwise runs to the end.
@@ -797,10 +834,14 @@ impl<'a> Walk<'a> {
         let mut rest = data;
         for (p, &len) in params.iter_mut().zip(lengths) {
             if len > 0 {
-                let Some((&byte, tail)) = rest.split_first() else {
+                let Some((bytes, tail)) = rest.split_at_checked(D - 1) else {
                     return Err(Malformed("rice parameters are cut short"));
                 };
-                (*p, rest) = (Params::new(byte, 2 * len), tail);
+                *p = Params::new(bytes[0], len);
+                if D == 3 {
+                    p.set_z(bytes[1])?;
+                }
+                rest = tail;
             }
         }
         let data;
@@ -820,7 +861,7 @@ impl<'a> Walk<'a> {
             params,
             start_guess: guesses.start,
             continued_from: guesses.line.min_len().map_or(usize::MAX, u32::into_usize),
-            run_start: [0, 0],
+            run_start: [0; D],
         };
         Ok((walk, rest))
     }
@@ -828,7 +869,7 @@ impl<'a> Walk<'a> {
     /// The reader of class `c`.
     #[expect(clippy::inline_always, reason = "keeps the bit buffer in registers")]
     #[inline(always)]
-    fn rice(&mut self, c: usize) -> Rice<'_, 'a> {
+    fn rice(&mut self, c: usize) -> Rice<'_, 'a, D> {
         Rice {
             bits: &mut self.bits,
             p: &mut self.params[c],
@@ -838,7 +879,7 @@ impl<'a> Walk<'a> {
     /// Decodes the points from `from` to the end of `vertices`, from copies or residuals.
     fn points(
         &mut self,
-        vertices: &mut [Pos],
+        vertices: &mut [[i32; D]],
         from: usize,
         copier: &mut Copier<'_>,
     ) -> MltResult<()> {
@@ -863,7 +904,7 @@ impl<'a> Walk<'a> {
     /// Decodes the run from `start` to the end of `vertices`, where copies or line `references` may share vertices.
     fn shared_run(
         &mut self,
-        vertices: &mut [Pos],
+        vertices: &mut [[i32; D]],
         start: usize,
         kind: RunKind,
         copier: &mut Copier<'_>,
@@ -900,7 +941,7 @@ impl<'a> Walk<'a> {
     /// Decodes the vertices `from..to` of the run from `start` to the end of `vertices` from their residuals.
     fn residuals(
         &mut self,
-        vertices: &mut [Pos],
+        vertices: &mut [[i32; D]],
         start: usize,
         [from, to]: [usize; 2],
         kind: RunKind,
@@ -970,8 +1011,8 @@ const LINE_SECOND: usize = Tag::LineSecond.stream();
 const LINE: usize = Tag::Line.stream();
 
 /// The guess for the fourth vertex of a ring of four, `p[0] + p[2] - p[1]`.
-fn corner(run: &[Pos]) -> Pos {
-    [0, 1].map(|axis| {
+fn corner<const D: usize>(run: &[[i32; D]]) -> [i32; D] {
+    std::array::from_fn(|axis| {
         run[0][axis]
             .wrapping_add(run[2][axis])
             .wrapping_sub(run[1][axis])
@@ -979,12 +1020,12 @@ fn corner(run: &[Pos]) -> Pos {
 }
 
 /// The vertex before `i`, or the origin for the first.
-fn previous(vertices: &[Pos], i: usize) -> Pos {
-    i.checked_sub(1).map_or([0, 0], |p| vertices[p])
+fn previous<const D: usize>(vertices: &[[i32; D]], i: usize) -> [i32; D] {
+    i.checked_sub(1).map_or([0; D], |p| vertices[p])
 }
 
-fn add(a: Pos, b: Pos) -> Pos {
-    [a[0].wrapping_add(b[0]), a[1].wrapping_add(b[1])]
+fn add<const D: usize>(a: [i32; D], b: [i32; D]) -> [i32; D] {
+    std::array::from_fn(|axis| a[axis].wrapping_add(b[axis]))
 }
 
 /// The Rice bit data, read least significant bit first through a 64 bit buffer.
@@ -1029,7 +1070,7 @@ impl Bits<'_> {
     }
 }
 
-/// The parameters of one class and the residual values it has left.
+/// The parameters of one class and the vertices it has left.
 #[derive(Clone, Copy, Default)]
 struct Params {
     ks: [u32; 2],
@@ -1039,7 +1080,13 @@ struct Params {
     pair_bits: u32,
     /// The bits of a pair that do not depend on its quotients: both terminators and both remainders.
     fixed_bits: u32,
-    /// The values left to read.
+    kz: u32,
+    z_mask: u32,
+    /// The bits a z takes at most without an escape.
+    z_bits: u32,
+    /// Every z residual is zero and has no codeword.
+    z_zero: bool,
+    /// The vertices left to read.
     remaining: usize,
     /// The first malformed condition met, zero while the class is sound.
     bad: u8,
@@ -1058,20 +1105,36 @@ const REASONS: [&str; 4] = [
 ];
 
 impl Params {
-    /// The parameters a byte holds, for a class of `count` values.
-    fn new(byte: u8, count: usize) -> Self {
+    /// The parameters an `(x, y)` byte holds, for a class of `vertices`.
+    fn new(byte: u8, vertices: usize) -> Self {
         let ks = [u32::from(byte & 0x0F), u32::from(byte >> 4)];
         Self {
             ks,
             masks: ks.map(|k| (1_u32 << k) - 1),
             fixed_bits: 2 + ks[0] + ks[1],
             pair_bits: 2 * RICE_ESCAPE_Q + ks[0] + ks[1],
-            remaining: count,
-            bad: 0,
+            remaining: vertices,
+            ..Self::default()
         }
     }
 
-    /// Checks that every value of the class was read and none was malformed.
+    /// Takes the parameter of `z` from its byte.
+    fn set_z(&mut self, byte: u8) -> MltResult<()> {
+        if byte & Z_RESERVED != 0 {
+            return Err(Malformed("reserved z parameter bit set"));
+        }
+        let kz = u32::from(byte & 0x0F);
+        self.z_zero = byte & Z_ZERO != 0;
+        if self.z_zero && kz != 0 {
+            return Err(Malformed("z parameter with the zero flag has a nonzero k"));
+        }
+        self.kz = kz;
+        self.z_mask = (1_u32 << kz) - 1;
+        self.z_bits = RICE_ESCAPE_Q + kz;
+        Ok(())
+    }
+
+    /// Checks that every vertex of the class was read and none was malformed.
     fn finish(&self) -> MltResult<()> {
         if self.bad != 0 {
             return Err(Malformed(REASONS[usize::from(self.bad - 1)]));
@@ -1086,17 +1149,17 @@ impl Params {
 }
 
 /// The reader of one class: its parameters over the shared bit data.
-struct Rice<'r, 'a> {
+struct Rice<'r, 'a, const D: usize> {
     bits: &'r mut Bits<'a>,
     p: &'r mut Params,
 }
 
-impl Rice<'_, '_> {
+impl<const D: usize> Rice<'_, '_, D> {
     /// Bits an escaped value takes at most, the largest read between two refills.
     const MAX_BITS: u32 = RICE_ESCAPE_Q + 6 + 32;
 
     /// Decodes each vertex of `run` after the first as the one before it plus its residual.
-    fn deltas(&mut self, run: &mut [Pos]) {
+    fn deltas(&mut self, run: &mut [[i32; D]]) {
         let Some((first, later)) = run.split_first_mut() else {
             return;
         };
@@ -1108,12 +1171,12 @@ impl Rice<'_, '_> {
     }
 
     /// Decodes each vertex of `run` after the second as the last edge continued plus its residual.
-    fn continued(&mut self, run: &mut [Pos]) {
+    fn continued(&mut self, run: &mut [[i32; D]]) {
         let [mut a, mut b, ..] = *run else {
             return;
         };
         self.fill(&mut run[2..], |r| {
-            let guess = [0, 1].map(|axis| b[axis].wrapping_mul(2).wrapping_sub(a[axis]));
+            let guess = std::array::from_fn(|axis| b[axis].wrapping_mul(2).wrapping_sub(a[axis]));
             (a, b) = (b, add(guess, r));
             b
         });
@@ -1164,9 +1227,20 @@ impl Rice<'_, '_> {
         reason = "measured 34M fewer instructions than #[inline] on the omt tiles"
     )]
     #[inline(always)]
-    fn residual(&mut self) -> Pos {
+    fn residual(&mut self) -> [i32; D] {
+        if D == 3 && !self.p.z_zero {
+            self.residual_with::<true>()
+        } else {
+            self.residual_with::<false>()
+        }
+    }
+
+    /// The residual of the next vertex, with a `z` codeword when `Z`.
+    #[expect(clippy::inline_always, reason = "the body of `residual`")]
+    #[inline(always)]
+    fn residual_with<const Z: bool>(&mut self) -> [i32; D] {
         if !self.reserve(1) {
-            return [0, 0];
+            return [0; D];
         }
         if self.bits.filled < self.p.pair_bits {
             self.bits.refill();
@@ -1176,18 +1250,20 @@ impl Rice<'_, '_> {
             && let Some(pair) = fast_pair(self.p, &mut buf, &mut filled)
         {
             (self.bits.buf, self.bits.filled) = (buf, filled);
-            return pair;
+            let mut r = [0; D];
+            r[..2].copy_from_slice(&pair);
+            if Z {
+                r[2] = self.z();
+            }
+            return r;
         }
-        self.pair_exact()
+        self.vertex_exact::<Z>()
     }
 
     /// Claims `vertices` residuals of the class, false when it has fewer left.
     #[inline]
     fn reserve(&mut self, vertices: usize) -> bool {
-        let Some(remaining) = vertices
-            .checked_mul(2)
-            .and_then(|values| self.p.remaining.checked_sub(values))
-        else {
+        let Some(remaining) = self.p.remaining.checked_sub(vertices) else {
             self.fail(DISAGREE);
             return false;
         };
@@ -1204,13 +1280,28 @@ impl Rice<'_, '_> {
         }
     }
 
-    /// Sets each vertex of `out` to `step` of the next residual, keeping the bit buffer and the parameters in registers.
+    /// Sets each vertex of `out` to `step` of the next residual.
     #[expect(
         clippy::inline_always,
         reason = "measured 34M fewer instructions than #[inline] on the omt tiles"
     )]
     #[inline(always)]
-    fn fill(&mut self, out: &mut [Pos], mut step: impl FnMut(Pos) -> Pos) {
+    fn fill(&mut self, out: &mut [[i32; D]], step: impl FnMut([i32; D]) -> [i32; D]) {
+        if D == 3 && !self.p.z_zero {
+            self.fill_with::<true>(out, step);
+        } else {
+            self.fill_with::<false>(out, step);
+        }
+    }
+
+    /// The body of `fill`, with a `z` codeword per vertex when `Z`, keeping the bit buffer and the parameters in registers.
+    #[expect(clippy::inline_always, reason = "the body of `fill`")]
+    #[inline(always)]
+    fn fill_with<const Z: bool>(
+        &mut self,
+        out: &mut [[i32; D]],
+        mut step: impl FnMut([i32; D]) -> [i32; D],
+    ) {
         if !self.reserve(out.len()) {
             return;
         }
@@ -1225,38 +1316,96 @@ impl Rice<'_, '_> {
             if filled >= p.pair_bits
                 && let Some(pair) = fast_pair(&p, &mut buf, &mut filled)
             {
-                *v = step(pair);
+                let mut r = [0; D];
+                r[..2].copy_from_slice(&pair);
+                if Z {
+                    if filled < p.z_bits {
+                        (self.bits.buf, self.bits.filled) = (buf, filled);
+                        self.bits.refill();
+                        (buf, filled) = (self.bits.buf, self.bits.filled);
+                    }
+                    let fast = if filled >= p.z_bits {
+                        fast_z(&p, &mut buf, &mut filled)
+                    } else {
+                        None
+                    };
+                    r[2] = if let Some(z) = fast {
+                        z
+                    } else {
+                        (self.bits.buf, self.bits.filled) = (buf, filled);
+                        let z = self.z_exact();
+                        (buf, filled) = (self.bits.buf, self.bits.filled);
+                        z
+                    };
+                }
+                *v = step(r);
                 continue;
             }
             (self.bits.buf, self.bits.filled) = (buf, filled);
-            *v = step(self.pair_exact());
+            *v = step(self.vertex_exact::<Z>());
             (buf, filled) = (self.bits.buf, self.bits.filled);
         }
         (self.bits.buf, self.bits.filled) = (buf, filled);
     }
 
-    /// The residual of the next vertex, with every cut-short check.
+    /// The `z` residual of the next vertex after its `x` and `y`.
+    #[inline]
+    fn z(&mut self) -> i32 {
+        if self.bits.filled < self.p.z_bits {
+            self.bits.refill();
+        }
+        let (mut buf, mut filled) = (self.bits.buf, self.bits.filled);
+        if filled >= self.p.z_bits
+            && let Some(z) = fast_z(self.p, &mut buf, &mut filled)
+        {
+            (self.bits.buf, self.bits.filled) = (buf, filled);
+            return z;
+        }
+        self.z_exact()
+    }
+
+    /// The `z` residual of the next vertex after its `x` and `y`, with every cut-short check.
     #[inline(never)]
-    fn pair_exact(&mut self) -> Pos {
+    fn z_exact(&mut self) -> i32 {
+        match self.value(self.p.kz) {
+            Ok(z) => unzigzag(z),
+            Err(reason) => {
+                self.fail(reason);
+                0
+            }
+        }
+    }
+
+    /// The residual of the next vertex, with a `z` codeword when `Z` and every cut-short check.
+    #[inline(never)]
+    fn vertex_exact<const Z: bool>(&mut self) -> [i32; D] {
         let x = self.value(self.p.ks[0]);
         let y = self.value(self.p.ks[1]);
-        match (x, y) {
-            (Ok(x), Ok(y)) => [unzigzag(x), unzigzag(y)],
-            (Err(reason), _) | (_, Err(reason)) => {
+        let z = if Z { self.value(self.p.kz) } else { Ok(0) };
+        match (x, y, z) {
+            (Ok(x), Ok(y), Ok(z)) => {
+                let mut r = [0; D];
+                r[..2].copy_from_slice(&[unzigzag(x), unzigzag(y)]);
+                if Z {
+                    r[2] = unzigzag(z);
+                }
+                r
+            }
+            (Err(reason), _, _) | (_, Err(reason), _) | (_, _, Err(reason)) => {
                 self.fail(reason);
-                [0, 0]
+                [0; D]
             }
         }
     }
 }
 
-/// The residual of the next vertex when it takes no escape, given that `buf` holds `pair_bits` bits.
+/// The `(x, y)` residual of the next vertex when it takes no escape, given that `buf` holds `pair_bits` bits.
 #[expect(
     clippy::inline_always,
     reason = "the bulk loop and the single reader share one body"
 )]
 #[inline(always)]
-fn fast_pair(p: &Params, buf: &mut u64, filled: &mut u32) -> Option<Pos> {
+fn fast_pair(p: &Params, buf: &mut u64, filled: &mut u32) -> Option<[i32; 2]> {
     let [kx, ky] = p.ks;
     let [mx, my] = p.masks;
     let zx = buf.trailing_zeros();
@@ -1274,6 +1423,24 @@ fn fast_pair(p: &Params, buf: &mut u64, filled: &mut u32) -> Option<Pos> {
     *buf = rest >> (zy + 1 + ky);
     *filled -= zx + zy + p.fixed_bits;
     Some([unzigzag(zx << kx | lx), unzigzag(zy << ky | ly)])
+}
+
+/// The `z` residual of the next vertex when it takes no escape, given that `buf` holds `z_bits` bits.
+#[expect(
+    clippy::inline_always,
+    reason = "the bulk loop and the single reader share one body"
+)]
+#[inline(always)]
+fn fast_z(p: &Params, buf: &mut u64, filled: &mut u32) -> Option<i32> {
+    let zz = buf.trailing_zeros();
+    if zz >= RICE_ESCAPE_Q {
+        return None;
+    }
+    let rest = *buf >> (zz + 1);
+    let lz = u32::try_from(rest & 0xFFFF_FFFF).expect("masked") & p.z_mask;
+    *buf = rest >> p.kz;
+    *filled -= zz + 1 + p.kz;
+    Some(unzigzag(zz << p.kz | lz))
 }
 
 /// The unary quotient from which a Rice value escapes.
@@ -1320,6 +1487,11 @@ impl RiceCosts {
         for (a, b) in self.widths.iter_mut().zip(&other.widths) {
             *a -= b;
         }
+    }
+
+    /// Whether every value is zero.
+    fn all_zero(&self) -> bool {
+        self.widths[1..].iter().all(|&n| n == 0)
     }
 
     /// The bits all values take per parameter.
@@ -1430,30 +1602,23 @@ fn classify(runs: &[Run], vertex_count: usize, line: LineGuess) -> MltResult<Vec
     Ok(tags)
 }
 
-fn guess(
-    vertices: &[i32],
+/// The guess for vertex `i`, every component from the same vertices.
+fn guess<const D: usize>(
+    vertices: &[[i32; D]],
     i: usize,
     tag: Tag,
     start: StartGuess,
-    previous: (i32, i32),
-    run_start: (i32, i32),
-) -> (i32, i32) {
-    let at = |back: usize, axis: usize| vertices[2 * (i - back) + axis];
+    run_start: [i32; D],
+) -> [i32; D] {
     match (tag, start) {
         (Tag::Start, StartGuess::RunStart) => run_start,
-        (Tag::Corner, _) => {
-            let corner = |axis| {
-                at(3, axis)
-                    .wrapping_add(at(1, axis))
-                    .wrapping_sub(at(2, axis))
-            };
-            (corner(0), corner(1))
-        }
-        (Tag::ContinuedLine, _) => {
-            let continued = |axis| at(1, axis).wrapping_mul(2).wrapping_sub(at(2, axis));
-            (continued(0), continued(1))
-        }
-        _ => previous,
+        (Tag::Corner, _) => corner(&vertices[i - 3..i]),
+        (Tag::ContinuedLine, _) => std::array::from_fn(|axis| {
+            vertices[i - 1][axis]
+                .wrapping_mul(2)
+                .wrapping_sub(vertices[i - 2][axis])
+        }),
+        _ => previous(vertices, i),
     }
 }
 
@@ -1534,7 +1699,7 @@ mod tests {
             },
             sharing: Sharing::NONE,
         };
-        let payload = encode_as(&vertices, &runs, header).unwrap();
+        let payload = encode_as::<2>(&vertices, &runs, header).unwrap();
         assert_eq!(
             payload,
             [
@@ -1542,7 +1707,10 @@ mod tests {
                 0xC8, 0x09
             ]
         );
-        assert_eq!(decode(&payload, &runs, 7, &mut dec()).unwrap(), vertices);
+        assert_eq!(
+            decode::<2>(&payload, &runs, 7, &mut dec()).unwrap(),
+            vertices
+        );
     }
 
     #[test]
@@ -1562,7 +1730,7 @@ mod tests {
                 line_references: true,
             },
         };
-        let payload = encode_as(&vertices, &runs, header).unwrap();
+        let payload = encode_as::<2>(&vertices, &runs, header).unwrap();
         assert_eq!(
             payload,
             [
@@ -1571,7 +1739,10 @@ mod tests {
                 0xC0
             ]
         );
-        assert_eq!(decode(&payload, &runs, 12, &mut dec()).unwrap(), vertices);
+        assert_eq!(
+            decode::<2>(&payload, &runs, 12, &mut dec()).unwrap(),
+            vertices
+        );
     }
 
     #[rstest]
@@ -1650,9 +1821,12 @@ mod tests {
             },
             sharing,
         };
-        let payload = encode_as(&vertices, &runs, header).unwrap();
+        let payload = encode_as::<2>(&vertices, &runs, header).unwrap();
         assert_eq!(super::header(&payload).unwrap(), header);
-        assert_eq!(decode(&payload, &runs, 24, &mut dec()).unwrap(), vertices);
+        assert_eq!(
+            decode::<2>(&payload, &runs, 24, &mut dec()).unwrap(),
+            vertices
+        );
     }
 
     fn rice_points_payload(bits: &[u8]) -> Vec<u8> {
@@ -1660,7 +1834,7 @@ mod tests {
     }
 
     fn rice_error(payload: &[u8], vertex_count: u32) -> String {
-        decode(payload, &[], vertex_count, &mut dec())
+        decode::<2>(payload, &[], vertex_count, &mut dec())
             .unwrap_err()
             .to_string()
     }
@@ -1680,9 +1854,12 @@ mod tests {
         let runs = [ring(0, 4), ring(4, 4), line(8, 2), line(10, 2), line(12, 3)];
         for guesses in Guesses::ALL {
             let header = Header { guesses, sharing };
-            let payload = encode_as(&vertices, &runs, header).unwrap();
+            let payload = encode_as::<2>(&vertices, &runs, header).unwrap();
             assert_eq!(super::header(&payload).unwrap(), header);
-            assert_eq!(decode(&payload, &runs, 17, &mut dec()).unwrap(), vertices);
+            assert_eq!(
+                decode::<2>(&payload, &runs, 17, &mut dec()).unwrap(),
+                vertices
+            );
         }
     }
 
@@ -1693,8 +1870,8 @@ mod tests {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
         };
-        let payload = encode_as(&vertices, &[], header).unwrap();
-        assert_eq!(decode(&payload, &[], 5, &mut dec()).unwrap(), vertices);
+        let payload = encode_as::<2>(&vertices, &[], header).unwrap();
+        assert_eq!(decode::<2>(&payload, &[], 5, &mut dec()).unwrap(), vertices);
     }
 
     #[test]
@@ -1703,7 +1880,7 @@ mod tests {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
         };
-        let payload = encode_as(&[0, 0, 0, 0], &[], header).unwrap();
+        let payload = encode_as::<2>(&[0, 0, 0, 0], &[], header).unwrap();
         assert_eq!(payload, [0x00, 0x00, 0x0F]);
     }
 
@@ -1714,7 +1891,7 @@ mod tests {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
         };
-        let payload = encode_as(&vertices, &[], header).unwrap();
+        let payload = encode_as::<2>(&vertices, &[], header).unwrap();
         assert_eq!(
             payload,
             [0x00, 0x01, 0xFF, 0xFF, 0x1F, 0x00, 0xC0, 0x80, 0x03]
@@ -1728,9 +1905,9 @@ mod tests {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
         };
-        let payload = encode_as(&vertices, &[], header).unwrap();
+        let payload = encode_as::<2>(&vertices, &[], header).unwrap();
         assert_eq!(payload[1], 0xFF);
-        assert_eq!(decode(&payload, &[], 2, &mut dec()).unwrap(), vertices);
+        assert_eq!(decode::<2>(&payload, &[], 2, &mut dec()).unwrap(), vertices);
     }
 
     #[test]
@@ -1739,7 +1916,7 @@ mod tests {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
         };
-        let payload = encode_as(&[1, 1, 2, 2], &[], header).unwrap();
+        let payload = encode_as::<2>(&[1, 1, 2, 2], &[], header).unwrap();
         let (&last, shorter) = payload.split_last().unwrap();
         assert_ne!(last, 0);
         assert_eq!(
@@ -1754,7 +1931,7 @@ mod tests {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
         };
-        let mut payload = encode_as(&[1, 1, 2, 2], &[], header).unwrap();
+        let mut payload = encode_as::<2>(&[1, 1, 2, 2], &[], header).unwrap();
         payload.push(0);
         assert_eq!(
             rice_error(&payload, 2),
@@ -1768,7 +1945,7 @@ mod tests {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
         };
-        let mut payload = encode_as(&[1, 1, 2, 2], &[], header).unwrap();
+        let mut payload = encode_as::<2>(&[1, 1, 2, 2], &[], header).unwrap();
         *payload.last_mut().unwrap() |= 0x80;
         assert_eq!(
             rice_error(&payload, 2),
@@ -1811,9 +1988,9 @@ mod tests {
             guesses: Guesses::ALL[0],
             sharing: Sharing::NONE,
         };
-        let payload = encode_as(&vertices, &[], header).unwrap();
+        let payload = encode_as::<2>(&vertices, &[], header).unwrap();
         for cut in 0..payload.len() {
-            assert!(decode(&payload[..cut], &[], 4, &mut dec()).is_err());
+            assert!(decode::<2>(&payload[..cut], &[], 4, &mut dec()).is_err());
         }
     }
 
@@ -1827,14 +2004,14 @@ mod tests {
 
     #[test]
     fn the_race_keeps_the_lowest_header_byte_on_a_tie() {
-        let payload = encode(&[1, 2, 3, 4], &[line(0, 2)]).unwrap();
+        let payload = encode::<2>(&[1, 2, 3, 4], &[line(0, 2)]).unwrap();
         assert_eq!(payload, [0x00, 0x10, 0x11, 0x24, 0x22]);
     }
 
     #[test]
     fn the_race_keeps_the_run_start_guess_for_parallel_lines() {
         let vertices = [0, 0, 1000, 0, 1, 1, 1001, 1];
-        let payload = encode(&vertices, &[line(0, 2), line(2, 2)]).unwrap();
+        let payload = encode::<2>(&vertices, &[line(0, 2), line(2, 2)]).unwrap();
         assert_eq!(
             header(&payload).unwrap().guesses,
             Guesses {
@@ -1847,7 +2024,7 @@ mod tests {
     #[test]
     fn the_race_continues_a_straight_line_of_three() {
         let vertices = [0, 0, 500, 500, 1000, 1000];
-        let payload = encode(&vertices, &[line(0, 3)]).unwrap();
+        let payload = encode::<2>(&vertices, &[line(0, 3)]).unwrap();
         assert_eq!(
             header(&payload).unwrap().guesses,
             Guesses {
@@ -1863,7 +2040,7 @@ mod tests {
             0, 0, 1_000_000, 0, 1_000_000, 1_000_000, 0, 1_000_000, 1_000_000, 1_000_000,
             1_000_000, 0, 2_000_000, 0, 2_000_000, 1_000_000,
         ];
-        let payload = encode(&vertices, &[ring(0, 4), ring(4, 4)]).unwrap();
+        let payload = encode::<2>(&vertices, &[ring(0, 4), ring(4, 4)]).unwrap();
         assert_eq!(
             header(&payload).unwrap().sharing,
             Sharing {
@@ -1878,13 +2055,135 @@ mod tests {
         let vertices = [
             0, 0, 1_000_000, 1_000_000, 5_000_000, 0, 1_000_000, 1_000_000,
         ];
-        let payload = encode(&vertices, &[line(0, 2), line(2, 2)]).unwrap();
+        let payload = encode::<2>(&vertices, &[line(0, 2), line(2, 2)]).unwrap();
         assert_eq!(
             header(&payload).unwrap().sharing,
             Sharing {
                 copies: false,
                 line_references: true,
             }
+        );
+    }
+
+    #[test]
+    fn a_line_at_one_height_encodes_to_the_exact_payload_with_the_zero_flag_after_its_start() {
+        let vertices = [100, 200, 250, 110, 205, 250, 120, 210, 250, 135, 212, 250];
+        let runs = [line(0, 4)];
+        let header = Header {
+            guesses: Guesses {
+                start: StartGuess::Previous,
+                line: LineGuess::Previous,
+            },
+            sharing: Sharing::NONE,
+        };
+        let payload = encode_as::<3>(&vertices, &runs, header).unwrap();
+        assert_eq!(
+            payload,
+            [
+                0x00, 0x87, 0x08, 0x23, 0x10, 0x24, 0x10, 0x22, 0x85, 0x94, 0x9E, 0xA4, 0x12, 0xD5,
+                0x05
+            ]
+        );
+        assert_eq!(
+            decode::<3>(&payload, &runs, 4, &mut dec()).unwrap(),
+            vertices
+        );
+    }
+
+    #[test]
+    fn a_sloped_ring_of_four_encodes_to_the_exact_payload_with_its_corner_exact_in_z() {
+        let vertices = [0, 0, 10, 100, 0, 12, 100, 100, 15, 0, 100, 13];
+        let runs = [ring(0, 4)];
+        let header = Header {
+            guesses: Guesses {
+                start: StartGuess::Previous,
+                line: LineGuess::Previous,
+            },
+            sharing: Sharing::NONE,
+        };
+        let payload = encode_as::<3>(&vertices, &runs, header).unwrap();
+        assert_eq!(
+            payload,
+            [
+                0x00, 0x00, 0x03, 0x66, 0x02, 0x00, 0x10, 0x93, 0x88, 0x04, 0x24, 0x80, 0x88, 0x0E
+            ]
+        );
+        assert_eq!(
+            decode::<3>(&payload, &runs, 4, &mut dec()).unwrap(),
+            vertices
+        );
+    }
+
+    #[rstest]
+    #[case::coded_z(&[0x00, 0x00, 0x00, 0x07], [0, 0, 0])]
+    #[case::zero_flag(&[0x00, 0x00, 0x10, 0x03], [0, 0, 0])]
+    #[case::coded_z_with_k_one(&[0x00, 0x00, 0x01, 0x0F], [0, 0, -1])]
+    fn a_triple_point_reads_z_after_x_and_y_unless_its_class_has_the_zero_flag(
+        #[case] data: &[u8],
+        #[case] expected: [i32; 3],
+    ) {
+        assert_eq!(decode::<3>(data, &[], 1, &mut dec()).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::no_z_parameter_byte(&[0x00, 0x00], "rice parameters are cut short")]
+    #[case::reserved_z_bit_5(&[0x00, 0x00, 0x20, 0x07], "reserved z parameter bit set")]
+    #[case::reserved_z_bit_6(&[0x00, 0x00, 0x40, 0x07], "reserved z parameter bit set")]
+    #[case::reserved_z_bit_7(&[0x00, 0x00, 0x80, 0x07], "reserved z parameter bit set")]
+    #[case::zero_flag_with_k_one(&[0x00, 0x00, 0x11, 0x03], "z parameter with the zero flag has a nonzero k")]
+    #[case::zero_flag_with_k_fifteen(&[0x00, 0x00, 0x1F, 0x03], "z parameter with the zero flag has a nonzero k")]
+    #[case::z_codeword_cut_short(&[0x00, 0x00, 0x00, 0x03], "rice bits are cut short")]
+    #[case::bits_after_a_zero_flag_class(&[0x00, 0x00, 0x10, 0x07], "rice padding bit is set")]
+    fn malformed_triple_point_payloads_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
+        let err = decode::<3>(data, &[], 1, &mut dec()).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!("predicted vertex stream is malformed: {reason}")
+        );
+    }
+
+    #[test]
+    fn the_race_refers_to_a_line_junction_at_the_same_height() {
+        let vertices = [
+            0, 0, 0, 1_000_000, 1_000_000, 40, 5_000_000, 0, 0, 1_000_000, 1_000_000, 40,
+        ];
+        let payload = encode::<3>(&vertices, &[line(0, 2), line(2, 2)]).unwrap();
+        assert_eq!(
+            header(&payload).unwrap().sharing,
+            Sharing {
+                copies: false,
+                line_references: true,
+            }
+        );
+    }
+
+    #[test]
+    fn the_race_shares_nothing_at_a_line_junction_of_two_heights() {
+        let vertices = [
+            0, 0, 0, 1_000_000, 1_000_000, 40, 5_000_000, 0, 0, 1_000_000, 1_000_000, 41,
+        ];
+        let payload = encode::<3>(&vertices, &[line(0, 2), line(2, 2)]).unwrap();
+        assert_eq!(header(&payload).unwrap().sharing, Sharing::NONE);
+    }
+
+    #[test]
+    fn the_race_copies_a_shared_wall_of_triples() {
+        let vertices = [
+            0, 0, 5, 1_000_000, 0, 5, 1_000_000, 1_000_000, 900_000, 0, 1_000_000, 900_000,
+            1_000_000, 1_000_000, 900_000, 1_000_000, 0, 5, 2_000_000, 0, 5, 2_000_000, 1_000_000,
+            900_000,
+        ];
+        let payload = encode::<3>(&vertices, &[ring(0, 4), ring(4, 4)]).unwrap();
+        assert_eq!(
+            header(&payload).unwrap().sharing,
+            Sharing {
+                copies: true,
+                line_references: false,
+            }
+        );
+        assert_eq!(
+            decode::<3>(&payload, &[ring(0, 4), ring(4, 4)], 8, &mut dec()).unwrap(),
+            vertices
         );
     }
 
@@ -1904,7 +2203,7 @@ mod tests {
     #[case::ops_cut_short(&[0x18, 0x00, 0x01, 0x00, 0x01, 0x03], "copy ops are cut short")]
     #[case::bits_after_the_reference_flags(&[0x10, 0x00, 0x00, 0x01, 0x03, 0x00], "bytes after the last reference bit")]
     fn malformed_point_payloads_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
-        let err = decode(data, &[], 1, &mut dec()).unwrap_err();
+        let err = decode::<2>(data, &[], 1, &mut dec()).unwrap_err();
         assert_eq!(
             err.to_string(),
             format!("predicted vertex stream is malformed: {reason}")
@@ -1917,7 +2216,7 @@ mod tests {
     #[case::copy_without_a_count(&[0x08, 0x00, 0x00, 0x00, 0x00, 0x01, 0x0F, 0x01, 0x02, 0x00], "shared vertices disagree with the stream lengths")]
     #[case::count_without_a_copy(&[0x08, 0x00, 0x01, 0x00, 0x01, 0x03], "shared vertices disagree with the stream lengths")]
     fn malformed_ring_payloads_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
-        let err = decode(data, &[ring(0, 2)], 2, &mut dec()).unwrap_err();
+        let err = decode::<2>(data, &[ring(0, 2)], 2, &mut dec()).unwrap_err();
         assert_eq!(
             err.to_string(),
             format!("predicted vertex stream is malformed: {reason}")
@@ -1929,7 +2228,7 @@ mod tests {
         let data = [
             0x08, 0x00, 0x01, 0xCC, 0x08, 0x00, 0x80, 0x00, 0x00, 0x00, 0x02, 0x00, 0x0A,
         ];
-        let err = decode(&data, &[line(0, 2)], 2, &mut dec()).unwrap_err();
+        let err = decode::<2>(&data, &[line(0, 2)], 2, &mut dec()).unwrap_err();
         assert_eq!(
             err.to_string(),
             "predicted vertex stream is malformed: shared vertices disagree with the stream lengths"
@@ -1943,7 +2242,7 @@ mod tests {
     #[case::byte_after_the_bits(&[0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0x80, 0x00], "bytes after the last reference bit")]
     fn malformed_line_references_are_rejected(#[case] data: &[u8], #[case] reason: &str) {
         let runs = [line(0, 3), line(3, 2)];
-        let err = decode(data, &runs, 5, &mut dec()).unwrap_err();
+        let err = decode::<2>(data, &runs, 5, &mut dec()).unwrap_err();
         assert_eq!(
             err.to_string(),
             format!("predicted vertex stream is malformed: {reason}")
@@ -1961,8 +2260,8 @@ mod tests {
             },
             sharing: Sharing::NONE,
         };
-        let payload = encode_as(&vertices, &runs, header).unwrap();
-        let err = decode(&payload[..payload.len() - 1], &runs, 6, &mut dec()).unwrap_err();
+        let payload = encode_as::<2>(&vertices, &runs, header).unwrap();
+        let err = decode::<2>(&payload[..payload.len() - 1], &runs, 6, &mut dec()).unwrap_err();
         assert_eq!(
             err.to_string(),
             "predicted vertex stream is malformed: rice bits are cut short"
@@ -1973,7 +2272,7 @@ mod tests {
     #[case::overlapping(&[ring(0, 4), line(2, 6)], "runs overlap or are out of order")]
     #[case::past_the_end(&[line(0, 9)], "a run ends past the last vertex")]
     fn bad_runs_are_rejected(#[case] runs: &[Run], #[case] reason: &str) {
-        let err = decode(&[0x00], runs, 8, &mut dec()).unwrap_err();
+        let err = decode::<2>(&[0x00], runs, 8, &mut dec()).unwrap_err();
         assert_eq!(
             err.to_string(),
             format!("predicted vertex stream is malformed: {reason}")
@@ -1984,7 +2283,7 @@ mod tests {
     #[case::overlapping(&[ring(0, 4), line(2, 6)], "runs overlap or are out of order")]
     #[case::past_the_end(&[line(0, 9)], "a run ends past the last vertex")]
     fn bad_runs_are_rejected_by_the_encoder(#[case] runs: &[Run], #[case] reason: &str) {
-        let err = encode(&[0; 16], runs).unwrap_err();
+        let err = encode::<2>(&[0; 16], runs).unwrap_err();
         assert_eq!(
             err.to_string(),
             format!("predicted vertex stream is malformed: {reason}")
@@ -2005,13 +2304,16 @@ mod tests {
                 line_references: true,
             },
         };
-        let payload = encode_as(&vertices, &runs, header).unwrap();
-        assert_eq!(decode(&payload, &runs, 4, &mut dec()).unwrap(), vertices);
+        let payload = encode_as::<2>(&vertices, &runs, header).unwrap();
+        assert_eq!(
+            decode::<2>(&payload, &runs, 4, &mut dec()).unwrap(),
+            vertices
+        );
     }
 
-    fn arb_layer() -> impl Strategy<Value = (Vec<i32>, Vec<Run>)> {
+    fn arb_layer(components: usize) -> impl Strategy<Value = (Vec<i32>, Vec<Run>)> {
         let shapes = prop::collection::vec((0_u32..12, any::<bool>(), 0_u32..3), 0..12);
-        (shapes, any::<bool>()).prop_flat_map(|(shapes, few_positions)| {
+        (shapes, any::<bool>()).prop_flat_map(move |(shapes, few_positions)| {
             let mut runs = Vec::new();
             let mut start = 0;
             for (len, ring, gap) in shapes {
@@ -2020,7 +2322,7 @@ mod tests {
                 runs.push(Run { start, len, kind });
                 start += len;
             }
-            let words = 2 * start.into_usize();
+            let words = components * start.into_usize();
             let coords = if few_positions {
                 (0..3_i32).boxed()
             } else {
@@ -2049,29 +2351,56 @@ mod tests {
         }
 
         #[test]
-        fn any_layer_round_trips_every_header((vertices, runs) in arb_layer()) {
+        fn any_layer_round_trips_every_header((vertices, runs) in arb_layer(2)) {
             let count = u32::try_from(vertices.len() / 2).unwrap();
             for guesses in Guesses::ALL {
                 for sharing in SHARINGS {
-                    let payload = encode_as(&vertices, &runs, Header { guesses, sharing }).unwrap();
-                    prop_assert_eq!(decode(&payload, &runs, count, &mut dec()).unwrap(), vertices.clone());
+                    let payload = encode_as::<2>(&vertices, &runs, Header { guesses, sharing }).unwrap();
+                    prop_assert_eq!(decode::<2>(&payload, &runs, count, &mut dec()).unwrap(), vertices.clone());
                 }
             }
         }
 
         #[test]
-        fn any_layer_round_trips_the_race((vertices, runs) in arb_layer()) {
-            let payload = encode(&vertices, &runs).unwrap();
+        fn any_layer_round_trips_the_race((vertices, runs) in arb_layer(2)) {
+            let payload = encode::<2>(&vertices, &runs).unwrap();
             let count = u32::try_from(vertices.len() / 2).unwrap();
-            prop_assert_eq!(decode(&payload, &runs, count, &mut dec()).unwrap(), vertices);
+            prop_assert_eq!(decode::<2>(&payload, &runs, count, &mut dec()).unwrap(), vertices);
         }
 
         #[test]
-        fn the_race_is_never_longer_than_any_unshared_guess_pair((vertices, runs) in arb_layer()) {
-            let raced = encode(&vertices, &runs).unwrap();
+        fn the_race_is_never_longer_than_any_unshared_guess_pair((vertices, runs) in arb_layer(2)) {
+            let raced = encode::<2>(&vertices, &runs).unwrap();
             for guesses in Guesses::ALL {
                 let unshared = Header { guesses, sharing: Sharing::NONE };
-                prop_assert!(raced.len() <= encode_as(&vertices, &runs, unshared).unwrap().len());
+                prop_assert!(raced.len() <= encode_as::<2>(&vertices, &runs, unshared).unwrap().len());
+            }
+        }
+
+        #[test]
+        fn any_triple_layer_round_trips_every_header((vertices, runs) in arb_layer(3)) {
+            let count = u32::try_from(vertices.len() / 3).unwrap();
+            for guesses in Guesses::ALL {
+                for sharing in SHARINGS {
+                    let payload = encode_as::<3>(&vertices, &runs, Header { guesses, sharing }).unwrap();
+                    prop_assert_eq!(decode::<3>(&payload, &runs, count, &mut dec()).unwrap(), vertices.clone());
+                }
+            }
+        }
+
+        #[test]
+        fn any_triple_layer_round_trips_the_race((vertices, runs) in arb_layer(3)) {
+            let payload = encode::<3>(&vertices, &runs).unwrap();
+            let count = u32::try_from(vertices.len() / 3).unwrap();
+            prop_assert_eq!(decode::<3>(&payload, &runs, count, &mut dec()).unwrap(), vertices);
+        }
+
+        #[test]
+        fn the_triple_race_is_never_longer_than_any_unshared_guess_pair((vertices, runs) in arb_layer(3)) {
+            let raced = encode::<3>(&vertices, &runs).unwrap();
+            for guesses in Guesses::ALL {
+                let unshared = Header { guesses, sharing: Sharing::NONE };
+                prop_assert!(raced.len() <= encode_as::<3>(&vertices, &runs, unshared).unwrap().len());
             }
         }
     }

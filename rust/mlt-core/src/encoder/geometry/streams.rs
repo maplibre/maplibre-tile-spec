@@ -450,10 +450,28 @@ pub(super) fn encode_predicted_vertex_stream02(
     runs: &[Run],
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    let payload = predicted::encode(vertices, runs)?;
+    let payload = predicted::encode::<2>(vertices, runs)?;
     let meta = StreamMeta::new2(
         StreamType::Data(DictionaryType::Vertex),
         LogicalEncoding::Vertex(VertexLogical::Predicted),
+        PhysicalEncoding::None,
+        vertices.len(),
+    )?;
+    write_stream_payload(enc, meta, false, &payload)
+}
+
+/// The `(x, y, z)` vertices as residuals against a guess over the layer's `runs`.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_predicted_xyz_vertex_stream02(
+    vertices: &[i32],
+    runs: &[Run],
+    axis: ZAxis,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let payload = predicted::encode::<3>(vertices, runs)?;
+    let meta = StreamMeta::new2(
+        StreamType::Data(DictionaryType::Vertex),
+        LogicalEncoding::Vertex(VertexLogical::Xyz(axis, XyzLogical::Predicted)),
         PhysicalEncoding::None,
         vertices.len(),
     )?;
