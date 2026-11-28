@@ -230,7 +230,7 @@ fn a_v2_layer_walks_the_streams_of_its_m_values_and_nested_leaves() {
     insta::assert_debug_snapshot!(stream_labels(&layers[0]), @r#"
     [
         "length[parts] int/delta",
-        "data[vertex] vertex/componentwise-delta",
+        "data[vertex] vertex/predicted",
         "data int/delta",
         "data int/delta",
         "data bool/none",
