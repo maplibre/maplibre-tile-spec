@@ -243,8 +243,8 @@ export function decodeGeometryColumn(
  * Handle the parsing of the different topology length buffers separate not generic to reduce the
  * branching and improve the performance
  */
-function decodeRootLengthStream(
-    geometryTypes: Uint32Array,
+export function decodeRootLengthStream(
+    geometryTypes: ArrayLike<number>,
     rootLengthStream: Uint32Array,
     bufferId: number,
 ): Uint32Array {
@@ -261,12 +261,17 @@ function decodeRootLengthStream(
         previousOffset = rootBufferOffsets[i + 1] =
             previousOffset + (geometryTypes[i] > bufferId ? rootLengthStream[rootLengthCounter++] : 1);
     }
+    if (rootLengthCounter > rootLengthStream.length) {
+        throw new RangeError(
+            `Geometry length stream holds ${rootLengthStream.length} values but the types need ${rootLengthCounter}`,
+        );
+    }
 
     return rootBufferOffsets;
 }
 
-function decodeLevel1LengthStream(
-    geometryTypes: Uint32Array,
+export function decodeLevel1LengthStream(
+    geometryTypes: ArrayLike<number>,
     rootOffsetBuffer: Uint32Array,
     level1LengthBuffer: Uint32Array,
     isLineStringPresent: boolean,
@@ -298,6 +303,11 @@ function decodeLevel1LengthStream(
             }
         }
     }
+    if (level1LengthBufferCounter > level1LengthBuffer.length) {
+        throw new RangeError(
+            `Part length stream holds ${level1LengthBuffer.length} values but the types need ${level1LengthBufferCounter}`,
+        );
+    }
 
     return level1BufferOffsets;
 }
@@ -305,8 +315,8 @@ function decodeLevel1LengthStream(
 /*
  * Case where no ring buffer exists so no MultiPolygon or Polygon geometry is part of the buffer
  */
-function decodeLevel1WithoutRingBufferLengthStream(
-    geometryTypes: Uint32Array,
+export function decodeLevel1WithoutRingBufferLengthStream(
+    geometryTypes: ArrayLike<number>,
     rootOffsetBuffer: Uint32Array,
     level1LengthBuffer: Uint32Array,
 ): Uint32Array {
@@ -331,12 +341,17 @@ function decodeLevel1WithoutRingBufferLengthStream(
             }
         }
     }
+    if (level1LengthCounter > level1LengthBuffer.length) {
+        throw new RangeError(
+            `Part length stream holds ${level1LengthBuffer.length} values but the types need ${level1LengthCounter}`,
+        );
+    }
 
     return level1BufferOffsets;
 }
 
-function decodeLevel2LengthStream(
-    geometryTypes: Uint32Array,
+export function decodeLevel2LengthStream(
+    geometryTypes: ArrayLike<number>,
     rootOffsetBuffer: Uint32Array,
     level1OffsetBuffer: Uint32Array,
     level2LengthBuffer: Uint32Array,
@@ -369,6 +384,11 @@ function decodeLevel2LengthStream(
                 level1OffsetBufferCounter++;
             }
         }
+    }
+    if (level2LengthBufferCounter > level2LengthBuffer.length) {
+        throw new RangeError(
+            `Ring length stream holds ${level2LengthBuffer.length} values but the parts need ${level2LengthBufferCounter}`,
+        );
     }
 
     return level2BufferOffsets;
