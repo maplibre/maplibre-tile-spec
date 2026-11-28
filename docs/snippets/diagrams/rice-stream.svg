@@ -1,0 +1,126 @@
+<svg class="mlt-diagram" viewBox="0 0 710 236" role="img" aria-label="A Rice stream: the parameter byte 76 with k_x 6 in the low nibble and k_y 7 in the high nibble, byte_len 05, then five bytes of bit data 88 20 A4 52 01. Each byte is unpacked bit 0 first, and the codewords of 200, 400, 10 and 10 run across the byte boundaries, followed by zero padding" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="rs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="54">stream</text>
+<text class="row" x="0" y="170">bits</text>
+<text class="muted small mid" x="144" y="14">k_y</text>
+<rect class="f1" x="130" y="40" width="28" height="28" rx="3"/>
+<text class="cell" x="144" y="54">7</text>
+<text class="muted small mid" x="176" y="14">k_x</text>
+<rect class="f0" x="162" y="40" width="28" height="28" rx="3"/>
+<text class="cell" x="176" y="54">6</text>
+<path class="bracket" d="M130 34V28H158V34"/>
+<path class="bracket" d="M162 34V28H190V34"/>
+<text class="muted small mid" x="222" y="14">byte_len</text>
+<path class="bracket" d="M200 34V28H244V34"/>
+<rect class="plain" x="200" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="222" y="54">05</text>
+<text class="muted small mid" x="366" y="14">bit data</text>
+<path class="bracket" d="M248 34V28H484V34"/>
+<rect class="plain" x="248" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="270" y="54">88</text>
+<path class="link" d="M270 68C270 104 181 108 181 152" marker-end="url(#rs)"/>
+<rect class="plain" x="296" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="318" y="54">20</text>
+<path class="link" d="M318 68C318 104 293 108 293 152" marker-end="url(#rs)"/>
+<rect class="plain" x="344" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="366" y="54">A4</text>
+<path class="link" d="M366 68C366 104 405 108 405 152" marker-end="url(#rs)"/>
+<rect class="plain" x="392" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="414" y="54">52</text>
+<path class="link" d="M414 68C414 104 517 108 517 152" marker-end="url(#rs)"/>
+<rect class="plain" x="440" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="462" y="54">01</text>
+<path class="link" d="M462 68C462 104 629 108 629 152" marker-end="url(#rs)"/>
+<text class="muted small mid" x="136" y="142">b0</text>
+<text class="muted small mid" x="227" y="142">b7</text>
+<rect class="f0" x="130" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="136.0" y="170">0</text>
+<rect class="f0" x="143" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="149.0" y="170">0</text>
+<rect class="f0" x="156" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="162.0" y="170">0</text>
+<rect class="f0" x="169" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="175.0" y="170">1</text>
+<rect class="f0" x="182" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="188.0" y="170">0</text>
+<rect class="f0" x="195" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="201.0" y="170">0</text>
+<rect class="f0" x="208" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="214.0" y="170">0</text>
+<rect class="f0" x="221" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="227.0" y="170">1</text>
+<rect class="f0" x="242" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="248.0" y="170">0</text>
+<rect class="f0" x="255" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="261.0" y="170">0</text>
+<rect class="f1" x="268" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="274.0" y="170">0</text>
+<rect class="f1" x="281" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="287.0" y="170">0</text>
+<rect class="f1" x="294" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="300.0" y="170">0</text>
+<rect class="f1" x="307" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="313.0" y="170">1</text>
+<rect class="f1" x="320" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="326.0" y="170">0</text>
+<rect class="f1" x="333" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="339.0" y="170">0</text>
+<rect class="f1" x="354" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="360.0" y="170">0</text>
+<rect class="f1" x="367" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="373.0" y="170">0</text>
+<rect class="f1" x="380" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="386.0" y="170">1</text>
+<rect class="f1" x="393" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="399.0" y="170">0</text>
+<rect class="f1" x="406" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="412.0" y="170">0</text>
+<rect class="f0" x="419" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="425.0" y="170">1</text>
+<rect class="f0" x="432" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="438.0" y="170">0</text>
+<rect class="f0" x="445" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="451.0" y="170">1</text>
+<rect class="f0" x="466" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="472.0" y="170">0</text>
+<rect class="f0" x="479" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="485.0" y="170">1</text>
+<rect class="f0" x="492" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="498.0" y="170">0</text>
+<rect class="f0" x="505" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="511.0" y="170">0</text>
+<rect class="f1" x="518" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="524.0" y="170">1</text>
+<rect class="f1" x="531" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="537.0" y="170">0</text>
+<rect class="f1" x="544" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="550.0" y="170">1</text>
+<rect class="f1" x="557" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="563.0" y="170">0</text>
+<rect class="f1" x="578" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="584.0" y="170">1</text>
+<rect class="f1" x="591" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="597.0" y="170">0</text>
+<rect class="f1" x="604" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="610.0" y="170">0</text>
+<rect class="f1" x="617" y="156" width="12" height="28" rx="3"/>
+<text class="cell small" x="623.0" y="170">0</text>
+<rect class="plain" x="630" y="156" width="12" height="28" rx="3"/>
+<text class="cell small muted" x="636.0" y="170">0</text>
+<rect class="plain" x="643" y="156" width="12" height="28" rx="3"/>
+<text class="cell small muted" x="649.0" y="170">0</text>
+<rect class="plain" x="656" y="156" width="12" height="28" rx="3"/>
+<text class="cell small muted" x="662.0" y="170">0</text>
+<rect class="plain" x="669" y="156" width="12" height="28" rx="3"/>
+<text class="cell small muted" x="675.0" y="170">0</text>
+<path class="bracket" d="M130 190V196H267V190"/>
+<text class="muted small mid" x="198" y="210">x 200</text>
+<path class="bracket" d="M268 190V196H418V190"/>
+<text class="muted small mid" x="343" y="210">y 400</text>
+<path class="bracket" d="M419 190V196H517V190"/>
+<text class="muted small mid" x="468" y="210">x 10</text>
+<path class="bracket" d="M518 190V196H629V190"/>
+<text class="muted small mid" x="573" y="210">y 10</text>
+<path class="bracket" d="M630 190V196H681V190"/>
+<text class="muted small mid" x="655" y="210">padding</text>
+</svg>
