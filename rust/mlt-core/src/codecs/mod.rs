@@ -18,4 +18,6 @@ pub mod rle;
 #[cfg(feature = "unstable-v2")]
 pub(crate) mod tri;
 pub mod varint;
+#[cfg(feature = "unstable-v2")]
+pub mod vertex_copies;
 pub mod zigzag;

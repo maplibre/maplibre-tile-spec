@@ -1,0 +1,97 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            1200,
+            1200
+          ],
+          [
+            1440,
+            1600
+          ],
+          [
+            1760,
+            1760
+          ],
+          [
+            2000,
+            2240
+          ],
+          [
+            2400,
+            2400
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0,
+            0
+          ],
+          [
+            320,
+            240
+          ],
+          [
+            640,
+            400
+          ],
+          [
+            700,
+            1100
+          ],
+          [
+            1200,
+            1200
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            2480,
+            240
+          ],
+          [
+            2000,
+            720
+          ],
+          [
+            1700,
+            900
+          ],
+          [
+            1200,
+            1200
+          ]
+        ]
+      }
+    }
+  ]
+}

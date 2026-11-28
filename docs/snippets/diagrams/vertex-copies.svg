@@ -1,0 +1,121 @@
+<svg class="mlt-diagram" viewBox="0 0 710 510" role="img" aria-label="Three copy ops over a vertex buffer: a line repeated after a point, copied forwards; a wall shared by two squares, copied backwards; and a forward copy that wraps from the last vertex of its source ring to the first" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="vc-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="68">forward</text>
+<rect class="f0" x="92" y="54" width="72" height="28" rx="3"/>
+<text class="cell" x="128" y="68">(0, 0)</text>
+<text class="muted small mid" x="128" y="94">0</text>
+<rect class="f0" x="168" y="54" width="72" height="28" rx="3"/>
+<text class="cell" x="204" y="68">(7, 3)</text>
+<text class="muted small mid" x="204" y="94">1</text>
+<rect class="f0" x="244" y="54" width="72" height="28" rx="3"/>
+<text class="cell" x="280" y="68">(9, 8)</text>
+<text class="muted small mid" x="280" y="94">2</text>
+<rect class="plain" x="320" y="54" width="72" height="28" rx="3"/>
+<text class="cell" x="356" y="68">(50, 50)</text>
+<text class="muted small mid" x="356" y="94">3</text>
+<rect class="f1" x="396" y="54" width="72" height="28" rx="3"/>
+<text class="cell" x="432" y="68">(0, 0)</text>
+<text class="muted small mid" x="432" y="94">4</text>
+<rect class="f1" x="472" y="54" width="72" height="28" rx="3"/>
+<text class="cell" x="508" y="68">(7, 3)</text>
+<text class="muted small mid" x="508" y="94">5</text>
+<rect class="f1" x="548" y="54" width="72" height="28" rx="3"/>
+<text class="cell" x="584" y="68">(9, 8)</text>
+<text class="muted small mid" x="584" y="94">6</text>
+<path class="link t1" d="M134 54C134 22 426 22 426 50" marker-end="url(#vc-t1)"/>
+<path class="link t1" d="M210 54C210 16 502 16 502 50" marker-end="url(#vc-t1)"/>
+<path class="link t1" d="M286 54C286 10 578 10 578 50" marker-end="url(#vc-t1)"/>
+<path class="bracket" d="M92 104V110H316V104"/>
+<text class="muted small mid" x="204" y="122">line</text>
+<path class="bracket" d="M320 104V110H392V104"/>
+<text class="muted small mid" x="356" y="122">point</text>
+<path class="bracket" d="M396 104V110H620V104"/>
+<text class="muted small mid" x="508" y="122">line</text>
+<rect class="plain" x="92" y="140" width="32" height="24" rx="3"/>
+<text class="cell" x="108" y="152">04</text>
+<rect class="plain" x="128" y="140" width="32" height="24" rx="3"/>
+<text class="cell" x="144" y="152">08</text>
+<rect class="plain" x="164" y="140" width="32" height="24" rx="3"/>
+<text class="cell" x="180" y="152">02</text>
+<text class="muted" x="208" y="152">gap 4, dist 4, n 3</text>
+<text class="muted small" x="0" y="152">op</text>
+<text class="row" x="0" y="240">backward</text>
+<rect class="plain" x="92" y="226" width="72" height="28" rx="3"/>
+<text class="cell" x="128" y="240">(0, 0)</text>
+<text class="muted small mid" x="128" y="266">0</text>
+<rect class="f0" x="168" y="226" width="72" height="28" rx="3"/>
+<text class="cell" x="204" y="240">(10, 0)</text>
+<text class="muted small mid" x="204" y="266">1</text>
+<rect class="f0" x="244" y="226" width="72" height="28" rx="3"/>
+<text class="cell" x="280" y="240">(10, 10)</text>
+<text class="muted small mid" x="280" y="266">2</text>
+<rect class="plain" x="320" y="226" width="72" height="28" rx="3"/>
+<text class="cell" x="356" y="240">(0, 10)</text>
+<text class="muted small mid" x="356" y="266">3</text>
+<rect class="f1" x="396" y="226" width="72" height="28" rx="3"/>
+<text class="cell" x="432" y="240">(10, 10)</text>
+<text class="muted small mid" x="432" y="266">4</text>
+<rect class="f1" x="472" y="226" width="72" height="28" rx="3"/>
+<text class="cell" x="508" y="240">(10, 0)</text>
+<text class="muted small mid" x="508" y="266">5</text>
+<rect class="plain" x="548" y="226" width="72" height="28" rx="3"/>
+<text class="cell" x="584" y="240">(20, 0)</text>
+<text class="muted small mid" x="584" y="266">6</text>
+<rect class="plain" x="624" y="226" width="72" height="28" rx="3"/>
+<text class="cell" x="660" y="240">(20, 10)</text>
+<text class="muted small mid" x="660" y="266">7</text>
+<path class="link t1" d="M286 226C286 206 426 206 426 222" marker-end="url(#vc-t1)"/>
+<path class="link t1" d="M210 226C210 188 502 188 502 222" marker-end="url(#vc-t1)"/>
+<path class="bracket" d="M92 276V282H392V276"/>
+<text class="muted small mid" x="242" y="294">ring</text>
+<path class="bracket" d="M396 276V282H696V276"/>
+<text class="muted small mid" x="546" y="294">ring</text>
+<rect class="plain" x="92" y="312" width="32" height="24" rx="3"/>
+<text class="cell" x="108" y="324">04</text>
+<rect class="plain" x="128" y="312" width="32" height="24" rx="3"/>
+<text class="cell" x="144" y="324">05</text>
+<rect class="plain" x="164" y="312" width="32" height="24" rx="3"/>
+<text class="cell" x="180" y="324">01</text>
+<text class="muted" x="208" y="324">gap 4, dist 2, n 2</text>
+<text class="muted small" x="0" y="324">op</text>
+<text class="row" x="0" y="412">wrap</text>
+<rect class="f0" x="92" y="398" width="72" height="28" rx="3"/>
+<text class="cell" x="128" y="412">(0, 0)</text>
+<text class="muted small mid" x="128" y="438">0</text>
+<rect class="f0" x="168" y="398" width="72" height="28" rx="3"/>
+<text class="cell" x="204" y="412">(10, 0)</text>
+<text class="muted small mid" x="204" y="438">1</text>
+<rect class="plain" x="244" y="398" width="72" height="28" rx="3"/>
+<text class="cell" x="280" y="412">(10, 10)</text>
+<text class="muted small mid" x="280" y="438">2</text>
+<rect class="f0" x="320" y="398" width="72" height="28" rx="3"/>
+<text class="cell" x="356" y="412">(0, 10)</text>
+<text class="muted small mid" x="356" y="438">3</text>
+<rect class="f1" x="396" y="398" width="72" height="28" rx="3"/>
+<text class="cell" x="432" y="412">(0, 10)</text>
+<text class="muted small mid" x="432" y="438">4</text>
+<rect class="f1" x="472" y="398" width="72" height="28" rx="3"/>
+<text class="cell" x="508" y="412">(0, 0)</text>
+<text class="muted small mid" x="508" y="438">5</text>
+<rect class="f1" x="548" y="398" width="72" height="28" rx="3"/>
+<text class="cell" x="584" y="412">(10, 0)</text>
+<text class="muted small mid" x="584" y="438">6</text>
+<rect class="plain" x="624" y="398" width="72" height="28" rx="3"/>
+<text class="cell" x="660" y="412">(5, -20)</text>
+<text class="muted small mid" x="660" y="438">7</text>
+<path class="link t1" d="M362 398C362 384 426 384 426 394" marker-end="url(#vc-t1)"/>
+<path class="link t1" d="M134 398C134 354 502 354 502 394" marker-end="url(#vc-t1)"/>
+<path class="link t1" d="M210 398C210 348 578 348 578 394" marker-end="url(#vc-t1)"/>
+<path class="bracket" d="M92 448V454H392V448"/>
+<text class="muted small mid" x="242" y="466">ring</text>
+<path class="bracket" d="M396 448V454H696V448"/>
+<text class="muted small mid" x="546" y="466">ring</text>
+<rect class="plain" x="92" y="484" width="32" height="24" rx="3"/>
+<text class="cell" x="108" y="496">04</text>
+<rect class="plain" x="128" y="484" width="32" height="24" rx="3"/>
+<text class="cell" x="144" y="496">02</text>
+<rect class="plain" x="164" y="484" width="32" height="24" rx="3"/>
+<text class="cell" x="180" y="496">02</text>
+<text class="muted" x="208" y="496">gap 4, dist 1, n 3</text>
+<text class="muted small" x="0" y="496">op</text>
+</svg>
