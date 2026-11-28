@@ -3,12 +3,11 @@
 use usize_cast::IntoUsize as _;
 
 use super::streams::{
-    dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_hilbert_xyz_vertex_streams02,
-    encode_level1_length_stream, encode_level1_without_ring_buffer_length_stream,
-    encode_level2_length_stream, encode_morton_vertex_streams02, encode_ring_lengths_for_mixed,
-    encode_root_length_stream, encode_vec2_vertex_stream02, encode_vec3_vertex_stream02,
-    normalize_geometry_offsets, normalize_part_offsets_for_rings, seed_curve_caches,
-    xyz_dict_may_be_beneficial,
+    dict_may_be_beneficial, encode_level1_length_stream,
+    encode_level1_without_ring_buffer_length_stream, encode_level2_length_stream,
+    encode_morton_vertex_streams02, encode_ring_lengths_for_mixed, encode_root_length_stream,
+    encode_vec2_vertex_stream02, encode_vec3_vertex_stream02, normalize_geometry_offsets,
+    normalize_part_offsets_for_rings, seed_curve_caches,
 };
 use crate::codecs::tri::{self, TriTrees};
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
@@ -458,7 +457,10 @@ impl GeometrySection02 {
         let geo_lengths = self.geo_lengths;
         let topology = self.topology;
         let vertices = match self.z_axis {
-            Some(axis) => write_xyz_vertices(&self.vertices, axis, tessellated, enc, codecs)?,
+            Some(axis) => {
+                write_xyz_vertices(&self.vertices, axis, enc, codecs)?;
+                VertexStorage::Plain
+            }
             None => write_vertices(&self.vertices, tessellated, enc, codecs)?,
         };
         let layout = if uniform_type == Some(GeometryType::Mesh) {
@@ -499,10 +501,7 @@ fn write_vertices(
             encode_morton_vertex_streams02(vertices, enc, codecs)?;
             return Ok(VertexStorage::Dict);
         }
-        (Some(VertexBufferType::Hilbert), false) => {
-            encode_hilbert_vertex_streams02(vertices, enc, codecs)?;
-            return Ok(VertexStorage::Dict);
-        }
+        (Some(VertexBufferType::Hilbert), false) => return Err(MltError::HilbertDictionaryInV2),
         (None, false) => {}
     }
 
@@ -511,17 +510,13 @@ fn write_vertices(
         return Ok(VertexStorage::Plain);
     }
 
-    // Morton fits (the gate above ensures it), so race all three layouts and keep
-    // the shortest, as the v1 writer does.
+    // Morton fits (the gate above ensures it), so race plain against the Morton dictionary.
     keep_shortest(
         enc,
         codecs,
         &[
             (VertexStorage::Plain, &|enc, codecs| {
                 encode_vec2_vertex_stream02(vertices, enc, codecs)
-            }),
-            (VertexStorage::Dict, &|enc, codecs| {
-                encode_hilbert_vertex_streams02(vertices, enc, codecs)
             }),
             (VertexStorage::Dict, &|enc, codecs| {
                 encode_morton_vertex_streams02(vertices, enc, codecs)
@@ -562,64 +557,21 @@ fn keep_shortest(
     Ok(winner)
 }
 
-/// Write `(x, y, z)` vertex streams and report the storage they used.
-///
-/// A Morton code spans only `x` and `y`, so the plain triples race only the Hilbert dictionary.
+/// Write the `(x, y, z)` vertex stream, which has no dictionary layout since a Morton code spans only `x` and `y`.
 fn write_xyz_vertices(
     vertices: &[i32],
     axis: ZAxis,
-    tessellated: bool,
     enc: &mut Encoder,
     codecs: &mut Codecs,
-) -> MltResult<VertexStorage> {
+) -> MltResult<()> {
     enc.family_context = Family::Vertex;
-
-    if tessellated {
-        encode_vec3_vertex_stream02(vertices, axis, enc, codecs)?;
-        return Ok(VertexStorage::Plain);
+    match enc.override_vertex_buffer_type() {
+        None | Some(VertexBufferType::Vec2) => {
+            encode_vec3_vertex_stream02(vertices, axis, enc, codecs)
+        }
+        Some(VertexBufferType::Hilbert) => Err(MltError::HilbertDictionaryInV2),
+        Some(VertexBufferType::Morton) => Err(MltError::NotImplemented(
+            "Morton vertices with z coordinates, since a Morton code spans only x and y",
+        )),
     }
-
-    if enc.hilbert_cache.is_none() || enc.morton_cache.is_none() {
-        let xy: Vec<i32> = vertices
-            .as_chunks::<3>()
-            .0
-            .iter()
-            .flat_map(|&[x, y, _]| [x, y])
-            .collect();
-        seed_curve_caches(enc, &xy);
-    }
-
-    if let Some(forced) = enc.override_vertex_buffer_type() {
-        return match forced {
-            VertexBufferType::Vec2 => {
-                encode_vec3_vertex_stream02(vertices, axis, enc, codecs)?;
-                Ok(VertexStorage::Plain)
-            }
-            VertexBufferType::Hilbert => {
-                encode_hilbert_xyz_vertex_streams02(vertices, axis, enc, codecs)?;
-                Ok(VertexStorage::Dict)
-            }
-            VertexBufferType::Morton => Err(MltError::NotImplemented(
-                "Morton vertices with z coordinates, since a Morton code spans only x and y",
-            )),
-        };
-    }
-
-    if !xyz_dict_may_be_beneficial(vertices, enc) {
-        encode_vec3_vertex_stream02(vertices, axis, enc, codecs)?;
-        return Ok(VertexStorage::Plain);
-    }
-
-    keep_shortest(
-        enc,
-        codecs,
-        &[
-            (VertexStorage::Plain, &|enc, codecs| {
-                encode_vec3_vertex_stream02(vertices, axis, enc, codecs)
-            }),
-            (VertexStorage::Dict, &|enc, codecs| {
-                encode_hilbert_xyz_vertex_streams02(vertices, axis, enc, codecs)
-            }),
-        ],
-    )
 }

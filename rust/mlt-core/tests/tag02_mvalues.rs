@@ -740,7 +740,7 @@ fn encode_dictionary_vertex_layer() -> Vec<u8> {
     )
     .expect("staged layer");
     let explicit = ExplicitEncoder {
-        vertex_buffer_type: VertexBufferType::Hilbert,
+        vertex_buffer_type: VertexBufferType::Morton,
         force_stream: Box::new(|_| false),
         get_int_encoder: Box::new(|_| IntEncoder::varint()),
         get_str_encoding: Box::new(|_| StrEncoding::Plain),

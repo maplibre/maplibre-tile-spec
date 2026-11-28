@@ -220,6 +220,9 @@ pub enum MltError {
     #[error("a mesh needs (x, y, z) vertices, so its layer needs a z step")]
     MeshWithoutZ,
     #[cfg(feature = "unstable-v2")]
+    #[error("the vertex stream of a {0} layout must be Morton coded")]
+    VertexDictionaryNotMorton(&'static str),
+    #[cfg(feature = "unstable-v2")]
     #[error(
         "the geo lengths of a Meshes layer sum to {expected} vertices, but its vertex stream holds {actual}"
     )]
@@ -427,6 +430,8 @@ pub enum MltError {
     },
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
+    #[error("v2 has no Hilbert vertex dictionary, only a Morton one")]
+    HilbertDictionaryInV2,
     #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
     UnsupportedPropertyEncoderCombination(&'static str, &'static str),
     #[error("mixed property types are not allowed in column {0} ({1})")]

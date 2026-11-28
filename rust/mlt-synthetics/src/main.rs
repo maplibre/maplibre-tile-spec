@@ -2594,13 +2594,6 @@ fn generate_z(w: &mut SynthWriter) {
         .geo(poly1h())
         .z(-1, decimetres(&[40, 41, 42, 10, 11, 12]))
         .write(w, "z_poly_hole_tri");
-    // P0 repeats at the same height and P1 at two, so the dictionary holds four triples.
-    geo_varint()
-        .geos([P0, P1, P0, P1, P2])
-        .vertex_buffer_type(VertexBufferType::Hilbert)
-        .vertex_offsets(E::varint())
-        .z(-1, decimetres(&[5, 6, 5, 7, 8]))
-        .write(w, "z_points_hilbert");
     // The same line twice, its z read from sea level and from the terrain under each vertex.
     geo_varint()
         .geo(line1())

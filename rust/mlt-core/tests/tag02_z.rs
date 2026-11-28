@@ -159,7 +159,7 @@ fn a_triangles_only_feature_carries_the_z_of_each_corner_in_decoded_order() {
 }
 
 #[test]
-fn repeated_vertices_pick_a_dictionary() {
+fn repeated_triples_stay_plain() {
     let l = {
         let mut builder = TileLayer::builder("z", 4096).unwrap();
         builder.set_z_axis(step()).unwrap();
@@ -170,13 +170,6 @@ fn repeated_vertices_pick_a_dictionary() {
         }
         builder.finish()
     };
-    let bytes = assert_round_trips(&l, cfg_v2());
-    assert_eq!(geometry_layout(&bytes), "geometry layout = PointsDict");
-}
-
-#[test]
-fn distinct_vertices_stay_plain() {
-    let l = z_layer((0..64).map(|i| pt(i * 7, i * 13)).collect());
     let bytes = assert_round_trips(&l, cfg_v2());
     assert_eq!(geometry_layout(&bytes), "geometry layout = Points");
 }
@@ -383,4 +376,13 @@ fn an_elevation_lands_on_its_nearest_grid_value(
     #[case] z: Option<i32>,
 ) {
     assert_eq!(ZStep::new(exponent).unwrap().z(metres), z);
+}
+
+#[test]
+fn a_dictionary_layout_over_componentwise_delta_triples_is_rejected() {
+    let bytes =
+        hex::decode("2302066c617965723110050189040c021a54640314140000147828140805000100020300")
+            .unwrap();
+    let err = Parser::default().parse_layers(&bytes).unwrap_err();
+    assert_snapshot!(err, @"the vertex stream of a PointsDict layout must be Morton coded");
 }

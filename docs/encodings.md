@@ -738,7 +738,8 @@ words:    [200, 400, 10, 20, 5, 10]
 
 The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex.
 `VertexOffsets` is an ordinary unsigned integer stream.
-`VertexDict` is a vertex stream and carries any of the encodings in this section.
+`VertexDict` is a vertex stream.
+In v1 it carries any of the encodings in this section, and in v2 it MUST be [Morton](#morton).
 
 [View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices stored once and indexed.
 
@@ -758,7 +759,7 @@ An offset at or past the dictionary's vertex count MUST be rejected.
 
 #### Hilbert Order
 
-Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short.
+v1 encoders SHOULD sort a dictionary that is not Morton coded along a Hilbert curve, so that the deltas between neighboring entries stay short.
 The order is not part of the format.
 A decoder resolves vertices through `VertexOffsets` and never depends on the order.
 
