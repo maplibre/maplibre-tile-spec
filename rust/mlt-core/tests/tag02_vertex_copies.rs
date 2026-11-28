@@ -177,7 +177,11 @@ fn the_fast_encoding_profile_stores_shared_walls_as_residuals() {
     let fast =
         EncoderConfig::from_profile(Profile::FastEncoding).with_wire_version(WireVersion::V02);
     let bytes = layer(strip(0)).encode(fast).unwrap();
-    assert_debug_snapshot!(predicted_headers(&bytes), @"");
+    assert_debug_snapshot!(predicted_headers(&bytes), @r#"
+    [
+        "starts from the previous run, lines continued from six, 144 B",
+    ]
+    "#);
 }
 
 #[test]

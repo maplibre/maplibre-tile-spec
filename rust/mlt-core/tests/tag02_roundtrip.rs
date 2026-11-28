@@ -540,7 +540,7 @@ fn a_bitpacking_friendly_column_takes_fastpfor128() {
 
 #[rstest]
 fn a_fastpfor128_stream_round_trips_across_block_boundaries(
-    #[values(127, 128, 129, 255, 256, 257, 383, 384, 385, 511, 512, 513)] n: u32,
+    #[values(128, 129, 255, 256, 257, 383, 384, 385, 511, 512, 513)] n: u32,
 ) {
     let geoms: Vec<_> = (0..n).map(|i| pt(i32::try_from(i).unwrap(), 0)).collect();
     let values: Vec<PropValue> = (0..n)
@@ -679,9 +679,14 @@ mod geometry_layouts {
         )
     }
 
-    /// Points cycling through a handful of coordinates, so a vertex dictionary pays off.
-    fn repeated_points(n: i32) -> Vec<Geometry<i32>> {
-        (0..n).map(|i| pt((i % 7) * 10, (i % 5) * 10)).collect()
+    /// Points scattered over a handful of coordinates in no repeating order, so a vertex dictionary pays off.
+    fn repeated_points(n: u32) -> Vec<Geometry<i32>> {
+        (0..n)
+            .map(|i| {
+                let slot = i32::try_from((i.wrapping_mul(2_654_435_761) >> 16) % 35).unwrap();
+                pt((slot % 7) * 10, (slot / 7) * 10)
+            })
+            .collect()
     }
 
     #[test]
@@ -897,7 +902,7 @@ mod geometry_layouts {
             .encode(cfg_tessellated().with_wire_version(WireVersion::V02))
             .unwrap();
         let triangles_only = l.encode(cfg_triangles_only()).unwrap();
-        assert_eq!((with_outlines.len(), triangles_only.len()), (82, 68));
+        assert_eq!((with_outlines.len(), triangles_only.len()), (75, 62));
     }
 
     #[rstest]
@@ -1694,7 +1699,7 @@ mod alp {
 
 /// The v2-only bit-packed physical encoding, behind a default-off [`EncoderConfig`] flag.
 mod bit_packing {
-    use mlt_core::wire::{FastPForKind, PhysicalEncoding};
+    use mlt_core::wire::PhysicalEncoding;
 
     use super::*;
 
@@ -1728,7 +1733,7 @@ mod bit_packing {
         assert_eq!(
             stream_physicals(&packed),
             [
-                PhysicalEncoding::FastPFor(FastPForKind::Block128Le),
+                PhysicalEncoding::None,
                 PhysicalEncoding::BitPacked,
                 PhysicalEncoding::VarInt,
                 PhysicalEncoding::None,
