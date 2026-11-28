@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.8.0...rust-mlt-v0.9.0) - 2026-11-28
+
+### Added
+
+- *(v2)* [**breaking**] drop vertex None and Delta, renumber the vertex family ([#2138](https://github.com/maplibre/maplibre-tile-spec/pull/2138))
+- *(v2)* [**breaking**] drop componentwise delta2 vertex coding ([#2116](https://github.com/maplibre/maplibre-tile-spec/pull/2116))
+- *(v2)* [**breaking**] drop rANS vertex coding ([#2058](https://github.com/maplibre/maplibre-tile-spec/pull/2058))
+
+### Fixed
+
+- *(rust)* keep FastPFOR out of the diffable profile ([#2126](https://github.com/maplibre/maplibre-tile-spec/pull/2126))
+
 ## [0.8.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.7.0...rust-mlt-v0.8.0) - 2026-11-25
 
 ### Added
