@@ -1,9 +1,16 @@
 //! Feature reordering for the optimizer
 
+use std::cmp::Ordering;
+
+use geo_types::Coord;
+use rustc_hash::FxHashMap;
+
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
+use crate::encoder::geometry::{GeometryStager, distance};
 use crate::encoder::model::CurveParams;
 use crate::encoder::source::{LayerSource, Order};
+use crate::encoder::tile::empty_geometry;
 use crate::tile::TileLayer;
 
 /// Controls how features inside a layer are reordered before encoding.
@@ -34,6 +41,12 @@ pub enum SortStrategy {
 
     /// Sort features by their feature ID in ascending order.
     Id,
+
+    /// Start at the origin, then repeatedly take the feature whose first vertex is nearest the last vertex of the previous one.
+    ///
+    /// Features enter at their stored first vertex and leave at the vertex they store last, rings wound as stored.
+    /// Features without a vertex come last.
+    Chain,
 }
 
 impl TileLayer {
@@ -51,7 +64,7 @@ impl TileLayer {
         if strategy == SortStrategy::Unsorted {
             return;
         }
-        let order = sort_order(self, strategy, params);
+        let order = sort_order(self, strategy, params, false);
         let mut features: Vec<_> = std::mem::take(&mut self.features)
             .into_iter()
             .map(Some)
@@ -71,12 +84,13 @@ impl TileLayer {
     }
 }
 
-/// The order `strategy` puts the features of `source` in.
+/// The order `strategy` puts the features of `source` in, for features staged with vertex sort when `vertex_sort`.
 #[hotpath::measure]
 pub(crate) fn sort_order(
     source: &impl LayerSource,
     strategy: SortStrategy,
     params: CurveParams,
+    vertex_sort: bool,
 ) -> Order {
     let len = source.feature_count();
     match strategy {
@@ -94,6 +108,209 @@ pub(crate) fn sort_order(
             }))
         }
         SortStrategy::Id => Order::Permuted(permutation(len, |f| source.id(f))),
+        SortStrategy::Chain => Order::Permuted(chain(source, vertex_sort)),
+    }
+}
+
+/// The features of `source` in the order a walk from the origin visits them, always stepping to the feature whose first vertex is nearest the vertex stored last.
+/// Features that start at one position wait in index order behind a single site.
+fn chain(source: &impl LayerSource, vertex_sort: bool) -> Vec<u32> {
+    let len = source.feature_count();
+    let mut site_of = FxHashMap::<(i32, i32), usize>::default();
+    let mut sites = Vec::new();
+    let mut queues: Vec<Vec<usize>> = Vec::new();
+    let mut without = Vec::new();
+    for feature in 0..len {
+        let Some(start) = source.first_coord(feature) else {
+            without.push(feature);
+            continue;
+        };
+        let site = *site_of.entry((start.x, start.y)).or_insert_with(|| {
+            sites.push(start);
+            queues.push(Vec::new());
+            sites.len() - 1
+        });
+        queues[site].push(feature);
+    }
+    let mut order = Vec::with_capacity(len);
+    let mut tree = SiteTree::new(&sites);
+    let mut next = vec![0_usize; sites.len()];
+    let mut values = empty_geometry(source, false);
+    let mut stager = GeometryStager::new(&mut values).vertex_sorted(vertex_sort);
+    let mut at = Coord { x: 0, y: 0 };
+    loop {
+        // A site at `at` is the only one that near.
+        let continued = site_of
+            .get(&(at.x, at.y))
+            .copied()
+            .filter(|&site| next[site] < queues[site].len());
+        let Some(site) =
+            continued.or_else(|| tree.nearest(&sites, at, |site| queues[site][next[site]]))
+        else {
+            break;
+        };
+        let feature = queues[site][next[site]];
+        next[site] += 1;
+        if next[site] == queues[site].len() {
+            tree.remove(site);
+        }
+        order.push(feature);
+        source.push_geometry(feature, &mut stager);
+        stager.finish_feature();
+        at = stager.last_vertex();
+    }
+    order.extend(without);
+    order
+        .into_iter()
+        .map(|f| u32::try_from(f).expect("feature count fits in u32"))
+        .collect()
+}
+
+/// Sites in a 2-d tree whose subtrees count the sites not yet removed, so a search skips the emptied ones.
+/// Each subtree is a range of `slots` with its root in the middle.
+struct SiteTree {
+    /// The site at each slot.
+    slots: Vec<u32>,
+    /// The slot of each site.
+    slot_of: Vec<u32>,
+    /// The bounding box of the subtree rooted at each slot.
+    min: Vec<Coord<i32>>,
+    max: Vec<Coord<i32>>,
+    /// Whether the subtree rooted at each slot splits on x rather than y.
+    split_x: Vec<bool>,
+    /// How many sites of the subtree rooted at each slot are not removed.
+    live: Vec<u32>,
+    /// Whether the site at each slot is removed.
+    removed: Vec<bool>,
+}
+
+impl SiteTree {
+    fn new(sites: &[Coord<i32>]) -> Self {
+        let len = sites.len();
+        let mut tree = Self {
+            slots: (0..len)
+                .map(|s| u32::try_from(s).expect("site count fits in u32"))
+                .collect(),
+            slot_of: vec![0; len],
+            min: vec![Coord::default(); len],
+            max: vec![Coord::default(); len],
+            split_x: vec![false; len],
+            live: vec![0; len],
+            removed: vec![false; len],
+        };
+        tree.build(sites, 0, len);
+        for (slot, &site) in tree.slots.iter().enumerate() {
+            tree.slot_of[site as usize] = u32::try_from(slot).expect("site count fits in u32");
+        }
+        tree
+    }
+
+    /// Arranges `slots[lo..hi]` into a subtree.
+    fn build(&mut self, sites: &[Coord<i32>], lo: usize, hi: usize) {
+        if lo >= hi {
+            return;
+        }
+        let at = |slot: &u32| sites[*slot as usize];
+        let (min, max) = self.slots[lo..hi].iter().map(at).fold(
+            (at(&self.slots[lo]), at(&self.slots[lo])),
+            |(min, max), c| {
+                (
+                    Coord {
+                        x: min.x.min(c.x),
+                        y: min.y.min(c.y),
+                    },
+                    Coord {
+                        x: max.x.max(c.x),
+                        y: max.y.max(c.y),
+                    },
+                )
+            },
+        );
+        let split_x = i64::from(max.x) - i64::from(min.x) >= i64::from(max.y) - i64::from(min.y);
+        let mid = lo + (hi - lo) / 2;
+        self.slots[lo..hi].select_nth_unstable_by_key(mid - lo, |&s| {
+            let c = sites[s as usize];
+            if split_x { (c.x, c.y) } else { (c.y, c.x) }
+        });
+        self.build(sites, lo, mid);
+        self.build(sites, mid + 1, hi);
+        self.min[mid] = min;
+        self.max[mid] = max;
+        self.split_x[mid] = split_x;
+        self.live[mid] = u32::try_from(hi - lo).expect("site count fits in u32");
+    }
+
+    /// The site nearest `at` that is not removed, the one with the lowest `tie` of equally near ones.
+    fn nearest<T: Ord + Copy>(
+        &self,
+        sites: &[Coord<i32>],
+        at: Coord<i32>,
+        tie: impl Fn(usize) -> T,
+    ) -> Option<usize> {
+        let mut best = None;
+        self.search(sites, at, &tie, 0, self.slots.len(), &mut best);
+        best.map(|(_, _, site)| site)
+    }
+
+    fn search<T: Ord + Copy>(
+        &self,
+        sites: &[Coord<i32>],
+        at: Coord<i32>,
+        tie: &impl Fn(usize) -> T,
+        lo: usize,
+        hi: usize,
+        best: &mut Option<(u64, T, usize)>,
+    ) {
+        if lo >= hi {
+            return;
+        }
+        let mid = lo + (hi - lo) / 2;
+        if self.live[mid] == 0 {
+            return;
+        }
+        let clamped = Coord {
+            x: at.x.clamp(self.min[mid].x, self.max[mid].x),
+            y: at.y.clamp(self.min[mid].y, self.max[mid].y),
+        };
+        // Equally near sites may still win on `tie`.
+        if best.is_some_and(|(d, _, _)| distance(at, clamped) > d) {
+            return;
+        }
+        let site = self.slots[mid] as usize;
+        if !self.removed[mid] {
+            let key = (distance(at, sites[site]), tie(site));
+            if best.is_none_or(|(d, t, _)| key < (d, t)) {
+                *best = Some((key.0, key.1, site));
+            }
+        }
+        let below = if self.split_x[mid] {
+            at.x < sites[site].x
+        } else {
+            at.y < sites[site].y
+        };
+        if below {
+            self.search(sites, at, tie, lo, mid, best);
+            self.search(sites, at, tie, mid + 1, hi, best);
+        } else {
+            self.search(sites, at, tie, mid + 1, hi, best);
+            self.search(sites, at, tie, lo, mid, best);
+        }
+    }
+
+    /// Removes `site`, which must not be removed yet.
+    fn remove(&mut self, site: usize) {
+        let slot = self.slot_of[site] as usize;
+        self.removed[slot] = true;
+        let (mut lo, mut hi) = (0, self.slots.len());
+        loop {
+            let mid = lo + (hi - lo) / 2;
+            self.live[mid] -= 1;
+            match slot.cmp(&mid) {
+                Ordering::Less => hi = mid,
+                Ordering::Greater => lo = mid + 1,
+                Ordering::Equal => return,
+            }
+        }
     }
 }
 
@@ -123,8 +340,10 @@ mod tests {
     };
     use rstest::rstest;
 
+    use super::sort_order;
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry};
     use crate::encoder::model::CurveParams;
+    use crate::encoder::source::Order;
     use crate::encoder::{
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Network, Profile,
         SortStrategy, stage_tile,
@@ -320,6 +539,144 @@ mod tests {
         );
     }
 
+    #[test]
+    fn chain_sort_starts_nearest_the_origin_and_follows_the_previous_end() {
+        let layer = layer_after_sort(
+            &[
+                pt(100, 100),
+                ls(&[(10, 0), (10, 50)]),
+                pt(12, 52),
+                pt(1, 1),
+                pt(90, 95),
+            ],
+            &[1, 2, 3, 4, 5],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(4), Some(2), Some(3), Some(5), Some(1)]);
+    }
+
+    #[test]
+    fn chain_sort_enters_a_multi_line_with_an_empty_first_part_at_its_first_stored_vertex() {
+        let multi_line = GeoGeom::MultiLineString(MultiLineString::new(vec![
+            LineString::new(vec![]),
+            LineString::new(vec![Coord { x: 2, y: 2 }, Coord { x: 3, y: 3 }]),
+        ]));
+        let layer = layer_after_sort(&[pt(50, 50), multi_line], &[1, 2], SortStrategy::Chain);
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(2), Some(1)]);
+    }
+
+    #[test]
+    fn chain_sort_takes_features_sharing_a_start_in_index_order() {
+        let layer = layer_after_sort(
+            &[pt(5, 5), ls(&[(5, 5), (9, 9)]), pt(5, 5), pt(9, 9)],
+            &[1, 2, 3, 4],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(1), Some(2), Some(4), Some(3)]);
+    }
+
+    #[test]
+    fn chain_sort_under_vertex_sort_follows_the_multi_point_end_it_stores() {
+        let layer = layer_after_sort(
+            &[
+                GeoGeom::MultiPoint(MultiPoint(vec![
+                    Point::new(0, 0),
+                    Point::new(100, 0),
+                    Point::new(1, 0),
+                ])),
+                pt(2, 0),
+                pt(101, 0),
+            ],
+            &[1, 2, 3],
+            SortStrategy::Unsorted,
+        );
+        let params = layer.curve_params();
+
+        let Order::Permuted(order) = sort_order(&layer, SortStrategy::Chain, params, true) else {
+            panic!("chain sort permutes the features");
+        };
+        assert_eq!(order, vec![0, 2, 1]);
+    }
+
+    #[test]
+    fn chain_sort_leaves_a_wound_polygon_at_its_stored_last_vertex() {
+        let layer = layer_after_sort(
+            &[
+                GeoGeom::Polygon(Polygon::new(
+                    LineString::from(vec![(0, 0), (0, 10), (10, 10), (10, 0), (0, 0)]),
+                    vec![],
+                )),
+                pt(3, 0),
+                pt(1, 10),
+            ],
+            &[1, 2, 3],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(1), Some(3), Some(2)]);
+    }
+
+    #[test]
+    fn chain_sort_leaves_a_closed_polygon_at_its_last_stored_vertex() {
+        let layer = layer_after_sort(
+            &[poly_square(0, 0, 10), pt(3, 0), pt(0, 12)],
+            &[1, 2, 3],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(1), Some(3), Some(2)]);
+    }
+
+    #[test]
+    fn chain_sort_matches_a_brute_force_walk_over_scattered_lines() {
+        let lines: Vec<[(i32, i32); 2]> = (0..3000_u32)
+            .map(|i| {
+                let x = i32::try_from(i.wrapping_mul(2_654_435_761) % 64).unwrap();
+                let y = i32::try_from(i.wrapping_mul(40_503) % 32).unwrap();
+                let dx = i32::try_from(i % 7).unwrap() - 3;
+                [(x * 8, y * 8), (x * 8 + dx * 9, y * 8 + 5)]
+            })
+            .collect();
+        let geoms: Vec<_> = lines.iter().map(|line| ls(line)).collect();
+        let ids: Vec<u64> = (0..geoms.len() as u64).collect();
+
+        let layer = layer_after_sort(&geoms, &ids, SortStrategy::Chain);
+
+        let mut left: Vec<usize> = (0..lines.len()).collect();
+        let mut at = (0_i32, 0_i32);
+        let mut expected = Vec::new();
+        while let Some(pos) = (0..left.len()).min_by_key(|&pos| {
+            let (x, y) = lines[left[pos]][0];
+            ((x - at.0).abs() + (y - at.1).abs(), left[pos])
+        }) {
+            let line = left.remove(pos);
+            expected.push(Some(line as u64));
+            at = lines[line][1];
+        }
+        let actual: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn chain_sort_breaks_ties_by_stored_index() {
+        let layer = layer_after_sort(
+            &[pt(5, 0), pt(0, 5), pt(0, 5)],
+            &[1, 2, 3],
+            SortStrategy::Chain,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(1), Some(2), Some(3)]);
+    }
+
     // ── already-sorted is identity ────────────────────────────────────────────
 
     #[test]
@@ -422,6 +779,25 @@ mod tests {
                 pt(x, y)
             })
             .collect()
+    }
+
+    #[test]
+    fn chain_sort_encodes_scattered_points_in_the_chain_order() {
+        let geoms = scattered_points(600);
+        let ids = vec![None; geoms.len()];
+        let mut expected = build_tile_layer(&geoms, &ids);
+        let params = expected.curve_params();
+        expected.sort(SortStrategy::Chain, params);
+
+        let decoded = encode_decode(
+            &build_tile_layer(&geoms, &ids),
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G)).with_chain_sort(true),
+        );
+
+        assert_eq!(
+            vertices_from_source(&decoded),
+            vertices_from_source(&expected)
+        );
     }
 
     #[test]

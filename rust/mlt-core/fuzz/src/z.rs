@@ -46,7 +46,8 @@ impl Arbitrary<'_> for ZInput {
             .with_wire_version(WireVersion::V02)
             .with_spatial_morton_sort(false)
             .with_spatial_hilbert_sort(false)
-            .with_id_sort(false);
+            .with_id_sort(false)
+            .with_chain_sort(false);
         Ok(Self {
             geometries,
             axis: ZAxis { step, mode },

@@ -164,7 +164,7 @@ impl<'a> GeometryStager<'a> {
     }
 
     /// The vertex stored last, or the origin the vertex deltas start from.
-    fn last_vertex(&self) -> Coord<i32> {
+    pub(crate) fn last_vertex(&self) -> Coord<i32> {
         self.values.last_vertex().unwrap_or_default()
     }
 
@@ -269,7 +269,7 @@ fn any_reversal<'c>(rings: impl Iterator<Item = &'c [Coord<i32>]>) -> bool {
 }
 
 /// The Manhattan distance between two vertices.
-fn distance(a: Coord<i32>, b: Coord<i32>) -> u64 {
+pub(crate) fn distance(a: Coord<i32>, b: Coord<i32>) -> u64 {
     (i64::from(a.x) - i64::from(b.x)).unsigned_abs()
         + (i64::from(a.y) - i64::from(b.y)).unsigned_abs()
 }

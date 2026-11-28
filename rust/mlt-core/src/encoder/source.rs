@@ -290,12 +290,12 @@ fn first_vertex(geom: &Geometry<i32>) -> Option<Coord<i32>> {
         Geometry::<i32>::LineString(ls) => ls.0.first().copied(),
         Geometry::<i32>::Polygon(p) => p.exterior().0.first().copied(),
         Geometry::<i32>::MultiPoint(mp) => mp.0.first().map(|p| p.0),
-        Geometry::<i32>::MultiLineString(mls) => mls.0.first().and_then(|ls| ls.0.first().copied()),
+        Geometry::<i32>::MultiLineString(mls) => mls.0.iter().find_map(|ls| ls.0.first().copied()),
         Geometry::<i32>::MultiPolygon(mp) => {
-            mp.0.first().and_then(|p| p.exterior().0.first().copied())
+            mp.0.iter().find_map(|p| p.exterior().0.first().copied())
         }
         Geometry::<i32>::Triangle(t) => Some(t.v1()),
         Geometry::<i32>::Rect(r) => Some(r.min()),
-        Geometry::<i32>::GeometryCollection(gc) => gc.0.first().and_then(first_vertex),
+        Geometry::<i32>::GeometryCollection(gc) => gc.0.iter().find_map(first_vertex),
     }
 }

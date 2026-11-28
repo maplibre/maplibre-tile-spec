@@ -10,6 +10,6 @@ mod tests;
 
 pub(crate) use geotype::coord_count;
 pub use model::*;
-pub(crate) use stager::GeometryStager;
+pub(crate) use stager::{GeometryStager, distance};
 
 pub use crate::encoder::geometry::geotype::{wound_geometry, wound_layer};

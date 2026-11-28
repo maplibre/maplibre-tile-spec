@@ -123,6 +123,9 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     if cfg.attempt_spatial_hilbert_sort() {
         sort_by.push(SortStrategy::SpatialHilbert);
     }
+    if cfg.attempt_chain_sort() {
+        sort_by.push(SortStrategy::Chain);
+    }
     // A stable sort of ascending (or absent) IDs is the source order.
     if cfg.attempt_id_sort() && !(0..len).map(|f| source.id(f)).is_sorted() {
         sort_by.push(SortStrategy::Id);
@@ -132,8 +135,9 @@ pub(crate) fn encode_layer(source: &impl LayerSource, cfg: EncoderConfig) -> Mlt
     // Bounds are order-invariant, so this scan is shared across every
     // sort trial and the encoder's Hilbert/Morton dictionary builders.
     let curve_params = curve_params(source);
+    let vertex_sort = cfg.vertex_sort();
     let stage = |sort, tessellate| {
-        let order = sort_order(source, sort, curve_params);
+        let order = sort_order(source, sort, curve_params, vertex_sort);
         stage_layer(source, &order, &stats, StageOptions::new(cfg, tessellate))
     };
 

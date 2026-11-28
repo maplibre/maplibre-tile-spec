@@ -53,7 +53,7 @@ impl StagedLayer {
         curve_params: CurveParams,
     ) -> Self {
         assert!(source.feature_count() != 0, "empty tile");
-        let order = sort_order(source, sort, curve_params);
+        let order = sort_order(source, sort, curve_params, false);
         let options = StageOptions {
             tessellate,
             widen_8bit: false,
@@ -85,6 +85,24 @@ impl StageOptions {
     }
 }
 
+/// Empty geometry in the layout `source` stages into.
+pub(crate) fn empty_geometry(source: &impl LayerSource, tessellate: bool) -> GeometryValues {
+    #[cfg(feature = "unstable-v2")]
+    if source.v2_layout().meshes {
+        return GeometryValues {
+            layout: GeometryLayout::Meshes,
+            ..GeometryValues::default()
+        };
+    }
+    #[cfg(not(feature = "unstable-v2"))]
+    let _ = source;
+    if tessellate {
+        GeometryValues::new_tessellated()
+    } else {
+        GeometryValues::default()
+    }
+}
+
 /// Stage the features of `source`, in `order`, using pre-computed layer statistics.
 #[hotpath::measure]
 pub(crate) fn stage_layer(
@@ -95,16 +113,8 @@ pub(crate) fn stage_layer(
 ) -> StagedLayer {
     #[cfg(feature = "unstable-v2")]
     let layout = source.v2_layout();
-    let mut geometry = match () {
-        // Its z is added below, with every other layer's.
-        #[cfg(feature = "unstable-v2")]
-        () if layout.meshes => GeometryValues {
-            layout: GeometryLayout::Meshes,
-            ..GeometryValues::default()
-        },
-        () if options.tessellate => GeometryValues::new_tessellated(),
-        () => GeometryValues::default(),
-    };
+    // Its z is added below, with every other layer's.
+    let mut geometry = empty_geometry(source, options.tessellate);
     geometry.reserve(
         source.feature_count(),
         order.iter().map(|f| source.coord_count(f)).sum(),

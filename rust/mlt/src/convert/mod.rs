@@ -174,6 +174,8 @@ enum SortMode {
     Hilbert,
     /// Try feature-ID ascending sort
     Id,
+    /// Greedy chain from the origin, each feature the one starting nearest where the previous ended.
+    Chain,
 }
 
 impl SortMode {
@@ -182,6 +184,7 @@ impl SortMode {
             .with_spatial_morton_sort(matches!(self, Self::All | Self::Morton))
             .with_spatial_hilbert_sort(matches!(self, Self::All | Self::Auto | Self::Hilbert))
             .with_id_sort(matches!(self, Self::All | Self::Auto | Self::Id))
+            .with_chain_sort(matches!(self, Self::Chain))
     }
 }
 
@@ -1405,6 +1408,35 @@ mod tests {
             .unwrap();
         assert!(!encoder.attempt_spatial_hilbert_sort());
         assert!(!encoder.attempt_id_sort());
+    }
+
+    #[test]
+    fn sort_chain_turns_on_only_the_chain_sort() {
+        let encoder = parse_args(&["--sort", "chain", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(encoder.attempt_chain_sort());
+        assert!(!encoder.attempt_spatial_morton_sort());
+        assert!(!encoder.attempt_spatial_hilbert_sort());
+        assert!(!encoder.attempt_id_sort());
+    }
+
+    #[test]
+    fn sort_all_and_auto_leave_the_chain_sort_off() {
+        for sort in ["all", "auto"] {
+            let encoder = parse_args(&["--sort", sort, "src", "dst"])
+                .encoder()
+                .unwrap();
+            assert!(!encoder.attempt_chain_sort(), "--sort {sort}");
+        }
+    }
+
+    #[test]
+    fn profile_min_size_leaves_the_chain_sort_off() {
+        let encoder = parse_args(&["--profile", "min_size", "src", "dst"])
+            .encoder()
+            .unwrap();
+        assert!(!encoder.attempt_chain_sort());
     }
 
     #[test]
