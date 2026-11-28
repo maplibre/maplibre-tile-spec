@@ -584,6 +584,21 @@ pub fn encode<const D: usize>(vertices: &[i32], runs: &[Run]) -> MltResult<Vec<u
     Ok(payload)
 }
 
+/// The guesses [`encode_fast`] writes with.
+const FAST_GUESSES: Guesses = Guesses::new(StartGuess::RunStart, LineGuess::ContinuedFromSix);
+
+/// The payload for interleaved `(x, y)` pairs (`D = 2`) or `(x, y, z)` triples (`D = 3`) over `runs`, with one fixed pair of guesses and no shared vertices.
+pub fn encode_fast<const D: usize>(vertices: &[i32], runs: &[Run]) -> MltResult<Vec<u8>> {
+    let n = vertex_count::<D>(vertices)?;
+    let header = Header {
+        guesses: FAST_GUESSES,
+        sharing: Sharing::NONE,
+    };
+    let tags = classify(runs, n, header.guesses.line)?;
+    let residuals = residuals::<D>(vertices, &tags, header.guesses.start);
+    Ok(write::<D>(&residuals, &tags, header, &Plan::unshared(n)))
+}
+
 /// The payload for interleaved `D`-component `vertices` over `runs` with `header`.
 #[cfg(test)]
 fn encode_as<const D: usize>(vertices: &[i32], runs: &[Run], header: Header) -> MltResult<Vec<u8>> {
@@ -2378,6 +2393,12 @@ mod tests {
         }
 
         #[test]
+        fn the_fast_encoder_writes_its_fixed_guesses_unshared((vertices, runs) in arb_layer(2)) {
+            let unshared = Header { guesses: FAST_GUESSES, sharing: Sharing::NONE };
+            prop_assert_eq!(encode_fast::<2>(&vertices, &runs).unwrap(), encode_as::<2>(&vertices, &runs, unshared).unwrap());
+        }
+
+        #[test]
         fn any_triple_layer_round_trips_every_header((vertices, runs) in arb_layer(3)) {
             let count = u32::try_from(vertices.len() / 3).unwrap();
             for guesses in Guesses::ALL {
@@ -2393,6 +2414,12 @@ mod tests {
             let payload = encode::<3>(&vertices, &runs).unwrap();
             let count = u32::try_from(vertices.len() / 3).unwrap();
             prop_assert_eq!(decode::<3>(&payload, &runs, count, &mut dec()).unwrap(), vertices);
+        }
+
+        #[test]
+        fn the_fast_encoder_writes_its_fixed_guesses_unshared_on_triples((vertices, runs) in arb_layer(3)) {
+            let unshared = Header { guesses: FAST_GUESSES, sharing: Sharing::NONE };
+            prop_assert_eq!(encode_fast::<3>(&vertices, &runs).unwrap(), encode_as::<3>(&vertices, &runs, unshared).unwrap());
         }
 
         #[test]

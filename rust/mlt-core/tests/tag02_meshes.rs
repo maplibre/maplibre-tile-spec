@@ -4,7 +4,9 @@
 use hegel::generators as gs;
 use insta::assert_snapshot;
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
+use mlt_core::encoder::{
+    EncoderConfig, Network, PredictedVertices, Profile, Tessellation, WireVersion,
+};
 use mlt_core::geo_types::{Geometry, MultiPoint, Point};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{
@@ -250,7 +252,7 @@ fn meshes_and_their_triangle_values_survive_every_encoder_setting() {
         cfg_v2().with_tessellation(Tessellation::Always),
         cfg_v2().with_tessellation(Tessellation::Off),
         cfg_v2().with_triangles_only(true),
-        cfg_v2().with_predicted_vertices(true),
+        cfg_v2().with_predicted_vertices(PredictedVertices::Off),
     ] {
         let bytes = layer.encode(cfg).expect("v2 encode");
         assert_dump_of_meshes(&bytes);
@@ -311,13 +313,13 @@ fn random_meshes_round_trip(tc: hegel::TestCase) {
 }
 
 #[hegel::test]
-fn random_meshes_round_trip_under_predicted_vertices(tc: hegel::TestCase) {
+fn random_meshes_round_trip_under_componentwise_delta(tc: hegel::TestCase) {
     let meshes = tc.draw(gs::vecs(mesh()).min_size(1).max_size(5));
     let layer = mesh_layer(&meshes);
-    let predicted = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+    let componentwise = EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
         .with_wire_version(WireVersion::V02)
-        .with_predicted_vertices(true);
-    let bytes = layer.encode(predicted).expect("v2 encode");
+        .with_predicted_vertices(PredictedVertices::Off);
+    let bytes = layer.encode(componentwise).expect("v2 encode");
     assert_dump_of_meshes(&bytes);
     let mut layers = Parser::default().parse_layers(&bytes).unwrap();
     assert_eq!(layers.len(), 1);

@@ -5,7 +5,7 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
 use mlt_core::TileLayer;
-use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
+use mlt_core::encoder::{EncoderConfig, Network, PredictedVertices, Profile, WireVersion};
 use mlt_core::mvt::mvt_to_tile_layers;
 use usize_cast::FromUsize as _;
 
@@ -26,24 +26,16 @@ fn cfg_v2() -> EncoderConfig {
 fn configs() -> Vec<(&'static str, EncoderConfig)> {
     vec![
         ("mlt-v2", cfg_v2()),
-        ("mlt-v2-predicted", cfg_v2().with_predicted_vertices(true)),
         (
-            "mlt-v2-predicted-vertex-sort",
-            cfg_v2()
-                .with_predicted_vertices(true)
-                .with_vertex_sort(true),
+            "mlt-v2-componentwise-delta",
+            cfg_v2().with_predicted_vertices(PredictedVertices::Off),
         ),
+        ("mlt-v2-vertex-sort", cfg_v2().with_vertex_sort(true)),
         (
-            "mlt-v2-predicted-vertex-sort-chain",
-            cfg_v2()
-                .with_predicted_vertices(true)
-                .with_vertex_sort(true)
-                .with_chain_sort(true),
+            "mlt-v2-vertex-sort-chain",
+            cfg_v2().with_vertex_sort(true).with_chain_sort(true),
         ),
-        (
-            "mlt-v2-predicted-chain",
-            cfg_v2().with_predicted_vertices(true).with_chain_sort(true),
-        ),
+        ("mlt-v2-chain", cfg_v2().with_chain_sort(true)),
     ]
 }
 

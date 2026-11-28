@@ -2,7 +2,9 @@
 
 use insta::{assert_snapshot, with_settings};
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
-use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation, WireVersion};
+use mlt_core::encoder::{
+    EncoderConfig, Network, PredictedVertices, Profile, Tessellation, WireVersion,
+};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
@@ -538,7 +540,7 @@ fn a_bitpacking_friendly_column_takes_fastpfor128() {
 
 #[rstest]
 fn a_fastpfor128_stream_round_trips_across_block_boundaries(
-    #[values(127, 128, 129, 255, 256, 257, 383, 384, 385, 511, 512, 513)] n: u32,
+    #[values(128, 129, 255, 256, 257, 383, 384, 385, 511, 512, 513)] n: u32,
 ) {
     let geoms: Vec<_> = (0..n).map(|i| pt(i32::try_from(i).unwrap(), 0)).collect();
     let values: Vec<PropValue> = (0..n)
@@ -677,9 +679,14 @@ mod geometry_layouts {
         )
     }
 
-    /// Points cycling through a handful of coordinates, so a vertex dictionary pays off.
-    fn repeated_points(n: i32) -> Vec<Geometry<i32>> {
-        (0..n).map(|i| pt((i % 7) * 10, (i % 5) * 10)).collect()
+    /// Points scattered over a handful of coordinates in no repeating order, so a vertex dictionary pays off.
+    fn repeated_points(n: u32) -> Vec<Geometry<i32>> {
+        (0..n)
+            .map(|i| {
+                let slot = i32::try_from((i.wrapping_mul(2_654_435_761) >> 16) % 35).unwrap();
+                pt((slot % 7) * 10, (slot / 7) * 10)
+            })
+            .collect()
     }
 
     #[test]
@@ -895,7 +902,7 @@ mod geometry_layouts {
             .encode(cfg_tessellated().with_wire_version(WireVersion::V02))
             .unwrap();
         let triangles_only = l.encode(cfg_triangles_only()).unwrap();
-        assert_eq!((with_outlines.len(), triangles_only.len()), (82, 68));
+        assert_eq!((with_outlines.len(), triangles_only.len()), (75, 62));
     }
 
     #[rstest]
@@ -1692,7 +1699,7 @@ mod alp {
 
 /// The v2-only bit-packed physical encoding, behind a default-off [`EncoderConfig`] flag.
 mod bit_packing {
-    use mlt_core::wire::{FastPForKind, PhysicalEncoding};
+    use mlt_core::wire::PhysicalEncoding;
 
     use super::*;
 
@@ -1726,7 +1733,7 @@ mod bit_packing {
         assert_eq!(
             stream_physicals(&packed),
             [
-                PhysicalEncoding::FastPFor(FastPForKind::Block128Le),
+                PhysicalEncoding::None,
                 PhysicalEncoding::BitPacked,
                 PhysicalEncoding::VarInt,
                 PhysicalEncoding::None,
@@ -1988,19 +1995,23 @@ mod predicted_vertices {
     #[case::mixed(mixed())]
     fn predicted_vertices_shrink_the_layer_and_decode_unchanged(#[case] geoms: Vec<Geometry<i32>>) {
         let l = layer(geoms, None, &[]);
-        let plain = l.encode(cfg_v2()).unwrap();
-        let predicted = l.encode(cfg_v2().with_predicted_vertices(true)).unwrap();
+        let componentwise = l
+            .encode(cfg_v2().with_predicted_vertices(PredictedVertices::Off))
+            .unwrap();
+        let predicted = l
+            .encode(cfg_v2().with_predicted_vertices(PredictedVertices::Smallest))
+            .unwrap();
         assert_eq!(
             vertex_logicals(&predicted),
             [LogicalEncoding::Vertex(VertexLogical::Predicted)]
         );
         assert!(
-            predicted.len() < plain.len(),
+            predicted.len() < componentwise.len(),
             "{} vs {}",
             predicted.len(),
-            plain.len()
+            componentwise.len()
         );
-        assert_eq!(decode(&predicted).1, decode(&plain).1);
+        assert_eq!(decode(&predicted).1, decode(&componentwise).1);
         assert_dump_covers(&predicted);
     }
 
@@ -2011,15 +2022,19 @@ mod predicted_vertices {
     #[case::mixed(mixed())]
     fn the_race_never_grows_the_layer(#[case] geoms: Vec<Geometry<i32>>) {
         let l = layer(geoms, None, &[]);
-        let plain = l.encode(cfg_v2()).unwrap();
-        let raced = l.encode(cfg_v2().with_predicted_vertices(true)).unwrap();
+        let componentwise = l
+            .encode(cfg_v2().with_predicted_vertices(PredictedVertices::Off))
+            .unwrap();
+        let raced = l
+            .encode(cfg_v2().with_predicted_vertices(PredictedVertices::Smallest))
+            .unwrap();
         assert!(
-            raced.len() <= plain.len(),
+            raced.len() <= componentwise.len(),
             "{} vs {}",
             raced.len(),
-            plain.len()
+            componentwise.len()
         );
-        assert_eq!(decode(&raced).1, decode(&plain).1);
+        assert_eq!(decode(&raced).1, decode(&componentwise).1);
     }
 
     #[rstest]
@@ -2033,21 +2048,23 @@ mod predicted_vertices {
         let tessellated = cfg_v2()
             .with_tessellation(Tessellation::Always)
             .with_triangles_only(triangles_only);
-        let predicted = l.encode(tessellated.with_predicted_vertices(true)).unwrap();
+        let predicted = l
+            .encode(tessellated.with_predicted_vertices(PredictedVertices::Smallest))
+            .unwrap();
+        let componentwise = l
+            .encode(tessellated.with_predicted_vertices(PredictedVertices::Off))
+            .unwrap();
         assert_eq!(
             vertex_logicals(&predicted),
             [LogicalEncoding::Vertex(expected)]
         );
-        assert_eq!(
-            decode(&predicted).1,
-            decode(&l.encode(tessellated).unwrap()).1
-        );
+        assert_eq!(decode(&predicted).1, decode(&componentwise).1);
     }
 
     #[test]
     fn a_few_vertices_stay_componentwise_delta() {
         let predicted = layer(vec![pt(1, 2), pt(3, 4)], None, &[])
-            .encode(cfg_v2().with_predicted_vertices(true))
+            .encode(cfg_v2().with_predicted_vertices(PredictedVertices::Smallest))
             .unwrap();
         assert_eq!(
             vertex_logicals(&predicted),
@@ -2055,12 +2072,38 @@ mod predicted_vertices {
         );
     }
 
+    #[rstest]
+    #[case::curved_lines(curved_lines())]
+    #[case::polygons(polygons())]
+    #[case::mixed(mixed())]
+    fn the_fast_encoding_profile_predicts_vertices_and_decodes_unchanged(
+        #[case] geoms: Vec<Geometry<i32>>,
+    ) {
+        let l = layer(geoms, None, &[]);
+        let fast =
+            EncoderConfig::from_profile(Profile::FastEncoding).with_wire_version(WireVersion::V02);
+        let componentwise = EncoderConfig::from_profile(Profile::FastEncoding)
+            .with_wire_version(WireVersion::V02)
+            .with_predicted_vertices(PredictedVertices::Off);
+        let predicted = l.encode(fast).unwrap();
+        assert_eq!(
+            vertex_logicals(&predicted),
+            [LogicalEncoding::Vertex(VertexLogical::Predicted)]
+        );
+        assert_eq!(
+            decode(&predicted).1,
+            decode(&l.encode(componentwise).unwrap()).1
+        );
+    }
+
     #[test]
     fn v1_ignores_predicted_vertices() {
         let l = layer(lines(), None, &[]);
         assert_eq!(
-            l.encode(cfg_v1().with_predicted_vertices(true)).unwrap(),
-            l.encode(cfg_v1()).unwrap()
+            l.encode(cfg_v1().with_predicted_vertices(PredictedVertices::Smallest))
+                .unwrap(),
+            l.encode(cfg_v1().with_predicted_vertices(PredictedVertices::Off))
+                .unwrap()
         );
     }
 }

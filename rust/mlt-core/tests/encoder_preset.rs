@@ -1,4 +1,6 @@
-use mlt_core::encoder::{Client, EncoderConfig, Network, Profile, Tessellation, WireVersion};
+use mlt_core::encoder::{
+    Client, EncoderConfig, Network, PredictedVertices, Profile, Tessellation, WireVersion,
+};
 
 #[test]
 fn the_native_preset_tessellates_automatically_on_its_network() {
@@ -106,13 +108,6 @@ fn the_min_size_preset_allows_delta2_under_v2() {
 }
 
 #[test]
-fn the_min_size_preset_allows_predicted_vertices_under_v2() {
-    let min_size_v2 =
-        EncoderConfig::from_profile(Profile::MinSize).with_wire_version(WireVersion::V02);
-    assert!(min_size_v2.allow_predicted_vertices());
-}
-
-#[test]
 fn the_min_size_preset_allows_no_delta2_under_v1() {
     let min_size_v1 =
         EncoderConfig::from_profile(Profile::MinSize).with_wire_version(WireVersion::V01);
@@ -207,11 +202,25 @@ fn the_fast_encoding_preset_allows_no_delta2_under_v2() {
     assert!(!fast_v2.allow_delta2());
 }
 
+#[rstest::rstest]
+#[case::native(Profile::Native(Network::Cellular4G), PredictedVertices::Smallest)]
+#[case::web(Profile::Web(Network::Cellular4G), PredictedVertices::Smallest)]
+#[case::min_size(Profile::MinSize, PredictedVertices::Smallest)]
+#[case::diffable(Profile::Diffable, PredictedVertices::Smallest)]
+#[case::fast_encoding(Profile::FastEncoding, PredictedVertices::Fast)]
+fn a_preset_predicts_vertices_under_v2_as_documented(
+    #[case] profile: Profile,
+    #[case] predicted: PredictedVertices,
+) {
+    let v2 = EncoderConfig::from_profile(profile).with_wire_version(WireVersion::V02);
+    assert_eq!(v2.predicted_vertices(), predicted);
+}
+
 #[test]
-fn the_fast_encoding_preset_allows_no_predicted_vertices_under_v2() {
-    let fast_v2 =
-        EncoderConfig::from_profile(Profile::FastEncoding).with_wire_version(WireVersion::V02);
-    assert!(!fast_v2.allow_predicted_vertices());
+fn the_min_size_preset_predicts_no_vertices_under_v1() {
+    let min_size_v1 =
+        EncoderConfig::from_profile(Profile::MinSize).with_wire_version(WireVersion::V01);
+    assert_eq!(min_size_v1.predicted_vertices(), PredictedVertices::Off);
 }
 
 #[rstest::rstest]

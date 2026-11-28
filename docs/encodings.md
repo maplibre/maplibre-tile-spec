@@ -1246,8 +1246,9 @@ references:  C0                           D0: flag 1, index 1 of 2 slots | D1: f
 
 ??? note "Rust encoder"
 
-    `mlt convert --predicted-vertices`, and `--profile min_size` under v2, let the encoder race predicted vertices against the other vertex encodings.
-    It plans copies greedily: from each vertex it tries the latest 32 earlier vertices at the same position, both ways, and keeps the copy of two or more vertices that saves the most residual bytes over its op.
+    Under v2, every profile races predicted vertices against the other vertex encodings.
+    `--profile fast_encoding` writes them with start guess `1` and line guess `1`, and shares no vertex.
+    The other profiles plan copies greedily: from each vertex it tries the latest 32 earlier vertices at the same position, both ways, and keeps the copy of two or more vertices that saves the most residual bytes over its op.
     A line endpoint refers to the first slot that holds its position.
     It prices each of the six guess pairs with no sharing, copies, line references and both.
     It writes the shortest, with the lowest header byte on a tie.
