@@ -534,8 +534,6 @@ deltas:   (100, 200), (5, 10), (-3, 5)
 words:    [200, 400, 10, 20, 5, 10]
 ```
 
-The v2 `Vertex` family also has a plain `Delta`, which is the integer [delta](<#delta>) over the flat word sequence and does not separate the components.
-
 ### Vertex Dictionary
 
 The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex. `VertexOffsets` is an ordinary unsigned integer stream. `VertexDict` is a vertex stream and carries any of the encodings in this section.

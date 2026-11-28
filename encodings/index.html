@@ -2566,7 +2566,6 @@ Each delta is <a href="#zigzag">zigzag</a>-encoded.</p>
 </span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>deltas:   (100, 200), (5, 10), (-3, 5)
 </span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>words:    [200, 400, 10, 20, 5, 10]
 </span></code></pre></div>
-<p>The v2 <code>Vertex</code> family also has a plain <code>Delta</code>, which is the integer <a href="#delta">delta</a> over the flat word sequence and does not separate the components.</p>
 <h3 id="vertex-dictionary">Vertex Dictionary<a class="headerlink" href="#vertex-dictionary" title="Link to this section">&para;</a></h3>
 <p>The distinct vertices are stored once in a <code>VertexDict</code> stream, and a <code>VertexOffsets</code> stream holds one index into them per vertex.
 <code>VertexOffsets</code> is an ordinary unsigned integer stream.

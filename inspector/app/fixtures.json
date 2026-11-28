@@ -55484,112 +55484,1733 @@
   {
     "name": "4_8_5.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 163843
+    "bytes": 163843,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "lines",
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "points-dict",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "bool?",
+        "f64!",
+        "i32!",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "delta2",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "4_9_4.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 108224
+    "bytes": 108224,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "points",
+        "points-dict",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "bool?",
+        "f64!",
+        "i32!",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "5_16_10.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 89333
+    "bytes": 89333,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point"
+      ],
+      "geomLayout": [
+        "lines",
+        "multi-lines",
+        "multi-lines-dict",
+        "points",
+        "points-dict",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "bool?",
+        "f64!",
+        "i32!",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "6_33_22.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 144915
+    "bytes": 144915,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "lines",
+        "multi-lines",
+        "multi-polygons",
+        "points",
+        "points-dict",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "bool?",
+        "f64!",
+        "i32?",
+        "id!",
+        "id?",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "delta2",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "8_132_85.mlt",
     "directory": "0x02-amazon_here",
-    "bytes": 95346
+    "bytes": 95346,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-point",
+        "multi-polygon",
+        "point"
+      ],
+      "geomLayout": [
+        "lines",
+        "multi-lines",
+        "points",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool?",
+        "f64!",
+        "i32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "delta2",
+        "rle"
+      ]
+    }
   },
   {
     "name": "4-12-6.mlt",
     "directory": "0x02-bing",
-    "bytes": 160298
+    "bytes": 160298,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "4-13-6.mlt",
     "directory": "0x02-bing",
-    "bytes": 160974
+    "bytes": 160974,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "lines",
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "4-8-5.mlt",
     "directory": "0x02-bing",
-    "bytes": 162548
+    "bytes": 162548,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "4-9-5.mlt",
     "directory": "0x02-bing",
-    "bytes": 55076
+    "bytes": 55076,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "5-15-10.mlt",
     "directory": "0x02-bing",
-    "bytes": 70469
+    "bytes": 70469,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "lines",
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "delta2",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "5-16-11.mlt",
     "directory": "0x02-bing",
-    "bytes": 126989
+    "bytes": 126989,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "5-16-9.mlt",
     "directory": "0x02-bing",
-    "bytes": 48205
+    "bytes": 48205,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "5-17-10.mlt",
     "directory": "0x02-bing",
-    "bytes": 81406
+    "bytes": 81406,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "5-17-11.mlt",
     "directory": "0x02-bing",
-    "bytes": 93192
+    "bytes": 93192,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "6-32-21.mlt",
     "directory": "0x02-bing",
-    "bytes": 40013
+    "bytes": 40013,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "delta2",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "6-32-22.mlt",
     "directory": "0x02-bing",
-    "bytes": 46221
+    "bytes": 46221,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "6-32-23.mlt",
     "directory": "0x02-bing",
-    "bytes": 41051
+    "bytes": 41051,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "delta2",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "6-33-22.mlt",
     "directory": "0x02-bing",
-    "bytes": 55485
+    "bytes": 55485,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "7-65-42.mlt",
     "directory": "0x02-bing",
-    "bytes": 94819
+    "bytes": 94819,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "7-66-42.mlt",
     "directory": "0x02-bing",
-    "bytes": 97206
+    "bytes": 97206,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "7-66-43.mlt",
     "directory": "0x02-bing",
-    "bytes": 92576
+    "bytes": 92576,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "delta2",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "7-66-44.mlt",
     "directory": "0x02-bing",
-    "bytes": 90320
+    "bytes": 90320,
+    "facets": {
+      "extent": [
+        "4096"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-lines",
+        "multi-lines-dict",
+        "multi-polygons",
+        "points",
+        "polygons",
+        "tess-polygons-with-outlines"
+      ],
+      "zStep": [],
+      "heightMode": [
+        "clamp-to-ground"
+      ],
+      "dataType": [
+        "bool!",
+        "f32!",
+        "f32?",
+        "id!",
+        "str!",
+        "str?",
+        "u32!",
+        "u32?"
+      ],
+      "mValue": [],
+      "strLayout": [
+        "dict",
+        "fsst-dict",
+        "plain"
+      ],
+      "dictLayout": [
+        "front-coded",
+        "plain"
+      ],
+      "streamType": [
+        "data",
+        "data[fsst]",
+        "data[shared]",
+        "data[single]",
+        "data[vertex]",
+        "length[dictionary]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[symbol]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[string]",
+        "offset[tree-cycles]",
+        "offset[tree-symbols]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "bit-packed",
+        "fastpfor[128le]",
+        "varint"
+      ],
+      "logical": [
+        "alp",
+        "componentwise-delta",
+        "delta",
+        "delta-rle",
+        "morton-delta",
+        "rle"
+      ]
+    }
   },
   {
     "name": "0_0_0.mlt",

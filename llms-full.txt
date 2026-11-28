@@ -1654,7 +1654,7 @@ The stream holds `3 * num_values` words for `num_values` vertices, with `x`, `y`
 
 `z_mvalues` at a `z_step` of 1 dm:
 
-Logical `None`, `Delta` and `Componentwise Delta` read as they do over pairs, with `Componentwise Delta` running over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
+Logical `Componentwise Delta` reads as it does over pairs, over three components. A Morton code spans only `x` and `y`, so a vertex stream with bit 0 set and logical `Morton` MUST be rejected. Bit 1 of the extension field MUST be `0` on every vertex stream.
 
 [View example](<https://maplibre.org/maplibre-tile-spec/inspector/app/index.md?fixture=0x02%2Fz_mix.mlt&at=vertices>) - all six non-mesh geometry types, each vertex an interleaved triple.
 
@@ -2123,8 +2123,6 @@ For an RLE stream the value count is the decoded element count. The number of `(
 | --- | --- |
 | The data stream of an `Int64`, `UInt64` or `LongId` column | `num_values * 8` |
 | Any other `Int` or `Str` stream, which holds 32-bit words | `num_values * 4` |
-| A `Vertex` stream of `(x, y)` pairs | `num_values * 8` |
-| A `Vertex` stream of [`(x, y, z)` triples](<#z-coordinates>) | `num_values * 12` |
 | A `Float` column's values | `num_values * 4` |
 | A `Double` column's values | `num_values * 8` |
 
@@ -2140,7 +2138,7 @@ The logical encodings available to a stream depend on what it holds. Each family
 | **Str** | A string column's leading stream | None | Delta | RLE | DeltaRLE | BitPacked | [Delta2](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#delta2>) |
 | **Bool** | A boolean column's data stream, a nested node's presence stream | Bitmap | [Boolean RLE](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#boolean-rle>) |  |  |  |  |
 | **Float** | A float or double column's data stream | None | [Framed, Exception-Free ALP](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#alp>) |  |  |  |  |
-| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | None | Delta | Componentwise Delta | Morton |  |  |
+| **Vertex** | The geometry vertex stream, of pairs or [triples](<#z-coordinates>) | Componentwise Delta | Morton |  |  |  |  |
 | **Bytes** | Byte blobs: string values, dictionaries, FSST symbol tables | None | [FrontCoded](<https://maplibre.org/maplibre-tile-spec/encodings/index.md#front-coding>) |  |  |  |  |
 
 The `Str` family has the same members as `Int`. It differs only in the use of the extension bits. A code not listed for the stream's family MUST be rejected.
@@ -2218,9 +2216,9 @@ mlt hexdump path/to/tile.mlt
 >                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 > 0000000c                                                                     |   geometry (4 B)
 > 0000000c                                                                     |     vertices (4 B)
-> 0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+> 0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 0000000d  02                                                .                |       byte_length: 2
@@ -2279,9 +2277,9 @@ mlt hexdump path/to/tile.mlt
 > 00000012  03 03                                             ..               |       data [Length(Rings) Int(None)/VarInt, 2 values, 2 B]
 >                                                                              |         decoded: [3, 3]
 > 00000014                                                                     |     vertices (15 B)
-> 00000014  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+> 00000014  88                                                .                |       encoding: 0x88 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 00000015  06                                                .                |       num_values: 6
@@ -2347,9 +2345,9 @@ mlt hexdump path/to/tile.mlt
 > 00000022  00 01 02 03 04 05 03 06 07 08 06 09 0a 0b         ..............   |       data [Offset(TreeCycles) Int(None)/VarInt, 14 values, 14 B]
 >                                                                              |         decoded: [0, 1, 2, 3, 4, 5, 3, 6, 7, 8, 6, 9, 10, 11]
 > 00000030                                                                     |     vertices (27 B)
-> 00000030  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+> 00000030  88                                                .                |       encoding: 0x88 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 00000031  0c                                                .                |       num_values: 12
@@ -2397,9 +2395,9 @@ mlt hexdump path/to/tile.mlt
 > 00000012  03 03                                             ..               |       data [Length(Rings) Int(None)/VarInt, 2 values, 2 B]
 >                                                                              |         decoded: [3, 3]
 > 00000014                                                                     |     vertices (24 B)
-> 00000014  a9                                                .                |       encoding: 0xA9 logical=CwDelta physical=VarInt
+> 00000014  89                                                .                |       encoding: 0x89 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 01 -> xyz = true -> (x, y, z) triples, a z axis byte follows
 > 00000015  06                                                .                |       num_values: 6
@@ -2432,9 +2430,9 @@ mlt hexdump path/to/tile.mlt
 >                                                                              |       decoded: 4 present-bits: 1010
 > 0000000d                                                                     |   geometry (10 B)
 > 0000000d                                                                     |     vertices (10 B)
-> 0000000d  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+> 0000000d  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 0000000e  08                                                .                |       byte_length: 8
@@ -2489,9 +2487,9 @@ mlt hexdump path/to/tile.mlt
 >                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 > 0000000c                                                                     |   geometry (6 B)
 > 0000000c                                                                     |     vertices (6 B)
-> 0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+> 0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 0000000d  04                                                .                |       byte_length: 4
@@ -2554,9 +2552,9 @@ mlt hexdump path/to/tile.mlt
 >                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 > 0000000c                                                                     |   geometry (14 B)
 > 0000000c                                                                     |     vertices (14 B)
-> 0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+> 0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 0000000d  0c                                                .                |       byte_length: 12
@@ -2610,9 +2608,9 @@ mlt hexdump path/to/tile.mlt
 > 0000000e  03 03 02                                          ...              |       data [Length(Parts) Int(None)/VarInt, 3 values, 3 B]
 >                                                                              |         decoded: [3, 3, 2]
 > 00000011                                                                     |     vertices (19 B)
-> 00000011  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+> 00000011  88                                                .                |       encoding: 0x88 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 00000012  08                                                .                |       num_values: 8
@@ -2672,9 +2670,9 @@ mlt hexdump path/to/tile.mlt
 >                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 > 0000000c                                                                     |   geometry (8 B)
 > 0000000c                                                                     |     vertices (8 B)
-> 0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+> 0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 0000000d  06                                                .                |       byte_length: 6
@@ -2752,9 +2750,9 @@ mlt hexdump path/to/tile.mlt
 >                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 > 0000000c                                                                     |   geometry (6 B)
 > 0000000c                                                                     |     vertices (6 B)
-> 0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+> 0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 0000000d  04                                                .                |       byte_length: 4
@@ -2840,9 +2838,9 @@ mlt hexdump path/to/tile.mlt
 >                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 > 0000000c                                                                     |   geometry (6 B)
 > 0000000c                                                                     |     vertices (6 B)
-> 0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+> 0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 >                                                                              |         └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
->                                                                              |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+>                                                                              |         └ bits 6-4 = 000 -> logical = CwDelta, numbered for vertex stream
 >                                                                              |         └ bits 3-2 = 10 -> physical = VarInt
 >                                                                              |         └ bits 1-0 = 00 -> extension = 0
 > 0000000d  04                                                .                |       byte_length: 4
@@ -3454,8 +3452,6 @@ vertices: (100, 200), (105, 210), (102, 215)
 deltas:   (100, 200), (5, 10), (-3, 5)
 words:    [200, 400, 10, 20, 5, 10]
 ```
-
-The v2 `Vertex` family also has a plain `Delta`, which is the integer [delta](<#delta>) over the flat word sequence and does not separate the components.
 
 ### Vertex Dictionary
 

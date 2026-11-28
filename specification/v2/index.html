@@ -3024,7 +3024,7 @@ At the finest step the grid spans about 2147 km either side of the base.</p>
 <text class="bold mid t0" x="572" y="14">vertex 2</text>
 <path class="bracket t0" d="M490 34V28H654V34"/>
 </svg></p>
-<p>Logical <code>None</code>, <code>Delta</code> and <code>Componentwise Delta</code> read as they do over pairs, with <code>Componentwise Delta</code> running over three components.
+<p>Logical <code>Componentwise Delta</code> reads as it does over pairs, over three components.
 A Morton code spans only <code>x</code> and <code>y</code>, so a vertex stream with bit 0 set and logical <code>Morton</code> MUST be rejected.
 Bit 1 of the extension field MUST be <code>0</code> on every vertex stream.</p>
 <p><a class="inspector-example" href="../../inspector/app/?fixture=0x02%2Fz_mix.mlt&amp;at=vertices" target="_blank">View example</a> - all six non-mesh geometry types, each vertex an interleaved triple.</p>
@@ -4985,14 +4985,6 @@ On logical <code>None</code> the payload is the raw elements, so with that patte
 <td><code>num_values * 4</code></td>
 </tr>
 <tr>
-<td>A <code>Vertex</code> stream of <code>(x, y)</code> pairs</td>
-<td><code>num_values * 8</code></td>
-</tr>
-<tr>
-<td>A <code>Vertex</code> stream of <a href="#z-coordinates"><code>(x, y, z)</code> triples</a></td>
-<td><code>num_values * 12</code></td>
-</tr>
-<tr>
 <td>A <code>Float</code> column's values</td>
 <td><code>num_values * 4</code></td>
 </tr>
@@ -5066,10 +5058,10 @@ Each family numbers its own members from <code>0</code>, with no unassigned code
 <tr>
 <td><strong>Vertex</strong></td>
 <td>The geometry vertex stream, of pairs or <a href="#z-coordinates">triples</a></td>
-<td>None</td>
-<td>Delta</td>
 <td>Componentwise Delta</td>
 <td>Morton</td>
+<td></td>
+<td></td>
 <td></td>
 <td></td>
 </tr>
@@ -5205,9 +5197,9 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
 </span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>0000000c                                                                     |   geometry (4 B)
 </span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>0000000c                                                                     |     vertices (4 B)
-</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 </span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 1 values from context
-</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>0000000d  02                                                .                |       byte_length: 2
@@ -5265,9 +5257,9 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-14-32"><a id="__codelineno-14-32" name="__codelineno-14-32" href="#__codelineno-14-32"></a>00000012  03 03                                             ..               |       data [Length(Rings) Int(None)/VarInt, 2 values, 2 B]
 </span><span id="__span-14-33"><a id="__codelineno-14-33" name="__codelineno-14-33" href="#__codelineno-14-33"></a>                                                                             |         decoded: [3, 3]
 </span><span id="__span-14-34"><a id="__codelineno-14-34" name="__codelineno-14-34" href="#__codelineno-14-34"></a>00000014                                                                     |     vertices (15 B)
-</span><span id="__span-14-35"><a id="__codelineno-14-35" name="__codelineno-14-35" href="#__codelineno-14-35"></a>00000014  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-14-35"><a id="__codelineno-14-35" name="__codelineno-14-35" href="#__codelineno-14-35"></a>00000014  88                                                .                |       encoding: 0x88 logical=CwDelta physical=VarInt
 </span><span id="__span-14-36"><a id="__codelineno-14-36" name="__codelineno-14-36" href="#__codelineno-14-36"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
-</span><span id="__span-14-37"><a id="__codelineno-14-37" name="__codelineno-14-37" href="#__codelineno-14-37"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-14-37"><a id="__codelineno-14-37" name="__codelineno-14-37" href="#__codelineno-14-37"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-14-38"><a id="__codelineno-14-38" name="__codelineno-14-38" href="#__codelineno-14-38"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-14-39"><a id="__codelineno-14-39" name="__codelineno-14-39" href="#__codelineno-14-39"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-14-40"><a id="__codelineno-14-40" name="__codelineno-14-40" href="#__codelineno-14-40"></a>00000015  06                                                .                |       num_values: 6
@@ -5332,9 +5324,9 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-15-51"><a id="__codelineno-15-51" name="__codelineno-15-51" href="#__codelineno-15-51"></a>00000022  00 01 02 03 04 05 03 06 07 08 06 09 0a 0b         ..............   |       data [Offset(TreeCycles) Int(None)/VarInt, 14 values, 14 B]
 </span><span id="__span-15-52"><a id="__codelineno-15-52" name="__codelineno-15-52" href="#__codelineno-15-52"></a>                                                                             |         decoded: [0, 1, 2, 3, 4, 5, 3, 6, 7, 8, 6, 9, 10, 11]
 </span><span id="__span-15-53"><a id="__codelineno-15-53" name="__codelineno-15-53" href="#__codelineno-15-53"></a>00000030                                                                     |     vertices (27 B)
-</span><span id="__span-15-54"><a id="__codelineno-15-54" name="__codelineno-15-54" href="#__codelineno-15-54"></a>00000030  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-15-54"><a id="__codelineno-15-54" name="__codelineno-15-54" href="#__codelineno-15-54"></a>00000030  88                                                .                |       encoding: 0x88 logical=CwDelta physical=VarInt
 </span><span id="__span-15-55"><a id="__codelineno-15-55" name="__codelineno-15-55" href="#__codelineno-15-55"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
-</span><span id="__span-15-56"><a id="__codelineno-15-56" name="__codelineno-15-56" href="#__codelineno-15-56"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-15-56"><a id="__codelineno-15-56" name="__codelineno-15-56" href="#__codelineno-15-56"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-15-57"><a id="__codelineno-15-57" name="__codelineno-15-57" href="#__codelineno-15-57"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-15-58"><a id="__codelineno-15-58" name="__codelineno-15-58" href="#__codelineno-15-58"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-15-59"><a id="__codelineno-15-59" name="__codelineno-15-59" href="#__codelineno-15-59"></a>00000031  0c                                                .                |       num_values: 12
@@ -5381,9 +5373,9 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-16-32"><a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a>00000012  03 03                                             ..               |       data [Length(Rings) Int(None)/VarInt, 2 values, 2 B]
 </span><span id="__span-16-33"><a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a>                                                                             |         decoded: [3, 3]
 </span><span id="__span-16-34"><a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a>00000014                                                                     |     vertices (24 B)
-</span><span id="__span-16-35"><a id="__codelineno-16-35" name="__codelineno-16-35" href="#__codelineno-16-35"></a>00000014  a9                                                .                |       encoding: 0xA9 logical=CwDelta physical=VarInt
+</span><span id="__span-16-35"><a id="__codelineno-16-35" name="__codelineno-16-35" href="#__codelineno-16-35"></a>00000014  89                                                .                |       encoding: 0x89 logical=CwDelta physical=VarInt
 </span><span id="__span-16-36"><a id="__codelineno-16-36" name="__codelineno-16-36" href="#__codelineno-16-36"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
-</span><span id="__span-16-37"><a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-16-37"><a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-16-38"><a id="__codelineno-16-38" name="__codelineno-16-38" href="#__codelineno-16-38"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-16-39"><a id="__codelineno-16-39" name="__codelineno-16-39" href="#__codelineno-16-39"></a>                                                                             |         └ bits 1-0 = 01 -&gt; xyz = true -&gt; (x, y, z) triples, a z axis byte follows
 </span><span id="__span-16-40"><a id="__codelineno-16-40" name="__codelineno-16-40" href="#__codelineno-16-40"></a>00000015  06                                                .                |       num_values: 6
@@ -5415,9 +5407,9 @@ The vertex stream holds one vertex, which <code>feature_count</code> implies, so
 </span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>                                                                             |       decoded: 4 present-bits: 1010
 </span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>0000000d                                                                     |   geometry (10 B)
 </span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>0000000d                                                                     |     vertices (10 B)
-</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>0000000d  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>0000000d  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 </span><span id="__span-17-20"><a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 4 values from context
-</span><span id="__span-17-21"><a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-17-21"><a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-17-22"><a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-17-23"><a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-17-24"><a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>0000000e  08                                                .                |       byte_length: 8
@@ -5472,9 +5464,9 @@ The extension bits of the leading stream give the layout.</p>
 </span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
 </span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>0000000c                                                                     |   geometry (6 B)
 </span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>0000000c                                                                     |     vertices (6 B)
-</span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+</span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 </span><span id="__span-18-17"><a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 2 values from context
-</span><span id="__span-18-18"><a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-18-18"><a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-18-19"><a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-18-20"><a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-18-21"><a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a>0000000d  04                                                .                |       byte_length: 4
@@ -5536,9 +5528,9 @@ The extension bits of the leading stream give the layout.</p>
 </span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
 </span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>0000000c                                                                     |   geometry (14 B)
 </span><span id="__span-19-15"><a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a>0000000c                                                                     |     vertices (14 B)
-</span><span id="__span-19-16"><a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+</span><span id="__span-19-16"><a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 </span><span id="__span-19-17"><a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 6 values from context
-</span><span id="__span-19-18"><a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-19-18"><a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-19-19"><a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-19-20"><a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-19-21"><a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a>0000000d  0c                                                .                |       byte_length: 12
@@ -5591,9 +5583,9 @@ The extension bits of the leading stream give the layout.</p>
 </span><span id="__span-20-22"><a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a>0000000e  03 03 02                                          ...              |       data [Length(Parts) Int(None)/VarInt, 3 values, 3 B]
 </span><span id="__span-20-23"><a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a>                                                                             |         decoded: [3, 3, 2]
 </span><span id="__span-20-24"><a id="__codelineno-20-24" name="__codelineno-20-24" href="#__codelineno-20-24"></a>00000011                                                                     |     vertices (19 B)
-</span><span id="__span-20-25"><a id="__codelineno-20-25" name="__codelineno-20-25" href="#__codelineno-20-25"></a>00000011  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-20-25"><a id="__codelineno-20-25" name="__codelineno-20-25" href="#__codelineno-20-25"></a>00000011  88                                                .                |       encoding: 0x88 logical=CwDelta physical=VarInt
 </span><span id="__span-20-26"><a id="__codelineno-20-26" name="__codelineno-20-26" href="#__codelineno-20-26"></a>                                                                             |         └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
-</span><span id="__span-20-27"><a id="__codelineno-20-27" name="__codelineno-20-27" href="#__codelineno-20-27"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-20-27"><a id="__codelineno-20-27" name="__codelineno-20-27" href="#__codelineno-20-27"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-20-28"><a id="__codelineno-20-28" name="__codelineno-20-28" href="#__codelineno-20-28"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-20-29"><a id="__codelineno-20-29" name="__codelineno-20-29" href="#__codelineno-20-29"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-20-30"><a id="__codelineno-20-30" name="__codelineno-20-30" href="#__codelineno-20-30"></a>00000012  08                                                .                |       num_values: 8
@@ -5654,9 +5646,9 @@ The nullable field's presence stream is a bitmap, so its header carries no byte 
 </span><span id="__span-21-13"><a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
 </span><span id="__span-21-14"><a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>0000000c                                                                     |   geometry (8 B)
 </span><span id="__span-21-15"><a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a>0000000c                                                                     |     vertices (8 B)
-</span><span id="__span-21-16"><a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a>0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+</span><span id="__span-21-16"><a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a>0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 </span><span id="__span-21-17"><a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 3 values from context
-</span><span id="__span-21-18"><a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-21-18"><a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-21-19"><a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-21-20"><a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-21-21"><a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a>0000000d  06                                                .                |       byte_length: 6
@@ -5734,9 +5726,9 @@ The lengths stream counts elements per feature, and it and every stream below it
 </span><span id="__span-22-13"><a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
 </span><span id="__span-22-14"><a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>0000000c                                                                     |   geometry (6 B)
 </span><span id="__span-22-15"><a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>0000000c                                                                     |     vertices (6 B)
-</span><span id="__span-22-16"><a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a>0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+</span><span id="__span-22-16"><a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a>0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 </span><span id="__span-22-17"><a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 2 values from context
-</span><span id="__span-22-18"><a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-22-18"><a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-22-19"><a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-22-20"><a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-22-21"><a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a>0000000d  04                                                .                |       byte_length: 4
@@ -5821,9 +5813,9 @@ The lengths stream counts elements per feature, and it and every stream below it
 </span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
 </span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>0000000c                                                                     |   geometry (6 B)
 </span><span id="__span-23-15"><a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a>0000000c                                                                     |     vertices (6 B)
-</span><span id="__span-23-16"><a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a>0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+</span><span id="__span-23-16"><a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a>0000000c  08                                                .                |       encoding: 0x08 logical=CwDelta physical=VarInt
 </span><span id="__span-23-17"><a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 2 values from context
-</span><span id="__span-23-18"><a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-23-18"><a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>                                                                             |         └ bits 6-4 = 000 -&gt; logical = CwDelta, numbered for vertex stream
 </span><span id="__span-23-19"><a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-23-20"><a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-23-21"><a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a>0000000d  04                                                .                |       byte_length: 4
