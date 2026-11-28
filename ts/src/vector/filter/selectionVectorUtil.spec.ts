@@ -3,10 +3,10 @@ import {
     createSelectionVector,
     createNullableSelectionVector,
     updateNullableSelectionVector,
-} from "./selectionVectorUtils";
-import { FlatSelectionVector } from "./flatSelectionVector";
-import { SequenceSelectionVector } from "./sequenceSelectionVector";
-import BitVector from "../flat/bitVector";
+} from "./selectionVectorUtils.js";
+import { FlatSelectionVector } from "./flatSelectionVector.js";
+import { SequenceSelectionVector } from "./sequenceSelectionVector.js";
+import BitVector from "../flat/bitVector.js";
 
 describe("selectionVectorUtils", () => {
     describe("createSelectionVector", () => {

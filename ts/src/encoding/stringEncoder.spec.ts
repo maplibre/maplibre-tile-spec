@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { decodeStreamHeaders } from "../decoding/decodingTestUtils";
-import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { encodeDictionaryStrings, encodePlainStrings } from "./stringEncoder";
+import { decodeStreamHeaders } from "../decoding/decodingTestUtils.js";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique.js";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique.js";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { encodeDictionaryStrings, encodePlainStrings } from "./stringEncoder.js";
 
 describe("stringEncoder", () => {
     it("writes plain strings as a byte-RLE Present stream, their lengths, then their bytes", () => {

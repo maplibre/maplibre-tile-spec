@@ -1,14 +1,14 @@
-export { default as decodeTile } from "./mltDecoder";
-export { encodeTile } from "./encoding/mltEncoder";
-export { default as FeatureTable } from "./vector/featureTable";
-export { GeometryVector } from "./vector/geometry/geometryVector";
-export { GpuVector } from "./vector/geometry/gpuVector";
-export { default as GeometryScaling } from "./decoding/geometryScaling";
-export { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
-export type { TileSetMetadata } from "./metadata/tileset/tilesetMetadata";
-export type { Geometry } from "./vector/geometry/geometryVector";
-export type { Feature } from "./vector/featureTable";
-export type { MapEncodingOptions } from "./encoding/mapPropertyEncoder";
+export { default as decodeTile } from "./mltDecoder.js";
+export { encodeTile } from "./encoding/mltEncoder.js";
+export { default as FeatureTable } from "./vector/featureTable.js";
+export { GeometryVector } from "./vector/geometry/geometryVector.js";
+export { GpuVector } from "./vector/geometry/gpuVector.js";
+export { default as GeometryScaling } from "./decoding/geometryScaling.js";
+export { GEOMETRY_TYPE } from "./vector/geometry/geometryType.js";
+export type { TileSetMetadata } from "./metadata/tileset/tilesetMetadata.js";
+export type { Geometry } from "./vector/geometry/geometryVector.js";
+export type { Feature } from "./vector/featureTable.js";
+export type { MapEncodingOptions } from "./encoding/mapPropertyEncoder.js";
 export type {
     EncodeOptions,
     Feature as FeatureInput,
@@ -18,4 +18,4 @@ export type {
     PropertyType,
     PropertyValue,
     StringEncoding,
-} from "./encoding/mltEncoder";
+} from "./encoding/mltEncoder.js";

@@ -1,6 +1,6 @@
-import { VariableSizeVector } from "../variableSizeVector";
-import type BitVector from "./bitVector";
-import { decodeString } from "../../decoding/decodingUtils";
+import { VariableSizeVector } from "../variableSizeVector.js";
+import type BitVector from "./bitVector.js";
+import { decodeString } from "../../decoding/decodingUtils.js";
 
 export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
     constructor(name: string, offsetBuffer: Uint32Array, dataBuffer: Uint8Array, nullabilityBuffer?: BitVector) {

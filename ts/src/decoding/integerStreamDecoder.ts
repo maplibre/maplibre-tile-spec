@@ -1,5 +1,5 @@
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import IntWrapper from "./intWrapper";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique.js";
+import IntWrapper from "./intWrapper.js";
 import {
     decodeComponentwiseDeltaVec2,
     decodeComponentwiseDeltaVec2Scaled,
@@ -38,14 +38,14 @@ import {
     decodeZigZagRleInt32,
     decodeZigZagRleInt64,
     decodeZigZagRleFloat64,
-} from "./integerDecodingUtils";
-import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import type { StreamMetadata, RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-import BitVector from "../vector/flat/bitVector";
-import { VectorType } from "../vector/vectorType";
-import type GeometryScaling from "./geometryScaling";
-import { decodeUint32sLE, decodeUint64sLE } from "./decodingUtils";
-import { unpackNullable } from "./unpackNullableUtils";
+} from "./integerDecodingUtils.js";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique.js";
+import type { StreamMetadata, RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder.js";
+import BitVector from "../vector/flat/bitVector.js";
+import { VectorType } from "../vector/vectorType.js";
+import type GeometryScaling from "./geometryScaling.js";
+import { decodeUint32sLE, decodeUint64sLE } from "./decodingUtils.js";
+import { unpackNullable } from "./unpackNullableUtils.js";
 
 export function decodeSignedInt32Stream(
     data: Uint8Array,

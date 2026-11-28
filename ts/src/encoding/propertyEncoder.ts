@@ -1,10 +1,10 @@
-import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
-import type { StreamMetadata, RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-import IntWrapper from "../decoding/intWrapper";
-import { encodeBooleanRle, encodeFloatsLE, encodeDoubleLE } from "./encodingUtils";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique.js";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique.js";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { DictionaryType } from "../metadata/tile/dictionaryType.js";
+import type { StreamMetadata, RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder.js";
+import IntWrapper from "../decoding/intWrapper.js";
+import { encodeBooleanRle, encodeFloatsLE, encodeDoubleLE } from "./encodingUtils.js";
 import {
     encodeVarintInt32Value,
     encodeVarintInt32,
@@ -12,7 +12,7 @@ import {
     encodeZigZagInt32Value,
     encodeZigZagInt64Value,
     encodeZigZagInt32,
-} from "./integerEncodingUtils";
+} from "./integerEncodingUtils.js";
 
 /**
  * Encodes INT_32 values with NONE encoding (no delta, no RLE)

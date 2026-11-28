@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { decodeFastPforInt32 } from "../decoding/fastPforDecoder";
-import { BLOCK_SIZE } from "../decoding/fastPforShared";
-import { createFastPforEncoderWorkspace, encodeFastPforInt32WithWorkspace } from "./fastPforEncoder";
+import { decodeFastPforInt32 } from "../decoding/fastPforDecoder.js";
+import { BLOCK_SIZE } from "../decoding/fastPforShared.js";
+import { createFastPforEncoderWorkspace, encodeFastPforInt32WithWorkspace } from "./fastPforEncoder.js";
 
 const GROWTH_MULTIPLIER = 3;
 const BASE_ALTERNATING_MASK = 1;

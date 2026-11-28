@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fastPack32 } from "../encoding/fastPforEncoder";
-import { MASKS } from "./fastPforShared";
+import { fastPack32 } from "../encoding/fastPforEncoder.js";
+import { MASKS } from "./fastPforShared.js";
 import {
     fastUnpack32_1,
     fastUnpack32_2,
@@ -25,7 +25,7 @@ import {
     fastUnpack256_8,
     fastUnpack256_16,
     fastUnpack256_Generic,
-} from "./fastPforUnpack";
+} from "./fastPforUnpack.js";
 
 describe("FastPFOR Unpack Library", () => {
     type Unpacker = (inValues: Int32Array, inPos: number, out: Int32Array, outPos: number) => void;

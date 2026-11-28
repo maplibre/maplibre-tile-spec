@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import BitVector from "../flat/bitVector";
-import { StringFsstDictionaryVector } from "./stringFsstDictionaryVector";
+import BitVector from "../flat/bitVector.js";
+import { StringFsstDictionaryVector } from "./stringFsstDictionaryVector.js";
 
 describe("StringFsstDictionaryVector", () => {
     let indexBuffer: Uint32Array;

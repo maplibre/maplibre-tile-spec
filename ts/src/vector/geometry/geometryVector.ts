@@ -1,9 +1,9 @@
-import { convertGeometryVector } from "./geometryVectorConverter";
-import { decodeZOrderCurve } from "./zOrderCurve";
+import { convertGeometryVector } from "./geometryVectorConverter.js";
+import { decodeZOrderCurve } from "./zOrderCurve.js";
 import type Point from "@mapbox/point-geometry";
-import type { GEOMETRY_TYPE } from "./geometryType";
-import type { VertexBufferType } from "./vertexBufferType";
-import type { TopologyVector } from "../../vector/geometry/topologyVector";
+import type { GEOMETRY_TYPE } from "./geometryType.js";
+import type { VertexBufferType } from "./vertexBufferType.js";
+import type { TopologyVector } from "../../vector/geometry/topologyVector.js";
 
 export type CoordinatesArray = Array<Array<Point>>;
 

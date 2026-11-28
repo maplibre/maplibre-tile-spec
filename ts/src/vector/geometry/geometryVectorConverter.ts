@@ -1,7 +1,7 @@
-import type { GeometryVector, MortonSettings, CoordinatesArray } from "./geometryVector";
-import { decodeZOrderCurve } from "./zOrderCurve";
-import { GEOMETRY_TYPE } from "./geometryType";
-import { VertexBufferType } from "./vertexBufferType";
+import type { GeometryVector, MortonSettings, CoordinatesArray } from "./geometryVector.js";
+import { decodeZOrderCurve } from "./zOrderCurve.js";
+import { GEOMETRY_TYPE } from "./geometryType.js";
+import { VertexBufferType } from "./vertexBufferType.js";
 import Point from "@mapbox/point-geometry";
 
 export function convertGeometryVector(geometryVector: GeometryVector): CoordinatesArray[] {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SequenceSelectionVector } from "./sequenceSelectionVector";
+import { SequenceSelectionVector } from "./sequenceSelectionVector.js";
 
 describe("sequenceSelectionVector", () => {
     describe("getIndex Test", () => {

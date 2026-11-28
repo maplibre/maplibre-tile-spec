@@ -1,7 +1,7 @@
-import { GEOMETRY_TYPE } from "./geometry/geometryType";
-import { classifyRings } from "./geometry/classifyRings";
-import type { Geometry } from "./geometry/geometryVector";
-import type FeatureTable from "./featureTable";
+import { GEOMETRY_TYPE } from "./geometry/geometryType.js";
+import { classifyRings } from "./geometry/classifyRings.js";
+import type { Geometry } from "./geometry/geometryVector.js";
+import type FeatureTable from "./featureTable.js";
 
 /**
  * Converts decoded feature tables into the GeoJSON shape the synthetic fixtures are written in.

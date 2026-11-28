@@ -1,4 +1,4 @@
-import type BitVector from "./flat/bitVector";
+import type BitVector from "./flat/bitVector.js";
 
 export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView, K = unknown> {
     protected nullabilityBuffer: BitVector | null;

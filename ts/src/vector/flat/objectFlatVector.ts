@@ -1,5 +1,5 @@
-import Vector from "../vector";
-import type BitVector from "./bitVector";
+import Vector from "../vector.js";
+import type BitVector from "./bitVector.js";
 
 /**
  * Holds already-decoded values of arbitrary shape, one per feature.

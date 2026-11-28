@@ -1,5 +1,5 @@
-import type BitVector from "./bitVector";
-import Vector from "../vector";
+import type BitVector from "./bitVector.js";
+import Vector from "../vector.js";
 
 export class BooleanFlatVector extends Vector<Uint8Array, boolean> {
     private readonly dataVector: BitVector;

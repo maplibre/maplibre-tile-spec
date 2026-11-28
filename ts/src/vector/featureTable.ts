@@ -1,11 +1,11 @@
-import type { Geometry, GeometryVector } from "./geometry/geometryVector";
-import type Vector from "./vector";
-import type { IdVector } from "./idVector";
-import { Int32FlatVector } from "./flat/int32FlatVector";
-import { DoubleFlatVector } from "./flat/doubleFlatVector";
-import { Int32SequenceVector } from "./sequence/int32SequenceVector";
-import { Int32ConstVector } from "./constant/int32ConstVector";
-import type { GpuVector } from "./geometry/gpuVector";
+import type { Geometry, GeometryVector } from "./geometry/geometryVector.js";
+import type Vector from "./vector.js";
+import type { IdVector } from "./idVector.js";
+import { Int32FlatVector } from "./flat/int32FlatVector.js";
+import { DoubleFlatVector } from "./flat/doubleFlatVector.js";
+import { Int32SequenceVector } from "./sequence/int32SequenceVector.js";
+import { Int32ConstVector } from "./constant/int32ConstVector.js";
+import type { GpuVector } from "./geometry/gpuVector.js";
 
 export interface Feature {
     id: number | bigint | undefined;

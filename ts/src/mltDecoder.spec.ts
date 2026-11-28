@@ -5,7 +5,7 @@ import { parse, join } from "node:path";
 import { VectorTile, type VectorTileFeature } from "@mapbox/vector-tile";
 import { PbfReader } from "pbf";
 
-import { type FeatureTable, type Feature, decodeTile } from ".";
+import { type FeatureTable, type Feature, decodeTile } from "./index.js";
 import path from "node:path";
 import fs from "node:fs";
 

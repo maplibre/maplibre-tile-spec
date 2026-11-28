@@ -1,8 +1,8 @@
-import type IntWrapper from "./intWrapper";
-import { VectorType } from "../vector/vectorType";
-import type BitVector from "../vector/flat/bitVector";
-import { decodeStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-import { unpackNullableBoolean, unpackNullable } from "./unpackNullableUtils";
+import type IntWrapper from "./intWrapper.js";
+import { VectorType } from "../vector/vectorType.js";
+import type BitVector from "../vector/flat/bitVector.js";
+import { decodeStreamMetadata } from "../metadata/tile/streamMetadataDecoder.js";
+import { unpackNullableBoolean, unpackNullable } from "./unpackNullableUtils.js";
 
 export function skipColumn(numStreams: number, tile: Uint8Array, offset: IntWrapper) {
     //TODO: add size of column in Mlt for fast skipping

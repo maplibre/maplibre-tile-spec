@@ -1,8 +1,8 @@
-import { ConstGeometryVector } from "../vector/geometry/constGeometryVector";
-import { GEOMETRY_TYPE } from "../vector/geometry/geometryType";
-import { VertexBufferType } from "../vector/geometry/vertexBufferType";
-import { encodeZOrderCurve } from "./zOrderCurveEncoder";
-import type { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector";
+import { ConstGeometryVector } from "../vector/geometry/constGeometryVector.js";
+import { GEOMETRY_TYPE } from "../vector/geometry/geometryType.js";
+import { VertexBufferType } from "../vector/geometry/vertexBufferType.js";
+import { encodeZOrderCurve } from "./zOrderCurveEncoder.js";
+import type { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector.js";
 
 export const DEFAULT_MORTON_SETTINGS: MortonSettings = { numBits: 16, coordinateShift: 0 };
 

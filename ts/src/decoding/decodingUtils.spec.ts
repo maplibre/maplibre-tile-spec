@@ -7,8 +7,8 @@ import {
     encodeUint32sLE,
     encodeUint64sLE,
     encodeStrings,
-} from "../encoding/encodingUtils";
-import BitVector from "../vector/flat/bitVector";
+} from "../encoding/encodingUtils.js";
+import BitVector from "../vector/flat/bitVector.js";
 import {
     decodeBooleanRle,
     decodeByteRle,
@@ -17,8 +17,8 @@ import {
     decodeString,
     decodeUint32sLE,
     decodeUint64sLE,
-} from "./decodingUtils";
-import IntWrapper from "./intWrapper";
+} from "./decodingUtils.js";
+import IntWrapper from "./intWrapper.js";
 
 describe("decodingUtils", () => {
     describe("decodeFloatsLE", () => {

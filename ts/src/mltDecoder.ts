@@ -1,10 +1,10 @@
-import FeatureTable from "./vector/featureTable";
-import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
-import IntWrapper from "./decoding/intWrapper";
-import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "./metadata/tile/streamMetadataDecoder";
-import { VectorType } from "./vector/vectorType";
-import { Int32FlatVector } from "./vector/flat/int32FlatVector";
-import BitVector from "./vector/flat/bitVector";
+import FeatureTable from "./vector/featureTable.js";
+import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata.js";
+import IntWrapper from "./decoding/intWrapper.js";
+import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "./metadata/tile/streamMetadataDecoder.js";
+import { VectorType } from "./vector/vectorType.js";
+import { Int32FlatVector } from "./vector/flat/int32FlatVector.js";
+import BitVector from "./vector/flat/bitVector.js";
 import {
     decodeUnsignedConstInt32Stream,
     decodeUnsignedConstInt64Stream,
@@ -14,25 +14,25 @@ import {
     decodeSequenceInt32Stream,
     decodeSequenceInt64Stream,
     getVectorType,
-} from "./decoding/integerStreamDecoder";
-import { Int32SequenceVector } from "./vector/sequence/int32SequenceVector";
-import { Int64FlatVector } from "./vector/flat/int64FlatVector";
-import { Int64SequenceVector } from "./vector/sequence/int64SequenceVector";
-import type { IdVector } from "./vector/idVector";
-import { decodeVarintInt32 } from "./decoding/integerDecodingUtils";
-import { decodeGeometryColumn } from "./decoding/geometryDecoder";
-import { decodePropertyColumn } from "./decoding/propertyDecoder";
-import { Int32ConstVector } from "./vector/constant/int32ConstVector";
-import { Int64ConstVector } from "./vector/constant/int64ConstVector";
-import type GeometryScaling from "./decoding/geometryScaling";
-import { decodeBooleanRle } from "./decoding/decodingUtils";
-import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
-import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
-import { hasStreamCount, isGeometryColumn, isLogicalIdColumn } from "./metadata/tileset/typeMap";
-import type { StreamMetadata } from "./metadata/tile/streamMetadataDecoder";
-import type { GeometryVector } from "./vector/geometry/geometryVector";
-import type Vector from "./vector/vector";
-import type { GpuVector } from "./vector/geometry/gpuVector";
+} from "./decoding/integerStreamDecoder.js";
+import { Int32SequenceVector } from "./vector/sequence/int32SequenceVector.js";
+import { Int64FlatVector } from "./vector/flat/int64FlatVector.js";
+import { Int64SequenceVector } from "./vector/sequence/int64SequenceVector.js";
+import type { IdVector } from "./vector/idVector.js";
+import { decodeVarintInt32 } from "./decoding/integerDecodingUtils.js";
+import { decodeGeometryColumn } from "./decoding/geometryDecoder.js";
+import { decodePropertyColumn } from "./decoding/propertyDecoder.js";
+import { Int32ConstVector } from "./vector/constant/int32ConstVector.js";
+import { Int64ConstVector } from "./vector/constant/int64ConstVector.js";
+import type GeometryScaling from "./decoding/geometryScaling.js";
+import { decodeBooleanRle } from "./decoding/decodingUtils.js";
+import { DoubleFlatVector } from "./vector/flat/doubleFlatVector.js";
+import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder.js";
+import { hasStreamCount, isGeometryColumn, isLogicalIdColumn } from "./metadata/tileset/typeMap.js";
+import type { StreamMetadata } from "./metadata/tile/streamMetadataDecoder.js";
+import type { GeometryVector } from "./vector/geometry/geometryVector.js";
+import type Vector from "./vector/vector.js";
+import type { GpuVector } from "./vector/geometry/gpuVector.js";
 
 /**
  * Decodes a tile with embedded metadata (Tag 0x01 format).

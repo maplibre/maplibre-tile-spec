@@ -1,4 +1,4 @@
-import { MASKS } from "./fastPforShared";
+import { MASKS } from "./fastPforShared.js";
 
 export function fastUnpack32_1(inValues: Uint32Array, inPos: number, out: Uint32Array, outPos: number): void {
     const in0 = inValues[inPos] >>> 0;

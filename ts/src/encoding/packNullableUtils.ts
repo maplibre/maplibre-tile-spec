@@ -1,5 +1,5 @@
-import type { TypedArrayConstructor, TypedArrayInstance } from "../decoding/unpackNullableUtils";
-import BitVector from "../vector/flat/bitVector";
+import type { TypedArrayConstructor, TypedArrayInstance } from "../decoding/unpackNullableUtils.js";
+import BitVector from "../vector/flat/bitVector.js";
 
 export function packNullable<T extends TypedArrayInstance>(data: T, presentBits: BitVector | null): T {
     // Non-nullable case: if no mask is provided, the data is already "packed"

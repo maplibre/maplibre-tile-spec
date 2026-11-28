@@ -1,27 +1,30 @@
-import { decodeStreamMetadata, type MortonEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-import type IntWrapper from "./intWrapper";
+import { decodeStreamMetadata, type MortonEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder.js";
+import type IntWrapper from "./intWrapper.js";
 import {
     decodeSignedInt32Stream,
     decodeLengthStreamToOffsetBuffer,
     decodeUnsignedConstInt32Stream,
     decodeUnsignedInt32Stream,
     getVectorType,
-} from "./integerStreamDecoder";
-import { VectorType } from "../vector/vectorType";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { LengthType } from "../metadata/tile/lengthType";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
+} from "./integerStreamDecoder.js";
+import { VectorType } from "../vector/vectorType.js";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { LengthType } from "../metadata/tile/lengthType.js";
+import { DictionaryType } from "../metadata/tile/dictionaryType.js";
 import {
     createConstGeometryVector,
     createMortonEncodedConstGeometryVector,
-} from "../vector/geometry/constGeometryVector";
-import { createFlatGeometryVector, createFlatGeometryVectorMortonEncoded } from "../vector/geometry/flatGeometryVector";
-import { OffsetType } from "../metadata/tile/offsetType";
-import { createConstGpuVector } from "../vector/geometry/constGpuVector";
-import { createFlatGpuVector } from "../vector/geometry/flatGpuVector";
-import type { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector";
-import type { GpuVector } from "../vector/geometry/gpuVector";
-import type GeometryScaling from "./geometryScaling";
+} from "../vector/geometry/constGeometryVector.js";
+import {
+    createFlatGeometryVector,
+    createFlatGeometryVectorMortonEncoded,
+} from "../vector/geometry/flatGeometryVector.js";
+import { OffsetType } from "../metadata/tile/offsetType.js";
+import { createConstGpuVector } from "../vector/geometry/constGpuVector.js";
+import { createFlatGpuVector } from "../vector/geometry/flatGpuVector.js";
+import type { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector.js";
+import type { GpuVector } from "../vector/geometry/gpuVector.js";
+import type GeometryScaling from "./geometryScaling.js";
 
 // TODO: get rid of numFeatures parameter
 export function decodeGeometryColumn(

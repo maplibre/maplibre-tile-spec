@@ -1,7 +1,7 @@
-import type IntWrapper from "../../decoding/intWrapper";
-import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
-import type { Column, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata";
-import { ColumnTypeCode, columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
+import type IntWrapper from "../../decoding/intWrapper.js";
+import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils.js";
+import type { Column, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata.js";
+import { ColumnTypeCode, columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap.js";
 
 const textDecoder = new TextDecoder();
 

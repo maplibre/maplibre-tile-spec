@@ -1,5 +1,5 @@
-import type BitVector from "./flat/bitVector";
-import Vector from "./vector";
+import type BitVector from "./flat/bitVector.js";
+import Vector from "./vector.js";
 
 export abstract class VariableSizeVector<T extends ArrayBufferView, K> extends Vector<T, K> {
     protected constructor(

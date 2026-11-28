@@ -5,7 +5,7 @@ import {
     greatestMultiple,
     roundUpToMultipleOf32,
     normalizePageSize,
-} from "../decoding/fastPforShared";
+} from "../decoding/fastPforShared.js";
 
 const EXCEPTION_OVERHEAD_BITS = 8;
 const MAX_BIT_WIDTH = 32;

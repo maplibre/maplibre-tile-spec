@@ -6,7 +6,7 @@ import {
     greatestMultiple,
     normalizePageSize,
     roundUpToMultipleOf32,
-} from "./fastPforShared";
+} from "./fastPforShared.js";
 
 describe("FastPforShared", () => {
     describe("endian helpers", () => {

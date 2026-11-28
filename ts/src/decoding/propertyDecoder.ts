@@ -1,17 +1,17 @@
-import type IntWrapper from "./intWrapper";
-import { type Column, ComplexType, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata";
-import type Vector from "../vector/vector";
-import BitVector from "../vector/flat/bitVector";
-import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-import { VectorType } from "../vector/vectorType";
-import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
-import { DoubleFlatVector } from "../vector/flat/doubleFlatVector";
-import { FloatFlatVector } from "../vector/flat/floatFlatVector";
-import { Int64ConstVector } from "../vector/constant/int64ConstVector";
-import { Int64FlatVector } from "../vector/flat/int64FlatVector";
-import { Int32FlatVector } from "../vector/flat/int32FlatVector";
-import { Int32ConstVector } from "../vector/constant/int32ConstVector";
-import { decodeBooleanRle, decodeDoublesLE, decodeFloatsLE, skipColumn } from "./decodingUtils";
+import type IntWrapper from "./intWrapper.js";
+import { type Column, ComplexType, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata.js";
+import type Vector from "../vector/vector.js";
+import BitVector from "../vector/flat/bitVector.js";
+import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder.js";
+import { VectorType } from "../vector/vectorType.js";
+import { BooleanFlatVector } from "../vector/flat/booleanFlatVector.js";
+import { DoubleFlatVector } from "../vector/flat/doubleFlatVector.js";
+import { FloatFlatVector } from "../vector/flat/floatFlatVector.js";
+import { Int64ConstVector } from "../vector/constant/int64ConstVector.js";
+import { Int64FlatVector } from "../vector/flat/int64FlatVector.js";
+import { Int32FlatVector } from "../vector/flat/int32FlatVector.js";
+import { Int32ConstVector } from "../vector/constant/int32ConstVector.js";
+import { decodeBooleanRle, decodeDoublesLE, decodeFloatsLE, skipColumn } from "./decodingUtils.js";
 import {
     decodeSignedConstInt32Stream,
     decodeSignedConstInt64Stream,
@@ -24,11 +24,11 @@ import {
     decodeSequenceInt32Stream,
     decodeSequenceInt64Stream,
     getVectorType,
-} from "./integerStreamDecoder";
-import { Int32SequenceVector } from "../vector/sequence/int32SequenceVector";
-import { Int64SequenceVector } from "../vector/sequence/int64SequenceVector";
-import { decodeSharedDictionary, decodeString } from "./stringDecoder";
-import { decodeMapPropertyColumn } from "./mapPropertyDecoder";
+} from "./integerStreamDecoder.js";
+import { Int32SequenceVector } from "../vector/sequence/int32SequenceVector.js";
+import { Int64SequenceVector } from "../vector/sequence/int64SequenceVector.js";
+import { decodeSharedDictionary, decodeString } from "./stringDecoder.js";
+import { decodeMapPropertyColumn } from "./mapPropertyDecoder.js";
 
 export function decodePropertyColumn(
     data: Uint8Array,

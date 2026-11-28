@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { compareWithTolerance, getTestCases } from "../../../test/synthetic/synthetic-test-utils";
-import decodeTile from "../mltDecoder";
-import { featureTablesToFeatureCollection, getGeometry } from "../vector/featureTablesToGeoJson";
-import type FeatureTable from "../vector/featureTable";
-import { encodeTile, type Feature, type FeatureGeometry, type Layer, type PropertyValue } from "./mltEncoder";
+import { compareWithTolerance, getTestCases } from "../../../test/synthetic/synthetic-test-utils/index.js";
+import decodeTile from "../mltDecoder.js";
+import { featureTablesToFeatureCollection, getGeometry } from "../vector/featureTablesToGeoJson.js";
+import type FeatureTable from "../vector/featureTable.js";
+import { encodeTile, type Feature, type FeatureGeometry, type Layer, type PropertyValue } from "./mltEncoder.js";
 
 /**
  * Fixtures that cannot survive this round trip. Each is checked below to still *fail*, so an entry

@@ -1,6 +1,6 @@
-import { VariableSizeVector } from "../variableSizeVector";
-import type BitVector from "../flat/bitVector";
-import { decodeString } from "../../decoding/decodingUtils";
+import { VariableSizeVector } from "../variableSizeVector.js";
+import type BitVector from "../flat/bitVector.js";
+import { decodeString } from "../../decoding/decodingUtils.js";
 
 export class StringDictionaryVector extends VariableSizeVector<Uint8Array, string> {
     constructor(

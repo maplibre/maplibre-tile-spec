@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FloatFlatVector } from "./floatFlatVector";
+import { FloatFlatVector } from "./floatFlatVector.js";
 
 describe("FloatFlatVector", () => {
     it("should construct and return values correctly", () => {

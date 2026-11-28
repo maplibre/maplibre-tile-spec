@@ -1,20 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { decodePropertyColumn } from "./propertyDecoder";
-import IntWrapper from "./intWrapper";
-import type Vector from "../vector/vector";
-import { ScalarType, type Column } from "../metadata/tileset/tilesetMetadata";
-import { Int32FlatVector } from "../vector/flat/int32FlatVector";
-import { Int64FlatVector } from "../vector/flat/int64FlatVector";
-import { FloatFlatVector } from "../vector/flat/floatFlatVector";
-import { DoubleFlatVector } from "../vector/flat/doubleFlatVector";
-import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
-import { Int32SequenceVector } from "../vector/sequence/int32SequenceVector";
-import { Int64SequenceVector } from "../vector/sequence/int64SequenceVector";
-import { Int32ConstVector } from "../vector/constant/int32ConstVector";
-import { Int64ConstVector } from "../vector/constant/int64ConstVector";
-import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
-import { createColumnMetadataForStruct, encodeSharedDictionary, encodeStructField } from "./decodingTestUtils";
-import { concatenateBuffers } from "../encoding/encodingUtils";
+import { decodePropertyColumn } from "./propertyDecoder.js";
+import IntWrapper from "./intWrapper.js";
+import type Vector from "../vector/vector.js";
+import { ScalarType, type Column } from "../metadata/tileset/tilesetMetadata.js";
+import { Int32FlatVector } from "../vector/flat/int32FlatVector.js";
+import { Int64FlatVector } from "../vector/flat/int64FlatVector.js";
+import { FloatFlatVector } from "../vector/flat/floatFlatVector.js";
+import { DoubleFlatVector } from "../vector/flat/doubleFlatVector.js";
+import { BooleanFlatVector } from "../vector/flat/booleanFlatVector.js";
+import { Int32SequenceVector } from "../vector/sequence/int32SequenceVector.js";
+import { Int64SequenceVector } from "../vector/sequence/int64SequenceVector.js";
+import { Int32ConstVector } from "../vector/constant/int32ConstVector.js";
+import { Int64ConstVector } from "../vector/constant/int64ConstVector.js";
+import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector.js";
+import { createColumnMetadataForStruct, encodeSharedDictionary, encodeStructField } from "./decodingTestUtils.js";
+import { concatenateBuffers } from "../encoding/encodingUtils.js";
 import {
     encodeInt32NoneColumn,
     encodeInt32DeltaColumn,
@@ -35,7 +35,7 @@ import {
     encodeBooleanColumn,
     encodeBooleanNullableColumn,
     encodeInt32NullableColumn,
-} from "../encoding/propertyEncoder";
+} from "../encoding/propertyEncoder.js";
 
 function createColumnMetadata(name: string, scalarType: number, nullable = false): Column {
     return {

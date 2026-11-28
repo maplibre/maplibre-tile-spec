@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type Column, ComplexType, LogicalScalarType, ScalarType } from "./tilesetMetadata";
-import { decodeColumnType, isGeometryColumn, isLogicalIdColumn } from "./typeMap";
+import { type Column, ComplexType, LogicalScalarType, ScalarType } from "./tilesetMetadata.js";
+import { decodeColumnType, isGeometryColumn, isLogicalIdColumn } from "./typeMap.js";
 
 describe("typeMap helpers", () => {
     it("should decode ID type codes with logical metadata and bit flags", () => {

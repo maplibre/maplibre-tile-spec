@@ -1,13 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { featureTablesToFeatureCollection } from "./vector/featureTablesToGeoJson";
+import { featureTablesToFeatureCollection } from "./vector/featureTablesToGeoJson.js";
 import {
     compareWithTolerance,
     expectUnsupported,
     getTestCases,
     writeActualOutput,
-} from "../../test/synthetic/synthetic-test-utils";
-import decodeTile from "./mltDecoder";
+} from "../../test/synthetic/synthetic-test-utils/index.js";
+import decodeTile from "./mltDecoder.js";
 
 /**
  * Synthetics the decoder cannot handle yet. These still run: `expectUnsupported` asserts they fail,

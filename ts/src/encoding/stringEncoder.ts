@@ -1,15 +1,15 @@
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
-import { LengthType } from "../metadata/tile/lengthType";
-import { OffsetType } from "../metadata/tile/offsetType";
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
-import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import IntWrapper from "../decoding/intWrapper";
-import { encodeUtf8Strings, concatenateBuffers } from "./encodingUtils";
-import { encodeVarintInt32Value, encodeVarintInt32 } from "./integerEncodingUtils";
-import { encodePresentStream } from "./propertyEncoder";
-import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-import type { LogicalStreamType } from "../metadata/tile/logicalStreamType";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { DictionaryType } from "../metadata/tile/dictionaryType.js";
+import { LengthType } from "../metadata/tile/lengthType.js";
+import { OffsetType } from "../metadata/tile/offsetType.js";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique.js";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique.js";
+import IntWrapper from "../decoding/intWrapper.js";
+import { encodeUtf8Strings, concatenateBuffers } from "./encodingUtils.js";
+import { encodeVarintInt32Value, encodeVarintInt32 } from "./integerEncodingUtils.js";
+import { encodePresentStream } from "./propertyEncoder.js";
+import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder.js";
+import type { LogicalStreamType } from "../metadata/tile/logicalStreamType.js";
 
 /**
  * Encodes plain strings into a complete stream with PRESENT (if needed), LENGTH, and DATA streams.

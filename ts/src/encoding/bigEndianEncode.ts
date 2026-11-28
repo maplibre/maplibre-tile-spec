@@ -1,4 +1,4 @@
-import { bswap32 } from "../decoding/fastPforShared";
+import { bswap32 } from "../decoding/fastPforShared.js";
 
 /**
  * Serializes an `Int32Array` to a big-endian byte stream.

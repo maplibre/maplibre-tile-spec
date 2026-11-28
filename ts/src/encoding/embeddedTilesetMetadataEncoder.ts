@@ -1,7 +1,7 @@
-import { ColumnTypeCode } from "../metadata/tileset/typeMap";
-import IntWrapper from "../decoding/intWrapper";
-import { encodeVarintInt32Value } from "./integerEncodingUtils";
-import { concatenateBuffers } from "../decoding/decodingTestUtils";
+import { ColumnTypeCode } from "../metadata/tileset/typeMap.js";
+import IntWrapper from "../decoding/intWrapper.js";
+import { encodeVarintInt32Value } from "./integerEncodingUtils.js";
+import { concatenateBuffers } from "../decoding/decodingTestUtils.js";
 
 /**
  * Encodes a single typeCode as a varint.

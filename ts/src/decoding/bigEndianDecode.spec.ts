@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
-import { encodeBigEndianInt32s } from "../encoding/bigEndianEncode";
+import { decodeBigEndianInt32sInto } from "./bigEndianDecode.js";
+import { encodeBigEndianInt32s } from "../encoding/bigEndianEncode.js";
 
 function decodeThenEncode(bytes: Uint8Array, offset: number, byteLength: number): Uint8Array {
     const out = new Int32Array(Math.ceil(byteLength / 4));

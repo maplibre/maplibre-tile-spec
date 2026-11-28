@@ -5,7 +5,7 @@ import {
     greatestMultiple,
     roundUpToMultipleOf32,
     normalizePageSize,
-} from "./fastPforShared";
+} from "./fastPforShared.js";
 import {
     fastUnpack32_2,
     fastUnpack32_3,
@@ -29,7 +29,7 @@ import {
     fastUnpack256_8,
     fastUnpack256_16,
     fastUnpack256_Generic,
-} from "./fastPforUnpack";
+} from "./fastPforUnpack.js";
 
 /**
  * FastPFOR decoding implementation.

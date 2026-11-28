@@ -1,20 +1,20 @@
-import type IntWrapper from "./intWrapper";
-import type { Column } from "../metadata/tileset/tilesetMetadata";
-import type Vector from "../vector/vector";
-import { ObjectFlatVector } from "../vector/flat/objectFlatVector";
-import { decodeStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { MapMask } from "../metadata/tile/mapMask";
-import { MapControlValue } from "../metadata/tile/mapControlValue";
-import { decodeBooleanRle, decodeDoublesLE, decodeFloatsLE } from "./decodingUtils";
+import type IntWrapper from "./intWrapper.js";
+import type { Column } from "../metadata/tileset/tilesetMetadata.js";
+import type Vector from "../vector/vector.js";
+import { ObjectFlatVector } from "../vector/flat/objectFlatVector.js";
+import { decodeStreamMetadata } from "../metadata/tile/streamMetadataDecoder.js";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType.js";
+import { MapMask } from "../metadata/tile/mapMask.js";
+import { MapControlValue } from "../metadata/tile/mapControlValue.js";
+import { decodeBooleanRle, decodeDoublesLE, decodeFloatsLE } from "./decodingUtils.js";
 import {
     decodeSignedInt32Stream,
     decodeSignedInt64Stream,
     decodeUnsignedInt32Stream,
     decodeUnsignedInt64Stream,
-} from "./integerStreamDecoder";
-import { decodeString } from "./stringDecoder";
-import BitVector from "../vector/flat/bitVector";
+} from "./integerStreamDecoder.js";
+import { decodeString } from "./stringDecoder.js";
+import BitVector from "../vector/flat/bitVector.js";
 
 type MapValue = unknown;
 
